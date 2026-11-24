@@ -4,11 +4,14 @@ import Foundation
 import ImageIO
 import SQLite3
 
-@MainActor final class PlaybackCommandMultiplexer {
-    enum Command { case setPerformanceProfile(maxFPS: Int) }
-    static let shared = PlaybackCommandMultiplexer()
-    var frames: [Int] = []
-    func dispatch(_ command: Command) { if case let .setPerformanceProfile(fps) = command { frames.append(fps) } }
+final class QualityCommandProbe: PlaybackEngineControlling {
+    let engineKind: PlaybackEngineKind
+    var commands: [WallpaperEngineCommand] = []
+    init(_ kind: PlaybackEngineKind) { engineKind = kind }
+    func handle(_ command: WallpaperEngineCommand) -> Bool {
+        commands.append(command)
+        return true
+    }
 }
 
 // PRODUCTION_IMAGE_MODEL
@@ -370,25 +373,51 @@ extension Notification.Name {
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: unwritableRecoveryParent.path)
         let hdrBefore = SceneHDRDisplayPreference.isEnabled, mediaBefore = SceneMediaSourcePreference.isEnabled
         let frameBudgetBefore = PlaybackPerformanceProfile.current
+        let sceneQuality = QualityCommandProbe(.scene), webQuality = QualityCommandProbe(.web)
+        PlaybackCommandMultiplexer.shared.register(sceneQuality)
+        PlaybackCommandMultiplexer.shared.register(webQuality)
         var completePreferences = prefs
         completePreferences.sceneHDRDisplayEnabled = !hdrBefore
         completePreferences.sceneMediaInfoEnabled = !mediaBefore
         completePreferences.playbackPerformanceProfile = frameBudgetBefore == .standard ? 30 : 60
+        completePreferences.webFrameRateMode = WebFrameRateMode.followAnimationFrameRate.rawValue
         let completeProfile = root.appendingPathComponent("all-portable-preferences.json")
         try write(.init(exportedAt: originalDate, preferences: completePreferences, sources: [], collections: .init()), to: completeProfile)
         _ = try await coordinator.importPersonalSettings(from: completeProfile)
         checks["ExternalPortablePreferencesApplyThroughTheirOriginalOwnersWithoutPlayback"] = SceneHDRDisplayPreference.isEnabled == !hdrBefore
             && SceneMediaSourcePreference.isEnabled == !mediaBefore
             && PlaybackPerformanceProfile.current.rawValue == completePreferences.playbackPerformanceProfile
-            && PlaybackCommandMultiplexer.shared.frames.last == PlaybackPerformanceProfile.current.maxFPS && manager.recentWrites == 0
+            && sceneQuality.commands.last == .setPerformanceProfile(maxFPS: PlaybackPerformanceProfile.current.maxFPS)
+            && webQuality.commands.last == .setWebFrameRateSuggestion(PlaybackPerformanceProfile.current.maxFPS)
+            && manager.recentWrites == 0
         let portableBackup = root.appendingPathComponent("all-portable-backup.json")
         _ = try await coordinator.exportPersonalSettings(to: portableBackup)
         let portableExport = try LibraryPersonalSettings.decode(Data(contentsOf: portableBackup)).preferences
         checks["ExternalPortablePreferencesAreIncludedInTheOriginalProfileExport"] = portableExport.sceneHDRDisplayEnabled == !hdrBefore
             && portableExport.sceneMediaInfoEnabled == !mediaBefore && portableExport.playbackPerformanceProfile == PlaybackPerformanceProfile.current.rawValue
+            && portableExport.animationFramesPerSecond == PlaybackPerformanceProfile.current.rawValue
+            && portableExport.webFrameRateMode == WebFrameRateMode.followAnimationFrameRate.rawValue
+        var precedence = prefs
+        precedence.animationFramesPerSecond = frameBudgetBefore.rawValue
+        precedence.playbackPerformanceProfile = completePreferences.playbackPerformanceProfile
+        try write(.init(exportedAt: originalDate, preferences: precedence, sources: [], collections: .init()), to: completeProfile)
+        _ = try await coordinator.importPersonalSettings(from: completeProfile)
+        checks["NewFrameRateWinsLegacyAndAnOmittedWebModeIsPreserved"] = PlaybackQualityPreference.current
+            == .init(profile: frameBudgetBefore, webFrameRateMode: .followAnimationFrameRate)
+            && sceneQuality.commands.last == .setPerformanceProfile(maxFPS: frameBudgetBefore.maxFPS)
+            && webQuality.commands.last == .setWebFrameRateSuggestion(frameBudgetBefore.maxFPS)
+        let sceneCount = sceneQuality.commands.count, webCount = webQuality.commands.count
+        precedence.animationFramesPerSecond = 25
+        precedence.webFrameRateMode = "futureMode"
+        try write(.init(exportedAt: originalDate, preferences: precedence, sources: [], collections: .init()), to: completeProfile)
+        _ = try await coordinator.importPersonalSettings(from: completeProfile)
+        checks["UnsupportedExplicitFrameRateDoesNotFallBackToLegacy"] = PlaybackQualityPreference.current
+            == .init(profile: frameBudgetBefore, webFrameRateMode: .followAnimationFrameRate)
+            && sceneQuality.commands.count == sceneCount && webQuality.commands.count == webCount
         let result = try await coordinator.importPersonalSettings(from: profile)
         checks["CurrentPartialProfilesLeaveUnselectedExternalPreferencesWithTheirOwners"] = SceneHDRDisplayPreference.isEnabled == !hdrBefore
-            && SceneMediaSourcePreference.isEnabled == !mediaBefore && PlaybackPerformanceProfile.current.rawValue == completePreferences.playbackPerformanceProfile
+            && SceneMediaSourcePreference.isEnabled == !mediaBefore && PlaybackPerformanceProfile.current == frameBudgetBefore
+            && PlaybackQualityPreference.current.webFrameRateMode == .followAnimationFrameRate
         checks["SameNameDifferentUUIDAndMixedOfflineMembersSurvive"] = controller.snapshot.playlists.count == 2
             && controller.snapshot.members.filter { $0.playlistID == second.id }.map(\.reference) == [ref("video:offline-scene", .steamWorkshop), ref("77", .pixabay)]
         checks["ExplicitFalseOnlyClearsItsCanonicalFavorite"] = !controller.snapshot.favorites.contains { $0.reference == ref("A") }

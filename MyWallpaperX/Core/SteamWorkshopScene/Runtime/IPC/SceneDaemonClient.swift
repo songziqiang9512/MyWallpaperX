@@ -241,7 +241,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             if let stopPlaybackRequested { stopPlaybackRequested() }
             else { stop(postsLaunchState: true) }
             return true
-        case .switchNext:
+        case .switchNext, .setWebFrameRateSuggestion:
             return false
         }
     }

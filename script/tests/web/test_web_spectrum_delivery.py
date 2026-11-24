@@ -162,7 +162,10 @@ class WebSpectrumDeliveryTests(unittest.TestCase):
         methods = "\n".join(method(delivery, marker) for marker in [
             "func sequencedPushScript(", "func pushAudioSpectrum(", "private func deliverAudioSpectrum(",
         ])
-        harness = HARNESS.replace("// PRODUCTION_TYPES", "@MainActor\n" + payload + "\n@MainActor\n" + registry)
+        support = (HOST.parent / "Support/WebWallpaperHostSupport.swift").read_text()
+        quoting = "enum WebWallpaperHostSupport {\n" + method(support, "static func javaScriptQuotedString(") + "\n}"
+        harness = HARNESS.replace("// PRODUCTION_TYPES",
+                                  quoting + "\n@MainActor\n" + payload + "\n@MainActor\n" + registry)
         harness = harness.replace("// PRODUCTION_METHODS", methods)
         with tempfile.TemporaryDirectory(prefix="mwx-web-spectrum-delivery-") as temporary:
             source = Path(temporary) / "Harness.swift"

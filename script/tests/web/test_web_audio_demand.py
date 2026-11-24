@@ -481,6 +481,7 @@ console.log(JSON.stringify({validSources, noSourceCases: 4, missingMarker: true,
         navigation = (HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+NavigationDelegate.swift").read_text()
         methods = "\n".join(method(delivery, marker) for marker in [
             "func sequencedPushScript(", "func pushAudioSpectrum(", "func clearAudioSpectrum(",
+            "func generalPropertiesPushBody(",
             "func compatibilityStateScript(", "func applyCompatibilitySnapshot(", "func deliverStatePush(",
             "private func deliverAudioSpectrum(", "private func renewFrameEndpointLeases(",
         ]).replace("private func renewFrameEndpointLeases", "func renewFrameEndpointLeases")
@@ -574,7 +575,8 @@ console.log(JSON.stringify({validSources, noSourceCases: 4, missingMarker: true,
         lifecycle = method((HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+Lifecycle.swift").read_text(), "func handleFrameEndpointHello(")
         ack = lifecycle.split('"""', 2)[1]
         def ack_for(nonce, token):
-            return ack.replace(r"\(nonceLiteral)", json.dumps(nonce)).replace(r"\(tokenLiteral)", json.dumps(token))
+            return (ack.replace(r"\(nonceLiteral)", json.dumps(nonce))
+                    .replace(r"\(tokenLiteral)", json.dumps(token)).replace(r"\(generalProperties)", ""))
         script = "const audioListeners=[]; const reports=[]; const hostLogger=null; const window={webkit:{messageHandlers:{wallpaperHostAudioDemand:{postMessage:x=>reports.push(x)}}}};\n"
         script += registration
         script += "\nwindow.__myWallpaperHostFrameDocumentNonce='document-a'; window.wallpaperRegisterAudioListener(()=>{}); if(reports.length) throw Error('pre-ACK must wait');\n"
@@ -588,7 +590,8 @@ console.log(JSON.stringify({validSources, noSourceCases: 4, missingMarker: true,
         delivery = method((HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+FrameReply.swift").read_text(), "func sequencedPushScript(")
         sequenced = delivery.split('"""', 2)[1]
         def push(body, sequence):
-            return sequenced.replace(r"\(sequence)", str(sequence)).replace(r"\(body)", body)
+            return (sequenced.replace(r"\(documentCheck)", "")
+                    .replace(r"\(sequence)", str(sequence)).replace(r"\(body)", body))
         script += "window.__myWallpaperPushAudioSpectrum=x=>{window.lastLevels=x};\n"
         script += push("window.__myWallpaperPushAudioSpectrum(new Array(128).fill(0));", 2)
         script += push("window.__myWallpaperPushAudioSpectrum([0.8]);", 1)

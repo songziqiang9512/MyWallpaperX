@@ -878,14 +878,16 @@
       "owner": "现有播放偏好及各引擎质量消费者",
       "status": "approved",
       "designDoc": "docs/development/wallpaper-quality-settings-plan.md",
-      "design_notes": "首批设计确定既有 Scene 30/60 与缓存语义、Web 可选作者 FPS 建议、Video 原片语义和偏好迁移。范围匹配首批已有入口。Scene 后续各控件和 Video 派生沿文档的效益与可见资格逐项裁决。此登记不代表实现、运行验收或发布。",
+      "design_notes": "现役顺序见 docs/development/wallpaper-quality-work-card.md#execution。Q1 只投影真实 Scene 30/60 与 Web FPS 建议，保 Video 原片。Q2 以固定版本核 HDR Bloom 和显示 HDR，合入后处理档再退役独立显示开关。其它 Scene 档及 Video 规格按技术评估的验收裁决。",
       "matchPatterns": [
         "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift",
         "MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift",
         "MyWallpaperX/App/PersonalSettingsImportCoordinator.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonProtocol.swift",
         "MyWallpaperX/Core/SteamWorkshopWeb/Host/WebWallpaperHostTypes.swift",
-        "MyWallpaperX/Core/SteamWorkshopWeb/Process/WebDaemonProtocol.swift"
+        "MyWallpaperX/Core/SteamWorkshopWeb/Process/WebDaemonProtocol.swift",
+        "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift",
+        "MyWallpaperX/Models/PersonalSettingsPayload.swift"
       ],
       "contentPatterns": []
     },
@@ -2234,7 +2236,7 @@
       "owner": "App/Shell and existing module UI owners",
       "status": "blocked-pending-design",
       "designDoc": "docs/development/immersive-ui-design.md",
-      "design_notes": "P0 only: reference research, complete design specification, capability map, execution/retirement plan and image_gen mockups. User explicitly requires approval of visual proposals before product UI edits. Execution authority: docs/development/immersive-ui-execution-plan.md. Keep one Workspace/Presentation and original services/playback/output owners; retire old presentation in the corresponding stage, no classic-UI fallback. Approval and native feasibility/runtime gates remain pending.",
+      "design_notes": "P0 only: reference research, complete design specification, capability map, execution/retirement plan and image_gen mockups. User explicitly requires approval of visual proposals before product UI edits. Execution authority: docs/development/immersive-ui-execution-plan.md. Keep one Workspace/Presentation and original services/playback/output owners; retire old presentation in the corresponding stage, no classic-UI fallback. Approval and native feasibility/runtime gates remain pending. Existing Shared/Settings form actions are owned by their feature designs; the immersive replacement is still gated at its App window, Shell and module UI entry points.",
       "matchPatterns": [
         "MyWallpaperX/Shell/*.swift",
         "MyWallpaperX/App/*Window*.swift",
@@ -2244,7 +2246,6 @@
         "MyWallpaperX/App/StatusBarPanel*.swift",
         "MyWallpaperX/Modules/*/UI/*.swift",
         "MyWallpaperX/Modules/*/Toolbar/*.swift",
-        "MyWallpaperX/Shared/Settings/*.swift",
         "MyWallpaperX/Shared/Components/WallpaperCard*.swift",
         "MyWallpaperX/Shared/Components/WallpaperLibrary*.swift",
         "MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift",

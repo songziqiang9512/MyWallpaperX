@@ -45,6 +45,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         currentVolume = runtimeState.volume
         currentPlaybackRate = runtimeState.playbackRate
         currentSpectrumLevels = runtimeState.spectrumLevels
+        currentFrameRateSuggestion = runtimeState.frameRateSuggestion
+        appliedFrameRateSuggestion = runtimeState.frameRateSuggestion
         phase = .launching
         paused = runtimeState.paused
         resetInteractiveRegions()
@@ -255,8 +257,10 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 outputActivityRevision &+= 1
                 paused = false
                 currentPlaybackRate = playbackRate
+                let frameRateChanged = appliedFrameRateSuggestion != currentFrameRateSuggestion
+                appliedFrameRateSuggestion = currentFrameRateSuggestion
                 forEachWebView {
-                    self.applyPausedState(false, to: $0)
+                    self.applyPausedState(false, to: $0, frameRateChanged: frameRateChanged)
                     self.applyPlaybackRate(playbackRate, to: $0)
                 }
             case let .setVolume(volume):
@@ -265,6 +269,12 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             case let .setPlaybackRate(playbackRate):
                 currentPlaybackRate = playbackRate
                 forEachWebView { self.applyPlaybackRate(playbackRate, to: $0) }
+            case let .setFrameRateSuggestion(suggestion):
+                currentFrameRateSuggestion = suggestion
+                if !paused {
+                    appliedFrameRateSuggestion = suggestion
+                    forEachWebView { self.applyGeneralProperties(to: $0) }
+                }
             case let .applyProperties(update):
                 guard let request = currentRequest, update.requestID == request.id,
                       update.revision > request.propertyRevision,
@@ -455,9 +465,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     /// D5 hello 登记 + ack + 全量快照重放。ack/frame 快照都按发送 frame 定向
-    /// evaluateJavaScript（.page world，与注入面同 world）；主 frame 的初始
-    /// 快照仍走 dom.ready / didFinish 的 applyCompatibilityState（避免同帧重复
-    /// 推送），子 frame 在 ack 时即刻拿到最新快照。
+    /// evaluateJavaScript（.page world，与注入面同 world）。General properties
+    /// 随所有 frame 的 ack 使用实时值，其余主 frame 快照仍走 dom.ready / didFinish。
     func handleFrameEndpointHello(nonce: String, frameInfo: WKFrameInfo, webView: WKWebView) {
         guard let endpoint = frameEndpointRegistry.register(
             documentNonce: nonce,
@@ -479,12 +488,15 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         let routingGeneration = endpoint.routingGeneration
         let tokenLiteral = WebWallpaperHostSupport.javaScriptQuotedString(endpoint.token)
         let nonceLiteral = WebWallpaperHostSupport.javaScriptQuotedString(nonce)
+        let generalProperties = sequencedPushScript(generalPropertiesPushBody(for: webView),
+            sequence: endpoint.advancePushSequence())
         webView.evaluateJavaScript(
             """
             (() => {
               if (window.__myWallpaperHostFrameDocumentNonce !== \(nonceLiteral)) throw new Error('stale-frame-hello');
               window.__myWallpaperHostFrameEndpointToken = \(tokenLiteral);
               window.__myWallpaperHostFrameEndpointAck = true;
+              \(generalProperties)
               if (typeof window.__myWallpaperReportMediaDemand === 'function') window.__myWallpaperReportMediaDemand();
               if (typeof window.__myWallpaperReportAudioDemand === 'function') window.__myWallpaperReportAudioDemand();
             })();

@@ -3,7 +3,7 @@ import Foundation
 extension WebDaemonHostAdapter {
     struct DeferredWebSwitchPreparation {
         let request: WallpaperEngine.WebWallpaperLaunchRequest
-        let state: WallpaperEngine.WebWallpaperRuntimeState
+        var state: WallpaperEngine.WebWallpaperRuntimeState
         let recoveryAttempt: Int
         let ticket: PlaybackSwitchTicket
     }

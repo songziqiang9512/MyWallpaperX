@@ -138,14 +138,11 @@ final class SceneDesktopWallpaperSession {
         launchContext != nil && !sceneClock.isPaused
     }
 
-    /// 性能预算档（M0.7）：帧节奏与预算束随命令热切换，不重启壁纸。
+    /// Session 消费帧率，Host 更新共享的解码缓存上限。
     private(set) var performanceProfile: PlaybackPerformanceProfile = .current
 
     func applyPerformanceProfile(_ profile: PlaybackPerformanceProfile) {
         performanceProfile = profile
-        textureDecodeCacheBudget.updateMaximumBytes(
-            profile.sceneTextureDecodeCacheByteBudget
-        )
     }
 
     /// A host is process-local runtime state. SceneDaemonRuntime owns the

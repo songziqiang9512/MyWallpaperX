@@ -8,6 +8,7 @@ extension AppKitSettingsContainerView {
         setupPlaybackSection()
         setupSystemSection()
         setupEfficiencySection()
+        setupQualitySection()
         setupDisplaySection()
         setupMaintenanceSection()
 
@@ -16,6 +17,7 @@ extension AppKitSettingsContainerView {
         addSection(systemSection)
         addSection(hotkeysSection)
         addSection(efficiencySection)
+        addSection(qualitySection)
         addSection(displaySection)
         addSection(maintenanceSection)
     }
@@ -26,6 +28,7 @@ extension AppKitSettingsContainerView {
         systemSection.isHidden = !visibleSections.contains(.system)
         hotkeysSection.isHidden = !visibleSections.contains(.hotkeys)
         efficiencySection.isHidden = !visibleSections.contains(.efficiency)
+        qualitySection.isHidden = !visibleSections.contains(.quality)
         displaySection.isHidden = !visibleSections.contains(.display)
 
         let showsMaintenance = visibleSections.contains(.maintenance)
@@ -39,6 +42,7 @@ extension AppKitSettingsContainerView {
             systemSection,
             hotkeysSection,
             efficiencySection,
+            qualitySection,
             displaySection,
             maintenanceSection
         ]
@@ -135,9 +139,6 @@ extension AppKitSettingsContainerView {
         syncSystemWallpaperSwitch.toolTip = String(localized: "Also update the system wallpaper when the wallpaper changes: a still frame for Video, and one frame captured after the launch transition for Web and Scene. Static image wallpapers are always applied directly.")
         systemAudioSpectrumSwitch.toolTip = String(localized: "Capture system audio and show a spectrum bar at the bottom of the desktop")
         systemHotkeysSwitch.toolTip = String(localized: "Allow global F1–F12 shortcuts to control the wallpaper")
-
-        systemSection.addRow(makeSettingRow(title: String(localized: "Scene HDR"), iconSystemName: "sun.max",
-            subtitle: String(localized: "Requires wallpaper support; very high power draw, enable with care"), trailing: sceneHDRDisplaySwitch))
 
         sceneMediaInfoSwitch.toolTip = String(localized: "Shows the current track and artwork on Scene wallpapers. macOS asks for permission the first time Apple Music is read. If you denied it, allow it in System Settings > Privacy & Security > Automation and turn this on again.")
         systemSection.addRow(makeSettingRow(title: String(localized: "Wallpaper Song Info"), iconSystemName: "music.note",
@@ -282,7 +283,6 @@ extension AppKitSettingsContainerView {
         efficiencySection.addRow(makeSettingRow(title: String(localized: "Pause When Another App Is Full Screen"), iconSystemName: "arrow.up.left.and.arrow.down.right", trailing: pauseOtherAppFullscreenSwitch))
         efficiencySection.addRow(makeSettingRow(title: String(localized: "Pause When on Battery"), iconSystemName: "battery.25", trailing: pauseWhenUnpluggedSwitch))
         efficiencySection.addRow(makeSettingRow(title: String(localized: "Pause When Idle"), iconSystemName: "moon.zzz", trailing: pauseWhenIdleSwitch))
-        efficiencySection.addRow(makeSettingRow(title: String(localized: "Scene Frame Rate Cap"), iconSystemName: "gauge.with.needle", subtitle: String(localized: "30 fps is recommended for everyday use to save power"), trailing: sceneMaxFPSSegmented))
 
         for value in [5, 10, 15, 20, 30, 60] {
             idleTimeoutPopup.addItem(withTitle: String(localized: "\(value) min"))
@@ -343,6 +343,26 @@ extension AppKitSettingsContainerView {
         maintenanceSection.addRow(makeMaintenanceActionRow(button: resetSettingsButton, iconSystemName: "arrow.counterclockwise"))
     }
 
+    private func setupQualitySection() {
+        qualitySection.addRow(makeSettingRow(
+            title: String(localized: "Animation Frame Rate"), iconSystemName: "gauge.with.needle",
+            subtitle: String(localized: "Sets the frame rate cap for Scene wallpapers"), trailing: sceneMaxFPSSegmented))
+        qualitySection.addRow(makeSettingRow(title: String(localized: "Scene HDR"), iconSystemName: "sun.max",
+            subtitle: String(localized: "Requires wallpaper support; very high power draw, enable with care"), trailing: sceneHDRDisplaySwitch))
+        webFrameRatePopup.addItems(withTitles: [
+            String(localized: "Match Display (up to 60 FPS)"),
+            String(localized: "Follow Animation Frame Rate"),
+        ])
+        qualitySection.addRow(makeSettingRow(
+            title: String(localized: "Web Frame Rate Suggestion"), iconSystemName: "globe",
+            subtitle: String(localized: "Applies when the Web wallpaper uses the suggested frame rate"), trailing: webFrameRatePopup))
+        qualitySection.addRow(makeSettingRow(
+            title: String(localized: "Video Quality"), iconSystemName: "film",
+            trailing: NSTextField(labelWithString: String(localized: "Original Video"))))
+        configureMaintenanceActionButton(resetQualityButton)
+        qualitySection.addRow(makeMaintenanceActionRow(button: resetQualityButton, iconSystemName: "arrow.counterclockwise"))
+    }
+
     func applyNativeControlSizes() {
         // 控件尺寸统一收口，避免每个控件自己定义大小导致页面观感失衡。
         let switches: [NSSwitch] = [
@@ -368,7 +388,7 @@ extension AppKitSettingsContainerView {
         switches.forEach { $0.controlSize = .mini }
         hotkeyEnableSwitches.values.forEach { $0.controlSize = .mini }
 
-        let popups: [NSPopUpButton] = [timeUnitPopup, idleTimeoutPopup, libraryBackgroundPopup, libraryCardClickPopup] + hotkeyPopups.values
+        let popups: [NSPopUpButton] = [timeUnitPopup, idleTimeoutPopup, libraryBackgroundPopup, libraryCardClickPopup, webFrameRatePopup] + hotkeyPopups.values
             + [systemAudioSpectrumBarCountPopup]
         popups.forEach { $0.controlSize = .small }
 

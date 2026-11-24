@@ -79,7 +79,7 @@ extension WebDaemonRuntime {
         let oldWebView = surface.webView
         let state = WallpaperEngine.WebWallpaperRuntimeState(paused: host.paused,
             volume: host.currentVolume, playbackRate: host.currentPlaybackRate,
-            spectrumLevels: host.currentSpectrumLevels)
+            spectrumLevels: host.currentSpectrumLevels, frameRateSuggestion: host.currentFrameRateSuggestion)
         host.teardownHostSurfaces()
         host.launch(request, runtimeState: state)
         waitForDebugReplacement(oldWebView: oldWebView, navigation: navigation, attempt: 0)

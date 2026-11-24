@@ -503,18 +503,57 @@ let webCompatibilityScriptHostBridge = #"""
     myWallpaperPropertyReplayState.attempt = 0;
     myWallpaperSchedulePendingPropertyApply(0);
   };
+  let generalPropertiesSeedDelivery = null;
   window.__myWallpaperApplyGeneralProperties = function(properties) {
+    if (window.__myWallpaperAwaitingGeneralProperties) return;
     const normalizedProperties = window.__myWallpaperNormalizePropertyBag(properties || {});
     window.__myWallpaperLastGeneralProperties = normalizedProperties;
     try {
-      if (window.wallpaperPropertyListener && typeof window.wallpaperPropertyListener.applyGeneralProperties === 'function') {
-        window.wallpaperPropertyListener.applyGeneralProperties(normalizedProperties);
+      const listener = window.wallpaperPropertyListener;
+      const callback = listener && listener.applyGeneralProperties;
+      if (generalPropertiesSeedDelivery) {
+        const signature = window.__myWallpaperStablePropertySignature(normalizedProperties);
+        if (generalPropertiesSeedDelivery.signature === signature &&
+            generalPropertiesSeedDelivery.listener === listener &&
+            generalPropertiesSeedDelivery.callback === callback) return;
+        generalPropertiesSeedDelivery = { signature, listener, callback };
+      }
+      if (typeof callback === 'function') {
+        callback.call(listener, normalizedProperties);
       }
       window.dispatchEvent(new CustomEvent('wallpaper-general-properties-applied', { detail: normalizedProperties }));
     } catch (error) {
       hostLogger?.post('general-properties.error', error && error.message ? error.message : error);
     }
   };
+  // A reused WKWebView can start a document with an older script seed.
+  // Let the live frame hello supply the first author-visible general properties.
+  window.__myWallpaperReceiveGeneralProperties = function(properties, beforeResume) {
+    window.__myWallpaperAwaitingGeneralProperties = false;
+    if (document.readyState === 'loading' && !beforeResume) {
+      window.__myWallpaperLastGeneralProperties = properties;
+    } else {
+      window.__myWallpaperApplyGeneralProperties(properties);
+      generalPropertiesSeedDelivery = null;
+    }
+  };
+  if (window.__myWallpaperAwaitingGeneralProperties) {
+    document.addEventListener('DOMContentLoaded', function() {
+      if (!window.__myWallpaperAwaitingGeneralProperties) {
+        window.__myWallpaperApplyGeneralProperties(window.__myWallpaperLastGeneralProperties);
+        return;
+      }
+      const useSeed = () => {
+        if (!window.__myWallpaperAwaitingGeneralProperties) return;
+        window.__myWallpaperAwaitingGeneralProperties = false;
+        generalPropertiesSeedDelivery = {};
+        window.__myWallpaperApplyGeneralProperties(window.__myWallpaperLastGeneralProperties);
+      };
+      // A paused document cannot run the settled-frame scheduler's page timers.
+      if (window.wallpaperEngine_paused) useSeed();
+      else window.__myWallpaperRunAfterSettledFrames(useSeed);
+    }, { once: true });
+  }
   window.__myWallpaperNotifyDirectoryFilesChanged = function(propertyName, addedOrChangedFiles, removedFiles) {
     const safePropertyName = String(propertyName || '');
     const safeAddedOrChangedFiles = Array.isArray(addedOrChangedFiles) ? addedOrChangedFiles.map((value) => String(value || '')) : [];

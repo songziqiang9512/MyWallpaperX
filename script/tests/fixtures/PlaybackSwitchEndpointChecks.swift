@@ -261,7 +261,20 @@ import Foundation
         }
         adapter.switchPrepared = { _, endpoint in webEndpoints[endpoint.id] = endpoint }
         adapter.switchVisible = { _, id in webVisible.append(id) }
-        func prepareWeb(_ name: String) -> WebDaemonHostAdapter.Session {
+        func webLaunch(for session: WebDaemonHostAdapter.Session) -> WebDaemonLaunch {
+            let envelope = try! JSONDecoder().decode(WebDaemonEnvelope<WebDaemonCommand>.self, from: session.transport.sent[0])
+            guard case let .launch(input) = envelope.payload else { fatalError("expected launch command") }
+            return input
+        }
+        func checkFrameRateCommand(_ expected: Int?, to session: WebDaemonHostAdapter.Session) throws {
+            let envelope = try JSONDecoder().decode(WebDaemonEnvelope<WebDaemonCommand>.self, from: session.transport.sent.last!)
+            guard case let .runtime(.setFrameRateSuggestion(value)) = envelope.payload else {
+                fatalError("expected a Web frame-rate control")
+            }
+            precondition(envelope.requestID == session.request.id && value == expected
+                && session.state.frameRateSuggestion == expected, "Web control must preserve the request and its latest suggestion")
+        }
+        func prepareWeb(_ name: String, frameRateBeforeHello: Int? = nil) -> WebDaemonHostAdapter.Session {
             let request = WallpaperEngine.WebWallpaperLaunchRequest(id: UUID(), entryURL: URL(fileURLWithPath: "/" + name),
                 rootURL: URL(fileURLWithPath: "/"), propertiesJSON: "{}", source: .steamWorkshop,
                 recordID: name, language: "zh", runtimeProfile: .standard, multiDisplayEnabled: false,
@@ -269,12 +282,13 @@ import Foundation
             adapter.prepareSwitch(ticket: ticket(.web), request: request,
                 runtimeState: .init(paused: false, volume: 0.8, playbackRate: 1, spectrumLevels: nil))
             let session = adapter.candidate!
+            if let frameRateBeforeHello { adapter.handle(.setFrameRateSuggestion(frameRateBeforeHello)) }
             adapter.receive(.hello, from: session)
-            let launch = try! JSONDecoder().decode(WebDaemonEnvelope<WebDaemonCommand>.self, from: session.transport.sent[0])
-            guard case let .launch(input) = launch.payload else { fatalError("expected launch command") }
+            let input = webLaunch(for: session)
             precondition(input.allowedNetworkHosts == ["prepared-author.example"]
-                && session.executionRequest.allowedNetworkHosts == request.allowedNetworkHosts,
-                "hello uses the prepared request hosts without a descriptor resolver")
+                && session.executionRequest.allowedNetworkHosts == request.allowedNetworkHosts
+                && input.state.frameRateSuggestion == frameRateBeforeHello,
+                "hello uses prepared hosts and the latest frame-rate suggestion")
             return session
         }
         func preparedWeb(_ session: WebDaemonHostAdapter.Session) {
@@ -296,7 +310,7 @@ import Foundation
             "last uncommitted Web cancellation retained shared audio capture")
         abandoned.transport.end()
 
-        let wa = prepareWeb("WA"); preparedWeb(wa)
+        let wa = prepareWeb("WA", frameRateBeforeHello: 30); preparedWeb(wa)
 #if DEBUG
         let measuresStartup = ProcessInfo.processInfo.arguments.contains("--mwx-debug-web-startup-report")
         precondition((wa.startupTiming != nil) == measuresStartup)
@@ -426,6 +440,11 @@ import Foundation
         var webQueueCancelled = false
         adapter.cancelSwitch(ticket: queuedWebTicket) { webQueueCancelled = true }
         precondition(webQueueCancelled && adapter.deferredPreparation == nil && adapter.candidate === wd)
+        let delayedTicket = ticket(.web)
+        adapter.prepareSwitch(ticket: delayedTicket, request: wc.executionRequest, runtimeState: wd.state)
+        adapter.handle(.setFrameRateSuggestion(60))
+        try checkFrameRateCommand(60, to: wa)
+        try checkFrameRateCommand(60, to: wd)
         precondition(adapter.active === wa && !wa.transport.stopRequested)
         var webRetired = false
         webA.retire(nil) { webRetired = true }
@@ -434,6 +453,12 @@ import Foundation
         precondition(adapter.audioSpectrumRequested && audioDemands.last == true,
             "retiring old Web withdrew the successor's live audio demand")
         webD.finalize(); precondition(adapter.active === wd)
+        let delayed = adapter.candidate!
+        precondition(delayed.ticket == delayedTicket && delayed.request.id == wc.request.id)
+        adapter.receive(.hello, from: delayed)
+        precondition(webLaunch(for: delayed).state.frameRateSuggestion == 60, "delayed launch read its obsolete initial suggestion")
+        adapter.cancelSwitch(ticket: delayedTicket) {}
+        delayed.transport.end()
         var outputDone: Bool? = nil
         webD.setOutputActive(false) { outputDone = $0 }
         let activity = wd.outputActivityCompletions.keys.first!
@@ -467,6 +492,7 @@ import Foundation
         let preparing = recoveryAdapter.candidate!
         dead.transport.end(); recoveryAdapter.didExit(dead)
         precondition(recoveryAdapter.pendingRecovery?.session === dead && recoveryAdapter.candidate === preparing)
+        recoveryAdapter.handle(.setFrameRateSuggestion(30))
         precondition(propertyEngine.currentWebResourceGrants == [selectedResource], "committed recovery input lost its authority snapshot")
         let unrelatedProperties = preparing.propertiesJSON
         let unrelatedGrants = preparing.resourceGrants
@@ -482,6 +508,8 @@ import Foundation
         while Date() < recoveryDeadline { RunLoop.main.run(until: Date().addingTimeInterval(0.01)) }
         let restarted = recoveryAdapter.candidate!
         precondition(restarted.ticket == originalTicket && restarted.executionID != dead.executionID)
+        recoveryAdapter.receive(.hello, from: restarted)
+        precondition(webLaunch(for: restarted).state.frameRateSuggestion == 30, "recovery must seed the latest suggestion")
         precondition(restarted.executionRequest.allowedNetworkHosts == dead.executionRequest.allowedNetworkHosts,
             "recovery preserves the same author host snapshot")
         precondition(restarted.resourceGrants.isEmpty && restarted.resourceRevision == 1,
@@ -587,6 +615,14 @@ import Foundation
         precondition(transaction.cancellations.isEmpty && nextC.activationSent
             && toggleAdapter.candidate === nextC && toggleAdapter.displayRebuildSource == nil,
             "old display rebuild stole C after its cancellation barrier completed")
+        toggleAdapter.receive(.activationConfirmed(nextC.activationIdentity!,
+            [evidence(display: 1, pid: nextC.transport.process.processIdentifier)]), from: nextC)
+        // Hold the old renderer in the parent's standby set to test policy delivery.
+        toggleEndpoints[nextC.executionID]!.finalize()
+        precondition(toggleAdapter.active === nextC && toggleAdapter.standby[ObjectIdentifier(committedA)] === committedA)
+        toggleAdapter.handle(.setFrameRateSuggestion(nil))
+        try checkFrameRateCommand(nil, to: committedA)
+        try checkFrameRateCommand(nil, to: nextC)
 
         // With no superseding intent, the same ticket is rebuilt only after
         // old physical exit, with the latest display and pause/volume policy.
@@ -599,10 +635,12 @@ import Foundation
         rebuildAdapter.updateDisplayConfiguration(multiDisplayEnabled: true)
         precondition(rebuildAdapter.candidate == nil && rebuildAdapter.displayRebuildSource === beforeRebuild)
         rebuildAdapter.handle(.pause); rebuildAdapter.handle(.setVolume(0.3))
+        rebuildAdapter.handle(.setFrameRateSuggestion(30))
         beforeRebuild.transport.end()
         let afterRebuild = rebuildAdapter.candidate!
         precondition(afterRebuild.ticket == rebuildTicket && afterRebuild.executionID != beforeRebuild.executionID
-            && afterRebuild.multiDisplayEnabled && afterRebuild.state.paused && afterRebuild.state.volume == 0.3)
+            && afterRebuild.multiDisplayEnabled && afterRebuild.state.paused && afterRebuild.state.volume == 0.3
+            && afterRebuild.state.frameRateSuggestion == 30)
         precondition(afterRebuild.executionRequest.allowedNetworkHosts == beforeRebuild.executionRequest.allowedNetworkHosts,
             "display-cohort rebuilding preserves prepared author hosts")
 

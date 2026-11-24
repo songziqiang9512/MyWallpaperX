@@ -204,6 +204,18 @@ private func makeObservedPrepared(
     )
 }
 
+extension SceneAuthoredEffectRenderPlan {
+    enum TargetExtentKind { case input, scale }
+    struct TargetExtent {
+        let kind: TargetExtentKind
+        var scale: Double? = nil
+    }
+    struct RenderTarget {
+        let texture: TextureIdentity
+        var extent: TargetExtent = .init(kind: .input)
+    }
+}
+
 private func makeAtomicPrepared(
     device: MTLDevice,
     layerID: Int,
@@ -242,7 +254,7 @@ private func makeAtomicPrepared(
         nodes: (0 ..< nodeCount).map {
             .init(nodeIndex: $0, kind: .material, materialOrdinal: $0)
         },
-        renderTargets: discardedPersistentTargetState ? [output] : []
+        renderTargets: discardedPersistentTargetState ? [.init(texture: output)] : []
     )
     let state = State(
         effectGeneration: 1,

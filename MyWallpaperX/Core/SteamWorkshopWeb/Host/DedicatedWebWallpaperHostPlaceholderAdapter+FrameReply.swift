@@ -17,13 +17,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     /// 重放共用同一构造，杜绝两份计数/状态来源）。
     func compatibilityStateScript(for webView: WKWebView) -> String {
         let propertiesJSON = currentRequest?.propertiesJSON ?? "{}"
-        let screenID = screenID(for: webView)
-        let screen = screenID.flatMap { targetID in
-            NSScreen.screens.first { Self.screenID(for: $0) == targetID }
-        }
-        let generalPropertiesJSON = currentGeneralPropertiesJSON(for: screen, screenID: screenID)
         let escapedProperties = WebWallpaperHostSupport.javaScriptQuotedString(propertiesJSON)
-        let escapedGeneralProperties = WebWallpaperHostSupport.javaScriptQuotedString(generalPropertiesJSON)
         let volumeLiteral = String(format: "%.6f", effectiveVolume)
         let playbackRateLiteral = String(format: "%.6f", currentPlaybackRate)
         let pausedLiteral = paused ? "true" : "false"
@@ -46,7 +40,6 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         return """
         (() => {
           const properties = JSON.parse(\(escapedProperties));
-          const generalProperties = JSON.parse(\(escapedGeneralProperties));
           window.__myWallpaperNotifyPluginLoaded('led');
           window.__myWallpaperNotifyPluginLoaded('rgb');
           if (typeof window.__myWallpaperApplyProperties === 'function') {
@@ -56,7 +49,6 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
           } else {
             window.__myWallpaperLastUserProperties = properties;
           }
-          window.__myWallpaperApplyGeneralProperties(generalProperties);
           window.__myWallpaperSetGlobalVolume(\(volumeLiteral));
           window.__myWallpaperSetPlaybackRate(\(playbackRateLiteral));
           if (typeof window.__myWallpaperApplyInitialPausedState === 'function') {
@@ -135,15 +127,30 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
 
     /// 接收端单调序号包装：乱序/重复推送在 frame 内直接丢弃（属性/暂停保持
     /// 序号有序）。
-    func sequencedPushScript(_ body: String, sequence: Int64) -> String {
-        """
+    func sequencedPushScript(_ body: String, sequence: Int64, documentNonce: String? = nil) -> String {
+        let documentCheck = documentNonce.map {
+            "if (window.__myWallpaperHostFrameDocumentNonce !== \(WebWallpaperHostSupport.javaScriptQuotedString($0))) return;"
+        } ?? ""
+        return """
         (() => {
+          \(documentCheck)
           const sequence = \(sequence);
           if (typeof window.__mwxHostPushSequence === 'number' && sequence <= window.__mwxHostPushSequence) return;
           window.__mwxHostPushSequence = sequence;
           \(body)
         })();
         """
+    }
+
+    func generalPropertiesPushBody(for webView: WKWebView, beforeResume: Bool = false) -> String {
+        let screenID = screenID(for: webView)
+        let screen = screenID.flatMap { targetID in
+            NSScreen.screens.first { Self.screenID(for: $0) == targetID }
+        }
+        let properties = WebWallpaperHostSupport.javaScriptQuotedString(
+            currentGeneralPropertiesJSON(for: screen, screenID: screenID))
+        let delivery = beforeResume ? ", true" : ""
+        return "window.__myWallpaperReceiveGeneralProperties(JSON.parse(\(properties))\(delivery));"
     }
 
     /// 频谱推送：每 endpoint 同时至多一个在途定向调用，期间只保留最新一份，

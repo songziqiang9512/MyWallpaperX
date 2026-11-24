@@ -231,7 +231,10 @@ final class PageHost {
         diagnosticsEnabled: Bool = true,
         beforeCompatibilityScript: String? = nil,
         initialVolume: Float = 1,
-        documentURL: URL? = nil
+        documentURL: URL? = nil,
+        initialGeneralPropertiesJSON: String = "{}",
+        awaitCurrentGeneralProperties: Bool = false,
+        initiallyPaused: Bool = false
     ) {
         let configuration = WKWebViewConfiguration()
         let generationToken = "mwx-parity-\(UUID().uuidString)"
@@ -281,11 +284,12 @@ final class PageHost {
                 injectionTime: .atDocumentStart, forMainFrameOnly: false))
         }
         configuration.userContentController.addUserScript(WKUserScript(
-            source: webWallpaperPlaybackScript.replacingOccurrences(of: "__MWX_INITIAL_PAUSED__", with: "false"),
+            source: webWallpaperPlaybackScript.replacingOccurrences(of: "__MWX_INITIAL_PAUSED__", with: initiallyPaused ? "true" : "false"),
             injectionTime: .atDocumentStart, forMainFrameOnly: false))
         configuration.userContentController.addUserScript(WKUserScript(
-            source: Adapter.webCompatibilityScript(for: nil, generalPropertiesJSON: "{}",
-                volume: initialVolume, playbackRate: 1, paused: false),
+            source: Adapter.webCompatibilityScript(for: nil, generalPropertiesJSON: initialGeneralPropertiesJSON,
+                volume: initialVolume, playbackRate: 1, paused: initiallyPaused,
+                awaitCurrentGeneralProperties: awaitCurrentGeneralProperties),
             injectionTime: .atDocumentStart, forMainFrameOnly: false))
         view = WKWebView(frame: NSRect(x: 0, y: 0, width: 480, height: 320), configuration: configuration)
         window = NSWindow(contentRect: view.frame, styleMask: .borderless, backing: .buffered, defer: false)

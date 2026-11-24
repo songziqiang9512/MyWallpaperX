@@ -39,6 +39,7 @@ class UIVolumeActionsTests(unittest.TestCase):
             "Core/PlaybackControl/WallpaperEngineCommand.swift",
             "Core/PlaybackControl/PlaybackEngineControlling.swift",
             "Core/PlaybackControl/PlaybackCommandMultiplexer.swift",
+            "Core/PlaybackControl/PlaybackPerformanceProfile.swift",
             "Modules/VideoLibrary/Core/VideoPlaybackCommandHandler.swift",
             "Shared/Settings/AppSettingsPanelDependency.swift",
         )]

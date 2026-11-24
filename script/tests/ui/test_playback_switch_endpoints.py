@@ -465,6 +465,7 @@ protocol PlaybackResourceLifetime: AnyObject {}
                 "Core/PlaybackControl/PlaybackSurfaceVisibility.swift",
                 "Core/Playback/DaemonProtocol.swift", "Core/DaemonKit/DaemonNewlineJSON.swift",
                 "Core/DaemonKit/DaemonProcessTransport.swift",
+                "Core/PlaybackControl/PlaybackPerformanceProfile.swift",
                 "Core/Playback/WallpaperEngine.swift", "Core/Playback/WallpaperEngine+SwitchExecution.swift",
                 "Core/Playback/WallpaperEngine+DaemonEvents.swift",
                 "Core/Playback/WallpaperEngine+DaemonSessionLifecycle.swift",

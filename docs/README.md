@@ -42,6 +42,7 @@
 - [2.12.4 更新说明](releases/2.12.4.md)；历史说明：[2.12.3](releases/2.12.3.md)、[2.12.2](releases/2.12.2.md)、[2.12.1](releases/2.12.1.md)、[2.12.0](releases/2.12.0.md)、[2.11.0](releases/2.11.0.md)、[2.10.1](releases/2.10.1.md)、[2.10.0](releases/2.10.0.md)。实际发布状态以正式 Release 为准。
 
 - [播放进程生命周期与统一切换事务](architecture/playback-lifecycle-transaction-design.md)：三引擎退出、可见确认、取消和退休边界。
+- [三引擎壁纸质量工作卡](development/wallpaper-quality-work-card.md#execution)维护当前执行顺序。[技术评估](development/wallpaper-quality-settings-plan.md#decision)记录实际消费者、候选取舍和验收。
 - [状态栏控制面板专项](development/status-bar-panel-redesign.md)：原生封面、播放控制、监控与窗口交接设计及验收。
 - [视频屏保与锁定显示接入设计](development/lock-screen-screensaver-design.md)：macOS 26 系统原生Video扩展、唯一媒体发布、UI与分阶段验收；私有宿主边界和真机证据分别说明。
 - [Wallhaven在线浏览接入](development/wallhaven-online-browser-design.md)：来源接口预检、两图片来源共享的获取/发布合同及Wallhaven实施步骤。

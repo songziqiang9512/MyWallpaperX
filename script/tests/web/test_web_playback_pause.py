@@ -37,7 +37,7 @@ enum WebWallpaperHostSupport {
         effectiveMediaSuspended = paused
         applyPausedState(paused, to: view)
     }
-    func applyGeneralProperties(to webView: WKWebView) {}
+    func generalPropertiesPushBody(for webView: WKWebView, beforeResume: Bool = false) -> String { "" }
     func refreshSystemMediaSubscription() {}
     func refreshAudioSpectrumDemand() {}
     /// D5：与产品 adapter 同名的 frame endpoint 登记桩（同表面），供提取出的

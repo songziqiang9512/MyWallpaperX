@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 from script.tests.steam.test_steam_library_interactions import method
-from script.tests.web.test_web_compat_parity import HARNESS as PARITY_HARNESS, source_block
+from script.tests.web.test_web_compat_parity import HARNESS as PARITY_HARNESS, NETWORK_FIXTURE, source_block
 
 ROOT = Path(__file__).resolve().parents[3]
 HOST = ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Host"
@@ -36,19 +36,27 @@ ADAPTER = r'''
 @MainActor final class Adapter {
     struct Request { var id = UUID(); var language = "zh-cn" }
     struct Surface { let webView: WKWebView }
+    struct MediaGate { func setSuspended(_ suspended: Bool) {} }
     enum Severity { case warning, info }
-    var surfaces: [Int: Surface] = [:]
+    var surfaces: [CGDirectDisplayID: Surface] = [:]
     var currentRequest: Request? = Request()
     var paused = false
+    var effectiveMediaSuspended: Bool { paused }
+    var appliedFrameRateSuggestion: Int?
+    var defersFrameHello = false
     var effectiveVolume: Float = 0.4
     var frameEndpointRegistry = WebWallpaperFrameEndpointRegistry()
     let systemMediaConsumerID = UUID()
     var systemMediaSubscriptionNeedsContent: Bool?
     var currentSystemMediaSnapshot: SystemMediaSnapshot?
     var systemMediaDemandHandler: ((Bool?, UUID) -> Void)?
-    func screenID(for view: WKWebView) -> Int? { surfaces.first { $0.value.webView === view }?.key }
+    func screenID(for view: WKWebView) -> CGDirectDisplayID? { surfaces.first { $0.value.webView === view }?.key }
+    static func screenID(for screen: NSScreen) -> CGDirectDisplayID? {
+        (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value
+    }
     func forEachWebView(_ action: (WKWebView) -> Void) { surfaces.values.forEach { action($0.webView) } }
-    func recordDiagnostic(type: String, severity: Severity, message: String, screenID: Int?, url: String?) {}
+    func mediaPlaybackGate(for webView: WKWebView) -> MediaGate? { nil }
+    func recordDiagnostic(type: String, severity: Severity, message: String, screenID: CGDirectDisplayID?, url: String?) {}
     func ensureFrameEndpointLeaseRenewalTimer() {}
     func refreshAudioSpectrumDemand() {}
     func applyCompatibilitySnapshot(to endpoint: WebWallpaperFrameEndpointRegistry.Endpoint, webView: WKWebView) {}
@@ -59,6 +67,16 @@ HANDLER = r'''
 @MainActor final class FrameEndpointHelloStub: NSObject, WKScriptMessageHandler {
     weak var adapter: Adapter?
     weak var webView: WKWebView?
+    private(set) var pendingHellos: [(String, WKFrameInfo)] = []
+    func releaseHellos() {
+        guard let adapter, let webView else { return }
+        let hellos = pendingHellos
+        pendingHellos.removeAll()
+        adapter.defersFrameHello = false
+        for (nonce, frameInfo) in hellos {
+            adapter.handleFrameEndpointHello(nonce: nonce, frameInfo: frameInfo, webView: webView)
+        }
+    }
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let adapter, let webView, let body = message.body as? [String: Any],
               let nonce = body["nonce"] as? String else { return }
@@ -72,7 +90,9 @@ HANDLER = r'''
                 adapter.frameEndpointRegistry.revoke(token: endpoint.token, in: webView)
                 adapter.refreshSystemMediaSubscription()
             }
-        default: adapter.handleFrameEndpointHello(nonce: nonce, frameInfo: message.frameInfo, webView: webView)
+        default:
+            if adapter.defersFrameHello { pendingHellos.append((nonce, message.frameInfo)) }
+            else { adapter.handleFrameEndpointHello(nonce: nonce, frameInfo: message.frameInfo, webView: webView) }
         }
     }
 }
@@ -110,6 +130,10 @@ SCENARIOS = r'''
         case "cached-legacy": try await cachedLegacyOriginalObjectMutation()
         case "state": try await stateAndLifecycle()
         case "frames": try await framesAndNavigation()
+        case "general-fps": try await generalFPSAcrossDocuments()
+        case "general-fps-no-hello":
+            try await generalFPSWithoutHello(initiallyPaused: false)
+            try await generalFPSWithoutHello(initiallyPaused: true)
         case "backpressure": try await backpressureAndRevocation()
         default: fatalError("unknown scenario")
         }
@@ -327,6 +351,112 @@ SCENARIOS = r'''
         host.adapter.deliverSystemMedia(snapshot("stale", revision: 11), to: oldChild, webView: host.view)
         expect(service.subscriptions.isEmpty, "navigation revokes all per-frame demand")
     }
+    static func generalFPSAcrossDocuments() async throws {
+        let author = """
+        <script>
+        window.suggestions = [];
+        wallpaperPropertyListener = {
+          applyGeneralProperties: properties => suggestions.push(properties.fps)
+        };
+        </script>
+        """
+        let adapter = Adapter()
+        adapter.appliedFrameRateSuggestion = 30
+        let host = PageHost(html: author + "<iframe srcdoc='\(author)'></iframe><iframe src='mwx-probe://remote/index'></iframe>",
+                            crossOriginChildHTML: author, adapter: adapter,
+                            initialGeneralPropertiesJSON: #"{"fps":60}"#, awaitCurrentGeneralProperties: true)
+        defer { host.close() }
+        try await host.open()
+        try await host.waitUntil("Array.isArray(frames[0].suggestions)", label: "same-origin author registered")
+        try await host.waitUntil("suggestions[0] === 30 && frames[0].suggestions[0] === 30", label: "first local frame suggestions")
+        let endpoints = adapter.frameEndpointRegistry.endpoints(in: host.view)
+        expect(endpoints.count == 3, "main, same-origin and cross-origin author frames register independently")
+        let main = endpoints.first { $0.frameInfo.isMainFrame }!
+        let remote = endpoints.first { $0.frameInfo.request.url?.scheme == "mwx-probe" }!
+        func remoteValue(_ source: String) async throws -> Any? {
+            try await withCheckedThrowingContinuation { continuation in
+                host.view.evaluateJavaScript(source, in: remote.frameInfo, in: .page) {
+                    continuation.resume(with: $0)
+                }
+            }
+        }
+        let remoteFirst = try await remoteValue("suggestions[0]") as? Int
+        expect(remoteFirst == 30, "cross-origin author gets current FPS as its first callback")
+        adapter.appliedFrameRateSuggestion = 60
+        adapter.applyGeneralProperties(to: host.view)
+        try await host.waitUntil("suggestions.at(-1) === 60 && frames[0].suggestions.at(-1) === 60", label: "live local-frame FPS changes")
+        let remoteLast = try await remoteValue("suggestions.at(-1)") as? Int
+        expect(remoteLast == 60, "cross-origin author gets the live update")
+        _ = try await host.script("window.lateFPS = []; wallpaperPropertyListener = {applyGeneralProperties: p => lateFPS.push(p.fps)}; true")
+        try await host.waitUntil("lateFPS[0] === 60", label: "late registration mirrors latest FPS")
+
+        adapter.appliedFrameRateSuggestion = 30
+        adapter.frameEndpointRegistry.revokeAll(in: host.view)
+        host.view.loadHTMLString(author + "<body id='replacement'></body>", baseURL: nil)
+        try await host.waitUntil("document.body?.id === 'replacement'", label: "replacement document in same view")
+        try await host.waitUntil("suggestions[0] === 30", label: "replacement first suggestion")
+        let late = adapter.sequencedPushScript("window.__myWallpaperReceiveGeneralProperties({fps: 60});",
+            sequence: 1000, documentNonce: main.documentNonce)
+        _ = try await host.script(late + " true")
+        let observed = try await host.script("suggestions.at(-1)") as? Int
+        expect(observed == 30, "an evaluation queued for the old document cannot overwrite the new hint")
+        _ = try await host.script("""
+        wallpaperPropertyListener.setPaused = paused => {
+          if (!paused) window.resumeObservation = [document.readyState, suggestions.at(-1)];
+        };
+        true
+        """)
+        adapter.paused = true
+        adapter.applyPausedState(true, to: host.view)
+        try await host.waitUntil("wallpaperEngine_paused === true", label: "author pause")
+        _ = try await host.script("Object.defineProperty(document, 'readyState', {configurable:true, value:'loading'}); true")
+        adapter.appliedFrameRateSuggestion = 60
+        adapter.paused = false
+        adapter.applyPausedState(false, to: host.view, frameRateChanged: true)
+        try await host.waitUntil("JSON.stringify(resumeObservation) === '[\"loading\",60]'", label: "synchronous resume sees the new FPS during document load")
+        _ = try await host.script("delete document.readyState; true")
+        let displayFPS = NSScreen.main.map { max(1, min(60, $0.maximumFramesPerSecond)) } ?? 60
+        let differentFPS = displayFPS == 30 ? 60 : 30
+        adapter.appliedFrameRateSuggestion = differentFPS
+        adapter.applyGeneralProperties(to: host.view)
+        try await host.waitUntil("suggestions.at(-1) === \(differentFPS)", label: "explicit suggestion differs from display")
+        adapter.appliedFrameRateSuggestion = nil
+        adapter.applyGeneralProperties(to: host.view)
+        try await host.waitUntil("suggestions.at(-1) === \(displayFPS)", label: "return to the display suggestion")
+    }
+
+    static func generalFPSWithoutHello(initiallyPaused: Bool) async throws {
+        let adapter = Adapter()
+        adapter.appliedFrameRateSuggestion = 60
+        adapter.defersFrameHello = true
+        adapter.paused = initiallyPaused
+        let seed = adapter.currentGeneralPropertiesJSON(for: NSScreen.main, screenID: 1)
+        let host = PageHost(html: """
+            <script>
+              window.suggestions = [];
+              window.recordFPS = p => suggestions.push(p.fps);
+              wallpaperRegisterPropertyListener({ applyGeneralProperties: recordFPS });
+            </script>
+            """, adapter: adapter, initialGeneralPropertiesJSON: seed, awaitCurrentGeneralProperties: true,
+            initiallyPaused: initiallyPaused)
+        defer { host.close() }
+        try await host.open()
+        try await host.waitUntil("suggestions.length === 1 && suggestions[0] === 60", label: "unacknowledged document gets the seed")
+        _ = try await host.script("__myWallpaperApplyGeneralProperties(__myWallpaperLastGeneralProperties); true")
+        host.endpointStub.releaseHellos()
+        try await host.waitUntil("__myWallpaperHostFrameEndpointAck === true", label: "late hello recovers")
+        let identicalDeliveries = try await host.script("suggestions.length") as? Int
+        expect(identicalDeliveries == 1, "identical seed replay and late live state must not repeat the author callback")
+        adapter.appliedFrameRateSuggestion = 30
+        if initiallyPaused {
+            adapter.paused = false
+            adapter.applyPausedState(false, to: host.view, frameRateChanged: true)
+        } else {
+            adapter.applyGeneralProperties(to: host.view)
+        }
+        try await host.waitUntil("JSON.stringify(suggestions) === '[60,30]'", label: "live state supersedes seed after hello recovers")
+    }
+
     static func backpressureAndRevocation() async throws {
         let service = SystemMediaService.shared
         service.publish(snapshot("start", revision: 20))
@@ -433,15 +563,19 @@ class WebSystemMediaTests(unittest.TestCase):
                             + source_block(types, "final class WebWallpaperFrameEndpointRegistry"))
         base = base.replace(source_block(base, "final class FrameEndpointHelloStub"), HANDLER)
         base = base.replace("    // RUNTIME_HELPERS", "")
-        base = base.replace("// RUNTIME_HELPERS", SERVICE)
+        base = base.replace("// RUNTIME_HELPERS", SERVICE + "\n"
+                            + source_block(NETWORK_FIXTURE.read_text(), "final class NetworkBridgeStub"))
         methods = method(types, "static func webCompatibilityScript(")
         methods += "\n" + method((HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+Lifecycle.swift").read_text(),
                                   "func handleFrameEndpointHello(")
         runtime = (HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+RuntimeBridge.swift").read_text()
         methods += "\n" + "\n".join(method(runtime, name) for name in (
-            "func currentGeneralProperties(", "func resolvedGeneralFPSValue(", "func currentGeneralPropertiesJSON("))
-        methods += "\n" + method((HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+FrameReply.swift").read_text(),
-                                  "func resolveNetworkRequest(")
+            "func currentGeneralProperties(", "func resolvedGeneralFPSValue(", "func currentGeneralPropertiesJSON(",
+            "func applyGeneralProperties(", "func applyPausedState("))
+        reply = (HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+FrameReply.swift").read_text()
+        methods += "\n" + "\n".join(method(reply, name) for name in (
+            "func resolveNetworkRequest(", "func sequencedPushScript(", "func generalPropertiesPushBody(",
+            "func deliverStatePush("))
         base = base.replace("// ADAPTER_METHODS", methods)
         base = base.replace("        endpointStub.webView = view", "        self.adapter.surfaces[1] = .init(webView: view)\n        endpointStub.webView = view")
         base = base.replace("    func close() { window.orderOut(nil) }", """    func close() {
@@ -485,6 +619,12 @@ class WebSystemMediaTests(unittest.TestCase):
 
     def test_directed_frames_and_navigation_revoke(self):
         self.scenario("frames")
+
+    def test_frame_rate_suggestion_first_live_and_reloaded_callbacks(self):
+        self.scenario("general-fps")
+
+    def test_frame_rate_suggestion_has_document_seed_fallback(self):
+        self.scenario("general-fps-no-hello")
 
     def test_complete_latest_snapshot_and_endpoint_revocation(self):
         self.scenario("backpressure")

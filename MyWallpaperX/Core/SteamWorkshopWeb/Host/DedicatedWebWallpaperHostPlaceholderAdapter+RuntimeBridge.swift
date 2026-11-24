@@ -278,6 +278,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     func resolvedGeneralFPSValue(for screen: NSScreen?) -> Int {
+        if let appliedFrameRateSuggestion { return appliedFrameRateSuggestion }
         guard let screen else { return 60 }
         return max(1, min(60, screen.maximumFramesPerSecond))
     }
@@ -440,17 +441,17 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         )
     }
 
-    func applyPausedState(_ paused: Bool, to webView: WKWebView) {
+    func applyPausedState(_ paused: Bool, to webView: WKWebView, frameRateChanged: Bool = false) {
         // 原生媒体挂起覆盖 webView 全部 frame；JS 侧页面通知走定向推送。
         mediaPlaybackGate(for: webView)?.setSuspended(effectiveMediaSuspended)
-        let pausedLiteral = paused ? "true" : "false"
+        let playbackState = "window.__myWallpaperSetPaused(\(paused ? "true" : "false"));"
+        let generalProperties = generalPropertiesPushBody(for: webView, beforeResume: frameRateChanged)
+        // Authors can draw synchronously in their resume callback.
+        let body = frameRateChanged ? generalProperties + playbackState : playbackState + generalProperties
         deliverStatePush(to: webView) { endpoint in
-            sequencedPushScript(
-                "window.__myWallpaperSetPaused(\(pausedLiteral));",
-                sequence: endpoint.advancePushSequence()
-            )
+            sequencedPushScript(body, sequence: endpoint.advancePushSequence(),
+                                documentNonce: endpoint.documentNonce)
         }
-        applyGeneralProperties(to: webView)
     }
 
     func applyProperties(_ propertiesJSON: String, to webView: WKWebView) {
@@ -471,23 +472,10 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     func applyGeneralProperties(to webView: WKWebView) {
-        let screenID = screenID(for: webView)
-        let screen = screenID.flatMap { targetID in
-            NSScreen.screens.first { Self.screenID(for: $0) == targetID }
-        }
-        let escapedGeneralProperties = WebWallpaperHostSupport.javaScriptQuotedString(currentGeneralPropertiesJSON(for: screen, screenID: screenID))
+        let body = generalPropertiesPushBody(for: webView)
         deliverStatePush(to: webView) { endpoint in
-            sequencedPushScript(
-                """
-                (() => {
-                  const properties = JSON.parse(\(escapedGeneralProperties));
-                  if (typeof window.__myWallpaperApplyGeneralProperties === 'function') {
-                    window.__myWallpaperApplyGeneralProperties(properties);
-                  }
-                })();
-                """,
-                sequence: endpoint.advancePushSequence()
-            )
+            sequencedPushScript(body, sequence: endpoint.advancePushSequence(),
+                                documentNonce: endpoint.documentNonce)
         }
     }
 

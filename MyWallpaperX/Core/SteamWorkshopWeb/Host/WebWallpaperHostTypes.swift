@@ -159,10 +159,11 @@ extension WallpaperEngine {
     }
 
     nonisolated struct WebWallpaperRuntimeState: Codable {
-        let paused: Bool
-        let volume: Float
-        let playbackRate: Float
-        let spectrumLevels: [Float]?
+        var paused: Bool
+        var volume: Float
+        var playbackRate: Float
+        var spectrumLevels: [Float]?
+        var frameRateSuggestion: Int?
     }
 
     nonisolated enum WebWallpaperRuntimeCommand: Codable {
@@ -171,6 +172,7 @@ extension WallpaperEngine {
         case stop
         case setVolume(Float)
         case setPlaybackRate(Float)
+        case setFrameRateSuggestion(Int?)
         case applyProperties(WebWallpaperPropertyUpdate)
         case pushAudioSpectrum([Float])
     }
@@ -523,6 +525,9 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     var currentVolume: Float = 0.5
     var currentPlaybackRate: Float = 1.0
     var currentSpectrumLevels: [Float]?
+    var currentFrameRateSuggestion: Int?
+    // Other general-property updates still reach paused pages with their last FPS.
+    var appliedFrameRateSuggestion: Int?
     var paused = false
     var hostActivityToken: NSObjectProtocol?
     var lifecycleObservers: [(center: NotificationCenter, token: NSObjectProtocol)] = []
@@ -601,7 +606,8 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
         generalPropertiesJSON: String,
         volume: Float,
         playbackRate: Float,
-        paused: Bool
+        paused: Bool,
+        awaitCurrentGeneralProperties: Bool = false
     ) -> String {
         enum ScriptBodyCache {
             static let body: String =
@@ -626,6 +632,7 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
           window.__myWallpaperInitialVolume = \(volumeLiteral);
           window.__myWallpaperInitialPlaybackRate = \(playbackRateLiteral);
           window.__myWallpaperInitialPaused = \(pausedLiteral);
+          window.__myWallpaperAwaitingGeneralProperties = \(awaitCurrentGeneralProperties ? "true" : "false");
         })();
         """
         return seedScript + ScriptBodyCache.body

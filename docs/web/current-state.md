@@ -55,6 +55,8 @@ project.json / Workshop directory
 
 ## 2. 稳定实现合同
 
+Web 帧率是 `applyGeneralProperties.fps` 建议值。应用偏好可选随屏幕（最高 60）或跟随动画帧率。宿主以本次启动状态投影，并把差分交给已提交、候选及延后请求。沿现有导航回放把有效值交给各文档和后注册监听，暂停期保存最新意愿，在原恢复回调前交付已改变的建议。实际绘制频率由作者和 WebKit 决定。 [Web 帧率 API](https://docs.wallpaperengine.io/en/web/performance/fps.html) · [源码地图](../architecture/repository-map.md#wallpaper-quality)
+
 Web Combo使用显式原生菜单项保留同标题不同值，按原option identity选择/提交；Web滑块非tracking动作直接提交，tracking期间preview、结束复用同一action提交，持久化仍归原Service。2026-10-14已编译实际Web编辑器验证同标题A/B两项及B→A提交，未重跑Web样本矩阵。
 
 - 原始 `project.json`、目录和资源布局保持只读；本地 descriptor/cache 是派生执行数据，不反向改写样本。

@@ -77,7 +77,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                     generalPropertiesJSON: currentGeneralPropertiesJSON(for: screen, screenID: screenID),
                     volume: effectiveVolume,
                     playbackRate: currentPlaybackRate,
-                    paused: paused
+                    paused: paused,
+                    awaitCurrentGeneralProperties: true
                 ),
                 injectionTime: .atDocumentStart,
                 forMainFrameOnly: false

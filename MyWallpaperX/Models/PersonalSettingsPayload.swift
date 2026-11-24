@@ -58,6 +58,8 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
     var sceneHDRDisplayEnabled: Bool?
     var sceneMediaInfoEnabled: Bool?
     var playbackPerformanceProfile: Int?
+    var animationFramesPerSecond: Int?
+    var webFrameRateMode: String?
     var idleTimeoutMinutes: Int?
     var multiDisplayEnabled: Bool?
     var videoFillMode: String?

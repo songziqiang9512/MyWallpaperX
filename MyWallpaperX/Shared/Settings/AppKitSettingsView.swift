@@ -15,6 +15,7 @@ enum AppSettingsSection: String, CaseIterable {
     case system
     case hotkeys
     case efficiency
+    case quality
     case display
     case maintenance
 
@@ -76,6 +77,7 @@ final class AppKitSettingsContainerView: NSView {
     let systemSection = SettingsGroupView(title: String(localized: "System Behavior"))
     let hotkeysSection = SettingsGroupView(title: String(localized: "Keyboard Shortcuts"))
     let efficiencySection = SettingsGroupView(title: String(localized: "Energy Saving & Pausing"))
+    let qualitySection = SettingsGroupView(title: String(localized: "Wallpaper Quality"))
     let displaySection = SettingsGroupView(title: String(localized: "Display Settings"))
     let maintenanceSection = SettingsGroupView(title: nil)
 
@@ -100,6 +102,8 @@ final class AppKitSettingsContainerView: NSView {
     let syncSystemWallpaperSwitch = NSSwitch()
     let sceneHDRDisplaySwitch = NSSwitch()
     let sceneMediaInfoSwitch = NSSwitch()
+    let webFrameRatePopup = NSPopUpButton()
+    let resetQualityButton = NSButton(title: String(localized: "Restore Default Quality"), target: nil, action: nil)
     private var sceneMediaAuthorizationCheckID = UUID()
     let systemAudioSpectrumSwitch = NSSwitch()
     let systemAudioSpectrumBarCountPopup = NSPopUpButton()
@@ -259,8 +263,9 @@ final class AppKitSettingsContainerView: NSView {
         pauseOtherAppFullscreenSwitch.state = settings.pauseWhenOtherAppFullscreen ? .on : .off
         pauseWhenUnpluggedSwitch.state = settings.pauseWhenUnplugged ? .on : .off
         pauseWhenIdleSwitch.state = settings.pauseWhenIdle ? .on : .off
-        sceneMaxFPSSegmented.selectedSegment =
-            PlaybackPerformanceProfile.current == .efficient ? 0 : 1
+        let quality = PlaybackQualityPreference.current
+        sceneMaxFPSSegmented.selectedSegment = quality.profile == .efficient ? 0 : 1
+        webFrameRatePopup.selectItem(at: quality.webFrameRateMode == .display ? 0 : 1)
         idleTimeoutRowView?.isHidden = !settings.pauseWhenIdle
         selectIdleTimeout(settings.idleTimeoutMinutes)
 
@@ -286,6 +291,7 @@ final class AppKitSettingsContainerView: NSView {
             systemSection.isHidden,
             hotkeysSection.isHidden,
             efficiencySection.isHidden,
+            qualitySection.isHidden,
             displaySection.isHidden,
             maintenanceSection.isHidden,
             autoSwitchRowView?.isHidden,
@@ -448,7 +454,11 @@ final class AppKitSettingsContainerView: NSView {
         idleTimeoutPopup.target = self
         idleTimeoutPopup.action = #selector(handleIdleTimeoutChange)
         sceneMaxFPSSegmented.target = self
-        sceneMaxFPSSegmented.action = #selector(handleSceneMaxFPSChange)
+        sceneMaxFPSSegmented.action = #selector(handleQualityChange(_:))
+        webFrameRatePopup.target = self
+        webFrameRatePopup.action = #selector(handleQualityChange(_:))
+        resetQualityButton.target = self
+        resetQualityButton.action = #selector(restoreDefaultQuality)
 
         multiDisplaySwitch.target = self
         multiDisplaySwitch.action = #selector(handleMultiDisplayToggle)
@@ -733,16 +743,20 @@ final class AppKitSettingsContainerView: NSView {
         dependency.actions.applyEngineSettings(false)
     }
 
-    @objc private func handleSceneMaxFPSChange() {
+    @objc private func handleQualityChange(_ sender: NSControl) {
         guard !isUpdatingUI else { return }
-        let profile = PlaybackPerformanceProfile(
-            rawValue: sceneMaxFPSSegmented.selectedSegment == 0 ? 30 : 60
-        ) ?? .standard
-        PlaybackPerformanceProfile.save(profile)
-        // 经命令层下发（M0.7）：引擎端热切换帧节奏与预算，不重启壁纸。
-        PlaybackCommandMultiplexer.shared.dispatch(
-            .setPerformanceProfile(maxFPS: profile.maxFPS)
-        )
+        var quality = PlaybackQualityPreference.current
+        if sender === sceneMaxFPSSegmented {
+            quality.profile = sceneMaxFPSSegmented.selectedSegment == 0 ? .efficient : .standard
+        } else {
+            quality.webFrameRateMode = webFrameRatePopup.indexOfSelectedItem == 1 ? .followAnimationFrameRate : .display
+        }
+        PlaybackCommandMultiplexer.shared.applyQualityPreference(quality)
+    }
+
+    @objc private func restoreDefaultQuality() {
+        PlaybackCommandMultiplexer.shared.applyQualityPreference(.defaults)
+        refreshFromState()
     }
 
     @objc private func handleIdleTimeoutChange() {
@@ -853,7 +867,11 @@ final class AppKitSettingsContainerView: NSView {
                 self.exportProfileButton.isEnabled = false
                 self.importProfileButton.isEnabled = false
                 Task { @MainActor in
-                    defer { self.exportProfileButton.isEnabled = true; self.importProfileButton.isEnabled = true }
+                    defer {
+                        self.exportProfileButton.isEnabled = true
+                        self.importProfileButton.isEnabled = true
+                        self.refreshFromState()
+                    }
                     do {
                         let summary = try await self.dependency.actions.importPersonalSettings(sourceURL)
                         guard let hostWindow, hostWindow.isVisible else { return }

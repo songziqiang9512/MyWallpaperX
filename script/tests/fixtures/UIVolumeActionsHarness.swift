@@ -29,7 +29,10 @@ final class WallpaperManager: ObservableObject {
 }
 
 final class WebDaemonHostAdapter { var hasLivePlayback = true }
-enum WebVolumeCommand { case setVolume(Float) }
+enum WebVolumeCommand {
+    case setVolume(Float)
+    case setFrameRateSuggestion(Int?)
+}
 final class WallpaperEngine {
     static let shared = WallpaperEngine()
     struct Session { struct ProcessLeaf { var isRunning = true }; var process = ProcessLeaf() }

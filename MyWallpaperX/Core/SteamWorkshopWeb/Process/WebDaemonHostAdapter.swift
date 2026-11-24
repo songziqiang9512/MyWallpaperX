@@ -463,6 +463,9 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
             if let id { eventHandler?(.stopped(requestID: id)) }
             return
         }
+        if case let .setFrameRateSuggestion(suggestion) = command {
+            deferredPreparation?.state.frameRateSuggestion = suggestion
+        }
         var policySessions = [active, candidate].compactMap { $0 } + Array(standby.values)
         if let displayRebuildSource { policySessions.append(displayRebuildSource) }
         if let pending = pendingRecovery?.session,
@@ -470,20 +473,18 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         for session in policySessions {
             switch command {
             case .pause:
-                session.state = .init(paused: true, volume: session.state.volume,
-                    playbackRate: session.state.playbackRate, spectrumLevels: session.state.spectrumLevels)
+                session.state.paused = true
             case let .resume(rate):
-                session.state = .init(paused: false, volume: session.state.volume,
-                    playbackRate: rate, spectrumLevels: session.state.spectrumLevels)
+                session.state.paused = false
+                session.state.playbackRate = rate
             case let .setVolume(volume):
-                session.state = .init(paused: session.state.paused, volume: volume,
-                    playbackRate: session.state.playbackRate, spectrumLevels: session.state.spectrumLevels)
+                session.state.volume = volume
             case let .setPlaybackRate(rate):
-                session.state = .init(paused: session.state.paused, volume: session.state.volume,
-                    playbackRate: rate, spectrumLevels: session.state.spectrumLevels)
+                session.state.playbackRate = rate
+            case let .setFrameRateSuggestion(suggestion):
+                session.state.frameRateSuggestion = suggestion
             case let .pushAudioSpectrum(levels):
-                session.state = .init(paused: session.state.paused, volume: session.state.volume,
-                    playbackRate: session.state.playbackRate, spectrumLevels: levels)
+                session.state.spectrumLevels = levels
             case let .applyProperties(update):
                 guard propertyUpdateSession(for: update.requestID) === session,
                       update.revision > session.propertyRevision,

@@ -57,6 +57,8 @@ enum WallpaperEngineCommand: Equatable, Sendable {
     case cancelSceneLaunch(recordID: String)
     /// 性能预算档：60 = standard，30 = efficient。
     case setPerformanceProfile(maxFPS: Int)
+    /// nil restores the Web host's per-display suggestion.
+    case setWebFrameRateSuggestion(Int?)
     /// 主音量百分比（0...100）。由各引擎把同一用户意图投影到自身播放层。
     case setVolume(Float)
     case setMuted(Bool)

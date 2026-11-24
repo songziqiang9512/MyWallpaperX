@@ -20,6 +20,7 @@ final class SceneScriptLocalStorageSession {
 }
 final class SoundRegistry {func setMuted(_ muted:Bool) {}}
 final class SceneParticlePlaybackState {}
+final class SceneResolvedMaterialRuntimeBridge {}
 struct SceneDesktopWallpaperLaunchContext { let sceneScriptStorageSession: SceneScriptLocalStorageSession? = nil }
 final class SceneAudioSpectrumInbox {
     static let shared = SceneAudioSpectrumInbox()
@@ -31,16 +32,17 @@ final class SceneAudioSpectrumInbox {
     }
 }
 final class SceneDesktopWallpaperSession {
-    struct PreparedParticleSurface {
+    struct PreparedSurface {
         let displayID: CGDirectDisplayID
         let playback: SceneParticlePlaybackState
+        let materialRuntime: SceneResolvedMaterialRuntimeBridge
     }
     let lifecycleID=UUID()
     var surfaces: [CGDirectDisplayID: Int] = [1:1, 2:2]
     var onFirstFrameCompletion: ((CGDirectDisplayID, Bool)->Void)?
     var launchContext: SceneDesktopWallpaperLaunchContext?
     var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult?
-    var particleSurfaces: [PreparedParticleSurface] = []
+    var preparedSurfaces: [PreparedSurface] = []
     var soundPlaybackRegistry:SoundRegistry?
     var launchRequestID:UUID?
     var activeRecordID:String? { nil }
@@ -51,12 +53,12 @@ final class SceneDesktopWallpaperSession {
     var stopped = false
     var drains: [@MainActor (Bool)->Void] = []
     var drainResult:Bool?
-    init(textureDecodeCacheBudget: SceneTextureDecodeCacheBudget) {}
+    init(textureDecodeCacheBudget: SceneTextureDecodeCacheBudget, surfacePreparationQueue: DispatchQueue) {}
     func activate(_ context: SceneDesktopWallpaperLaunchContext,
-                  particleSurfaces: [PreparedParticleSurface],
+                  preparedSurfaces: [PreparedSurface],
                   userPropertyTextureLoad: SceneUserPropertyTextureLoadResult) throws {
         launchContext=context; self.userPropertyTextureLoad=userPropertyTextureLoad
-        self.particleSurfaces=particleSurfaces
+        self.preparedSurfaces=preparedSurfaces
     }
     func promote(firstPresentation: SceneFirstFramePresentationRegistration?) { visible=true }
     func suspendPresentationForHandoff() { visible=false }
@@ -95,12 +97,14 @@ final class SceneDesktopWallpaperSession {
         let host=SceneDesktopWallpaperHost()
         var outcomes:[Bool]=[]
         let preparedTextures=SceneUserPropertyTextureLoadResult()
-        var preparedParticles:[SceneDesktopWallpaperSession.PreparedParticleSurface]=[]
+        var preparedSurfaces:[SceneDesktopWallpaperSession.PreparedSurface]=[]
         func begin() throws -> SceneDesktopWallpaperSession {
             let presentation=SceneFirstFramePresentationRegistration()
-            preparedParticles = ([1,2] as [CGDirectDisplayID]).map { .init(displayID:$0,playback:.init()) }
+            preparedSurfaces = ([1,2] as [CGDirectDisplayID]).map {
+                .init(displayID:$0,playback:.init(),materialRuntime:.init())
+            }
             host.launchState = .init(requestID:presentation.requestID,recordID:nil,phase:.preparingModel,message:"")
-            try host.beginCandidate(.init(),particleSurfaces:preparedParticles,
+            try host.beginCandidate(.init(),preparedSurfaces:preparedSurfaces,
                 userPropertyTextureLoad:preparedTextures,firstPresentation:presentation) { result in
                 if case .success=result {outcomes.append(true)} else {outcomes.append(false)}
             }
@@ -110,8 +114,10 @@ final class SceneDesktopWallpaperSession {
         a.onFirstFrameCompletion?(1,true)
         var result:[String:Bool]=[:]
         result["candidateReceivesPreparedTextures"] = a.userPropertyTextureLoad?.identity == preparedTextures.identity
-        result["candidateReceivesPreparedParticleSurfaces"] = a.particleSurfaces.map(\.displayID) == [1,2]
-            && zip(a.particleSurfaces,preparedParticles).allSatisfy { pair in pair.0.playback === pair.1.playback }
+        result["candidateReceivesPreparedSurfaces"] = a.preparedSurfaces.map(\.displayID) == [1,2]
+            && zip(a.preparedSurfaces,preparedSurfaces).allSatisfy { actual, prepared in
+                actual.playback === prepared.playback && actual.materialRuntime === prepared.materialRuntime
+            }
         result["allRequiredScreensGatePromotion"] = host.activeSession == nil && !a.visible
         a.onFirstFrameCompletion?(2,true)
         result["firstCandidatePromoted"] = host.activeSession === a && a.visible && outcomes == [true]
@@ -216,7 +222,8 @@ final class SceneDesktopWallpaperSession {
         // not a real command-buffer failure or a second rendering harness.
         do {
             let delayedHost=SceneDesktopWallpaperHost()
-            let previous=SceneDesktopWallpaperSession(textureDecodeCacheBudget:delayedHost.textureDecodeCacheBudget)
+            let previous=SceneDesktopWallpaperSession(textureDecodeCacheBudget:delayedHost.textureDecodeCacheBudget,
+                surfacePreparationQueue:delayedHost.launchPreparationQueue)
             previous.visible=true
             delayedHost.activeSession=previous
             var delayedOutcomes:[Bool]=[]
@@ -227,9 +234,9 @@ final class SceneDesktopWallpaperSession {
             let presentation=SceneFirstFramePresentationRegistration()
             let requestID=presentation.requestID
             delayedHost.launchState = .init(requestID:requestID,recordID:nil,phase:.preparingModel,message:"")
-            let delayedParticles:[SceneDesktopWallpaperSession.PreparedParticleSurface] =
-                ([1,2] as [CGDirectDisplayID]).map { .init(displayID:$0,playback:.init()) }
-            try delayedHost.beginCandidate(.init(),particleSurfaces:delayedParticles,
+            let delayedSurfaces:[SceneDesktopWallpaperSession.PreparedSurface] =
+                ([1,2] as [CGDirectDisplayID]).map { .init(displayID:$0,playback:.init(),materialRuntime:.init()) }
+            try delayedHost.beginCandidate(.init(),preparedSurfaces:delayedSurfaces,
                 userPropertyTextureLoad:.init(),firstPresentation:presentation) { outcome in
                 if case .success=outcome {delayedOutcomes.append(true)} else {delayedOutcomes.append(false)}
             }
@@ -288,7 +295,8 @@ final class SceneDesktopWallpaperSession {
         }
         result["NoSessionStopFinishesAfterPreparation"] = queueDrained
         let failedHost=SceneDesktopWallpaperHost()
-        let failedSession=SceneDesktopWallpaperSession(textureDecodeCacheBudget:failedHost.textureDecodeCacheBudget)
+        let failedSession=SceneDesktopWallpaperSession(textureDecodeCacheBudget:failedHost.textureDecodeCacheBudget,
+            surfacePreparationQueue:failedHost.launchPreparationQueue)
         failedHost.activeSession=failedSession
         var failedResult:Bool?
         failedHost.stopAndDrainGPU {failedResult=$0}
@@ -299,7 +307,8 @@ final class SceneDesktopWallpaperSession {
         result["PreparationFenceDoesNotHideGPUFailure"] = failedResult == false
         let retirementHost=SceneDesktopWallpaperHost()
         let retiredID=UUID()
-        let retired=SceneDesktopWallpaperSession(textureDecodeCacheBudget:retirementHost.textureDecodeCacheBudget)
+        let retired=SceneDesktopWallpaperSession(textureDecodeCacheBudget:retirementHost.textureDecodeCacheBudget,
+            surfacePreparationQueue:retirementHost.launchPreparationQueue)
         retired.launchRequestID=retiredID;retirementHost.activeSession=retired
         let workerEntered=DispatchSemaphore(value:0),workerRelease=DispatchSemaphore(value:0)
         retirementHost.launchPreparationQueue.async {workerEntered.signal();workerRelease.wait()}
@@ -319,7 +328,8 @@ final class SceneDesktopWallpaperSession {
         result["UnknownRequestCannotCertifyRetirementFromAbsence"] =
             !retirementHost.hasRequestOutput(requestID:UUID()) && retirementHost.isEmptyForRequestRetirement
         let failedRetirementHost=SceneDesktopWallpaperHost()
-        let failedID=UUID(),failedRetirement=SceneDesktopWallpaperSession(textureDecodeCacheBudget:failedRetirementHost.textureDecodeCacheBudget)
+        let failedID=UUID(),failedRetirement=SceneDesktopWallpaperSession(textureDecodeCacheBudget:failedRetirementHost.textureDecodeCacheBudget,
+            surfacePreparationQueue:failedRetirementHost.launchPreparationQueue)
         failedRetirement.launchRequestID=failedID;failedRetirementHost.activeSession=failedRetirement
         var terminalResults:[Bool]=[]
         failedRetirementHost.requestResourcesReleasedHandler={_,succeeded in terminalResults.append(succeeded)}
@@ -333,7 +343,8 @@ final class SceneDesktopWallpaperSession {
         result["FailedRetirementKeepsSessionAndReportsFalse"] = terminalResults == [false]
             && truthfulFailure == false && !failedRetirementHost.isEmptyForRequestRetirement
             && failedRetirementHost.retiringSessions[ObjectIdentifier(failedRetirement)] === failedRetirement
-        let occupied=SceneDesktopWallpaperSession(textureDecodeCacheBudget:retirementHost.textureDecodeCacheBudget)
+        let occupied=SceneDesktopWallpaperSession(textureDecodeCacheBudget:retirementHost.textureDecodeCacheBudget,
+            surfacePreparationQueue:retirementHost.launchPreparationQueue)
         occupied.launchRequestID=UUID();retirementHost.activeSession=occupied
         result["NewOwnerPreventsEmptyCertificateWithoutStoppingIt"] =
             !retirementHost.isEmptyForRequestRetirement && !occupied.stopped

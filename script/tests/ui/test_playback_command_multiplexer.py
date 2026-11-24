@@ -16,6 +16,7 @@ final class Handler: PlaybackEngineControlling {
     var isPlaying: Bool
     var volume: Float = 0
     var volumeCommands = 0
+    var qualityCommands: [WallpaperEngineCommand] = []
     init(_ kind: PlaybackEngineKind, playing: Bool) {
         engineKind = kind; isPlaying = playing
     }
@@ -23,6 +24,8 @@ final class Handler: PlaybackEngineControlling {
         switch command {
         case let .setPlaybackPaused(paused): isPlaying = !paused; return true
         case let .setVolume(value): volume = value; volumeCommands += 1; return true
+        case .setWebFrameRateSuggestion, .setPerformanceProfile:
+            qualityCommands.append(command); return true
         default: return false
         }
     }
@@ -72,6 +75,17 @@ final class Handler: PlaybackEngineControlling {
         // E2c: alias registration — the same handler under .web executes
         // exactly once per broadcast (identity dedup).
         mux.register(video, as: .web)
+        suite.set(30, forKey: PlaybackPerformanceProfile.userDefaultsKey)
+        precondition(PlaybackQualityPreference.read(from: suite) == .init(profile: .efficient, webFrameRateMode: .display))
+        mux.applyQualityPreference(.init(profile: .efficient, webFrameRateMode: .followAnimationFrameRate), defaults: suite)
+        precondition(scene.qualityCommands.isEmpty && video.qualityCommands == [.setWebFrameRateSuggestion(30)])
+        mux.applyQualityPreference(.defaults, defaults: suite)
+        mux.applyQualityPreference(.defaults, defaults: suite)
+        precondition(scene.qualityCommands == [.setPerformanceProfile(maxFPS: 60)])
+        precondition(video.qualityCommands == [.setWebFrameRateSuggestion(30), .setWebFrameRateSuggestion(nil)])
+        precondition(PlaybackQualityPreference.read(from: suite) == .defaults)
+        precondition(suite.integer(forKey: PlaybackPerformanceProfile.userDefaultsKey) == 30)
+        suite.removePersistentDomain(forName: suiteName)
         video.volume = 0
         let previousVolumeCommands = video.volumeCommands
         let deduped = mux.dispatch(.setVolume(41.5))
@@ -179,7 +193,7 @@ class PlaybackCommandMultiplexerTests(unittest.TestCase):
             result = subprocess.run(['xcrun', 'swiftc', '-parse-as-library',
                 str(PROPERTY), str(ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift"),
                 str(ROOT / "MyWallpaperX/Shared/Settings/SceneMediaSourcePreference.swift"),
-                *[str(SOURCES / name) for name in ['ScenePlaybackShortcut.swift', 'WallpaperEngineCommand.swift', 'PlaybackEngineControlling.swift', 'PlaybackCommandMultiplexer.swift', 'PlaybackIntentEpoch.swift']],
+                *[str(SOURCES / name) for name in ['ScenePlaybackShortcut.swift', 'WallpaperEngineCommand.swift', 'PlaybackEngineControlling.swift', 'PlaybackCommandMultiplexer.swift', 'PlaybackIntentEpoch.swift', 'PlaybackPerformanceProfile.swift']],
                 str(harness), '-o', str(binary)], capture_output=True, text=True, timeout=60)
             self.assertEqual(result.returncode, 0, result.stderr)
             result = subprocess.run([str(binary)], env=environment, capture_output=True, text=True, timeout=10)

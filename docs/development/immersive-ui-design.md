@@ -198,7 +198,7 @@ hover 进入 180–220 ms、退出 220 ms，叠色变化 220–260 ms。只对�
 | 音量/静音/视频速率/循环 | 面板与播放设置、视频详情 | 原 `WallpaperSettings` 及其业务消费者 |
 | 多屏支持、视频填充、系统静帧同步 | 显示子页/设置 | 原 Manager、播放进程和系统桌面发布者 |
 | 作者 Web/Scene 属性、默认值、保存/实时更新 | 新属性表单 | 原属性解析、override、session 与持久化 owner |
-| Scene 帧率/HDR/歌曲信息、视频频谱 | 显示/节能/系统设置对应分组 | 原 Scene/系统媒体/频谱服务，能力范围不因 UI 扩大 |
+| 壁纸质量、歌曲信息和视频频谱 | 质量及相应系统设置 | [质量工作卡](wallpaper-quality-work-card.md#execution)的当前偏好和引擎消费，原系统媒体／频谱服务 |
 | 全屏/焦点/电源/闲置暂停及超时 | 节能页，底条显示有效状态 | `PlaybackPolicyController` 与原设置消费者 |
 | 开机启动、恢复播放、全局快捷键 | 系统与快捷键页 | 原启动/热键 owner；输入冲突回显原错误 |
 | 自动屏保、锁定显示、预览/配置 | 显示页屏保入口、新配置表单 | `ScreenSaverCoordinator/Integration`、原系统扩展 |

@@ -45,6 +45,10 @@ class PersonalSettingsImportTests(unittest.TestCase):
             'Modules/StaticImageLibrary/Core/SILService+PersonalSettings.swift',
             'Shared/Settings/SceneHDRDisplayPreference.swift', 'Shared/Settings/SceneMediaSourcePreference.swift',
             'Core/PlaybackControl/PlaybackPerformanceProfile.swift',
+            'Core/PlaybackControl/PlaybackCommandMultiplexer.swift', 'Core/PlaybackControl/PlaybackEngineControlling.swift',
+            'Core/PlaybackControl/WallpaperEngineCommand.swift', 'Core/PlaybackControl/ScenePlaybackShortcut.swift',
+            'Core/SteamWorkshopStorage/ScenePlaybackSource.swift',
+            'Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift',
             'App/PersonalSettingsImportCoordinator.swift')]
         persistence_path = ROOT / 'MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Persistence.swift'
         images_path = ROOT / 'MyWallpaperX/Modules/StaticImageLibrary/Core/SILService.swift'

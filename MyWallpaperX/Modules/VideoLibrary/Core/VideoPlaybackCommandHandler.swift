@@ -1,6 +1,6 @@
 /// video 引擎的命令处理端（engine-refactor-program.md M0.1）。
 /// 播放控制走 WallpaperEngine，静音与"下一张"走 WallpaperManager
-/// （当前选中权威）；Scene 专属命令显式不消费。
+/// （当前选中权威）；同一处理端也承接定向 Web 控制。
 final class VideoPlaybackCommandHandler: PlaybackEngineControlling {
     let engineKind: PlaybackEngineKind = .video
 
@@ -35,6 +35,9 @@ final class VideoPlaybackCommandHandler: PlaybackEngineControlling {
             // E2a-5: 选择层意图由 UI 直接发给 WallpaperManager；引擎命令
             // 处理端不再回手调用选择权威（依赖倒置修复）。
             return false
+        case let .setWebFrameRateSuggestion(suggestion):
+            WallpaperEngine.shared.dispatchWebRuntimeCommand(.setFrameRateSuggestion(suggestion))
+            return true
         case .loadScene, .setProperty, .cancelSceneLaunch,
              .setPerformanceProfile:
             return false

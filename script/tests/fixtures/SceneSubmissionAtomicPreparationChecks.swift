@@ -53,7 +53,7 @@ enum SceneSubmissionAtomicPreparationChecks {
             ) -> SceneResolvedMaterialGraphExecutor.PreparedGraph {
                 let graph = Graph(layerID: 7, effects: [.init(key: effect)],
                     nodes: [.init(nodeIndex: 0, kind: .swap, commandSource: historyIdentity, commandTarget: temporary)],
-                    renderTargets: [historyIdentity, temporary])
+                    renderTargets: [.init(texture: historyIdentity), .init(texture: temporary)])
                 let stage = SceneResolvedMaterialGraphExecutor.PreparedStage(effect: effect, graph: graph,
                     pairStep: .init(effect: effect, inputIdentity: output.pairStep.inputIdentity,
                         outputIdentity: output.pairStep.outputIdentity, inputMember: .zero,

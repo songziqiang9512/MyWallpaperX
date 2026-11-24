@@ -297,10 +297,7 @@ extension WallpaperManager {
 
         // Scene 帧率档与库 UI 状态同样属于"设置"，与 SIL 侧重置对齐，
         // 兑现"恢复所有设置为初次安装状态"的弹窗承诺。
-        PlaybackPerformanceProfile.save(.standard)
-        PlaybackCommandMultiplexer.shared.dispatch(
-            .setPerformanceProfile(maxFPS: PlaybackPerformanceProfile.standard.maxFPS)
-        )
+        PlaybackCommandMultiplexer.shared.applyQualityPreference(.defaults)
         // Retired preferences are removed only by explicit fresh-install reset.
         for key in ["WallpaperTags", "RecentWallpapers", "PerSelectionSortStates", "gridZoomOffset"] {
             UserDefaults.standard.removeObject(forKey: key)

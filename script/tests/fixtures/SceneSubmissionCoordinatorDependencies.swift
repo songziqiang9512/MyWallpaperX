@@ -42,12 +42,12 @@ struct SceneAuthoredEffectRenderPlan {
     let layerID: Int
     let effects: [Effect]
     let nodes: [Node]
-    let renderTargets: [TextureIdentity]
+    let renderTargets: [RenderTarget]
     init(
         layerID: Int,
         effects: [Effect],
         nodes: [Node],
-        renderTargets: [TextureIdentity] = []
+        renderTargets: [RenderTarget] = []
     ) {
         self.layerID = layerID
         self.effects = effects

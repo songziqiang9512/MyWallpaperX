@@ -135,8 +135,9 @@ enum DebugWebProcessIsolationRunner {
               let fps = Int(rawFPS), let profile = PlaybackPerformanceProfile(rawValue: fps) else {
             result["failure"] = "startup-fps-must-be-30-or-60"; return
         }
-        PlaybackPerformanceProfile.save(profile)
-        PlaybackCommandMultiplexer.shared.dispatch(.setPerformanceProfile(maxFPS: fps))
+        var quality = PlaybackQualityPreference.current
+        quality.profile = profile
+        PlaybackCommandMultiplexer.shared.applyQualityPreference(quality)
         result["appliedFPS"] = PlaybackPerformanceProfile.current.maxFPS
         PlaybackCommandMultiplexer.shared.dispatch(.resume)
         let service = SteamWorkshopService.shared

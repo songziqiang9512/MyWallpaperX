@@ -214,7 +214,7 @@ class PlaybackPolicyTests(unittest.TestCase):
                 ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
                 ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift",
                 *[CONTROL / name for name in ["ScenePlaybackShortcut.swift", "WallpaperEngineCommand.swift",
-                    "PlaybackEngineControlling.swift", "PlaybackCommandMultiplexer.swift"]],
+                    "PlaybackEngineControlling.swift", "PlaybackCommandMultiplexer.swift", "PlaybackPerformanceProfile.swift"]],
                 policy_source,
             ]
             result = subprocess.run(["xcrun", "swiftc", "-parse-as-library", "-warnings-as-errors",

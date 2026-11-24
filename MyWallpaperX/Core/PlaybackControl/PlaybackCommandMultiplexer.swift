@@ -1,4 +1,5 @@
 import Combine
+import Foundation
 
 nonisolated struct PlaybackPauseSnapshot: Equatable, Sendable {
     let revision: UInt64
@@ -65,6 +66,19 @@ final class PlaybackCommandMultiplexer {
 
     func handler(for kind: PlaybackEngineKind) -> PlaybackEngineControlling? {
         handlers[kind]
+    }
+
+    func applyQualityPreference(_ preference: PlaybackQualityPreference, defaults: UserDefaults = .standard) {
+        let previous = PlaybackQualityPreference.read(from: defaults)
+        if previous != preference || defaults.object(forKey: PlaybackQualityPreference.userDefaultsKey) == nil {
+            preference.write(to: defaults)
+        }
+        if previous.profile != preference.profile {
+            dispatch(.setPerformanceProfile(maxFPS: preference.profile.maxFPS), to: .scene)
+        }
+        if previous.webFrameRateSuggestion != preference.webFrameRateSuggestion {
+            dispatch(.setWebFrameRateSuggestion(preference.webFrameRateSuggestion), to: .web)
+        }
     }
 
     @MainActor @discardableResult

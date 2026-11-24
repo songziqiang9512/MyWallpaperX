@@ -13,8 +13,8 @@
       "bytes": 8300
     },
     "docs/architecture/repository-map.md": {
-      "lines": 37,
-      "bytes": 9385
+      "lines": 40,
+      "bytes": 10355
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 80,
@@ -25,8 +25,8 @@
       "bytes": 6834
     },
     "docs/architecture/technology-stack-boundaries.md": {
-      "lines": 200,
-      "bytes": 21685
+      "lines": 202,
+      "bytes": 22193
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -71,6 +71,14 @@
     "docs/development/wallhaven-online-browser-design.md": {
       "lines": 262,
       "bytes": 38884
+    },
+    "docs/development/wallpaper-quality-settings-plan.md": {
+      "lines": 315,
+      "bytes": 73409
+    },
+    "docs/development/wallpaper-quality-work-card.md": {
+      "lines": 37,
+      "bytes": 5858
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -177,8 +185,8 @@
       "bytes": 6677
     },
     "docs/web/current-state.md": {
-      "lines": 139,
-      "bytes": 52147
+      "lines": 141,
+      "bytes": 52703
     },
     "docs/web/dedicated-host-process-design.md": {
       "lines": 92,
@@ -214,7 +222,7 @@
     },
     "docs/development/immersive-ui-design.md": {
       "lines": 247,
-      "bytes": 33156
+      "bytes": 33199
     },
     "docs/development/immersive-ui-execution-plan.md": {
       "lines": 107,
@@ -360,6 +368,60 @@
   "adjustments": [
     {
       "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "200372bd1a218f3d7b9e3b93d3d11a4d0d2c0c60c42eaa3f9d933cde556ac938",
+      "after": "5a841887e43ef5e4f30bf39e6a18d87466d4724ff05a5cf6783f2e92bc1a3e72",
+      "owner": "播放偏好和对应执行端",
+      "reason": "为画质跨引擎适配提供源码定位和重建路径。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/technology-stack-boundaries.md",
+      "before": "2f18fe7dfce095161a4a737db37d4cc4ec0bb991296fc8e01b2240b19e7fd807",
+      "after": "4fd92b65402ed26636527b70650e3f3c57a10ff06d217520e3b0be3e4db8bb1b",
+      "owner": "播放偏好和对应执行端",
+      "reason": "规定 App 偏好与三个执行端质量字段的长期边界。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/immersive-ui-design.md",
+      "before": "dc82c296fa06f08ccfe64b7facf57e674f7fe10ea1551ae46fad70906baa205f",
+      "after": "29dee8e41edd8cf1ddbd96efc02727d79057224d6d6f4515f423a3030a7f0efb",
+      "owner": "播放偏好和对应执行端",
+      "reason": "在原能力清单记录质量设置及其迁移入口。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/current-state.md",
+      "before": "2b243b0a9204f19ec3f87d8d3009266e2dbdfe0c09517fdaecc6ded709fcfe5f",
+      "after": "f8eae8d4712d85ffbadbbf22bb03fb71f102afd5ce08c2e2082631cd4a38e199",
+      "owner": "播放偏好和对应执行端",
+      "reason": "记录 Web 启动、热更新和暂停恢复的实际帧率建议责任。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-settings-plan.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "89b781d9726271f73fd22083ccac13ed9c4ffac2ac18a43ee7f213f6d60df034",
+      "owner": "播放偏好和对应执行端",
+      "reason": "带入此前评估并记录 2.8.0.42 质量预设和独立显示 HDR 入口。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "7e3cda44b3f2c9cd01aa6b9ac09dbcf78e3385e6092fe5fe2cfbae8e50bafe11",
+      "owner": "播放偏好和对应执行端",
+      "reason": "建立唯一执行顺序、具体验收流程及官方对照决策入口。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
       "before": "4327d1f54340afb434803d0afb213a285dedab1a5ddb8dee51c1c582929d8ed2",
       "after": "528cae877612ae0c90714a60b2f26ef3138c948e4c562eeb47a62a0a23c0239f",
@@ -411,15 +473,6 @@
       "owner": "Status bar panel",
       "reason": "Status panel now activates for keyboard focus (Tab/Esc) on open; fact added with the panel focus gate.",
       "decision": "docs/development/status-bar-panel-redesign.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/immersive-ui-design.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "dc82c296fa06f08ccfe64b7facf57e674f7fe10ea1551ae46fad70906baa205f",
-      "owner": "App/Shell immersive UI design",
-      "reason": "User-requested complete P0 visual specification, function map and execution/retirement plan plus reviewed generated proposals. Replace old visual authority; product UI implementation remains blocked until user approval.",
-      "decision": "docs/development/immersive-ui-execution-plan.md#entry"
     },
     {
       "section": "bodies",
@@ -549,15 +602,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/web/current-state.md",
-      "before": "e46b9461f16eb10a822ffcacfa59922cab40d0532c09490dbdababb98e49a9bf",
-      "after": "2b243b0a9204f19ec3f87d8d3009266e2dbdfe0c09517fdaecc6ded709fcfe5f",
-      "owner": "repository-governance",
-      "reason": "Move web tools into script/web and update paths.",
-      "decision": "docs/web/current-state.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/web/dedicated-host-process-design.md",
       "before": "d6407fadb1a3e0d8a3a57e010fa8b551f310daa607a2e1fd1174d2eda23e1f18",
       "after": "0deb8ade3de8344685f03798e3dcc1166013e78e175760e889770ed9fde3f721",
@@ -621,15 +665,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/technology-stack-boundaries.md",
-      "before": "96336635bdea8a2a76cbaf27eabc97f9a35a2656df6ac0ddaaaa6200c022313d",
-      "after": "2f18fe7dfce095161a4a737db37d4cc4ec0bb991296fc8e01b2240b19e7fd807",
-      "owner": "architecture owner",
-      "reason": "Drop a stale V0 milestone reference from the stack contract; the body shrinks and the baseline ratchets down.",
-      "decision": "docs/architecture/technology-stack-boundaries.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/immersive-ui-execution-plan.md",
       "before": "b89c7df2ade0e4b58c2176560beabd20c7576a5751f315aa5b342d4267e6bbb5",
       "after": "bb6adc2f0e1e5d95052bce759af6f90c02ec8c948d70f8fdb5363cb4ff7777f7",
@@ -645,15 +680,6 @@
       "owner": "Scene open breakpoint queue",
       "reason": "按用户要求保留已修复现象和资格锚点，防止接续时重复排查。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#resolved-user-feedback"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "42ed5f2ea24d816a8426b8dc937a59b02d9a53ce8574e6f8f36e509f06d6886b",
-      "after": "200372bd1a218f3d7b9e3b93d3d11a4d0d2c0c60c42eaa3f9d933cde556ac938",
-      "owner": "repository governance",
-      "reason": "Use the current test collection paths and repair the navigation after the script move.",
-      "decision": "docs/development/repository-workflow.md#并行与验证"
     },
     {
       "section": "bodies",

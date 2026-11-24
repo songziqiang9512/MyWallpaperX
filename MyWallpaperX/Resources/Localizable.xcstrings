@@ -2941,6 +2941,40 @@
         }
       }
     },
+    "Animation Frame Rate": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animation Frame Rate"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "动画帧率"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Частота кадров анимации"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animationsbildrate"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fréquence d’animation"
+          }
+        }
+      }
+    },
     "API Key Required": {
       "localizations": {
         "en": {
@@ -5213,6 +5247,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Application"
+          }
+        }
+      }
+    },
+    "Applies when the Web wallpaper uses the suggested frame rate": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applies when the Web wallpaper uses the suggested frame rate"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "支持帧率建议的网页壁纸会采用此值"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Применяется, если веб-обои используют рекомендуемую частоту кадров"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gilt, wenn das Web-Hintergrundbild die empfohlene Bildrate verwendet"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’applique si le fond d’écran Web utilise la fréquence conseillée"
           }
         }
       }
@@ -17177,6 +17245,40 @@
         }
       }
     },
+    "Follow Animation Frame Rate": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Follow Animation Frame Rate"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "跟随动画帧率"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По частоте кадров анимации"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animationsbildrate verwenden"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suivre la fréquence d’animation"
+          }
+        }
+      }
+    },
     "Follow mode will stop and the published video will be cleared. Change the system wallpaper and screen saver in System Settings.": {
       "localizations": {
         "en": {
@@ -22135,6 +22237,40 @@
         }
       }
     },
+    "Match Display (up to 60 FPS)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Match Display (up to 60 FPS)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "随显示器（最高 60 FPS）"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По дисплею (до 60 кадр/с)"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dem Display folgen (bis 60 FPS)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suivre l’écran (jusqu’à 60 i/s)"
+          }
+        }
+      }
+    },
     "May Contain Sensitive Content": {
       "localizations": {
         "en": {
@@ -26717,6 +26853,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fichier d’origine indisponible"
+          }
+        }
+      }
+    },
+    "Original Video": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Original Video"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "原片"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Исходное видео"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Originalvideo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vidéo d’origine"
           }
         }
       }
@@ -31991,6 +32161,40 @@
         }
       }
     },
+    "Restore Default Quality": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore Default Quality"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复默认画质"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбросить качество"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standardqualität wiederherstellen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rétablir la qualité par défaut"
+          }
+        }
+      }
+    },
     "Restore Default Textures": {
       "localizations": {
         "en": {
@@ -34841,6 +35045,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Défini comme fond d’écran système"
+          }
+        }
+      }
+    },
+    "Sets the frame rate cap for Scene wallpapers": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sets the frame rate cap for Scene wallpapers"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "限制场景壁纸的最高帧率"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ограничивает частоту кадров обоев Scene"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Begrenzt die Bildrate von Scene-Hintergrundbildern"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limite la fréquence des fonds d’écran Scene"
           }
         }
       }
@@ -49089,6 +49327,40 @@
         }
       }
     },
+    "Video Quality": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video Quality"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "视频画质"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Качество видео"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Videoqualität"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qualité vidéo"
+          }
+        }
+      }
+    },
     "Video Type": {
       "localizations": {
         "en": {
@@ -49837,6 +50109,40 @@
         }
       }
     },
+    "Wallpaper Quality": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wallpaper Quality"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "壁纸质量"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Качество обоев"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hintergrundbildqualität"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qualité du fond d’écran"
+          }
+        }
+      }
+    },
     "WASM Dependency": {
       "localizations": {
         "en": {
@@ -50377,6 +50683,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Web"
+          }
+        }
+      }
+    },
+    "Web Frame Rate Suggestion": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Web Frame Rate Suggestion"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "网页壁纸帧率建议"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рекомендуемая частота кадров веб-обоев"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empfohlene Bildrate für Web-Hintergrundbilder"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fréquence conseillée pour les fonds d’écran Web"
           }
         }
       }

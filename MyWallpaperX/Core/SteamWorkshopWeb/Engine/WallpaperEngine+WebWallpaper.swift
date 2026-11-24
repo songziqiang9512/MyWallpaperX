@@ -128,7 +128,8 @@ extension WallpaperEngine {
 
     private func webWallpaperRuntimeState() -> WebWallpaperRuntimeState {
         .init(paused: playbackPaused, volume: effectiveVolumeNormalized,
-              playbackRate: targetPlaybackRate, spectrumLevels: currentWebSpectrumSnapshot())
+              playbackRate: targetPlaybackRate, spectrumLevels: currentWebSpectrumSnapshot(),
+              frameRateSuggestion: PlaybackQualityPreference.current.webFrameRateSuggestion)
     }
 
     func handleWebHostEvent(_ event: WebWallpaperHostEvent) {

@@ -23,6 +23,8 @@
       "docs/development/ui-quality-audit.md",
       "docs/development/validation-simplification-plan.md",
       "docs/development/wallhaven-online-browser-design.md",
+      "docs/development/wallpaper-quality-settings-plan.md",
+      "docs/development/wallpaper-quality-work-card.md",
       "docs/release/release-signing.md",
       "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
       "docs/scene/architecture/scene-dependency-boundaries.md",
@@ -164,12 +166,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/architecture/runtime-architecture.md",
-      "lastReviewed": "2026-11-23",
+      "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "21b32aabab5df37524fb267756b55019cc8a24e58015cb435983010851e5fd5c",
+        "sourceSHA256": "cd8691db8d6a355b099d1bcc3068016e7b2db719f6152fa1d271214976118a62",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前源码职责、工具入口与文档引用核对。",
+        "scope": "播放质量 App/各执行端分工及相关源码和文档导航。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"
       }
     },
@@ -336,6 +338,18 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "来源接入完成且真实操作/独立审查通过后，长期共享职责移交既有合同，来源事实保留专题文档，本专项执行顺序退役。"
+    },
+    {
+      "path": "docs/development/wallpaper-quality-settings-plan.md",
+      "role": "active-plan",
+      "entrypoint": "docs/README.md",
+      "retirementCondition": "各质量项完成验收或明确退役，稳定语义归对应引擎合同，专项顺序与设计登记一并退役。"
+    },
+    {
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "role": "active-plan",
+      "entrypoint": "docs/README.md",
+      "retirementCondition": "完成各引擎画质纵向链、实际退役与验收，稳定规则交现有合同后撤除工作卡。"
     },
     {
       "path": "docs/history/README.md",
@@ -1648,6 +1662,64 @@
           "phase": "checkpoint",
           "gateRefs": [
             "code-health",
+            "build-verify",
+            "design-gate"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wallpaper-quality",
+      "title": "三引擎壁纸质量设置",
+      "keywords": [
+        "壁纸质量",
+        "画质",
+        "质量预设",
+        "抗锯齿",
+        "帧率",
+        "品质"
+      ],
+      "documents": [
+        "docs/development/wallpaper-quality-work-card.md",
+        "docs/development/wallpaper-quality-settings-plan.md",
+        "docs/architecture/repository-map.md",
+        "docs/architecture/playback-lifecycle-transaction-design.md",
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/web/current-state.md"
+      ],
+      "sourcePaths": [
+        "MyWallpaperX/Shared/Settings",
+        "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Process",
+        "WallpaperDaemonSources/Daemon/Playback"
+      ],
+      "verification": "发布控件前验证真实消费者与默认行为，按设置、引擎和生效阶段取对应验收；能耗与官方对照分别取证。",
+      "owner": "现有播放偏好及各引擎质量消费者",
+      "firstRead": "docs/development/wallpaper-quality-work-card.md#execution",
+      "nearestTestGroups": [
+        "playback-command-control",
+        "playback-switch-lifecycle",
+        "scene-daemon-control-plane",
+        "web-playback-policy"
+      ],
+      "verificationPhases": [
+        {
+          "phase": "inner",
+          "gateRefs": [
+            "focused-tests",
+            "document-links"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        },
+        {
+          "phase": "checkpoint",
+          "gateRefs": [
             "build-verify",
             "design-gate"
           ],

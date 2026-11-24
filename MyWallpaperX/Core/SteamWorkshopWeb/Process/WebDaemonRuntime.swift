@@ -148,8 +148,8 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
                 }
 #endif
                 desiredVolume = input.state.volume
-                let mutedState = WallpaperEngine.WebWallpaperRuntimeState(paused: input.state.paused,
-                    volume: 0, playbackRate: input.state.playbackRate, spectrumLevels: input.state.spectrumLevels)
+                var mutedState = input.state
+                mutedState.volume = 0
                 host.launch(input.request(id: requestID), runtimeState: mutedState)
             case let .runtime(command):
 #if DEBUG

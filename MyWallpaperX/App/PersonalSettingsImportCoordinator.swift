@@ -100,8 +100,11 @@ import ImageIO
         var targetPreferences = PersonalSettingsPreferences(from: target)
         targetPreferences.sceneHDRDisplayEnabled = payload.preferences.sceneHDRDisplayEnabled ?? preferences.sceneHDRDisplayEnabled
         targetPreferences.sceneMediaInfoEnabled = payload.preferences.sceneMediaInfoEnabled ?? preferences.sceneMediaInfoEnabled
-        targetPreferences.playbackPerformanceProfile = payload.preferences.playbackPerformanceProfile
-            .flatMap(PlaybackPerformanceProfile.init(rawValue:))?.rawValue ?? preferences.playbackPerformanceProfile
+        let importedProfile = payload.preferences.compatibleAnimationProfile
+        targetPreferences.animationFramesPerSecond = importedProfile?.rawValue ?? preferences.animationFramesPerSecond
+        targetPreferences.playbackPerformanceProfile = targetPreferences.animationFramesPerSecond
+        targetPreferences.webFrameRateMode = payload.preferences.webFrameRateMode
+            .flatMap(WebFrameRateMode.init(rawValue:))?.rawValue ?? preferences.webFrameRateMode
         let plan = try LibraryPersonalSettings.plan(payload, sources: sources, beforePreferences: preferences,
             targetPreferences: targetPreferences, state: state, normalizedPaths: paths, missingPathCount: missing)
         let videoSortPatch = payload.preferences.videoSortPatch(before: videoSortBefore)
@@ -202,6 +205,8 @@ import ImageIO
             before.sceneHDRDisplayEnabled = nil; target.sceneHDRDisplayEnabled = nil
             before.sceneMediaInfoEnabled = nil; target.sceneMediaInfoEnabled = nil
             before.playbackPerformanceProfile = nil; target.playbackPerformanceProfile = nil
+            before.animationFramesPerSecond = nil; target.animationFramesPerSecond = nil
+            before.webFrameRateMode = nil; target.webFrameRateMode = nil
             guard before == current || target == current else {
                 throw PersonalSettingsError.preferencesChanged
             }
@@ -252,7 +257,10 @@ import ImageIO
         var value = PersonalSettingsPreferences(from: manager.settings)
         value.sceneHDRDisplayEnabled = SceneHDRDisplayPreference.isEnabled
         value.sceneMediaInfoEnabled = SceneMediaSourcePreference.isEnabled
-        value.playbackPerformanceProfile = PlaybackPerformanceProfile.current.rawValue
+        let quality = PlaybackQualityPreference.current
+        value.animationFramesPerSecond = quality.profile.rawValue
+        value.playbackPerformanceProfile = quality.profile.rawValue
+        value.webFrameRateMode = quality.webFrameRateMode.rawValue
         return value
     }
 
@@ -262,9 +270,11 @@ import ImageIO
         func admits<T: Equatable>(_ current: T, _ old: T?, _ next: T?) -> Bool {
             next == nil || current == old || current == next
         }
+        let quality = PlaybackQualityPreference.current
         guard admits(SceneHDRDisplayPreference.isEnabled, before.sceneHDRDisplayEnabled, target.sceneHDRDisplayEnabled),
               admits(SceneMediaSourcePreference.isEnabled, before.sceneMediaInfoEnabled, target.sceneMediaInfoEnabled),
-              admits(PlaybackPerformanceProfile.current.rawValue, before.playbackPerformanceProfile, target.playbackPerformanceProfile) else {
+              admits(quality.profile, before.compatibleAnimationProfile, target.compatibleAnimationProfile),
+              admits(quality.webFrameRateMode.rawValue, before.webFrameRateMode, target.webFrameRateMode) else {
             throw PersonalSettingsError.preferencesChanged
         }
     }
@@ -276,9 +286,13 @@ import ImageIO
         if let enabled = preferences.sceneMediaInfoEnabled, enabled != SceneMediaSourcePreference.isEnabled {
             SceneMediaSourcePreference.setEnabled(enabled)
         }
-        if let raw = preferences.playbackPerformanceProfile, let profile = PlaybackPerformanceProfile(rawValue: raw), profile != .current {
-            PlaybackPerformanceProfile.save(profile)
-            PlaybackCommandMultiplexer.shared.dispatch(.setPerformanceProfile(maxFPS: profile.maxFPS))
+        let current = PlaybackQualityPreference.current
+        let next = PlaybackQualityPreference(
+            profile: preferences.compatibleAnimationProfile ?? current.profile,
+            webFrameRateMode: preferences.webFrameRateMode.flatMap(WebFrameRateMode.init(rawValue:)) ?? current.webFrameRateMode
+        )
+        if current != next {
+            PlaybackCommandMultiplexer.shared.applyQualityPreference(next)
         }
     }
 
@@ -320,5 +334,11 @@ import ImageIO
         let handle = try FileHandle(forWritingTo: recoveryURL)
         defer { try? handle.close() }
         try handle.synchronize()
+    }
+}
+
+private extension PersonalSettingsPreferences {
+    var compatibleAnimationProfile: PlaybackPerformanceProfile? {
+        (animationFramesPerSecond ?? playbackPerformanceProfile).flatMap(PlaybackPerformanceProfile.init(rawValue:))
     }
 }

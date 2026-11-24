@@ -11,7 +11,7 @@ CORE = ROOT / "MyWallpaperX/Core"
 HARNESS = r'''
 import Foundation
 enum ContentKind { case video, web }
-enum WebWallpaperRuntimeCommand { case pause, resume(playbackRate: Float) }
+enum WebWallpaperRuntimeCommand { case pause, resume(playbackRate: Float), setFrameRateSuggestion(Int?) }
 final class WallpaperManager {
     static let shared = WallpaperManager()
     func stopCurrentPlayback() {}
@@ -54,11 +54,6 @@ final class WallpaperEngine {
     func send(_ command: DaemonCommand, to session: DisplayDaemonSession) { session.commands.append(command) }
     // VIDEO_METHODS
 }
-struct PlaybackPerformanceProfile {
-    var maxFPS = 60
-    init() {}
-    init?(rawValue: Int) { maxFPS = rawValue }
-}
 enum SceneDaemonProtocolFailure: Error { case invalidPayload(String) }
 enum SceneDaemonProtocol {
     static let version = 2
@@ -82,7 +77,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     struct Lifetime { let lifetime: Int }
     var pendingResourceLifetime: Lifetime?
     var requestResourceLifetimes: [UUID: Int] = [:]
-    var performanceProfile = PlaybackPerformanceProfile()
+    var performanceProfile: PlaybackPerformanceProfile = .standard
     var commands: [[String: Any]] = []
     var launchFailures: [[String: Any]] = []
     func handleLaunchState(_ payload: [String: Any]) { launchFailures.append(payload) }
@@ -102,6 +97,11 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         let engine = WallpaperEngine.shared
         let session = WallpaperEngine.DisplayDaemonSession()
         engine.displaySessions[1] = session
+        precondition(mux.dispatch(.setWebFrameRateSuggestion(30), to: .web))
+        guard case .setFrameRateSuggestion(30)? = engine.webCommands.last else {
+            fatalError("Web settings must reach preparation even while Video is the current kind")
+        }
+        precondition(session.commands.isEmpty && scene.commands.isEmpty)
         mux.dispatch(.pause)
         precondition(session.commands.last?.action == "pause")
         precondition(scene.isPaused && scene.commands.isEmpty)
@@ -372,7 +372,7 @@ final class Host {
                 CORE / "SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
                 ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/VideoPlaybackCommandHandler.swift",
                 *[CORE / "PlaybackControl" / name for name in ["ScenePlaybackShortcut.swift", "WallpaperEngineCommand.swift",
-                    "PlaybackEngineControlling.swift", "PlaybackCommandMultiplexer.swift"]]]
+                    "PlaybackEngineControlling.swift", "PlaybackCommandMultiplexer.swift", "PlaybackPerformanceProfile.swift"]]]
             result = subprocess.run(["xcrun", "swiftc", "-parse-as-library", *map(str, sources),
                 str(path / "Harness.swift"), "-o", str(path / "harness")],
                 capture_output=True, text=True, timeout=90)
