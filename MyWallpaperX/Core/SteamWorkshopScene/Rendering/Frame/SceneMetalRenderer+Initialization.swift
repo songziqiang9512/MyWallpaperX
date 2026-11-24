@@ -57,6 +57,8 @@ extension SceneMetalRenderer {
         self.baseMaterialProviderBindings = baseMaterialProviderBindings
         self.stockNoiseTextures = stockNoiseTextures
         self.staticModelResources = staticModelResources
+        let rasterSampleCount = staticModelResources.pipeline?.rasterSampleCount ?? 1
+        self.multisampleTargets = rasterSampleCount > 1 ? MainMultisampleTargets(sampleCount: rasterSampleCount) : nil
         self.pipelineRepository = pipelineRepository
         if baseMaterialProviderBindings.hasLitImageConsumers {
             _ = pipelineRepository.prepareLitImageLayer()

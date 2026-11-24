@@ -352,7 +352,7 @@ final class SceneImageEffectPipelineRepository {
 enum SceneMdlStaticModel { struct PreparedSource {} }
 struct ScenePreparedStaticModelResources {
     struct MaterialPlan { static let empty = Self() }
-    static func prepare(descriptor: SceneRenderDescriptor, directionalShadowDimensionLimit: Int?, pointVolumeEnabled: Bool, modelReflectionsEnabled: Bool,
+    static func prepare(descriptor: SceneRenderDescriptor, directionalShadowDimensionLimit: Int?, pointVolumeEnabled: Bool, modelReflectionsEnabled: Bool, rasterSampleCount: Int,
                         resourceView: SceneResourceView, device: MTLDevice, textureLoader: SceneTextureLoader,
                         materialPlan: MaterialPlan,
                         albedoStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],

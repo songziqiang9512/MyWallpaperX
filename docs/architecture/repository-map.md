@@ -31,6 +31,8 @@ Scene 的 [显示模式与目标屏](../../MyWallpaperX/Core/SteamWorkshopScene/
 
 Scene 的 [基础图像准备](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift) 和 [TEX 候选加载](../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader+Candidate.swift) 负责真实纹理规格。精确用途、GPU 表示与作者布局见 [纹理档位合同](../scene/architecture/runtime-architecture.md#scene-texture-quality-policy)。
 
+Scene MSAA 请求经 [主域准入](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+SceneDrawing.swift) 交给 [唯一主合成编码器](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneMainPassEncoder.swift)。 [实际采样与回退](../scene/architecture/runtime-architecture.md#raster-sample-domain)
+
 Scene 阴影档经冷准备进入 [光空间贴图与受光绘制](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift)。 [尺寸与回退合同](../scene/capabilities/advanced-object-coverage.md#model-directional-shadow-density)
 
 Scene 体积开关从同一准备请求进入 [根域点光与有序聚光绘制](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift)。 [生效合同](../scene/architecture/runtime-architecture.md#scene-volume-lighting-policy)

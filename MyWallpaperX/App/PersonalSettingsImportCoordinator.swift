@@ -108,6 +108,8 @@ import ImageIO
             (payload.preferences.compatibleSceneReflections ?? preferences.compatibleSceneReflections)?.rawValue
         targetPreferences.sceneTextureQuality =
             (payload.preferences.compatibleSceneTextures ?? preferences.compatibleSceneTextures)?.rawValue
+        targetPreferences.sceneAntiAliasingMode =
+            (payload.preferences.compatibleSceneAntiAliasing ?? preferences.compatibleSceneAntiAliasing)?.rawValue
         targetPreferences.sceneHDRDisplayEnabled = importedPostProcessing?.requestsDisplayHDR
         targetPreferences.sceneMediaInfoEnabled = payload.preferences.sceneMediaInfoEnabled ?? preferences.sceneMediaInfoEnabled
         let importedFrameRate = payload.preferences.compatibleAnimationFrameRate
@@ -218,6 +220,7 @@ import ImageIO
             before.scenePointVolumeQuality = nil; target.scenePointVolumeQuality = nil
             before.sceneReflectionQuality = nil; target.sceneReflectionQuality = nil
             before.sceneTextureQuality = nil; target.sceneTextureQuality = nil
+            before.sceneAntiAliasingMode = nil; target.sceneAntiAliasingMode = nil
             before.sceneMediaInfoEnabled = nil; target.sceneMediaInfoEnabled = nil
             before.playbackPerformanceProfile = nil; target.playbackPerformanceProfile = nil
             before.animationFramesPerSecond = nil; target.animationFramesPerSecond = nil
@@ -285,6 +288,7 @@ import ImageIO
         value.scenePointVolumeQuality = quality.scene.volumeLighting.rawValue
         value.sceneReflectionQuality = quality.scene.reflections.rawValue
         value.sceneTextureQuality = quality.scene.textures.rawValue
+        value.sceneAntiAliasingMode = quality.scene.antiAliasing.rawValue
         value.sceneHDRDisplayEnabled = quality.scene.postProcessing.requestsDisplayHDR
         value.animationFramesPerSecond = quality.animationFrameRate.rawValue
         value.playbackPerformanceProfile = AnimationFrameRate.legacyValue(quality.animationFrameRate.rawValue)
@@ -304,6 +308,7 @@ import ImageIO
               admits(quality.scene.volumeLighting, before.compatibleSceneVolumeLighting, target.compatibleSceneVolumeLighting),
               admits(quality.scene.reflections, before.compatibleSceneReflections, target.compatibleSceneReflections),
               admits(quality.scene.textures, before.compatibleSceneTextures, target.compatibleSceneTextures),
+              admits(quality.scene.antiAliasing, before.compatibleSceneAntiAliasing, target.compatibleSceneAntiAliasing),
               admits(SceneMediaSourcePreference.isEnabled, before.sceneMediaInfoEnabled, target.sceneMediaInfoEnabled),
               admits(quality.animationFrameRate, before.compatibleAnimationFrameRate, target.compatibleAnimationFrameRate),
               admits(quality.webFrameRateMode.rawValue, before.webFrameRateMode, target.webFrameRateMode) else {
@@ -324,7 +329,8 @@ import ImageIO
                 shadows: preferences.compatibleSceneShadows ?? current.scene.shadows,
                 volumeLighting: preferences.compatibleSceneVolumeLighting ?? current.scene.volumeLighting,
                 reflections: preferences.compatibleSceneReflections ?? current.scene.reflections,
-                textures: preferences.compatibleSceneTextures ?? current.scene.textures
+                textures: preferences.compatibleSceneTextures ?? current.scene.textures,
+                antiAliasing: preferences.compatibleSceneAntiAliasing ?? current.scene.antiAliasing
             ),
             keepsLegacySceneDecodeLimit: current.keepsLegacySceneDecodeLimit
         )
@@ -394,6 +400,10 @@ private extension PersonalSettingsPreferences {
 
     var compatibleSceneTextures: SceneTextureQuality? {
         sceneTextureQuality.flatMap(SceneTextureQuality.init(rawValue:))
+    }
+
+    var compatibleSceneAntiAliasing: SceneAntiAliasingMode? {
+        sceneAntiAliasingMode.flatMap(SceneAntiAliasingMode.init(rawValue:))
     }
 
     var compatibleAnimationFrameRate: AnimationFrameRate? {

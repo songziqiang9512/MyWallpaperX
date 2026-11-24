@@ -2,6 +2,62 @@ import CoreGraphics
 import Metal
 
 extension SceneMetalRenderer {
+    final class MainMultisampleTargets {
+        private struct Target: Equatable {
+            let width: Int
+            let height: Int
+            let format: MTLPixelFormat
+        }
+
+        private let sampleCount: Int
+        private var currentTarget: Target?
+        private var current: SceneMainPassEncoder.MultisampleAttachments?
+
+        init(sampleCount: Int) {
+            self.sampleCount = sampleCount
+        }
+
+        func forTarget(_ target: MTLTexture) -> SceneMainPassEncoder.MultisampleAttachments? {
+            let next = Target(width: target.width, height: target.height, format: target.pixelFormat)
+            guard next != currentTarget else { return current }
+            currentTarget = next
+            // These two attachments live in tile memory and cannot be read
+            // from outside the open pass. The original output is their resolve.
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: target.pixelFormat,
+                width: target.width, height: target.height, mipmapped: false)
+            descriptor.storageMode = .memoryless
+            descriptor.usage = .renderTarget
+            descriptor.textureType = .type2DMultisample
+            descriptor.sampleCount = sampleCount
+            guard let color = target.device.makeTexture(descriptor: descriptor) else {
+                current = nil
+                return nil
+            }
+            descriptor.pixelFormat = .depth32Float
+            current = target.device.makeTexture(descriptor: descriptor).flatMap {
+                .init(color: color, depth: $0)
+            }
+            return current
+        }
+    }
+
+    func modelLayersAllowMultisampling(_ orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>) -> Bool {
+        var drawsModels = false
+        for layer in orderedLayers where visible.contains(layer.id) {
+            switch layer.contentKind {
+            case "model":
+                drawsModels = true
+            case "container", "sound", "pointLight", "directionalLight", "tubeLight", "project", "fullscreen":
+                continue
+            case "spotLight" where spotLightRuntime == nil || layer.spotLight?.castsVolumetrics != true:
+                continue
+            default:
+                return false
+            }
+        }
+        return drawsModels
+    }
+
     /// One submission's optional environment and the mandatory scratch it may
     /// not evict. Prepared source payloads reference only this frame's resolver.
     final class ReflectionFrame {

@@ -13,8 +13,8 @@
       "bytes": 8300
     },
     "docs/architecture/repository-map.md": {
-      "lines": 52,
-      "bytes": 12552
+      "lines": 54,
+      "bytes": 12909
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -77,8 +77,8 @@
       "bytes": 73409
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 179,
-      "bytes": 34729
+      "lines": 201,
+      "bytes": 40041
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -94,7 +94,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 278,
-      "bytes": 53804
+      "bytes": 53809
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,29 +369,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "9f6289bee2ab6790d2df5c347c515e8b6f77b298bbeb71dd915cff6be2522415",
-      "after": "2d261718ec08847a70e2f63198aaa7664a0baf12e781dc430487ac530f735877",
+      "before": "2d261718ec08847a70e2f63198aaa7664a0baf12e781dc430487ac530f735877",
+      "after": "1cb9cdf19069a2dcc0ffa45a871ee7e4d5174d9d7a05343db605c0297edece5e",
       "owner": "Scene runtime / Metal",
-      "reason": "接管五档、冷准备与实际阴影资源选择。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+      "reason": "约定唯一主域、冷准备、实际消费者以及 1× 回退。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-aa-rollout"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "ca1b825b531999f72ee1cc286988f1df031be4b7ac2a00937425d4c550f97092",
-      "after": "1db1865af9673d5530766835a6eaa6e89670a0866585dc06b4d572798cbdd752",
-      "owner": "Scene lighting / Quality",
-      "reason": "记录阴影档接线、实际成像、物理贴图及未覆盖范围。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+      "before": "1db1865af9673d5530766835a6eaa6e89670a0866585dc06b4d572798cbdd752",
+      "after": "37a56996b9605ec539bc379bb355b9a0b281b4ac081e3763be64910dafdb31d5",
+      "owner": "Scene quality / Metal",
+      "reason": "录入真实主域 2×、误差与显存证据和限制。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-aa-rollout"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "66fdc0b3fd0e11908999e9f6dda8a55afd756e3c93935f2640ca8d749017aedf",
-      "after": "ec4fd806b619e54e93bf0283a771b51dc349a14b916c4da3013b9b3e56f2d52b",
+      "before": "ec4fd806b619e54e93bf0283a771b51dc349a14b916c4da3013b9b3e56f2d52b",
+      "after": "821bce7ced1a50404b2231f6fdb2469152a5c90875fe82c2101a4b08f1241a9c",
       "owner": "Repository navigation",
-      "reason": "路由 Scene 阴影档到原光空间贴图。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+      "reason": "路由新的实际采样设置到 MainPass。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-aa-rollout"
     },
     {
       "section": "bodies",

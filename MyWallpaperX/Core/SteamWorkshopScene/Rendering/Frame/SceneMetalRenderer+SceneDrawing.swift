@@ -422,6 +422,26 @@ extension SceneMetalRenderer {
             reflectionDemand = needed
             return needed
         }
+        if let multisampleTargets, frameDescriptor.camera.clearEnabled, groups == nil,
+           !modelFrame.collectsVolumeOccluders, !hasReadyReflectiveModel,
+           activeStaticModelNamedAlbedoLayerIDs.isEmpty,
+           dependencyRuntime.nonStaticModelProviderLayerIDs.isEmpty,
+           resolvedMaterialFrameTargetPlans.isEmpty,
+           preparationSchedule.prepassProviderLayerIDs.isEmpty,
+           preparationSchedule.providersBeforeLayerID.isEmpty,
+           modelLayersAllowMultisampling(orderedLayers, visible: frameVisibleLayerIDs),
+           !requiresImageReflection(),
+           let draws = modelFrame.prepared ?? shadowCandidates ?? shadowDrawCandidates(
+               orderedLayers: orderedLayers, visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames,
+               snapshot: frameContext.dynamicValues, groups: nil, state: modelFrame) {
+            modelFrame.prepared = draws
+            if draws.values.contains(where: { !$0.isEmpty }),
+               staticModelResources.pipeline?.supportsMultisampleAdditive == true
+                   || !draws.values.contains(where: { $0.contains { $0.entry.materialBlending == .additive } }),
+               let attachments = multisampleTargets.forTarget(mainTarget) {
+                mainPass.prepareMultisampling(attachments)
+            }
+        }
         displayMappingInput = displayMappingPostProcess?.input(for: drawable.texture,
             clearEnabled: frameDescriptor.camera.clearEnabled,
             hasPersistentSceneColor: sceneColor != nil, hasShadowReceiver: hasShadowReceiver,

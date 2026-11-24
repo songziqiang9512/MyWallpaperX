@@ -58,12 +58,20 @@ nonisolated enum SceneTextureQuality: String, Sendable {
     var ordinaryColorMipLongEdge: Int? { self == .performance ? 2_048 : nil }
 }
 
+nonisolated enum SceneAntiAliasingMode: String, Sendable {
+    case none
+    case msaa2
+
+    var sampleCount: Int { self == .msaa2 ? 2 : 1 }
+}
+
 nonisolated struct SceneRenderQuality: Equatable, Sendable {
     var postProcessing: ScenePostProcessingMode = .ultra
     var shadows: SceneShadowQuality = .adaptive
     var volumeLighting: SceneVolumeLightingQuality = .enabled
     var reflections: SceneReflectionQuality = .enabled
     var textures: SceneTextureQuality = .full
+    var antiAliasing: SceneAntiAliasingMode = .none
 }
 
 nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
@@ -104,7 +112,9 @@ nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
                 reflections: (record?["sceneReflectionQuality"] as? String)
                     .flatMap(SceneReflectionQuality.init(rawValue:)) ?? .enabled,
                 textures: (record?["sceneTextureQuality"] as? String)
-                    .flatMap(SceneTextureQuality.init(rawValue:)) ?? .full
+                    .flatMap(SceneTextureQuality.init(rawValue:)) ?? .full,
+                antiAliasing: (record?["sceneAntiAliasingMode"] as? String)
+                    .flatMap(SceneAntiAliasingMode.init(rawValue:)) ?? .none
             ),
             keepsLegacySceneDecodeLimit: (record?["keepsLegacySceneDecodeLimit"] as? Bool) ?? (fps == 30)
         )
@@ -120,6 +130,7 @@ nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
             "scenePointVolumeQuality": scene.volumeLighting.rawValue,
             "sceneReflectionQuality": scene.reflections.rawValue,
             "sceneTextureQuality": scene.textures.rawValue,
+            "sceneAntiAliasingMode": scene.antiAliasing.rawValue,
         ], forKey: Self.userDefaultsKey)
     }
 }

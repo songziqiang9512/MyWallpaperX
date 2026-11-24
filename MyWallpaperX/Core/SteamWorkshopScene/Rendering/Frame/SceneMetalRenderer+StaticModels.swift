@@ -309,11 +309,18 @@ extension SceneMetalRenderer {
         let frontFacing = pass.rasterFrontFacing
         var encodedLit = false
         var encodedDepthWriter = false
+        let rasterSampleCount = pass.rasterSampleCount
         for draw in draws {
-            _ = state.sharedDepth(pass: pass, pool: staticModelDepthTargetPool,
-                device: device, commandBuffer: commandBuffer, leases: &leases)
-            if state.depthDeferralReason != nil || state.sceneDepthFailureReason != nil { return encodedLit }
-            guard let encoder = state.sceneDepthEncoder(pass: pass, commandBuffer: commandBuffer) else { continue }
+            let modelEncoder: MTLRenderCommandEncoder?
+            if rasterSampleCount == 1 {
+                _ = state.sharedDepth(pass: pass, pool: staticModelDepthTargetPool,
+                    device: device, commandBuffer: commandBuffer, leases: &leases)
+                if state.depthDeferralReason != nil || state.sceneDepthFailureReason != nil { return encodedLit }
+                modelEncoder = state.sceneDepthEncoder(pass: pass, commandBuffer: commandBuffer)
+            } else {
+                modelEncoder = pass.encoder()
+            }
+            guard let encoder = modelEncoder else { continue }
             let environment = usesPerspective && pipeline.supportsReflection
                 && (draw.material.surfaceProfile?.reflectivity ?? 0) > 0 ? reflection : nil
             let encoded = pipeline.draw(mesh: draw.mesh, texture: draw.texture,
@@ -333,7 +340,8 @@ extension SceneMetalRenderer {
                 additiveRGB: draw.entry.materialBlending == .additive, lighting: lighting,
                 writesDepth: draw.entry.writesDepth, testsDepth: draw.entry.testsDepth, shadows: state.shadows,
                 reflectionTexture: environment?.publication.texture,
-                frameEpoch: textureRegistry.frameEpoch, commandBuffer: commandBuffer, encoder: encoder)
+                frameEpoch: textureRegistry.frameEpoch, commandBuffer: commandBuffer,
+                rasterSampleCount: rasterSampleCount, encoder: encoder)
             if encoded && state.collectsVolumeOccluders && usesPerspective && pass.isSceneRoot
                 && draw.entry.writesDepth && draw.entry.materialBlending == .normal && draw.alpha == 1 {
                 state.volumeOccluders.append(.init(mesh: draw.mesh,
@@ -602,7 +610,7 @@ extension SceneMetalRenderer {
             guard modelNeedsDepth || particleNeedsDepth,
                   let pass = groups?.renderPass(forLayerID: layer.id) ?? (groups == nil ? mainPass : nil)
             else { continue }
-            if modelNeedsDepth {
+            if modelNeedsDepth && pass.rasterSampleCount == 1 {
                 let depth = state.sharedDepth(pass: pass, pool: staticModelDepthTargetPool,
                     device: device, commandBuffer: commandBuffer, leases: &leases)
                 complete = complete && depth.lease != nil

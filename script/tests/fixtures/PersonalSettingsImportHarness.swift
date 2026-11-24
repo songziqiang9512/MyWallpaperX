@@ -389,6 +389,7 @@ extension Notification.Name {
         completePreferences.scenePointVolumeQuality = importedPointVolume.rawValue
         completePreferences.sceneReflectionQuality = importedReflections.rawValue
         completePreferences.sceneTextureQuality = SceneTextureQuality.performance.rawValue
+        completePreferences.sceneAntiAliasingMode = SceneAntiAliasingMode.msaa2.rawValue
         completePreferences.sceneMediaInfoEnabled = !mediaBefore
         completePreferences.playbackPerformanceProfile = frameRateBefore == .standard ? 30 : 60
         completePreferences.webFrameRateMode = WebFrameRateMode.followAnimationFrameRate.rawValue
@@ -400,9 +401,10 @@ extension Notification.Name {
             && PlaybackQualityPreference.current.scene.volumeLighting == importedPointVolume
             && PlaybackQualityPreference.current.scene.reflections == importedReflections
             && PlaybackQualityPreference.current.scene.textures == .performance
+            && PlaybackQualityPreference.current.scene.antiAliasing == .msaa2
             && SceneMediaSourcePreference.isEnabled == !mediaBefore
             && PlaybackQualityPreference.current.animationFrameRate.rawValue == completePreferences.playbackPerformanceProfile
-            && Array(sceneQuality.commands.suffix(2)) == [.setAnimationFrameRate(PlaybackQualityPreference.current.animationFrameRate), .setSceneRenderQuality(.init(postProcessing: importedMode, shadows: importedShadows, volumeLighting: importedPointVolume, reflections: importedReflections, textures: .performance))]
+            && Array(sceneQuality.commands.suffix(2)) == [.setAnimationFrameRate(PlaybackQualityPreference.current.animationFrameRate), .setSceneRenderQuality(.init(postProcessing: importedMode, shadows: importedShadows, volumeLighting: importedPointVolume, reflections: importedReflections, textures: .performance, antiAliasing: .msaa2))]
             && webQuality.commands.last == .setWebFrameRateSuggestion(PlaybackQualityPreference.current.animationFrameRate.rawValue)
             && manager.recentWrites == 0
         let portableBackup = root.appendingPathComponent("all-portable-backup.json")
@@ -413,6 +415,7 @@ extension Notification.Name {
             && portableExport.scenePointVolumeQuality == importedPointVolume.rawValue
             && portableExport.sceneReflectionQuality == importedReflections.rawValue
             && portableExport.sceneTextureQuality == SceneTextureQuality.performance.rawValue
+            && portableExport.sceneAntiAliasingMode == SceneAntiAliasingMode.msaa2.rawValue
             && portableExport.sceneMediaInfoEnabled == !mediaBefore && portableExport.playbackPerformanceProfile == PlaybackQualityPreference.current.animationFrameRate.rawValue
             && portableExport.animationFramesPerSecond == PlaybackQualityPreference.current.animationFrameRate.rawValue
             && portableExport.webFrameRateMode == WebFrameRateMode.followAnimationFrameRate.rawValue
@@ -424,8 +427,8 @@ extension Notification.Name {
         try write(.init(exportedAt: originalDate, preferences: precedence, sources: [], collections: .init()), to: completeProfile)
         _ = try await coordinator.importPersonalSettings(from: completeProfile)
         checks["NewFrameRateWinsLegacyAndAnOmittedWebModeIsPreserved"] = PlaybackQualityPreference.current
-            == .init(animationFrameRate: customFPS, webFrameRateMode: .followAnimationFrameRate, scene: .init(postProcessing: modeBefore, shadows: importedShadows, volumeLighting: importedPointVolume, reflections: importedReflections, textures: .performance), keepsLegacySceneDecodeLimit: keepsLegacyCache)
-            && Array(sceneQuality.commands.suffix(2)) == [.setAnimationFrameRate(customFPS), .setSceneRenderQuality(.init(postProcessing: modeBefore, shadows: importedShadows, volumeLighting: importedPointVolume, reflections: importedReflections, textures: .performance))]
+            == .init(animationFrameRate: customFPS, webFrameRateMode: .followAnimationFrameRate, scene: .init(postProcessing: modeBefore, shadows: importedShadows, volumeLighting: importedPointVolume, reflections: importedReflections, textures: .performance, antiAliasing: .msaa2), keepsLegacySceneDecodeLimit: keepsLegacyCache)
+            && Array(sceneQuality.commands.suffix(2)) == [.setAnimationFrameRate(customFPS), .setSceneRenderQuality(.init(postProcessing: modeBefore, shadows: importedShadows, volumeLighting: importedPointVolume, reflections: importedReflections, textures: .performance, antiAliasing: .msaa2))]
             && webQuality.commands.last == .setWebFrameRateSuggestion(customFPS.rawValue)
         let sceneCount = sceneQuality.commands.count, webCount = webQuality.commands.count
         precedence.animationFramesPerSecond = 9
@@ -435,10 +438,11 @@ extension Notification.Name {
         precedence.scenePointVolumeQuality = "futureVolumeMode"
         precedence.sceneReflectionQuality = "futureReflectionsMode"
         precedence.sceneTextureQuality = "futureTextureMode"
+        precedence.sceneAntiAliasingMode = "futureAntialiasing"
         try write(.init(exportedAt: originalDate, preferences: precedence, sources: [], collections: .init()), to: completeProfile)
         _ = try await coordinator.importPersonalSettings(from: completeProfile)
         checks["UnsupportedExplicitFrameRateDoesNotFallBackToLegacy"] = PlaybackQualityPreference.current
-            == .init(animationFrameRate: customFPS, webFrameRateMode: .followAnimationFrameRate, scene: .init(postProcessing: modeBefore, shadows: importedShadows, volumeLighting: importedPointVolume, reflections: importedReflections, textures: .performance), keepsLegacySceneDecodeLimit: keepsLegacyCache)
+            == .init(animationFrameRate: customFPS, webFrameRateMode: .followAnimationFrameRate, scene: .init(postProcessing: modeBefore, shadows: importedShadows, volumeLighting: importedPointVolume, reflections: importedReflections, textures: .performance, antiAliasing: .msaa2), keepsLegacySceneDecodeLimit: keepsLegacyCache)
             && sceneQuality.commands.count == sceneCount && webQuality.commands.count == webCount
         let result = try await coordinator.importPersonalSettings(from: profile)
         checks["CurrentPartialProfilesLeaveUnselectedExternalPreferencesWithTheirOwners"] = PlaybackQualityPreference.current.scene.postProcessing == modeBefore
@@ -446,6 +450,7 @@ extension Notification.Name {
             && PlaybackQualityPreference.current.scene.volumeLighting == importedPointVolume
             && PlaybackQualityPreference.current.scene.reflections == importedReflections
             && PlaybackQualityPreference.current.scene.textures == .performance
+            && PlaybackQualityPreference.current.scene.antiAliasing == .msaa2
             && SceneMediaSourcePreference.isEnabled == !mediaBefore && PlaybackQualityPreference.current.animationFrameRate == customFPS
             && PlaybackQualityPreference.current.webFrameRateMode == .followAnimationFrameRate
         checks["SameNameDifferentUUIDAndMixedOfflineMembersSurvive"] = controller.snapshot.playlists.count == 2
@@ -646,6 +651,7 @@ extension Notification.Name {
                 snapshot.removeValue(forKey: "scenePointVolumeQuality")
                 snapshot.removeValue(forKey: "sceneReflectionQuality")
                 snapshot.removeValue(forKey: "sceneTextureQuality")
+                snapshot.removeValue(forKey: "sceneAntiAliasingMode")
                 snapshot["sceneHDRDisplayEnabled"] = true
                 plan[key] = snapshot
             }

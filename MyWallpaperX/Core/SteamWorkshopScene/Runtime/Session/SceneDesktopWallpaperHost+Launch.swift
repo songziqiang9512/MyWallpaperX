@@ -280,11 +280,13 @@ extension SceneDesktopWallpaperHost {
             bindingProgram: runtimeInput.propertyBindingProgram,
             effectivePropertyValues: runtimeInput.effectivePropertyValues
         )
+        let requestedSampleCount = sceneRenderQuality.antiAliasing.sampleCount
         let deviceResourcesPreparation = ScenePreparedDeviceResourcesTask(
             descriptor: runtimeInput.renderDescriptor,
             directionalShadowDimensionLimit: sceneRenderQuality.shadows.directionalDimensionLimit,
             pointVolumeEnabled: sceneRenderQuality.volumeLighting == .enabled,
             modelReflectionsEnabled: sceneRenderQuality.reflections == .enabled,
+            rasterSampleCount: requestedSampleCount > 1 && device.supportsFamily(.apple7) ? requestedSampleCount : 1,
             ordinaryColorMipLongEdge: sceneRenderQuality.textures.ordinaryColorMipLongEdge,
             resourceView: model.resourceView,
             device: device,

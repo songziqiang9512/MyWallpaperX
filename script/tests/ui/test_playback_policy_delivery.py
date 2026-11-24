@@ -112,7 +112,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         // Scene handshake / restart replay must retain a pause received before ready.
         scene.pendingIntent = ScenePlaybackLoadRequest(rootURL: URL(fileURLWithPath: "/fixture"),
             propertyOverrides: [:], userPropertyTextures: [:], recordID: "fixture")
-        precondition(mux.dispatch(.setSceneRenderQuality(.init(postProcessing: .ultraDisplayHDR, shadows: .medium, volumeLighting: .disabled, reflections: .disabled)), to: .scene))
+        precondition(mux.dispatch(.setSceneRenderQuality(.init(postProcessing: .ultraDisplayHDR, shadows: .medium, volumeLighting: .disabled, reflections: .disabled, antiAliasing: .msaa2)), to: .scene))
         precondition(mux.dispatch(.setAnimationFrameRate(AnimationFrameRate(rawValue: 25)!), to: .scene))
         precondition(scene.commands.isEmpty)
         scene.endpointReady = true
@@ -135,6 +135,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         precondition(scene.commands.first?["shadowQuality"] as? String == "medium")
         precondition(scene.commands.first?["pointVolumeQuality"] as? String == "disabled")
         precondition(scene.commands.first?["reflectionQuality"] as? String == "disabled")
+        precondition(scene.commands.first?["antiAliasingMode"] as? String == "msaa2")
         precondition(scene.commands.last?["cmd"] as? String == "pause")
         precondition(mux.dispatch(.setSceneRenderQuality(.init(shadows: .disabled)), to: .scene))
         precondition(scene.commands.last?["cmd"] as? String == "setSceneRenderQuality")
@@ -142,6 +143,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         precondition(scene.commands.last?["shadowQuality"] as? String == "disabled")
         precondition(scene.commands.last?["pointVolumeQuality"] as? String == "enabled")
         precondition(scene.commands.last?["reflectionQuality"] as? String == "enabled")
+        precondition(scene.commands.last?["antiAliasingMode"] as? String == "none")
         // Web preparing alongside retained Video must pause/resume both surfaces.
         engine.currentPlaybackContentKind = .web
         engine.currentWebRequestID = UUID()

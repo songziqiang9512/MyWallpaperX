@@ -428,6 +428,7 @@ nonisolated enum SceneDaemonProtocol {
         payload["pointVolumeQuality"] = quality.volumeLighting.rawValue
         payload["reflectionQuality"] = quality.reflections.rawValue
         payload["textureQuality"] = quality.textures.rawValue
+        payload["antiAliasingMode"] = quality.antiAliasing.rawValue
     }
 
     private static func renderQuality(_ payload: [String: Any], fallback: SceneRenderQuality? = nil) -> SceneRenderQuality? {
@@ -436,14 +437,16 @@ nonisolated enum SceneDaemonProtocol {
         let volumeLightingRaw = payload["pointVolumeQuality"] ?? fallback.map { $0.volumeLighting.rawValue as Any }
         let reflectionRaw = payload["reflectionQuality"] ?? fallback.map { $0.reflections.rawValue as Any }
         let textureRaw = payload["textureQuality"] ?? (fallback?.textures ?? .full).rawValue
+        let antiAliasingRaw = payload["antiAliasingMode"] ?? (fallback?.antiAliasing ?? .none).rawValue
         guard let postProcessing = (postProcessingRaw as? String).flatMap(ScenePostProcessingMode.init(rawValue:)),
               let shadows = (shadowRaw as? String).flatMap(SceneShadowQuality.init(rawValue:)),
               let volumeLighting = (volumeLightingRaw as? String).flatMap(SceneVolumeLightingQuality.init(rawValue:)),
               let reflections = (reflectionRaw as? String).flatMap(SceneReflectionQuality.init(rawValue:)),
-              let textures = (textureRaw as? String).flatMap(SceneTextureQuality.init(rawValue:))
+              let textures = (textureRaw as? String).flatMap(SceneTextureQuality.init(rawValue:)),
+              let antiAliasing = (antiAliasingRaw as? String).flatMap(SceneAntiAliasingMode.init(rawValue:))
         else { return nil }
         return .init(postProcessing: postProcessing, shadows: shadows, volumeLighting: volumeLighting,
-            reflections: reflections, textures: textures)
+            reflections: reflections, textures: textures, antiAliasing: antiAliasing)
     }
 
     private static func displayConfiguration(

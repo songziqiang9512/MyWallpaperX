@@ -154,6 +154,119 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
         return data
     }
 
+    static func multisampleResolve(_ device: MTLDevice, _ queue: MTLCommandQueue) throws -> [String: Any] {
+        guard device.supportsFamily(.apple1), device.supportsTextureSampleCount(2) else {
+            return ["supported": false]
+        }
+        let width = 37, height = 29
+        func descriptor(_ format: MTLPixelFormat, samples: Int) -> MTLTextureDescriptor {
+            let value = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format,
+                width: width, height: height, mipmapped: false)
+            value.usage = .renderTarget
+            if samples > 1 {
+                value.textureType = .type2DMultisample
+                value.sampleCount = samples
+                value.storageMode = .memoryless
+            } else {
+                value.storageMode = .private
+            }
+            return value
+        }
+        let color = device.makeTexture(descriptor: descriptor(.bgra8Unorm, samples: 2))!
+        let depth = device.makeTexture(descriptor: descriptor(.depth32Float, samples: 2))!
+        let pair = SceneMainPassEncoder.MultisampleAttachments(color: color, depth: depth)!
+        let library = try device.makeLibrary(source: """
+            #include <metal_stdlib>
+            using namespace metal;
+            vertex float4 positionOnly(uint vertexID [[vertex_id]], constant float4 *points [[buffer(0)]]) {
+                return points[vertexID];
+            }
+            fragment float4 flatColor(constant float4 &value [[buffer(0)]]) { return value; }
+            """, options: nil)
+        let depthState = MTLDepthStencilDescriptor()
+        depthState.depthCompareFunction = .greater
+        depthState.isDepthWriteEnabled = true
+        let reversedDepth = device.makeDepthStencilState(descriptor: depthState)!
+        let pipeline = MTLRenderPipelineDescriptor()
+        pipeline.vertexFunction = library.makeFunction(name: "positionOnly")
+        pipeline.fragmentFunction = library.makeFunction(name: "flatColor")
+        pipeline.depthAttachmentPixelFormat = .depth32Float
+        pipeline.colorAttachments[0].pixelFormat = .bgra8Unorm
+        pipeline.colorAttachments[0].isBlendingEnabled = true
+        pipeline.colorAttachments[0].sourceRGBBlendFactor = .one
+        pipeline.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+        pipeline.colorAttachments[0].sourceAlphaBlendFactor = .one
+        pipeline.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+        let near: [SIMD4<Float>] = [SIMD4(-0.78, -0.73, 0.8, 1),
+            SIMD4(0.81, -0.51, 0.8, 1), SIMD4(-0.27, 0.83, 0.8, 1)]
+        let far: [SIMD4<Float>] = [SIMD4(-1, -1, 0.2, 1), SIMD4(3, -1, 0.2, 1), SIMD4(-1, 3, 0.2, 1)]
+        var rows: [[String: Any]] = []
+        for samples in [1, 2] {
+            let output = target(device, width: width, height: height, format: .bgra8Unorm, seed: 9)
+            let command = queue.makeCommandBuffer()!
+            let zero = MTLClearColorMake(0, 0, 0, 0)
+            let pass = SceneMainPassEncoder(commandBuffer: command, target: output, clearColor: zero,
+                clearEnabled: true)
+            let trace = SceneEffectExecutionTelemetry().makeFrame(frameIndex: UInt64(samples), observesComposition: true)
+            pass.compositionTrace = trace
+            let offscreenBeforeClear = pass.encodeOffscreen { buffer in
+                guard let encoder = buffer.makeBlitCommandEncoder() else { return false }
+                encoder.endEncoding()
+                return trace.frozenCompositionObservation()?.rows.isEmpty == true
+            }
+            if samples == 2 { precondition(pass.prepareMultisampling(pair)) }
+            pipeline.rasterSampleCount = pass.rasterSampleCount
+            let state = try device.makeRenderPipelineState(descriptor: pipeline)
+            let attachment = pass.multisampleAttachments?.depth
+                ?? device.makeTexture(descriptor: descriptor(.depth32Float, samples: 1))!
+            let first = pass.encoder(depthTexture: attachment, clearsDepth: true, clearDepth: 0)!
+            let lateSelectionRejected = !pass.prepareMultisampling(pair)
+            func draw(_ points: [SIMD4<Float>], _ color: SIMD4<Float>, on encoder: MTLRenderCommandEncoder) {
+                var value = color
+                encoder.setRenderPipelineState(state)
+                encoder.setDepthStencilState(reversedDepth)
+                points.withUnsafeBytes { encoder.setVertexBytes($0.baseAddress!, length: $0.count, index: 0) }
+                encoder.setFragmentBytes(&value, length: MemoryLayout<SIMD4<Float>>.stride, index: 0)
+                encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: points.count)
+            }
+            draw(near, SIMD4(0.5, 0, 0, 0.5), on: first)
+            let second = pass.encoder(depthTexture: attachment, clearsDepth: false)!
+            draw(far, SIMD4(0, 1, 0, 1), on: second)
+            pass.closeForOffscreen()
+            let reopened = samples == 2 && pass.encoder(required: false) != nil
+            let finished = pass.finishEnsuringClear()
+            command.commit(); command.waitUntilCompleted()
+            let bytes = pixels(output)
+            let values = stride(from: 0, to: bytes.count, by: 4).map { i in
+                [bytes[i + 2], bytes[i + 1], bytes[i], bytes[i + 3]]
+            }
+            let mixed = values.filter { $0[0] > 0 && $0[1] > 0 }
+            let opens = trace.frozenCompositionObservation()!.rows.filter { $0.kind == "main-raster-open" }
+            rows.append(["samples": pass.rasterSampleCount, "targetSamples": output.sampleCount,
+                "finished": finished, "completed": command.status == .completed, "reused": first === second,
+                "offscreenBeforeClear": offscreenBeforeClear, "reopened": reopened, "opens": opens.count,
+                "lateSelectionRejected": lateSelectionRejected,
+                "passDetails": opens.first?.details ?? [:], "actualResolveTarget": opens.first?.target?.textureToken
+                    == String(UInt(bitPattern: ObjectIdentifier(output))),
+                "hasNear": values.contains([128, 0, 0, 128]), "hasFar": values.contains([0, 255, 0, 255]),
+                "mixedCount": mixed.count, "mixedAlphaCorrect": mixed.allSatisfy { (190...192).contains($0[3]) }])
+        }
+        let output = target(device, width: width, height: height, format: .bgra8Unorm, seed: 9)
+        let noClear = SceneMainPassEncoder(commandBuffer: queue.makeCommandBuffer()!, target: output,
+            clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
+        let mismatchedTarget = target(device, width: width - 1, height: height, format: .bgra8Unorm, seed: 9)
+        let wrongSize = SceneMainPassEncoder(commandBuffer: queue.makeCommandBuffer()!, target: mismatchedTarget,
+            clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
+        let blockedRead = SceneMainPassEncoder(commandBuffer: queue.makeCommandBuffer()!, target: output,
+            clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
+        precondition(blockedRead.prepareMultisampling(pair))
+        return ["supported": true, "rows": rows,
+                "historyRejected": !noClear.prepareMultisampling(pair) && noClear.rasterSampleCount == 1,
+                "differentSizeRejected": !wrongSize.prepareMultisampling(pair) && wrongSize.rasterSampleCount == 1,
+                "singleColorRejected": SceneMainPassEncoder.MultisampleAttachments(color: output, depth: depth) == nil,
+                "readRejected": blockedRead.withReadableTarget { _, _ in true } == nil]
+    }
+
     static func customQuad() -> SceneGeometryProduct {
         SceneGeometryProduct { encoder, texture, _, mvp, _, bind in
             guard let bind else { return false }
@@ -657,6 +770,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
         }
         print(String(decoding: try JSONSerialization.data(withJSONObject:
             ["rows": rows, "attachmentRows": attachmentRows, "terminalDepth": terminalDepth(device, queue, library),
+             "multisampleResolve": multisampleResolve(device, queue),
              "repeatedAttachmentReads": repeatedAttachmentReads(device, queue),
              "largeGroupBlend": autoreleasepool { largeGroupBlend(device, queue, library, fog) }]), as: UTF8.self))
     }

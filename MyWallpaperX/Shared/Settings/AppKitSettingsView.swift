@@ -100,6 +100,7 @@ final class AppKitSettingsContainerView: NSView {
     let startOnBootSwitch = NSSwitch()
     let restorePlaybackOnLaunchSwitch = NSSwitch()
     let syncSystemWallpaperSwitch = NSSwitch()
+    let sceneAntiAliasingPopup = NSPopUpButton()
     let scenePostProcessingPopup = NSPopUpButton()
     let sceneTextureQualityPopup = NSPopUpButton()
     let sceneShadowsPopup = NSPopUpButton()

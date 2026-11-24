@@ -144,6 +144,10 @@ private struct SceneStaticModelUniforms {
 /// stay with the renderer that owns that encoder.
 struct SceneStaticModelPipeline {
     let state: MTLRenderPipelineState
+    let rasterSampleCount: Int
+    private let multisampleState: MTLRenderPipelineState?
+    private let multisampleAdditiveState: MTLRenderPipelineState?
+    var supportsMultisampleAdditive: Bool { multisampleAdditiveState != nil }
     private let reflectionState: MTLRenderPipelineState?
     private let additiveState: MTLRenderPipelineState?
     private let additiveReflectionState: MTLRenderPipelineState?
@@ -169,7 +173,8 @@ struct SceneStaticModelPipeline {
         preparesReflection: Bool = false,
         preparesAdditive: Bool = false,
         preparesCameraDepth: Bool = false,
-        preparesShadows: Bool = true
+        preparesShadows: Bool = true,
+        rasterSampleCount: Int = 1
     ) {
         guard Self.hasExpectedUniformABI,
               let library = device.makeDefaultLibrary(),
@@ -231,6 +236,15 @@ struct SceneStaticModelPipeline {
         }
         self.device = device
         self.state = state
+        let canMultisample = rasterSampleCount > 1 && device.supportsTextureSampleCount(rasterSampleCount)
+        func makeMultisampleState() -> MTLRenderPipelineState? {
+            guard canMultisample else { return nil }
+            descriptor.rasterSampleCount = rasterSampleCount
+            defer { descriptor.rasterSampleCount = 1 }
+            return try? device.makeRenderPipelineState(descriptor: descriptor)
+        }
+        multisampleState = makeMultisampleState()
+        self.rasterSampleCount = multisampleState == nil ? 1 : rasterSampleCount
         let reflectiveFragment = preparesReflection ? fragment(reflection: true) : nil
         if let reflectiveFragment {
             descriptor.label = "Scene static model reflection"
@@ -242,6 +256,7 @@ struct SceneStaticModelPipeline {
             descriptor.label = "Scene additive model"
             descriptor.fragmentFunction = baseFragment
             additiveState = try? device.makeRenderPipelineState(descriptor: descriptor)
+            multisampleAdditiveState = multisampleState == nil ? nil : makeMultisampleState()
             if let reflectiveFragment {
                 descriptor.label = "Scene additive model reflection"
                 descriptor.fragmentFunction = reflectiveFragment
@@ -249,6 +264,7 @@ struct SceneStaticModelPipeline {
             } else { additiveReflectionState = nil }
         } else {
             additiveState = nil
+            multisampleAdditiveState = nil
             additiveReflectionState = nil
         }
         self.writingDepthState = writingDepthState
@@ -412,6 +428,7 @@ struct SceneStaticModelPipeline {
         reflectionTexture: MTLTexture? = nil,
         frameEpoch: UInt64 = 0,
         commandBuffer: MTLCommandBuffer? = nil,
+        rasterSampleCount: Int = 1,
         encoder: MTLRenderCommandEncoder
     ) -> Bool {
         guard Self.isFinite(modelMatrix),
@@ -437,13 +454,20 @@ struct SceneStaticModelPipeline {
                 : matrix_identity_float3x3 else {
             return false
         }
-        let colorState: MTLRenderPipelineState? = additiveRGB ? additiveState : state
+        let reflectiveState = reflectionTexture != nil && (material.surfaceProfile?.reflectivity ?? 0) > 0
+            ? (additiveRGB ? additiveReflectionState : reflectionState) : nil
+        let colorState: MTLRenderPipelineState?
+        if rasterSampleCount == 1 {
+            colorState = additiveRGB ? additiveState : state
+        } else {
+            guard rasterSampleCount == self.rasterSampleCount, reflectiveState == nil else { return false }
+            colorState = additiveRGB ? multisampleAdditiveState : multisampleState
+        }
         guard let colorState else { return false }
         let depthState: MTLDepthStencilState? = testsDepth
             ? (writesDepth ? writingDepthState : nonwritingDepthState)
             : (writesDepth ? writeOnlyDepthState : disabledDepthState)
         guard let depthState else { return false }
-        let reflectiveState = additiveRGB ? additiveReflectionState : reflectionState
         // Official `lpoint` lights static models; `point` lights only 2D lit
         // images (own-fixture black-box, 2026-10-06). Shadow slots and the
         // encoded uniforms must index the same filtered array.
@@ -614,11 +638,9 @@ struct SceneStaticModelPipeline {
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
 #endif
-        if let reflectionTexture, let reflectiveState, uniforms.surfaceMaterial.w > 0 {
-            encoder.setRenderPipelineState(reflectiveState)
+        encoder.setRenderPipelineState(reflectiveState ?? colorState)
+        if reflectiveState != nil {
             encoder.setFragmentTexture(reflectionTexture, index: 6)
-        } else {
-            encoder.setRenderPipelineState(colorState)
         }
         encoder.setDepthStencilState(depthState)
         encoder.setFrontFacing(frontFacing)

@@ -5285,6 +5285,40 @@
         }
       }
     },
+    "Applies to supported 3D scenes after reloading the wallpaper" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gilt für unterstützte 3D-Szenen nach dem erneuten Laden des Hintergrundbilds"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Applies to supported 3D scenes after reloading the wallpaper"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "S’applique aux scènes 3D compatibles après rechargement du fond d’écran"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Применяется к поддерживаемым 3D-сценам после перезагрузки обоев"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新应用壁纸后对受支持的 3D 场景生效"
+          }
+        }
+      }
+    },
     "Applies when the Web wallpaper uses the suggested frame rate": {
       "localizations": {
         "en": {
@@ -22441,6 +22475,40 @@
         }
       }
     },
+    "MSAA ×2" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MSAA ×2"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MSAA ×2"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MSAA ×2"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MSAA ×2"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MSAA ×2"
+          }
+        }
+      }
+    },
     "Make Cards Smaller": {
       "localizations": {
         "en": {
@@ -33991,6 +34059,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Scene"
+          }
+        }
+      }
+    },
+    "Scene Anti-Aliasing" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kantenglättung für Szenen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scene Anti-Aliasing"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anticrénelage des scènes"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сглаживание сцен"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "场景抗锯齿"
           }
         }
       }

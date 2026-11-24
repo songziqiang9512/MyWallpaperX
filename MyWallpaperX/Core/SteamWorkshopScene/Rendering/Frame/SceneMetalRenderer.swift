@@ -39,6 +39,7 @@ struct SceneMetalRenderer {
     let effectExecutionTelemetry = SceneEffectExecutionTelemetry()
 #endif
     let staticModelDepthTargetPool = SceneParticleDepthTargetPool()
+    let multisampleTargets: MainMultisampleTargets?
     /// Dynamic layer descriptor projection is invalidated by the runtime's
     /// topology revision, not by every frame that reuses the same snapshot.
     let dynamicLayerTopologyCache = SceneDynamicLayerRenderTopologyCache()

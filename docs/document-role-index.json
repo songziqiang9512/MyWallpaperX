@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "aa7e23de49cab8fe8f16c13cc7d7b41bdcecf03c2f0b52b56654d1c5715c0151",
+        "sourceSHA256": "cc17285166ef5a9b8a3dc8823bdeaa5fc70b963f334117375b3df7f8da470990",
         "method": "document_registry --audit + document_health --check",
-        "scope": "三引擎质量入口与 Scene 阴影消费。",
-        "limitations": "运行现象见现役工作卡。"
+        "scope": "从偏好定位 Scene 采样及回退。",
+        "limitations": "导航不替代实际画面。"
       }
     },
     {
@@ -353,10 +353,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "537ac6d082d7d0369ed854b31f1a2be60f0da17ac83f4fb7c10d335faeaf36fc",
+        "sourceSHA256": "390497e452dcdd0163fdbbda913434a42b1d442b97f7bfc768f862d2611c7f2d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene 阴影档与具体实屏、原生覆盖。",
-        "limitations": "余下批次以运行实际资格为准。"
+        "scope": "2× 证据、生效及后续实际档位。",
+        "limitations": "运行开销与硬件适用范围在正文。"
       }
     },
     {
@@ -847,10 +847,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3433703908d95e1c897b1f7355e97d13d340fa8f9345d9bca35fb4f537b2b474",
+        "sourceSHA256": "0f07f77f81497957b7bfcf8ce21d7c2473b823aeb3ffa252a33d7dff611655d8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene 质量与阴影冷准备职责。",
-        "limitations": "硬件与画面证据见现役工作卡。"
+        "scope": "当前画质和图形光栅域。",
+        "limitations": "实际样本、设备和规模见工作卡。"
       }
     },
     {

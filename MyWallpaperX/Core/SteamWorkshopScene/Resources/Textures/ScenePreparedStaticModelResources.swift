@@ -197,6 +197,7 @@ struct ScenePreparedStaticModelResources {
         directionalShadowDimensionLimit: Int? = 4096,
         pointVolumeEnabled: Bool = true,
         modelReflectionsEnabled: Bool = true,
+        rasterSampleCount: Int = 1,
         resourceView: SceneResourceView,
         device: MTLDevice,
         textureLoader: SceneTextureLoader,
@@ -360,7 +361,8 @@ struct ScenePreparedStaticModelResources {
                 preparesAdditive: entries.values.contains { $0.contains { $0.materialBlending == .additive } },
                 preparesCameraDepth: pointVolumeEnabled && descriptor.camera.clearEnabled && descriptor.layers.contains {
                     $0.pointLight?.unshadowedVolume != nil
-                }, preparesShadows: directionalShadowDimensionLimit != nil) else { return .empty }
+                }, preparesShadows: directionalShadowDimensionLimit != nil,
+                rasterSampleCount: rasterSampleCount) else { return .empty }
             return ScenePreparedStaticModelResources(
                 pipeline: pipeline,
                 directionalShadowDimensionLimit: directionalShadowDimensionLimit,

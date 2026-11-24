@@ -147,6 +147,27 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
             for key in ("readable", "finished", "completed", "samePixels"):
                 self.assertTrue(row[key], row)
 
+    def test_single_clear_main_pass_resolves_multisample_color_and_preserves_reverse_depth(self):
+        result = self.result["multisampleResolve"]
+        if not result["supported"]:
+            self.skipTest("the device does not support Apple memoryless 2× attachments")
+        for check in ("historyRejected", "differentSizeRejected", "singleColorRejected", "readRejected"):
+            self.assertTrue(result[check], (check, result))
+        single, multisample = result["rows"]
+        self.assertEqual([single["samples"], multisample["samples"]], [1, 2])
+        for row in (single, multisample):
+            for check in ("finished", "completed", "reused", "offscreenBeforeClear", "hasNear", "hasFar",
+                          "actualResolveTarget", "mixedAlphaCorrect", "lateSelectionRejected"):
+                self.assertTrue(row[check], (check, row))
+            self.assertFalse(row["reopened"], row)
+            self.assertEqual((row["opens"], row["targetSamples"]), (1, 1))
+        self.assertEqual(single["mixedCount"], 0)
+        self.assertGreater(multisample["mixedCount"], 8)
+        self.assertEqual(multisample["passDetails"]["depthSamples"], "2")
+        self.assertEqual(multisample["passDetails"]["depthClear"], "0.0")
+        self.assertEqual(multisample["passDetails"]["depthStore"], "0")
+        self.assertEqual(multisample["passDetails"]["colorStore"], "2")
+
     def test_large_group_target_mode_31_draws_visible_pixels(self):
         result = self.result.get("largeGroupBlend", {})
         self.assertTrue(result.get("available", False), result)

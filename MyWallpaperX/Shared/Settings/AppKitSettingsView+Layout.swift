@@ -365,6 +365,12 @@ extension AppKitSettingsContainerView {
         qualitySection.addRow(makeSettingRow(
             title: String(localized: "Animation Frame Rate"), iconSystemName: "gauge.with.needle",
             subtitle: String(localized: "Sets the frame rate cap for Scene wallpapers"), trailing: sceneFPSControls))
+        sceneAntiAliasingPopup.addItems(withTitles: [String(localized: "None"), String(localized: "MSAA ×2")])
+        sceneAntiAliasingPopup.setAccessibilityLabel(String(localized: "Scene Anti-Aliasing"))
+        qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Anti-Aliasing"),
+            iconSystemName: "viewfinder",
+            subtitle: String(localized: "Applies to supported 3D scenes after reloading the wallpaper"), trailing: sceneAntiAliasingPopup))
+
         let modes: [(ScenePostProcessingMode, String)] = [
             (.disabled, String(localized: "Disabled")),
             (.enabled, String(localized: "Enabled")),
@@ -408,7 +414,7 @@ extension AppKitSettingsContainerView {
         qualitySection.addRow(makeSettingRow(
             title: String(localized: "Video Quality"), iconSystemName: "film",
             trailing: NSTextField(labelWithString: String(localized: "Original Video"))))
-        let controls: [NSControl] = [scenePostProcessingPopup, sceneTextureQualityPopup,
+        let controls: [NSControl] = [sceneAntiAliasingPopup, scenePostProcessingPopup, sceneTextureQualityPopup,
                                      sceneShadowsPopup, sceneVolumeLightingPopup, sceneReflectionsSwitch, webFrameRatePopup]
         for control in controls {
             control.target = self
@@ -428,6 +434,7 @@ extension AppKitSettingsContainerView {
             updateSceneFrameRateLabels(request)
         }
         webFrameRatePopup.selectItem(at: quality.webFrameRateMode == .display ? 0 : 1)
+        sceneAntiAliasingPopup.selectItem(at: quality.scene.antiAliasing == .msaa2 ? 1 : 0)
         refreshScenePostProcessingMenu(quality.scene.postProcessing)
         sceneTextureQualityPopup.selectItem(at: quality.scene.textures == .performance ? 1 : 0)
         sceneShadowsPopup.selectItem(at: sceneShadowsPopup.indexOfItem(withRepresentedObject: quality.scene.shadows.rawValue))
@@ -483,6 +490,8 @@ extension AppKitSettingsContainerView {
         var quality = PlaybackQualityPreference.current
         if sender === webFrameRatePopup {
             quality.webFrameRateMode = webFrameRatePopup.indexOfSelectedItem == 1 ? .followAnimationFrameRate : .display
+        } else if sender === sceneAntiAliasingPopup {
+            quality.scene.antiAliasing = sceneAntiAliasingPopup.indexOfSelectedItem == 1 ? .msaa2 : .none
         } else if sender === sceneTextureQualityPopup {
             quality.scene.textures = sceneTextureQualityPopup.indexOfSelectedItem == 1 ? .performance : .full
         } else if sender === sceneReflectionsSwitch {
@@ -538,7 +547,7 @@ extension AppKitSettingsContainerView {
         hotkeyEnableSwitches.values.forEach { $0.controlSize = .mini }
 
         let popups: [NSPopUpButton] = [timeUnitPopup, idleTimeoutPopup, libraryBackgroundPopup, libraryCardClickPopup, webFrameRatePopup, scenePostProcessingPopup] + hotkeyPopups.values
-            + [sceneShadowsPopup, sceneVolumeLightingPopup, sceneTextureQualityPopup, systemAudioSpectrumBarCountPopup]
+            + [sceneAntiAliasingPopup, sceneShadowsPopup, sceneVolumeLightingPopup, sceneTextureQualityPopup, systemAudioSpectrumBarCountPopup]
         popups.forEach { $0.controlSize = .small }
 
         intervalField.controlSize = .small

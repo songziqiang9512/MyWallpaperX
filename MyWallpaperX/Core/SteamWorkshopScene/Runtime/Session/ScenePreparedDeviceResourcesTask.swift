@@ -23,6 +23,7 @@ final class ScenePreparedDeviceResourcesTask {
     private let directionalShadowDimensionLimit: Int?
     private let pointVolumeEnabled: Bool
     private let modelReflectionsEnabled: Bool
+    private let rasterSampleCount: Int
     private let ordinaryColorMipLongEdge: Int?
     private let resourceView: SceneResourceView
     private let device: MTLDevice
@@ -45,6 +46,7 @@ final class ScenePreparedDeviceResourcesTask {
         directionalShadowDimensionLimit: Int?,
         pointVolumeEnabled: Bool,
         modelReflectionsEnabled: Bool,
+        rasterSampleCount: Int = 1,
         ordinaryColorMipLongEdge: Int? = nil,
         resourceView: SceneResourceView,
         device: MTLDevice,
@@ -64,6 +66,7 @@ final class ScenePreparedDeviceResourcesTask {
         self.directionalShadowDimensionLimit = directionalShadowDimensionLimit
         self.pointVolumeEnabled = pointVolumeEnabled
         self.modelReflectionsEnabled = modelReflectionsEnabled
+        self.rasterSampleCount = rasterSampleCount
         self.ordinaryColorMipLongEdge = ordinaryColorMipLongEdge
         self.resourceView = resourceView
         self.device = device
@@ -143,6 +146,7 @@ final class ScenePreparedDeviceResourcesTask {
                     directionalShadowDimensionLimit: directionalShadowDimensionLimit,
                     pointVolumeEnabled: pointVolumeEnabled,
                     modelReflectionsEnabled: modelReflectionsEnabled,
+                    rasterSampleCount: rasterSampleCount,
                     resourceView: resourceView,
                     device: device,
                     textureLoader: baseImages.textureLoader,

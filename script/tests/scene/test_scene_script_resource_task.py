@@ -79,7 +79,7 @@ struct ScenePreparedStaticModelResources {
     let pointVolumeEnabled: Bool
     let modelReflectionsEnabled: Bool
     static func prepare(descriptor: SceneRenderDescriptor, directionalShadowDimensionLimit: Int?,
-        pointVolumeEnabled: Bool, modelReflectionsEnabled: Bool, resourceView: SceneResourceView,
+        pointVolumeEnabled: Bool, modelReflectionsEnabled: Bool, rasterSampleCount: Int, resourceView: SceneResourceView,
         device: MTLDevice, textureLoader: Loader,
         materialPlan: MaterialPlan, albedoStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
         preparedSources: inout [String: SceneMdlStaticModel.PreparedSource],
