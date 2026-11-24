@@ -34063,40 +34063,6 @@
         }
       }
     },
-    "Point Light Volume": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Point Light Volume"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "点光体积照明"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Объёмное освещение точечных источников"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Volumetrische Punktlichter"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Éclairage volumétrique ponctuel"
-          }
-        }
-      }
-    },
     "Scene Reflections": {
       "localizations": {
         "en": {
@@ -50785,6 +50751,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Volume / Muet"
+          }
+        }
+      }
+    },
+    "Volumetric Lighting": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volumetrische Beleuchtung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volumetric Lighting"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Éclairage volumétrique"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Объёмное освещение"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "体积照明"
           }
         }
       }

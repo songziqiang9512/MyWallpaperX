@@ -11,7 +11,8 @@ extension SceneDesktopWallpaperHost {
         completion: @escaping (Result<Void, Error>) -> Void
     ) throws {
         let session = SceneDesktopWallpaperSession(textureDecodeCacheBudget: textureDecodeCacheBudget,
-            surfacePreparationQueue: launchPreparationQueue, scenePostProcessing: sceneRenderQuality.postProcessing)
+            surfacePreparationQueue: launchPreparationQueue, scenePostProcessing: sceneRenderQuality.postProcessing,
+            allowsProjectedSpotVolume: sceneRenderQuality.volumeLighting == .enabled)
         session.launchRequestID = firstPresentation.requestID
         configure(session)
         candidateSession = session
@@ -19,7 +20,7 @@ extension SceneDesktopWallpaperHost {
 #if DEBUG
         NSLog("MWX Scene: phase=session-candidate session=%@ postProcessing=%@ shadowQuality=%@ pointVolumeQuality=%@ reflectionQuality=%@ textureQuality=%@",
               session.lifecycleID.uuidString, sceneRenderQuality.postProcessing.rawValue,
-              sceneRenderQuality.shadows.rawValue, sceneRenderQuality.pointVolume.rawValue,
+              sceneRenderQuality.shadows.rawValue, sceneRenderQuality.volumeLighting.rawValue,
               sceneRenderQuality.reflections.rawValue, sceneRenderQuality.textures.rawValue)
 #endif
         var pendingScreens: Set<CGDirectDisplayID> = []

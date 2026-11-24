@@ -103,7 +103,7 @@ final class AppKitSettingsContainerView: NSView {
     let scenePostProcessingPopup = NSPopUpButton()
     let sceneTextureQualityPopup = NSPopUpButton()
     let sceneShadowsPopup = NSPopUpButton()
-    let scenePointVolumePopup = NSPopUpButton()
+    let sceneVolumeLightingPopup = NSPopUpButton()
     let sceneReflectionsSwitch = NSSwitch()
     let sceneMediaInfoSwitch = NSSwitch()
     let webFrameRatePopup = NSPopUpButton()

@@ -112,7 +112,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         // Scene handshake / restart replay must retain a pause received before ready.
         scene.pendingIntent = ScenePlaybackLoadRequest(rootURL: URL(fileURLWithPath: "/fixture"),
             propertyOverrides: [:], userPropertyTextures: [:], recordID: "fixture")
-        precondition(mux.dispatch(.setSceneRenderQuality(.init(postProcessing: .ultraDisplayHDR, shadows: .medium, pointVolume: .disabled, reflections: .disabled)), to: .scene))
+        precondition(mux.dispatch(.setSceneRenderQuality(.init(postProcessing: .ultraDisplayHDR, shadows: .medium, volumeLighting: .disabled, reflections: .disabled)), to: .scene))
         precondition(mux.dispatch(.setAnimationFrameRate(AnimationFrameRate(rawValue: 25)!), to: .scene))
         precondition(scene.commands.isEmpty)
         scene.endpointReady = true

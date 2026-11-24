@@ -97,7 +97,7 @@ final class Handler: PlaybackEngineControlling {
         precondition(video.qualityCommands == [.setWebFrameRateSuggestion(30), .setWebFrameRateSuggestion(nil)])
         var quality = PlaybackQualityPreference.defaults
         quality.scene.shadows = .medium
-        quality.scene.pointVolume = .disabled
+        quality.scene.volumeLighting = .disabled
         quality.scene.reflections = .disabled
         mux.applyQualityPreference(quality, defaults: suite)
         mux.applyQualityPreference(quality, defaults: suite)
@@ -105,7 +105,7 @@ final class Handler: PlaybackEngineControlling {
         precondition(scene.qualityCommands.count == 3 && scene.qualityCommands.last == .setSceneRenderQuality(quality.scene))
         suite.set(["sceneShadowQuality": "future"], forKey: PlaybackQualityPreference.userDefaultsKey)
         precondition(PlaybackQualityPreference.read(from: suite).scene.shadows == .adaptive)
-        precondition(PlaybackQualityPreference.read(from: suite).scene.pointVolume == .enabled)
+        precondition(PlaybackQualityPreference.read(from: suite).scene.volumeLighting == .enabled)
         precondition(PlaybackQualityPreference.read(from: suite).scene.reflections == .enabled)
         precondition(AnimationFrameRate(rawValue: 9) == nil && AnimationFrameRate(rawValue: 121) == nil)
         precondition(AnimationFrameRate(rawValue: 10) != nil && AnimationFrameRate(rawValue: 120) != nil)

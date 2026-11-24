@@ -35,7 +35,7 @@ extension SceneMetalRenderer {
             + (imageCompositor.resolvedMaterialRuntime?.executionEvidenceReportLines ?? [])
         return SceneLayerVisibility.reportLines(in: renderDescriptor)
             + utilityLines + effectLines
-            + spotLightRuntime.reportLines(candidateCount: candidateCount)
+            + (spotLightRuntime?.reportLines(candidateCount: candidateCount) ?? ["spotLightRuntime: disabled"])
     }
 #endif
 

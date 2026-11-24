@@ -39,7 +39,7 @@ nonisolated enum SceneShadowQuality: String, Sendable {
     case adaptive = "ultra"
 }
 
-nonisolated enum ScenePointVolumeQuality: String, Sendable {
+nonisolated enum SceneVolumeLightingQuality: String, Sendable {
     case disabled
     case enabled
 }
@@ -59,7 +59,7 @@ nonisolated enum SceneTextureQuality: String, Sendable {
 nonisolated struct SceneRenderQuality: Equatable, Sendable {
     var postProcessing: ScenePostProcessingMode = .ultra
     var shadows: SceneShadowQuality = .adaptive
-    var pointVolume: ScenePointVolumeQuality = .enabled
+    var volumeLighting: SceneVolumeLightingQuality = .enabled
     var reflections: SceneReflectionQuality = .enabled
     var textures: SceneTextureQuality = .full
 }
@@ -97,8 +97,8 @@ nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
                 postProcessing: postProcessing,
                 shadows: (record?["sceneShadowQuality"] as? String)
                     .flatMap(SceneShadowQuality.init(rawValue:)) ?? .adaptive,
-                pointVolume: (record?["scenePointVolumeQuality"] as? String)
-                    .flatMap(ScenePointVolumeQuality.init(rawValue:)) ?? .enabled,
+                volumeLighting: (record?["scenePointVolumeQuality"] as? String)
+                    .flatMap(SceneVolumeLightingQuality.init(rawValue:)) ?? .enabled,
                 reflections: (record?["sceneReflectionQuality"] as? String)
                     .flatMap(SceneReflectionQuality.init(rawValue:)) ?? .enabled,
                 textures: (record?["sceneTextureQuality"] as? String)
@@ -115,7 +115,7 @@ nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
             "webFrameRateMode": webFrameRateMode.rawValue,
             "scenePostProcessingMode": scene.postProcessing.rawValue,
             "sceneShadowQuality": scene.shadows.rawValue,
-            "scenePointVolumeQuality": scene.pointVolume.rawValue,
+            "scenePointVolumeQuality": scene.volumeLighting.rawValue,
             "sceneReflectionQuality": scene.reflections.rawValue,
             "sceneTextureQuality": scene.textures.rawValue,
         ], forKey: Self.userDefaultsKey)

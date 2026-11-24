@@ -593,6 +593,10 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
 
     def check_spotlight_captures(self, protocol, log, preview, captures, pixels, evidence):
         settings, ids = protocol["spotlight"], protocol["layerIDs"]
+        volume_enabled = settings["volumeEnabled"]
+        if not volume_enabled:
+            self.assertIn("spotLightRuntime: disabled", preview)
+            self.assertNotIn("phase=spot-light", log)
         self.assertRegex(preview + log, r"scene script VM: schema=quickjs-ng-typed-v2 bindings=1 vectorBindings=2 stringBindings=0 targets=3 ")
         self.assertEqual(re.findall(r"phase=live-property-sequence-step index=(\d+) accepted=(true|false)", log),
                          [("0", "true")])
@@ -617,10 +621,14 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
             rows = event["rows"]
             cone = [r for r in rows if r["kind"] == "geometry" and r.get("layerID") == ids["child"]
                     and r.get("details", {}).get("geometryKind") == "spotLight" and r["outcome"] == "draw-encoded"]
-            self.assertEqual(len(cone), int(visible))
+            self.assertEqual(len(cone), int(volume_enabled and visible))
             seal = next(r for r in rows if r["kind"] == "frame-seal" and r["outcome"] == "sealed")
-            reference = next(r for r in rows if r["kind"] == "geometry" and r.get("layerID") == ids["reference"])
-            self.assertEqual(reference["target"]["textureToken"], seal["target"]["textureToken"])
+            if volume_enabled:
+                reference = next(r for r in rows if r["kind"] == "geometry" and r.get("layerID") == ids["reference"])
+                self.assertEqual(reference["target"]["textureToken"], seal["target"]["textureToken"])
+            else:
+                self.assertFalse(any(r["kind"] == "geometry"
+                    and r.get("details", {}).get("geometryKind") == "spotLight" for r in rows))
             self.assertTrue(any(r["kind"] == "ordinary" and r.get("layerID") == ids["nonchild"] for r in rows))
             if visible:
                 root_rows = [r for r in rows if r.get("layerID") == ids["composition"]]
@@ -628,13 +636,26 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
                 material = next(r for r in root_rows if r["kind"] == "material" and r["outcome"] == "draw-encoded")
                 group = next(r for r in root_rows if r["kind"] == "group" and r["outcome"] == "draw-encoded")
                 tail = next(r for r in root_rows if r["kind"] == "tail-consume" and r["outcome"] == "terminal-consumed")
-                self.assertEqual(cone[0]["target"]["textureToken"], source["source"]["textureToken"])
+                if cone:
+                    self.assertEqual(cone[0]["target"]["textureToken"], source["source"]["textureToken"])
+                    self.assertLess(rows.index(cone[0]), rows.index(source))
+                else:
+                    self.assertTrue(any(r["kind"] == "clear" and r["outcome"] == "encoded"
+                        and r["target"]["textureToken"] == source["source"]["textureToken"] for r in rows))
                 self.assertEqual(source["target"]["textureToken"], material["source"]["textureToken"])
                 self.assertEqual(material["target"]["textureToken"], group["source"]["textureToken"])
                 self.assertEqual(material["target"]["textureToken"], tail["source"]["textureToken"])
                 self.assertEqual(group["target"]["textureToken"], seal["target"]["textureToken"])
-                self.assertLess(rows.index(cone[0]), rows.index(source))
+            readout.append({"capture": path.name, "visible": visible, "request": request[0],
+                "commandBuffer": receipt[1], "surface": event["surfaceIdentity"], "frame": event["frameIndex"],
+                "clockBracket": [lower["sceneTime"], upper["sceneTime"]], "rows": rows})
             measurement = pixels[path.name]["spotlight"]
+            if not volume_enabled:
+                maximum = settings["hiddenMaximumPeak"]
+                self.assertLessEqual(measurement["groupMaximumPeak"], maximum, measurement)
+                self.assertLessEqual(max(measurement["legacyCore"]), maximum, measurement)
+                self.assertTrue(all(max(core["reference"]) <= maximum for core in measurement["core"]), measurement)
+                continue
             self.assertGreater(max(measurement["legacyCore"]), 10, measurement)
             for core in measurement["core"]:
                 for name in (("group", "reference") if visible else ("reference",)):
@@ -655,15 +676,13 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
                     self.assertTrue(all(max(rgb) <= 1 for rgb in anchors["black"]), anchors)
             else:
                 self.assertLessEqual(measurement["groupMaximumPeak"], settings["hiddenMaximumPeak"], measurement)
-            readout.append({"capture": path.name, "visible": visible, "request": request[0],
-                "commandBuffer": receipt[1], "surface": event["surfaceIdentity"], "frame": event["frameIndex"],
-                "clockBracket": [lower["sceneTime"], upper["sceneTime"]], "rows": rows})
         self.assertEqual(len({r["surface"] for r in readout}), 1)
         (evidence.parent / "spotlight-readout.json").write_bytes(encoded(readout))
 
-    def run_case(self, *, spotlight=None, **parameters):
+    def run_case(self, *, spotlight=None, spotlight_volume_enabled=True, **parameters):
         if spotlight:
             project, entries, protocol = spotlight_fixture(spotlight)
+            protocol["spotlight"]["volumeEnabled"] = spotlight_volume_enabled
         else:
             protocol = preregistration(**parameters)
             project, entries = fixture_entries(**parameters)
@@ -697,6 +716,8 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
             command = [str(self.app), "--mwx-debug-scene-root", str(content),
                        "--mwx-debug-scene-duration", "7",
                        "--mwx-debug-scene-evidence-dir", str(evidence)]
+            if spotlight and not spotlight_volume_enabled:
+                command += ["-mwx.playback.quality", "{ scenePointVolumeQuality = disabled; }"]
             if settings := protocol.get("quadInput", protocol.get("spotlight")):
                 command += ["--mwx-debug-scene-after-snapshot-delay", str(settings["afterDelay"]),
                             "--mwx-debug-scene-live-property-sequence-json", json.dumps(settings["sequence"])]
@@ -900,6 +921,9 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
 
     def test_spotlight_nonuniform_parent_and_rotated_child_keep_shear(self):
         self.run_case(spotlight="shear")
+
+    def test_volume_disabled_removes_root_and_group_spotlight_preserving_group_program(self):
+        self.run_case(spotlight="identity", spotlight_volume_enabled=False)
 
 
 if __name__ == "__main__":

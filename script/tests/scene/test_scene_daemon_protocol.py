@@ -83,10 +83,10 @@ import Foundation
         let hdrLoadValid: Bool
         if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(hdrLoadPayload) {
             hdrLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, shadows: .adaptive)
-                && quality.pointVolume == .enabled && quality.reflections == .enabled
+                && quality.volumeLighting == .enabled && quality.reflections == .enabled
         } else { hdrLoadValid = false }
         let requestedQuality = SceneRenderQuality(postProcessing: .ultraDisplayHDR,
-            shadows: .medium, pointVolume: .disabled, reflections: .disabled, textures: .performance)
+            shadows: .medium, volumeLighting: .disabled, reflections: .disabled, textures: .performance)
         var qualityChangePayload: [String: Any] = ["v": 2, "cmd": "setSceneRenderQuality"]
         SceneDaemonProtocol.writeRenderQuality(requestedQuality, to: &qualityChangePayload)
         let qualityChangeValid = decode(qualityChangePayload) == .success(.setSceneRenderQuality(requestedQuality))
@@ -101,7 +101,7 @@ import Foundation
         pointVolumeLoadPayload["pointVolumeQuality"] = "disabled"
         let pointVolumeLoadValid: Bool
         if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(pointVolumeLoadPayload) {
-            pointVolumeLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, pointVolume: .disabled)
+            pointVolumeLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, volumeLighting: .disabled)
         } else { pointVolumeLoadValid = false }
         var reflectionLoadPayload = hdrLoadPayload
         reflectionLoadPayload["reflectionQuality"] = "disabled"

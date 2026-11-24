@@ -61,7 +61,8 @@ extension SceneMetalRenderer {
             if layer.utilityLayer != nil || hasWorldOrderDependency(layer.id, utility: utility) { return true }
             switch layer.contentKind {
             case "container", "sound", "pointLight", "directionalLight", "tubeLight": return false
-            case "spotLight" where layer.spotLight?.castsVolumetrics != true: return false
+            case "spotLight" where spotLightRuntime == nil || layer.spotLight?.castsVolumetrics != true:
+                return false
             default: break
             }
             if !visible.contains(layer.id) { return false }
@@ -72,7 +73,7 @@ extension SceneMetalRenderer {
             if layer.utilityLayer != nil { return true }
             switch layer.contentKind {
             case "container", "sound", "pointLight", "directionalLight", "tubeLight": return false
-            case "spotLight": return layer.spotLight?.castsVolumetrics == true
+            case "spotLight": return spotLightRuntime != nil && layer.spotLight?.castsVolumetrics == true
             case "particle":
                 let canReadSceneDepth = cameraFrame.defaultsToPerspective
                     && cameraFrame.resolvesPerspective(for: layer)
@@ -597,7 +598,7 @@ extension SceneMetalRenderer {
                     break frameLayers
                 }
             case "spotLight":
-                guard frameVisibleLayerIDs.contains(layer.id),
+                guard let spotLightRuntime, frameVisibleLayerIDs.contains(layer.id),
                       layer.spotLight?.castsVolumetrics == true else { continue }
                 spotLightRuntime.render(
                     layerID: layer.id, worldFrame: frameWorldFrames[layer.id],

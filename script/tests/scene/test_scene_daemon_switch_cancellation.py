@@ -405,7 +405,7 @@ IDLE_TAIL = r'''
             && a.queuedSwitchPreparation?.ticket == next
             && !a.sent.contains{$0["cmd"] as? String == "loadScene"}
         a.sceneRenderQuality = .init(postProcessing: .ultraDisplayHDR, shadows: .medium,
-            pointVolume: .disabled, reflections: .disabled)
+            volumeLighting: .disabled, reflections: .disabled)
         ack(a,ra,opa)
         let newRequest=a.pendingRequestID
         checks["successfulRetirementAdoptsSameProcessWithFreshRequest"]=retiredA == 1 && oldLease == nil

@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4b64af715771db389f6de22bf9b7ca943769a6ce60d6343c5a7cf9047f4b557d",
+        "sourceSHA256": "3af52a83d7d588b240345596a7d60199974f8d9c552cae07bc7e66270d30f53a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "三引擎质量入口、Scene 纹理选择及源所有权。",
-        "limitations": "源码导航审查；真实画面范围见工作卡。"
+        "scope": "三引擎质量入口、Scene 体积编码及现役证据。",
+        "limitations": "导航审查，真实画面见工作卡。"
       }
     },
     {
@@ -839,10 +839,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "79d8a05e1a26f4e81b21439132d13ef5c9f3f41a7b871c5eab95c7b586a5dedf",
+        "sourceSHA256": "0342c10eb9bdb8a366acc52e22b9fc140b255e4f949000780fdb4afd8c12fc43",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene 质量、节律和纹理用途／实际表示。",
-        "limitations": "运行现象和剩余格式见现役工作卡。"
+        "scope": "Scene 质量、原光域及体积的有效所有权。",
+        "limitations": "运行现象和未覆盖范围见现役工作卡。"
       }
     },
     {

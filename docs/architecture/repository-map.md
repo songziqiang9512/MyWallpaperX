@@ -31,6 +31,8 @@ Scene 的 [显示模式与目标屏](../../MyWallpaperX/Core/SteamWorkshopScene/
 
 Scene 的 [基础图像准备](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift) 和 [TEX 候选加载](../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader+Candidate.swift) 负责真实纹理规格。精确用途、GPU 表示与作者布局见 [纹理档位合同](../scene/architecture/runtime-architecture.md#scene-texture-quality-policy)。
 
+Scene 体积开关从同一准备请求进入 [根域点光与有序聚光绘制](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift)。 [生效合同](../scene/architecture/runtime-architecture.md#scene-volume-lighting-policy)
+
 本地 Video 和已就绪 Steam Video 详情共用[原片轨道读取](../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift)。标称帧率来自实际播放文件；[Steam 获取合同](steam-workshop-acquisition-contract.md#source-video-facts)约定适用范围。
 
 Pixabay 新下载由 [规格选择](../../MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadQualityPrompt.swift)交给[下载服务](../../MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift)发布实际文件。[下载历史](../../MyWallpaperX/App/DownloadTasksController.swift)用原档位重试。播放仍由原 Video daemon 读取发布文件。

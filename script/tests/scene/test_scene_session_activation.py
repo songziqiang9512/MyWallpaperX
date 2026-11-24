@@ -68,7 +68,7 @@ final class SceneDesktopWallpaperSession {
     }
     func applyDisplayConfiguration(_ topology: [SceneScreenTopology]) { displayConfigurations += 1 }
     init(textureDecodeCacheBudget: SceneTextureDecodeCacheBudget, surfacePreparationQueue: DispatchQueue,
-         scenePostProcessing: ScenePostProcessingMode = .ultra) {
+         scenePostProcessing: ScenePostProcessingMode = .ultra, allowsProjectedSpotVolume _: Bool = true) {
         self.scenePostProcessing = scenePostProcessing
     }
     func activate(_ context: SceneDesktopWallpaperLaunchContext,

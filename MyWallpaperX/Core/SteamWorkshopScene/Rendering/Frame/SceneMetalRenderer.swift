@@ -30,7 +30,7 @@ struct SceneMetalRenderer {
     var utilityCaptureLayerIDs: Set<Int> { utilityExecution.captureLayerIDs }
     let baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram
     let staticModelResources: ScenePreparedStaticModelResources
-    let spotLightRuntime: SceneSpotLightRuntime
+    let spotLightRuntime: SceneSpotLightRuntime?
     let pointVolumePipeline: ScenePointVolumePipeline?
     let dependencyRuntime: SceneDependencyFrameRuntime
     let textureRegistry = SceneFrameTextureRegistry()

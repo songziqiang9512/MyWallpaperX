@@ -391,9 +391,9 @@ extension AppKitSettingsContainerView {
         }
         qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Shadows"), iconSystemName: "shadow",
             subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: sceneShadowsPopup))
-        scenePointVolumePopup.addItems(withTitles: [String(localized: "Disabled"), String(localized: "Enabled")])
-        qualitySection.addRow(makeSettingRow(title: String(localized: "Point Light Volume"), iconSystemName: "light.max",
-            subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: scenePointVolumePopup))
+        sceneVolumeLightingPopup.addItems(withTitles: [String(localized: "Disabled"), String(localized: "Enabled")])
+        qualitySection.addRow(makeSettingRow(title: String(localized: "Volumetric Lighting"), iconSystemName: "light.max",
+            subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: sceneVolumeLightingPopup))
         qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Reflections"), iconSystemName: "sparkle",
             subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: sceneReflectionsSwitch))
         webFrameRatePopup.addItems(withTitles: [
@@ -407,7 +407,7 @@ extension AppKitSettingsContainerView {
             title: String(localized: "Video Quality"), iconSystemName: "film",
             trailing: NSTextField(labelWithString: String(localized: "Original Video"))))
         let controls: [NSControl] = [scenePostProcessingPopup, sceneTextureQualityPopup,
-                                     sceneShadowsPopup, scenePointVolumePopup, sceneReflectionsSwitch, webFrameRatePopup]
+                                     sceneShadowsPopup, sceneVolumeLightingPopup, sceneReflectionsSwitch, webFrameRatePopup]
         for control in controls {
             control.target = self
             control.action = #selector(handleQualityChange(_:))
@@ -429,7 +429,7 @@ extension AppKitSettingsContainerView {
         refreshScenePostProcessingMenu(quality.scene.postProcessing)
         sceneTextureQualityPopup.selectItem(at: quality.scene.textures == .performance ? 1 : 0)
         sceneShadowsPopup.selectItem(at: sceneShadowsPopup.indexOfItem(withRepresentedObject: quality.scene.shadows.rawValue))
-        scenePointVolumePopup.selectItem(at: quality.scene.pointVolume == .disabled ? 0 : 1)
+        sceneVolumeLightingPopup.selectItem(at: quality.scene.volumeLighting == .disabled ? 0 : 1)
         sceneReflectionsSwitch.state = quality.scene.reflections == .enabled ? .on : .off
     }
 
@@ -485,8 +485,8 @@ extension AppKitSettingsContainerView {
             quality.scene.textures = sceneTextureQualityPopup.indexOfSelectedItem == 1 ? .performance : .full
         } else if sender === sceneReflectionsSwitch {
             quality.scene.reflections = sceneReflectionsSwitch.state == .on ? .enabled : .disabled
-        } else if sender === scenePointVolumePopup {
-            quality.scene.pointVolume = scenePointVolumePopup.indexOfSelectedItem == 0 ? .disabled : .enabled
+        } else if sender === sceneVolumeLightingPopup {
+            quality.scene.volumeLighting = sceneVolumeLightingPopup.indexOfSelectedItem == 0 ? .disabled : .enabled
         } else if let mode = (sender as? NSPopUpButton)?.selectedItem?.representedObject as? String {
             if sender === sceneShadowsPopup, let selected = SceneShadowQuality(rawValue: mode) {
                 quality.scene.shadows = selected
@@ -536,7 +536,7 @@ extension AppKitSettingsContainerView {
         hotkeyEnableSwitches.values.forEach { $0.controlSize = .mini }
 
         let popups: [NSPopUpButton] = [timeUnitPopup, idleTimeoutPopup, libraryBackgroundPopup, libraryCardClickPopup, webFrameRatePopup, scenePostProcessingPopup] + hotkeyPopups.values
-            + [sceneShadowsPopup, scenePointVolumePopup, sceneTextureQualityPopup, systemAudioSpectrumBarCountPopup]
+            + [sceneShadowsPopup, sceneVolumeLightingPopup, sceneTextureQualityPopup, systemAudioSpectrumBarCountPopup]
         popups.forEach { $0.controlSize = .small }
 
         intervalField.controlSize = .small

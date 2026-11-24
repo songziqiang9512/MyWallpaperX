@@ -103,7 +103,7 @@ import ImageIO
         targetPreferences.sceneShadowQuality =
             (payload.preferences.compatibleSceneShadows ?? preferences.compatibleSceneShadows)?.rawValue
         targetPreferences.scenePointVolumeQuality =
-            (payload.preferences.compatibleScenePointVolume ?? preferences.compatibleScenePointVolume)?.rawValue
+            (payload.preferences.compatibleSceneVolumeLighting ?? preferences.compatibleSceneVolumeLighting)?.rawValue
         targetPreferences.sceneReflectionQuality =
             (payload.preferences.compatibleSceneReflections ?? preferences.compatibleSceneReflections)?.rawValue
         targetPreferences.sceneTextureQuality =
@@ -282,7 +282,7 @@ import ImageIO
         let quality = PlaybackQualityPreference.current
         value.scenePostProcessingMode = quality.scene.postProcessing.rawValue
         value.sceneShadowQuality = quality.scene.shadows.rawValue
-        value.scenePointVolumeQuality = quality.scene.pointVolume.rawValue
+        value.scenePointVolumeQuality = quality.scene.volumeLighting.rawValue
         value.sceneReflectionQuality = quality.scene.reflections.rawValue
         value.sceneTextureQuality = quality.scene.textures.rawValue
         value.sceneHDRDisplayEnabled = quality.scene.postProcessing.requestsDisplayHDR
@@ -301,7 +301,7 @@ import ImageIO
         let quality = PlaybackQualityPreference.current
         guard admits(quality.scene.postProcessing, before.compatibleScenePostProcessing, target.compatibleScenePostProcessing),
               admits(quality.scene.shadows, before.compatibleSceneShadows, target.compatibleSceneShadows),
-              admits(quality.scene.pointVolume, before.compatibleScenePointVolume, target.compatibleScenePointVolume),
+              admits(quality.scene.volumeLighting, before.compatibleSceneVolumeLighting, target.compatibleSceneVolumeLighting),
               admits(quality.scene.reflections, before.compatibleSceneReflections, target.compatibleSceneReflections),
               admits(quality.scene.textures, before.compatibleSceneTextures, target.compatibleSceneTextures),
               admits(SceneMediaSourcePreference.isEnabled, before.sceneMediaInfoEnabled, target.sceneMediaInfoEnabled),
@@ -322,7 +322,7 @@ import ImageIO
             scene: .init(
                 postProcessing: preferences.compatibleScenePostProcessing ?? current.scene.postProcessing,
                 shadows: preferences.compatibleSceneShadows ?? current.scene.shadows,
-                pointVolume: preferences.compatibleScenePointVolume ?? current.scene.pointVolume,
+                volumeLighting: preferences.compatibleSceneVolumeLighting ?? current.scene.volumeLighting,
                 reflections: preferences.compatibleSceneReflections ?? current.scene.reflections,
                 textures: preferences.compatibleSceneTextures ?? current.scene.textures
             ),
@@ -384,8 +384,8 @@ private extension PersonalSettingsPreferences {
         sceneShadowQuality.flatMap(SceneShadowQuality.init(rawValue:))
     }
 
-    var compatibleScenePointVolume: ScenePointVolumeQuality? {
-        scenePointVolumeQuality.flatMap(ScenePointVolumeQuality.init(rawValue:))
+    var compatibleSceneVolumeLighting: SceneVolumeLightingQuality? {
+        scenePointVolumeQuality.flatMap(SceneVolumeLightingQuality.init(rawValue:))
     }
 
     var compatibleSceneReflections: SceneReflectionQuality? {

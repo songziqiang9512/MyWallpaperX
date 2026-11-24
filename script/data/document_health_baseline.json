@@ -13,8 +13,8 @@
       "bytes": 8300
     },
     "docs/architecture/repository-map.md": {
-      "lines": 48,
-      "bytes": 11992
+      "lines": 50,
+      "bytes": 12275
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -77,8 +77,8 @@
       "bytes": 73409
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 159,
-      "bytes": 31064
+      "lines": 170,
+      "bytes": 32883
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -93,8 +93,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 277,
-      "bytes": 53425
+      "lines": 278,
+      "bytes": 53643
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,28 +369,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "e749a86953269fa294ed77f7274c08b07ac23ae91cbf0c20cc5718e3e871032c",
-      "after": "c036426c6a5d7cdebcd34ec3763ef415ec5188b81ae0d7a3cb0f09a5db5afbd7",
+      "before": "c036426c6a5d7cdebcd34ec3763ef415ec5188b81ae0d7a3cb0f09a5db5afbd7",
+      "after": "9f6289bee2ab6790d2df5c347c515e8b6f77b298bbeb71dd915cff6be2522415",
       "owner": "Scene runtime / Metal",
-      "reason": "约定纹理规格、精确用途和共享设备缓存表示。",
+      "reason": "约定体积的单意图、冷准备与相关作者光照职责。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "87a6d50a681c6825ac85f53c76510b9def4be0fd16fc155f0351212dcd375d64",
-      "after": "eb5dba50d44287fd241769762ac6f10bf70f00e9e13bc98612329c2e80224bbb",
-      "owner": "Scene texture / Quality",
-      "reason": "记录作者 mip、具名和计算路径回归及原始图片边界。",
+      "before": "eb5dba50d44287fd241769762ac6f10bf70f00e9e13bc98612329c2e80224bbb",
+      "after": "ca1b825b531999f72ee1cc286988f1df031be4b7ac2a00937425d4c550f97092",
+      "owner": "Scene lighting / Quality",
+      "reason": "记录共享聚光体积接管、真实输出及验证覆盖。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "7bdb537bdb28a9edc49fb421225f883550c6d6332cc00e7b2d7bee81014eb212",
-      "after": "a2c3d823e1c24e729b0b6a33fdc7f5313a09bd00ee7b9e9422a9d31e4162e273",
+      "before": "a2c3d823e1c24e729b0b6a33fdc7f5313a09bd00ee7b9e9422a9d31e4162e273",
+      "after": "66fdc0b3fd0e11908999e9f6dda8a55afd756e3c93935f2640ca8d749017aedf",
       "owner": "Repository navigation",
-      "reason": "路由原图设备准备和 TEX 候选执行点。",
+      "reason": "路由同一体积偏好到原点光和聚光编码。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {

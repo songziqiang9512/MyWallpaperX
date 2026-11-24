@@ -24,6 +24,7 @@ extension SceneMetalRenderer {
         baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,
         stockNoiseTextures: SceneStockNoiseTextureStore = .empty,
         staticModelResources: ScenePreparedStaticModelResources = .empty,
+        allowsProjectedSpotVolume: Bool = true,
         hasDynamicBloom: Bool = false,
         instantiatedSceneScriptTargets: Set<SceneDynamicTarget> = [],
         scriptSourceEvidence: [SceneScriptSourceEvidenceIR] = [],
@@ -66,12 +67,12 @@ extension SceneMetalRenderer {
         )
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: renderDescriptor)
         self.visibleLayerIDs = visibleLayerIDs
-        self.spotLightRuntime = SceneSpotLightRuntime(
+        self.spotLightRuntime = allowsProjectedSpotVolume ? SceneSpotLightRuntime(
             descriptor: renderDescriptor,
             instantiatedSceneScriptTargets: instantiatedSceneScriptTargets,
             scriptSourceEvidence: scriptSourceEvidence,
             pipeline: pipelineRepository.spotLight()
-        )
+        ) : nil
         self.pointVolumePipeline = staticModelResources.pipeline?.supportsCameraDepth == true
             ? pipelineRepository.pointVolume() : nil
         let resolvedMaterialLayerIDs = resolvedMaterialRuntime?.executionLayerIDs ?? []

@@ -141,6 +141,7 @@ final class SceneDesktopWallpaperSession {
     private(set) var animationFrameRate: AnimationFrameRate = .standard
     private var displayCadenceLimit = SceneScreenTopology.conservativeCadenceLimit
     private(set) var scenePostProcessing: ScenePostProcessingMode
+    let allowsProjectedSpotVolume: Bool
 
     var effectiveAnimationFPS: Double { min(Double(animationFrameRate.rawValue), displayCadenceLimit) }
 
@@ -178,11 +179,13 @@ final class SceneDesktopWallpaperSession {
     init(textureDecodeCacheBudget: SceneTextureDecodeCacheBudget,
          surfacePreparationQueue: DispatchQueue,
          scenePostProcessing: ScenePostProcessingMode,
+         allowsProjectedSpotVolume: Bool = true,
          userShortcutOpener: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) }) {
         self.userShortcutOpener = userShortcutOpener
         self.textureDecodeCacheBudget = textureDecodeCacheBudget
         self.surfacePreparationQueue = surfacePreparationQueue
         self.scenePostProcessing = scenePostProcessing
+        self.allowsProjectedSpotVolume = allowsProjectedSpotVolume
         installObservers()
     }
 

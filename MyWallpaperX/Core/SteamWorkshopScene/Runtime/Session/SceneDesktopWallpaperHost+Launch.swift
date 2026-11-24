@@ -281,7 +281,7 @@ extension SceneDesktopWallpaperHost {
         let deviceResourcesPreparation = ScenePreparedDeviceResourcesTask(
             descriptor: runtimeInput.renderDescriptor,
             directionalShadowDimensionLimit: sceneRenderQuality.shadows.directionalDimensionLimit,
-            pointVolumeEnabled: sceneRenderQuality.pointVolume == .enabled,
+            pointVolumeEnabled: sceneRenderQuality.volumeLighting == .enabled,
             modelReflectionsEnabled: sceneRenderQuality.reflections == .enabled,
             ordinaryColorMipLongEdge: sceneRenderQuality.textures.ordinaryColorMipLongEdge,
             resourceView: model.resourceView,

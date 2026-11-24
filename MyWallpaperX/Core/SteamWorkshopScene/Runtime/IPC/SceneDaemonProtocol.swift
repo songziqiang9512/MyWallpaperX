@@ -425,7 +425,7 @@ nonisolated enum SceneDaemonProtocol {
     static func writeRenderQuality(_ quality: SceneRenderQuality, to payload: inout [String: Any]) {
         payload["scenePostProcessing"] = quality.postProcessing.rawValue
         payload["shadowQuality"] = quality.shadows.rawValue
-        payload["pointVolumeQuality"] = quality.pointVolume.rawValue
+        payload["pointVolumeQuality"] = quality.volumeLighting.rawValue
         payload["reflectionQuality"] = quality.reflections.rawValue
         payload["textureQuality"] = quality.textures.rawValue
     }
@@ -433,16 +433,16 @@ nonisolated enum SceneDaemonProtocol {
     private static func renderQuality(_ payload: [String: Any], fallback: SceneRenderQuality? = nil) -> SceneRenderQuality? {
         let postProcessingRaw = payload["scenePostProcessing"] ?? fallback.map { $0.postProcessing.rawValue as Any }
         let shadowRaw = payload["shadowQuality"] ?? fallback.map { $0.shadows.rawValue as Any }
-        let pointVolumeRaw = payload["pointVolumeQuality"] ?? fallback.map { $0.pointVolume.rawValue as Any }
+        let volumeLightingRaw = payload["pointVolumeQuality"] ?? fallback.map { $0.volumeLighting.rawValue as Any }
         let reflectionRaw = payload["reflectionQuality"] ?? fallback.map { $0.reflections.rawValue as Any }
         let textureRaw = payload["textureQuality"] ?? (fallback?.textures ?? .full).rawValue
         guard let postProcessing = (postProcessingRaw as? String).flatMap(ScenePostProcessingMode.init(rawValue:)),
               let shadows = (shadowRaw as? String).flatMap(SceneShadowQuality.init(rawValue:)),
-              let pointVolume = (pointVolumeRaw as? String).flatMap(ScenePointVolumeQuality.init(rawValue:)),
+              let volumeLighting = (volumeLightingRaw as? String).flatMap(SceneVolumeLightingQuality.init(rawValue:)),
               let reflections = (reflectionRaw as? String).flatMap(SceneReflectionQuality.init(rawValue:)),
               let textures = (textureRaw as? String).flatMap(SceneTextureQuality.init(rawValue:))
         else { return nil }
-        return .init(postProcessing: postProcessing, shadows: shadows, pointVolume: pointVolume,
+        return .init(postProcessing: postProcessing, shadows: shadows, volumeLighting: volumeLighting,
             reflections: reflections, textures: textures)
     }
 
