@@ -30,12 +30,12 @@ Video helper仍首次开启才建子层并采用已接纳高度；空数组表�
 
 实施时同批退出Scene取显示Levels及均值粗档的路径、三引擎必须同高度的断言和注释；保原native响应门，不留display域运行fallback。新数值失败应回退完整发布批次，不能给不同粒子暗换域。无采集/静音沿稳定零输入；入口与算术边界仍各由实际消费处处理，迟到格式不复位当前历史，普通局部失败不禁用健康消费者。
 
-参考源码只用于研究职责与行为，按本项目独立实现。Mirage粒子helper的不同schema/公式不能当官方数值oracle；不靠更响PCM、gain/bounds/pow或强制出生拟合主束。当前约85ms窗及Hann/尺度只是本项目事实，未取得官方同窗资格。338当前局部印记不证明主束producer或音频单一根因，具体运行边界归[Scene证据](../scene/capabilities/runtime-evidence-current.md#beam-contribution)。
+参考材料用于行为研究，按本项目独立实现。保作者PCM和参数，不以调幅、改bounds/pow或强制出生拟合主束。约85ms Hann仅为本机显示域。主束另沿[贡献链](../scene/capabilities/runtime-evidence-current.md#beam-contribution)核对。
 
 ## 验收与边界
 
 1. 原真实Analyzer/Service门保Video/Web的同PCM数值、样式、30/60Hz捕获时间包络、mono/stereo、格式、静音与暂停/恢复；同scope、格式及有效capture epoch的端点/需求变化不额外改变native值/历史，真实边界仍验原重建/token规则；需求不存在不计算无人消费的域。不能复制DSP进测试。
-2. 同源核PCM、原始谱、准备64、折叠16与[发射器出生](../scene/capabilities/runtime-evidence-current.md#floor-beam-emitter-338211)。验中置同档平均后取峰及指数100。算子和初始化器单验。保单峰、错位峰、边界、静音、等价变体与原包出生。显示域保原数值门。
+2. 同源核PCM、原始谱、准备64、折叠16与[发射器出生](../scene/capabilities/runtime-evidence-current.md#floor-beam-emitter-338211)。普通持续发射验中置同档平均后取峰、bounds内smoothstep后取幂，含指数100。算子和初始化器单验。保单峰、错位峰、边界、静音、等价变体与原包出生。显示域保原数值门。
 3. 六数组经真实decoder→Inbox→帧消费者核shape/顺序、generation、迟到、padding及>1不截顶，内部不重复验数据。Debug后固定作者版本、属性、声源、相位与viewport核主要图层、实际draw/附件贡献和目标ROI；补独立粒子、pulse眼部、32/64 shader/Script及Video/Web受影响样式。
 4. 独立审查冻结源与实际画面，原生Web保两帧motion。参考、官方、合成与实际作者结论分开；无可行动资格即转其他开放项，不继续加音量/时长矩阵。没有可比profile不声称CPU/能耗改善，原始音乐收尾删除。
 
