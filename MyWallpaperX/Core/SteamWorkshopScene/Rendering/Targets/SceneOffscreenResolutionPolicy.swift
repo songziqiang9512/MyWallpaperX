@@ -1,3 +1,5 @@
+import CoreGraphics
+
 nonisolated struct SceneFullFrameExtentPolicy: Equatable, Hashable, Sendable {
     enum MaximumDimensionClass: String, Equatable, Hashable, Sendable {
         case standard
@@ -12,7 +14,7 @@ nonisolated struct SceneFullFrameExtentPolicy: Equatable, Hashable, Sendable {
         requiresExactInputExtent: false
     )
 
-    static let exactSamplingTexture = Self(
+    static let exactInputExtent = Self(
         maximumDimensionClass: .poolLimit,
         requiresExactInputExtent: true
     )
@@ -32,7 +34,7 @@ nonisolated enum SceneEffectSourceExtentContract: Equatable, Hashable, Sendable 
     var targetPolicy: SceneFullFrameExtentPolicy {
         switch self {
         case .scalableStandard: .standard
-        case .exactSamplingTexture: .exactSamplingTexture
+        case .exactSamplingTexture: .exactInputExtent
         }
     }
 }
@@ -63,11 +65,8 @@ enum SceneOffscreenResolutionPolicy {
         }
     }
 
-    /// 缺口 5b 候选 A：持久效果链工作 extent 的拓扑档规则（纯拓扑级，
-    /// 零样本/效果类知识）。链规划入口只承认两档：`.exactSamplingTexture`
-    /// 合同层逐字保留原 policy（poolLimit + requiresExactInputExtent 硬拒，
-    /// atlas 保真不变）；其余合同层一律落 `.standard`（2048 上限）——裸
-    /// poolLimit/hardLimit 不再进入链工作尺寸解析。
+    /// Retain a caller's exact sampling grid or use the standard scalable
+    /// limit. A bare pool limit is not an exact extent contract.
     static func chainPlanningPolicy(
         _ policy: SceneFullFrameExtentPolicy
     ) -> SceneFullFrameExtentPolicy {
@@ -92,6 +91,13 @@ enum SceneOffscreenResolutionPolicy {
         guard !policy.requiresExactInputExtent
             || (result.0 == width && result.1 == height) else { return nil }
         return result
+    }
+
+    static func preferredImageCaptureExtent(_ mappedSize: CGSize) -> SIMD2<Int>? {
+        let width = Int(mappedSize.width), height = Int(mappedSize.height)
+        guard max(width, height) > standardMaximumDimension,
+              width * height <= standardMaximumDimension * standardMaximumDimension else { return nil }
+        return SIMD2(width, height)
     }
 
     static func limitedDimensions(

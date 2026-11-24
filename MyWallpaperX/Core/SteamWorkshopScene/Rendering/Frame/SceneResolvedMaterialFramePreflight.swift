@@ -8,6 +8,7 @@ extension SceneMetalRenderer {
         let requestedWidth: Int
         let requestedHeight: Int
         let extentPolicy: SceneFullFrameExtentPolicy
+        let preferredExtent: SIMD2<Int>?
         let materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey:
             Set<SceneAuthoredEffectRenderPlan.TextureIdentity>]
         let materialFunctionInvocations: [SceneGraphMaterialFunctionInvocationRequest]
@@ -715,9 +716,34 @@ SceneBaseMaterialLitCaptureMissLog.record(
 
                 }
             }
+            let preferredExtent: SIMD2<Int>?
+            if claim.sourceRoute == .capturedLayerTexture,
+               claim.supportsPlacementSpaceTerminalReplay,
+               claim.sceneBackgroundRequirement == nil,
+               claim.admittedGraphs.count == 1, claim.admittedGraphs[0].nodes.count == 1,
+               claim.dependencyOwnership == .none,
+               layer.contentKind == "image", layer.parentID == nil,
+               effectSourceExtentContract == .scalableStandard,
+               (layer.colorBlendMode ?? 0) == 0,
+               terminalReplayTarget === mainTarget, mainTarget.pixelFormat == .bgra8Unorm,
+               lightingProfile?.surfaceEnabled != true,
+               !cameraFrame.resolvesPerspective(for: layer),
+               !dependencyRuntime.requiresGraphOutputCapture(for: layerID),
+               let sourceCandidate, sourceCandidate.texture.mipmapLevelCount > 1,
+               let mappedExtent = SceneOffscreenResolutionPolicy.preferredImageCaptureExtent(
+                    sourceCandidate.mappedSize
+               ),
+               let runtime = imageCompositor.resolvedMaterialRuntime,
+               runtime.sourceMaterials.isEmpty
+                   || runtime.sourceMaterialConsumer(layerID: layerID, modelPath: layer.imagePath) == nil {
+                preferredExtent = mappedExtent
+            } else {
+                preferredExtent = nil
+            }
             sources[layerID] = .init(
                 claim: claim, requestedWidth: requestedWidth, requestedHeight: requestedHeight,
                 extentPolicy: effectSourceExtentContract.targetPolicy,
+                preferredExtent: preferredExtent,
                 materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
                 materialFunctionInvocations: invocations,
                 directDrawOutputModelViewProjection: directDrawOutputModelViewProjection,
@@ -744,6 +770,8 @@ SceneBaseMaterialLitCaptureMissLog.record(
         }
         let deferredCompositeLayerIDs = preparationSchedule.scheduledGraphProviderLayerIDs
             .intersection(frameVisibleLayerIDs)
+        var preferredPlans: [Int: SceneResolvedMaterialFrameTargetPlan] = [:]
+        var preferredSharedExtent: SIMD2<Int>?
         for layerID in preparationSchedule.preparationLayerIDs {
             guard let source = sources[layerID], let layer = layersByID[layerID] else { continue }
             let claim = source.claim
@@ -755,22 +783,25 @@ SceneBaseMaterialLitCaptureMissLog.record(
             guard let offscreenTexturePool else {
                 return .rejected(reasonCode: "frame-target-pool-unavailable")
             }
-            let allocation: ScenePersistentGraphTargetFramePlan
-            switch offscreenTexturePool.framePlanResultForPersistentGraphTargets(
-                admittedGraphs: claim.admittedGraphs,
-                materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
-                pairPlan: claim.pairPlan,
-                extentPolicy: source.extentPolicy,
-                requestedWidth: requestedWidth,
-                requestedHeight: requestedHeight,
-                // Later graphs may overwrite shared scratch before this layer's authored draw.
-                usesSharedFullFrameWorkingPair: !deferredCompositeLayerIDs.contains(layerID),
-                orderingContext: orderingContext,
-                plansMemoIdentity: .init(
-                    capabilityToken: claim.token,
-                    layerID: claim.layerID
+            let usesSharedPair = !deferredCompositeLayerIDs.contains(layerID)
+            func allocatePlan(width: Int, height: Int, policy: SceneFullFrameExtentPolicy)
+                -> Result<ScenePersistentGraphTargetFramePlan, ScenePersistentGraphTargetPlanningFailure>
+            {
+                offscreenTexturePool.framePlanResultForPersistentGraphTargets(
+                    admittedGraphs: claim.admittedGraphs,
+                    materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
+                    pairPlan: claim.pairPlan,
+                    extentPolicy: policy,
+                    requestedWidth: width,
+                    requestedHeight: height,
+                    // Later graphs may overwrite shared scratch before this layer's authored draw.
+                    usesSharedFullFrameWorkingPair: usesSharedPair,
+                    orderingContext: orderingContext,
+                    plansMemoIdentity: .init(capabilityToken: claim.token, layerID: claim.layerID)
                 )
-            ) {
+            }
+            let allocation: ScenePersistentGraphTargetFramePlan
+            switch allocatePlan(width: requestedWidth, height: requestedHeight, policy: source.extentPolicy) {
             case let .success(value): allocation = value
             case let .failure(failure):
                 graphTargetFallbacks[claim.layerID] =
@@ -797,6 +828,18 @@ SceneBaseMaterialLitCaptureMissLog.record(
             else {
                 graphTargetFallbacks[claim.layerID] = "frame-target-plan-rejected"
                 continue
+            }
+            if let extent = source.preferredExtent, usesSharedPair,
+               preferredSharedExtent == nil || preferredSharedExtent == extent,
+               source.frameInputs.stageActivationDecisions.values.allSatisfy({
+                   if case .active = $0 { return true }
+                   return false
+               }),
+               case let .success(preferred) = allocatePlan(
+                   width: extent.x, height: extent.y, policy: .exactInputExtent)
+            {
+                preferredSharedExtent = extent
+                preferredPlans[layerID] = .init(token: claim.token, allocation: preferred)
             }
             if dependencyRuntime.isStaticModelSourceProvider(layerID),
                dependencyRuntime.requiresGraphOutputCapture(for: layerID) {
@@ -859,6 +902,7 @@ SceneBaseMaterialLitCaptureMissLog.record(
             graphReason
         }
         return .ready(plans: byLayerID, preparationSchedule: preparationSchedule,
-            localFallbacks: mergedFallbacks, preparationRequests: preparationRequests)
+            localFallbacks: mergedFallbacks, preferredPlans: preferredPlans,
+            preparationRequests: preparationRequests)
     }
 }

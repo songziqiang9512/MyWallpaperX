@@ -35,6 +35,7 @@ enum SceneResolvedMaterialGraphComposition {
             plans: [Int: SceneResolvedMaterialFrameTargetPlan],
             preparationSchedule: SceneDependencyRenderPlan.PreparationSchedule,
             localFallbacks: [Int: String],
+            preferredPlans: [Int: SceneResolvedMaterialFrameTargetPlan],
             preparationRequests: [
                 SceneResolvedMaterialRuntimeBridge.FramePreparationRequest
             ]

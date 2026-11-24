@@ -87,7 +87,7 @@ extension SceneMetalRenderer {
             liveLayerIDs: liveLayerIDs,
             utilityExecution: utilityExecution
         ) {
-        case let .ready(plans, preparationSchedule, localFallbacks, preparationRequests):
+        case let .ready(plans, preparationSchedule, localFallbacks, preferredPlans, preparationRequests):
             guard imageCompositor.installResolvedMaterialFrameLocalFallbacks(
                 localFallbacks
             ) else {
@@ -109,6 +109,22 @@ extension SceneMetalRenderer {
                         "frame-target-plan-allocation-failed")
                     _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
                     return .rejected(reasonCode: "frame-target-plan-allocation-failed")
+                }
+                if !preferredPlans.isEmpty {
+                    var requests = preparationRequests
+                    for index in requests.indices {
+                        let layerID = requests[index].targetPlan.allocation.graphPlan.key.layerID
+                        if let preferred = preferredPlans[layerID] {
+                            requests[index].targetPlan = preferred
+                        }
+                    }
+                    if case let .ready(bundle) = runtime.prepareFrameResourceBundle(
+                        plans: requests.map(\.targetPlan), pool: pool, commandBuffer: commandBuffer
+                    ) {
+                        return .ready(plans: plans.merging(preferredPlans) { _, preferred in preferred },
+                            preparationSchedule: preparationSchedule, preparationRequests: requests,
+                            resourceBundle: bundle)
+                    }
                 }
                 switch runtime.prepareFrameResourceBundle(
                     plans: preparationRequests.map(\.targetPlan), pool: pool,

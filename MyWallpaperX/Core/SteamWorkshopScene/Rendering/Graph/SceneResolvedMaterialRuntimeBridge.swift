@@ -123,7 +123,7 @@ final class SceneResolvedMaterialRuntimeBridge {
 
     struct FramePreparationRequest {
         let claim: ClaimedExecution
-        let targetPlan: SceneResolvedMaterialFrameTargetPlan
+        var targetPlan: SceneResolvedMaterialFrameTargetPlan
         let materialFunctionInvocations:
             [SceneGraphMaterialFunctionInvocationRequest]
         let sceneBackgroundResource: SceneFrameTextureResource?

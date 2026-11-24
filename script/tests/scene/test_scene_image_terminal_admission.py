@@ -34,6 +34,7 @@ enum SceneResolvedMaterialRuntimeBridge {
         var supportsTerminalMaterialReplay = true
         var supportsPlacementSpaceTerminalReplay = true
         var admittedGraphs = [1, 2]
+        var sceneBackgroundRequirement: Int? = nil
         var dependencyOwnership = DependencyOwnership.none
     }
 }
@@ -92,6 +93,9 @@ MAIN = r'''
         base.supportsTerminalMaterialReplay = false
         results["missingChainQualification"] = !selects(base, image, target: target)
         base.supportsTerminalMaterialReplay = true
+        base.sceneBackgroundRequirement = 1
+        results["backgroundRequirement"] = !selects(base, image, target: target)
+        base.sceneBackgroundRequirement = nil
         for dependency in [DependencyOwnership.external, .aggregate] {
             base.dependencyOwnership = dependency
             results["dependency-\(dependency)"] = !selects(base, image, target: target)
@@ -171,7 +175,7 @@ class SceneImageTerminalAdmissionTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stderr)
             results = json.loads(completed.stdout)
         self.assertEqual({path: hashlib.sha256(path.read_bytes()).hexdigest() for path in sources}, before)
-        self.assertEqual(len(results), 24)
+        self.assertEqual(len(results), 25)
         for name, passed in results.items():
             with self.subTest(case=name):
                 self.assertTrue(passed)

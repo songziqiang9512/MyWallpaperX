@@ -350,7 +350,7 @@ final class SceneOffscreenTexturePool {
             width: requestedWidth,
             height: requestedHeight,
             hardLimit: maxDimension,
-            policy: .exactSamplingTexture
+            policy: .exactInputExtent
         ) else { return nil }
         let key = CacheKey.compositionGroup(
             layerID: layerID,
@@ -503,13 +503,7 @@ final class SceneOffscreenTexturePool {
               admittedGraphs.allSatisfy({ $0.layerID == pairPlan.layerID }) else {
             return .failure(.invalidRequest)
         }
-        // 缺口 5b 候选 A：链工作 extent 拓扑档在规划入口统一裁决——非
-        // exact 合同层一律 .standard（2048 上限），裸 poolLimit/hardLimit
-        // 不进入链规划；exactSamplingTexture 层原 policy 逐字保留（含
-        // resolvedDimensions 的 exactness 硬拒与终端 effectOutput 合同）。
-        // make 的同 inputExtent 合同使"中间降档/终端保原幅"异构不可行，
-        // 故整链共用这一个降档 extent（SceneLayerGraphTargetPlan.make 的
-        // 同 extent 合同不改）。compositionTarget 的 sizing 不经过本入口。
+        // All chain members share one exact or proportionally bounded grid.
         guard let size = SceneOffscreenResolutionPolicy.resolvedDimensions(
             width: requestedWidth,
             height: requestedHeight,

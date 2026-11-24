@@ -125,12 +125,12 @@
       "bytes": 70261
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 437,
-      "bytes": 89505
+      "lines": 446,
+      "bytes": 91022
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 326894
+      "bytes": 328798
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 215,
-      "bytes": 66605
+      "bytes": 66567
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -460,11 +460,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "5068da070ff76061a5c029fae6f33af1d62c9c24c9de2f644508c0c974643dcf",
-      "after": "dd9a315b84b819db4d286cf855032bb5f4fe2a05f11d33138fd04c078832c262",
-      "owner": "Root Scene color blend",
-      "reason": "Document the narrow current-color reader and frozen snapshot boundary",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#root-quad-current-color-blend"
+      "before": "dd9a315b84b819db4d286cf855032bb5f4fe2a05f11d33138fd04c078832c262",
+      "after": "e7a3b11b98c0003e050cba9dac7a248258082a346d9d04263f452efc4de246e2",
+      "owner": "Scene image material replay",
+      "reason": "Document the exact mapped capture cohort and budget fallback",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#isolated-image-source-density"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "5d95adef5efe2062a44b6f0c93cce2a8657eae16798c0eaa801ab45abf6d345f",
-      "after": "f08552c04e6c0069580cdb4e99ffaaadd2207454647e0c65e51e72df1f22af5b",
-      "owner": "Scene runtime evidence",
-      "reason": "Record the same-input presentation, attachment and independent author receipts",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#root-quad-color-read-367"
+      "before": "f08552c04e6c0069580cdb4e99ffaaadd2207454647e0c65e51e72df1f22af5b",
+      "after": "28bc1a358cdd60176c7db9afc75198170fa5d0c3bd634d7cfbc37cbb00689646",
+      "owner": "Scene native and official rendering",
+      "reason": "Bind isolated source coverage, final playback and budget evidence",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#silk-capture-density-345"
     },
     {
       "section": "bodies",
