@@ -19997,6 +19997,40 @@
         }
       }
     },
+    "Large": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Large"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "大"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Большой"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Groß"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grand"
+          }
+        }
+      }
+    },
     "LZ4 decompression failed. Expected %lld bytes, got %lld bytes.": {
       "localizations": {
         "en": {
@@ -22335,6 +22369,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Peut contenir du contenu sensible"
+          }
+        }
+      }
+    },
+    "Medium": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medium"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Средний"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mittel"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moyen"
           }
         }
       }
@@ -36613,6 +36681,40 @@
         }
       }
     },
+    "Small": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Small"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "小"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Маленький"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klein"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Petit"
+          }
+        }
+      }
+    },
     "Smaller Thumbnails": {
       "localizations": {
         "en": {
@@ -39669,6 +39771,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "La source Scene est en cours de libération. Actualisez, puis réessayez."
+          }
+        }
+      }
+    },
+    "The selected video quality is no longer available. Choose another quality in Pixabay.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The selected video quality is no longer available. Choose another quality in Pixabay."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所选视频规格已不可用，请在 Pixabay 中重新选择。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбранное качество больше недоступно. Выберите другое качество в Pixabay."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die gewählte Videoqualität ist nicht mehr verfügbar. Wähle in Pixabay eine andere Qualität."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La qualité vidéo sélectionnée n’est plus disponible. Choisissez une autre qualité dans Pixabay."
           }
         }
       }
@@ -47487,6 +47623,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Délai d’attente de la première image du candidat Scene dépassé ; le fond d’écran actuel a été conservé."
+          }
+        }
+      }
+    },
+    "Tiny": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiny"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "极小"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Минимальный"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sehr klein"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Très petit"
           }
         }
       }

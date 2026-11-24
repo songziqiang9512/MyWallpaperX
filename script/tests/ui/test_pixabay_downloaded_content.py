@@ -31,7 +31,7 @@ class PixabayDownloadedContentTests(unittest.TestCase):
         end = service.index("    // MARK: - 公开接口", start)
         source_owner = service[start:end].replace("private init()", "init()")
         for signature in ("    func download(item:", "    func downloadAndSet(", "    private func postReadyToPlay(",
-                          "    private func startDownload(item:", "    private func startDownload(id:",
+                          "    private func startDownload(id:",
                           "    private func downloadFailure(", "    private struct DownloadSlot {",
                           "    func deleteLocalFiles(", "    func setLocalFileAsWallpaper("):
             source_owner += "\n" + declaration(service, signature)

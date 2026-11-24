@@ -412,7 +412,10 @@ final class PixabayDownloadsInspectorView: NSView {
     }
 
     @objc private func setAsWallpaper() {
-        if snapshot == nil, let remoteItem { service.download(item: remoteItem); return }
+        if snapshot == nil, let remoteItem {
+            presentPixabayDownload(remoteItem, service: service, in: window)
+            return
+        }
         if let libraryActions {
             guard libraryActions.state.canPerformPrimary else { return }
             libraryActions.onPrimary(); return

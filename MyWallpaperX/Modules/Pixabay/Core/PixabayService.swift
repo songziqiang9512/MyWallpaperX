@@ -255,20 +255,22 @@ final class PixabayService: ObservableObject {
     @Published var lastDownloadedItemID: Int? = nil
 
     /// 仅下载到本地，不触发播放
-    func download(item: PixabayVideoItem) {
-        startDownload(item: item)
+    func download(item: PixabayVideoItem, tier: PixabayDownloadTier? = nil) {
+        startDownload(id: item.id, item: item, tierCode: tier?.rawValue)
     }
 
     /// 设为壁纸：文件已在本地时立即播放（OL-05 直接用户意图）；未下载时
     /// 仅下载——用户裁决（2026-09-26）：下载完成后不自动切换播放，
     /// 下载只是下载，用户稍后再点一次即播放。通知名
     /// pixabayVideoReadyToPlay 定义在 Shell/ContentViewSupport.swift。
-    func downloadAndSet(item: PixabayVideoItem, libraryPending: WallpaperPlaybackSequence.Pending? = nil) {
+    func downloadAndSet(item: PixabayVideoItem, libraryPending: WallpaperPlaybackSequence.Pending? = nil,
+                        downloadIfNeeded: (() -> Void)? = nil) {
         if downloadedIDs.contains(item.id) || existingDownloadedURL(id: item.id) != nil {
             postReadyToPlay(id: item.id, libraryPending: libraryPending)
             return
         }
-        startDownload(item: item)
+        if let downloadIfNeeded { downloadIfNeeded() }
+        else { download(item: item) }
     }
 
     /// OL-05：已下载文件直接设为壁纸（从本地路径发通知，无需重新下载）
@@ -295,18 +297,16 @@ final class PixabayService: ObservableObject {
         return true
     }
 
-    private func startDownload(item: PixabayVideoItem) {
-        startDownload(id: item.id, item: item)
+    func retryDownload(id: Int, tierCode: String? = nil) {
+        startDownload(id: id, item: nil, tierCode: tierCode)
     }
-
-    func retryDownload(id: Int) { startDownload(id: id, item: nil) }
 
     func cancelDownload(id: Int, attemptID: UUID) {
         guard let slot = downloadSlots[id], slot.attemptID == attemptID else { return }
         slot.task.cancel()
     }
 
-    private func startDownload(id: Int, item: PixabayVideoItem?) {
+    private func startDownload(id: Int, item: PixabayVideoItem?, tierCode: String?) {
         guard downloadSlots[id] == nil else { return }
         let restoration = prepareExplicitLibraryRestoration?(.init(provider: .pixabay, sourceID: String(id)))
         if existingDownloadedURL(id: id) != nil {
@@ -327,7 +327,7 @@ final class PixabayService: ObservableObject {
                 if let terminal {
                     downloadTerminals.send(.init(id: .init(reference: .init(provider: .pixabay, sourceID: String(id)),
                         attemptID: attempt.uuidString), title: terminalTitle, outcome: terminal,
-                        recordedAt: Date(), failureMessage: failure))
+                        recordedAt: Date(), failureMessage: failure, pixabayTier: tierCode))
                 }
                 downloadTasksDidChange.send()
             }
@@ -337,8 +337,18 @@ final class PixabayService: ObservableObject {
                 let resolved: PixabayVideoItem
                 if let item { resolved = item }
                 else { resolved = try await resolveDownloadItem(id: id) }
-                guard let source = resolved.bestVideoDownload else { throw downloadFailure(String(localized: "This video has no downloadable file right now.")) }
                 terminalTitle = resolved.displayTitle
+                let source: PixabayVideoDownload?
+                if let tierCode {
+                    source = PixabayDownloadTier(rawValue: tierCode).flatMap { resolved.videoDownload(tier: $0) }
+                } else {
+                    source = resolved.videoDownload()
+                }
+                guard let source else {
+                    throw downloadFailure(tierCode == nil
+                        ? String(localized: "This video has no downloadable file right now.")
+                        : String(localized: "The selected video quality is no longer available. Choose another quality in Pixabay."))
+                }
                 downloadSlots[id]?.title = terminalTitle
                 downloadSlots[id]?.previewURL = resolved.previewThumbnailURL
                 downloadSlots[id]?.phase = .transferring

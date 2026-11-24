@@ -37,6 +37,7 @@ class PixabayDownloadTransferTests(unittest.TestCase):
         transfers: list[tuple[str, int, int]] = []
         cancellation_finished = threading.Event()
         request_lock = threading.Lock()
+        quality_payloads: dict[str, bytes] = {}
 
         class Handler(http.server.BaseHTTPRequestHandler):
             protocol_version = 'HTTP/1.1'
@@ -62,7 +63,7 @@ class PixabayDownloadTransferTests(unittest.TestCase):
                     return
                 self.send_response(404 if self.path == '/error' else 200)
                 self.send_header('Content-Type', 'video/mp4')
-                body = PAYLOAD * 8 if self.path == '/cancel' else PAYLOAD
+                body = quality_payloads.get(self.path, PAYLOAD * 8 if self.path == '/cancel' else PAYLOAD)
                 if self.path != '/unknown':
                     self.send_header('Content-Length', str(len(body) + (4096 if self.path == '/disconnect' else 0)))
                 self.send_header('Connection', 'close')
@@ -104,7 +105,7 @@ class PixabayDownloadTransferTests(unittest.TestCase):
             + '\n            TransferProbe.shared.moved(from: location, to: stagingURL, identity: identity)')
         methods = '\n'.join(method(service, signature) for signature in [
             '    func download(item:', '    func downloadAndSet(item:',
-            '    private func postReadyToPlay(', '    private func startDownload(item:',
+            '    private func postReadyToPlay(',
             '    private func startDownload(id:', '    func retryDownload(', '    func cancelDownload(',
             '    private func resolveDownloadItem(', '    private func downloadFailure(',
             '    private func fetchAndMove(', '    private func downloadFile(',
@@ -134,11 +135,18 @@ class PixabayDownloadTransferTests(unittest.TestCase):
                        '-module-cache-path', str(work / 'modules'), '-o', str(work / 'transfer')]
             compiled = subprocess.run(command, env=environment, capture_output=True, text=True, timeout=150)
             self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+            generated = subprocess.run([str(work / 'transfer'), '--generate', str(work)],
+                env=environment, capture_output=True, text=True, timeout=20)
+            self.assertEqual(generated.returncode, 0, generated.stdout + generated.stderr)
+            large = (work / 'large.mp4').read_bytes()
+            small = (work / 'small.mp4').read_bytes()
+            quality_payloads.update({'/quality-large': large, '/quality-small': small,
+                                     '/quality-small-refreshed': small, '/quality-only-medium': large})
             server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
             thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
             try:
                 completed = subprocess.run([str(work / 'transfer'),
-                    f'http://127.0.0.1:{server.server_port}', str(work / 'home')],
+                    f'http://127.0.0.1:{server.server_port}', str(work / 'home'), str(work)],
                     env=environment, capture_output=True, text=True, timeout=45)
             finally:
                 server.shutdown(); server.server_close(); thread.join(timeout=5)
@@ -153,6 +161,9 @@ class PixabayDownloadTransferTests(unittest.TestCase):
                 (saved / 'runtime.log').write_text(completed.stdout + completed.stderr)
                 (saved / 'http.json').write_text(json.dumps(requests, indent=2))
                 (saved / 'transfers.json').write_text(json.dumps(transfers, indent=2))
+                if completed.returncode == 0:
+                    published = work / 'home/Movies/MyWallpaperX/Pixabay/online_51.mp4'
+                    (saved / 'selected-small.mp4').write_bytes(published.read_bytes())
             self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
             self.assertTrue(cancellation_observed, 'cancellation request did not finish at the server')
             self.assertIn('online-download-transfer-pass', completed.stdout)
@@ -160,6 +171,9 @@ class PixabayDownloadTransferTests(unittest.TestCase):
             self.assertFalse(any(verb == 'HEAD' for verb, _ in requests), requests)
             for path in ['/known', '/redirect', '/unknown', '/error', '/disconnect', '/cancel']:
                 self.assertGreater(counts['GET', path], 0, (path, requests))
+            for path in quality_payloads:
+                self.assertEqual(counts['GET', path], 1, (path, requests))
+            self.assertEqual(counts['GET', '/quality-missing-fallback'], 0, requests)
             self.assertTrue(any(path == '/cancel' and 0 < sent < total for path, sent, total in transfers),
                 ('Task.cancel must stop the actual GET before its complete body', transfers))
             self.assertEqual(identities, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs})

@@ -64,7 +64,7 @@ def load_registry() -> dict[str, Any]:
     required = {"id", "title", "owner", "status", "designDoc", "design_notes",
                 "matchPatterns", "contentPatterns"}
     for area in areas:
-        if not isinstance(area, dict) or set(area) != required:
+        if not isinstance(area, dict) or not required <= set(area) <= required | {"excludeMatchPatterns"}:
             raise ValueError(f"design gate area is incomplete: {area.get('id')}")
         if area["id"] in seen:
             raise ValueError(f"duplicate design gate area id: {area['id']}")
@@ -107,6 +107,7 @@ def evaluate(
         matched_paths = [
             p for p in paths
             if any(fnmatch.fnmatch(p, pat) for pat in area["matchPatterns"])
+            and not any(fnmatch.fnmatch(p, pat) for pat in area.get("excludeMatchPatterns", ()))
         ]
         matched_symbols: list[tuple[str, str]] = []
         for p in paths:

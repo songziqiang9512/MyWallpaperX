@@ -13,7 +13,8 @@ import Foundation
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let url = root.appendingPathComponent("history.json")
         let history = try DownloadHistoryStore(persistenceURL: url)
-        let success = receipt(.pixabay, "7", "actual-first", .completed, 300)
+        var success = receipt(.pixabay, "7", "actual-first", .completed, 300)
+        success.pixabayTier = "small"
         let failed = receipt(.pixiv, "7:p2", "failed-first", .failed, 200)
         try history.record(success)
         try history.record(failed)
@@ -21,6 +22,8 @@ import Foundation
         precondition(history.entries.count == 2, "same terminal receipt cannot duplicate an attempt")
         let object = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
         precondition(Set(object.keys) == ["entries"], "current history writes only real entries")
+        let stored = object["entries"] as! [[String: Any]]
+        precondition(stored[0]["pixabayTier"] as? String == "small" && stored[1]["pixabayTier"] == nil)
         let reloaded = try DownloadHistoryStore(persistenceURL: url)
         precondition(reloaded.entries == history.entries)
         try reloaded.remove(failed.id)

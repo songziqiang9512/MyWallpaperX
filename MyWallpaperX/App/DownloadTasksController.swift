@@ -176,7 +176,10 @@ import Combine
             catch { historyError = String(localized: "Couldn’t clear download history:") + error.localizedDescription }
         } else if reference.provider == .pixabay, let id = Int(reference.sourceID) {
             switch action {
-            case .retry: pixabay.retryDownload(id: id)
+            case .retry:
+                if let receipt = history?.entries.first(where: { $0.id == row.id }) {
+                    pixabay.retryDownload(id: id, tierCode: receipt.pixabayTier)
+                }
             case .cancel: if let attempt = UUID(uuidString: row.id.attemptID) { pixabay.cancelDownload(id: id, attemptID: attempt) }
             case .revealFile:
                 if let record = pixabay.downloadedContent.entries.first(where: { $0.id == id && $0.isAvailable }) {

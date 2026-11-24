@@ -30,7 +30,7 @@ struct PixabayVideoItem { let id: Int }
     var prepareVideoPlaybackIntent: ((WallpaperReference, WallpaperPlaybackSequence.Pending?) -> ImportedVideoPlaybackAdmission?)?
     var downloadError: String?
     var downloadStarts = 0
-    func startDownload(item: PixabayVideoItem) { downloadStarts += 1 }
+    func download(item: PixabayVideoItem) { downloadStarts += 1 }
     // ONLINE_METHODS
 }
 

@@ -27,6 +27,8 @@
 <a id="wallpaper-quality"></a>
 壁纸质量从 [AppKit 设置](../../MyWallpaperX/Shared/Settings/AppKitSettingsView.swift)、[播放偏好](../../MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift)与[导入恢复](../../MyWallpaperX/App/PersonalSettingsImportCoordinator.swift)进入。Scene 跟 [daemon 控制面](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient.swift)、[帧驱动](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift)及[有效策略](../scene/architecture/runtime-architecture.md#effective-quality-policy)。Web 跟 [宿主投影](../../MyWallpaperX/Core/SteamWorkshopWeb/Process/WebDaemonHostAdapter.swift)，Video 跟 [原片执行](../../WallpaperDaemonSources/Daemon/Playback/WallpaperDaemon+Video.swift)。新启动或重建路径沿各端种子检查，执行工作见[现役工作卡](../development/wallpaper-quality-work-card.md#execution)。
 
+Pixabay 新下载由 [规格选择](../../MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadQualityPrompt.swift)交给[下载服务](../../MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift)发布实际文件。[下载历史](../../MyWallpaperX/App/DownloadTasksController.swift)用原档位重试。播放仍由原 Video daemon 读取发布文件。
+
 - `App/` 装配产品入口，`Shell/` 承载主界面，`Modules/` 按产品能力组织，`Core/` 提供当前共享执行能力；名字本身不证明依赖方向。`SteamWorkshop/Web/Core` 中仍有三类型分发，定位时必须追调用者。
 - 三引擎采用相同的控制/播放隔离边界；Video/Web 与 Scene 的会话生命周期分属现役执行链；不能把 `WallpaperEngine` 描述成全引擎唯一生命周期 owner。静态输出也有独立系统 API 消费者。跨引擎工作先核对[工程路线](../scene/architecture/runtime-architecture.md)的迁移合同。
 - Scene Rendering 合法消费 Compilation 产出的 prepared Program。不能用“目录之间不得引用”替代公共合同与内部实现的区分；依赖门须先确定哪种具体反向依赖破坏 owner。

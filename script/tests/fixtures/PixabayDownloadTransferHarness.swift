@@ -1,4 +1,6 @@
+import AVFoundation
 import Combine
+import CoreVideo
 import Darwin
 import Foundation
 
@@ -54,6 +56,7 @@ nonisolated final class TransferProbe: @unchecked Sendable {
 
 nonisolated final class FixedIDProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var base = ""
+    nonisolated(unsafe) static var smallBytes = 0
     private static let lock = NSLock()
     nonisolated(unsafe) private static var IDs: [String] = []
     static var requestedIDs: [String] { lock.lock(); defer { lock.unlock() }; return IDs }
@@ -62,8 +65,14 @@ nonisolated final class FixedIDProtocol: URLProtocol, @unchecked Sendable {
     override func startLoading() {
         let id = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!.first { $0.name == "id" }!.value!
         Self.lock.lock(); Self.IDs.append(id); Self.lock.unlock()
-        let file: [String: Any] = ["url": Self.base + "/known", "width": 640, "height": 360, "size": 524288, "thumbnail": ""]
-        let body: [String: Any] = ["totalHits": 1, "hits": [["id": Int(id)!, "pageURL": "", "tags": "fixed id", "duration": 1, "user": "fixture", "videos": ["large": file]]]]
+        let largePath = id == "52" ? "/quality-missing-fallback" : "/known"
+        let file: [String: Any] = ["url": Self.base + largePath, "width": 640, "height": 360, "size": 524288, "thumbnail": ""]
+        var videos = ["large": file]
+        if id == "51" {
+            videos["small"] = ["url": Self.base + "/quality-small-refreshed", "width": 160, "height": 90,
+                               "size": Self.smallBytes, "thumbnail": ""]
+        }
+        let body: [String: Any] = ["totalHits": 1, "hits": [["id": Int(id)!, "pageURL": "", "tags": "fixed id", "duration": 1, "user": "fixture", "videos": videos]]]
         let data = try! JSONSerialization.data(withJSONObject: body)
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: data)
@@ -151,10 +160,49 @@ extension Notification.Name { static let pixabayVideoReadyToPlay = Notification.
         while !condition(), Date() < end { try await Task.sleep(nanoseconds: 5_000_000) }
         guard condition() else { throw Failure.deadline }
     }
+
+    static func makeClip(at url: URL, width: Int, height: Int, fps: Int32) async throws {
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
+        let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
+            AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: width, AVVideoHeightKey: height,
+        ])
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input,
+            sourcePixelBufferAttributes: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                kCVPixelBufferWidthKey as String: width, kCVPixelBufferHeightKey as String: height])
+        writer.add(input)
+        precondition(writer.startWriting())
+        writer.startSession(atSourceTime: .zero)
+        for index in 0..<(fps * 2) {
+            try await until { input.isReadyForMoreMediaData }
+            var source: CVPixelBuffer?
+            precondition(CVPixelBufferCreate(kCFAllocatorDefault, width, height, kCVPixelFormatType_32BGRA,
+                nil, &source) == kCVReturnSuccess)
+            let buffer = source!
+            CVPixelBufferLockBaseAddress(buffer, [])
+            let luminance: Int32 = index < fps / 2 ? 210 : (index < fps * 3 / 2 ? 120 : 35)
+            memset(CVPixelBufferGetBaseAddress(buffer), luminance, CVPixelBufferGetDataSize(buffer))
+            CVPixelBufferUnlockBaseAddress(buffer, [])
+            precondition(adaptor.append(buffer, withPresentationTime: CMTime(value: Int64(index), timescale: fps)))
+        }
+        input.markAsFinished()
+        await writer.finishWriting()
+        precondition(writer.status == .completed, "could not generate actual MP4: \(String(describing: writer.error))")
+    }
+
     @MainActor static func main() async throws {
+        if CommandLine.arguments[1] == "--generate" {
+            let work = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
+            try await makeClip(at: work.appendingPathComponent("large.mp4"), width: 320, height: 180, fps: 30)
+            try await makeClip(at: work.appendingPathComponent("small.mp4"), width: 160, height: 90, fps: 24)
+            return
+        }
         let base = CommandLine.arguments[1]
         FixedIDProtocol.base = base
         let home = URL(fileURLWithPath: CommandLine.arguments[2]).resolvingSymlinksInPath().standardizedFileURL
+        let work = URL(fileURLWithPath: CommandLine.arguments[3], isDirectory: true)
+        let largeBytes = try Data(contentsOf: work.appendingPathComponent("large.mp4"))
+        let smallBytes = try Data(contentsOf: work.appendingPathComponent("small.mp4"))
+        FixedIDProtocol.smallBytes = smallBytes.count
         let destination = PixabayService.downloadDirectory.resolvingSymlinksInPath().standardizedFileURL
         precondition(destination.path.hasPrefix(home.path + "/"), "test must never write user Movies")
         let service = PixabayService()
@@ -176,25 +224,25 @@ extension Notification.Name { static let pixabayVideoReadyToPlay = Notification.
         let choice = PixabayVideoItem(id: 1, pageURL: "", tags: "", duration: 1, user: "",
             videos: .init(large: file("", size: 999), medium: file(base + "/variant-1", size: 42),
                 small: file(base + "/variant-2", size: 73), tiny: nil))
-        precondition(choice.bestVideoDownload?.url.absoluteString == base + "/variant-1"
-            && choice.bestVideoDownload?.expectedBytes == 42, "URL and size must select the same variant")
+        precondition(choice.videoDownload()?.url.absoluteString == base + "/variant-1"
+            && choice.videoDownload()?.expectedBytes == 42, "URL and size must select the same variant")
         for selected in 0..<4 {
             let variants: [PixabayVideoFile?] = (0..<4).map { index in
                 index < selected ? nil : file(base + "/variant-\(index)", size: 10 + index)
             }
             let candidate = PixabayVideoItem(id: 4 + selected, pageURL: "", tags: "", duration: 1, user: "",
                 videos: .init(large: variants[0], medium: variants[1], small: variants[2], tiny: variants[3]))
-            precondition(candidate.bestVideoDownload?.url.absoluteString == base + "/variant-\(selected)"
-                && candidate.bestVideoDownload?.expectedBytes == Int64(10 + selected),
+            precondition(candidate.videoDownload()?.url.absoluteString == base + "/variant-\(selected)"
+                && candidate.videoDownload()?.expectedBytes == Int64(10 + selected),
                 "large/medium/small/tiny priority must pair the chosen URL with its own size")
         }
         let invalid = PixabayVideoItem(id: 2, pageURL: "", tags: "", duration: 1, user: "",
             videos: .init(large: file("http://[", size: 19), medium: file(base + "/known", size: 42), small: nil, tiny: nil))
-        precondition(invalid.bestVideoDownload == nil, "a first nonempty invalid URL must preserve the former nil result")
+        precondition(invalid.videoDownload() == nil, "a first nonempty invalid URL must preserve the former nil result")
         let relative = PixabayVideoItem(id: 3, pageURL: "", tags: "", duration: 1, user: "",
             videos: .init(large: file("relative.mp4", size: -1), medium: nil, small: nil, tiny: nil))
-        precondition(relative.bestVideoDownload?.url.relativeString == "relative.mp4"
-            && relative.bestVideoDownload?.expectedBytes == nil, "selection must not add a URL admission or invent a length")
+        precondition(relative.videoDownload()?.url.relativeString == "relative.mp4"
+            && relative.videoDownload()?.expectedBytes == nil, "selection must not add a URL admission or invent a length")
 
         var callbackProgress: [Double] = []
         let progressDelegate = WallpaperFileTransfer(expectedBytes: 1,
@@ -320,6 +368,62 @@ extension Notification.Name { static let pixabayVideoReadyToPlay = Notification.
         precondition(retryAttempt != originalAttempt && service.downloadedIDs.contains(40)
                      && FixedIDProtocol.requestedIDs == ["40"], "history retry must resolve the fixed ID and ignore an old cancel action")
         precondition(terminals.filter { $0.id.reference.sourceID == "40" }.map(\.outcome) == [.cancelled, .completed])
+
+        let large = PixabayVideoFile(url: base + "/quality-large", width: 320, height: 180,
+            size: largeBytes.count, thumbnail: "")
+        let small = PixabayVideoFile(url: base + "/quality-small", width: 160, height: 90,
+            size: smallBytes.count, thumbnail: "")
+        let options = PixabayVideoFiles(large: large, medium: large, small: small, tiny: nil)
+        let lowChoice = PixabayVideoItem(id: 51, pageURL: "", tags: "Quality choice", duration: 2, user: "", videos: options)
+        precondition(lowChoice.videoDownloadOptions.map(\.tier) == [.large, .small])
+        precondition(lowChoice.videoDownload(tier: .medium)?.url == lowChoice.videoDownload(tier: .large)?.url,
+            "same URL choices are deduplicated for presentation while exact historical tiers remain addressable")
+        let smallOption = lowChoice.videoDownloadOptions[1]
+        precondition(smallOption.width == 160 && smallOption.height == 90 && smallOption.expectedBytes == Int64(smallBytes.count))
+        service.download(item: lowChoice, tier: .small)
+        let selectedAttempt = service.downloadActivity(for: 51)?.attemptID
+        service.download(item: lowChoice, tier: .large)
+        precondition(service.downloadActivity(for: 51)?.attemptID == selectedAttempt)
+        try await until { service.downloadActivity(for: 51) == nil }
+        let selectedURL = destination.appendingPathComponent("online_51.mp4")
+        let selectedBytes = try Data(contentsOf: selectedURL)
+        precondition(selectedBytes == smallBytes && selectedBytes != largeBytes)
+        precondition(PixabayService.playRequests.count == 1, "selected quality download must not autoplay")
+        let selectedAsset = AVURLAsset(url: selectedURL)
+        let selectedTrack = try await selectedAsset.loadTracks(withMediaType: .video).first!
+        let selectedSize = try await selectedTrack.load(.naturalSize)
+        let selectedFPS = try await selectedTrack.load(.nominalFrameRate)
+        precondition(selectedSize == CGSize(width: 160, height: 90) && abs(selectedFPS - 24) < 0.1)
+        let qualityReceipt = terminals.last!
+        precondition(qualityReceipt.outcome == .completed && qualityReceipt.pixabayTier == "small")
+
+        try FileManager.default.removeItem(at: selectedURL)
+        service.retryDownload(id: 51, tierCode: qualityReceipt.pixabayTier)
+        try await until { service.downloadActivity(for: 51) == nil }
+        let retriedBytes = try Data(contentsOf: selectedURL)
+        precondition(retriedBytes == smallBytes && terminals.last?.pixabayTier == "small")
+        service.retryDownload(id: 52, tierCode: qualityReceipt.pixabayTier)
+        try await until { service.downloadActivity(for: 52) == nil }
+        precondition(terminals.last?.outcome == .failed && terminals.last?.pixabayTier == "small"
+            && terminals.last?.failureMessage == String(localized: "The selected video quality is no longer available. Choose another quality in Pixabay.")
+            && !FileManager.default.fileExists(atPath: destination.appendingPathComponent("online_52.mp4").path))
+        precondition(FixedIDProtocol.requestedIDs == ["40", "51", "52"])
+
+        let defaultChoice = PixabayVideoItem(id: 53, pageURL: "", tags: "Default quality", duration: 2, user: "", videos: options)
+        service.download(item: defaultChoice)
+        try await until { service.downloadActivity(for: 53) == nil }
+        let defaultBytes = try Data(contentsOf: destination.appendingPathComponent("online_53.mp4"))
+        precondition(defaultBytes == largeBytes && terminals.last?.outcome == .completed && terminals.last?.pixabayTier == nil)
+
+        let medium = PixabayVideoFile(url: base + "/quality-only-medium", width: 320, height: 180,
+            size: largeBytes.count, thumbnail: "")
+        let soleMedium = PixabayVideoItem(id: 54, pageURL: "", tags: "One usable file", duration: 2, user: "",
+            videos: .init(large: file("http://[", size: 12), medium: medium, small: nil, tiny: nil))
+        precondition(soleMedium.videoDownload() == nil && soleMedium.videoDownloadOptions.map(\.tier) == [.medium])
+        service.download(item: soleMedium, tier: .medium)
+        try await until { service.downloadActivity(for: 54) == nil }
+        let mediumBytes = try Data(contentsOf: destination.appendingPathComponent("online_54.mp4"))
+        precondition(mediumBytes == largeBytes && terminals.last?.outcome == .completed && terminals.last?.pixabayTier == "medium")
         for move in TransferProbe.shared.snapshot {
             precondition(move.sameInode && move.sourceRemoved, "delegate must transfer the actual URLSession file without copying")
             precondition(move.destination.deletingLastPathComponent() == destination

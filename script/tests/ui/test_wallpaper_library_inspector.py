@@ -140,12 +140,14 @@ def prepare_sil_inspector_sources(tree, work, inspector_override=None, fixture_t
         "Shared/UI/InspectorHostActions.swift", "Shared/UI/InspectorHostViewController.swift",
         "Shared/UI/WallpaperLibrarySheetPresentation.swift",
         "Modules/StaticImageLibrary/UI/SILInspectorSupport.swift", "Modules/StaticImageLibrary/UI/SILInspectorView.swift",
-        "Modules/Pixabay/Core/PixabayModels.swift", "Modules/Pixabay/UI/PixabayDownloadsInspectorSupport.swift", "Modules/Pixabay/UI/PixabayDownloadsInspectorView.swift")]
+        "Modules/Pixabay/Core/PixabayModels.swift", "Modules/Pixabay/UI/PixabayDownloadQualityPrompt.swift",
+        "Modules/Pixabay/UI/PixabayDownloadsInspectorSupport.swift", "Modules/Pixabay/UI/PixabayDownloadsInspectorView.swift")]
     if inspector_override is not None:
         sources[sources.index(tree / "MyWallpaperX/Modules/StaticImageLibrary/UI/SILInspectorView.swift")] = Path(inspector_override)
     sources += [tree / path.relative_to(ROOT) for path in DOWNLOADED_CARD_DEPENDENCIES]
     sources.append(downloaded_store)
-    sources.append((Path(fixture_tree) if fixture_tree is not None else tree) / "script/tests/fixtures/WallpaperInspectorOrganizationHarness.swift")
+    fixture_dir = (Path(fixture_tree) if fixture_tree is not None else tree) / "script/tests/fixtures"
+    sources += [fixture_dir / name for name in ("WallpaperInspectorOrganizationHarness.swift", "PixabayInspectorDownloadChecks.swift")]
     primary_sources, primary_inputs = prepare_image_primary_sources(tree, work)
     sources += [p for p in primary_sources if p not in sources]
     inputs = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in [
@@ -169,9 +171,11 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
             "Shared/UI/InspectorHostActions.swift", "Shared/UI/InspectorHostViewController.swift",
         "Shared/UI/WallpaperLibrarySheetPresentation.swift",
             "Modules/StaticImageLibrary/UI/SILInspectorSupport.swift", "Modules/StaticImageLibrary/UI/SILInspectorView.swift",
-            "Modules/Pixabay/Core/PixabayModels.swift", "Modules/Pixabay/UI/PixabayDownloadsInspectorSupport.swift", "Modules/Pixabay/UI/PixabayDownloadsInspectorView.swift")]
+            "Modules/Pixabay/Core/PixabayModels.swift", "Modules/Pixabay/UI/PixabayDownloadQualityPrompt.swift",
+            "Modules/Pixabay/UI/PixabayDownloadsInspectorSupport.swift", "Modules/Pixabay/UI/PixabayDownloadsInspectorView.swift")]
         paths += [*DOWNLOADED_CARD_DEPENDENCIES, DOWNLOADED_STORE,
-                  ROOT / "script/tests/fixtures/WallpaperInspectorOrganizationHarness.swift"]
+                  ROOT / "script/tests/fixtures/WallpaperInspectorOrganizationHarness.swift",
+                  ROOT / "script/tests/fixtures/PixabayInspectorDownloadChecks.swift"]
         observed = [*paths, DOWNLOADED_STORE, DOWNLOADED_IDENTITY, Path(__file__)]
         hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in observed}
         with tempfile.TemporaryDirectory(prefix="mwx-image-inspector-required-actions-", dir="/private/tmp") as directory:
@@ -402,6 +406,22 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
             self.assertEqual(compiled, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in frozen})
             print(json.dumps({"silRenderSnapshot": report}, ensure_ascii=False, sort_keys=True))
         self.assertEqual(hashes, {path: hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in hashes})
+
+    def test_pixabay_remote_footer_selects_download_quality(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-inspector-download-quality-", dir="/private/tmp") as directory:
+            work = Path(directory)
+            frozen, hashes = prepare_sil_inspector_sources(ROOT, work)
+            binary = work / "checks"
+            result = subprocess.run(["xcrun", "swiftc", "-parse-as-library", "-swift-version", "5", "-default-isolation", "MainActor",
+                *map(str, frozen), "-module-cache-path", str(work / "modules"), "-o", str(binary)], capture_output=True, text=True, timeout=150)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            home = work / "home"
+            home.mkdir()
+            run = subprocess.run([str(binary), str(work), "download-quality"], capture_output=True, text=True, timeout=15,
+                env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)))
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            self.assertIn("pixabay-remote-download-quality-pass", run.stdout)
+            self.assertEqual(hashes, {path: hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in hashes})
 
     def test_original_image_and_pixabay_views_use_injected_actions(self):
         with tempfile.TemporaryDirectory(prefix="mwx-inspector-actions-", dir="/private/tmp") as directory:

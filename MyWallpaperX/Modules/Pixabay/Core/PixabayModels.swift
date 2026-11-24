@@ -116,13 +116,18 @@ struct PixabayVideoItem: Decodable, Identifiable, Equatable {
     let user:         String
     let videos:       PixabayVideoFiles
 
-    var bestVideoDownload: (url: URL, expectedBytes: Int64?)? {
-        for file in [videos.large, videos.medium, videos.small, videos.tiny].compactMap({ $0 }) {
-            guard !file.url.isEmpty else { continue }
-            guard let url = URL(string: file.url) else { return nil }
-            return (url, file.size > 0 ? Int64(file.size) : nil)
-        }
-        return nil
+    func videoDownload(tier: PixabayDownloadTier? = nil) -> PixabayVideoDownload? {
+        let selected = tier ?? PixabayDownloadTier.allCases.first { videos[$0]?.url.isEmpty == false }
+        guard let selected, let file = videos[selected], !file.url.isEmpty,
+              let url = URL(string: file.url) else { return nil }
+        return .init(tier: selected, url: url, width: file.width, height: file.height,
+                     expectedBytes: file.size > 0 ? Int64(file.size) : nil)
+    }
+
+    var videoDownloadOptions: [PixabayVideoDownload] {
+        var seen: Set<URL> = []
+        return PixabayDownloadTier.allCases.compactMap { videoDownload(tier: $0) }
+            .filter { seen.insert($0.url).inserted }
     }
 
     var previewThumbnailURL: URL? {
@@ -181,6 +186,15 @@ struct PixabayVideoFiles: Decodable, Equatable {
     let medium: PixabayVideoFile?
     let small:  PixabayVideoFile?
     let tiny:   PixabayVideoFile?
+
+    subscript(tier: PixabayDownloadTier) -> PixabayVideoFile? {
+        switch tier {
+        case .large: large
+        case .medium: medium
+        case .small: small
+        case .tiny: tiny
+        }
+    }
 }
 
 struct PixabayVideoFile: Decodable, Equatable {
@@ -189,4 +203,16 @@ struct PixabayVideoFile: Decodable, Equatable {
     let height:    Int
     let size:      Int
     let thumbnail: String
+}
+
+enum PixabayDownloadTier: String, CaseIterable {
+    case large, medium, small, tiny
+}
+
+struct PixabayVideoDownload {
+    let tier: PixabayDownloadTier
+    let url: URL
+    let width: Int
+    let height: Int
+    let expectedBytes: Int64?
 }

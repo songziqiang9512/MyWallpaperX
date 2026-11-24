@@ -157,30 +157,6 @@ nonisolated final class DownloadedInspectorCacheProbe: @unchecked Sendable {
     }
 }
 // ACTUAL_DOWNLOADED_STORE
-struct PixabayDownloadedEntry: Equatable {
-    let id: Int
-    let localURL: URL
-    var isAvailable = true
-    var fileSize = 12
-    var duration: Int? = 2
-    var resolutionString: String? = "8×8"
-    var thumbnailSourceKey: String? = nil
-    var creationDate: Date? = nil
-    var modificationDate: Date? = nil
-    var displayTitle: String { localURL.lastPathComponent }
-    var metaLine: String { [duration.map(PixabayDownloadedAssetMetadata.formatDuration), resolutionString].compactMap { $0 }.joined(separator: "  ") }
-}
-struct PixabayDownloadedContentSnapshot { var entries: [PixabayDownloadedEntry] = [] }
-final class PixabayService {
-    static let shared = PixabayService()
-    var downloadedContent = PixabayDownloadedContentSnapshot()
-    var writes = 0
-    var items: [PixabayVideoItem] = []
-    @Published var downloadingIDs = Set<Int>()
-    var downloadRequests: [Int] = []
-    func setLocalFileAsWallpaper(id: Int) { writes += 1 }
-    func download(item: PixabayVideoItem) { downloadRequests.append(item.id); downloadingIDs.insert(item.id) }
-}
 @MainActor final class OnlineImageThumbnailCache {
     enum Priority: Equatable { case visible, prefetch }
     struct Request { let url: URL; let target: ThumbnailRequest; let priority: Priority }
@@ -195,10 +171,6 @@ final class PixabayService {
     }
     func complete(_ index: Int, _ image: NSImage?) { pending.removeValue(forKey: index)!.resume(returning: image) }
 }
-enum PixabayDownloadedAssetMetadata { static func formatDuration(_ seconds: Int) -> String { "\(seconds)s" } }
-func makeAppAlert(title: String, message: String, buttons: [String], accessoryView: NSView?) -> NSAlert { NSAlert() }
-func presentAppAlert(_ alert: NSAlert, in window: NSWindow?, completion: @escaping (NSApplication.ModalResponse) -> Void) {}
-func appModalHostWindow() -> NSWindow? { nil }
 extension Notification.Name { static let staticImageWallpaperReadyToApply = Notification.Name("staticImageWallpaperReadyToApply") }
 
 @main struct WallpaperInspectorOrganizationHarness {
@@ -223,6 +195,11 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
         if CommandLine.arguments.count > 2, CommandLine.arguments[2] == "preview-delivery" {
             NSApplication.shared.setActivationPolicy(.prohibited)
             try previewDelivery(URL(fileURLWithPath: CommandLine.arguments[1]))
+            return
+        }
+        if CommandLine.arguments.count > 2, CommandLine.arguments[2] == "download-quality" {
+            NSApplication.shared.setActivationPolicy(.prohibited)
+            PixabayInspectorDownloadChecks.run()
             return
         }
         let file = URL(fileURLWithPath: CommandLine.arguments[1]).appendingPathComponent("local.png")
@@ -874,6 +851,7 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
         checks["remote-download-completion-switches-the-existing-detail-to-local-metadata-and-actions"] = footerTitle(remoteFooter) == "设为壁纸"
             && views(remoteView).contains { ($0 as? NSTextField)?.stringValue == file.lastPathComponent }
             && remotePreview === views(remoteView).first { $0 is SILInspectorPreviewSurfaceView }
+
         let noticeFile = file.deletingLastPathComponent().appendingPathComponent("sil-notice.png")
         let noticeService = SILService()
         var noticeImage = SILWallpaper(id: "notice", title: "Notices", path: noticeFile.path)

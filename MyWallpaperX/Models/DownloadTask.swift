@@ -54,4 +54,5 @@ nonisolated struct DownloadTerminalReceipt: Codable, Equatable, Sendable, Identi
     let outcome: DownloadTerminalOutcome
     let recordedAt: Date?
     var failureMessage: String? = nil
+    var pixabayTier: String? = nil
 }

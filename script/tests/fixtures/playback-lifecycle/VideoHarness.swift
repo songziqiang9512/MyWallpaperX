@@ -4,34 +4,40 @@ import CoreVideo
 import Foundation
 
 @main enum Harness {
+    static func writeFixture(to fixture: URL) throws {
+        let writer = try AVAssetWriter(outputURL: fixture, fileType: .mov)
+        let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
+            AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: 64, AVVideoHeightKey: 64])
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input,
+            sourcePixelBufferAttributes: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                kCVPixelBufferWidthKey as String: 64, kCVPixelBufferHeightKey as String: 64])
+        writer.add(input); precondition(writer.startWriting()); writer.startSession(atSourceTime: .zero)
+        for index in 0..<60 {
+            while !input.isReadyForMoreMediaData { Thread.sleep(forTimeInterval: 0.001) }
+            var buffer: CVPixelBuffer?
+            precondition(CVPixelBufferCreate(kCFAllocatorDefault, 64, 64, kCVPixelFormatType_32BGRA, nil, &buffer) == kCVReturnSuccess)
+            CVPixelBufferLockBaseAddress(buffer!, [])
+            memset(CVPixelBufferGetBaseAddress(buffer!), 0x55, CVPixelBufferGetDataSize(buffer!))
+            CVPixelBufferUnlockBaseAddress(buffer!, [])
+            precondition(adaptor.append(buffer!, withPresentationTime: CMTime(value: Int64(index), timescale: 30)))
+        }
+        input.markAsFinished()
+        let done = DispatchSemaphore(value: 0); writer.finishWriting { done.signal() }
+        precondition(done.wait(timeout: .now() + 5) == .success && writer.status == .completed)
+    }
+
     @MainActor static func main() {
         NSApplication.shared.setActivationPolicy(.prohibited)
         guard let screen = NSScreen.screens.first,
               let display = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber,
               let daemon = WallpaperDaemon(displayID: display.uint32Value) else { fatalError("display unavailable") }
         defer { daemon.window.orderOut(nil); daemon.players.forEach { $0.pause(); $0.removeAllItems() } }
-        let fixture = URL(fileURLWithPath: CommandLine.arguments[1])
-        do {
-            let writer = try AVAssetWriter(outputURL: fixture, fileType: .mov)
-            let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
-                AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: 64, AVVideoHeightKey: 64])
-            let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input,
-                sourcePixelBufferAttributes: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-                    kCVPixelBufferWidthKey as String: 64, kCVPixelBufferHeightKey as String: 64])
-            writer.add(input); precondition(writer.startWriting()); writer.startSession(atSourceTime: .zero)
-            for index in 0..<60 {
-                while !input.isReadyForMoreMediaData { Thread.sleep(forTimeInterval: 0.001) }
-                var buffer: CVPixelBuffer?
-                precondition(CVPixelBufferCreate(kCFAllocatorDefault, 64, 64, kCVPixelFormatType_32BGRA, nil, &buffer) == kCVReturnSuccess)
-                CVPixelBufferLockBaseAddress(buffer!, [])
-                memset(CVPixelBufferGetBaseAddress(buffer!), 0x55, CVPixelBufferGetDataSize(buffer!))
-                CVPixelBufferUnlockBaseAddress(buffer!, [])
-                precondition(adaptor.append(buffer!, withPresentationTime: CMTime(value: Int64(index), timescale: 30)))
-            }
-            input.markAsFinished()
-            let done = DispatchSemaphore(value: 0); writer.finishWriting { done.signal() }
-            precondition(done.wait(timeout: .now() + 5) == .success && writer.status == .completed)
-        } catch { fatalError("fixture: \(error)") }
+        let selectedDownload = CommandLine.arguments.dropFirst(2).first
+        let fixture = URL(fileURLWithPath: selectedDownload ?? CommandLine.arguments[1])
+        if selectedDownload == nil {
+            do { try writeFixture(to: fixture) }
+            catch { fatalError("fixture: \(error)") }
+        }
         func until(_ predicate: () -> Bool) {
             let deadline = Date().addingTimeInterval(8)
             while !predicate() && Date() < deadline { RunLoop.current.run(until: Date().addingTimeInterval(0.01)) }
@@ -60,6 +66,25 @@ import Foundation
         precondition(daemon.videoPreparation != nil, "stale finalize retired state")
         daemon.handle(command("finalizeVideo", request: 1, cohort: cohortA, generation: generationA, activation: activationA))
         precondition(daemon.videoPreparation == nil && daemon.window.level == WallpaperDaemon.desktopWindowLevel)
+        if selectedDownload != nil {
+            let item = daemon.activePlayer.currentItem!
+            precondition((item.asset as? AVURLAsset)?.url.standardizedFileURL == fixture.standardizedFileURL)
+            let duration = CMTimeGetSeconds(item.duration)
+            precondition(duration.isFinite && duration > 1 && duration <= 2.1)
+            daemon.handle(command("resume", request: 1, cohort: cohortA))
+            var lastTime = 0.0, loops = 0
+            until {
+                guard daemon.activeLayer.isReadyForDisplay else { return false }
+                let seconds = CMTimeGetSeconds(daemon.activePlayer.currentTime())
+                guard seconds.isFinite else { return false }
+                if lastTime > duration * 0.8, seconds < duration * 0.2 { loops += 1 }
+                lastTime = seconds
+                return loops == 2
+            }
+            precondition(daemon.outputActivityAllowed && daemon.activePlayer.rate > 0)
+            print("selected-video-playback loops=\(loops) duration=\(duration) layerReady=\(daemon.activeLayer.isReadyForDisplay)")
+            return
+        }
         let original = daemon.activePlayer.currentItem
         let cohortB = UUID(), activationB = UUID()
         daemon.play(videoPath: fixture.path, framePath: nil, fillMode: "aspectFill", shouldLoopCurrentItem: true, requestID: 2, cohortID: cohortB)

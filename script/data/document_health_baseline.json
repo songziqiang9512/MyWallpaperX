@@ -13,8 +13,8 @@
       "bytes": 8300
     },
     "docs/architecture/repository-map.md": {
-      "lines": 40,
-      "bytes": 10355
+      "lines": 42,
+      "bytes": 10708
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 80,
@@ -77,8 +77,8 @@
       "bytes": 73409
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 45,
-      "bytes": 7649
+      "lines": 53,
+      "bytes": 8941
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -368,29 +368,29 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "41638a6833e265b374af91cb9c3b3b6af536fd4dbb53a9d51b153e248929ea7c",
-      "after": "28522b2565e02fa28e591f59a8ecdc4144fc915ac202ad0eb0e8ea6d8de56e83",
-      "owner": "Scene 后处理及各屏输出",
-      "reason": "规定两个超高档的工作域、每屏输出与现役 Scene owner。",
+      "path": "docs/architecture/repository-map.md",
+      "before": "5a841887e43ef5e4f30bf39e6a18d87466d4724ff05a5cf6783f2e92bc1a3e72",
+      "after": "84c5d332f79533ba5bd61b0c7220b0c5078444c48c4ea1774467082c7a10f8a6",
+      "owner": "壁纸质量对应消费端",
+      "reason": "定位 Pixabay 下载规格选择、发布和原档重试的三个入口。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "7e3cda44b3f2c9cd01aa6b9ac09dbcf78e3385e6092fe5fe2cfbae8e50bafe11",
-      "after": "b73edaacd6f24214fd4f62a4c09651025c1bf2064e3ae1d53cb7c2f1c672d672",
-      "owner": "Scene 后处理及各屏输出",
-      "reason": "追加后处理两档的迁移、准备和验收步骤。",
+      "before": "b73edaacd6f24214fd4f62a4c09651025c1bf2064e3ae1d53cb7c2f1c672d672",
+      "after": "43992202bcdcd7b8f2af088be76105db8a9fa47ea970d0a6db6c10ce012d17c4",
+      "owner": "壁纸质量对应消费端",
+      "reason": "记录真实规格下载、原档重试与实际播放验收。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "200372bd1a218f3d7b9e3b93d3d11a4d0d2c0c60c42eaa3f9d933cde556ac938",
-      "after": "5a841887e43ef5e4f30bf39e6a18d87466d4724ff05a5cf6783f2e92bc1a3e72",
-      "owner": "播放偏好和对应执行端",
-      "reason": "为画质跨引擎适配提供源码定位和重建路径。",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "41638a6833e265b374af91cb9c3b3b6af536fd4dbb53a9d51b153e248929ea7c",
+      "after": "28522b2565e02fa28e591f59a8ecdc4144fc915ac202ad0eb0e8ea6d8de56e83",
+      "owner": "Scene 后处理及各屏输出",
+      "reason": "规定两个超高档的工作域、每屏输出与现役 Scene owner。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {

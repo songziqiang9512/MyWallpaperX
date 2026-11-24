@@ -889,7 +889,9 @@
         "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift",
         "MyWallpaperX/Models/PersonalSettingsPayload.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift",
+        "MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift",
+        "MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadQualityPrompt.swift"
       ],
       "contentPatterns": []
     },
@@ -2238,7 +2240,7 @@
       "owner": "App/Shell and existing module UI owners",
       "status": "blocked-pending-design",
       "designDoc": "docs/development/immersive-ui-design.md",
-      "design_notes": "P0 only: reference research, complete design specification, capability map, execution/retirement plan and image_gen mockups. User explicitly requires approval of visual proposals before product UI edits. Execution authority: docs/development/immersive-ui-execution-plan.md. Keep one Workspace/Presentation and original services/playback/output owners; retire old presentation in the corresponding stage, no classic-UI fallback. Approval and native feasibility/runtime gates remain pending. Existing Shared/Settings form actions are owned by their feature designs; the immersive replacement is still gated at its App window, Shell and module UI entry points.",
+      "design_notes": "P0 only: reference research, complete design specification, capability map, execution/retirement plan and image_gen mockups. User explicitly requires approval of visual proposals before product UI edits. Execution authority: docs/development/immersive-ui-execution-plan.md. Keep one Workspace/Presentation and original services/playback/output owners; retire old presentation in the corresponding stage, no classic-UI fallback. Approval and native feasibility/runtime gates remain pending. Existing settings forms and the three separately designed Pixabay download entry paths remain owned by their feature contracts. App window, Shell, other module UI and shared visual entry points retain this gate.",
       "matchPatterns": [
         "MyWallpaperX/Shell/*.swift",
         "MyWallpaperX/App/*Window*.swift",
@@ -2256,7 +2258,12 @@
         "MyWallpaperX/Shared/UI/OnlineImageInspectorView.swift",
         "MyWallpaperX/Shared/UI/WallpaperFilterPanelController.swift"
       ],
-      "contentPatterns": []
+      "contentPatterns": [],
+      "excludeMatchPatterns": [
+        "MyWallpaperX/Modules/Pixabay/UI/PixabayBrowserView.swift",
+        "MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadQualityPrompt.swift",
+        "MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadsInspectorView.swift"
+      ]
     },
     {
       "id": "scene-implicit-fragment-varying",

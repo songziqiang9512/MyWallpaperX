@@ -24,6 +24,14 @@ class DesignGateEvidenceTests(unittest.TestCase):
         violations, advisory = gate.evaluate(["MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift"], registry)
         self.assertEqual(violations, [])
         self.assertTrue(any(entry.startswith("wallpaper-quality-settings:") for entry in advisory))
+        violations, advisory = gate.evaluate([
+            "MyWallpaperX/Modules/Pixabay/UI/PixabayBrowserView.swift",
+            "MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadQualityPrompt.swift",
+        ], registry)
+        self.assertEqual(violations, [])
+        self.assertTrue(any(entry.startswith("wallpaper-quality-settings:") for entry in advisory))
+        violations, _ = gate.evaluate(["MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridItemView.swift"], registry)
+        self.assertTrue(any(entry.startswith("immersive-main-window-ui:") for entry in violations))
         violations, _ = gate.evaluate(["MyWallpaperX/App/SettingsWindowController.swift"], registry)
         self.assertTrue(any(entry.startswith("immersive-main-window-ui:") for entry in violations))
 

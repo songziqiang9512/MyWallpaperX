@@ -266,8 +266,16 @@ final class PixabayBrowserView: NSView, ListThumbnailTintProviding {
 
         let grid = AppKitPixabayBrowserContainerView(
             service: service,
-            onDownload: { [weak self] item in self?.service.download(item: item) },
-            onSetAsWallpaper: { [weak self] item in self?.service.downloadAndSet(item: item) }
+            onDownload: { [weak self] item in
+                guard let self else { return }
+                presentPixabayDownload(item, service: self.service, in: self.window)
+            },
+            onSetAsWallpaper: { [weak self] item in
+                guard let self else { return }
+                self.service.downloadAndSet(item: item) {
+                    presentPixabayDownload(item, service: self.service, in: self.window)
+                }
+            }
         )
         grid.makeOrganization = makeOrganization
         grid.onInspect = onInspect
