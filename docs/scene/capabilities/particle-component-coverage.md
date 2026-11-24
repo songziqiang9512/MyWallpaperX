@@ -113,11 +113,11 @@ Directions 是各轴距离倍率；原形状及有限值检查在冷准备消费
 
 规范化后仍非有限的Sphere半径在原cached shape入口局部拒绝，不继续消耗该无效新生的RNG/ID；其他shape的距离语义保持。正常有限输入保原抽样次数/顺序，归一化运算不承诺旧公式逐bit舍入相同。有限输入产生的实际乘积溢出仍由原最终Float/GPU检查拒绝，保健康peer与显式exact-n候选事务回滚；不以Double有限替代最终可表示性。该数值修正不宣称恢复尚无幅度门独立拒绝证据的作者内容。
 
-Sphere 的 sign 在冷 SpawnPlan 逐分量向零取整，零保持双侧，非零只选择该轴正/负侧；幅度不乘入距离或速度。Definition保作者有限值与原形状诊断，不用只准−1/0/1的数值枚举许可；0.5取整为0仍双侧，10仅选正侧。符号选择保原CP、instance override、world转换及最终新生检查。
+Sphere 的 sign 逐轴按原有限值选边，零取双侧，任意非零含小数按正负选侧，幅度不乘半径或速度。退役冷 SpawnPlan 的整数截断和抽样中的近零门。入口仍校验原形状，CP、随机顺序、实例倍率和世界转换沿原链。
 
 Box 不消费 sign，解析入口把该无关字段投影为 nil，不因其合法、错型或非有限内容拒绝有效 Box；原 root 字典及既有组件来源记录不改。Directions、sign 与 duration 在原 parseEmitter 各解析一次，复用已解析结果判 malformed；仅 Box 忽略 sign，Sphere、LayerImage 及未知 kind 的字段和资格保持。原 SpawnPlan 的 Sphere 分支才准备 sign 与轴 mask，其他 shape 写中性值；不增加字段、owner、fallback 或普通帧工作。验收核 Box 缺省/零/非单位/小数/垃圾 sign 的相同实际出生、事件、RNG 和 Metal 输出，并用带有效 emission map 的 LayerImage、Sphere 坏输入和无关健康 peer 保反例。当前没有该门独立活动拒绝的作者资格，不宣称恢复某个 Workshop 作者。
 
-此分量语义依据固定官方客户端的合法、非单位、小数及跨轴静止几何控制；取整后取符号与等价阈值实现的内部形式未区分。手工原生JPEG中心读数不是RGB阈值分析、精确计数、分布或全参数官方一致证明，具体运行范围见[证据](runtime-evidence-current.md)。
+官版实际1/2/3轴均用小数选侧，静止雾与无遮挡对照分离出生和画面遮挡。旧手工JPEG的双侧判断退役。验收核改名、零、正负小数/整数、坏输入、原包和独立整数源。[运行证据](runtime-evidence-current.md#moon-fog-fractional-sign)
 
 验收在真实Parser→冷计划→constructor中核整数/小数、各轴、缺省、改名及非有限反例，保健康peer、RNG/事务；用原Runtime→生产vertex/Metal读回几何和像素，并复测原作者与独立邻例的birth→目标batch→main/seal/GPU捕获。未资格组合继续按实际消费者的最小失败单元处理，不能再扩一个数值白名单。
 

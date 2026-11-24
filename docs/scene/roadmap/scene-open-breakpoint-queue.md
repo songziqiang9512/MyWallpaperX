@@ -21,7 +21,7 @@
 | 音频供值 · 3612940332 | 作者尺寸与[放置栅格同像素末材](../capabilities/runtime-evidence-current.md#solid-background-same-pixel-native)已恢复红弧高亮和细前缀取样。剩余为真实音频幅值及时间变化。[端点回录](../capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361)已有同帧32档取峰、64档相邻边界与精确短窗证据。沿[共享音频设计](../../architecture/system-audio-spectrum-design.md)区分跨声道快影响、局部恢复和端点，再验原包有声弧。 |
 | 世界粒子的内圈亮度 · 3653620838 | [世界尾迹](../capabilities/runtime-evidence-current.md#vortex-world-trail-light-365)限长已纠正。直接259略偏亮，固定首键全效果则偏暗；按同龄足迹先分离末层345与Bloom的放大，保自然运动、圈外和镜像。 |
 | 普通粒子材质增亮的裁幅 | 平面 RG88 同窗对照测得材质 gain1.4 的官版 `(0,144,144)`、本机新 `(0,163,202)`。先找实际作者消费，并用有色 texel、半透明底和双层加色区分 tint、采样与裁幅顺序。已验证的中性 R8 半透明 Trail 裁幅另有原证据。 [运行证据](../capabilities/runtime-evidence-current.md#particle-instance-tint-native) |
-| 月雾的遮挡范围 · 3453730450 | [只读主深度与实机](../capabilities/runtime-evidence-current.md#moon-fog-main-depth)已恢复部分重叠遮挡。锁姿态后右月面变化方向相同，本机幅度偏小，中心仍随测试开关变化；两端共有灰纹也未归因。若继续，固定同相机与两批粒子的出生位置、朝向和尺度，沿实际交叠边缘比较几何覆盖与存活轨迹，再决定修正点。 |
+| 月面灰纹 · 3453730450 | [深度与雾出生范围已修复](../capabilities/runtime-evidence-current.md#moon-fog-fractional-sign)。共有灰纹和中心小余差仍需固定相位与writer显隐。先记录灰纹是否跟随月面转动，依据实际颜色来源区分作者原貌和兼容缺口。 |
 | 3454689854 的相邻丝层 | [同画幅单丝、原包和实际预算](../capabilities/runtime-evidence-current.md#silk-capture-density-345)已闭两条SDR根丝密度。子层及多阶段保持原工作域，只有取得可归属的同相位残差再重启。原默认绕身文字两端均隐藏，条件另见[原包对照](../capabilities/runtime-evidence-current.md#author-silk-raster-345)。 |
 | Puppet 约束的剩余时序与组合 | [原317和313已恢复主要播放](../capabilities/runtime-evidence-current.md#puppet-planar-constraints-native)。固定根解析投影在317额外+96对照的肘误差约2.17px，313极近伸直时官版定槽后仍收敛。待有原包可见差异再核有效根位移与收敛。复杂链、挂点及同链脚本与物理后写按实际消费者验证。 |
 | 初始组合源未解析 · 2982559622 | 两次原包的111/e0在开头三次 preflight 读到 `resourceSnapshotUnresolved`，随后整景 Ready 且有终端 GPU 回执。保独立的103属性脚本 bad-return。先核111所需视频或命名源、显隐与首次可用时刻，再查目标 Program 有无恢复。 |
@@ -224,7 +224,7 @@
 | 3822067395 | 已修复。原包可启动，首帧及相关效果已实绘。[首帧](../capabilities/runtime-evidence-current.md#tex-alpha-channel-priority-author) |
 | 3174321827 | 已修复。部件回到正确组装姿态，双臂和武器在胸前，细微姿态残差有独立证据。[组装](../capabilities/runtime-evidence-current.md#puppet-counted-reference-317) |
 | 3823864170 | 已修复。拖尾跟随鼠标，默认与可选尾迹通过跟踪、颜色对照。[运动](../capabilities/runtime-evidence-current.md#pointer-zero-angles-author) · [颜色](../capabilities/runtime-evidence-current.md#neutral-mask-trail-382) |
-| 3453730450 | 部分修复。右箭头已显示并可点击展开菜单，月雾遮挡仍有残差。[箭头与点击](../capabilities/runtime-evidence-current.md#moon-arrow-and-veil-345) |
+| 3453730450 | 部分修复。右箭头点击和月雾出生分布已修复，灰纹另核。[箭头](../capabilities/runtime-evidence-current.md#moon-arrow-and-veil-345) · [月雾](../capabilities/runtime-evidence-current.md#moon-fog-fractional-sign) |
 | 3454689854 | 部分修复。主薄丝对比已恢复，默认不显示环字与官版一致。其余丝层另核。[薄丝与环字](../capabilities/runtime-evidence-current.md#silk-capture-density-345) |
 | 3248220186 | 已修复。球内时钟合成恢复官版残显，球体正确遮住钟旁粒子。[文字与球体](../capabilities/runtime-evidence-current.md#author-clock-sprite-depth-324) |
 | 3603711180 | 已修复。实际媒体标题、艺人与剩余时长已接入文本，真实系统封面已同帧验收。其它画幅另核。[播放器](../capabilities/runtime-evidence-current.md#author-player-text-current-360) |

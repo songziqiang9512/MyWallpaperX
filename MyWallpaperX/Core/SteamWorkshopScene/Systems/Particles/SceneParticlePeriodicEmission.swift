@@ -58,12 +58,7 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
         )
         if case .sphereRandom = value.kind {
             let weights = SIMD3(abs(authoredDirections.x), abs(authoredDirections.y), abs(authoredDirections.z))
-            var preparedSign = SceneParticleSimulationMath.vector(value.sign, fallback: .zero)
-            // Sign selects an integer direction; fractions truncate before sampling.
-            for component in 0..<3 {
-                preparedSign[component] = preparedSign[component].rounded(.towardZero)
-            }
-            sign = preparedSign
+            sign = SceneParticleSimulationMath.vector(value.sign, fallback: .zero)
             sphereAxisMask = (weights.x > 1e-6 ? 1 : 0)
                 | (weights.y > 1e-6 ? 2 : 0)
                 | (weights.z > 1e-6 ? 4 : 0)

@@ -122,7 +122,7 @@ extension SceneParticleSimulator {
             )
         }
         let sign = plan.sign
-        for component in 0..<3 where abs(sign[component]) > 1e-6 {
+        for component in 0..<3 where sign[component] != 0 {
             result[component] = abs(result[component]) * (sign[component] < 0 ? -1 : 1)
         }
         return (result, result)

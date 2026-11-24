@@ -1257,6 +1257,13 @@ enum Harness {
             ), seed: 3, step: 1
         )
         sphereDirectionSign.advance(by: 1)
+        let fractionalSignPositions = [-1e-7, -1].map { sign -> [SIMD3<Double>] in
+            var emitter = simulator(emitterShapeJSON(
+                #""name":"sphererandom","directions":"1 1 1","sign":[\#(sign),0.25,0],"distancemin":10,"distancemax":10"#
+            ), seed: 19, step: 1)
+            emitter.advance(by: 1)
+            return emitter.particles.map(\.position)
+        }
         var zeroDirections = simulator(
             emitterShapeJSON(
                 #""name":"sphererandom","origin":"7 8 9","directions":"0 0 0","sign":"0 0 0","distancemin":10,"distancemax":10"#,
@@ -2334,6 +2341,7 @@ enum Harness {
                 && sphereDirectionSign.particles.contains { $0.position.z > 1e-6 },
             "sphereDirectionSignDiagnostics":
                 sphereDirectionSign.diagnostics.map(\.kind.rawValue),
+            "fractionalSphereSignPositions": fractionalSignPositions.map { $0.map { [$0.x, $0.y, $0.z] } },
             "zeroDirectionsStayAtOrigin": zeroDirections.particles.count == 8
                 && zeroDirections.particles.allSatisfy { $0.position == SIMD3(7, 8, 9) },
             "zeroDirectionsDiagnostics": zeroDirections.diagnostics.map(\.kind.rawValue),
@@ -3981,6 +3989,12 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(
             self.results["sphereDirectionSignDiagnostics"], ["emitterShapeBounded"]
         )
+        small, unit = self.results["fractionalSphereSignPositions"]
+        self.assertEqual(len(small), 64)
+        self.assertEqual(small, unit)
+        self.assertTrue(all(x <= 0 and y >= 0 for x, y, _ in small))
+        self.assertLess(min(z for _, _, z in small), 0)
+        self.assertGreater(max(z for _, _, z in small), 0)
         self.assertTrue(self.results["zeroDirectionsStayAtOrigin"])
         self.assertEqual(
             self.results["zeroDirectionsDiagnostics"], ["emitterShapeBounded"]

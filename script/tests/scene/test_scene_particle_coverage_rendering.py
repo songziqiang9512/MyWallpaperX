@@ -299,10 +299,11 @@ class SceneParticleCoverageRenderingTests(unittest.TestCase):
     def test_emitter_direction_inputs_reach_literal_sides_and_keep_same_encoder_peer(self) -> None:
         rows = {row["name"]: row for row in self.result["signBirth"]}
         controls = (
+            ("zeroSign", "0 0 0", "1 0 0", (0, 1), [36, 32, 92, 64]),
             ("positiveTenSign", "10 0 0", "1 0 0", (1,), [84, 32, 92, 64]),
             ("negativeTenSign", "-10 0 0", "1 0 0", (0,), [36, 32, 44, 64]),
-            ("positiveFractionSign", "0.75 0 0", "1 0 0", (0, 1), [36, 32, 92, 64]),
-            ("negativeFractionSign", "-0.5 0 0", "1 0 0", (0, 1), [36, 32, 92, 64]),
+            ("positiveFractionSign", "0.75 0 0", "1 0 0", (1,), [84, 32, 92, 64]),
+            ("negativeFractionSign", "-0.5 0 0", "1 0 0", (0,), [36, 32, 44, 64]),
             ("positiveYAxisSign", "0 1 0", "0 1 0", (2,), [60, 8, 68, 40]),
             ("renamedMixedYAxis", "0.5 1.25 -0.75", "0 1 0", (2,), [60, 8, 68, 40]),
             ("largeDirectionsSphere", "1 0 0", "1099511627776 0 0", (1,), [84, 32, 92, 64]),

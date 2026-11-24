@@ -575,6 +575,7 @@ enum SceneParticleCoverageRenderingHarness {
                           SIMD2(64, 48), SIMD2(116, 14), SIMD2(4, 4)]
         var signBirth: [[String: Any]] = []
         let signInputs: [(String, String, String, Double?)] = [
+            ("zeroSign", "0 0 0", "1 0 0", nil),
             ("positiveTenSign", "10 0 0", "1 0 0", nil),
             ("negativeTenSign", "-10 0 0", "1 0 0", nil),
             ("positiveFractionSign", "0.75 0 0", "1 0 0", nil),

@@ -122,15 +122,15 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 356,
-      "bytes": 69926
+      "bytes": 69802
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 445,
       "bytes": 89579
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 600,
-      "bytes": 326626
+      "lines": 598,
+      "bytes": 326596
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 246,
-      "bytes": 70093
+      "bytes": 70018
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
