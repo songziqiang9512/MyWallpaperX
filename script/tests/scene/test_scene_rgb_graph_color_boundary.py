@@ -225,6 +225,7 @@ private func rgbRun(_ value: RGBCase, device: MTLDevice, queue: MTLCommandQueue)
           let executor = Executor(device: device, capabilities: caps), let command = queue.makeCommandBuffer()
     else { row["failure"] = "execution-setup"; return row }
     row["sceneBackgroundRequirement"] = capability.sceneBackgroundRequirement != nil
+    row["capabilitySourceSizedWork"] = capability.supportsSourceSizedSolidEffects
     row["capabilityTerminalReplay"] = capability.supportsTerminalMaterialReplay
     let target = makeSource(device, width: 4, height: 4, usage: [.renderTarget, .shaderRead], bgra: [8,16,24,64])
     let state = frame(1, textureEntries: [replacement.publication.requestIdentity: .ready(replacement)])
@@ -477,6 +478,7 @@ class SceneRGBGraphColorBoundaryTests(unittest.TestCase):
                 self.assertTrue(row["sameBackgroundAtom"], row)
                 self.assertEqual(row["frameEpoch"], 1, row)
                 self.assertTrue(row["gpuCompleted"], row)
+                self.assertTrue(row["capabilitySourceSizedWork"], row)
                 self.assertFalse(row["capabilityTerminalReplay"], row)
                 self.assertFalse(row["terminalPrepared"], row)
                 self.assertEqual(row["compositorSourceRepresentation"], "straight-alpha", row)

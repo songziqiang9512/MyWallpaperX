@@ -125,12 +125,12 @@
       "bytes": 66393
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 401,
-      "bytes": 83036
+      "lines": 410,
+      "bytes": 84512
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 305811
+      "bytes": 306944
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 170,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 217,
-      "bytes": 67433
+      "bytes": 67285
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -460,11 +460,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "5303a5ded12b9e2d7d1dbe5346ce57df4e49928ee48d402deda0a4b7b6d5d57d",
-      "after": "ba98a725e7d8a4493602b951f2a7691b567d59acbc221d5ea071d9d86817c225",
+      "before": "ba98a725e7d8a4493602b951f2a7691b567d59acbc221d5ea071d9d86817c225",
+      "after": "c9fd8028c4892fac3cdcde50fe3fab4a45aa906fdbf96eeb1571794b27390a48",
       "owner": "Scene captured attachment and material graph",
-      "reason": "Specify bounded attachment source addressing separately from the authored effect.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#background-capture-addressing"
+      "reason": "Defines authored work sizing independently of terminal replay for an isolated generated-color solid that samples the current main attachment.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#solid-background-local-effect-raster"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7444e5c8b40067e2d6fd8a896b4a21f517979a5777647d811979f0dbf5f9bdea",
-      "after": "40d575c1d032c82610187323c65205eca53d18a157b6d09fbd5bcd111bade611",
-      "owner": "Scene particle simulation",
-      "reason": "Retains the causal signed and scaled axis controls, exact author motion and mirrored peer pixels.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#vortex-axis-world-365"
+      "before": "40d575c1d032c82610187323c65205eca53d18a157b6d09fbd5bcd111bade611",
+      "after": "80427406dc1f15def03a2aa7cb5a589ee216649b002b5d6233bc31a60ad87a4b",
+      "owner": "Scene captured attachment and material graph",
+      "reason": "Records actual source sizes, fixed line extent, original PCM pixels, neighboring boundaries and same-frame background identity.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#solid-background-raster-361"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c98dfc3975829d7248d94bbff6c97ea1e3ac2039ff74099adc057a1c1175f5a2",
-      "after": "a5a5f003ae3199494ea32c6ca753bbb5be837f9f07aa2cddc2059bd524a6ec94",
-      "owner": "Scene particle simulation",
-      "reason": "Routes the remaining 365 visual difference after actual inner motion and world emission work.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "before": "a5a5f003ae3199494ea32c6ca753bbb5be837f9f07aa2cddc2059bd524a6ec94",
+      "after": "b00ee5f29d2eddbbb3799a0f96c2bfccf8f97dab55a7ac1b4fe865946d6d572b",
+      "owner": "Scene captured attachment and material graph",
+      "reason": "Keeps terminal sampling and independent audio supply open after the observed source-sizing repair.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
       "section": "bodies",

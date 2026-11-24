@@ -279,20 +279,27 @@ extension SceneMetalRenderer {
                     )
                     break
                 }
+                let usesAuthoredBackgroundWork = claim.sceneBackgroundRequirement != nil
+                    && claim.supportsSourceSizedSolidEffects && layer.parentID == nil
+                    && selectedMainSource === mainTarget && (layer.colorBlendMode ?? 0) == 0
+                    && layer.staticBaseTexturePath == nil
+                    && baseMaterialProviderBindings.baseMaterialBindings[layerID] == nil
                 if !cameraFrame.resolvesPerspective(for: layer),
-                   ((layer.colorBlendMode ?? 0) == 0 && claim.supportsTerminalMaterialReplay)
+                   usesAuthoredBackgroundWork
+                    || ((layer.colorBlendMode ?? 0) == 0 && claim.supportsTerminalMaterialReplay)
                     || ((layer.colorBlendMode ?? 0) != 0 && claim.supportsSourceSizedSolidEffects
-                        && claim.dependencyOwnership == .none),
+                        && claim.sceneBackgroundRequirement == nil && claim.dependencyOwnership == .none),
                    frameVisibleLayerIDs.contains(layerID),
                    !dependencyRuntime.requiresGraphOutputCapture(for: layerID),
                    let authoredSize = layer.renderSizeWH,
-                   authoredSize.count == 2, authoredSize.allSatisfy({ $0 > 0 }),
+                   authoredSize.allSatisfy({ $0 > 0 }),
                    let solidExtent = SceneLayerEffectSourceExtent.resolveSolid(
                        authoredRenderSizeWH: authoredSize
                    ) {
                     // The texture or authored solid owns its source extent;
                     // qualified normal/additive terminals draw at placement density.
-                    desiredSize = selectedSource.candidate?.mappedSize ?? solidExtent.pixelSize
+                    desiredSize = usesAuthoredBackgroundWork ? solidExtent.pixelSize
+                        : (selectedSource.candidate?.mappedSize ?? solidExtent.pixelSize)
                     if claim.supportsTerminalMaterialReplay,
                        (layer.colorBlendMode ?? 0) == 0 || layer.colorBlendMode == 31 {
                         terminalReplayTarget = selectedMainSource

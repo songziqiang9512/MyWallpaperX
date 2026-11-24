@@ -67,7 +67,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
         guard admitted.isVisibleExecutionRoot,
               !admitted.isGraphOutputProvider,
               case .capturedLayerTexture = admitted.sourceRoute,
-              sceneBackgroundRequirement == nil,
               !stages.isEmpty, !materials.isEmpty else { return (false, false, false) }
         // An admitted raster dependency is a frozen read-only input, just
         // like a static texture. Its publication keeps its own real extent.
@@ -95,6 +94,21 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
         }
         guard materials.values.allSatisfy({ $0.attachmentStorage == .color }) else {
             return (false, false, false)
+        }
+        if let background = sceneBackgroundRequirement {
+            guard case .none = dependencyOwnership, !background.capturesTextSourcePrefixRGB else {
+                return (false, false, false)
+            }
+            // The graph can sample the existing main attachment into its
+            // local pair. Terminal replay would alias that sampled attachment.
+            let canSizeWork = stages.allSatisfy { stage in
+                switch stage.execution {
+                case .resolved: true
+                case .initiallyInactivePassthrough: stage.supportsEffectEntryPassthrough
+                case .visualFailurePassthrough: false
+                }
+            }
+            return (canSizeWork, false, false)
         }
         let replay = materials.mapValues { material in
             let snapshot = material.variants.launchEnvelopeCapabilitySnapshot()
