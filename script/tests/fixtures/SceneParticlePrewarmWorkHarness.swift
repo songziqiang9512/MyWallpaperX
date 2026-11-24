@@ -52,13 +52,14 @@ import simd
         }
     }
 
-    /// Replay witnessed completed wall steps, not a duplicate budget estimator.
+    /// Replay witnessed warmup steps at unit rate, then apply the live rate at handoff.
     static func replay(_ warm: SceneParticleSimulator, source: [String: Any],
-                       completedSteps: Int, rate: Double = 1, history: Int = 0,
+                       completedSteps: Int, liveRate: Double = 1, history: Int = 0,
                        handoffSteps: Int = 1,
                        eventValueContext: SceneParticleEventValueContext = .unavailable) -> [String: Any] {
         var cold = source; cold.removeValue(forKey: "starttime")
-        let plain = make(cold, rate: rate, history: history, eventValueContext: eventValueContext)
+        let plain = make(cold, history: history, eventValueContext: eventValueContext)
+        let liveOverride = parser.parseInstanceOverride(["rate": liveRate])
         var births = 0, deaths = 0
         for _ in 0..<completedSteps {
             plain.advance(by: step)
@@ -76,7 +77,7 @@ import simd
         let nextID = prepared.nextParticleID, time = prepared.simulationTime
         let liveCount = prepared.particles.count, processedCount = prepared.normalizedLives.count
         let preparedFirst = prepared.particles.first
-        warm.advance(by: step); plain.advance(by: step)
+        warm.advance(by: step); plain.advance(by: step, dynamicInstanceOverride: liveOverride)
         let nextStepRetainedSnapshot = prepared.particles.count == liveCount
             && prepared.particles.first == preparedFirst
         let nextState = sameObservableState(warm, plain)
@@ -86,7 +87,7 @@ import simd
         for _ in 1..<handoffSteps {
             _ = warm.consumeBirthEvents(); _ = warm.consumeDeathEvents()
             _ = plain.consumeBirthEvents(); _ = plain.consumeDeathEvents()
-            warm.advance(by: step); plain.advance(by: step)
+            warm.advance(by: step); plain.advance(by: step, dynamicInstanceOverride: liveOverride)
             handoffEqual = handoffEqual && sameObservableState(warm, plain)
                 && warm.birthEvents == plain.birthEvents && warm.deathEvents == plain.deathEvents
                 && self.history(warm.frameSnapshot()) == self.history(plain.frameSnapshot())
@@ -138,7 +139,7 @@ import simd
                                ["name": "velocityrandom", "min": "60 0 0", "max": "60 0 0"]]
         let fastWarm = make(fast, rate: 1.2, history: 36)
         return ["rows": rows, "scaledClock": replay(fastWarm, source: fast,
-            completedSteps: 288, rate: 1.2, history: 36)]
+            completedSteps: 288, liveRate: 1.2, history: 36)]
     }
 
     static func workload() -> [String: Any] {
@@ -161,12 +162,11 @@ import simd
         let boids: [String: Any] = ["name": "boids", "neighborthreshold": 100,
             "alignmentfactor": 1, "cohesionfactor": 1, "separationfactor": 0]
         var result: [String: Any] = [:]
-        for name in ["capacity", "boids", "dispatch", "rate-zero"] {
-            var root = source(capacity: name == "boids" ? 64 : 20_000, rate: 0,
+        for name in ["capacity", "boids", "dispatch"] {
+            let root = source(capacity: name == "boids" ? 64 : 20_000, rate: 0,
                 operators: name == "boids" ? [boids, movement]
                     : (name == "dispatch" ? Array(repeating: movement, count: 1000) : [movement]))
-            if name == "rate-zero" { root["emitter"] = [["name": "boxrandom", "rate": 64_000]] }
-            let warm = make(root, rate: name == "rate-zero" ? 0 : 1)
+            let warm = make(root)
             result["empty-" + name] = ["time": warm.simulationTime,
                 "population": warm.particles.count, "nextID": warm.frameSnapshot().nextParticleID,
                 "limited": warm.diagnostics.contains { $0.kind == .prewarmBudgetExceeded }]
@@ -189,6 +189,11 @@ import simd
                                   ["name": "velocityrandom", "min": "64 0 0", "max": "64 0 0"]]
         let tail = make(partial, history: 8)
         let particle = tail.particles.first
+        let paused = make(partial, rate: 0)
+        paused.advance(by: 8 * step)
+        let frozenTime = paused.simulationTime
+        let frozenParticle = paused.particles.first
+        paused.advance(by: step, dynamicInstanceOverride: parser.parseInstanceOverride(["rate": 1]))
         return ["childTime": child.simulationTime,
             "childLimited": child.diagnostics.contains { $0.kind == .prewarmBudgetExceeded },
             "exactTime": exact.simulationTime, "exactLimited": exact.diagnostics.contains { $0.kind == .prewarmBudgetExceeded },
@@ -196,7 +201,9 @@ import simd
             "partialTime": tail.simulationTime, "partialX": particle?.position.x ?? -1,
             "partialAge": particle?.age ?? -1, "partialHistoryCount": tail.consumeStepSnapshots().values.flatMap { $0 }.count,
             "partialLimited": tail.diagnostics.contains { $0.kind == .prewarmBudgetExceeded },
-            "partialDrained": tail.birthEvents.isEmpty && tail.deathEvents.isEmpty]
+            "partialDrained": tail.birthEvents.isEmpty && tail.deathEvents.isEmpty,
+            "frozenTime": frozenTime, "frozenParticleMatches": frozenParticle == particle,
+            "resumedTime": paused.simulationTime, "resumedX": paused.particles.first?.position.x ?? -1]
     }
 
     static func complete() -> [String: Any] {

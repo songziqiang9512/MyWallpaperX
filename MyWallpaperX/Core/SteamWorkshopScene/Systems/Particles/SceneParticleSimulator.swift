@@ -326,8 +326,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         let deathEventStart = deathEvents.count
         for index in emitters.indices { emitters[index].beginFrame() }
         accumulator += duration
+        let simulationStep = fixedTimeStep * max(0, overrideScalar(activeInstanceOverride?.rate))
         while accumulator + 1e-12 >= fixedTimeStep {
-            step(by: fixedTimeStep, controlPointParticleSpace: controlPointParticleSpace,
+            step(by: simulationStep, controlPointParticleSpace: controlPointParticleSpace,
                  collisionBoundsFrame: collisionBoundsFrame)
             accumulator -= fixedTimeStep
         }
@@ -542,13 +543,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     }
 
     private nonisolated func step(
-        by frameDuration: Double,
+        by duration: Double,
         controlPointParticleSpace: SceneParticleControlPointParticleSpace?,
         collisionBoundsFrame: SceneParticleCollisionBoundsFrame?
     ) {
-        // Rate scales the entire simulation step once. Keep the wall-time step
-        // budget unchanged instead of multiplying integration work by the rate.
-        let duration = frameDuration * max(0, overrideScalar(activeInstanceOverride?.rate))
         guard duration != 0 else { return }
         guard duration.isFinite, Float(simulationTime + duration).isFinite else {
 #if DEBUG

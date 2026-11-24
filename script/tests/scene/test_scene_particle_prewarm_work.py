@@ -81,11 +81,11 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
                 self.assertEqual(row["historyCount"], 36)
                 self.assertTrue(row["historyHasPopulation"])
 
-    def test_instance_rate_scales_the_same_wall_step_sequence_once(self) -> None:
+    def test_instance_rate_applies_at_live_handoff_after_full_warmup(self) -> None:
         row = self.result["sparse"]["scaledClock"]
         self.assertReplay(row)
         self.assertEqual(row["completedSteps"], 288)
-        self.assertAlmostEqual(row["time"], 10.8, places=10)
+        self.assertEqual(row["time"], 9)
         self.assertFalse(row["limited"], row)
         self.assertGreater(row["deaths"], 0)
 
@@ -107,14 +107,14 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
                     self.assertEqual(row["acceptedBirths"], row["nextID"])
                     self.assertEqual(row["deaths"], row["nextID"])
 
-    def test_empty_capacity_and_zero_rate_keep_their_simulation_clock(self) -> None:
+    def test_empty_capacity_keeps_its_simulation_clock(self) -> None:
         rows = self.result["emptySystems"]
-        for name in ("capacity", "boids", "dispatch", "rate-zero"):
+        for name in ("capacity", "boids", "dispatch"):
             row = rows["empty-" + name]
             with self.subTest(name=name):
                 self.assertEqual(row["population"], 0)
                 self.assertEqual(row["nextID"], 0)
-                self.assertEqual(row["time"], 0 if name == "rate-zero" else 60)
+                self.assertEqual(row["time"], 60)
                 self.assertFalse(row["limited"], row)
 
     def test_child_step_bound_and_complete_root_partial_step_stay_distinct(self) -> None:
@@ -131,6 +131,13 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
         self.assertEqual(row["partialHistoryCount"], 8)
         self.assertFalse(row["partialLimited"])
         self.assertTrue(row["partialDrained"])
+
+    def test_zero_live_rate_freezes_the_prewarmed_particle_and_resumes_without_debt(self) -> None:
+        row = self.result["bounds"]
+        self.assertEqual(row["frozenTime"], row["partialTime"])
+        self.assertTrue(row["frozenParticleMatches"])
+        self.assertEqual(row["resumedTime"], row["partialTime"] + 1 / 32)
+        self.assertEqual(row["resumedX"], row["partialX"] + 2)
 
     def test_complete_mode_runs_dense_boids_and_beyond_the_bounded_ceiling(self) -> None:
         expected = {"dense": (1920, 60, 20_000, 0),

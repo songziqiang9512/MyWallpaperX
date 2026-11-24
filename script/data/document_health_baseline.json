@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 323,
-      "bytes": 64513
+      "bytes": 64680
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 401,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 302572
+      "bytes": 304010
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 170,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 218,
-      "bytes": 67715
+      "bytes": 67973
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "2a812288708b0e7b4795a1fc17785d63987bd443f1520116ea2e467c81bdc9c1",
-      "after": "cb3b5fb15684b53964c55ab4897bca5a150a0597e05a76105787e18b82ee07b3",
-      "owner": "Scene control point and runtime evidence",
-      "reason": "Document cold literal zero normalization at the existing bounded pointer definition ingress.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-position"
+      "before": "cb3b5fb15684b53964c55ab4897bca5a150a0597e05a76105787e18b82ee07b3",
+      "after": "91b62caf026dfb05d136c8be1c617e9b6a632109250d97eeea90a270025c9af9",
+      "owner": "Scene particle prepared simulation",
+      "reason": "Define authored starttime in simulation seconds and place the live rate once at the wall-clock boundary.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "3d7b0513cbc93441eb1d855cecc3506461c0cfeb0c6061c3f9d90519773058fe",
-      "after": "1201ac0af2095ba8e8e5b8634a2b5b2e9ea357de9d41445c936a124bfb52372c",
-      "owner": "Scene Puppet runtime evidence",
-      "reason": "Record the frozen official probe and actual restored same-slot pose and output.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-body-slot-330"
+      "before": "1201ac0af2095ba8e8e5b8634a2b5b2e9ea357de9d41445c936a124bfb52372c",
+      "after": "73128f601a4e25374f33a3948b2989cd07f5505d10b418b5daffd233424b8cb1",
+      "owner": "Scene particle prepared simulation",
+      "reason": "Retain actual independent and exact-author captures for the Sprite and deterministic live/prewarm controls.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ember-prewarm-time-376"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "57d7ef560d8d0dcbd3e58709fcd1474105a604d619e235e334fddf21b880da05",
-      "after": "ca003612f6a408bc2a7c0d263af64e3ab8ca636d8bd70359c0c040cd6e996dc1",
-      "owner": "Scene open breakpoint queue",
-      "reason": "Remove the resolved missing torso slot from the open issue and keep a measurable residual.",
+      "before": "ca003612f6a408bc2a7c0d263af64e3ab8ca636d8bd70359c0c040cd6e996dc1",
+      "after": "3bb9139738715898199401b6f926e89dbe4f5ab4522867fd56521beae7bb8f99",
+      "owner": "Scene particle prepared simulation",
+      "reason": "Close the witnessed prewarm time-domain breakpoint and route remaining 376 motion differences.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     },
     {

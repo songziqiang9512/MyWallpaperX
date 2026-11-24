@@ -41,7 +41,7 @@ def compile_runtime_configurations(cls, source_root, swift_sources, harness_sour
     model_source = (source_root / "Rendering/Frame/SceneMetalRenderer+LayerTransforms.swift").read_text()
 
     model_methods = "extension SceneMetalRenderer {\n" + "\n".join(
-        _declaration(model_source, marker) for marker in ["    func particleModelMatrix(", "    private func parallaxOffset("]
+        _declaration(model_source, marker) for marker in ["    func particleModelMatrix(", "    func parallaxOffset("]
     ) + "\n}\n"
     prepared_harnesses = []
     for source in harness_sources:

@@ -477,8 +477,7 @@ enum Harness {
         frozenStart.advance(by: 0.1)
         let warm = SceneParticleSimulator(definition: definition(startTime: 0.3),
             instanceOverride: modifier(0.5), fixedTimeStep: 0.1)
-        let equivalent = SceneParticleSimulator(definition: definition(),
-            instanceOverride: modifier(0.5), fixedTimeStep: 0.1)
+        let equivalent = SceneParticleSimulator(definition: definition(), fixedTimeStep: 0.1)
         equivalent.advance(by: 0.3)
         let delayed = SceneParticleSimulator(definition: definition(delay: 0.15, duration: 0.2, burst: false),
             instanceOverride: modifier(2), fixedTimeStep: 0.1)
@@ -3507,7 +3506,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
                     with self.subTest(check=name):
                         self.assertTrue(passed, name)
 
-    def test_simulation_rate_scales_one_time_domain_and_preserves_pause_and_rollback(self) -> None:
+    def test_live_rate_preserves_prepared_time_pause_and_rollback(self) -> None:
         result = self.run_harness("simulation-rate")
         for row in result["rows"]:
             with self.subTest(rate=row["rate"]):
@@ -3519,8 +3518,8 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertAlmostEqual(result["fast"][0], 0.7)
         self.assertEqual(result["fast"], result["retry"])
         self.assertAlmostEqual(result["fallback"][0], 0.8)
-        self.assertEqual(result["frozenStartCount"], 0)
-        self.assertEqual(result["frozenStartTime"], 0)
+        self.assertEqual(result["frozenStartCount"], 1)
+        self.assertAlmostEqual(result["frozenStartTime"], 1)
         self.assertEqual(len(result["warm"]), len(result["equivalentWarm"]))
         for actual, expected in zip(result["warm"], result["equivalentWarm"]):
             self.assertAlmostEqual(actual, expected)
@@ -3741,7 +3740,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["maxCount"], 3)
         self.assertEqual(self.results["budgetCount"], 2)
         self.assertEqual(self.results["prewarmCount"], 10)
-        self.assertEqual(self.results["prewarmInitialHalfRateCount"], 5)
+        self.assertEqual(self.results["prewarmInitialHalfRateCount"], 10)
         self.assertAlmostEqual(self.results["prewarmTime"], 1.0)
 
     def test_rate_instantaneous_duration_and_one_per_frame(self) -> None:
