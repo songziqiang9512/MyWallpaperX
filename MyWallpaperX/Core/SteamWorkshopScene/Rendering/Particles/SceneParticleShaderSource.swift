@@ -178,15 +178,19 @@ Varyings particleVertex(
         saturate(particle.colorAndFrameMix.w)
     ), 0.00001);
     if (isTrail) {
-        bool usesDisplacement = particle.frame1B.z > 0.5;
-        float velocityLength = length(particle.velocityAndTrail.xyz);
-        float3 localDirection = velocityLength > 0.00001
-            ? particle.velocityAndTrail.xyz / velocityLength
-            : float3(1.0, 0.0, 0.0);
-        float3 localTrail = usesDisplacement
-            ? particle.velocityAndTrail.xyz
-            : localDirection * particle.positionAndSize.w * particle.velocityAndTrail.w;
-        trailWorld = (uniforms.layerModel * float4(localTrail, 0.0)).xyz;
+        bool usesDisplacement = particle.frame1B.z == 1.0;
+        float span = particle.positionAndSize.w * particle.velocityAndTrail.w;
+        float3 localDirection = float3(0.0);
+        if (particle.frame1B.z == 2.0) {
+            trailWorld = particle.velocityAndTrail.xyz * span;
+        } else {
+            float velocityLength = length(particle.velocityAndTrail.xyz);
+            localDirection = velocityLength > 0.00001
+                ? particle.velocityAndTrail.xyz / velocityLength
+                : float3(1.0, 0.0, 0.0);
+            float3 localTrail = usesDisplacement ? particle.velocityAndTrail.xyz : localDirection * span;
+            trailWorld = (uniforms.layerModel * float4(localTrail, 0.0)).xyz;
+        }
         trailAcrossWorld = particleTrailAcross(
             particle, center, quadVertex.position.x, localDirection,
             trailWorld, usesDisplacement, uniforms);

@@ -217,14 +217,14 @@ CP需求不能用CP数组或共同controlpoint字段猜：Emitter的实际source
 <a id="rendering"></a>
 ## Renderer、材质与 GPU
 
-Sprite、SpriteTrail、RopeTrail、screen-displacement ribbon、refraction 与 depth 各复用原几何/材质/target owner。尺寸、atlas、TEX sprite frame、非方纹理比例与采样用途保来源；Rope 单图 atlas 的整张 source 与 Sprite 帧不是同一语义。
+Sprite、SpriteTrail、RopeTrail、refraction 与 depth 复用原几何、材质和目标。保 TEX 帧与非方宽高比；Rope 按整图取样。 <a id="world-sprite-trail-length"></a>根世界 SpriteTrail 以同帧绘制线性基把模拟速度映到场景，再用世界速率乘作者 length、限制于作者上下界。实例上传同域单位方向与已限伸展，Metal 沿此方向应用粒径和原帧宽高比，退出纵轴的第二次图层缩放；零速度没有纵向位移。局部 SpriteTrail 仍先在局部限长再变换，子系统和端点型 Rope 沿原几何。无新模拟状态；组件计划一次求速度与方向。验收保同纹理单粒/叠加、上下限、局部对照、旋转镜像和改名，并用原景与独立作者比可见足迹。
 
-根系统本地尺寸、Screen 朝向的透视 SpriteTrail 由原 CameraFrame 把选中相机的眼点一次转入该 draw 的粒子局部空间。宽轴取局部眼线与速度的垂向并随原模型变换；绕序随相机与模型手性确定，U 方向连续通过眼平面。原沿向、UV 帧、裁剪及合成继续各自消费。该分支退出投影平面的宽度反解，避免中心跨眼平面时仍可见的尾部骤然放大。眼线与速度共线时沿相机横轴保有限宽度；模型不可逆时沿原局部朝向退化。正交、显式固定/竖立、world 尺寸、child 和 displacement 路径沿各自原合同。
+本地尺寸透视根 SpriteTrail 的 Screen 宽轴取局部眼线与速度的垂向，随模型变换，绕序随手性，过眼平面时 U 连续。CameraFrame 每批投影一次眼点，退出会放大近眼尾部的宽度反解。共线用相机横轴，模型不可逆沿局部朝向。其余几何模式各用原宽轴规则。
 
 <a id="multiple-renderer-outputs"></a>
 ### 同一模拟的多个 renderer 输出
 
-一个root或child system仍只有原Simulator、RNG、clock、出生/死亡事件和活粒子群。Definition中的renderer按作者ordinal准备有真实消费者的输出，保顺序及重复kind；退出集合count整拒绝、first-supported选择和root/template单instances职责。坏组件只失去自身输出，健康输出与peer保持；没有renderer的合法child容器不制造默认Sprite。child尚无RopeTrail历史消费者，该组件仍明确局部不可用，不能由root多输出宣称child新增此能力。
+每个系统共用原模拟、RNG 和活粒子。按作者 renderer ordinal 准备有效输出，保重复 kind 和顺序。坏组件只退出自身，容器可无根绘制。child 的 RopeTrail 仍因缺历史消费者而局部不可用。
 
 原root/template拥有共享材质与source资源；输出只持实际几何Plan、orientation/camera及必要instances/history。Sprite帧、Rope整图和REFRACT的color/normal是原资源的不同consumer view，按实际需求各准备一次并共享同身份texture，不能为Rope全局抹掉animation或重建材质/源图。材质状态沿原compiler冷编一次；退出whole-definition的camera选择及其混入material state的字段，实际prepared renderer/DrawBatch向原CameraFrame供相机约定，REFRACT和ordinary输入边界保持。
 

@@ -2,6 +2,24 @@
 
 
 class SceneParticleWorldSpaceCases:
+    def test_world_sprite_trail_root_uses_the_draw_basis_before_limiting_span(self) -> None:
+        import math
+
+        result = self.run_harness("world-trail-direction-synthetic")
+        magnitude = math.hypot(22.5, 20)
+        values = result["rising"]
+        root, child = values["curve-root"], values["curve-child"]
+        self.assertEqual(root["velocity"], [10, 7.5, 0])
+        self.assertEqual([root["geometryMode"], child["geometryMode"]], [2, 0])
+        for actual, expected in zip(root["packedDirection"], (22.5 / magnitude, -20 / magnitude, 0)):
+            self.assertAlmostEqual(actual, expected, places=6)
+        self.assertAlmostEqual(root["stretch"], magnitude * 0.05, places=6)
+        self.assertAlmostEqual(child["stretch"], 0.625, places=6)
+        self.assertEqual(values["zero-root"]["packedDirection"], [0, 0, 0])
+        self.assertEqual(values["large-root"]["stretch"], 10)
+        self.assertTrue(values["large-root"]["gpuFinite"])
+        self.assertEqual(values["ordinary-root"]["geometryMode"], 0)
+
     def test_world_space_system_freezes_on_runtime_transform_write(self) -> None:
         result = self.run_harness("worldspace-freeze")
         self.assertTrue(result["movingLayerActive"])

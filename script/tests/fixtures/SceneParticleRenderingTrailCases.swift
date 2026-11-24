@@ -584,7 +584,7 @@ extension Harness {
         return plans.mapValues { plan in
             [100.0, 200.0, 400.0].map { speed in
                 trailBounds(velocity: SIMD3(Float(speed), 0, 0),
-                            stretch: plan.stretch(for: SIMD3(speed, 0, 0)))
+                            stretch: plan.geometry(for: SIMD3(speed, 0, 0)).stretch)
             }
         }
     }

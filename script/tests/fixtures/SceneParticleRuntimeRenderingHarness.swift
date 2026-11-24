@@ -7,14 +7,14 @@ import simd
 extension Harness {
     /// Executes the production root/child instance builders with own assets.
     /// A real device prepares the resources; this mode submits no GPU work.
-    static func syntheticTrailDirection() throws -> [String: Any] {
+    static func syntheticTrailDirection(worldSpace: Bool = false) throws -> [String: Any] {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("mwx-trail-direction-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         try writePNG(directory.appendingPathComponent("materials/shared.png"))
         let cases: [(String, String, String?, String)] = [
-            ("curve", "10 300 0", "0 -150 0", "spritetrail"),
+            ("curve", worldSpace ? "10 7.5 0" : "10 300 0", worldSpace ? nil : "0 -150 0", "spritetrail"),
             ("slow-y", "0 1e-12 0", nil, "spritetrail"),
             ("zero", "0 0 0", nil, "spritetrail"),
             ("large", "1e38 -1e38 1e38", nil, "spritetrail"),
@@ -25,7 +25,7 @@ extension Harness {
             let (name, velocity, gravity, renderer) = item
             let childPath = "particles/\(name)-child.json"
             var authored: [String: Any] = [
-                "material": "materials/shared.json", "maxcount": 1, "flags": 0,
+                "material": "materials/shared.json", "maxcount": 1, "flags": worldSpace ? 1 : 0,
                 "emitter": [["name": "boxrandom", "rate": 0, "instantaneous": 1,
                              "distancemin": "0 0 0", "distancemax": "0 0 0"]],
                 "initializer": [["name": "lifetimerandom", "min": 10, "max": 10],
@@ -47,10 +47,13 @@ extension Harness {
                 materialPath: "materials/shared.json", shaderPath: "genericparticle",
                 texturePaths: ["shared.png"], blending: "additive")])
         guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
-        let runtime = SceneParticleRuntime(descriptor: descriptor, cacheDirectory: directory, device: device)
+        let frame = SceneMatrix.rotationZ(.pi / 2) * SceneMatrix.scale(SIMD3(-2, 3, 1))
+        let worldFrames = worldSpace ? Dictionary(uniqueKeysWithValues: layers.map { ($0.id, frame) }) : [:]
+        let runtime = SceneParticleRuntime(descriptor: descriptor, cacheDirectory: directory, device: device,
+            staticWorldSpaceFrames: worldFrames.compactMapValues(SceneParticleWorldSpaceFrame.init(worldFrame:)))
         var batches: [SceneParticleDrawBatch] = []
         func advance(_ steps: Int) {
-            for _ in 0..<steps { batches = runtime.advance(by: 1.0 / 60.0) }
+            for _ in 0..<steps { batches = runtime.advance(by: 1.0 / 60.0, layerWorldFrames: worldFrames) }
         }
         func observation() -> [String: Any] {
             let snapshot = runtime.frameSnapshot()
@@ -72,6 +75,7 @@ extension Harness {
                         "packedDirection": [instance.velocityAndTrail.x, instance.velocityAndTrail.y,
                                             instance.velocityAndTrail.z],
                         "stretch": instance.velocityAndTrail.w,
+                        "geometryMode": instance.frame1B.z,
                         "gpuFinite": instance.isFinite, "age": particle.age,
                     ]
                 }

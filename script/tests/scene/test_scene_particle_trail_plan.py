@@ -81,26 +81,26 @@ enum Harness {
             ),
         ]
         let result: [String: Any] = [
-            "authored": authored.stretch(for: SIMD3(1_350, 0, 0)),
-            "minimum": bounded.stretch(for: SIMD3(0.5, 0, 0)),
-            "maximum": bounded.stretch(for: SIMD3(5, 0, 0)),
-            "threeDimensional": bounded.stretch(for: SIMD3(1, 2, 2)),
-            "largeAuthoredMaximum": largeAuthoredRange.stretch(for: SIMD3(1_000, 0, 0)),
-            "zeroSpeed": defaults.stretch(for: .zero),
-            "defaults": speeds.map { defaults.stretch(for: SIMD3($0, 0, 0)) },
-            "lengthOnly": speeds.map { lengthOnly.stretch(for: SIMD3($0, 0, 0)) },
-            "explicitDefaults": speeds.map { explicitDefaults.stretch(for: SIMD3($0, 0, 0)) },
-            "orientationOnly": speeds.map { orientationOnly.stretch(for: SIMD3($0, 0, 0)) },
-            "minimumOnly": [minimumOnly.stretch(for: .zero), minimumOnly.stretch(for: SIMD3(100, 0, 0))],
-            "maximumOnly": [maximumOnly.stretch(for: .zero), maximumOnly.stretch(for: SIMD3(100, 0, 0))],
-            "nonFiniteSpeed": bounded.stretch(for: SIMD3(.nan, 0, 0)),
+            "authored": authored.geometry(for: SIMD3(1_350, 0, 0)).stretch,
+            "minimum": bounded.geometry(for: SIMD3(0.5, 0, 0)).stretch,
+            "maximum": bounded.geometry(for: SIMD3(5, 0, 0)).stretch,
+            "threeDimensional": bounded.geometry(for: SIMD3(1, 2, 2)).stretch,
+            "largeAuthoredMaximum": largeAuthoredRange.geometry(for: SIMD3(1_000, 0, 0)).stretch,
+            "zeroSpeed": defaults.geometry(for: .zero).stretch,
+            "defaults": speeds.map { defaults.geometry(for: SIMD3($0, 0, 0)).stretch },
+            "lengthOnly": speeds.map { lengthOnly.geometry(for: SIMD3($0, 0, 0)).stretch },
+            "explicitDefaults": speeds.map { explicitDefaults.geometry(for: SIMD3($0, 0, 0)).stretch },
+            "orientationOnly": speeds.map { orientationOnly.geometry(for: SIMD3($0, 0, 0)).stretch },
+            "minimumOnly": [minimumOnly.geometry(for: .zero).stretch, minimumOnly.geometry(for: SIMD3(100, 0, 0)).stretch],
+            "maximumOnly": [maximumOnly.geometry(for: .zero).stretch, maximumOnly.geometry(for: SIMD3(100, 0, 0)).stretch],
+            "nonFiniteSpeed": bounded.geometry(for: SIMD3(.nan, 0, 0)).stretch,
             "invalidCount": invalidPlans.compactMap { $0 }.count,
             "directions": directionInputs.map { velocity in
-                let direction = authored.direction(for: velocity)
+                let direction = authored.geometry(for: velocity).direction
                 return [direction.x, direction.y, direction.z]
             },
             "directionIgnoresStretchBounds": directionInputs.allSatisfy {
-                authored.direction(for: $0) == orientationOnly.direction(for: $0)
+                authored.geometry(for: $0).direction == orientationOnly.geometry(for: $0).direction
             },
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])

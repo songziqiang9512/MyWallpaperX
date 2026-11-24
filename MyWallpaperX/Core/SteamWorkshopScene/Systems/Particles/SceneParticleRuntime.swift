@@ -671,12 +671,13 @@ final class SceneParticleRuntime {
 #endif
             }
             guard isVisible, var root = layers[index].rootRender else { continue }
-            root.rebuildInstances()
+            let referenceWorldFrame = root.simulator.rootWorldTranslation?.referenceWorldFrame
+            root.rebuildInstances(worldFrame: referenceWorldFrame ?? layerWorldFrames[layerID])
             for output in root.outputs {
                 batches.append(output.renderer.drawBatch(
                     layerID: layerID, particlePath: layers[index].particlePath,
                     childTemplateIndex: nil, instances: output.instances,
-                    referenceWorldFrame: root.simulator.rootWorldTranslation?.referenceWorldFrame,
+                    referenceWorldFrame: referenceWorldFrame,
                     sizeIsWorldSpace: root.definition.flags.isWorldSpace
                 ))
             }

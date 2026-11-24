@@ -35,36 +35,21 @@ nonisolated struct SceneParticleTrailRenderPlan: Equatable, Sendable {
         self.maximumStretch = maximumLength
     }
 
-    /// Normalize before narrowing to Float so every finite nonzero velocity
-    /// keeps its direction, including very slow motion and large magnitudes.
-    nonisolated func direction(for velocity: SIMD3<Double>) -> SIMD3<Float> {
+    /// The velocity is expressed in the coordinate system that owns the bounds.
+    nonisolated func geometry(for velocity: SIMD3<Double>) -> (direction: SIMD3<Float>, stretch: Float) {
         guard velocity.x.isFinite,
               velocity.y.isFinite,
-              velocity.z.isFinite else { return .zero }
+              velocity.z.isFinite else { return (.zero, Float(minimumStretch)) }
         let maximumMagnitude = max(abs(velocity.x), max(abs(velocity.y), abs(velocity.z)))
-        guard maximumMagnitude > 0 else { return .zero }
+        guard maximumMagnitude > 0 else { return (.zero, Float(minimumStretch)) }
         let scaled = velocity / maximumMagnitude
         let magnitude = hypot(hypot(scaled.x, scaled.y), scaled.z)
-        return SIMD3(
+        let direction = SIMD3(
             Float(scaled.x / magnitude),
             Float(scaled.y / magnitude),
             Float(scaled.z / magnitude)
         )
-    }
-
-    nonisolated func stretch(for velocity: SIMD3<Double>) -> Float {
-        guard velocity.x.isFinite,
-              velocity.y.isFinite,
-              velocity.z.isFinite else {
-            return Float(minimumStretch)
-        }
-
-        let speed = hypot(hypot(velocity.x, velocity.y), velocity.z)
-        let authoredStretch = speed * length
-        let clampedStretch = min(
-            max(authoredStretch, minimumStretch),
-            maximumStretch
-        )
-        return Float(clampedStretch)
+        let stretch = (maximumMagnitude * length) * magnitude
+        return (direction, Float(min(max(stretch, minimumStretch), maximumStretch)))
     }
 }

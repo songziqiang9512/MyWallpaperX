@@ -191,7 +191,20 @@ struct SceneParticleRootRenderRuntime {
         }
     }
 
-    mutating func rebuildInstances() {
+    mutating func rebuildInstances(worldFrame: simd_float4x4?) {
+        let worldBasis: simd_double3x3?
+        if definition.flags.isWorldSpace, outputs.contains(where: { $0.renderer.trail != nil }) {
+            let frame = worldFrame ?? matrix_identity_float4x4
+            func axis(_ column: SIMD4<Float>) -> SIMD3<Double> {
+                SIMD3(Double(column.x), Double(column.y), Double(column.z))
+            }
+            // Match particleLayerModel's Y-up particle basis.
+            worldBasis = simd_double3x3(columns: (
+                axis(frame.columns.0), -axis(frame.columns.1), axis(frame.columns.2)
+            ))
+        } else {
+            worldBasis = nil
+        }
         let streams = simulator.consumeStepSnapshots()
         var spriteParticles: ArraySlice<SceneParticleState>?
         for index in outputs.indices {
@@ -221,12 +234,16 @@ struct SceneParticleRootRenderRuntime {
                     definition: definition, particleID: particle.id,
                     age: Float(particle.age), lifetime: Float(particle.lifetime)
                 )
+                let trail = renderer.trail?.geometry(
+                    for: worldBasis.map { $0 * particle.velocity } ?? particle.velocity
+                )
                 outputs[index].instances.append(SceneParticleGPUInstance(
                     position: particle.position.particleFloatValue, size: Float(particle.size),
                     rotation: particle.rotation.particleFloatValue, color: particle.color.particleFloatValue,
                     alpha: Float(particle.alpha),
-                    velocity: renderer.trail?.direction(for: particle.velocity) ?? particle.velocity.particleFloatValue,
-                    trailStretch: renderer.trail?.stretch(for: particle.velocity),
+                    velocity: trail?.direction ?? particle.velocity.particleFloatValue,
+                    trailStretch: trail?.stretch,
+                    usesWorldTrailDirection: worldBasis != nil && trail != nil,
                     currentFrame: frames.current.orientedForTrail(renderer.trail != nil),
                     nextFrame: frames.next?.orientedForTrail(renderer.trail != nil),
                     currentFrameAspect: frames.currentAspect,

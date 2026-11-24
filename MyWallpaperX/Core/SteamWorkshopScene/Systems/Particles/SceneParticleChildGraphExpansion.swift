@@ -415,15 +415,15 @@ extension SceneParticleChildTemplate {
             lifetime: Float(particle.lifetime)
         )
         let velocity = transform.velocity(particle.velocity)
-        let trail = renderer.trail
+        let trail = renderer.trail?.geometry(for: velocity)
         return SceneParticleGPUInstance(
             position: (origin + transform.position(particle.position)).particleFloatValue,
             size: Float(transform.size(particle.size)),
             rotation: particle.rotation.particleFloatValue,
             color: particle.color.particleFloatValue,
             alpha: Float(particle.alpha) * layerAlpha,
-            velocity: trail?.direction(for: velocity) ?? velocity.particleFloatValue,
-            trailStretch: trail?.stretch(for: velocity),
+            velocity: trail?.direction ?? velocity.particleFloatValue,
+            trailStretch: trail?.stretch,
             currentFrame: frames.current.orientedForTrail(trail != nil),
             nextFrame: frames.next?.orientedForTrail(trail != nil),
             currentFrameAspect: frames.currentAspect,

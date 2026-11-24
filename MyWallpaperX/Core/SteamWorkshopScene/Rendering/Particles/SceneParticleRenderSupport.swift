@@ -382,6 +382,7 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
         trailStretch: Float? = nil,
         trailUVRange: SIMD2<Float>? = nil,
         usesTrailDisplacement: Bool = false,
+        usesWorldTrailDirection: Bool = false,
         trailHeadDirection: SIMD3<Float>? = nil,
         trailTailDirection: SIMD3<Float>? = nil,
         trailEndpointSizes: SIMD2<Float>? = nil,
@@ -433,10 +434,13 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
             following.xAxis.x,
             following.xAxis.y
         )
+        // The trail's longitudinal input is either a local direction, local
+        // endpoint displacement, or a prepared world direction.
+        let trailMode: Float = usesTrailDisplacement ? 1 : (usesWorldTrailDirection ? 2 : 0)
         frame1B = SIMD4(
             following.yAxis.x,
             following.yAxis.y,
-            usesTrailDisplacement ? 1 : 0,
+            trailMode,
             joinedTrail ? 1 : 0
         )
         velocityAndTrail = SIMD4(

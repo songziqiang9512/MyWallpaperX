@@ -73,7 +73,7 @@ import Foundation
          "ids": sim.particles.map(\.id), "ages": sim.particles.map(\.age),
          "velocities": sim.particles.map { vector($0.velocity) },
          "positions": sim.particles.map { vector($0.position) },
-         "stretch": sim.particles.map { Double(trail.stretch(for: $0.velocity)) },
+         "stretch": sim.particles.map { Double(trail.geometry(for: $0.velocity).stretch) },
          "nextID": sim.frameSnapshot().nextParticleID,
          "randomState": sim.frameSnapshot().random.state,
          "gpuFinite": sim.particles.allSatisfy {

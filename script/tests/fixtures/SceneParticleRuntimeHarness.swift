@@ -408,6 +408,8 @@ enum Harness {
             try printJSON(syntheticChildPlaneScale())
         case "trail-direction-synthetic":
             try printJSON(syntheticTrailDirection())
+        case "world-trail-direction-synthetic":
+            try printJSON(syntheticTrailDirection(worldSpace: true))
         case "child-capacity-synthetic":
             try printJSON(syntheticChildCapacity())
         case "synthetic":

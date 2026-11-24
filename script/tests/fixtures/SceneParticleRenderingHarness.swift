@@ -166,10 +166,10 @@ enum Harness {
                     currentAspect: 0.25, nextAspect: 0.75, frameMix: 0.5),
                 "minimum": trailBounds(velocity: SIMD3(1, 0, 0), stretch:
                     SceneParticleTrailRenderPlan(length: 0.01, minimumLength: 2, maximumLength: 3)!
-                        .stretch(for: SIMD3(0.0, 0, 0)), currentAspect: 0.25),
+                        .geometry(for: SIMD3(0.0, 0, 0)).stretch, currentAspect: 0.25),
                 "maximum": trailBounds(velocity: SIMD3(1, 0, 0), stretch:
                     SceneParticleTrailRenderPlan(length: 0.01, minimumLength: 2, maximumLength: 3)!
-                        .stretch(for: SIMD3(10000.0, 0, 0)), currentAspect: 0.25),
+                        .geometry(for: SIMD3(10000.0, 0, 0)).stretch, currentAspect: 0.25),
                 "displacementSquare": trailBounds(velocity: SIMD3(1, 0, 0), rope: true),
                 "displacementTall": trailBounds(velocity: SIMD3(1, 0, 0), rope: true, currentAspect: 0.25),
             ],

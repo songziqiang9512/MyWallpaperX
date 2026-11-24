@@ -72,6 +72,11 @@ CASES = [
          orientation="fixed", orientationAxis=[0, 1, 0]),
 ]
 
+PREPARED_WORLD_CASES = [
+    case("prepared-world-moving", (2.5, .5, 1), (1, 0, 0), worldSize=True, worldDirection=True),
+    case("prepared-world-stationary", (2.5, .5, 1), (0, 0, 0), worldSize=True, worldDirection=True),
+]
+
 PERSPECTIVE_CASES = [
     case(f"perspective-{name}", (6, 5, 1), (0, 0, 1000), size=40, stretch=80,
          perspective={"yaw": yaw, "offsetX": offset, "depth": depth})
@@ -236,7 +241,8 @@ class SceneParticleAffineTrailTests(unittest.TestCase):
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
         cases_path = directory / "cases.json"
-        cases_path.write_text(json.dumps(CASES + PERSPECTIVE_CASES), encoding="utf-8")
+        cases = CASES + PREPARED_WORLD_CASES + PERSPECTIVE_CASES
+        cases_path.write_text(json.dumps(cases), encoding="utf-8")
         binary = directory / "scene-particle-affine"
         sources = swift_sources()
         run_checked(
@@ -255,7 +261,7 @@ class SceneParticleAffineTrailTests(unittest.TestCase):
         if report_path:
             Path(report_path).write_text(
                 json.dumps({
-                    "inputs": CASES + PERSPECTIVE_CASES, "gpu": cls.result,
+                    "inputs": cases, "gpu": cls.result,
                     "swiftSources": [{"path": str(path),
                                       "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
                                      for path in sources + [FIXTURE, harness]],
@@ -379,6 +385,15 @@ class SceneParticleAffineTrailTests(unittest.TestCase):
             with self.subTest(case=value["name"]):
                 self.assert_vertex_geometry(value)
                 self.assert_card_coverage(value)
+
+    def test_prepared_world_direction_draws_without_rescaling_and_zero_collapses(self):
+        moving = self.rows["prepared-world-moving"]
+        stationary = self.rows["prepared-world-stationary"]
+        self.assertTrue(moving["gpuCompleted"] and stationary["gpuCompleted"])
+        self.assertEqual(moving["bounds"], [128, 224, 383, 287])
+        self.assertEqual(moving["visiblePixels"], 256 * 64)
+        self.assertEqual(moving["coveredMinimumBGRA"], [255] * 4)
+        self.assertEqual(stationary["visiblePixels"], 0)
 
     def test_fixed_xz_renderer_preserves_authored_local_plane(self):
         for value in CASES[24:]:

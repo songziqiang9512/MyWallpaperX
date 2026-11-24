@@ -24,6 +24,7 @@ enum SceneParticleAffineTrailHarness {
         let stretch: Float
         let tiltX: Float?
         let worldSize: Bool?
+        let worldDirection: Bool?
         let vertexOnly: Bool?
         let orientation: String?
         let orientationAxis: [Float]?
@@ -117,8 +118,8 @@ enum SceneParticleAffineTrailHarness {
         let scale = SIMD3(value.scale[0], value.scale[1], value.scale[2])
         let velocity = SIMD3(value.velocity[0], value.velocity[1], value.velocity[2])
         let magnitude = simd_length(velocity)
-        guard magnitude > 0 else { throw Failure.malformedCase(value.name) }
-        let direction = velocity / magnitude
+        guard magnitude > 0 || value.worldDirection == true else { throw Failure.malformedCase(value.name) }
+        let direction = magnitude > 0 ? velocity / magnitude : .zero
         // Match the public Scene Y-down layer-frame convention: reflect the
         // authored layer rotation and local particle Y exactly once.
         let center: Float = value.vertexOnly == true ? 0 : Float(extent) / 2
@@ -307,12 +308,14 @@ enum SceneParticleAffineTrailHarness {
                 Double(value.velocity[0]), Double(value.velocity[1]),
                 Double(value.velocity[2])
             )
+            let geometry = plan.geometry(for: velocity)
             return [SceneParticleGPUInstance(
                 position: SIMD3(0, 0, value.perspective?.depth ?? 0),
                 size: value.size, rotation: .zero,
                 color: SIMD3(repeating: 1), alpha: 1,
-                velocity: plan.direction(for: velocity),
-                trailStretch: plan.stretch(for: velocity),
+                velocity: geometry.direction,
+                trailStretch: geometry.stretch,
+                usesWorldTrailDirection: value.worldDirection == true,
                 currentFrame: .identity.orientedForTrail(true)
             )]
         case "sprite":
