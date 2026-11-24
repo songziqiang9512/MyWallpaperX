@@ -8,7 +8,7 @@ extension Harness {
         var particleColorDescriptor = descriptor
         particleColorDescriptor.layers[3].particleInstanceOverride = .init(
             id: nil, alpha: nil, size: nil, lifetime: nil, rate: nil, speed: nil,
-            count: nil, brightness: nil, color: nil,
+            count: nil, color: nil,
             normalizedColor: .init(value: .vector([1, 1, 1]), userPropertyKey: nil,
                 hasScript: true, hasAnimation: false), controlPoints: [:], controlPointAngles: [:])
         func particleColorBindings(user: Any? = nil, key: String = "colorn", value: String = "1 1 1") -> [SceneScriptBindingIR] {
@@ -45,7 +45,6 @@ extension Harness {
         let particleScalarFields: [(String, SceneDynamicParticleField)] = [
             ("alpha", .alpha), ("size", .size), ("lifetime", .lifetime),
             ("rate", .rate), ("speed", .speed), ("count", .count),
-            ("brightness", .brightness),
         ]
         let scalarBound = SceneParticleBoundValue(
             value: .scalar(2), userPropertyKey: nil,
@@ -55,7 +54,7 @@ extension Harness {
         scalarParticleDescriptor.layers[3].particleInstanceOverride = .init(
             id: nil, alpha: scalarBound, size: scalarBound, lifetime: scalarBound,
             rate: scalarBound, speed: scalarBound, count: scalarBound,
-            brightness: scalarBound, color: nil, normalizedColor: nil,
+            color: nil, normalizedColor: nil,
             controlPoints: [:], controlPointAngles: [:]
         )
         var scalarWrappers: [String: Any] = [:]
@@ -65,6 +64,7 @@ extension Harness {
                 "script": "export function update(value) { if (value < 0) return Infinity; return value * \(name == "count" ? 250 : 2); }",
             ]
         }
+        scalarWrappers["brightness"] = scalarWrappers["alpha"]
         let parsedParticleScalars = SceneScriptBindingIRParser.parse(document: [
             "objects": [["id": 10], ["id": 42], ["id": 77],
                 ["id": 139, "instanceoverride": scalarWrappers]],
@@ -102,7 +102,6 @@ extension Harness {
             particleProjectedValues.alpha, particleProjectedValues.size,
             particleProjectedValues.lifetime, particleProjectedValues.rate,
             particleProjectedValues.speed, particleProjectedValues.count,
-            particleProjectedValues.brightness,
         ].allSatisfy { $0?.hasScript == false }
         let partialParticle = SceneScriptParticleProjection.apply(
             admittedTargets: [.particle(layerID: 139, field: .count)],

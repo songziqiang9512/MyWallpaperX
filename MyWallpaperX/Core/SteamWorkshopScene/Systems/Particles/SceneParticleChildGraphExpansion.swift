@@ -283,7 +283,6 @@ enum SceneParticleChildGraphExpansion {
             rate: rootInstanceOverride?.rate,
             speed: rootInstanceOverride?.speed,
             count: rootInstanceOverride?.count,
-            brightness: rootInstanceOverride?.brightness,
             color: rootInstanceOverride?.color,
             normalizedColor: rootInstanceOverride?.normalizedColor,
             controlPoints: controlPointOverride?.controlPoints ?? [:],

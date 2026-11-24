@@ -24,13 +24,11 @@ extension SceneParticleSimulator {
         particle.angularVelocity *= speed
         if !flags.disablesColorOverrides {
             if let color = overrideVector(value.color) {
-                let normalized = color / 255
-                particle.color = normalized * normalized
+                particle.color = color / 255
             } else if let color = overrideVector(value.normalizedColor) {
-                particle.color = usesStraightMaskTint ? color : color * color
+                particle.color = color
             }
         }
-        particle.color *= overrideScalar(value.brightness)
     }
 
     nonisolated func overrideScalar(_ value: SceneParticleBoundValue?) -> Double {

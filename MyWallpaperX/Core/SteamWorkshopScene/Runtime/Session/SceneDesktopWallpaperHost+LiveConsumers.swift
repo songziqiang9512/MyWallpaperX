@@ -273,7 +273,7 @@ extension SceneDesktopWallpaperHost {
                 targets.insert(.layer(layerID: layer.id, field: .alpha))
                 let fields: [SceneDynamicParticleField] = [
                     .alpha, .size, .lifetime, .rate, .speed, .count,
-                    .brightness, .normalizedColor,
+                    .normalizedColor,
                 ]
                 targets.formUnion(fields.map {
                     .particle(layerID: layer.id, field: $0)

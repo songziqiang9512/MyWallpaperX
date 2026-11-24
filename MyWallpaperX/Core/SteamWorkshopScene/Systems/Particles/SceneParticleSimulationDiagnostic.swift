@@ -355,8 +355,7 @@ extension SceneParticleSimulationMath {
 
         let scalarValues = [instanceOverride?.alpha, instanceOverride?.size,
                             instanceOverride?.lifetime, instanceOverride?.rate,
-                            instanceOverride?.speed, instanceOverride?.count,
-                            instanceOverride?.brightness].compactMap { $0 }
+                            instanceOverride?.speed, instanceOverride?.count].compactMap { $0 }
         let unsupportedScalarBinding = scalarValues.contains {
             $0.hasScript || ($0.userPropertyKey != nil && $0.hasAnimation)
         }

@@ -154,7 +154,7 @@ enum SceneParticleChildTemplateSupport {
         }
         return .supported(SceneParticleInstanceOverride(
             id: nil, alpha: nil, size: nil, lifetime: nil, rate: nil, speed: nil,
-            count: nil, brightness: nil, color: nil, normalizedColor: nil,
+            count: nil, color: nil, normalizedColor: nil,
             controlPoints: values, controlPointAngles: [:]
         ), count: values.count)
     }

@@ -638,25 +638,25 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
 
     def test_all_particle_scalar_scripts_parse_and_publish_typed_values(self) -> None:
         value = self.result()
-        self.assertEqual(value["particleScalarParsed"], 7)
-        self.assertEqual(value["particleScalarBindings"], 7)
+        self.assertEqual(value["particleScalarParsed"], 6)
+        self.assertEqual(value["particleScalarBindings"], 6)
         self.assertEqual(value["particleScalarFailures"], 0)
         self.assertEqual(value["particleScalarValues"], {
             "alpha": 4, "size": 4, "lifetime": 4, "rate": 4,
-            "speed": 4, "count": 500, "brightness": 4,
+            "speed": 4, "count": 500,
         })
 
     def test_particle_scalar_admission_is_field_exact_and_failure_local(self) -> None:
         value = self.result()
-        self.assertEqual(value["particleScalarBadValues"], 6)
+        self.assertEqual(value["particleScalarBadValues"], 5)
         self.assertEqual(value["particleScalarBadFailures"], 1)
         self.assertTrue(value["particleScalarBadSizeAbsent"])
-        self.assertEqual(value["particleScalarRecovered"], 7)
+        self.assertEqual(value["particleScalarRecovered"], 6)
         self.assertTrue(value["particleScalarMarkersCleared"])
         self.assertTrue(value["particleScalarHiddenPreserved"])
         self.assertTrue(value["particleScalarPartialExact"])
-        self.assertEqual(value["particleScalarDuplicateCount"], 6)
-        self.assertEqual(value["particleScalarConflictCount"], 5)
+        self.assertEqual(value["particleScalarDuplicateCount"], 5)
+        self.assertEqual(value["particleScalarConflictCount"], 4)
 
     def test_audio_buffers_update_generic_particle_rate_owner(self) -> None:
         value = self.result()

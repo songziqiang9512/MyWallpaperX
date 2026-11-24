@@ -177,7 +177,6 @@ nonisolated enum SceneDynamicParticleField: Codable, Equatable, Hashable, Sendab
     case rate
     case speed
     case count
-    case brightness
     case color
     case normalizedColor
     case controlPoint(Int)
@@ -191,7 +190,6 @@ nonisolated enum SceneDynamicParticleField: Codable, Equatable, Hashable, Sendab
         case .rate: "rate"
         case .speed: "speed"
         case .count: "count"
-        case .brightness: "brightness"
         case .color: "color"
         case .normalizedColor: "normalizedColor"
         case let .controlPoint(index): "controlPoint:\(index)"
@@ -345,7 +343,6 @@ nonisolated struct SceneDynamicParticleValues: Equatable, Sendable {
     let rate: Double?
     let speed: Double?
     let count: Double?
-    let brightness: Double?
     let normalizedColor: SIMD3<Double>?
 }
 
@@ -458,11 +455,11 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
         let result = SceneDynamicParticleValues(
             alpha: scalar(.alpha), size: scalar(.size), lifetime: scalar(.lifetime),
             rate: scalar(.rate), speed: scalar(.speed), count: scalar(.count),
-            brightness: scalar(.brightness), normalizedColor: color
+            normalizedColor: color
         )
         if result.alpha == nil, result.size == nil, result.lifetime == nil,
            result.rate == nil, result.speed == nil, result.count == nil,
-           result.brightness == nil, result.normalizedColor == nil {
+           result.normalizedColor == nil {
             return nil
         }
         return result

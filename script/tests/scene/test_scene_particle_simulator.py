@@ -398,7 +398,7 @@ enum Harness {
             "operator": [], "renderer": [["name": "sprite"]],
         ]))
         var rows: [[String: Any]] = []
-        for field in ["size", "lifetime", "speed", "alpha", "brightness"] {
+        for field in ["size", "lifetime", "speed", "alpha"] {
             for multiplier in [1e100, Double(Float.greatestFiniteMagnitude)] {
                 var simulator = SceneParticleSimulator(definition: definition, seed: 4)
                 simulator.advance(by: 1.0 / 60.0)
@@ -3877,7 +3877,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["overrideSize"], 6)
         self.assertEqual(self.results["overrideVelocity"], [4, 0, 0])
         self.assertEqual(self.results["overrideAlpha"], 0.25)
-        self.assertEqual(self.results["overrideColor"], [0.5, 0.125, 2])
+        self.assertEqual(self.results["overrideColor"], [0.5, 0.25, 1])
         self.assertEqual(self.results["overrideEmissionCount"], 5)
         self.assertNotIn("dynamicOverrideIgnored", self.results["overrideDiagnostics"])
 
@@ -3887,13 +3887,13 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["liveDynamicCount"], 2)
         self.assertEqual(self.results["liveDynamicAlpha"], 0.25)
         self.assertEqual(self.results["liveDynamicSize"], 6)
-        self.assertEqual(self.results["liveDynamicColor"], [0.25, 1, 0.0625])
+        self.assertEqual(self.results["liveDynamicColor"], [0.5, 1, 0.25])
         self.assertEqual(self.results["liveFallbackAlpha"], 1)
         self.assertEqual(self.results["liveFallbackSize"], 2)
         self.assertEqual(self.results["liveFallbackColor"], [1, 1, 1])
 
     def test_general_flags_deny_only_the_matching_instance_override(self) -> None:
-        self.assertEqual(self.results["colorDeniedColor"], [2, 2, 2])
+        self.assertEqual(self.results["colorDeniedColor"], [1, 1, 1])
         self.assertEqual(self.results["colorDeniedAlpha"], 0.25)
         self.assertEqual(self.results["speedDeniedVelocity"], [1, 0, 0])
         self.assertEqual(self.results["countDeniedEmissionCount"], 9)
@@ -4047,26 +4047,26 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertTrue(self.results["colorUsesSingleInterpolation"])
 
     def test_color_instance_override_replaces_initializer_result(self) -> None:
-        self.assertEqual(self.results["colorOverrideValue"], [0.25, 1, 0.0625])
+        self.assertEqual(self.results["colorOverrideValue"], [0.5, 1, 0.25])
         results = self.results["colorBirthResults"]
         for name in ("normalized", "legacy", "legacyPrecedence"):
             with self.subTest(profile=name):
-                self.assertEqual(results[name]["colors"], [[0.25, 0.0625, 1]])
-                self.assertEqual(results[name]["birthColors"], [[0.25, 0.0625, 1]])
+                self.assertEqual(results[name]["colors"], [[0.5, 0.25, 1]])
+                self.assertEqual(results[name]["birthColors"], [[0.5, 0.25, 1]])
         self.assertEqual(results["noOverride"]["colors"], [[128 / 255, 64 / 255, 0]])
-        self.assertEqual(results["brightness"]["colors"], [[0.5, 0.125, 2]])
+        self.assertEqual(results["brightness"]["colors"], results["normalized"]["colors"])
         self.assertEqual(results["black"]["colors"], [[0, 0, 0]])
         for name in ("brightnessOnly", "disabled"):
-            self.assertEqual(results[name]["colors"], [[256 / 255, 128 / 255, 0]])
-        self.assertEqual(results["operator"]["birthColors"], [[0.25, 0.0625, 1]])
-        self.assertEqual(results["operator"]["colors"], [[0.125, 0.0625, 0.25]])
+            self.assertEqual(results[name]["colors"], results["noOverride"]["colors"])
+        self.assertEqual(results["operator"]["birthColors"], [[0.5, 0.25, 1]])
+        self.assertEqual(results["operator"]["colors"], [[0.25, 0.25, 0.25]])
         for name, result in results.items():
             with self.subTest(profile=name):
                 self.assertEqual(result["diagnostics"], [])
 
     def test_dynamic_color_override_changes_only_new_births_and_preserves_peer(self) -> None:
-        initial = [0.25, 0.0625, 1]
-        updated = [1, 0.25, 0.0625]
+        initial = [0.5, 0.25, 1]
+        updated = [1, 0.5, 0.25]
         results = self.results["colorCohortResults"]
         for index, result in enumerate(results):
             with self.subTest(variant=index):
@@ -4125,7 +4125,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             self.results["invalidHSVColorDiagnostics"],
             [["hsvColorUnsupported"]] * 19,
         )
-        self.assertEqual(self.results["hsvColorWithOverride"], [0.25, 1, 1])
+        self.assertEqual(self.results["hsvColorWithOverride"], [0.5, 1, 1])
         self.assertEqual(
             self.results["hsvColorWithOverrideDiagnostics"], ["hsvColorBounded"]
         )

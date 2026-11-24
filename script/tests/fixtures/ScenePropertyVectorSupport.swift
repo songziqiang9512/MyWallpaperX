@@ -128,7 +128,6 @@ struct SceneParticleInstanceOverride: Equatable, Sendable {
     let rate: SceneParticleBoundValue?
     let speed: SceneParticleBoundValue?
     let count: SceneParticleBoundValue?
-    let brightness: SceneParticleBoundValue?
     let color: SceneParticleBoundValue?
     let normalizedColor: SceneParticleBoundValue?
     let controlPoints: [Int: SceneParticleBoundValue]

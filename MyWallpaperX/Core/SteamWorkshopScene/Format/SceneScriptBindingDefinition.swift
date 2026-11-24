@@ -296,7 +296,7 @@ nonisolated enum SceneScriptBindingIRParser {
             }
             if let instanceOverride = object["instanceoverride"]
                 as? [String: Any] {
-                for key in ["alpha", "size", "lifetime", "rate", "speed", "count", "brightness", "colorn"] {
+                for key in ["alpha", "size", "lifetime", "rate", "speed", "count", "colorn"] {
                     append(
                         instanceOverride[key],
                         owner: objectOwner,

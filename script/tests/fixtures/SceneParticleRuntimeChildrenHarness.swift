@@ -390,11 +390,10 @@ extension Harness {
         let rate = SceneDynamicTarget.particle(layerID: 91, field: .rate)
         let lifetime = SceneDynamicTarget.particle(layerID: 91, field: .lifetime)
         let speed = SceneDynamicTarget.particle(layerID: 91, field: .speed)
-        let brightness = SceneDynamicTarget.particle(layerID: 91, field: .brightness)
         let color = SceneDynamicTarget.particle(layerID: 91, field: .normalizedColor)
         let values: [SceneDynamicTarget: SceneDynamicValue] = [alpha: .scalar(0.25),
             size: .scalar(3), count: .scalar(2), rate: .scalar(0.5), lifetime: .scalar(2),
-            speed: .scalar(3), brightness: .scalar(0.5), color: .vector3(0.5, 1, 0.25)]
+            speed: .scalar(3), color: .vector3(0.5, 1, 0.25)]
         let definitions = values.keys.map { target in
             SceneDynamicTargetDefinition(target: target,
                 valueType: target == color ? .vector3 : .scalar,

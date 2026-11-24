@@ -593,7 +593,7 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         self.assertIn('case "particle":', consumers)
         for field in (
             ".alpha", ".size", ".lifetime", ".rate", ".speed", ".count",
-            ".brightness", ".normalizedColor",
+            ".normalizedColor",
         ):
             self.assertIn(field, consumers)
         self.assertIn(".particle(layerID: layer.id, field: $0)", consumers)

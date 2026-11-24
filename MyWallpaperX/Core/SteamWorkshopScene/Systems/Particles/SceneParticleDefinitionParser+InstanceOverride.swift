@@ -17,7 +17,6 @@ nonisolated extension SceneParticleDefinitionParser {
             rate: Self.boundValue(root["rate"]),
             speed: Self.boundValue(root["speed"]),
             count: Self.boundValue(root["count"]),
-            brightness: Self.boundValue(root["brightness"]),
             color: Self.boundValue(root["color"]),
             normalizedColor: Self.boundValue(root["colorn"]),
             controlPoints: controlPoints,

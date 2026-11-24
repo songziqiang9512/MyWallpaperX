@@ -412,7 +412,6 @@ nonisolated extension SceneScriptScalarProgram {
         case "rate": (field, bound) = (.rate, value.rate)
         case "speed": (field, bound) = (.speed, value.speed)
         case "count": (field, bound) = (.count, value.count)
-        case "brightness": (field, bound) = (.brightness, value.brightness)
         default: return nil
         }
         return bound.map { (field, $0) }

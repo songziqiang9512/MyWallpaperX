@@ -575,7 +575,6 @@ nonisolated enum SceneTimelineTargetCompiler {
         case .rate: (boundValue, field) = (override?.rate, .rate)
         case .speed: (boundValue, field) = (override?.speed, .speed)
         case .count: (boundValue, field) = (override?.count, .count)
-        case .brightness: (boundValue, field) = (override?.brightness, .brightness)
         case .normalizedColor: (boundValue, field) = (override?.normalizedColor, .normalizedColor)
         case .position:
             guard let index = timeline.index else { return nil }

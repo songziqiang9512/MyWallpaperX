@@ -31,7 +31,7 @@ extension SceneDocumentLoader {
         let instanceHosts: [(String, SceneDocument.SceneParticleTimeline.Field)] = [
             ("alpha", .alpha), ("size", .size), ("lifetime", .lifetime),
             ("rate", .rate), ("speed", .speed), ("count", .count),
-            ("brightness", .brightness), ("colorn", .normalizedColor),
+            ("colorn", .normalizedColor),
         ]
         for (host, field) in instanceHosts {
             let result = SceneTimelineAnimationParser.parse(host: root[host])

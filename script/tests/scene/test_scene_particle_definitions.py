@@ -631,7 +631,7 @@ enum Harness {
         let values: [(String, SceneParticleBoundValue?)] = [
             ("alpha", override.alpha), ("size", override.size), ("lifetime", override.lifetime),
             ("rate", override.rate), ("speed", override.speed), ("count", override.count),
-            ("brightness", override.brightness), ("color", override.color),
+            ("color", override.color),
             ("colorn", override.normalizedColor)
         ]
         for (name, value) in values where value != nil {

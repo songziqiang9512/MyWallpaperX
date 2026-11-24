@@ -851,8 +851,7 @@ final class SceneParticleRuntime {
             controlPointForceEnvironment: forceEnvironment,
             controlPointFrame: controlPointFrame,
             collisionBoundsFrame: collisionBoundsFrame,
-            stepSnapshotPolicies: prepared.compactMap { $0.snapshotPolicy },
-            usesStraightMaskTint: usesStraightMaskTint
+            stepSnapshotPolicies: prepared.compactMap { $0.snapshotPolicy }
         )
 #if DEBUG
         simulator.observeSelectedRenderers(typedIndices: prepared.map(\.index))

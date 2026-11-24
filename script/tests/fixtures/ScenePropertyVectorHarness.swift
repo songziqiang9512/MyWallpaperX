@@ -115,7 +115,7 @@ final class PropertyVectorFixture {
                         value: .scalar(2), userPropertyKey: nil,
                         hasScript: true, hasAnimation: false
                     ),
-                    speed: nil, count: nil, brightness: nil, color: nil,
+                    speed: nil, count: nil, color: nil,
                     normalizedColor: nil, controlPoints: [:],
                     controlPointAngles: [:]
                 )

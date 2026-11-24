@@ -472,7 +472,6 @@ enum Harness {
                         value: .scalar($0), userPropertyKey: "count",
                         hasScript: false, hasAnimation: false
                     ) },
-                    brightness: nil,
                     color: nil,
                     normalizedColor: particleNormalizedColor.map { SceneParticleBoundValue(
                         value: .vector([$0.x, $0.y, $0.z]), userPropertyKey: "color",

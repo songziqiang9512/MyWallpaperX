@@ -33,7 +33,6 @@ nonisolated enum SceneScriptParticleProjection {
                 rate: admitted(value.rate, .rate),
                 speed: admitted(value.speed, .speed),
                 count: admitted(value.count, .count),
-                brightness: admitted(value.brightness, .brightness),
                 color: value.color, normalizedColor: admitted(value.normalizedColor, .normalizedColor),
                 controlPoints: value.controlPoints,
                 controlPointAngles: value.controlPointAngles

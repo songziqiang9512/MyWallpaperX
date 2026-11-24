@@ -202,7 +202,6 @@ struct ResourceDemandAnalysisKey: Hashable {
             case .rate: return "rate"
             case .speed: return "speed"
             case .count: return "count"
-            case .brightness: return "brightness"
             case .color: return "color"
             case .normalizedColor: return "normalized-color"
             case let .controlPoint(index): return "control-point:\(index)"

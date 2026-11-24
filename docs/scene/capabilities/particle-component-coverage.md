@@ -49,9 +49,11 @@ Turbulence、Turbulent Velocity、Remap 和 Position Offset 共用梯度噪声�
 <a id="instance-color"></a>
 ### 实例颜色覆盖
 
-General `instanceoverride.color`（0…255）和 `colorn`（0…1）在 initializer 后任选一项替换新生颜色，`color` 优先，brightness 后乘。禁用覆盖、无覆盖和已出生粒子仍沿原顺序；动态值只供之后的出生。默认沿原平方颜色转换。
+General `instanceoverride.color`（0…255，除以255一次）和 `colorn`（0…1）在 initializer 后任选一项替换新生粒子的直色，`color` 优先。禁用覆盖、无覆盖和已出生粒子沿原顺序；动态值只供之后的出生。原 Simulator 的平方颜色换算与直色特例布尔合并为这一路径。原材质覆盖率、后继颜色 writer 及 GPU blend 各自拥有原职责。
 
-<a id="neutral-mask-trail-color"></a>普通无光照、SDR 半透明 SpriteTrail 使用实际 R8 白色覆盖纹理时，具有效 `colorn` 的独立根在原准备阶段选择作者色。Simulator 出生直接使用该 RGB。原普通片元对已有 PMA RGB 限至 `alpha`，等价于先把增亮后的直色限制到1，再乘一次覆盖率。模式随已准备绘制状态传入原 uniform，保现有 blend、采样和 PSO。Legacy `color`、HDR、折射、有色纹理、后继颜色写入与子系统沿原路径。双背景、改名和独立纹理的[验收](runtime-evidence-current.md#neutral-mask-trail-382)。
+`instanceoverride.brightness` 不进入粒子出生着色。官版 SDR/HDR 的静态值及 HDR 中三次属性取值均保持原色，同窗 alpha 对照正常热更新。退出该字段的粒子准备、动态绑定和子系统继承。属性入口保留原始内容，停止为该字段解析值或报告绑定，允许同一属性继续供给 alpha 等实际目标。材质 `overbright` 由原材质和 fragment 消费，普通图层亮度仍由所属图层消费。真实原包、独立 HDR 作者、改名、legacy 优先、无覆盖、禁用覆盖、原出生/后继 writer 与既有薄雾覆盖分别验收。
+
+<a id="neutral-mask-trail-color"></a>普通无光照、SDR 半透明 SpriteTrail 使用实际 R8 白色覆盖纹理及独立根 `colorn` 时，原普通片元对已有 PMA RGB 限至 `alpha`，等价于先把增亮后的直色限制到1，再乘一次覆盖率。裁幅随已准备绘制状态传入原 uniform，保现有 blend、采样和 PSO。Legacy `color`、HDR、折射、有色纹理、后继颜色写入与子系统的材质裁幅沿原路径。双背景、改名和独立纹理的[验收](runtime-evidence-current.md#neutral-mask-trail-382)。
 
 <a id="control-point-position"></a>
 ### 控制点位置的取值职责

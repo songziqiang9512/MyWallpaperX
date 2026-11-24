@@ -121,8 +121,8 @@
       "bytes": 7411
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 351,
-      "bytes": 69010
+      "lines": 353,
+      "bytes": 69690
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 419,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 320163
+      "bytes": 321472
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 214,
-      "bytes": 66169
+      "lines": 215,
+      "bytes": 66653
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "d13e46ad78fb98e7eaa6f73278da2c5bc9867a09d6c71ff546df59f91b6e4248",
-      "after": "23d375270130ae0b77475a185688c4cab1e71df9967949cbf3135aedb6bc125c",
+      "before": "23d375270130ae0b77475a185688c4cab1e71df9967949cbf3135aedb6bc125c",
+      "after": "9c90667ef16f3b0d1bf7ca5ea02d1586e4929a8e9caffc45e7589dc77c07f3ed",
       "owner": "Scene Sphere emitter birth",
-      "reason": "记录世界根屏幕 Sprite 的冷准备及相邻几何边界。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#root-world-sprite-alignment"
+      "reason": "统一出生颜色并退出无消费者的实例亮度。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#instance-color"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a8de7a1bf666ee59c26482cbd0f856fbabe3676aeca2968c50c3938bfe09cf76",
-      "after": "f7bd36d3ef78f8ce1669a2c8d5738fae7b7272a414783c4bdd67e2e41e481fb2",
+      "before": "f7bd36d3ef78f8ce1669a2c8d5738fae7b7272a414783c4bdd67e2e41e481fb2",
+      "after": "efe4100ba04a6188d5e45608be73a317d96d1291b32c4a5406d5c97c4c6c32eb",
       "owner": "Shared Scene author spectrum",
-      "reason": "保留官版和签名本机的四臂栅格对照及独立作者实跑。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#root-world-sprite-alignment-native"
+      "reason": "记录同窗官版本机颜色、热更新、粒子选级与两个作者回归。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-instance-tint-native"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "5012af0dfaf2c144d167245bd74d7908401bc928cd8d1dc6b09a54b415071e28",
-      "after": "1c0fd2036266292fb90ffe682c68d20e19139a92bac387351f0b7dde84018bfa",
+      "before": "1c0fd2036266292fb90ffe682c68d20e19139a92bac387351f0b7dde84018bfa",
+      "after": "50ec34ec7a6e2afa3e355f5bb89f9c223428e2ba09406b869988d412e8c10731",
       "owner": "Shared Scene author spectrum",
-      "reason": "按同画幅与单粒轨道证据重排密集覆盖的隔离顺序。",
+      "reason": "当前颜色已修复，单列仍待证的材质裁幅和原包内圈分布。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {

@@ -27,7 +27,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
     }
 
     enum ParticleField: String, Codable {
-        case alpha, size, lifetime, rate, speed, count, brightness, color, normalizedColor
+        case alpha, size, lifetime, rate, speed, count, color, normalizedColor
     }
 
     case layerVisibility(layerID: Int)
@@ -400,7 +400,6 @@ nonisolated struct SceneUserPropertyBindingParser {
             case "rate": return .particle(layerID: layerID, field: .rate)
             case "speed": return .particle(layerID: layerID, field: .speed)
             case "count": return .particle(layerID: layerID, field: .count)
-            case "brightness": return .particle(layerID: layerID, field: .brightness)
             case "color": return .particle(layerID: layerID, field: .color)
             case "colorn": return .particle(layerID: layerID, field: .normalizedColor)
             default: break
@@ -502,6 +501,7 @@ nonisolated struct SceneUserPropertyBindingParser {
             }
             for key in dictionary.keys.sorted() {
                 guard !(ownsProviderFallback && key == "value"),
+                      !Self.isRetiredInstanceField(key, under: path),
                       let child = dictionary[key] else { continue }
                 visit(
                     child,
@@ -522,6 +522,13 @@ nonisolated struct SceneUserPropertyBindingParser {
                 )
             }
         }
+    }
+
+    nonisolated static func isRetiredInstanceField(
+        _ key: String, under path: [SceneUserPropertyPathComponent]
+    ) -> Bool {
+        key == "brightness" && path.count == 3 && path[0] == .key("objects")
+            && index(path[1]) != nil && path[2] == .key("instanceoverride")
     }
 
     private nonisolated func appendBinding(
@@ -671,7 +678,7 @@ nonisolated struct SceneUserPropertyBindingParser {
            key(components[0]) == "objects", index(components[1]) != nil,
            key(components[2]) == "instanceoverride",
            let field = key(components[3]),
-           ["alpha", "size", "lifetime", "rate", "speed", "count", "brightness", "colorn"].contains(field) {
+           ["alpha", "size", "lifetime", "rate", "speed", "count", "colorn"].contains(field) {
             return .particleValue
         }
         guard components.count == 8
