@@ -108,9 +108,9 @@ import ImageIO
             (payload.preferences.compatibleSceneReflections ?? preferences.compatibleSceneReflections)?.rawValue
         targetPreferences.sceneHDRDisplayEnabled = importedPostProcessing?.requestsDisplayHDR
         targetPreferences.sceneMediaInfoEnabled = payload.preferences.sceneMediaInfoEnabled ?? preferences.sceneMediaInfoEnabled
-        let importedProfile = payload.preferences.compatibleAnimationProfile
-        targetPreferences.animationFramesPerSecond = importedProfile?.rawValue ?? preferences.animationFramesPerSecond
-        targetPreferences.playbackPerformanceProfile = targetPreferences.animationFramesPerSecond
+        let importedFrameRate = payload.preferences.compatibleAnimationFrameRate
+        targetPreferences.animationFramesPerSecond = importedFrameRate?.rawValue ?? preferences.animationFramesPerSecond
+        targetPreferences.playbackPerformanceProfile = AnimationFrameRate.legacyValue(targetPreferences.animationFramesPerSecond)
         targetPreferences.webFrameRateMode = payload.preferences.webFrameRateMode
             .flatMap(WebFrameRateMode.init(rawValue:))?.rawValue ?? preferences.webFrameRateMode
         let plan = try LibraryPersonalSettings.plan(payload, sources: sources, beforePreferences: preferences,
@@ -282,8 +282,8 @@ import ImageIO
         value.scenePointVolumeQuality = quality.scene.pointVolume.rawValue
         value.sceneReflectionQuality = quality.scene.reflections.rawValue
         value.sceneHDRDisplayEnabled = quality.scene.postProcessing.requestsDisplayHDR
-        value.animationFramesPerSecond = quality.profile.rawValue
-        value.playbackPerformanceProfile = quality.profile.rawValue
+        value.animationFramesPerSecond = quality.animationFrameRate.rawValue
+        value.playbackPerformanceProfile = AnimationFrameRate.legacyValue(quality.animationFrameRate.rawValue)
         value.webFrameRateMode = quality.webFrameRateMode.rawValue
         return value
     }
@@ -300,7 +300,7 @@ import ImageIO
               admits(quality.scene.pointVolume, before.compatibleScenePointVolume, target.compatibleScenePointVolume),
               admits(quality.scene.reflections, before.compatibleSceneReflections, target.compatibleSceneReflections),
               admits(SceneMediaSourcePreference.isEnabled, before.sceneMediaInfoEnabled, target.sceneMediaInfoEnabled),
-              admits(quality.profile, before.compatibleAnimationProfile, target.compatibleAnimationProfile),
+              admits(quality.animationFrameRate, before.compatibleAnimationFrameRate, target.compatibleAnimationFrameRate),
               admits(quality.webFrameRateMode.rawValue, before.webFrameRateMode, target.webFrameRateMode) else {
             throw PersonalSettingsError.preferencesChanged
         }
@@ -312,14 +312,15 @@ import ImageIO
         }
         let current = PlaybackQualityPreference.current
         let next = PlaybackQualityPreference(
-            profile: preferences.compatibleAnimationProfile ?? current.profile,
+            animationFrameRate: preferences.compatibleAnimationFrameRate ?? current.animationFrameRate,
             webFrameRateMode: preferences.webFrameRateMode.flatMap(WebFrameRateMode.init(rawValue:)) ?? current.webFrameRateMode,
             scene: .init(
                 postProcessing: preferences.compatibleScenePostProcessing ?? current.scene.postProcessing,
                 shadows: preferences.compatibleSceneShadows ?? current.scene.shadows,
                 pointVolume: preferences.compatibleScenePointVolume ?? current.scene.pointVolume,
                 reflections: preferences.compatibleSceneReflections ?? current.scene.reflections
-            )
+            ),
+            keepsLegacySceneDecodeLimit: current.keepsLegacySceneDecodeLimit
         )
         if current != next {
             PlaybackCommandMultiplexer.shared.applyQualityPreference(next)
@@ -385,7 +386,8 @@ private extension PersonalSettingsPreferences {
         sceneReflectionQuality.flatMap(SceneReflectionQuality.init(rawValue:))
     }
 
-    var compatibleAnimationProfile: PlaybackPerformanceProfile? {
-        (animationFramesPerSecond ?? playbackPerformanceProfile).flatMap(PlaybackPerformanceProfile.init(rawValue:))
+    var compatibleAnimationFrameRate: AnimationFrameRate? {
+        (animationFramesPerSecond ?? AnimationFrameRate.legacyValue(playbackPerformanceProfile))
+            .flatMap(AnimationFrameRate.init(rawValue:))
     }
 }

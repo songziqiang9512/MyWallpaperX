@@ -73,8 +73,8 @@ final class PlaybackCommandMultiplexer {
         if previous != preference || defaults.object(forKey: PlaybackQualityPreference.userDefaultsKey) == nil {
             preference.write(to: defaults)
         }
-        if previous.profile != preference.profile {
-            dispatch(.setPerformanceProfile(maxFPS: preference.profile.maxFPS), to: .scene)
+        if previous.animationFrameRate != preference.animationFrameRate {
+            dispatch(.setAnimationFrameRate(preference.animationFrameRate), to: .scene)
         }
         if previous.scene != preference.scene {
             dispatch(.setSceneRenderQuality(preference.scene), to: .scene)

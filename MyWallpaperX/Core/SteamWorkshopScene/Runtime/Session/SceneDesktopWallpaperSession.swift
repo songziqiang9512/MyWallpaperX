@@ -138,12 +138,15 @@ final class SceneDesktopWallpaperSession {
         launchContext != nil && !sceneClock.isPaused
     }
 
-    /// Session 消费帧率，Host 更新共享的解码缓存上限。
-    private(set) var performanceProfile: PlaybackPerformanceProfile = .current
+    private(set) var animationFrameRate: AnimationFrameRate = .standard
     private(set) var scenePostProcessing: ScenePostProcessingMode
 
-    func applyPerformanceProfile(_ profile: PlaybackPerformanceProfile) {
-        performanceProfile = profile
+    var effectiveAnimationFPS: Int { min(animationFrameRate.rawValue, AnimationFrameRate.sceneRolloutLimit) }
+
+    func applyAnimationFrameRate(_ frameRate: AnimationFrameRate) {
+        let previousFPS = effectiveAnimationFPS
+        animationFrameRate = frameRate
+        if effectiveAnimationFPS != previousFPS { retuneFrameDriver() }
     }
 
     func applyScenePostProcessing(_ mode: ScenePostProcessingMode) {

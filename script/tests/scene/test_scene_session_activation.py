@@ -5,13 +5,18 @@ import subprocess
 import tempfile
 import unittest
 
+from script.tests.steam.test_steam_library_interactions import method
+
 ROOT = Path(__file__).resolve().parents[3]
 SOURCE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Activation.swift'
 LAUNCH_MODELS = SOURCE.with_name('SceneDesktopWallpaperLaunchModels.swift')
 HARNESS = r'''
 import AppKit
 import Foundation
-final class SceneTextureDecodeCacheBudget {}
+final class SceneTextureDecodeCacheBudget {
+    let maximumBytes: Int
+    init(maximumBytes: Int) { self.maximumBytes = maximumBytes }
+}
 struct SceneUserPropertyTextureLoadResult { let identity = UUID() }
 final class SceneFirstFramePresentationRegistration { let requestID=UUID() }
 final class SceneScriptLocalStorageSession {
@@ -54,6 +59,8 @@ final class SceneDesktopWallpaperSession {
     var drains: [@MainActor (Bool)->Void] = []
     var drainResult:Bool?
     let scenePostProcessing: ScenePostProcessingMode
+    private(set) var animationFrameRate: AnimationFrameRate = .standard
+    func applyAnimationFrameRate(_ value: AnimationFrameRate) { animationFrameRate = value }
     init(textureDecodeCacheBudget: SceneTextureDecodeCacheBudget, surfacePreparationQueue: DispatchQueue,
          scenePostProcessing: ScenePostProcessingMode = .ultra) {
         self.scenePostProcessing = scenePostProcessing
@@ -76,7 +83,9 @@ final class SceneDesktopWallpaperSession {
     }
 }
 @MainActor final class SceneDesktopWallpaperHost {
-    let textureDecodeCacheBudget=SceneTextureDecodeCacheBudget()
+    let textureDecodeCacheBudget: SceneTextureDecodeCacheBudget
+    private(set) var animationFrameRate: AnimationFrameRate
+    // HOST_FRAME_RATE
     var activeSession: SceneDesktopWallpaperSession?
     var candidateSession: SceneDesktopWallpaperSession?
     var retiringSessions:[ObjectIdentifier:SceneDesktopWallpaperSession]=[:]
@@ -117,6 +126,23 @@ final class SceneDesktopWallpaperSession {
         let a=try begin()
         a.onFirstFrameCompletion?(1,true)
         var result:[String:Bool]=[:]
+        var migrated = PlaybackQualityPreference.defaults
+        migrated.animationFrameRate = AnimationFrameRate(rawValue: 25)!
+        migrated.keepsLegacySceneDecodeLimit = true
+        let quotaHost = SceneDesktopWallpaperHost(quality: migrated)
+        quotaHost.activeSession = SceneDesktopWallpaperSession(textureDecodeCacheBudget: quotaHost.textureDecodeCacheBudget,
+            surfacePreparationQueue: quotaHost.launchPreparationQueue)
+        quotaHost.candidateSession = SceneDesktopWallpaperSession(textureDecodeCacheBudget: quotaHost.textureDecodeCacheBudget,
+            surfacePreparationQueue: quotaHost.launchPreparationQueue)
+        let migratedSeed = quotaHost.animationFrameRate.rawValue
+        let budget = quotaHost.textureDecodeCacheBudget
+        let retune = AnimationFrameRate(rawValue: 59)!
+        quotaHost.applyAnimationFrameRate(retune)
+        result["animationFrameRateKeepsHostDecodedQuota"] = migratedSeed == 25
+            && quotaHost.animationFrameRate == retune && quotaHost.activeSession?.animationFrameRate == retune
+            && quotaHost.candidateSession?.animationFrameRate == retune
+            && quotaHost.textureDecodeCacheBudget === budget && budget.maximumBytes == 512 * 1_024 * 1_024
+            && SceneDesktopWallpaperHost(quality: .defaults).textureDecodeCacheBudget.maximumBytes == 1_024 * 1_024 * 1_024
         result["candidateKeepsPreparedPostProcessing"] = a.scenePostProcessing == .enabled
         result["candidateReceivesPreparedTextures"] = a.userPropertyTextureLoad?.identity == preparedTextures.identity
         result["candidateReceivesPreparedSurfaces"] = a.preparedSurfaces.map(\.displayID) == [1,2]
@@ -369,7 +395,11 @@ final class SceneDesktopWallpaperSession {
 class SceneSessionActivationTests(unittest.TestCase):
     def test_candidate_failures_completion_order_and_drain(self):
         with tempfile.TemporaryDirectory(prefix='mwx-session-activation-') as temp:
-            root=Path(temp); main=root/'main.swift'; main.write_text(HARNESS)
+            host = SOURCE.with_name('SceneDesktopWallpaperHost.swift').read_text()
+            rate_methods = "\n".join(method(host, signature) for signature in (
+                "init(quality:", "func applyAnimationFrameRate("))
+            root=Path(temp); main=root/'main.swift'
+            main.write_text(HARNESS.replace("// HOST_FRAME_RATE", rate_methods))
             binary=root/'test'
             quality = ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift"
             compiled=subprocess.run(['xcrun','swiftc','-parse-as-library',str(main),str(SOURCE),str(LAUNCH_MODELS),str(quality),'-o',str(binary)],capture_output=True,text=True)

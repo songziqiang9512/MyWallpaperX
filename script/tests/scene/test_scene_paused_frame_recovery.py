@@ -75,6 +75,62 @@ DISPLAY_OUTPUT_SCENARIO = r'''
 '''
 
 
+CONTINUOUS_RATE_SCENARIO = r'''
+    static func continuousRate() {
+        let owner = SceneDesktopWallpaperSession()
+        _ = owner.attach()
+        var callbacks: [TimeInterval] = []
+        var renderCost: TimeInterval = 0
+        var result = SceneFrameDriverAttempt.rendered
+        owner.activeSimulationProbe = {
+            callbacks.append(TransportTime.now)
+            TransportTime.now += renderCost
+            return result
+        }
+        owner.startFrameDriver()
+        let originalTimer = owner.frameTimer!
+        TransportTime.now += 0.005
+        let clockTime = owner.sceneClock.currentSceneTime(hostTime: TransportTime.now)
+        let fps25 = AnimationFrameRate(rawValue: 25)!
+        owner.applyAnimationFrameRate(fps25)
+        let firstRetunedDeadline = TransportTime.now + 0.04
+        precondition(!originalTimer.isValid && callbacks == [100] && RunLoop.main.activeCount == 1)
+        precondition(owner.frameDriverDeadline == firstRetunedDeadline)
+        precondition(owner.sceneClock.currentSceneTime(hostTime: TransportTime.now) == clockTime)
+        precondition(RunLoop.main.fireNext() && callbacks == [100, firstRetunedDeadline])
+
+        TransportTime.now = owner.frameDriverDeadline! + 0.12
+        let lateWake = TransportTime.now
+        precondition(RunLoop.main.fireNext() && callbacks.count == 3 && callbacks.last == lateWake)
+        precondition(abs(owner.frameDriverDeadline! - (lateWake + 0.04)) < 0.000001)
+
+        renderCost = 0.121
+        result = .dropped
+        precondition(RunLoop.main.fireNext() && callbacks.count == 4)
+        precondition(owner.frameDriverDeadline! > TransportTime.now && RunLoop.main.activeCount == 1)
+
+        renderCost = 0
+        result = .busy
+        precondition(RunLoop.main.fireNext() && callbacks.count == 5)
+        precondition(abs(owner.frameDriverDeadline! - (TransportTime.now + 0.04)) < 0.000001)
+
+        owner.applyAnimationFrameRate(AnimationFrameRate(rawValue: 120)!)
+        precondition(owner.animationFrameRate.rawValue == 120 && owner.effectiveAnimationFPS == 60)
+        let limitedTimer = owner.frameTimer
+        owner.applyAnimationFrameRate(AnimationFrameRate(rawValue: 90)!)
+        precondition(owner.animationFrameRate.rawValue == 90 && owner.frameTimer === limitedTimer)
+
+        owner.isVisible = false
+        owner.applyAnimationFrameRate(fps25)
+        precondition(owner.frameTimer === limitedTimer && callbacks.count == 5)
+        owner.setPlaybackPaused(true)
+        owner.applyAnimationFrameRate(AnimationFrameRate(rawValue: 10)!)
+        precondition(owner.sceneClock.isPaused && owner.frameTimer == nil && callbacks.count == 5)
+        stopped(owner)
+    }
+'''
+
+
 def production_harness(sources=None):
     """Accept frozen source bytes for causal old/new checks; normal tests use live owners."""
     def read(relative):
@@ -107,8 +163,8 @@ def production_harness(sources=None):
         method(driver, "private var sceneFrameInterval:").replace("private var", "var"),
         method(driver, "private var sceneBusyFrameRetryInterval:").replace("private var", "var"),
         *(method(driver, signature) for signature in [
-            "func startFrameDriver(", "func scheduleFrameDriver(", "private func armFrameDriver(",
-            "private func waitForFrameAdmission(",
+            "func startFrameDriver(", "func retuneFrameDriver(", "func scheduleFrameDriver(",
+            "private func armFrameDriver(", "private func waitForFrameAdmission(",
         ]),
         *(method(submission, signature) for signature in [
             "func renderSurfaces(", "var awaitsInitialPresentation:",
@@ -118,6 +174,8 @@ def production_harness(sources=None):
         method(pause, "func setPlaybackPaused("),
         method(session, "func textTexturePublicationDidChange("),
         method(session, "func enqueueMediaThumbnailPublication("),
+        method(session, "var effectiveAnimationFPS:"),
+        method(session, "func applyAnimationFrameRate("),
         method(session, "func applyScenePostProcessing("),
         method(session, "func invalidatePausedDisplayOutput("),
         method(driver, "func refreshPausedMediaPublications("),
@@ -133,6 +191,7 @@ def production_harness(sources=None):
         method(geometry, "func refreshDisplayOutputForScreenChange()"),
     ]))
     harness = harness.replace("// DISPLAY_OUTPUT_SCENARIO", DISPLAY_OUTPUT_SCENARIO)
+    harness = harness.replace("// CONTINUOUS_RATE_SCENARIO", CONTINUOUS_RATE_SCENARIO)
     harness = harness.replace("// TEXT_FRAME_METHODS", "\n".join(
         method(view, signature) for signature in (
             "func commitPreparedDynamicTextFrame(", "func discardPreparedDynamicTextFrame(")))
@@ -143,6 +202,7 @@ def production_harness(sources=None):
     harness = harness.replace("// PRODUCTION_FRAME_PREFIX", "\n".join([
         method(driver, "enum SceneFrameDriverAttempt"),
         read("Runtime/Session/SceneInitialPresentationCohort.swift"),
+        method(quality, "nonisolated struct AnimationFrameRate:"),
         method(quality, "nonisolated enum ScenePostProcessingMode:"),
         "enum SceneDisplayMappingPostProcess {\n" + swift_declaration(display, "enum Output:") + "\n}",
     ]))
@@ -196,6 +256,9 @@ class ScenePausedFrameRecoveryTests(unittest.TestCase):
         for scenario in ("activeAdmissionWake", "activeAdmissionTimeout", "activeAdmissionMixed"):
             with self.subTest(scenario=scenario):
                 self.run_scenario(scenario)
+
+    def test_continuous_rate_retunes_existing_timer_and_skips_expired_slots(self):
+        self.run_scenario("continuousRate")
 
     def test_old_candidate_failure_preserves_new_success(self):
         self.run_scenario("oldCandidate")

@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import simd
 
 extension SceneDesktopWallpaperSession.Surface {
@@ -24,7 +25,7 @@ extension SceneDesktopWallpaperSession.Surface {
     }
 
     func updateSimulation(
-        timing: SceneFrameTiming, dynamicValues: SceneDynamicSnapshot,
+        timing: SceneFrameTiming, renderFrameInterval: TimeInterval? = nil, dynamicValues: SceneDynamicSnapshot,
         puppetAnimationFrame: ScenePuppetAnimationPlaybackRuntime.FrameSnapshot,
         spriteTimes: [Int: Float],
         layerTopology: SceneScriptLayerTopologySnapshot,
@@ -85,7 +86,7 @@ extension SceneDesktopWallpaperSession.Surface {
             perspectiveReplayRootIDs: frameProjection.utilityExecution.perspectiveReplayRootIDs
         )
         let particleBatches = advanceParticles(
-            timing: timing, dynamicValues: dynamicValues,
+            timing: timing, renderFrameInterval: renderFrameInterval, dynamicValues: dynamicValues,
             frameContext: frameContext, cameraFrame: cameraFrame,
             frameProjection: frameProjection, performanceTelemetry: performanceTelemetry
         )

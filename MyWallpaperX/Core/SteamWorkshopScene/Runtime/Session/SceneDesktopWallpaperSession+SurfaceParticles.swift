@@ -27,6 +27,7 @@ extension SceneDesktopWallpaperSession.Surface {
 
     func advanceParticles(
         timing: SceneFrameTiming,
+        renderFrameInterval: TimeInterval?,
         dynamicValues: SceneDynamicSnapshot,
         frameContext: SceneFrameContext,
         cameraFrame: SceneParticleCameraFrame,
@@ -54,6 +55,7 @@ extension SceneDesktopWallpaperSession.Surface {
 
         let batches = particlePlayback.advance(
             by: timing.simulationFrameTime,
+            renderFrameInterval: renderFrameInterval,
             dynamicValues: dynamicValues,
             pointerLocalPositions: pointerLocalPositions,
             audioSpectrum: frameContext.audioSpectrum,

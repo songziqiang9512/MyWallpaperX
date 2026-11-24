@@ -142,6 +142,11 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 
 场景反射档在冷准备选择可选模型反射管线和普通图像的默认屏幕反射。关闭时保模型材质声明与原 HDR 发光、颜色和深度。普通图像的原 [光照 profile](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialLightingProfile.swift) 供直绘与基础图像捕获，共用作者 alpha、直接光及剩余有效纹理需求。作者 Program 的显式环境输入沿原资格供货。Shader 声明默认环境槽的基础材质随实际消费者准备，复用原前后帧颜色。具名模型源晚到时，独立环境消费者可用原根深度预约，无需可选反射模型作为许可。无其它环境需求时，模型关档退出原可选快照和 mip 工作，持久 raw、终端完成及具名输出继续由原提交 owner 管理。 [反射合同](../capabilities/advanced-object-coverage.md#static-model-screen-reflection)
 
+<a id="scene-frame-rate-policy"></a>
+App 以 10–120 整数保存动画帧率，Scene 启动和热更新沿原数值 IPC。当前 Scene 生效上限为 60，高于上限的请求继续保存，设置同时显示帧率请求和当前生效值。 [活动及候选会话](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift) 各接收同一请求，活动会话重排原 timer，不更换作者时钟。过载找下一未来槽，暂停首帧保原有界准入。粒子沿原 1／60 秒固定步进，在正常低帧率期间按该会话有效间隔调节过载上限。
+
+解码租约预算在 Scene host 初始化时定一次，并与帧率分开。升级前使用旧小预算的设备保留本机兼容值，便携导入不传递它；改帧率不会扫描或缩减已有缓存。 [移除旧预算的验证条件](../../development/wallpaper-quality-work-card.md#scene-rate-rollout)
+
 增加新的性能档位前，先以可比CPU/GPU、内存、启动或能耗证据确定取舍，再在原prepare入口形成被真实Program/资源/后处理消费者使用的有效策略，质量只控制对应能力和采样/分辨率等实际成本。当前不先建空enum、仅透传对象、第二配置owner/cache或无消费者的uniform位；普通帧不重读UI、不重编或重复判档位。策略改变沿原受影响资源/Program准备与提交寿命更新，不分叉作者时钟、材质算法或最终输出。每项降档须说明具体画面代价，保作者控制、遮挡和健康peer，并退出被替代的旧决策；不能把缺功能、采集过载或未归因暗图称为性能优化。
 
 <a id="raster-sample-domain"></a>

@@ -176,7 +176,6 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
         if self === Self.debugEvidence {
             SceneGPUStageTimestampHook.invalidate(reason: "telemetry-reset")
         }
-        precondition(targetFPS == 30 || targetFPS == 60)
         withLock {
             generation &+= 1
             measurementStart = uptime
@@ -584,6 +583,7 @@ nonisolated struct SceneProductPerformanceWindow {
     let requestID: UUID
     let sessionID: UUID
     let selectedFPS: Int
+    let effectiveFPS: Int
     let finalizedAt: TimeInterval
     var startedAt: TimeInterval?
     var surfaces: [SceneProductPerformanceSurface] = []
@@ -591,10 +591,11 @@ nonisolated struct SceneProductPerformanceWindow {
     private(set) var maximumStabilitySampleGap: TimeInterval = 0
     private var lastStabilitySample: TimeInterval?
 
-    init(requestID: UUID, sessionID: UUID, selectedFPS: Int, finalizedAt: TimeInterval) {
+    init(requestID: UUID, sessionID: UUID, selectedFPS: Int, effectiveFPS: Int, finalizedAt: TimeInterval) {
         self.requestID = requestID
         self.sessionID = sessionID
         self.selectedFPS = selectedFPS
+        self.effectiveFPS = effectiveFPS
         self.finalizedAt = finalizedAt
     }
 
@@ -609,7 +610,7 @@ nonisolated struct SceneProductPerformanceWindow {
     func receipt(daemonPID: Int32, snapshot: SceneFramePerformanceSnapshot?, failure: String?) -> [String: Any] {
         var receipt: [String: Any] = [
             "requestID": requestID.uuidString, "sessionID": sessionID.uuidString,
-            "daemonPID": daemonPID, "selectedFPS": selectedFPS, "passed": false,
+            "daemonPID": daemonPID, "selectedFPS": selectedFPS, "effectiveFPS": effectiveFPS, "passed": false,
             "stabilitySamples": stabilitySamples, "maximumStabilitySampleGapSeconds": maximumStabilitySampleGap
         ]
         guard let snapshot, let startedAt else {

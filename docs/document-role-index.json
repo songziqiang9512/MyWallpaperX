@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "643e56d10347717afdab4bb7a131f8960ffcd149416504d08309563552fd7d84",
+        "sourceSHA256": "5b543d0c516c783547819b43ce98d378084417e28595b13a841cd1bd56c958af",
         "method": "document_registry --audit + document_health --check",
-        "scope": "三引擎质量入口、Video 片源及 Scene 稳态逐屏呈现测量位置。",
-        "limitations": "导航核对；运行边界以本机签名 Debug 的同身份收据为准。"
+        "scope": "三引擎质量入口、Scene 帧率消费与真实测量。",
+        "limitations": "导航核对；运行证据见现役工作卡。"
       }
     },
     {
@@ -839,10 +839,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6f6ef26551548b82f69805a98bd5b22525bcde4bc79d382d2b48c91bc91c74b9",
+        "sourceSHA256": "d902e15aea9457e0025010eed2ede49c0fb987124c471c379db4c07482ff3ec9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "冷准备中的场景反射、普通图像 profile 与作者环境供货。",
-        "limitations": "导航和源码核对；App 与画面范围见现役工作卡。"
+        "scope": "Scene 真实策略、帧率和资源所有权。",
+        "limitations": "运行边界与物理显示结果见现役工作卡。"
       }
     },
     {

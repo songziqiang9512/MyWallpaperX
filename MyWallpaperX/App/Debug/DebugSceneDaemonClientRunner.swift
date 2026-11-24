@@ -180,7 +180,7 @@ enum DebugSceneDaemonClientRunner {
                     guard presentedRecordID == recordID,
                           !didRequestSwitch else {
                         PlaybackCommandMultiplexer.shared.dispatch(
-                            .setPerformanceProfile(maxFPS: 60),
+                            .setAnimationFrameRate(.standard),
                             to: .scene
                         )
                         return
@@ -222,7 +222,7 @@ enum DebugSceneDaemonClientRunner {
                 }
                 guard !didForceTerminate else {
                     PlaybackCommandMultiplexer.shared.dispatch(
-                        .setPerformanceProfile(maxFPS: 60),
+                        .setAnimationFrameRate(.standard),
                         to: .scene
                     )
                     return
@@ -532,7 +532,7 @@ enum DebugSceneDaemonClientRunner {
             dispatchPropertyUpdate: dispatchRequestedPropertyUpdate,
             dispatchPerformanceProfile: {
                 PlaybackCommandMultiplexer.shared.dispatch(
-                    .setPerformanceProfile(maxFPS: 30),
+                    .setAnimationFrameRate(AnimationFrameRate(rawValue: 30)!),
                     to: .scene
                 )
             },

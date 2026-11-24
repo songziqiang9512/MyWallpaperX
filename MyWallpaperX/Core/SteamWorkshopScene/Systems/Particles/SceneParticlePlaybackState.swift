@@ -3,7 +3,7 @@ import Metal
 import simd
 
 final class SceneParticlePlaybackState {
-    private nonisolated static let maximumRealtimeSimulationDelta: TimeInterval = 2.0 / 60.0
+    private nonisolated static let realtimeSimulationStep: TimeInterval = 1.0 / 60.0
 
     let lifecycleIdentity = UUID()
     var pipelineVariants: SceneParticlePipelineVariant.Preparation { runtime.pipelineVariants }
@@ -130,6 +130,7 @@ final class SceneParticlePlaybackState {
 
     func advance(
         by simulationFrameDelta: TimeInterval,
+        renderFrameInterval: TimeInterval? = nil,
         dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
         pointerLocalPositions: [Int: SIMD3<Double>] = [:],
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
@@ -138,7 +139,7 @@ final class SceneParticlePlaybackState {
         guard !didTeardown else { return [] }
         batches.removeAll(keepingCapacity: true)
         batches = runtime.advance(
-            by: Self.boundedRealtimeSimulationDelta(simulationFrameDelta),
+            by: Self.boundedRealtimeSimulationDelta(simulationFrameDelta, renderFrameInterval: renderFrameInterval),
             dynamicValues: dynamicValues,
             pointerLocalPositions: pointerLocalPositions,
             audioInput: SceneParticleAudioInput(
@@ -348,13 +349,15 @@ final class SceneParticlePlaybackState {
     }
 #endif
 
-    /// Product playback drops overdue wall-clock debt instead of recursively making
-    /// an already slow frame run an unbounded number of fixed simulation steps.
+    /// Slow render cadences need their full normal interval. A single extra
+    /// fixed step covers jitter while keeping overdue simulation debt bounded.
     nonisolated static func boundedRealtimeSimulationDelta(
-        _ simulationFrameDelta: TimeInterval
+        _ simulationFrameDelta: TimeInterval, renderFrameInterval: TimeInterval? = nil
     ) -> TimeInterval {
         guard simulationFrameDelta.isFinite else { return 0 }
-        return min(max(simulationFrameDelta, 0), maximumRealtimeSimulationDelta)
+        let step = realtimeSimulationStep
+        let maximumDelta = max(2 * step, (renderFrameInterval ?? step) + step)
+        return min(max(simulationFrameDelta, 0), maximumDelta)
     }
 
     func retire(layerIDs: Set<Int>) {

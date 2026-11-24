@@ -107,7 +107,7 @@ enum SceneDaemonProtocol {
     var retiringTransports:[UInt64:DaemonProcessTransport]=[:]
     var retiringResourceLifetimes:[UInt64:[PlaybackResourceLifetime]]=[:]
     var spawns=0
-    var performanceProfile=(maxFPS:30,other:0)
+    var animationFrameRate = AnimationFrameRate(rawValue: 30)!
     var isPaused=false
     var sessionGeneration:UInt64=7
     var launchState:SceneWallpaperLaunchState?

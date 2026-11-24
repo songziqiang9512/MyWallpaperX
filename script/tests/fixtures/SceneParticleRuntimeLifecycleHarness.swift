@@ -187,7 +187,7 @@ extension Harness {
                 texturePaths: ["shared.png"], blending: "additive")])
         guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
         let playback = SceneParticlePlaybackState(descriptor: descriptor, cacheDirectory: directory, device: device)
-        var result: [String: Bool] = [:]
+        var result = try playbackCadence(directory: directory, device: device)
         result["preparedVariantDemandRemainsAvailable"] = playback.pipelineVariants.required.contains(.init(blendMode: .additive))
         let empty = SceneParticlePlaybackState(descriptor: .init(layers: [], renderOrderLayerIDs: [], materialPasses: []),
             cacheDirectory: directory, device: device)
@@ -228,6 +228,58 @@ extension Harness {
             result["rebuild-\(intent)-revisionConsumed"] = rebuilt.playbackObservation(layerID: 42)?.intent == intent
         }
         return result
+    }
+
+    static func playbackCadence(directory: URL, device: MTLDevice) throws -> [String: Bool] {
+        let path = "particles/cadence.json"
+        try writeParticle(path, material: "materials/shared.json", velocityX: 100,
+            moves: true, rate: 60, under: directory)
+        let descriptor = SceneRenderDescriptor(layers: [layer(42, path)],
+            renderOrderLayerIDs: [42], materialPasses: [.init(
+                materialPath: "materials/shared.json", shaderPath: "genericparticle",
+                texturePaths: ["shared.png"], blending: "additive")])
+        func make() -> SceneParticlePlaybackState {
+            SceneParticlePlaybackState(descriptor: descriptor, cacheDirectory: directory, device: device)
+        }
+        let step = 1.0 / 60.0
+        func advanceDense(_ playback: SceneParticlePlaybackState, steps: Int) {
+            for _ in 0..<steps { _ = playback.advance(by: step) }
+        }
+        func matches(_ playback: SceneParticlePlaybackState, dense: SceneParticlePlaybackState, steps: Int) -> Bool {
+            guard let actual = playback.playbackSimulators.first?.1.frameSnapshot(),
+                  let expected = dense.playbackSimulators.first?.1.frameSnapshot() else { return false }
+            return abs(expected.simulationTime - Double(steps) * step) < 1e-9
+                && expected.particles.count == steps
+                && expected.particles.contains { $0.age > 0 && $0.position.x > 0 }
+                && actual.simulationTime == expected.simulationTime
+                && Array(actual.particles) == Array(expected.particles)
+                && actual.random.state == expected.random.state && actual.nextParticleID == expected.nextParticleID
+                && abs(actual.accumulator - expected.accumulator) < 1e-9
+        }
+
+        let tenFPS = make(), sixSteps = make()
+        _ = tenFPS.advance(by: 0.1, renderFrameInterval: 0.1)
+        advanceDense(sixSteps, steps: 6)
+        let twentyFourFPS = make(), sixtySteps = make()
+        for _ in 0..<24 { _ = twentyFourFPS.advance(by: 1.0 / 24, renderFrameInterval: 1.0 / 24) }
+        advanceDense(sixtySteps, steps: 60)
+
+        let stalled = make(), stallReference = make()
+        _ = stalled.advance(by: 0.25, renderFrameInterval: 0.1)
+        advanceDense(stallReference, steps: 7)
+        let stallBounded = matches(stalled, dense: stallReference, steps: 7)
+        _ = stalled.advance(by: 0.1, renderFrameInterval: 0.1)
+        advanceDense(stallReference, steps: 6)
+
+        let unspecified = make(), twoSteps = make()
+        _ = unspecified.advance(by: 0.25)
+        advanceDense(twoSteps, steps: 2)
+        return [
+            "tenFPSAdvancesSixFixedSteps": matches(tenFPS, dense: sixSteps, steps: 6),
+            "twentyFourFPSRetainsFractionalStepRemainder": matches(twentyFourFPS, dense: sixtySteps, steps: 60),
+            "tenFPSStallBoundedAndDebtDropped": stallBounded && matches(stalled, dense: stallReference, steps: 13),
+            "unspecifiedCadenceKeepsTwoStepBound": matches(unspecified, dense: twoSteps, steps: 2),
+        ]
     }
 
     static func preparedSurfaceHandoff() throws -> [String: Bool] {

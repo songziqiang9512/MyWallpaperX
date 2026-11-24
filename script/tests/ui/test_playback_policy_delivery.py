@@ -77,7 +77,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     struct Lifetime { let lifetime: Int }
     var pendingResourceLifetime: Lifetime?
     var requestResourceLifetimes: [UUID: Int] = [:]
-    var performanceProfile: PlaybackPerformanceProfile = .standard
+    var animationFrameRate: AnimationFrameRate = .standard
     var sceneRenderQuality = SceneRenderQuality()
     var commands: [[String: Any]] = []
     var launchFailures: [[String: Any]] = []
@@ -113,6 +113,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         scene.pendingIntent = ScenePlaybackLoadRequest(rootURL: URL(fileURLWithPath: "/fixture"),
             propertyOverrides: [:], userPropertyTextures: [:], recordID: "fixture")
         precondition(mux.dispatch(.setSceneRenderQuality(.init(postProcessing: .ultraDisplayHDR, shadows: .medium, pointVolume: .disabled, reflections: .disabled)), to: .scene))
+        precondition(mux.dispatch(.setAnimationFrameRate(AnimationFrameRate(rawValue: 25)!), to: .scene))
         precondition(scene.commands.isEmpty)
         scene.endpointReady = true
         scene.hasRequestRetirementControl = true
@@ -129,6 +130,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         DaemonPlaybackProcessRegistry.shared.acceptsNewProcesses = true
         scene.replayPendingIntent()
         precondition(scene.commands.first?["cmd"] as? String == "loadScene")
+        precondition(scene.commands.first?["profile"] as? Int == 25)
         precondition(scene.commands.first?["scenePostProcessing"] as? String == "displayHDR")
         precondition(scene.commands.first?["shadowQuality"] as? String == "medium")
         precondition(scene.commands.first?["pointVolumeQuality"] as? String == "disabled")

@@ -1,21 +1,20 @@
 import Foundation
 
-/// Scene 当前帧率和解码缓存仍使用同一个档。
-nonisolated enum PlaybackPerformanceProfile: Int, Sendable, CaseIterable {
-    case efficient = 30
-    case standard = 60
+nonisolated struct AnimationFrameRate: RawRepresentable, Equatable, Sendable {
+    static let minimum = 10
+    static let maximum = 120
+    static let sceneRolloutLimit = 60
+    static let standard = Self(rawValue: 60)!
 
-    static let userDefaultsKey = "mwx.playback.performanceProfile"
+    let rawValue: Int
 
-    static var current: PlaybackPerformanceProfile { PlaybackQualityPreference.current.profile }
+    init?(rawValue: Int) {
+        guard (Self.minimum...Self.maximum).contains(rawValue) else { return nil }
+        self.rawValue = rawValue
+    }
 
-    var maxFPS: Int { rawValue }
-
-    var sceneTextureDecodeCacheByteBudget: Int {
-        switch self {
-        case .standard: 1_024 * 1_024 * 1_024
-        case .efficient: 512 * 1_024 * 1_024
-        }
+    static func legacyValue(_ rawValue: Int?) -> Int? {
+        rawValue == 30 || rawValue == 60 ? rawValue : nil
     }
 }
 
@@ -60,28 +59,31 @@ nonisolated struct SceneRenderQuality: Equatable, Sendable {
 
 nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
     static let userDefaultsKey = "mwx.playback.quality"
-    static let defaults = Self(profile: .standard, webFrameRateMode: .display)
+    static let defaults = Self(animationFrameRate: .standard, webFrameRateMode: .display)
+    static let legacyFrameRateKey = "mwx.playback.performanceProfile"
     private static let legacySceneDisplayHDRKey = "sceneHDRDisplayEnabled"
 
-    var profile: PlaybackPerformanceProfile
+    var animationFrameRate: AnimationFrameRate
     var webFrameRateMode: WebFrameRateMode
     var scene: SceneRenderQuality = .init()
+    var keepsLegacySceneDecodeLimit = false
 
     var webFrameRateSuggestion: Int? {
-        webFrameRateMode == .followAnimationFrameRate ? profile.rawValue : nil
+        webFrameRateMode == .followAnimationFrameRate ? animationFrameRate.rawValue : nil
     }
 
     static var current: Self { read(from: .standard) }
 
     static func read(from defaults: UserDefaults) -> Self {
         let record = defaults.dictionary(forKey: userDefaultsKey)
-        let fps = record == nil ? defaults.integer(forKey: PlaybackPerformanceProfile.userDefaultsKey)
+        let fps = record == nil
+            ? AnimationFrameRate.legacyValue(defaults.integer(forKey: legacyFrameRateKey))
             : record?["animationFramesPerSecond"] as? Int
         let postProcessing = (record?["scenePostProcessingMode"] as? String)
             .flatMap(ScenePostProcessingMode.init(rawValue:))
             ?? (defaults.object(forKey: legacySceneDisplayHDRKey) as? Bool == true ? .ultraDisplayHDR : .ultra)
         return Self(
-            profile: fps.flatMap(PlaybackPerformanceProfile.init(rawValue:)) ?? .standard,
+            animationFrameRate: fps.flatMap(AnimationFrameRate.init(rawValue:)) ?? .standard,
             webFrameRateMode: (record?["webFrameRateMode"] as? String)
                 .flatMap(WebFrameRateMode.init(rawValue:)) ?? .display,
             scene: .init(
@@ -92,13 +94,15 @@ nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
                     .flatMap(ScenePointVolumeQuality.init(rawValue:)) ?? .enabled,
                 reflections: (record?["sceneReflectionQuality"] as? String)
                     .flatMap(SceneReflectionQuality.init(rawValue:)) ?? .enabled
-            )
+            ),
+            keepsLegacySceneDecodeLimit: (record?["keepsLegacySceneDecodeLimit"] as? Bool) ?? (fps == 30)
         )
     }
 
     func write(to defaults: UserDefaults) {
         defaults.set([
-            "animationFramesPerSecond": profile.rawValue,
+            "animationFramesPerSecond": animationFrameRate.rawValue,
+            "keepsLegacySceneDecodeLimit": keepsLegacySceneDecodeLimit,
             "webFrameRateMode": webFrameRateMode.rawValue,
             "scenePostProcessingMode": scene.postProcessing.rawValue,
             "sceneShadowQuality": scene.shadows.rawValue,

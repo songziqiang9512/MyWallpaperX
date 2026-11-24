@@ -39,7 +39,7 @@ final class VideoPlaybackCommandHandler: PlaybackEngineControlling {
             WallpaperEngine.shared.dispatchWebRuntimeCommand(.setFrameRateSuggestion(suggestion))
             return true
         case .loadScene, .setProperty, .cancelSceneLaunch,
-             .setPerformanceProfile, .setSceneRenderQuality:
+             .setAnimationFrameRate, .setSceneRenderQuality:
             return false
         }
     }

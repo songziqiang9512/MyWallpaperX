@@ -344,9 +344,27 @@ extension AppKitSettingsContainerView {
     }
 
     private func setupQualitySection() {
+        let rateInput = NSStackView(views: [sceneFPSField, sceneFPSControl])
+        rateInput.spacing = 8
+        let sceneFPSControls = NSStackView(views: [rateInput, sceneFPSEffectiveLabel])
+        sceneFPSControls.orientation = .vertical
+        sceneFPSControls.alignment = .trailing
+        sceneFPSControls.spacing = 2
+        sceneFPSField.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        sceneFPSField.alignment = .right
+        sceneFPSField.delegate = self
+        sceneFPSField.widthAnchor.constraint(equalToConstant: 44).isActive = true
+        sceneFPSField.setAccessibilityLabel(String(localized: "Animation Frame Rate"))
+        sceneFPSEffectiveLabel.font = .systemFont(ofSize: 11)
+        sceneFPSEffectiveLabel.textColor = .secondaryLabelColor
+        sceneFPSControl.isContinuous = true
+        sceneFPSControl.target = self
+        sceneFPSControl.action = #selector(handleSceneFrameRateSlider(_:))
+        sceneFPSControl.widthAnchor.constraint(equalToConstant: 120).isActive = true
+        sceneFPSControl.setAccessibilityLabel(String(localized: "Animation Frame Rate"))
         qualitySection.addRow(makeSettingRow(
             title: String(localized: "Animation Frame Rate"), iconSystemName: "gauge.with.needle",
-            subtitle: String(localized: "Sets the frame rate cap for Scene wallpapers"), trailing: sceneMaxFPSSegmented))
+            subtitle: String(localized: "Sets the frame rate cap for Scene wallpapers"), trailing: sceneFPSControls))
         let modes: [(ScenePostProcessingMode, String)] = [
             (.disabled, String(localized: "Disabled")),
             (.enabled, String(localized: "Enabled")),
@@ -385,7 +403,7 @@ extension AppKitSettingsContainerView {
         qualitySection.addRow(makeSettingRow(
             title: String(localized: "Video Quality"), iconSystemName: "film",
             trailing: NSTextField(labelWithString: String(localized: "Original Video"))))
-        let controls: [NSControl] = [sceneMaxFPSSegmented, scenePostProcessingPopup,
+        let controls: [NSControl] = [scenePostProcessingPopup,
                                      sceneShadowsPopup, scenePointVolumePopup, sceneReflectionsSwitch, webFrameRatePopup]
         for control in controls {
             control.target = self
@@ -399,7 +417,11 @@ extension AppKitSettingsContainerView {
 
     func refreshQualityControls() {
         let quality = PlaybackQualityPreference.current
-        sceneMaxFPSSegmented.selectedSegment = quality.profile == .efficient ? 0 : 1
+        if !sceneFPSControl.isTracking, sceneFPSField.currentEditor() == nil {
+            let request = quality.animationFrameRate.rawValue
+            sceneFPSControl.integerValue = request
+            updateSceneFrameRateLabels(request)
+        }
         webFrameRatePopup.selectItem(at: quality.webFrameRateMode == .display ? 0 : 1)
         refreshScenePostProcessingMenu(quality.scene.postProcessing)
         sceneShadowsPopup.selectItem(at: sceneShadowsPopup.indexOfItem(withRepresentedObject: quality.scene.shadows.rawValue))
@@ -407,12 +429,39 @@ extension AppKitSettingsContainerView {
         sceneReflectionsSwitch.state = quality.scene.reflections == .enabled ? .on : .off
     }
 
+    private func updateSceneFrameRateLabels(_ requested: Int) {
+        sceneFPSField.stringValue = String(requested)
+        let effective = min(requested, AnimationFrameRate.sceneRolloutLimit)
+        sceneFPSEffectiveLabel.isHidden = effective == requested
+        if effective != requested {
+            sceneFPSEffectiveLabel.stringValue = String(localized: "Current: \(effective.formatted()) FPS")
+        }
+    }
+
+    func commitSceneFrameRate(_ selection: AnimationFrameRate?) {
+        var quality = PlaybackQualityPreference.current
+        let request = selection ?? quality.animationFrameRate
+        sceneFPSControl.integerValue = request.rawValue
+        updateSceneFrameRateLabels(request.rawValue)
+        guard request != quality.animationFrameRate else { return }
+        quality.animationFrameRate = request
+        PlaybackCommandMultiplexer.shared.applyQualityPreference(quality)
+    }
+
+    @objc private func handleSceneFrameRateSlider(_ sender: SceneFrameRateSlider) {
+        guard !isUpdatingUI else { return }
+        let fps = Int(sender.doubleValue.rounded())
+        if sender.isTracking {
+            updateSceneFrameRateLabels(fps)
+        } else {
+            commitSceneFrameRate(AnimationFrameRate(rawValue: fps))
+        }
+    }
+
     @objc private func handleQualityChange(_ sender: NSControl) {
         guard !isUpdatingUI else { return }
         var quality = PlaybackQualityPreference.current
-        if sender === sceneMaxFPSSegmented {
-            quality.profile = sceneMaxFPSSegmented.selectedSegment == 0 ? .efficient : .standard
-        } else if sender === webFrameRatePopup {
+        if sender === webFrameRatePopup {
             quality.webFrameRateMode = webFrameRatePopup.indexOfSelectedItem == 1 ? .followAnimationFrameRate : .display
         } else if sender === sceneReflectionsSwitch {
             quality.scene.reflections = sceneReflectionsSwitch.state == .on ? .enabled : .disabled
@@ -471,6 +520,8 @@ extension AppKitSettingsContainerView {
         popups.forEach { $0.controlSize = .small }
 
         intervalField.controlSize = .small
+        sceneFPSField.controlSize = .small
+        sceneFPSControl.controlSize = .small
         volumeSlider.controlSize = .small
         playbackRateSlider.controlSize = .small
         exportProfileButton.controlSize = .regular
@@ -682,4 +733,31 @@ extension AppKitSettingsContainerView {
         return container
     }
 
+}
+
+final class SceneFrameRateSlider: NSSlider {
+    private(set) var isTracking = false
+
+    override func mouseDown(with event: NSEvent) {
+        isTracking = true
+        super.mouseDown(with: event)
+        isTracking = false
+        sendAction(action, to: target)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        let step: Int
+        switch event.specialKey {
+        case .leftArrow, .downArrow: step = -1
+        case .rightArrow, .upArrow: step = 1
+        default:
+            super.keyDown(with: event)
+            return
+        }
+        let value = Int(doubleValue.rounded())
+        let next = min(max(value + step, Int(minValue)), Int(maxValue))
+        guard next != value else { return }
+        integerValue = next
+        sendAction(action, to: target)
+    }
 }

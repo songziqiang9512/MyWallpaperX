@@ -155,17 +155,17 @@ extension DebugScenePlaybackRunner {
         guard ProcessInfo.processInfo.arguments.contains(flag) else { return true }
         guard let raw = argumentValue(after: flag),
               let framesPerSecond = Int(raw),
-              let profile = PlaybackPerformanceProfile(rawValue: framesPerSecond) else {
+              let frameRate = AnimationFrameRate(rawValue: framesPerSecond) else {
             NSLog(
                 "MWX DEBUG SCENE: phase=precondition-failed reason=invalid-performance-profile"
             )
             terminate(after: 0.1)
             return false
         }
-        runtimeHost.applyPerformanceProfile(profile)
+        runtimeHost.applyAnimationFrameRate(frameRate)
         NSLog(
             "MWX DEBUG SCENE: phase=performance-profile targetFPS=%d",
-            profile.maxFPS
+            frameRate.rawValue
         )
         return true
     }
@@ -174,7 +174,7 @@ extension DebugScenePlaybackRunner {
         duration: TimeInterval,
         afterSnapshotDelay: TimeInterval
     ) {
-        let targetFPS = runtimeHost.performanceProfile.maxFPS
+        guard let targetFPS = runtimeHost.activeSession?.effectiveAnimationFPS else { return }
         let latestEnd = duration - 1.5
         let candidates: [(start: TimeInterval, end: TimeInterval)]
         if ProcessInfo.processInfo.arguments.contains(

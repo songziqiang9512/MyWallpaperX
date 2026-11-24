@@ -130,11 +130,12 @@ final class AppKitSettingsContainerView: NSView {
     let idleTimeoutPopup = NSPopUpButton()
     var idleTimeoutRowView: NSView?
 
-    /// Scene 引擎性能预算档（60=standard 全量，30=efficient 减频减容量）。
-    let sceneMaxFPSSegmented = NSSegmentedControl(
-        labels: ["30 FPS", "60 FPS"], trackingMode: .selectOne, target: nil,
-        action: nil
+    let sceneFPSControl = SceneFrameRateSlider(
+        value: Double(AnimationFrameRate.standard.rawValue), minValue: Double(AnimationFrameRate.minimum),
+        maxValue: Double(AnimationFrameRate.maximum), target: nil, action: nil
     )
+    let sceneFPSField = NSTextField(string: "")
+    let sceneFPSEffectiveLabel = NSTextField(labelWithString: "")
 
     let multiDisplaySwitch = NSSwitch()
     let libraryBackgroundPopup = NSPopUpButton()
@@ -955,10 +956,15 @@ final class AppKitSettingsContainerView: NSView {
 
 extension AppKitSettingsContainerView: NSTextFieldDelegate {
     func controlTextDidEndEditing(_ notification: Notification) {
-        // 间隔输入框只在结束编辑时写回，避免每个按键都触发计时器重建。
-        guard !isUpdatingUI else { return }
-        guard let textField = notification.object as? NSTextField, textField == intervalField else { return }
-        let parsed = Int(textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)) ?? dependency.settings.randomInterval
+        guard !isUpdatingUI, let textField = notification.object as? NSTextField else { return }
+        let input = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if textField === sceneFPSField {
+            let value = Int(input).flatMap(AnimationFrameRate.init(rawValue:))
+            commitSceneFrameRate(value)
+            return
+        }
+        guard textField === intervalField else { return }
+        let parsed = Int(input) ?? dependency.settings.randomInterval
         dependency.settings.randomInterval = max(1, parsed)
         dependency.actions.refreshAutoSwitchTimerIfNeeded()
     }

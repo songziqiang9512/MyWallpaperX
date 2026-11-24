@@ -57,10 +57,7 @@ final class SceneDesktopWallpaperHost {
     var launchCancellation: SceneWallpaperLaunchCancellation?
     var nextLaunchRequestGeneration: UInt64 = 0
     var launchState: SceneWallpaperLaunchState?
-    let textureDecodeCacheBudget = SceneTextureDecodeCacheBudget(
-        maximumBytes: PlaybackPerformanceProfile.current
-            .sceneTextureDecodeCacheByteBudget
-    )
+    let textureDecodeCacheBudget: SceneTextureDecodeCacheBudget
     var activeSession: SceneDesktopWallpaperSession?
     var candidateSession: SceneDesktopWallpaperSession?
     var retiringSessions: [ObjectIdentifier: SceneDesktopWallpaperSession] = [:]
@@ -74,7 +71,7 @@ final class SceneDesktopWallpaperHost {
     var unconfirmedPromotion: (requestID: UUID, previous: SceneDesktopWallpaperSession?)?
     var presentationDeadline: DispatchWorkItem?
     var screenTopology: [SceneScreenTopology] = []
-    private(set) var performanceProfile: PlaybackPerformanceProfile = .current
+    private(set) var animationFrameRate: AnimationFrameRate
     private(set) var sceneRenderQuality = SceneRenderQuality()
     private var playbackPaused = false
 #if DEBUG
@@ -84,11 +81,17 @@ final class SceneDesktopWallpaperHost {
     var activeRecordID: String? { activeSession?.activeRecordID }
     var isPlaybackActive: Bool { activeSession?.isPlaybackActive == true }
 
-    func applyPerformanceProfile(_ profile: PlaybackPerformanceProfile) {
-        performanceProfile = profile
-        textureDecodeCacheBudget.updateMaximumBytes(profile.sceneTextureDecodeCacheByteBudget)
-        activeSession?.applyPerformanceProfile(profile)
-        candidateSession?.applyPerformanceProfile(profile)
+    init(quality: PlaybackQualityPreference = .current) {
+        animationFrameRate = quality.animationFrameRate
+        textureDecodeCacheBudget = .init(
+            maximumBytes: (quality.keepsLegacySceneDecodeLimit ? 512 : 1_024) * 1_024 * 1_024
+        )
+    }
+
+    func applyAnimationFrameRate(_ frameRate: AnimationFrameRate) {
+        animationFrameRate = frameRate
+        activeSession?.applyAnimationFrameRate(frameRate)
+        candidateSession?.applyAnimationFrameRate(frameRate)
     }
 
     func applySceneRenderQuality(_ quality: SceneRenderQuality) {
@@ -212,7 +215,7 @@ final class SceneDesktopWallpaperHost {
     }
 
     func configure(_ session: SceneDesktopWallpaperSession) {
-        session.applyPerformanceProfile(performanceProfile)
+        session.applyAnimationFrameRate(animationFrameRate)
         session.applyScenePostProcessing(sceneRenderQuality.postProcessing)
         session.screenTopology = screenTopology
         session.setPlaybackPaused(playbackPaused)

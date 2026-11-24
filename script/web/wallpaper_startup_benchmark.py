@@ -124,7 +124,12 @@ def child_processes(parent: int) -> dict[int, str]:
                  if ppid in owners and pid not in owners}
         if not added:
             return found
-        found.update(added)
+        for pid, identity in added.items():
+            # macOS ps can expose only "(name)" between exec/exit and reap.
+            # Keep the last captured argv from a live descendant for provenance.
+            command = identity.split(maxsplit=5)[-1]
+            if not (command.startswith("(") and command.endswith(")")):
+                found[pid] = identity
         owners.update(added)
 
 
@@ -186,7 +191,7 @@ def scene_performance_matches(row: dict, fps: int, window: tuple[float, float],
     request_id, pid = row["requestID"], row["daemonPID"]
     child = children.get(pid, "")
     if (receipt.get("requestID") != request_id or receipt.get("daemonPID") != pid
-            or receipt.get("selectedFPS") != fps or row.get("appliedFPS") != fps
+            or receipt.get("selectedFPS") != fps or row.get("requestedFPS") != fps
             or not receipt.get("sessionID") or not scene_daemon_command_matches(child, binary)
             or f"phase=daemon-gpu-drained request={request_id} pid={pid} gpuDrained=true code=0" not in log):
         return False
@@ -194,6 +199,9 @@ def scene_performance_matches(row: dict, fps: int, window: tuple[float, float],
         value = receipt.get(key)
         if type(value) not in (int, float) or not math.isfinite(value) or value < minimum:
             return False
+    effective_fps = receipt.get("effectiveFPS")
+    if type(effective_fps) is not int or effective_fps != min(fps, 60):
+        return False
     timer_callbacks = receipt.get("timerCallbacks")
     stability_samples = receipt.get("stabilitySamples")
     maximum_gap = receipt.get("maximumStabilitySampleGapSeconds")
@@ -598,7 +606,7 @@ def main() -> int:
     parser.add_argument("--runtime-root", type=Path, required=True)
     parser.add_argument("--iterations", type=int, default=5)
     parser.add_argument("--timeout", type=float, default=90)
-    parser.add_argument("--fps", choices=(30, 60), type=int, default=30)
+    parser.add_argument("--fps", type=int, default=30, metavar="10-120")
     parser.add_argument("--scene-performance", nargs="?", metavar="WARMUP,DURATION",
                         type=scene_performance_window, const=(30.0, 60.0),
                         help="measure one steady Scene request per run (default 30,60 seconds)")
@@ -607,6 +615,8 @@ def main() -> int:
     args = parser.parse_args()
     if not 1 <= args.iterations <= 20 or not 1 <= args.timeout <= 300:
         parser.error("iterations must be 1...20 and timeout 1...300 seconds")
+    if not 10 <= args.fps <= 120:
+        parser.error("fps must be 10–120")
     if args.scene_performance is not None and args.engine != "scene":
         parser.error("--scene-performance requires --engine scene")
     for key in ("sample_root", "workshop_root", "runtime_root", "output_dir"):

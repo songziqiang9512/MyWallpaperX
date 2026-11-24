@@ -86,7 +86,6 @@ final class MTLCommandBuffer {
 struct SceneMetalRenderer {}
 enum SceneDesktopWallpaperHost { static let usesDebugEvidenceWindow = false }
 enum SceneFramePerformanceTelemetry { static let debugEvidence: Int? = nil }
-struct PlaybackPerformanceProfile { var maxFPS = 60 }
 enum SceneGraphExecutionResetReason { case testTeardown }
 final class WorkItem { func cancel() {} }
 struct Screen {
@@ -270,7 +269,7 @@ final class SceneDesktopWallpaperSession {
     var isVisible = true
     var isOutputActive = true
     var initialVideoPreparation: WorkItem?
-    var performanceProfile = PlaybackPerformanceProfile()
+    private(set) var animationFrameRate: AnimationFrameRate = .standard
     var scenePostProcessing: ScenePostProcessingMode = .ultra
     var screenReconciliationWorkItem: WorkItem?
     var screenTopology: [Int] = []
@@ -950,6 +949,7 @@ final class SceneDesktopWallpaperSession {
         owner.setPlaybackPaused(true)
         stopped(owner)
     }
+    // CONTINUOUS_RATE_SCENARIO
     static func main() {
         let scenario = CommandLine.arguments[1]
         switch scenario {
@@ -959,6 +959,7 @@ final class SceneDesktopWallpaperSession {
         case "syncExpiry": synchronousExpiry(.synchronousDrop)
         case "busyExpiry": synchronousExpiry(.deferred)
         case "activeAdmissionWake", "activeAdmissionTimeout", "activeAdmissionMixed": activeAdmission(scenario)
+        case "continuousRate": continuousRate()
         case "oldCandidate": oldCandidate()
         case "replacedSurface": replacedSurface()
         case "teardown": teardown()

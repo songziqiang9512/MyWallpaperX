@@ -52,25 +52,42 @@ class WallpaperStartupBenchmarkTests(unittest.TestCase):
         children = {42: f"Sat Nov 25 00:00:00 2026 {binary} --mwx-scene-daemon"}
         log = "phase=daemon-gpu-drained request=req pid=42 gpuDrained=true code=0"
         receipt = {"passed": True, "requestID": "req", "daemonPID": 42, "sessionID": "session",
-                   "selectedFPS": 60, "warmupSeconds": 30.2, "elapsedSeconds": 60.1,
+                   "selectedFPS": 60, "effectiveFPS": 60, "warmupSeconds": 30.2, "elapsedSeconds": 60.1,
                    "timerCallbacks": 3640, "stabilitySamples": 61, "maximumStabilitySampleGapSeconds": 1.03,
                    "submitted": 3605, "completed": 3603, "presented": 3601,
                    "surfaces": [{"displayID": 1, "surfaceIdentity": "surface",
                                  "presented": 3601, "presentIntervals": 3600,
                                  "presentP50MS": 16.6, "presentP95MS": 16.7,
                                  "presentP99MS": 18.2, "presentMaxMS": 33.4}]}
-        row = {"requestID": "req", "daemonPID": 42, "appliedFPS": 60, "productPerformance": receipt}
+        row = {"requestID": "req", "daemonPID": 42, "requestedFPS": 60, "productPerformance": receipt}
         validate = benchmark.scene_performance_matches
         self.assertTrue(validate(row, 60, (30, 60), children, binary, log))
+        capped = dict(row, requestedFPS=120, productPerformance=dict(receipt, selectedFPS=120, effectiveFPS=60))
+        self.assertTrue(validate(capped, 120, (30, 60), children, binary, log))
+        self.assertFalse(validate(dict(capped, productPerformance=dict(receipt, selectedFPS=120, effectiveFPS=120)),
+                                  120, (30, 60), children, binary, log))
+        missing = {key: value for key, value in receipt.items() if key != "effectiveFPS"}
+        self.assertFalse(validate(dict(row, productPerformance=missing), 60, (30, 60), children, binary, log))
         self.assertFalse(validate(row, 60, (30, 60), children, binary, ""))
         self.assertFalse(validate(row, 60, (30, 60), {}, binary, log))
         invalid_surface = dict(receipt["surfaces"][0], presentP50MS=40)
         for changes in ({"requestID": "retired"}, {"selectedFPS": 30}, {"elapsedSeconds": 59.9},
-                        {"timerCallbacks": 0}, {"stabilitySamples": 1},
+                        {"timerCallbacks": 0}, {"effectiveFPS": 0}, {"effectiveFPS": 59}, {"effectiveFPS": 61}, {"stabilitySamples": 1},
                         {"maximumStabilitySampleGapSeconds": 61}, {"surfaces": []},
                         {"surfaces": [invalid_surface]}, {"presented": 0}):
             self.assertFalse(validate(dict(row, productPerformance=dict(receipt, **changes)),
                                       60, (30, 60), children, binary, log))
+
+    def test_descendant_sampling_does_not_replace_full_argv_with_exit_placeholder(self):
+        live = "Wed Nov 25 05:56:44 2026     /private/tmp/Signed App/MyWallpaperX --mwx-scene-daemon"
+        placeholder = "Wed Nov 25 05:56:44 2026     (MyWallpaperX)"
+        grandchild = "Wed Nov 25 05:56:44 2026     /private/tmp/my-child --helper"
+        with patch.object(benchmark.subprocess, "check_output",
+                          side_effect=[f"42 40 {live}\n",
+                                       f"42 40 {placeholder}\n43 42 {grandchild}\n"]):
+            children = benchmark.child_processes(40)
+            children.update(benchmark.child_processes(40))
+        self.assertEqual(children, {42: live, 43: grandchild})
 
     def test_scene_daemon_command_matches_exact_executable_and_first_flag(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -113,13 +113,16 @@ enum Harness {
             device: device
         )
         let launchUploadQueueAttempts = launchUploadQueue.creationAttemptCount
-        let decodeBudget = SceneTextureDecodeCacheBudget(maximumBytes: 1_024)
+        guard let source = CGImageSourceCreateWithURL(pngURL as CFURL, nil),
+              let decoded = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+            throw HarnessError.textureRead
+        }
+        let decodeBudget = SceneTextureDecodeCacheBudget(maximumBytes: decoded.bytesPerRow * decoded.height)
         let admittedDecodeLoader = SceneTextureLoader(
             decodeCacheBudget: decodeBudget
         )
         _ = try admittedDecodeLoader.load(from: pngURL, device: device)
         let admittedDecodeBytes = decodeBudget.residentBytes
-        decodeBudget.updateMaximumBytes(0)
         let deniedDecodeLoader = SceneTextureLoader(
             decodeCacheBudget: decodeBudget
         )

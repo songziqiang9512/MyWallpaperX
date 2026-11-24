@@ -325,7 +325,7 @@ struct Execution {let presented:Bool}
     var requestResourceLifetimes:[UUID:PlaybackResourceLifetime]=[:]
     var lastPropertyRevision:UInt64=0
     var restartWorkItem:DispatchWorkItem?,handshakeWorkItem:DispatchWorkItem?
-    var performanceProfile=(maxFPS:60,ignored:false)
+    var animationFrameRate: AnimationFrameRate = .standard
     var sceneRenderQuality = SceneRenderQuality()
     var isPaused=false
     var outputFrames=FrameBuffer()

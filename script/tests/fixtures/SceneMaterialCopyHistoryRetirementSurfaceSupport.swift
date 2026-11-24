@@ -66,7 +66,7 @@ final class HistorySurfacePuppet {
     func apply(scriptBoneMutations: [SceneScriptPuppetBoneMutation]) {
         fatalError("Puppet is outside the history fixture")
     }
-    func prepareFrame(animationFrame: Int) -> Int {
+    func prepareFrame(animationFrame: Int, frameIndex: UInt64? = nil) -> Int {
         fatalError("Puppet is outside the history fixture")
     }
 }
@@ -122,7 +122,7 @@ enum SceneDesktopWallpaperSession {
             metalView = .init(owner, descriptor: descriptor)
         }
         func advanceParticles(
-            timing: SceneFrameTiming, dynamicValues: SceneDynamicSnapshot,
+            timing: SceneFrameTiming, renderFrameInterval: TimeInterval?, dynamicValues: SceneDynamicSnapshot,
             frameContext: SceneFrameContext, cameraFrame: HistorySurfaceCamera,
             frameProjection: HistorySurfaceProjection, performanceTelemetry: SceneFramePerformanceTelemetry?
         ) -> [Int] { [] }

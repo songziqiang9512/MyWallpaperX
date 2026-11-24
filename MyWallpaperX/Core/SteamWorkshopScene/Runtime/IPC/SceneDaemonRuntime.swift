@@ -226,7 +226,7 @@ final class SceneDaemonRuntime {
                 .resolvingSymlinksInPath().standardizedFileURL,
             propertyOverrides: [:],
             userPropertyTextures: [:],
-            profile: quality.profile,
+            animationFrameRate: quality.animationFrameRate,
             recordID: nil,
             sceneRenderQuality: quality.scene
         ))
@@ -289,7 +289,7 @@ final class SceneDaemonRuntime {
     private func handle(_ command: SceneDaemonCommand) {
         switch command {
         case let .loadScene(
-            rootURL, overrides, textureReferences, shortcuts, profile, recordID, requiredTextureKeys,
+            rootURL, overrides, textureReferences, shortcuts, frameRate, recordID, requiredTextureKeys,
             requestID, source, sceneRenderQuality
         ):
             lastPropertyRevision = 0
@@ -302,7 +302,7 @@ final class SceneDaemonRuntime {
                         "event": "candidatePrepared", "requestID": preparedID.uuidString])
                 }
             }
-            host.applyPerformanceProfile(profile)
+            host.applyAnimationFrameRate(frameRate)
             host.applySceneRenderQuality(sceneRenderQuality)
             host.requestLaunch(
                 rootURL: rootURL,
@@ -381,7 +381,8 @@ final class SceneDaemonRuntime {
 #if DEBUG
             if measure, let session = host.activeSession {
                 performanceWindow = .init(requestID: requestID, sessionID: session.lifecycleID,
-                    selectedFPS: host.performanceProfile.maxFPS, finalizedAt: CACurrentMediaTime())
+                    selectedFPS: host.animationFrameRate.rawValue, effectiveFPS: session.effectiveAnimationFPS,
+                    finalizedAt: CACurrentMediaTime())
             }
 #endif
         case let .cancelCandidate(requestID, operationID):
@@ -425,8 +426,8 @@ final class SceneDaemonRuntime {
             )
 #endif
             host.applyDisplayConfiguration(topology)
-        case let .setPerformanceProfile(profile):
-            host.applyPerformanceProfile(profile)
+        case let .setAnimationFrameRate(frameRate):
+            host.applyAnimationFrameRate(frameRate)
         case let .setSceneRenderQuality(quality):
             host.applySceneRenderQuality(quality)
         case let .setVolume(volume):
@@ -730,7 +731,8 @@ final class SceneDaemonRuntime {
         // Compare on each stats tick during measurement, including the two endpoints.
         window.recordStabilitySample(at: now)
         let stable = session?.lifecycleID == window.sessionID && host.isPlaybackActive
-            && host.performanceProfile.maxFPS == window.selectedFPS && !surfaces.isEmpty
+            && host.animationFrameRate.rawValue == window.selectedFPS
+            && session?.effectiveAnimationFPS == window.effectiveFPS && !surfaces.isEmpty
             && surfaces.count == session?.surfaces.count && (window.startedAt == nil || surfaces == window.surfaces)
         if stable {
             if let startedAt = window.startedAt {
@@ -742,7 +744,7 @@ final class SceneDaemonRuntime {
                 window.surfaces = surfaces
                 window.startedAt = now
                 performanceWindow = window
-                SceneFramePerformanceTelemetry.debugEvidence.reset(at: now, targetFPS: window.selectedFPS)
+                SceneFramePerformanceTelemetry.debugEvidence.reset(at: now, targetFPS: window.effectiveFPS)
                 SceneFramePerformanceTelemetry.productSessionID = window.sessionID
                 return nil
             }

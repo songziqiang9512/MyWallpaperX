@@ -56,7 +56,7 @@ enum WallpaperEngineCommand: Equatable, Sendable {
     )
     case cancelSceneLaunch(recordID: String)
     /// 性能预算档：60 = standard，30 = efficient。
-    case setPerformanceProfile(maxFPS: Int)
+    case setAnimationFrameRate(AnimationFrameRate)
     case setSceneRenderQuality(SceneRenderQuality)
     /// nil restores the Web host's per-display suggestion.
     case setWebFrameRateSuggestion(Int?)

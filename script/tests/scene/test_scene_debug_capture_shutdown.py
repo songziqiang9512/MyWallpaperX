@@ -176,12 +176,12 @@ extension TestCursorProgram {func restoreEdgeState(_ state:TestCursorState) {}}
         precondition(previous.allSatisfy {$0.puppetPlaybackStates.isEmpty},"shutdown retained CPU Puppet owners")
     }
 }
-enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
+enum AnimationFrameRate:Int {case fps60=60}
 '''
 HARNESS = SESSION_SHUTDOWN_SUPPORT + r'''
 @MainActor final class SceneDesktopWallpaperHost {
     static let usesDebugEvidenceWindow=false
-    func applyPerformanceProfile(_ profile:PlaybackPerformanceProfile) {}
+    func applyAnimationFrameRate(_ rate:AnimationFrameRate) {}
     struct Snapshot { let surfaceCount: Int; let windowNumbers: [Int] = []; let isPlaybackPaused=false; let isFrameDriverActive=true }
     struct Layer { let id=1 }
     struct Descriptor { let layers=[Layer()] }
@@ -476,7 +476,7 @@ HARNESS = SESSION_SHUTDOWN_SUPPORT + r'''
 APPKIT_TEMPLATE = SESSION_SHUTDOWN_SUPPORT + r'''
 @MainActor final class SceneDesktopWallpaperHost {
     static let usesDebugEvidenceWindow=false
-    func applyPerformanceProfile(_ profile:PlaybackPerformanceProfile) {}
+    func applyAnimationFrameRate(_ rate:AnimationFrameRate) {}
     struct Snapshot {let surfaceCount=0}
     let session=SceneDesktopWallpaperSession()
     var onDrainStarted:(()->Void)?

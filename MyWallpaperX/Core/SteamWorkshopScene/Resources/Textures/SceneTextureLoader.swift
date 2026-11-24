@@ -26,7 +26,7 @@ nonisolated enum SceneTextureLoadOutcome {
 /// remain owned by their existing product stores and are never evicted here.
 nonisolated final class SceneTextureDecodeCacheBudget: @unchecked Sendable {
     private let lock = NSLock()
-    private var limit: Int
+    private let limit: Int
     private var reserved = 0
     private var rejectedAdmissions = 0
     private let resourceBudget: SceneResourceBudget
@@ -34,12 +34,6 @@ nonisolated final class SceneTextureDecodeCacheBudget: @unchecked Sendable {
     init(maximumBytes: Int, resourceBudget: SceneResourceBudget = .shared) {
         self.resourceBudget = resourceBudget
         limit = max(maximumBytes, 0)
-    }
-
-    var maximumBytes: Int {
-        lock.lock()
-        defer { lock.unlock() }
-        return limit
     }
 
     var residentBytes: Int {
@@ -54,17 +48,11 @@ nonisolated final class SceneTextureDecodeCacheBudget: @unchecked Sendable {
         return rejectedAdmissions
     }
 
-    func updateMaximumBytes(_ maximumBytes: Int) {
-        lock.lock()
-        limit = max(maximumBytes, 0)
-        lock.unlock()
-    }
-
     fileprivate func reserve(_ byteCount: Int) -> Bool {
         guard byteCount >= 0 else { return false }
         lock.lock()
         defer { lock.unlock() }
-        guard byteCount <= limit - min(reserved, limit),
+        guard byteCount <= limit - reserved,
               resourceBudget.reserve(byteCount, kind: .decoded) else {
             rejectedAdmissions += 1
             return false

@@ -22,7 +22,7 @@ private final class DebugSceneStartupRun {
     private let mode: String
     private let roots: [URL]
     private let timeoutSeconds: TimeInterval
-    private let requestedFPS: Int?
+    private let requestedFrameRate: AnimationFrameRate?
     private let performance: SceneProductPerformanceConfiguration?
     private var awaitingPerformance = false
     private var observers: [NSObjectProtocol] = []
@@ -132,11 +132,11 @@ private final class DebugSceneStartupRun {
         } else { timeoutSeconds = 45 }
         if arguments.contains("--mwx-debug-scene-performance-fps") {
             guard let raw = Self.argument("--mwx-debug-scene-performance-fps"),
-                  let value = Int(raw), PlaybackPerformanceProfile(rawValue: value) != nil else {
+                  let value = Int(raw), let frameRate = AnimationFrameRate(rawValue: value) else {
                 throw InvalidConfiguration(reason: "invalid-performance-profile")
             }
-            requestedFPS = value
-        } else { requestedFPS = nil }
+            requestedFrameRate = frameRate
+        } else { requestedFrameRate = nil }
         var settings = WallpaperManager.shared.settings
         settings.pauseWhenOtherAppFocused = false
         settings.pauseWhenOtherAppFullscreen = false
@@ -144,8 +144,8 @@ private final class DebugSceneStartupRun {
         settings.pauseWhenIdle = false
         if mode == "lifecycle" { settings.syncSystemWallpaper = false }
         WallpaperManager.shared.settings = settings
-        let fps = requestedFPS ?? PlaybackPerformanceProfile.current.maxFPS
-        _ = SceneDaemonClient.shared.handle(.setPerformanceProfile(maxFPS: fps))
+        let frameRate = requestedFrameRate ?? PlaybackQualityPreference.current.animationFrameRate
+        _ = SceneDaemonClient.shared.handle(.setAnimationFrameRate(frameRate))
     }
 
     private func installObservers() {
@@ -247,7 +247,7 @@ private final class DebugSceneStartupRun {
                 .first?.path ?? "",
             "shaderCacheOverridePath": ProcessInfo.processInfo.environment["MWX_SCENE_GENERIC_SHADER_CACHE"]
                 .map { $0 as Any } ?? NSNull(),
-            "appliedFPS": client.debugConfiguredMaximumFPS
+            "requestedFPS": client.debugRequestedAnimationFPS
         ]
         let record = SteamWorkshopDownloadRecord(id: recordID, title: root.lastPathComponent,
             description: "Isolated product startup measurement", tags: ["Scene"],
@@ -344,7 +344,7 @@ private final class DebugSceneStartupRun {
               receipt["daemonPID"] as? Int32 == pid else { return }
         currentFacts["productPerformance"] = receipt
         if receipt["passed"] as? Bool != true
-            || receipt["selectedFPS"] as? Int != currentFacts["appliedFPS"] as? Int {
+            || receipt["selectedFPS"] as? Int != currentFacts["requestedFPS"] as? Int {
             self.current?.fail("product-performance-window-invalid")
         }
         completeCurrentIfReady()
@@ -378,7 +378,7 @@ private final class DebugSceneStartupRun {
                 && rows.allSatisfy { $0["passed"] as? Bool == true },
             "rows": rows, "timeoutSecondsPerRow": timeoutSeconds,
             "launchReplaySuppressed": !WallpaperManager.shared.settings.restorePlaybackOnLaunch,
-            "requestedFPS": requestedFPS.map { $0 as Any } ?? NSNull(),
+            "requestedFPS": requestedFrameRate.map { $0.rawValue as Any } ?? NSNull(),
             "executablePath": Bundle.main.executableURL?.path ?? "",
             "standardDefaultsDomain": Bundle.main.bundleIdentifier ?? "",
             "standardDefaultsSentinelVerified": DebugWebPlaybackRunner.hasIsolatedStartupEnvironment,

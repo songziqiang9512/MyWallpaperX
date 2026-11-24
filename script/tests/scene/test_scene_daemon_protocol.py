@@ -49,7 +49,7 @@ import Foundation
         let loadValid: Bool
         if case let .success(.loadScene(root, values, textures, _, profile, recordID, requiredKeys, requestID, source, quality)) = load {
             loadValid = root.path == "/private/tmp/scene"
-                && profile == .efficient && recordID == "fixture" && requiredKeys.isEmpty && requestID == nil && source == nil
+                && profile.rawValue == 30 && recordID == "fixture" && requiredKeys.isEmpty && requestID == nil && source == nil
                 && quality == .init()
                 && values["enabled"] == .bool(true)
                 && values["rate"] == .number(1.5)
@@ -435,11 +435,30 @@ import Foundation
             && !activeAdmission.accepts(generation: 6)
             && !noTransportAdmission.accepts(generation: 7)
             && !retiringAdmission.accepts(generation: 7)
-        let profileBudgetsValid =
-            PlaybackPerformanceProfile.standard.sceneTextureDecodeCacheByteBudget
-                == 1_024 * 1_024 * 1_024
-            && PlaybackPerformanceProfile.efficient.sceneTextureDecodeCacheByteBudget
-                == 512 * 1_024 * 1_024
+        let frameRatePayload: [String: Any] = ["v": 2, "cmd": "loadScene", "rootURL": "/private/tmp/scene"]
+        func decodedLoadFPS(_ payload: [String: Any]) -> Int? {
+            if case let .success(.loadScene(_, _, _, _, value, _, _, _, _, _)) = decode(payload) {
+                return value.rawValue
+            }
+            return nil
+        }
+        let animationFrameRatesValid = [10, 11, 24, 25, 59, 60, 61, 90, 119, 120].allSatisfy { fps in
+            let applied = decode(["v": 2, "cmd": "setPerformanceProfile", "maxFPS": fps])
+            guard case let .success(.setAnimationFrameRate(value)) = applied, value.rawValue == fps else {
+                return false
+            }
+            return decodedLoadFPS(frameRatePayload.merging(["profile": fps]) { $1 }) == fps
+        }
+        let animationFrameRateCompatibility = decodedLoadFPS(frameRatePayload) == 60
+            && decodedLoadFPS(frameRatePayload.merging(["maxFPS": 30]) { $1 }) == 30
+            && decodedLoadFPS(frameRatePayload.merging(["profile": 25, "maxFPS": 30]) { $1 }) == 25
+        let badFrameRates: [Any] = [9, 121, 25.5, true, "25", NSNull()]
+        let malformedFrameRateRejected = badFrameRates.allSatisfy { bad in
+            let update: [String: Any] = ["v": 2, "cmd": "setPerformanceProfile", "maxFPS": bad]
+            let load = frameRatePayload.merging(["profile": bad, "maxFPS": 30]) { $1 }
+            return decode(update) == .failure(.invalidPayload("setPerformanceProfile"))
+                && decode(load) == .failure(.invalidPayload("loadScene"))
+        }
         let mediaDemand = SceneSystemMediaDemand(token: UUID(), requests: [UUID()])
         let mediaScope = SceneDaemonMediaScope(demand: mediaDemand, transportGeneration: 3)
         var emptyMedia = SystemMediaSnapshot.empty
@@ -526,7 +545,9 @@ import Foundation
             "audioWrongShapeRejected": audioWrongShapeRejected,
             "audioBooleanBandRejected": audioBooleanBandRejected,
             "eventAdmissionValid": eventAdmissionValid,
-            "profileBudgetsValid": profileBudgetsValid,
+            "animationFrameRatesValid": animationFrameRatesValid,
+            "animationFrameRateCompatibility": animationFrameRateCompatibility,
+            "malformedFrameRateRejected": malformedFrameRateRejected,
         ]
         print(String(data: try JSONEncoder().encode(payload), encoding: .utf8)!)
     }
@@ -604,13 +625,6 @@ class SceneDaemonProtocolTests(unittest.TestCase):
                     self.assertTrue(passed)
         self.assertEqual(inputs, {path: path.read_bytes() for path in inputs},
                          "actual Runtime or fixture changed during the gate")
-
-    def test_performance_profile_updates_shared_texture_decode_budget(self) -> None:
-        host = HOST.read_text(encoding="utf-8")
-        method = function_body(host, "func applyPerformanceProfile(")
-        self.assertIn("performanceProfile = profile", method)
-        self.assertIn("textureDecodeCacheBudget.updateMaximumBytes", method)
-        self.assertIn("profile.sceneTextureDecodeCacheByteBudget", method)
 
     def test_shutdown_stops_then_drains_every_existing_surface_queue(self) -> None:
         shutdown = SHUTDOWN.read_text(encoding="utf-8")

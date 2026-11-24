@@ -189,7 +189,7 @@ extension Notification.Name {static let sceneWallpaperFirstFrameDidPresent=Notif
     var sent: [[String: Any]] = []
     var restarts = 0
     var isPaused = false
-    var performanceProfile: (maxFPS: Int, unused: Int) = (60, 0)
+    var animationFrameRate: AnimationFrameRate = .standard
     __ACTIVE_FACT_TYPE__
     __ACTIVE_FACT_PROPERTY__
     __DISPLAY_CONFIGURATION_PROPERTY__

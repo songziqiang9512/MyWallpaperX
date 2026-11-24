@@ -6,6 +6,7 @@ leaves; no user cache, file or focus is touched.
 """
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -32,8 +33,15 @@ class SettingsCacheActionsTests(unittest.TestCase):
         # NSTextField/NSWindow. Unrelated settings groups are outside this gate.
         refresh = refresh[:refresh.index("        let clampedVolume")] + "        _ = visibilityBefore\n    }"
         actual = fixture.read_text().replace("// ACTUAL_INTERVAL_REFRESH", refresh)
-        actual = actual.replace("// ACTUAL_SCENE_POST_PROCESSING_MENU", declaration(
-            layout.read_text(), "    func refreshScenePostProcessingMenu("))
+        layout_source = layout.read_text()
+        for marker, signature in (
+            ("// ACTUAL_SCENE_POST_PROCESSING_MENU", "    func refreshScenePostProcessingMenu("),
+            ("// ACTUAL_FRAME_RATE_LABELS", "    private func updateSceneFrameRateLabels("),
+            ("// ACTUAL_FRAME_RATE_COMMIT", "    func commitSceneFrameRate("),
+            ("// ACTUAL_FRAME_RATE_ACTION", "    @objc private func handleSceneFrameRateSlider("),
+            ("// ACTUAL_FRAME_RATE_SLIDER", "final class SceneFrameRateSlider:"),
+        ):
+            actual = actual.replace(marker, declaration(layout_source, signature))
         for marker, signature in (
             ("// ACTUAL_SETTINGS_OBSERVER", "    private func observeManager()"),
             ("// ACTUAL_INTERVAL_COMMIT", "    func controlTextDidEndEditing("),
@@ -48,7 +56,8 @@ class SettingsCacheActionsTests(unittest.TestCase):
                 "-warnings-as-errors", str(dependency), str(quality), str(copied), "-module-cache-path", str(work / "modules"), "-o", str(binary)],
                 capture_output=True, text=True, timeout=100)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
-            run = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30)
+            run = subprocess.run([str(binary)], env={**os.environ, "CFFIXED_USER_HOME": temporary, "HOME": temporary},
+                                 capture_output=True, text=True, timeout=30)
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
             checks = json.loads(run.stdout)
             self.assertTrue(checks)

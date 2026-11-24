@@ -8,7 +8,7 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
         propertyOverrides: [String: SceneUserPropertyValue],
         userPropertyTextures: [String: ScenePlaybackTextureReference],
         userShortcuts: ScenePlaybackShortcutConfiguration = .empty,
-        profile: PlaybackPerformanceProfile,
+        animationFrameRate: AnimationFrameRate = .standard,
         recordID: String?,
         requiredUserTextureKeys: Set<String> = [],
         requestID: UUID? = nil,
@@ -29,7 +29,7 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
     case setOutputActive(requestID: UUID, operationID: UUID, active: Bool)
     case retireOutput(requestID: UUID, operationID: UUID, requireRequestRetirement: Bool = false)
     case setDisplayConfiguration([SceneScreenTopology])
-    case setPerformanceProfile(PlaybackPerformanceProfile)
+    case setAnimationFrameRate(AnimationFrameRate)
     case setSceneRenderQuality(SceneRenderQuality)
     /// Normalized master volume (0...1) applied after authored/user volume.
     case setVolume(Float)
@@ -138,7 +138,9 @@ nonisolated enum SceneDaemonProtocol {
             } else { requestID = nil }
             guard let root = payload["rootURL"] as? String,
                   !root.isEmpty,
-                  let profile = profile(payload["profile"] ?? payload["maxFPS"]),
+                  let frameRate = animationFrameRate(
+                    payload["profile"] ?? payload["maxFPS"] ?? AnimationFrameRate.standard.rawValue
+                  ),
                   let values = propertyValues(payload["propertyOverrides"]),
                   let shortcuts = shortcutConfiguration(payload["userShortcuts"]),
                   let textures = textureReferences(
@@ -164,7 +166,7 @@ nonisolated enum SceneDaemonProtocol {
                 propertyOverrides: values,
                 userPropertyTextures: textures,
                 userShortcuts: shortcuts,
-                profile: profile,
+                animationFrameRate: frameRate,
                 recordID: payload["recordID"] as? String,
                 requiredUserTextureKeys: requiredKeys,
                 requestID: requestID,
@@ -262,10 +264,10 @@ nonisolated enum SceneDaemonProtocol {
             }
             return .success(.setDisplayConfiguration(topology))
         case "setPerformanceProfile":
-            guard let profile = profile(payload["maxFPS"]) else {
+            guard let frameRate = animationFrameRate(payload["maxFPS"]) else {
                 return .failure(.invalidPayload(action))
             }
-            return .success(.setPerformanceProfile(profile))
+            return .success(.setAnimationFrameRate(frameRate))
         case "setSceneRenderQuality":
             guard let quality = renderQuality(payload) else {
                 return .failure(.invalidPayload(action))
@@ -405,9 +407,8 @@ nonisolated enum SceneDaemonProtocol {
         return result
     }
 
-    private static func profile(_ raw: Any?) -> PlaybackPerformanceProfile? {
-        guard let value = integer(raw) else { return nil }
-        return PlaybackPerformanceProfile(rawValue: value)
+    private static func animationFrameRate(_ raw: Any?) -> AnimationFrameRate? {
+        integer(raw).flatMap(AnimationFrameRate.init(rawValue:))
     }
 
     static func writeRenderQuality(_ quality: SceneRenderQuality, to payload: inout [String: Any]) {

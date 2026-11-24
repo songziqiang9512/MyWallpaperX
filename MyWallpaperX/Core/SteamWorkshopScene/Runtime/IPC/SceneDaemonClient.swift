@@ -143,7 +143,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var activeResourceLifetime: RetainedResourceLifetime?
     var retiringResourceLifetimes: [UInt64: [PlaybackResourceLifetime]] = [:]
     private var lastPropertyRevision: UInt64 = 0
-    private var performanceProfile: PlaybackPerformanceProfile
+    private var animationFrameRate: AnimationFrameRate
     private var sceneRenderQuality: SceneRenderQuality
     private var isPaused = false
     private var screenParametersObserver: NSObjectProtocol?
@@ -160,7 +160,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
 
     private init() {
         let quality = PlaybackQualityPreference.current
-        performanceProfile = quality.profile
+        animationFrameRate = quality.animationFrameRate
         sceneRenderQuality = quality.scene
         screenParametersObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
@@ -195,16 +195,13 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             )
         case let .cancelSceneLaunch(recordID):
             return cancelPendingLaunch(recordID: recordID)
-        case let .setPerformanceProfile(maxFPS):
-            guard let profile = PlaybackPerformanceProfile(rawValue: maxFPS) else {
-                return false
-            }
-            performanceProfile = profile
+        case let .setAnimationFrameRate(frameRate):
+            animationFrameRate = frameRate
             if endpointReady {
                 send([
                     "v": SceneDaemonProtocol.version,
                     "cmd": "setPerformanceProfile",
-                    "maxFPS": profile.maxFPS
+                    "maxFPS": frameRate.rawValue
                 ])
             }
             return activeIntent != nil || pendingIntent != nil
@@ -299,7 +296,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var debugStartupObserver: ((SceneDaemonStartupObservation) -> Void)?
     var debugStartupPrefixObserver: ((SceneDaemonStartupPrefixObservation) -> Void)?
     var debugStartupWireObserver: ((UInt64, Int32?, UInt64, [String: Any]) -> Void)?
-    var debugConfiguredMaximumFPS: Int { performanceProfile.maxFPS }
+    var debugRequestedAnimationFPS: Int { animationFrameRate.rawValue }
 
     var debugProcessIdentifier: Int32? {
         guard let transport, transport.isRunning else { return nil }
@@ -713,7 +710,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             "userPropertyTextures": textures,
             "userShortcuts": SceneDaemonProtocol.shortcutObject(request.userShortcuts),
             "requiredUserTextureKeys": request.requiredUserTextureKeys.sorted(),
-            "profile": performanceProfile.maxFPS
+            "profile": animationFrameRate.rawValue
         ]
         SceneDaemonProtocol.writeRenderQuality(sceneRenderQuality, to: &payload)
         if let sourceObject { payload["source"] = sourceObject }

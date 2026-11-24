@@ -132,13 +132,13 @@ enum DebugWebProcessIsolationRunner {
         manager.settings = settings
         result["policyConfiguration"] = "Four automatic pause conditions disabled; default remaining WallpaperSettings"
         guard let rawFPS = DebugScenePlaybackRunner.argumentValue(after: "--mwx-debug-startup-fps"),
-              let fps = Int(rawFPS), let profile = PlaybackPerformanceProfile(rawValue: fps) else {
-            result["failure"] = "startup-fps-must-be-30-or-60"; return
+              let fps = Int(rawFPS), let frameRate = AnimationFrameRate(rawValue: fps) else {
+            result["failure"] = "invalid-startup-fps"; return
         }
         var quality = PlaybackQualityPreference.current
-        quality.profile = profile
+        quality.animationFrameRate = frameRate
         PlaybackCommandMultiplexer.shared.applyQualityPreference(quality)
-        result["appliedFPS"] = PlaybackPerformanceProfile.current.maxFPS
+        result["appliedFPS"] = PlaybackQualityPreference.current.animationFrameRate.rawValue
         PlaybackCommandMultiplexer.shared.dispatch(.resume)
         let service = SteamWorkshopService.shared
         service.reloadInstalledItems()

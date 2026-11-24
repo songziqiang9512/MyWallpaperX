@@ -24,7 +24,7 @@ final class Handler: PlaybackEngineControlling {
         switch command {
         case let .setPlaybackPaused(paused): isPlaying = !paused; return true
         case let .setVolume(value): volume = value; volumeCommands += 1; return true
-        case .setWebFrameRateSuggestion, .setPerformanceProfile, .setSceneRenderQuality:
+        case .setWebFrameRateSuggestion, .setAnimationFrameRate, .setSceneRenderQuality:
             qualityCommands.append(command); return true
         default: return false
         }
@@ -75,23 +75,25 @@ final class Handler: PlaybackEngineControlling {
         // E2c: alias registration — the same handler under .web executes
         // exactly once per broadcast (identity dedup).
         mux.register(video, as: .web)
-        suite.set(30, forKey: PlaybackPerformanceProfile.userDefaultsKey)
-        precondition(PlaybackQualityPreference.read(from: suite) == .init(profile: .efficient, webFrameRateMode: .display))
-        mux.applyQualityPreference(.init(profile: .efficient, webFrameRateMode: .followAnimationFrameRate), defaults: suite)
+        suite.set(30, forKey: PlaybackQualityPreference.legacyFrameRateKey)
+        var legacyQuality = PlaybackQualityPreference.read(from: suite)
+        precondition(legacyQuality.animationFrameRate.rawValue == 30 && legacyQuality.keepsLegacySceneDecodeLimit)
+        legacyQuality.webFrameRateMode = .followAnimationFrameRate
+        mux.applyQualityPreference(legacyQuality, defaults: suite)
         precondition(scene.qualityCommands.isEmpty && video.qualityCommands == [.setWebFrameRateSuggestion(30)])
         mux.applyQualityPreference(.defaults, defaults: suite)
         mux.applyQualityPreference(.defaults, defaults: suite)
-        precondition(scene.qualityCommands == [.setPerformanceProfile(maxFPS: 60)])
+        precondition(scene.qualityCommands == [.setAnimationFrameRate(.standard)])
         precondition(video.qualityCommands == [.setWebFrameRateSuggestion(30), .setWebFrameRateSuggestion(nil)])
         precondition(PlaybackQualityPreference.read(from: suite) == .defaults)
-        precondition(suite.integer(forKey: PlaybackPerformanceProfile.userDefaultsKey) == 30)
+        precondition(suite.integer(forKey: PlaybackQualityPreference.legacyFrameRateKey) == 30)
         suite.set(true, forKey: "sceneHDRDisplayEnabled")
         precondition(PlaybackQualityPreference.read(from: suite).scene.postProcessing == .ultra)
         suite.set(["animationFramesPerSecond": 60, "webFrameRateMode": "display"], forKey: PlaybackQualityPreference.userDefaultsKey)
         precondition(PlaybackQualityPreference.read(from: suite).scene.postProcessing == .ultraDisplayHDR)
         mux.applyQualityPreference(.defaults, defaults: suite)
         precondition(PlaybackQualityPreference.read(from: suite).scene.postProcessing == .ultra)
-        precondition(scene.qualityCommands == [.setPerformanceProfile(maxFPS: 60), .setSceneRenderQuality(.init())])
+        precondition(scene.qualityCommands == [.setAnimationFrameRate(.standard), .setSceneRenderQuality(.init())])
         precondition(video.qualityCommands == [.setWebFrameRateSuggestion(30), .setWebFrameRateSuggestion(nil)])
         var quality = PlaybackQualityPreference.defaults
         quality.scene.shadows = .medium
@@ -105,6 +107,15 @@ final class Handler: PlaybackEngineControlling {
         precondition(PlaybackQualityPreference.read(from: suite).scene.shadows == .adaptive)
         precondition(PlaybackQualityPreference.read(from: suite).scene.pointVolume == .enabled)
         precondition(PlaybackQualityPreference.read(from: suite).scene.reflections == .enabled)
+        precondition(AnimationFrameRate(rawValue: 9) == nil && AnimationFrameRate(rawValue: 121) == nil)
+        precondition(AnimationFrameRate(rawValue: 10) != nil && AnimationFrameRate(rawValue: 120) != nil)
+        suite.removeObject(forKey: PlaybackQualityPreference.userDefaultsKey)
+        let rate25 = AnimationFrameRate(rawValue: 25)!
+        var updated = PlaybackQualityPreference.read(from: suite)
+        updated.animationFrameRate = rate25
+        mux.applyQualityPreference(updated, defaults: suite)
+        precondition(PlaybackQualityPreference.read(from: suite) == updated && updated.keepsLegacySceneDecodeLimit)
+        precondition(scene.qualityCommands.last == .setAnimationFrameRate(rate25))
         suite.removePersistentDomain(forName: suiteName)
         video.volume = 0
         let previousVolumeCommands = video.volumeCommands

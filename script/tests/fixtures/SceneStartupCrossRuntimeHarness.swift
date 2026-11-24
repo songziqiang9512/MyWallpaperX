@@ -24,10 +24,13 @@ struct PlaybackSwitchState {
     var cancellations: [UUID: Bool] = [:], retirements: [UUID: Bool] = [:]
 }
 struct VideoWallpaper { let id = UUID().uuidString; let title: String; let path: String }
-struct PlaybackPerformanceProfile {
-    let maxFPS: Int
-    init?(rawValue: Int) { guard rawValue == 30 else { return nil }; maxFPS = rawValue }
-    static let current = PlaybackPerformanceProfile(rawValue: 30)!
+struct AnimationFrameRate {
+    let rawValue: Int
+    init?(rawValue: Int) { guard (10...120).contains(rawValue) else { return nil }; self.rawValue = rawValue }
+}
+struct PlaybackQualityPreference {
+    static let current = Self(animationFrameRate: AnimationFrameRate(rawValue: 30)!)
+    let animationFrameRate: AnimationFrameRate
 }
 struct HarnessSettings {
     var pauseWhenOtherAppFocused = true, pauseWhenOtherAppFullscreen = true
@@ -105,11 +108,11 @@ enum SceneDaemonProtocol {
 }
 @MainActor final class SceneDaemonClient {
     static let shared = SceneDaemonClient()
-    enum Command { case setPerformanceProfile(maxFPS: Int) }
+    enum Command { case setAnimationFrameRate(AnimationFrameRate) }
     var debugStartupObserver: ((StartupObservation) -> Void)?
     var debugStartupPrefixObserver: ((PrefixObservation) -> Void)?
     var debugStartupWireObserver: ((UInt64, Int32?, UInt64, [String: Any]) -> Void)?
-    var debugProcessIdentifier: Int32?, endpointReady = false, debugConfiguredMaximumFPS = 30
+    var debugProcessIdentifier: Int32?, endpointReady = false, debugRequestedAnimationFPS = 30
     final class Transport {
         final class ProcessIdentity { let processIdentifier: Int32 = 42 }
         let process = ProcessIdentity()

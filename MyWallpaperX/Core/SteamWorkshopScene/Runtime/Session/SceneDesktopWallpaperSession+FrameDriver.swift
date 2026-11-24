@@ -8,10 +8,8 @@ enum SceneFrameDriverAttempt {
     case inactive
 }
 extension SceneDesktopWallpaperSession {
-    /// 帧节奏由性能预算档驱动（M0.7）：60=standard，30=efficient；
-    /// 档位经 `.setPerformanceProfile` 命令热切换，下一次排帧生效。
     private var sceneFrameInterval: TimeInterval {
-        1.0 / Double(performanceProfile.maxFPS)
+        1.0 / Double(effectiveAnimationFPS)
     }
     private var sceneBusyFrameRetryInterval: TimeInterval {
         max(0.001, sceneFrameInterval / 8.0)
@@ -65,6 +63,11 @@ extension SceneDesktopWallpaperSession {
         }
 #endif
     }
+    func retuneFrameDriver() {
+        guard frameTimer != nil, isVisible, !sceneClock.isPaused else { return }
+        armFrameDriver(at: CACurrentMediaTime() + sceneFrameInterval)
+    }
+
     func scheduleFrameDriver(
         after attempt: SceneFrameDriverAttempt,
         scheduledDeadline: CFTimeInterval
@@ -81,49 +84,38 @@ extension SceneDesktopWallpaperSession {
             frameDriverDeadline = nil
             return
         }
-        let nextDeadline: CFTimeInterval
+#if DEBUG
         switch attempt {
         case .rendered:
-#if DEBUG
             ScenePerformanceCounterHub.shared.bump(.framesRendered)
-        ScenePerformanceCounterHub.shared.recordLaunchPhase(
-                .firstVisibleFrame,
-                uptimeMicros: ScenePerformanceCounterHub.nowUptimeMicros()
-            )
+            ScenePerformanceCounterHub.shared.recordLaunchPhase(
+                .firstVisibleFrame, uptimeMicros: ScenePerformanceCounterHub.nowUptimeMicros())
+        case .busy: ScenePerformanceCounterHub.shared.bump(.framesBusy)
+        case .dropped: ScenePerformanceCounterHub.shared.bump(.framesDropped)
+        case .inactive: ScenePerformanceCounterHub.shared.bump(.framesInactive)
+        }
 #endif
-            let cadenceDeadline = scheduledDeadline + sceneFrameInterval
-            // Realign narrowly late frames at current host time; fast frames
-            // still honor cadence while busy gate keeps history graphs serial.
-            nextDeadline = max(cadenceDeadline, now)
-        case .busy:
-#if DEBUG
-            ScenePerformanceCounterHub.shared.bump(.framesBusy)
-#endif
-            // History-bearing graphs remain single-frame-in-flight. A short
-            // retry prevents a slight overrun from losing a full 60 Hz slot.
-            nextDeadline = now + sceneBusyFrameRetryInterval
-        case .dropped:
-#if DEBUG
-            ScenePerformanceCounterHub.shared.bump(.framesDropped)
-#endif
-            // A hard frame rejection did not produce a drawable, but it is
-            // not an in-flight resource wait. Keep normal cadence without
-            // reporting the attempt as rendered.
-            nextDeadline = max(scheduledDeadline + sceneFrameInterval, now)
-        case .inactive:
-#if DEBUG
-            ScenePerformanceCounterHub.shared.bump(.framesInactive)
-#endif
+        guard attempt != .inactive else {
             frameTimer?.invalidate()
             frameTimer = nil
             frameDriverDeadline = nil
             return
         }
+        let interval = sceneFrameInterval
+        let nominal = scheduledDeadline + interval
+        let nextDeadline: CFTimeInterval
+        if sceneClock.isPaused {
+            nextDeadline = attempt == .busy ? now + sceneBusyFrameRetryInterval : max(nominal, now)
+        } else if nominal <= now {
+            // Keep one future deadline even when rendering consumed several periods.
+            let nextSlot = nominal + (floor((now - nominal) / interval) + 1) * interval
+            nextDeadline = nextSlot > now ? nextSlot : nextSlot + interval
 #if DEBUG
-        if (attempt == .rendered || attempt == .dropped), nextDeadline > scheduledDeadline + sceneFrameInterval {
             SceneFramePerformanceTelemetry.productEvidence(sessionID: lifecycleID)?.recordScheduleRealignment()
-        }
 #endif
+        } else {
+            nextDeadline = nominal
+        }
         armFrameDriver(at: nextDeadline)
     }
     @discardableResult
@@ -133,22 +125,23 @@ extension SceneDesktopWallpaperSession {
         let delay = max(0.000_001, deadline - CACurrentMediaTime())
         let timer = Timer(timeInterval: delay, repeats: false) { [weak self] timer in
             guard let self, self.frameTimer === timer else { return }
+            let now = CACurrentMediaTime(), interval = self.sceneFrameInterval
 #if DEBUG
             // The timer runs on the main RunLoop and is also fired by main-actor admission callbacks.
             let telemetry = MainActor.assumeIsolated {
                 SceneFramePerformanceTelemetry.productEvidence(sessionID: self.lifecycleID)
             }
-            telemetry?.recordTimerCallback(lateness: CACurrentMediaTime() - deadline,
-                frameInterval: self.sceneFrameInterval, waitingForGPU: waitingForGPU)
+            telemetry?.recordTimerCallback(lateness: now - deadline,
+                frameInterval: interval, waitingForGPU: waitingForGPU)
 #endif
             self.frameTimer = nil
-            if !waitingForGPU, self.waitForFrameAdmission(until: deadline + self.sceneFrameInterval) {
+            if !waitingForGPU, self.waitForFrameAdmission(until: deadline + interval) {
 #if DEBUG
                 telemetry?.recordAdmissionWait()
 #endif
                 return
             }
-            let cadence = waitingForGPU ? CACurrentMediaTime() : deadline
+            let cadence = waitingForGPU || now >= deadline + interval ? now : deadline
             let attempt = self.renderFrame()
             self.scheduleFrameDriver(after: attempt, scheduledDeadline: cadence)
         }
@@ -911,6 +904,7 @@ extension SceneDesktopWallpaperSession {
         }
         let spriteTimes = launchContext.textureAnimationPlaybackRuntime.playbackTimes(
             layerIDs: spriteLayerIDs, sceneTime: timing.sceneTime)
+        let renderFrameInterval = sceneFrameInterval
         for (displayID, surface) in surfaces {
 #if DEBUG
             logDebugDynamicLayerVisibilityIfChanged(
@@ -929,7 +923,7 @@ extension SceneDesktopWallpaperSession {
 #endif
             surface.didSubmitSimulationFrame = false
             surface.updateSimulation(
-                timing: timing, dynamicValues: dynamicValues,
+                timing: timing, renderFrameInterval: renderFrameInterval, dynamicValues: dynamicValues,
                 puppetAnimationFrame: puppetAnimationFrame,
                 spriteTimes: spriteTimes,
                 layerTopology: layerTopology,

@@ -16,6 +16,18 @@ extension Notification.Name {
     static let wallpaperManagerLoginItemSyncFailed = Self("fixture.login-item")
 }
 
+@MainActor final class PlaybackCommandMultiplexer {
+    static let shared = PlaybackCommandMultiplexer()
+    private(set) var requests: [Int] = []
+
+    func applyQualityPreference(_ preference: PlaybackQualityPreference) {
+        preference.write(to: .standard)
+        requests.append(preference.animationFrameRate.rawValue)
+    }
+}
+
+// ACTUAL_FRAME_RATE_SLIDER
+
 @MainActor final class AppKitSettingsContainerView: NSView, NSTextFieldDelegate {
     let dependency: AppSettingsPanelDependency
     var isUpdatingUI = false
@@ -25,6 +37,9 @@ extension Notification.Name {
     let scenePostProcessingPopup = NSPopUpButton()
     let loopSwitch = NSSwitch(), randomSwitch = NSSwitch(), sequentialSwitch = NSSwitch(), autoSwitchSwitch = NSSwitch()
     let intervalField = NSTextField(frame: .init(x: 20, y: 70, width: 160, height: 28))
+    let sceneFPSField = NSTextField(frame: .init(x: 198, y: 70, width: 40, height: 28))
+    let sceneFPSEffectiveLabel = NSTextField(labelWithString: "")
+    let sceneFPSControl = SceneFrameRateSlider(value: 60, minValue: 10, maxValue: 120, target: nil, action: nil)
     let timeUnitPopup = NSPopUpButton()
     var intervalRowView: NSView? = NSView(), autoSwitchRowView: NSView? = NSView()
     let nextField = NSTextField(frame: .init(x: 20, y: 20, width: 160, height: 28))
@@ -32,7 +47,14 @@ extension Notification.Name {
         self.dependency = dependency
         super.init(frame: .init(x: 0, y: 0, width: 360, height: 160))
         intervalField.delegate = self
+        sceneFPSField.delegate = self
+        sceneFPSControl.frame = .init(x: 188, y: 20, width: 148, height: 28)
+        sceneFPSControl.isContinuous = true
+        sceneFPSControl.target = self
+        sceneFPSControl.action = #selector(handleSceneFrameRateSlider(_:))
         addSubview(intervalField); addSubview(nextField)
+        addSubview(sceneFPSField); addSubview(sceneFPSControl)
+        commitSceneFrameRate(nil)
         for mode in [ScenePostProcessingMode.disabled, .enabled, .ultra, .ultraDisplayHDR] {
             scenePostProcessingPopup.addItem(withTitle: mode.rawValue)
             scenePostProcessingPopup.lastItem?.representedObject = mode.rawValue
@@ -53,6 +75,9 @@ extension Notification.Name {
     // ACTUAL_INTERVAL_REFRESH
     // ACTUAL_SETTINGS_OBSERVER
     // ACTUAL_SCENE_POST_PROCESSING_MENU
+    // ACTUAL_FRAME_RATE_LABELS
+    // ACTUAL_FRAME_RATE_COMMIT
+    // ACTUAL_FRAME_RATE_ACTION
     // ACTUAL_INTERVAL_COMMIT
     // ACTUAL_TIME_UNIT_SELECTION
 }
@@ -83,10 +108,11 @@ extension Notification.Name {
                 + "first=\(String(describing: window.firstResponder))\n"
             FileHandle.standardError.write(Data(values.utf8))
         }
-        func draft(_ text: String) throws -> NSTextView {
-            view.intervalField.selectText(nil)
-            guard let editor = view.intervalField.currentEditor() as? NSTextView, editor.isFieldEditor,
-                  window.firstResponder === editor, window.fieldEditor(false, for: view.intervalField) === editor else {
+        func draft(_ text: String, in field: NSTextField? = nil) throws -> NSTextView {
+            let field = field ?? view.intervalField
+            field.selectText(nil)
+            guard let editor = field.currentEditor() as? NSTextView, editor.isFieldEditor,
+                  window.firstResponder === editor, window.fieldEditor(false, for: field) === editor else {
                 throw CocoaError(.coderInvalidValue, userInfo: [NSLocalizedDescriptionKey: "native field editor did not attach"])
             }
             editor.insertText(text, replacementRange: NSRange(location: 0, length: editor.string.utf16.count))
@@ -129,6 +155,46 @@ extension Notification.Name {
         checks["external-fresh-install-reset-keeps-defaults-and-revokes-the-unsubmitted-editor"] = !view.intervalField.isEnabled
             && view.intervalField.currentEditor() == nil && view.intervalField.stringValue == "30"
             && dependency.settings.randomInterval == 30 && dependency.settings.loopPlayback && timerRefreshes == 2
+        let requests = PlaybackCommandMultiplexer.shared
+        _ = try draft(" 97 ", in: view.sceneFPSField)
+        checks["frame-rate-native-edit-only-previews-until-focus-loss"] = requests.requests.isEmpty
+        window.makeFirstResponder(view.nextField); pump()
+        checks["frame-rate-keeps-request-and-shows-lower-active-cap"] = requests.requests == [97]
+            && view.sceneFPSField.stringValue == "97" && view.sceneFPSControl.integerValue == 97
+            && !view.sceneFPSEffectiveLabel.isHidden && view.sceneFPSEffectiveLabel.stringValue.contains("60")
+        for invalid in ["121", "9", "25.5", "", "97"] {
+            _ = try draft(invalid, in: view.sceneFPSField)
+            window.makeFirstResponder(view.nextField); pump()
+            checks["frame-rate-does-not-send-invalid-or-unchanged-\(invalid)"] = requests.requests == [97]
+                && view.sceneFPSField.stringValue == "97"
+        }
+        let slider = view.sceneFPSControl
+        let arrow = String(NSEvent.SpecialKey.leftArrow.unicodeScalar)
+        let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.function],
+            timestamp: 0, windowNumber: window.windowNumber, context: nil, characters: arrow,
+            charactersIgnoringModifiers: arrow, isARepeat: false, keyCode: 123)!
+        slider.keyDown(with: event)
+        checks["frame-rate-native-arrow-applies-one-fps-step"] = requests.requests == [97, 96]
+            && view.sceneFPSField.stringValue == "96" && slider.integerValue == 96
+        func sliderMouseEvent(_ type: NSEvent.EventType, _ fraction: CGFloat) -> NSEvent {
+            let location = slider.convert(NSPoint(x: slider.bounds.width * fraction, y: slider.bounds.midY), to: nil)
+            return NSEvent.mouseEvent(with: type, location: location, modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                context: nil, eventNumber: 1, clickCount: 1, pressure: 1)!
+        }
+        NSApp.postEvent(sliderMouseEvent(.leftMouseDown, 0.78), atStart: false)
+        NSApp.postEvent(sliderMouseEvent(.leftMouseDragged, 0.48), atStart: false)
+        NSApp.postEvent(sliderMouseEvent(.leftMouseDragged, 0.41), atStart: false)
+        NSApp.postEvent(sliderMouseEvent(.leftMouseUp, 0.41), atStart: false)
+        if let down = NSApp.nextEvent(matching: .leftMouseDown, until: Date().addingTimeInterval(0.5),
+                                      inMode: .default, dequeue: true) {
+            NSApp.sendEvent(down)
+        }
+        let dragObservation = "Drag requests=\(requests.requests) slider=\(slider.integerValue) effectiveHidden=\(view.sceneFPSEffectiveLabel.isHidden)\n"
+        FileHandle.standardError.write(Data(dragObservation.utf8))
+        checks["frame-rate-native-drag-sends-only-one-request-on-release"] = requests.requests.count == 3
+            && slider.integerValue == requests.requests.last && (50...60).contains(slider.integerValue)
+            && view.sceneFPSEffectiveLabel.isHidden
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }
