@@ -223,6 +223,7 @@ extension SceneMetalRenderer {
         if sortsTransparency, cameraFrame.defaultsToPerspective, imagePipeline != nil {
             backgroundCuts = utilityExecution.captureLayerIDs.filter { id in
                 guard frameVisibleLayerIDs.contains(id), let layer = frameLayersByID[id],
+                      layer.hasIndependentBackgroundPlacement,
                       layer.hasPerspectiveGeometryConsumer, cameraFrame.resolvesPerspective(for: layer),
                       !hasWorldOrderTextureDependency(id), (layer.colorBlendMode ?? 0) == 0,
                       let claim = imageCompositor.preflightResolvedMaterialClaim(layerID: id).execution

@@ -96,9 +96,11 @@ nonisolated extension SceneRenderDescriptor {
             }
             return utility.framebufferSource == nil
                 && utility.kind == .composition && contentKind == "composition"
-                && utility.copyBackground
-                && parentID == nil && childLayerIDs.isEmpty
-                && dependencyLayerIDs.isEmpty && authoredDependencies.isEmpty
+                && utility.copyBackground && childLayerIDs.isEmpty
+        }
+
+        nonisolated var hasIndependentBackgroundPlacement: Bool {
+            parentID == nil && dependencyLayerIDs.isEmpty && authoredDependencies.isEmpty
         }
 
         nonisolated var hasFramebufferMaterialSource: Bool {

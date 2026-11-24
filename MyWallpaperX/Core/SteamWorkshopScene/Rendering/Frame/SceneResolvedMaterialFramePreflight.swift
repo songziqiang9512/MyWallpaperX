@@ -377,11 +377,12 @@ extension SceneMetalRenderer {
                 utilityCaptureGeometry = source.geometry
                 framebufferSourceMaterial = source.material
                 let publishesGraphOutput = dependencyRuntime.requiresGraphOutputCapture(for: layerID)
+                let usesPerspective = cameraFrame.resolvesPerspective(for: layer)
                 if utility.kind == .project, claim.hasNonUnitFramebufferScale, layer.parentID == nil,
                    layer.childLayerIDs.isEmpty, memberLayerIDs?.isEmpty != false,
                    selectedMainSource === mainTarget, source.material == nil,
                    !publishesGraphOutput, !cameraFrame.defaultsToPerspective,
-                   !cameraFrame.resolvesPerspective(for: layer),
+                   !usesPerspective,
                    let pool = offscreenTexturePool,
                    let extent = SceneLayerEffectSourceExtent.resolve(
                        publishedRenderSizeWH: nil, authoredRenderSizeWH: layer.renderSizeWH,
@@ -400,7 +401,7 @@ extension SceneMetalRenderer {
                     && (compositionGroupRuntime.map {
                         $0.compositeTargetPass(forRootID: layerID)?.isSceneRoot == true
                     } ?? true)
-                    && effectDrawAlpha == 1 && !cameraFrame.resolvesPerspective(for: layer)
+                    && effectDrawAlpha == 1 && !usesPerspective
                 if claim.supportsTerminalMaterialReplay,
                    frameVisibleLayerIDs.contains(layerID),
                    !publishesGraphOutput,
@@ -412,7 +413,8 @@ extension SceneMetalRenderer {
                 if terminalReplayTarget == nil, !publishesGraphOutput,
                    utility.kind == .composition, utility.copyBackground, source.material == nil,
                    memberLayerIDs == nil, layer.childLayerIDs.isEmpty, selectedMainSource === mainTarget,
-                   !cameraFrame.resolvesPerspective(for: layer),
+                   !usesPerspective || (!cameraFrame.defaultsToPerspective
+                       && !layer.hasIndependentBackgroundPlacement),
                    let extent = SceneLayerEffectSourceExtent.resolve(
                        publishedRenderSizeWH: nil, authoredRenderSizeWH: layer.renderSizeWH,
                        candidateMappedSize: nil
