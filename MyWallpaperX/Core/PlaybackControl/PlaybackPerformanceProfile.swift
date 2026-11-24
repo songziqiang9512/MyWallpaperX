@@ -41,9 +41,15 @@ nonisolated enum SceneShadowQuality: String, Sendable {
     case adaptive = "ultra"
 }
 
+nonisolated enum ScenePointVolumeQuality: String, Sendable {
+    case disabled
+    case enabled
+}
+
 nonisolated struct SceneRenderQuality: Equatable, Sendable {
     var postProcessing: ScenePostProcessingMode = .ultra
     var shadows: SceneShadowQuality = .adaptive
+    var pointVolume: ScenePointVolumeQuality = .enabled
 }
 
 nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
@@ -75,7 +81,9 @@ nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
             scene: .init(
                 postProcessing: postProcessing,
                 shadows: (record?["sceneShadowQuality"] as? String)
-                    .flatMap(SceneShadowQuality.init(rawValue:)) ?? .adaptive
+                    .flatMap(SceneShadowQuality.init(rawValue:)) ?? .adaptive,
+                pointVolume: (record?["scenePointVolumeQuality"] as? String)
+                    .flatMap(ScenePointVolumeQuality.init(rawValue:)) ?? .enabled
             )
         )
     }
@@ -86,6 +94,7 @@ nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
             "webFrameRateMode": webFrameRateMode.rawValue,
             "scenePostProcessingMode": scene.postProcessing.rawValue,
             "sceneShadowQuality": scene.shadows.rawValue,
+            "scenePointVolumeQuality": scene.pointVolume.rawValue,
         ], forKey: Self.userDefaultsKey)
     }
 }

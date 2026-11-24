@@ -839,10 +839,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6b8476927ea438754e7c9dd17b4331f59aa38fbbca84a08a4a220ad78df56198",
+        "sourceSHA256": "3ba1ae837bbb15412efb3a5cad098ba90ea93352c8aaa9e493655394f6428870",
         "method": "document_registry --audit + document_health --check",
-        "scope": "后处理准备、SDR 低档 raw 历史、阴影冷准备及原相机／体积深度的现行职责。",
-        "limitations": "导航核对与隔离运行证据分开，未复验全部作品、官方像素或更广显示拓扑。"
+        "scope": "后处理、阴影和点光体积由同一质量请求进入 Scene 准备，原共享模型深度及投影仍分开。",
+        "limitations": "导航与源码核对；隔离 App 以及真机、作者样本的实测范围见各工作片。"
       }
     },
     {

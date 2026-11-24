@@ -403,7 +403,7 @@ IDLE_TAIL = r'''
         checks["queueAndCancellationDoNotSendLoadBeforeRetirement"]=cancelledQueued
             && a.queuedSwitchPreparation?.ticket == next
             && !a.sent.contains{$0["cmd"] as? String == "loadScene"}
-        a.sceneRenderQuality = .init(postProcessing: .ultraDisplayHDR, shadows: .medium)
+        a.sceneRenderQuality = .init(postProcessing: .ultraDisplayHDR, shadows: .medium, pointVolume: .disabled)
         ack(a,ra,opa)
         let newRequest=a.pendingRequestID
         checks["successfulRetirementAdoptsSameProcessWithFreshRequest"]=retiredA == 1 && oldLease == nil
@@ -413,7 +413,9 @@ IDLE_TAIL = r'''
             && a.sent.filter{$0["cmd"] as? String == "loadScene"}.count == 1
         let newLoad = a.sent.first { $0["cmd"] as? String == "loadScene" }
         checks["newLoadProjectsLatestRenderQualityAfterRetirement"] =
-            newLoad?["scenePostProcessing"] as? String == "displayHDR" && newLoad?["shadowQuality"] as? String == "medium"
+            newLoad?["scenePostProcessing"] as? String == "displayHDR"
+            && newLoad?["shadowQuality"] as? String == "medium"
+            && newLoad?["pointVolumeQuality"] as? String == "disabled"
         ack(a,ra,opa)
         checks["duplicateAckDoesNotReplayOrFinishTwice"]=retiredA == 1 && a.pendingRequestID == newRequest
         a.stop();exit(a,ca)

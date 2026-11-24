@@ -102,6 +102,7 @@ final class AppKitSettingsContainerView: NSView {
     let syncSystemWallpaperSwitch = NSSwitch()
     let scenePostProcessingPopup = NSPopUpButton()
     let sceneShadowsPopup = NSPopUpButton()
+    let scenePointVolumePopup = NSPopUpButton()
     let sceneMediaInfoSwitch = NSSwitch()
     let webFrameRatePopup = NSPopUpButton()
     let resetQualityButton = NSButton(title: String(localized: "Restore Default Quality"), target: nil, action: nil)
@@ -263,11 +264,7 @@ final class AppKitSettingsContainerView: NSView {
         pauseOtherAppFullscreenSwitch.state = settings.pauseWhenOtherAppFullscreen ? .on : .off
         pauseWhenUnpluggedSwitch.state = settings.pauseWhenUnplugged ? .on : .off
         pauseWhenIdleSwitch.state = settings.pauseWhenIdle ? .on : .off
-        let quality = PlaybackQualityPreference.current
-        sceneMaxFPSSegmented.selectedSegment = quality.profile == .efficient ? 0 : 1
-        webFrameRatePopup.selectItem(at: quality.webFrameRateMode == .display ? 0 : 1)
-        refreshScenePostProcessingMenu(quality.scene.postProcessing)
-        sceneShadowsPopup.selectItem(at: sceneShadowsPopup.indexOfItem(withRepresentedObject: quality.scene.shadows.rawValue))
+        refreshQualityControls()
         idleTimeoutRowView?.isHidden = !settings.pauseWhenIdle
         selectIdleTimeout(settings.idleTimeoutMinutes)
 
@@ -416,10 +413,6 @@ final class AppKitSettingsContainerView: NSView {
         restorePlaybackOnLaunchSwitch.action = #selector(handleRestorePlaybackOnLaunchToggle)
         syncSystemWallpaperSwitch.target = self
         syncSystemWallpaperSwitch.action = #selector(handleSyncSystemWallpaperToggle)
-        for popup in [scenePostProcessingPopup, sceneShadowsPopup] {
-            popup.target = self
-            popup.action = #selector(handleQualityChange(_:))
-        }
         sceneMediaInfoSwitch.target = self
         sceneMediaInfoSwitch.action = #selector(handleSceneMediaInfoToggle)
         systemAudioSpectrumSwitch.target = self
@@ -457,12 +450,6 @@ final class AppKitSettingsContainerView: NSView {
         pauseWhenIdleSwitch.action = #selector(handlePerformanceToggle)
         idleTimeoutPopup.target = self
         idleTimeoutPopup.action = #selector(handleIdleTimeoutChange)
-        sceneMaxFPSSegmented.target = self
-        sceneMaxFPSSegmented.action = #selector(handleQualityChange(_:))
-        webFrameRatePopup.target = self
-        webFrameRatePopup.action = #selector(handleQualityChange(_:))
-        resetQualityButton.target = self
-        resetQualityButton.action = #selector(restoreDefaultQuality)
 
         multiDisplaySwitch.target = self
         multiDisplaySwitch.action = #selector(handleMultiDisplayToggle)
@@ -745,28 +732,6 @@ final class AppKitSettingsContainerView: NSView {
         dependency.settings.pauseWhenUnplugged = (pauseWhenUnpluggedSwitch.state == .on)
         dependency.settings.pauseWhenIdle = (pauseWhenIdleSwitch.state == .on)
         dependency.actions.applyEngineSettings(false)
-    }
-
-    @objc private func handleQualityChange(_ sender: NSControl) {
-        guard !isUpdatingUI else { return }
-        var quality = PlaybackQualityPreference.current
-        if sender === sceneMaxFPSSegmented {
-            quality.profile = sceneMaxFPSSegmented.selectedSegment == 0 ? .efficient : .standard
-        } else if sender === webFrameRatePopup {
-            quality.webFrameRateMode = webFrameRatePopup.indexOfSelectedItem == 1 ? .followAnimationFrameRate : .display
-        } else if let mode = (sender as? NSPopUpButton)?.selectedItem?.representedObject as? String {
-            if sender === sceneShadowsPopup, let selected = SceneShadowQuality(rawValue: mode) {
-                quality.scene.shadows = selected
-            } else if sender === scenePostProcessingPopup, let selected = ScenePostProcessingMode(rawValue: mode) {
-                quality.scene.postProcessing = selected
-            }
-        }
-        PlaybackCommandMultiplexer.shared.applyQualityPreference(quality)
-    }
-
-    @objc private func restoreDefaultQuality() {
-        PlaybackCommandMultiplexer.shared.applyQualityPreference(.defaults)
-        refreshFromState()
     }
 
     @objc private func handleIdleTimeoutChange() {

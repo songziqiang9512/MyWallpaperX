@@ -18,12 +18,13 @@ def cases():
     def case(name, blend="normal", alpha=1, texture_alpha=255, layer_alpha=1,
              far=True, near=True, renamed=False, near_writes_depth=True,
              far_first=False, far_blend="normal", far_layer_alpha=1,
-             far_depth_test=None, far_writes_depth=True, volume=False):
+             far_depth_test=None, far_writes_depth=True, volume=False, point_volume_enabled=True):
         return dict(name=name, blend=blend, alpha=alpha, textureAlpha=texture_alpha,
                     layerAlpha=layer_alpha, far=far, near=near, renamed=renamed,
                     nearWritesDepth=near_writes_depth, farFirst=far_first,
                     farBlend=far_blend, farLayerAlpha=far_layer_alpha,
-                    farDepthTest=far_depth_test, farWritesDepth=far_writes_depth, volume=volume)
+                    farDepthTest=far_depth_test, farWritesDepth=far_writes_depth, volume=volume,
+                    pointVolumeEnabled=point_volume_enabled)
 
     return [
         case("near-only", far=False), case("far-only", near=False),
@@ -85,6 +86,7 @@ def cases():
         case("volume-far", near=False, volume=True),
         case("volume-near-then-far", far_depth_test="disabled", volume=True),
         case("volume-readonly-far", far_depth_test="disabled", far_writes_depth=False, volume=True),
+        case("volume-quality-disabled", far_depth_test="disabled", volume=True, point_volume_enabled=False),
     ]
 
 
@@ -133,6 +135,7 @@ class SceneStaticModelBlendingTests(unittest.TestCase):
         cls.report = parts.native.run_swift(
             SOURCES, parts.resource_support() + HARNESS.read_text(), label="model-blending",
             metal_sources=[parts.MODEL_METAL], input_value={"root": str(cls.root), "cases": vectors})
+        cls.inputs = {row["name"]: row for row in vectors}
         cls.rows = {row["name"]: row for row in cls.report["rows"]}
 
     def assert_pixel(self, row, expected):
@@ -198,8 +201,10 @@ class SceneStaticModelBlendingTests(unittest.TestCase):
         enabled = self.rows["normal-one"]
         for row in [alone, layered]:
             self.assertEqual(row["preparedWritesDepth"], [False, True])
-            self.assertTrue(row["prepared"] and row["encoded"] and row["completed"])
+            self.assertTrue(row["prepared"] and row["completed"])
             self.assertEqual(row["leases"], 1)
+        self.assertEqual(alone["encodedParts"], [0])
+        self.assertEqual(layered["encodedParts"], [0, 1])
         self.assert_pixel(alone, [255, 0, 0, 255])
         self.assertEqual(alone["depth"], 0)
         self.assert_pixel(far, [0, 0, 255, 255])
@@ -210,14 +215,21 @@ class SceneStaticModelBlendingTests(unittest.TestCase):
         self.assertGreater(enabled["depth"], far["depth"])
 
     def test_real_shared_depth_completion_and_transparent_attachment_controls(self):
+        skipped_part = dict.fromkeys((
+            "normal-layer-zero", "translucent-zero", "translucent-layer-zero",
+            "legacy-nil-zero", "legacy-unknown-zero", "additive-zero"), 0)
+        skipped_part["depth-disabled-zero-coverage"] = 1
         for row in self.rows.values():
-            with self.subTest(name=row["name"]):
+            name = row["name"]
+            with self.subTest(name=name):
                 self.assertTrue(row["completed"])
                 self.assertTrue(row["sharedDepth"])
                 self.assertEqual(row["leases"], 1)
                 self.assertEqual(row["outside"], [0, 0, 0, 0])
                 self.assertTrue(row["prepared"])
-                self.assertTrue(row["encoded"])
+                expected = [index for index, side in enumerate(("near", "far"))
+                            if self.inputs[name][side] and index != skipped_part.get(name)]
+                self.assertEqual(row["encodedParts"], expected)
 
     def test_additive_adds_premultiplied_rgb_and_preserves_source_over_alpha(self):
         for name, expected in [
@@ -298,6 +310,18 @@ class SceneStaticModelBlendingTests(unittest.TestCase):
                 self.assertAlmostEqual(row["depth"], depth, delta=1e-7)
                 self.assertAlmostEqual(row["volumeDepth"], depth, delta=1e-7)
                 self.assertAlmostEqual(row["volumeDepth"], row["depth"], delta=1e-7)
+
+    def test_disabled_point_volume_skips_independent_depth_and_keeps_main_depth(self):
+        enabled = self.rows["volume-near-then-far"]
+        disabled = self.rows["volume-quality-disabled"]
+        self.assertTrue(enabled["hasVolumeCameraDepth"])
+        self.assertEqual(enabled["volumeOccluders"], 2)
+        self.assertFalse(disabled["hasVolumeCameraDepth"])
+        self.assertEqual(disabled["volumeOccluders"], 0)
+        self.assertNotIn("volumeDepth", disabled)
+        self.assertGreater(disabled["depth"], 0)
+        self.assertEqual(disabled["depth"], enabled["depth"])
+        self.assertEqual(disabled["rgba"], enabled["rgba"])
 
 
 if __name__ == "__main__":

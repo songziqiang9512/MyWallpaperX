@@ -215,7 +215,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
                     "v": SceneDaemonProtocol.version,
                     "cmd": "setSceneRenderQuality",
                     "scenePostProcessing": quality.postProcessing.rawValue,
-                    "shadowQuality": quality.shadows.rawValue
+                    "shadowQuality": quality.shadows.rawValue,
+                    "pointVolumeQuality": quality.pointVolume.rawValue
                 ])
             }
             return activeIntent != nil || pendingIntent != nil
@@ -715,7 +716,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             "requiredUserTextureKeys": request.requiredUserTextureKeys.sorted(),
             "profile": performanceProfile.maxFPS,
             "scenePostProcessing": sceneRenderQuality.postProcessing.rawValue,
-            "shadowQuality": sceneRenderQuality.shadows.rawValue
+            "shadowQuality": sceneRenderQuality.shadows.rawValue,
+            "pointVolumeQuality": sceneRenderQuality.pointVolume.rawValue
         ]
         if let sourceObject { payload["source"] = sourceObject }
         if let recordID = request.recordID {

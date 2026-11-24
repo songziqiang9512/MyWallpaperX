@@ -19,6 +19,7 @@
         let name = input["name"] as! String, directory = root.appendingPathComponent(name)
         let renamed = input["renamed"] as! Bool
         let volume = input["volume"] as! Bool
+        let pointVolumeEnabled = input["pointVolumeEnabled"] as! Bool
         let stems = renamed ? ["ember_surface", "sky_surface"] : ["red", "blue"]
         let ids = renamed ? [407, 901] : [1, 2]
         var passes = try stems.map { stem -> SceneRenderDescriptor.MaterialPassDescriptor in
@@ -78,6 +79,7 @@
         let assets = try SceneStaticModelAssetInputs(materialPlan: materialPlan, resourceView: .init(root: directory),
             descriptor: descriptor, loader: loader, device: device)
         let resources = try ScenePreparedStaticModelResources.prepare(descriptor: descriptor,
+            pointVolumeEnabled: pointVolumeEnabled,
             resourceView: .init(root: directory), device: device, textureLoader: loader,
             materialPlan: materialPlan, albedoStates: assets.launchStates,
             preparedSources: &sources, cancellationCheck: {})
@@ -88,8 +90,9 @@
             byID: Dictionary(uniqueKeysWithValues: layers.map { ($0.id, $0) }))
         let camera = SceneParticleCameraFrame(camera: descriptor.camera,
             viewportSize: CGSize(width: 64, height: 64))
+        let hasCameraDepth = resources.pipeline!.supportsCameraDepth
         if volume {
-            precondition(camera.defaultsToPerspective && resources.pipeline!.supportsCameraDepth)
+            precondition(camera.defaultsToPerspective)
             for (index, z) in [Float(10), -10].enumerated() {
                 precondition(camera.resolvesPerspective(for: layers[index]))
                 let center = camera.reverseDepthViewProjection(usesPerspective: true)
@@ -108,7 +111,7 @@
         let output = device.makeTexture(descriptor: td)!, cb = queue.makeCommandBuffer()!
         let pass = SceneMainPassEncoder(commandBuffer: cb, target: output,
             clearColor: MTLClearColorMake(0,0,0,0), clearEnabled: true)
-        let state = SceneMetalRenderer.StaticModelFrame(commandBuffer: cb, collectsVolumeOccluders: volume)
+        let state = SceneMetalRenderer.StaticModelFrame(commandBuffer: cb, collectsVolumeOccluders: hasCameraDepth)
         var leases: [SceneParticleDepthTargetLease] = []
         var selected = [(0, input["near"] as! Bool), (1, input["far"] as! Bool)]
         if farFirst { selected.reverse() }
@@ -128,7 +131,7 @@
             residentByteBudget: 8 * 1024 * 1024) : nil
         let volumeDepth = volume ? renderer.encodeVolumeOccluderDepth(state: state, pass: pass,
             pool: volumePool, groups: nil, needsTerminalScratch: false) : nil
-        if volume { precondition(volumeDepth != nil) }
+        if hasCameraDepth { precondition(volumeDepth != nil) }
         precondition(pass.finishEnsuringClear())
         let depth = preparedDepth.lease!.texture
         let buffer = device.makeBuffer(length: volume ? 512 : 256, options: .storageModeShared)!
@@ -157,12 +160,12 @@
             "opacity": resources[ids[0]]![0].material.opacity,
             "preparedWritesDepth": ids.map { resources[$0]![0].writesDepth },
             "rgba": rgba(32,32), "outside": rgba(1,1),
+            "hasVolumeCameraDepth": hasCameraDepth, "volumeOccluders": state.volumeOccluders.count,
             "depth": buffer.contents().bindMemory(to: Float.self, capacity: 1).pointee,
             "leases": leases.count, "sharedDepth": preparedDepth.lease != nil,
-            "encoded": selected.allSatisfy { index, enabled in
-                !enabled || renderer.dependencyRuntime.encoded[ids[index]] == true
-            }, "completed": true]
-        if volume {
+            "encodedParts": ids.indices.filter { renderer.dependencyRuntime.encoded[ids[$0]] == true },
+            "completed": true]
+        if volumeDepth != nil {
             result["volumeDepth"] = buffer.contents().advanced(by: 256)
                 .bindMemory(to: Float.self, capacity: 1).pointee
         }

@@ -64,11 +64,12 @@ import Foundation
         let hdrLoadValid: Bool
         if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(hdrLoadPayload) {
             hdrLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, shadows: .adaptive)
+                && quality.pointVolume == .enabled
         } else { hdrLoadValid = false }
         let qualityChangePayload: [String: Any] = ["v": 2, "cmd": "setSceneRenderQuality",
-            "scenePostProcessing": "displayHDR", "shadowQuality": "medium"]
+            "scenePostProcessing": "displayHDR", "shadowQuality": "medium", "pointVolumeQuality": "disabled"]
         let qualityChangeValid = decode(qualityChangePayload) == .success(.setSceneRenderQuality(
-            .init(postProcessing: .ultraDisplayHDR, shadows: .medium)))
+            .init(postProcessing: .ultraDisplayHDR, shadows: .medium, pointVolume: .disabled)))
         var shadowLoadPayload = hdrLoadPayload
         shadowLoadPayload.removeValue(forKey: "scenePostProcessing")
         shadowLoadPayload["shadowQuality"] = "disabled"
@@ -76,8 +77,14 @@ import Foundation
         if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(shadowLoadPayload) {
             shadowLoadValid = quality == .init(postProcessing: .ultra, shadows: .disabled)
         } else { shadowLoadValid = false }
+        var pointVolumeLoadPayload = hdrLoadPayload
+        pointVolumeLoadPayload["pointVolumeQuality"] = "disabled"
+        let pointVolumeLoadValid: Bool
+        if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(pointVolumeLoadPayload) {
+            pointVolumeLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, pointVolume: .disabled)
+        } else { pointVolumeLoadValid = false }
         let invalidQualityValues: [Any] = [true, "unknown", NSNull()]
-        let qualityKeys = ["scenePostProcessing", "shadowQuality"]
+        let qualityKeys = ["scenePostProcessing", "shadowQuality", "pointVolumeQuality"]
         let malformedQualityRejected = [hdrLoadPayload, qualityChangePayload].allSatisfy { payload in
             qualityKeys.allSatisfy { key in
                 invalidQualityValues.allSatisfy { value in
@@ -471,6 +478,7 @@ import Foundation
             "loadValid": loadValid,
             "hdrLoadValid": hdrLoadValid,
             "shadowLoadValid": shadowLoadValid,
+            "pointVolumeLoadValid": pointVolumeLoadValid,
             "qualityChangeValid": qualityChangeValid,
             "malformedQualityRejected": malformedQualityRejected,
             "incompleteQualityUpdateRejected": incompleteQualityUpdateRejected,

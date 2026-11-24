@@ -370,6 +370,9 @@ extension AppKitSettingsContainerView {
         }
         qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Shadows"), iconSystemName: "shadow",
             subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: sceneShadowsPopup))
+        scenePointVolumePopup.addItems(withTitles: [String(localized: "Disabled"), String(localized: "Enabled")])
+        qualitySection.addRow(makeSettingRow(title: String(localized: "Point Light Volume"), iconSystemName: "light.max",
+            subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: scenePointVolumePopup))
         webFrameRatePopup.addItems(withTitles: [
             String(localized: "Match Display (up to 60 FPS)"),
             String(localized: "Follow Animation Frame Rate"),
@@ -380,8 +383,47 @@ extension AppKitSettingsContainerView {
         qualitySection.addRow(makeSettingRow(
             title: String(localized: "Video Quality"), iconSystemName: "film",
             trailing: NSTextField(labelWithString: String(localized: "Original Video"))))
+        for control in [sceneMaxFPSSegmented, scenePostProcessingPopup, sceneShadowsPopup, scenePointVolumePopup, webFrameRatePopup] as [NSControl] {
+            control.target = self
+            control.action = #selector(handleQualityChange(_:))
+        }
         configureMaintenanceActionButton(resetQualityButton)
+        resetQualityButton.target = self
+        resetQualityButton.action = #selector(restoreDefaultQuality)
         qualitySection.addRow(makeMaintenanceActionRow(button: resetQualityButton, iconSystemName: "arrow.counterclockwise"))
+    }
+
+    func refreshQualityControls() {
+        let quality = PlaybackQualityPreference.current
+        sceneMaxFPSSegmented.selectedSegment = quality.profile == .efficient ? 0 : 1
+        webFrameRatePopup.selectItem(at: quality.webFrameRateMode == .display ? 0 : 1)
+        refreshScenePostProcessingMenu(quality.scene.postProcessing)
+        sceneShadowsPopup.selectItem(at: sceneShadowsPopup.indexOfItem(withRepresentedObject: quality.scene.shadows.rawValue))
+        scenePointVolumePopup.selectItem(at: quality.scene.pointVolume == .disabled ? 0 : 1)
+    }
+
+    @objc private func handleQualityChange(_ sender: NSControl) {
+        guard !isUpdatingUI else { return }
+        var quality = PlaybackQualityPreference.current
+        if sender === sceneMaxFPSSegmented {
+            quality.profile = sceneMaxFPSSegmented.selectedSegment == 0 ? .efficient : .standard
+        } else if sender === webFrameRatePopup {
+            quality.webFrameRateMode = webFrameRatePopup.indexOfSelectedItem == 1 ? .followAnimationFrameRate : .display
+        } else if sender === scenePointVolumePopup {
+            quality.scene.pointVolume = scenePointVolumePopup.indexOfSelectedItem == 0 ? .disabled : .enabled
+        } else if let mode = (sender as? NSPopUpButton)?.selectedItem?.representedObject as? String {
+            if sender === sceneShadowsPopup, let selected = SceneShadowQuality(rawValue: mode) {
+                quality.scene.shadows = selected
+            } else if sender === scenePostProcessingPopup, let selected = ScenePostProcessingMode(rawValue: mode) {
+                quality.scene.postProcessing = selected
+            }
+        }
+        PlaybackCommandMultiplexer.shared.applyQualityPreference(quality)
+    }
+
+    @objc private func restoreDefaultQuality() {
+        PlaybackCommandMultiplexer.shared.applyQualityPreference(.defaults)
+        refreshFromState()
     }
 
     func refreshScenePostProcessingMenu(_ mode: ScenePostProcessingMode) {
@@ -417,7 +459,7 @@ extension AppKitSettingsContainerView {
         hotkeyEnableSwitches.values.forEach { $0.controlSize = .mini }
 
         let popups: [NSPopUpButton] = [timeUnitPopup, idleTimeoutPopup, libraryBackgroundPopup, libraryCardClickPopup, webFrameRatePopup, scenePostProcessingPopup] + hotkeyPopups.values
-            + [sceneShadowsPopup, systemAudioSpectrumBarCountPopup]
+            + [sceneShadowsPopup, scenePointVolumePopup, systemAudioSpectrumBarCountPopup]
         popups.forEach { $0.controlSize = .small }
 
         intervalField.controlSize = .small

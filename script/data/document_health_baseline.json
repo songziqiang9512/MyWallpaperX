@@ -77,8 +77,8 @@
       "bytes": 73409
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 69,
-      "bytes": 12538
+      "lines": 78,
+      "bytes": 14216
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -93,8 +93,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 265,
-      "bytes": 50025
+      "lines": 267,
+      "bytes": 50446
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,19 +369,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "d00c4e882286f01cc3eef0c2d344452a8a9347f15798f31612f3218ce9365778",
-      "after": "8adb2c0f159ed48faafc3938f018d3962c9ee931b3b027d801ed101e0b69fc44",
-      "owner": "Scene runtime/Metal",
-      "reason": "补 Scene 阴影实际消费、重载边界与相机深度保留。",
+      "before": "8adb2c0f159ed48faafc3938f018d3962c9ee931b3b027d801ed101e0b69fc44",
+      "after": "1d268ccfeaf930f9df03a89bd5eba33ef8f20dcc0a39b09c2123ee76752d6d38",
+      "owner": "Scene runtime / Metal",
+      "reason": "点光体积开关与共享灯、主相机深度及聚光职责。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "28d28935379a9fb44dd5e71db73652515037e08b9f5e87d8be36ddc0f13a1704",
-      "after": "d775758d9b3c1d49a39b5cd1a5c982c079f064e8b3b6929983ac076fbc797108",
-      "owner": "Video / Steam Workshop",
-      "reason": "记录真实片源轨道、发布文件身份及原生详情回归。",
+      "before": "d775758d9b3c1d49a39b5cd1a5c982c079f064e8b3b6929983ac076fbc797108",
+      "after": "bdb55214dc5d148b0bac24aa21df5bca15dd66d94a79cb4e78ed66ecf7c78694",
+      "owner": "Scene runtime / App playback",
+      "reason": "定点光体积开关准备、默认和热路径的现役边界。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {

@@ -413,9 +413,12 @@ nonisolated enum SceneDaemonProtocol {
     private static func renderQuality(_ payload: [String: Any], fallback: SceneRenderQuality? = nil) -> SceneRenderQuality? {
         let postProcessingRaw = payload["scenePostProcessing"] ?? fallback.map { $0.postProcessing.rawValue as Any }
         let shadowRaw = payload["shadowQuality"] ?? fallback.map { $0.shadows.rawValue as Any }
+        let pointVolumeRaw = payload["pointVolumeQuality"] ?? fallback.map { $0.pointVolume.rawValue as Any }
         guard let postProcessing = (postProcessingRaw as? String).flatMap(ScenePostProcessingMode.init(rawValue:)),
-              let shadows = (shadowRaw as? String).flatMap(SceneShadowQuality.init(rawValue:)) else { return nil }
-        return .init(postProcessing: postProcessing, shadows: shadows)
+              let shadows = (shadowRaw as? String).flatMap(SceneShadowQuality.init(rawValue:)),
+              let pointVolume = (pointVolumeRaw as? String).flatMap(ScenePointVolumeQuality.init(rawValue:))
+        else { return nil }
+        return .init(postProcessing: postProcessing, shadows: shadows, pointVolume: pointVolume)
     }
 
     private static func displayConfiguration(

@@ -1080,10 +1080,13 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift",
         "script/tests/fixtures/ScenePointVolumeChecks.swift",
-        "script/tests/scene/test_scene_point_volume.py"
+        "script/tests/scene/test_scene_point_volume.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
+        "script/tests/scene/test_scene_point_volume_integration.py"
       ],
       "modules": [
-        "test_scene_point_volume"
+        "test_scene_point_volume",
+        "test_scene_point_volume_integration"
       ]
     },
     {

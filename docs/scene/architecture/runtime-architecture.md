@@ -138,6 +138,8 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 
 质量请求在 [Scene 冷准备](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift)将阴影档投影给原静态模型和光空间深度图。全部作者灯仍由现有状态供直接灯、体积及几何消费者读取，「禁用」只撤可选阴影绘制和实际贴图采样。「中」沿原 PCF 和投影 fit，将定向图封顶 1024。「超高」保现有自适应预算。点／聚光沿原尺寸和采样，每次新准备在候选中固定阴影档，旧会话持续用已准备资源。重新应用、属性重载和 daemon 恢复会采用新意图。
 
+点光体积档在同一 Scene 准备请求生效。禁用时跳过点光体积及其专用实体遮挡深度管线，清屏透视和作者无阴影灯的准入仍归原点光路径。主相机深度、表面光、聚光锥和阴影消费者保持各自职责。已显示会话保本代体积结果，效果随原壁纸重载换代。 [点光体积合同](../capabilities/advanced-object-coverage.md#point-light-volume)
+
 增加新的性能档位前，先以可比CPU/GPU、内存、启动或能耗证据确定取舍，再在原prepare入口形成被真实Program/资源/后处理消费者使用的有效策略，质量只控制对应能力和采样/分辨率等实际成本。当前不先建空enum、仅透传对象、第二配置owner/cache或无消费者的uniform位；普通帧不重读UI、不重编或重复判档位。策略改变沿原受影响资源/Program准备与提交寿命更新，不分叉作者时钟、材质算法或最终输出。每项降档须说明具体画面代价，保作者控制、遮挡和健康peer，并退出被替代的旧决策；不能把缺功能、采集过载或未归因暗图称为性能优化。
 
 <a id="raster-sample-domain"></a>

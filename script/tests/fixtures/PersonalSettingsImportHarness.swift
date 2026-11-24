@@ -373,6 +373,7 @@ extension Notification.Name {
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: unwritableRecoveryParent.path)
         let modeBefore = PlaybackQualityPreference.current.scene.postProcessing
         let importedShadows: SceneShadowQuality = .medium
+        let importedPointVolume: ScenePointVolumeQuality = .disabled
         let importedMode: ScenePostProcessingMode = modeBefore.requestsDisplayHDR ? .ultra : .ultraDisplayHDR
         let mediaBefore = SceneMediaSourcePreference.isEnabled
         let frameBudgetBefore = PlaybackPerformanceProfile.current
@@ -382,6 +383,7 @@ extension Notification.Name {
         var completePreferences = prefs
         completePreferences.sceneHDRDisplayEnabled = importedMode.requestsDisplayHDR
         completePreferences.sceneShadowQuality = importedShadows.rawValue
+        completePreferences.scenePointVolumeQuality = importedPointVolume.rawValue
         completePreferences.sceneMediaInfoEnabled = !mediaBefore
         completePreferences.playbackPerformanceProfile = frameBudgetBefore == .standard ? 30 : 60
         completePreferences.webFrameRateMode = WebFrameRateMode.followAnimationFrameRate.rawValue
@@ -390,9 +392,10 @@ extension Notification.Name {
         _ = try await coordinator.importPersonalSettings(from: completeProfile)
         checks["ExternalPortablePreferencesApplyThroughTheirOriginalOwnersWithoutPlayback"] = PlaybackQualityPreference.current.scene.postProcessing == importedMode
             && PlaybackQualityPreference.current.scene.shadows == importedShadows
+            && PlaybackQualityPreference.current.scene.pointVolume == importedPointVolume
             && SceneMediaSourcePreference.isEnabled == !mediaBefore
             && PlaybackPerformanceProfile.current.rawValue == completePreferences.playbackPerformanceProfile
-            && Array(sceneQuality.commands.suffix(2)) == [.setPerformanceProfile(maxFPS: PlaybackPerformanceProfile.current.maxFPS), .setSceneRenderQuality(.init(postProcessing: importedMode, shadows: importedShadows))]
+            && Array(sceneQuality.commands.suffix(2)) == [.setPerformanceProfile(maxFPS: PlaybackPerformanceProfile.current.maxFPS), .setSceneRenderQuality(.init(postProcessing: importedMode, shadows: importedShadows, pointVolume: importedPointVolume))]
             && webQuality.commands.last == .setWebFrameRateSuggestion(PlaybackPerformanceProfile.current.maxFPS)
             && manager.recentWrites == 0
         let portableBackup = root.appendingPathComponent("all-portable-backup.json")
@@ -400,6 +403,7 @@ extension Notification.Name {
         let portableExport = try LibraryPersonalSettings.decode(Data(contentsOf: portableBackup)).preferences
         checks["ExternalPortablePreferencesAreIncludedInTheOriginalProfileExport"] = portableExport.sceneHDRDisplayEnabled == importedMode.requestsDisplayHDR
             && portableExport.scenePostProcessingMode == importedMode.rawValue && portableExport.sceneShadowQuality == importedShadows.rawValue
+            && portableExport.scenePointVolumeQuality == importedPointVolume.rawValue
             && portableExport.sceneMediaInfoEnabled == !mediaBefore && portableExport.playbackPerformanceProfile == PlaybackPerformanceProfile.current.rawValue
             && portableExport.animationFramesPerSecond == PlaybackPerformanceProfile.current.rawValue
             && portableExport.webFrameRateMode == WebFrameRateMode.followAnimationFrameRate.rawValue
@@ -411,22 +415,24 @@ extension Notification.Name {
         try write(.init(exportedAt: originalDate, preferences: precedence, sources: [], collections: .init()), to: completeProfile)
         _ = try await coordinator.importPersonalSettings(from: completeProfile)
         checks["NewFrameRateWinsLegacyAndAnOmittedWebModeIsPreserved"] = PlaybackQualityPreference.current
-            == .init(profile: frameBudgetBefore, webFrameRateMode: .followAnimationFrameRate, scene: .init(postProcessing: modeBefore, shadows: importedShadows))
-            && Array(sceneQuality.commands.suffix(2)) == [.setPerformanceProfile(maxFPS: frameBudgetBefore.maxFPS), .setSceneRenderQuality(.init(postProcessing: modeBefore, shadows: importedShadows))]
+            == .init(profile: frameBudgetBefore, webFrameRateMode: .followAnimationFrameRate, scene: .init(postProcessing: modeBefore, shadows: importedShadows, pointVolume: importedPointVolume))
+            && Array(sceneQuality.commands.suffix(2)) == [.setPerformanceProfile(maxFPS: frameBudgetBefore.maxFPS), .setSceneRenderQuality(.init(postProcessing: modeBefore, shadows: importedShadows, pointVolume: importedPointVolume))]
             && webQuality.commands.last == .setWebFrameRateSuggestion(frameBudgetBefore.maxFPS)
         let sceneCount = sceneQuality.commands.count, webCount = webQuality.commands.count
         precedence.animationFramesPerSecond = 25
         precedence.webFrameRateMode = "futureMode"
         precedence.scenePostProcessingMode = "futureDisplayMode"
         precedence.sceneShadowQuality = "futureShadowMode"
+        precedence.scenePointVolumeQuality = "futureVolumeMode"
         try write(.init(exportedAt: originalDate, preferences: precedence, sources: [], collections: .init()), to: completeProfile)
         _ = try await coordinator.importPersonalSettings(from: completeProfile)
         checks["UnsupportedExplicitFrameRateDoesNotFallBackToLegacy"] = PlaybackQualityPreference.current
-            == .init(profile: frameBudgetBefore, webFrameRateMode: .followAnimationFrameRate, scene: .init(postProcessing: modeBefore, shadows: importedShadows))
+            == .init(profile: frameBudgetBefore, webFrameRateMode: .followAnimationFrameRate, scene: .init(postProcessing: modeBefore, shadows: importedShadows, pointVolume: importedPointVolume))
             && sceneQuality.commands.count == sceneCount && webQuality.commands.count == webCount
         let result = try await coordinator.importPersonalSettings(from: profile)
         checks["CurrentPartialProfilesLeaveUnselectedExternalPreferencesWithTheirOwners"] = PlaybackQualityPreference.current.scene.postProcessing == modeBefore
             && PlaybackQualityPreference.current.scene.shadows == importedShadows
+            && PlaybackQualityPreference.current.scene.pointVolume == importedPointVolume
             && SceneMediaSourcePreference.isEnabled == !mediaBefore && PlaybackPerformanceProfile.current == frameBudgetBefore
             && PlaybackQualityPreference.current.webFrameRateMode == .followAnimationFrameRate
         checks["SameNameDifferentUUIDAndMixedOfflineMembersSurvive"] = controller.snapshot.playlists.count == 2
@@ -624,6 +630,7 @@ extension Notification.Name {
                 var snapshot = plan[key] as! [String: Any]
                 snapshot.removeValue(forKey: "scenePostProcessingMode")
                 snapshot.removeValue(forKey: "sceneShadowQuality")
+                snapshot.removeValue(forKey: "scenePointVolumeQuality")
                 snapshot["sceneHDRDisplayEnabled"] = true
                 plan[key] = snapshot
             }

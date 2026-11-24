@@ -112,7 +112,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         // Scene handshake / restart replay must retain a pause received before ready.
         scene.pendingIntent = ScenePlaybackLoadRequest(rootURL: URL(fileURLWithPath: "/fixture"),
             propertyOverrides: [:], userPropertyTextures: [:], recordID: "fixture")
-        precondition(mux.dispatch(.setSceneRenderQuality(.init(postProcessing: .ultraDisplayHDR, shadows: .medium)), to: .scene))
+        precondition(mux.dispatch(.setSceneRenderQuality(.init(postProcessing: .ultraDisplayHDR, shadows: .medium, pointVolume: .disabled)), to: .scene))
         precondition(scene.commands.isEmpty)
         scene.endpointReady = true
         scene.hasRequestRetirementControl = true
@@ -131,11 +131,13 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         precondition(scene.commands.first?["cmd"] as? String == "loadScene")
         precondition(scene.commands.first?["scenePostProcessing"] as? String == "displayHDR")
         precondition(scene.commands.first?["shadowQuality"] as? String == "medium")
+        precondition(scene.commands.first?["pointVolumeQuality"] as? String == "disabled")
         precondition(scene.commands.last?["cmd"] as? String == "pause")
         precondition(mux.dispatch(.setSceneRenderQuality(.init(shadows: .disabled)), to: .scene))
         precondition(scene.commands.last?["cmd"] as? String == "setSceneRenderQuality")
         precondition(scene.commands.last?["scenePostProcessing"] as? String == "ultra")
         precondition(scene.commands.last?["shadowQuality"] as? String == "disabled")
+        precondition(scene.commands.last?["pointVolumeQuality"] as? String == "enabled")
         // Web preparing alongside retained Video must pause/resume both surfaces.
         engine.currentPlaybackContentKind = .web
         engine.currentWebRequestID = UUID()

@@ -95,12 +95,14 @@ final class Handler: PlaybackEngineControlling {
         precondition(video.qualityCommands == [.setWebFrameRateSuggestion(30), .setWebFrameRateSuggestion(nil)])
         var quality = PlaybackQualityPreference.defaults
         quality.scene.shadows = .medium
+        quality.scene.pointVolume = .disabled
         mux.applyQualityPreference(quality, defaults: suite)
         mux.applyQualityPreference(quality, defaults: suite)
         precondition(PlaybackQualityPreference.read(from: suite) == quality)
         precondition(scene.qualityCommands.count == 3 && scene.qualityCommands.last == .setSceneRenderQuality(quality.scene))
         suite.set(["sceneShadowQuality": "future"], forKey: PlaybackQualityPreference.userDefaultsKey)
         precondition(PlaybackQualityPreference.read(from: suite).scene.shadows == .adaptive)
+        precondition(PlaybackQualityPreference.read(from: suite).scene.pointVolume == .enabled)
         suite.removePersistentDomain(forName: suiteName)
         video.volume = 0
         let previousVolumeCommands = video.volumeCommands

@@ -102,6 +102,8 @@ import ImageIO
         targetPreferences.scenePostProcessingMode = importedPostProcessing?.rawValue
         targetPreferences.sceneShadowQuality =
             (payload.preferences.compatibleSceneShadows ?? preferences.compatibleSceneShadows)?.rawValue
+        targetPreferences.scenePointVolumeQuality =
+            (payload.preferences.compatibleScenePointVolume ?? preferences.compatibleScenePointVolume)?.rawValue
         targetPreferences.sceneHDRDisplayEnabled = importedPostProcessing?.requestsDisplayHDR
         targetPreferences.sceneMediaInfoEnabled = payload.preferences.sceneMediaInfoEnabled ?? preferences.sceneMediaInfoEnabled
         let importedProfile = payload.preferences.compatibleAnimationProfile
@@ -209,6 +211,7 @@ import ImageIO
             before.sceneHDRDisplayEnabled = nil; target.sceneHDRDisplayEnabled = nil
             before.scenePostProcessingMode = nil; target.scenePostProcessingMode = nil
             before.sceneShadowQuality = nil; target.sceneShadowQuality = nil
+            before.scenePointVolumeQuality = nil; target.scenePointVolumeQuality = nil
             before.sceneMediaInfoEnabled = nil; target.sceneMediaInfoEnabled = nil
             before.playbackPerformanceProfile = nil; target.playbackPerformanceProfile = nil
             before.animationFramesPerSecond = nil; target.animationFramesPerSecond = nil
@@ -273,6 +276,7 @@ import ImageIO
         let quality = PlaybackQualityPreference.current
         value.scenePostProcessingMode = quality.scene.postProcessing.rawValue
         value.sceneShadowQuality = quality.scene.shadows.rawValue
+        value.scenePointVolumeQuality = quality.scene.pointVolume.rawValue
         value.sceneHDRDisplayEnabled = quality.scene.postProcessing.requestsDisplayHDR
         value.animationFramesPerSecond = quality.profile.rawValue
         value.playbackPerformanceProfile = quality.profile.rawValue
@@ -289,6 +293,7 @@ import ImageIO
         let quality = PlaybackQualityPreference.current
         guard admits(quality.scene.postProcessing, before.compatibleScenePostProcessing, target.compatibleScenePostProcessing),
               admits(quality.scene.shadows, before.compatibleSceneShadows, target.compatibleSceneShadows),
+              admits(quality.scene.pointVolume, before.compatibleScenePointVolume, target.compatibleScenePointVolume),
               admits(SceneMediaSourcePreference.isEnabled, before.sceneMediaInfoEnabled, target.sceneMediaInfoEnabled),
               admits(quality.profile, before.compatibleAnimationProfile, target.compatibleAnimationProfile),
               admits(quality.webFrameRateMode.rawValue, before.webFrameRateMode, target.webFrameRateMode) else {
@@ -306,7 +311,8 @@ import ImageIO
             webFrameRateMode: preferences.webFrameRateMode.flatMap(WebFrameRateMode.init(rawValue:)) ?? current.webFrameRateMode,
             scene: .init(
                 postProcessing: preferences.compatibleScenePostProcessing ?? current.scene.postProcessing,
-                shadows: preferences.compatibleSceneShadows ?? current.scene.shadows
+                shadows: preferences.compatibleSceneShadows ?? current.scene.shadows,
+                pointVolume: preferences.compatibleScenePointVolume ?? current.scene.pointVolume
             )
         )
         if current != next {
@@ -363,6 +369,10 @@ private extension PersonalSettingsPreferences {
 
     var compatibleSceneShadows: SceneShadowQuality? {
         sceneShadowQuality.flatMap(SceneShadowQuality.init(rawValue:))
+    }
+
+    var compatibleScenePointVolume: ScenePointVolumeQuality? {
+        scenePointVolumeQuality.flatMap(ScenePointVolumeQuality.init(rawValue:))
     }
 
     var compatibleAnimationProfile: PlaybackPerformanceProfile? {

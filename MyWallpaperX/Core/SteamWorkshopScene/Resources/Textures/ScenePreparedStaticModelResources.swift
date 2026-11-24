@@ -195,6 +195,7 @@ struct ScenePreparedStaticModelResources {
     static func prepare(
         descriptor: SceneRenderDescriptor,
         directionalShadowDimensionLimit: Int? = 4096,
+        pointVolumeEnabled: Bool = true,
         resourceView: SceneResourceView,
         device: MTLDevice,
         textureLoader: SceneTextureLoader,
@@ -356,7 +357,7 @@ struct ScenePreparedStaticModelResources {
                 device: device, colorPixelFormat: descriptor.colorTargetFormat.metalPixelFormat,
                 preparesReflection: !reflectiveLayerIDs.isEmpty,
                 preparesAdditive: entries.values.contains { $0.contains { $0.materialBlending == .additive } },
-                preparesCameraDepth: descriptor.camera.clearEnabled && descriptor.layers.contains {
+                preparesCameraDepth: pointVolumeEnabled && descriptor.camera.clearEnabled && descriptor.layers.contains {
                     $0.pointLight?.unshadowedVolume != nil
                 }, preparesShadows: directionalShadowDimensionLimit != nil) else { return .empty }
             return ScenePreparedStaticModelResources(

@@ -74,14 +74,15 @@ struct ScenePreparedStaticModelResources {
     let planToken: Int
     let states: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
     let directionalShadowDimensionLimit: Int?
+    let pointVolumeEnabled: Bool
     static func prepare(descriptor: SceneRenderDescriptor, directionalShadowDimensionLimit: Int?,
-        resourceView: SceneResourceView,
+        pointVolumeEnabled: Bool, resourceView: SceneResourceView,
         device: MTLDevice, textureLoader: Loader,
         materialPlan: MaterialPlan, albedoStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
         preparedSources: inout [String: SceneMdlStaticModel.PreparedSource],
         cancellationCheck: () throws -> Void) throws -> Self {
         try cancellationCheck(); return .init(planToken: materialPlan.token, states: albedoStates,
-            directionalShadowDimensionLimit: directionalShadowDimensionLimit)
+            directionalShadowDimensionLimit: directionalShadowDimensionLimit, pointVolumeEnabled: pointVolumeEnabled)
     }
 }
 struct ScenePreparedDeviceResources {
@@ -98,7 +99,7 @@ HARNESS = r'''
 @main enum Harness {
     static func task() -> ScenePreparedDeviceResourcesTask {
         .init(descriptor: .init(), directionalShadowDimensionLimit: 1024,
-            resourceView: .init(), device: .init(), sceneGeneration: 1,
+            pointVolumeEnabled: false, resourceView: .init(), device: .init(), sceneGeneration: 1,
             cacheDirectory: URL(fileURLWithPath: "/unused-resource-task-cache", isDirectory: true),
             cancellationCheck: {})
     }
@@ -115,6 +116,7 @@ HARNESS = r'''
         out["plannedModels"] = prepared.baseImages.models.sorted()
         out["samePlanningPayload"] = prepared.staticModels.planToken == 73 && prepared.staticModels.states == states
             && prepared.staticModels.directionalShadowDimensionLimit == 1024
+            && !prepared.staticModels.pointVolumeEnabled
         let empty = task(); empty.start()
         _ = try empty.preparedImageGeometry(); _ = Backend.entered.wait(timeout: .now()+2)
         empty.completeResourcePlanning(.init(dynamicImageModelPaths: [], modelMaterialPlan: .empty, modelAlbedoStates: [:]))

@@ -352,7 +352,7 @@ final class SceneImageEffectPipelineRepository {
 enum SceneMdlStaticModel { struct PreparedSource {} }
 struct ScenePreparedStaticModelResources {
     struct MaterialPlan { static let empty = Self() }
-    static func prepare(descriptor: SceneRenderDescriptor, directionalShadowDimensionLimit: Int?,
+    static func prepare(descriptor: SceneRenderDescriptor, directionalShadowDimensionLimit: Int?, pointVolumeEnabled: Bool,
                         resourceView: SceneResourceView, device: MTLDevice, textureLoader: SceneTextureLoader,
                         materialPlan: MaterialPlan,
                         albedoStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
@@ -781,7 +781,7 @@ enum Checks {
             "completedDrainStillCompletes":heldDrained.wait(timeout:.now()+5) == .success,
             "cancelledWorkerCannotPublishReady":heldPrepared.deferredStatus(for:1) != .ready]
         func task() -> ScenePreparedDeviceResourcesTask {
-            .init(descriptor: deferredDescriptor, directionalShadowDimensionLimit: 4096, resourceView: deferredView, device: device,
+            .init(descriptor: deferredDescriptor, directionalShadowDimensionLimit: 4096, pointVolumeEnabled: true, resourceView: deferredView, device: device,
                 sceneGeneration: 1, cacheDirectory: root, deferredBaseImageLayerIDs: [1], imageGeometryModels: [automatic],
                 cancellationCheck: {})
         }
@@ -802,7 +802,7 @@ enum Checks {
         let workerRelease = DispatchSemaphore(value: 0)
         let waiterEntered = DispatchSemaphore(value: 0)
         let waiterReturned = DispatchSemaphore(value: 0)
-        let pending = ScenePreparedDeviceResourcesTask(descriptor: deferredDescriptor, directionalShadowDimensionLimit: 4096,
+        let pending = ScenePreparedDeviceResourcesTask(descriptor: deferredDescriptor, directionalShadowDimensionLimit: 4096, pointVolumeEnabled: true,
             resourceView: deferredView, device: device, sceneGeneration: 1,
             cacheDirectory: root,
             imageGeometryModels: [automatic], cancellationCheck: {
