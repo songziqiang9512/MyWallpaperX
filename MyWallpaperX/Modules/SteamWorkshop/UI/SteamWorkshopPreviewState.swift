@@ -70,6 +70,7 @@ import AppKit
     private var retryDeadline = Date.distantPast
     private let loaders: Loaders
 
+    var videoSourceKey: String? { request?.video?.key }
     var image: NSImage? { animatedImage ?? staticImage }
     var requestedPixelSize: Int? { request?.maxPixelSize }
     var isAnimating: Bool { wantsAnimation && animatedImage != nil }

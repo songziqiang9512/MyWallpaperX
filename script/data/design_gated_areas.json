@@ -878,7 +878,7 @@
       "owner": "现有播放偏好及各引擎质量消费者",
       "status": "approved",
       "designDoc": "docs/development/wallpaper-quality-settings-plan.md",
-      "design_notes": "现役顺序见 docs/development/wallpaper-quality-work-card.md#execution。Q1 投影 Scene 30/60 与 Web FPS 建议，Video 保原片。Q2 首片沿 Scene 原 IPC 与 Surface 迁入显示 HDR，旧通知退出。普通超高及显示 HDR 共用作者工作域，后续才扩普通／禁用。其它档按技术评估的验收裁决。",
+      "design_notes": "现役顺序见 docs/development/wallpaper-quality-work-card.md#execution。Scene 质量从原 App/IPC 接入后处理和阴影冷准备，两个超高后处理共享工作域。Q1 投影 Scene 30/60 与 Web FPS 建议。Video 保原片，规格选择和详情只沿现有下载与真实源轨道。其它档按技术评估的验收裁决。",
       "matchPatterns": [
         "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift",
         "MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift",
@@ -891,7 +891,11 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift",
         "MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift",
-        "MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadQualityPrompt.swift"
+        "MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadQualityPrompt.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSheet.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopPreviewState.swift"
       ],
       "contentPatterns": []
     },
@@ -2240,7 +2244,7 @@
       "owner": "App/Shell and existing module UI owners",
       "status": "blocked-pending-design",
       "designDoc": "docs/development/immersive-ui-design.md",
-      "design_notes": "P0 only: reference research, complete design specification, capability map, execution/retirement plan and image_gen mockups. User explicitly requires approval of visual proposals before product UI edits. Execution authority: docs/development/immersive-ui-execution-plan.md. Keep one Workspace/Presentation and original services/playback/output owners; retire old presentation in the corresponding stage, no classic-UI fallback. Approval and native feasibility/runtime gates remain pending. Existing settings forms and the three separately designed Pixabay download entry paths remain owned by their feature contracts. App window, Shell, other module UI and shared visual entry points retain this gate.",
+      "design_notes": "P0 only: reference research, complete design specification, capability map, execution/retirement plan and image_gen mockups. User explicitly requires approval of visual proposals before product UI edits. Execution authority: docs/development/immersive-ui-execution-plan.md. Keep one Workspace/Presentation and original services/playback/output owners; retire old presentation in the corresponding stage, no classic-UI fallback. Approval and native feasibility/runtime gates remain pending. Existing settings forms, the three Pixabay download entries and the two video source facts entries and their existing preview source identity remain owned by their feature contracts. App window, Shell, other module UI and shared visual entry points retain this gate.",
       "matchPatterns": [
         "MyWallpaperX/Shell/*.swift",
         "MyWallpaperX/App/*Window*.swift",
@@ -2262,7 +2266,10 @@
       "excludeMatchPatterns": [
         "MyWallpaperX/Modules/Pixabay/UI/PixabayBrowserView.swift",
         "MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadQualityPrompt.swift",
-        "MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadsInspectorView.swift"
+        "MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadsInspectorView.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSheet.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopPreviewState.swift"
       ]
     },
     {

@@ -47,6 +47,9 @@ ready 必须校验版本与命令所需 capability。下载要求 `download-stag
 
 私人缓存与订阅投影按账号隔离；退出或换号不得展示旧账号数据。预览 URL/条目 identity 改变时原图片请求与复用视图不得发布陈旧内容。卡片、详情、任务面板共用 JobStore 与按 item/job/attempt 键控的进度投影；视图关闭解绑 observer，不停止后台任务，也不自行累计任务历史或轮询任务状态。进度区分已验证字节、网络字节及真实阶段总量；未知分母不显示伪百分比，staged/committing 不显示 ready。
 
+<a id="source-video-facts"></a>
+已就绪的 Video 详情从实际播放的 `record.videoURL` 读取首个视频轨道，显示方向修正后分辨率、编码和标称帧率。标称值描述文件轨道，VFR 的逐帧间隔和当前播放器呈现速率另有口径。工坊页面的作者分辨率继续显示在原字段。片源规格只在详情需求下读取，片源身份复用预览为同一本地候选取得的设备、文件节点、大小和修改时间。条目或文件变化就结束旧读取，读不到的片源字段不显示。持续共用[本地 Video 详情的 AVFoundation 入口](../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift)。
+
 ## 4. 持久任务、staging 与取消
 
 JobStore 只读写当前 `jobs-v5.json`；文件缺席时创建当前格式，不查找或导入前代文件。当前文件损坏、超前 schema、symlink/特殊项等不安全输入使该 store 实例停止写入并保留原件，不能隔离后当空库继续。缺完整 birth identity 的旧 partial 不获得恢复/清理权，已持久化的 prepared commit 仍沿原对账处理。历史按账号隔离，现有限额为 100 条且最长 30 天；清历史不删已下载内容或活动任务。任务面板失败行仅保留一个清除入口：当前账号先结算原失败意图、再清该任务历史，写入失败保留记录；其他账号仅清本地历史。

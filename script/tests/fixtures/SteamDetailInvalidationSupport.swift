@@ -99,7 +99,6 @@ final class SteamWorkshopService {
     func presentSteamLoginForUserAction(context: String) {}
 }
 extension SteamWorkshopDownloadRecord { var isDependencyBackedWeb: Bool { false } }
-func steamWorkshopLocalPreviewCacheKey(for url: URL) -> String { url.path }
 func steamWorkshopPreviewCacheKey(for url: URL) -> String { url.absoluteString }
 enum FixturePreview {
     static var localLoads: [URL] = []

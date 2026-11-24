@@ -34,6 +34,7 @@ struct WallpaperInspectorDetails: Equatable {
     let addedDateText: String
     let pathText: String
     var isLoading = false
+    var nominalFrameRateText: String? = nil
 }
 
 @MainActor

@@ -1,12 +1,17 @@
 import AppKit
+import AVFoundation
 import QuartzCore
 import Combine
 import Foundation
 
 @main struct SteamDetailInvalidationHarness {
-    @MainActor static func main() throws {
+    @MainActor static func main() async throws {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.prohibited)
+        if CommandLine.arguments.count == 2, #available(macOS 26.0, *) {
+            try await videoTrackFacts(URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true))
+            return
+        }
         let service = SteamWorkshopService.shared
         let item = makeItem()
         service.record = makeRecord()
@@ -412,11 +417,122 @@ import Foundation
     }
     static func makeRecord(id: String = "detail-probe", kind: SteamWorkshopDownloadContentType = .scene,
         status: SteamWorkshopDownloadRecord.Status = .ready, size: String = "2 MB", source: URL? = nil,
-        exported: URL? = nil, dependency: SteamWorkshopWebDependencyStatus = .none, browserItem: SteamWorkshopBrowserItem? = nil) -> SteamWorkshopDownloadRecord {
+        exported: URL? = nil, dependency: SteamWorkshopWebDependencyStatus = .none, browserItem: SteamWorkshopBrowserItem? = nil,
+        updatedAt: Date = Date(timeIntervalSince1970: 0)) -> SteamWorkshopDownloadRecord {
         SteamWorkshopDownloadRecord(id: id, title: "Scene", description: "fixture", tags: [],
             folderURL: URL(fileURLWithPath: "/fixture"), projectFileURL: nil, ownEntryHTMLURL: nil, dependencyHostEntryHTMLURL: nil,
             dependencyHostFolderURL: nil, entryHTMLURL: nil, resolvedWebRootURL: nil, previewURL: URL(fileURLWithPath: "/fixture/local-preview.gif"), sourceVideoURL: source,
-            exportedVideoURL: exported, updatedAt: Date(timeIntervalSince1970: 0), sizeText: size, status: status,
+            exportedVideoURL: exported, updatedAt: updatedAt, sizeText: size, status: status,
             browserItem: browserItem, contentType: kind, dependencyItemID: nil, dependencyStatus: dependency)
+    }
+}
+
+@MainActor enum SteamVideoMetadataProbe {
+    static var loads: [URL: Int] = [:]
+    static var completions: [URL: Int] = [:]
+    static var held: Set<URL> = []
+    static var pending: [URL: CheckedContinuation<Void, Never>] = [:]
+
+    static func started(_ url: URL) { loads[url, default: 0] += 1 }
+    static func finished(_ url: URL) { completions[url, default: 0] += 1 }
+
+    static func waitIfHeld(_ url: URL) async {
+        if held.contains(url) { await withCheckedContinuation { pending[url] = $0 } }
+    }
+
+    static func release(_ url: URL) {
+        held.remove(url)
+        pending.removeValue(forKey: url)?.resume()
+    }
+}
+
+extension SteamDetailInvalidationHarness {
+    @available(macOS 26.0, *)
+    @MainActor static func videoTrackFacts(_ root: URL) async throws {
+        let source = root.appendingPathComponent("source.mov")
+        let exported = root.appendingPathComponent("exported.mov")
+        let next = root.appendingPathComponent("next.mov")
+        try await VideoTrackMetadataFixtures.writeH264(source, width: 96, height: 48, rotationAngle: 0, frameDuration: CMTime(value: 1, timescale: 24))
+        try await VideoTrackMetadataFixtures.writeH264(exported)
+        try await VideoTrackMetadataFixtures.writeH264(next, width: 80, height: 40, rotationAngle: 0, frameDuration: CMTime(value: 1, timescale: 20))
+        let item = makeItem(), other = makeItem(id: "other-video", title: "Other source")
+        let service = SteamWorkshopService()
+        service.hasCompletedInstalledLibraryLoad = false
+        var cached = makeRecord(kind: .video, source: source, exported: exported)
+        cached.isStartupSnapshot = true
+        service.record = cached
+        let detail = AppKitSteamWorkshopItemDetailView(item: item, service: service)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 680), styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = detail
+        defer { window.close() }
+        let nominalRow = String(localized: "Nominal Frame Rate")
+        let resolutionRow = String(localized: "Source Resolution")
+        let exportedFPS = Float(29.97).formatted(.number.precision(.fractionLength(0...2)))
+        var checks: [String: Bool] = [:]
+        func wait(_ predicate: () -> Bool) async -> Bool {
+            let deadline = Date().addingTimeInterval(5)
+            while !predicate(), Date() < deadline { try? await Task.sleep(for: .milliseconds(10)) }
+            return predicate()
+        }
+
+        checks["warmStartupRecordKeepsWebLabelWithoutOpeningVideo"] = SteamVideoMetadataProbe.loads.isEmpty
+            && labels(detail).contains("1920 x 1080") && !labels(detail).contains(resolutionRow)
+        SteamVideoMetadataProbe.held.insert(exported)
+        service.hasCompletedInstalledLibraryLoad = true
+        service.record = makeRecord(kind: .video, source: source, exported: exported)
+        service.objectWillChange.send()
+        let exportedRead = await wait { SteamVideoMetadataProbe.pending[exported] != nil }
+        checks["readyVideoReadsExportedPlaybackFileExactlyOnce"] = exportedRead && SteamVideoMetadataProbe.loads == [exported: 1]
+        let beforeDelivery = roots(detail)
+        SteamVideoMetadataProbe.release(exported)
+        let exportedRendered = await wait { labels(detail).contains("32 × 64") }
+        let afterDelivery = roots(detail)
+        checks["actualOrientedCodecAndNominalRateKeepTheWebResolutionLabel"] = exportedRendered
+            && labels(detail).contains("1920 x 1080") && labels(detail).contains(resolutionRow)
+            && labels(detail).contains("H.264") && labels(detail).contains(nominalRow)
+            && labels(detail).contains(String(localized: "\(exportedFPS) FPS"))
+        checks["metadataDeliveryUpdatesOnlyTheExistingFactsHost"] = beforeDelivery.count == afterDelivery.count
+            && zip(beforeDelivery, afterDelivery).allSatisfy { $0 === $1 }
+        let beforeRebuild = constraints(detail)
+        for _ in 0..<4 { detail.configure(item: item) }
+        checks["sameSourceRebuildsDoNotReopenVideoOrGrowConstraints"] = SteamVideoMetadataProbe.loads == [exported: 1]
+            && labels(detail).contains("32 × 64") && constraints(detail) == beforeRebuild
+
+        SteamVideoMetadataProbe.held.insert(source)
+        try FileManager.default.removeItem(at: exported)
+        detail.configure(item: item)
+        let fallbackRead = await wait { SteamVideoMetadataProbe.pending[source] != nil }
+        checks["removedExportUsesThePlayersSourceFallbackAndClearsStaleFacts"] = fallbackRead
+            && SteamVideoMetadataProbe.loads[source] == 1 && !labels(detail).contains("32 × 64")
+        service.record = makeRecord(kind: .video, source: source, updatedAt: Date(timeIntervalSince1970: 8))
+        detail.configure(item: item)
+        checks["scanTimestampForUnchangedFallbackDoesNotRepeatAVRead"] = SteamVideoMetadataProbe.loads[source] == 1
+        service.record = makeRecord(id: other.id, kind: .video, source: next)
+        detail.configure(item: other)
+        let newRendered = await wait { labels(detail).contains("80 × 40") }
+        SteamVideoMetadataProbe.release(source)
+        let staleComplete = await wait { SteamVideoMetadataProbe.completions[source] == 1 }
+        let nextFPS = Float(20).formatted(.number.precision(.fractionLength(0...2)))
+        checks["lateOldFileCannotReplaceDetailsOfTheNewItem"] = newRendered && staleComplete && labels(detail).contains("80 × 40")
+            && labels(detail).contains(String(localized: "\(nextFPS) FPS")) && !labels(detail).contains("96 × 48")
+
+        let replacement = root.appendingPathComponent("replacement.mov")
+        try await VideoTrackMetadataFixtures.writeH264(replacement, width: 88, height: 44, rotationAngle: 0)
+        let originalDate = try next.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate!
+        try FileManager.default.setAttributes([.modificationDate: originalDate], ofItemAtPath: replacement.path)
+        try FileManager.default.removeItem(at: next)
+        try FileManager.default.moveItem(at: replacement, to: next)
+        detail.configure(item: other)
+        let replacementRendered = await wait { labels(detail).contains("88 × 44") }
+        checks["sameURLAndMtimeWithNewFileIdentityRereadsFacts"] = replacementRendered
+            && SteamVideoMetadataProbe.loads[next] == 2 && !labels(detail).contains("80 × 40")
+        service.record = makeRecord(id: other.id, kind: .video, status: .failed("fixture failure"), source: next)
+        detail.configure(item: other)
+        checks["nonReadyRecordClearsFactsWithoutAnotherRead"] = !labels(detail).contains(nominalRow) && SteamVideoMetadataProbe.loads[next] == 2
+        service.record = makeRecord(id: other.id, kind: .web, source: next)
+        detail.configure(item: other)
+        checks["webVideoFallbackDoesNotBorrowVideoSourceFacts"] = !labels(detail).contains(resolutionRow) && SteamVideoMetadataProbe.loads[next] == 2
+        FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: ["checks": checks], options: [.sortedKeys]))
     }
 }

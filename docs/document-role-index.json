@@ -132,13 +132,13 @@
       "role": "current-state",
       "entrypoint": "docs/README.md",
       "purpose": "全仓任务到实际 owner 的导航与已知边界，不定义新的产品权威。",
-      "lastReviewed": "2026-11-05",
+      "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e45567d061333245dd7c2899b070e8d956113829c7e4bed67f3e03fa615eb2eb",
+        "sourceSHA256": "f1f34ed7e823bc530a9ee9fb945b5aa3c332d6b59d18c179aa09d8c8d61a236c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Current App data strategy, deleted migration owners and nearest validation links.",
-        "limitations": "Navigation and current source ownership audit; runtime results are recorded separately and do not establish Scene or system-host coverage."
+        "scope": "三引擎设置、源素材获取和实际播放入口；本地与 Steam Video 详情同轨道读取。",
+        "limitations": "导航与源码核对；单个隔离 App 或媒体读取结论见对应证据。"
       }
     },
     {
@@ -146,13 +146,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-11-23",
+      "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b1b108107882e47547c453d4db29bd27163fba80a9f1778aa56973c771dd6b0d",
+        "sourceSHA256": "81cc5862955e68c0acc0f7e02b591b7201d9023e73588984762ed422dfaffd52",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Current unused non-Scene entry cleanup, preserved live playback/acquisition consumers, current JobStore v5/ready v3 ownership, and the retired-file link now pointing at the current Steam acquisition boundary.",
-        "limitations": "Source/caller and document audit. Frozen build and bounded behavior results are separate; no real account, user-library, FPS or unresolved native-card success claim."
+        "scope": "当前 ready 发布记录、现有播放器取源和两端原片规格的读取边界。",
+        "limitations": "源码与仅仅读取的片源事实；未连 Steam 账户或改动本地媒体。"
       }
     },
     {

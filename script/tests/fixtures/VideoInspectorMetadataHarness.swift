@@ -1,8 +1,7 @@
 import Foundation
+import AVFoundation
 import CoreGraphics
 import ImageIO
-import AVFoundation
-import CoreVideo
 
 // Calls remain real; only their entry thread is observed from either executor.
 nonisolated final class InspectorMetadataWorkProbe: @unchecked Sendable {
@@ -47,30 +46,6 @@ nonisolated final class InspectorMetadataWorkProbe: @unchecked Sendable {
         precondition(CGImageDestinationFinalize(destination), "failed to create isolated metadata PNG")
     }
 
-    @available(macOS 26.0, *)
-    static func writeH264(_ url: URL) async throws {
-        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
-        let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
-            AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: 64, AVVideoHeightKey: 32])
-        input.transform = CGAffineTransform(rotationAngle: .pi / 2)
-        let attributes = CVPixelBufferCreationAttributes(
-            pixelFormatType: CVPixelFormatType(rawValue: kCVPixelFormatType_32BGRA), size: CVImageSize(width: 64, height: 32))
-        let receiver = writer.inputPixelBufferReceiver(for: input, pixelBufferAttributes: attributes)
-        try writer.start()
-        writer.startSession(atSourceTime: .zero)
-        for index in 0..<30 {
-            var buffer = try CVMutablePixelBuffer(attributes)
-            buffer.accessUnsafeMutableRawPlaneBytes { planes in
-                for plane in planes { _ = plane.bytes.initializeMemory(as: UInt8.self, repeating: 0x55) }
-            }
-            try await receiver.append(CVReadOnlyPixelBuffer(buffer), with: CMTime(value: Int64(index), timescale: 30))
-        }
-        writer.endSession(atSourceTime: CMTime(value: 1, timescale: 1))
-        receiver.finish()
-        await withCheckedContinuation { done in writer.finishWriting { done.resume() } }
-        precondition(writer.status == .completed, "H264 fixture writer did not finish")
-    }
-
     @MainActor static func main() async throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let invalid = root.appendingPathComponent("invalid-video.mp4")
@@ -83,13 +58,19 @@ nonisolated final class InspectorMetadataWorkProbe: @unchecked Sendable {
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .medium
         dateFormatter.timeStyle = .medium
+        let reading = String(localized: "Reading…")
+        let unknown = String(localized: "Unknown")
         var cases = [
-            ("unknown-video", invalid, Optional<Int>.none, Optional<String>.none, Optional<Int64>.none, "读取中…", "读取中…", "未知", "未知", "未知"),
-            ("known-fallback-image", png, Optional(65), Optional("32×16"), Optional<Int64>(2 * 1024 * 1024), "2.00 MB", "1:05", "1:05", "32×16", "未知"),
-            ("missing-video", missing, Optional(17), Optional("160×90"), Optional<Int64>.none, "读取中…", "0:17", "0:17", "160×90", "未知")
+            ("unknown-video", invalid, Optional<Int>.none, Optional<String>.none, Optional<Int64>.none, reading, reading, unknown, unknown, unknown),
+            ("known-fallback-image", png, Optional(65), Optional("32×16"), Optional<Int64>(2 * 1024 * 1024), "2.00 MB", "1:05", "1:05", "32×16", unknown),
+            ("missing-video", missing, Optional(17), Optional("160×90"), Optional<Int64>.none, reading, "0:17", "0:17", "160×90", unknown)
         ]
         if #available(macOS 26.0, *) {
-            try await writeH264(h264)
+            let diagonal = root.appendingPathComponent("diagonal.mov")
+            try await VideoTrackMetadataFixtures.writeH264(diagonal, rotationAngle: .pi / 4)
+            let track = await WallpaperVideoTrackDetails.load(from: AVURLAsset(url: diagonal))
+            checks["non-right-angle-track-matrix-uses-the-transformed-frame-bounds"] = track?.resolutionText == "68 × 68"
+            try await VideoTrackMetadataFixtures.writeH264(h264)
             cases.append(("real-h264", h264, Optional(65), Optional("320×180"), Optional<Int64>(3 * 1024 * 1024), "3.00 MB", "1:05", "0:01", "32 × 64", "H.264"))
         } else {
             FileHandle.standardError.write(Data("H264 positive skipped: pixel-buffer receiver requires macOS 26; original 38 facts still run.\n".utf8))
@@ -115,13 +96,13 @@ nonisolated final class InspectorMetadataWorkProbe: @unchecked Sendable {
             checks[label + "-first-completion-is-before-function-return"] = firstWasSynchronous && values.count == 1
             checks[label + "-initial-template-already-has-all-layout-fields-and-source-path"] = first.pathText == url.path
                 && !first.fileSizeText.isEmpty && !first.formatText.isEmpty && !first.addedDateText.isEmpty
-                && !first.durationText.isEmpty && first.codecText == "读取中…" && !first.resolutionText.isEmpty
-                && first.isLoading
+                && !first.durationText.isEmpty && first.codecText == reading && !first.resolutionText.isEmpty
+                && first.isLoading && first.nominalFrameRateText == nil
             // The immediate template uses indexed hints; real file facts belong to the terminal.
             checks[label + "-known-facts-and-unknown-placeholders-are-preserved"] = first.durationText == initialDuration
-                && first.resolutionText == (resolution ?? "读取中…") && first.formatText == url.pathExtension.uppercased()
+                && first.resolutionText == (resolution ?? reading) && first.formatText == url.pathExtension.uppercased()
             checks[label + "-initial-file-facts-use-cache-or-loading-without-file-work"] = first.fileSizeText == initialSize
-                && first.addedDateText == "读取中…" && InspectorMetadataWorkProbe.shared.snapshot(url.path) == beforeTemplate
+                && first.addedDateText == reading && InspectorMetadataWorkProbe.shared.snapshot(url.path) == beforeTemplate
             await task.value
             let terminal = values.last!
             checks[label + "-async-terminal-keeps-source-path-and-prepared-file-facts"] = values.count == 2
@@ -138,10 +119,13 @@ nonisolated final class InspectorMetadataWorkProbe: @unchecked Sendable {
             let terminalKey = label == "real-h264" ? "-valid-video-replaces-stale-index-hints" : "-unsupported-media-settles-with-fallback-values"
             checks[label + terminalKey] = terminal.durationText == finalDuration
                 && terminal.resolutionText == finalResolution && terminal.codecText == finalCodec
+            let nominalRate = Float(29.97).formatted(.number.precision(.fractionLength(0...2)))
+            let expectedFPS = label == "real-h264" ? String(localized: "\(nominalRate) FPS") : nil
+            checks[label + "-nominal-frame-rate-reports-known-track-only"] = terminal.nominalFrameRateText == expectedFPS
             checks[label + "-both-completions-remain-on-main"] = callbackThreads == [true, true]
             let threads = InspectorMetadataWorkProbe.shared.snapshot(url.path)
             FileHandle.standardError.write(Data(("metadata-work " + label + " " + String(describing: threads) + "\n").utf8))
-            for stage in ["attributes", "formatter", "av"] {
+            for stage in ["attributes", "formatter", "av", "track"] {
                 checks[label + "-" + stage + "-initializes-once-off-main"] = threads[stage] == [false]
             }
         }
@@ -157,7 +141,7 @@ nonisolated final class InspectorMetadataWorkProbe: @unchecked Sendable {
         checks["cancelled-before-task-start-does-not-prepare-av-asset"] =
             InspectorMetadataWorkProbe.shared.avEntries(invalid.path) == cancelledEntriesBefore
         checks["cancelled-real-av-task-cannot-publish-a-late-terminal-after-its-template"] = cancelledValues.count == 1
-            && cancelledValues[0].pathText == invalid.path && cancelledValues[0].codecText == "读取中…"
+            && cancelledValues[0].pathText == invalid.path && cancelledValues[0].codecText == reading
         var replacementValues: [WallpaperInspectorDetails] = []
         let replacement = loadWallpaperInspectorDetails(for: .init(id: "replacement", title: "replacement", path: png.path)) {
             replacementValues.append($0)

@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import Combine
 
 final class AppKitSteamWorkshopItemDetailView: NSView {
@@ -24,8 +25,17 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     private let contentStack = NSStackView()
     private let footerView = SteamWorkshopDetailFooterView()
     private let previewView = SteamWorkshopPreviewImageContainerView()
+    private lazy var sourceVideoFacts = verticalStack(spacing: 0)
+    private var videoTrackSource: VideoTrackSource?
+    private var videoTrackTask: Task<Void, Never>?
     private lazy var previewHeightConstraint = previewView.heightAnchor.constraint(equalToConstant: 156)
     private var renderedDisplayState: DisplayState?
+
+    private struct VideoTrackSource: Equatable, Sendable {
+        let itemID: String
+        let url: URL
+        let fileRevision: String
+    }
 
     /// Only the active, ready Scene branch proves these in-memory inputs
     /// complete. Other branches keep the ordinary rebuild and its getters.
@@ -64,6 +74,8 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     required init?(coder: NSCoder) {
         nil
     }
+
+    deinit { videoTrackTask?.cancel() }
 
     func configure(item: SteamWorkshopBrowserItem) {
         let isSameItem = item.id == currentItem.id
@@ -284,20 +296,22 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
                 child.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
             }
         }
-        view.subviews.forEach { constrainColumnContent(in: $0) }
+        for child in view.subviews where child !== sourceVideoFacts { constrainColumnContent(in: child) }
     }
 
     private func buildPreviewSection() {
         let stack = verticalStack(spacing: 8)
-
+        let record = latestDownloadRecord
+        let videoURL = record?.videoURL
         previewView.configure(
             itemID: currentItem.id,
-            previewImageURL: latestDownloadRecord?.previewURL ?? currentItem.previewImageURL,
+            previewImageURL: record?.previewURL ?? currentItem.previewImageURL,
             fallbackImageURL: currentItem.previewImageURL.flatMap { $0.isFileURL ? nil : $0 }
-                ?? latestDownloadRecord?.browserItem?.previewImageURL,
-            fallbackVideoURL: latestDownloadRecord?.videoURL,
+                ?? record?.browserItem?.previewImageURL,
+            fallbackVideoURL: videoURL,
             refreshToken: service.previewReloadToken
         )
+        refreshVideoTrackSource(record: record, videoURL: videoURL)
         previewView.translatesAutoresizingMaskIntoConstraints = false
         stack.addArrangedSubview(previewView)
         // The preview joins a new section on every rebuild; reuse its one
@@ -331,6 +345,42 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         contentStack.addArrangedSubview(stack)
     }
 
+    private func refreshVideoTrackSource(record: SteamWorkshopDownloadRecord?, videoURL: URL?) {
+        let source: VideoTrackSource? = if let record, record.status == .ready, record.contentType == .video,
+                                          record.isStartupSnapshot != true, let videoURL,
+                                          let fileRevision = previewView.previewState.videoSourceKey {
+            VideoTrackSource(itemID: record.id, url: videoURL, fileRevision: fileRevision)
+        } else { nil }
+        guard source != videoTrackSource else { return }
+        videoTrackTask?.cancel()
+        videoTrackTask = nil
+        videoTrackSource = source
+        sourceVideoFacts.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        sourceVideoFacts.isHidden = true
+        guard let source else { return }
+
+        videoTrackTask = Task.detached(priority: .userInitiated) { [weak self] in
+            let details = await WallpaperVideoTrackDetails.load(from: AVURLAsset(url: source.url))
+            await self?.publishVideoTrackDetails(details, for: source)
+        }
+    }
+
+    private func publishVideoTrackDetails(_ details: WallpaperVideoTrackDetails?, for source: VideoTrackSource) {
+        guard !Task.isCancelled, videoTrackSource == source else { return }
+        videoTrackTask = nil
+        guard let details else { return }
+        let facts = [
+            (String(localized: "Source Resolution"), details.resolutionText),
+            (String(localized: "Codec"), details.codecText),
+            (String(localized: "Nominal Frame Rate"), details.nominalFrameRateText),
+        ].compactMap { label, value in value.map { (label, $0) } }
+        guard !facts.isEmpty else { return }
+        let rows = WallpaperLibraryControlStyle.inspectorFacts(facts)
+        sourceVideoFacts.isHidden = false
+        sourceVideoFacts.addArrangedSubview(rows)
+        rows.widthAnchor.constraint(equalTo: sourceVideoFacts.widthAnchor).isActive = true
+    }
+
     private func buildContentSection() {
         let stack = verticalStack(spacing: 12)
         let metadataTags = Set([currentItem.workshopTypeText, currentItem.ageRatingText, currentItem.resolutionText].compactMap { $0?.lowercased() })
@@ -354,6 +404,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         if !currentItem.dependencyIDs.isEmpty { facts.append((String(localized: "Dependent Artworks"), currentItem.dependencyIDs.joined(separator: "、"))) }
         facts.append((String(localized: "Artwork ID"), currentItem.id))
         stack.addArrangedSubview(WallpaperLibraryControlStyle.inspectorFacts(facts))
+        if videoTrackSource != nil { stack.addArrangedSubview(sourceVideoFacts) }
         stack.addArrangedSubview(WallpaperLibraryControlStyle.sectionDivider())
         stack.addArrangedSubview(label(detailDescriptionLine, font: .systemFont(ofSize: 13), color: .labelColor, lines: 0))
         contentStack.addArrangedSubview(stack)

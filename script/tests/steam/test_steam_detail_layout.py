@@ -3,6 +3,7 @@ import pathlib
 import hashlib
 import json
 import os
+import platform
 import subprocess
 import tempfile
 import unittest
@@ -12,6 +13,14 @@ ROOT = pathlib.Path(__file__).resolve().parents[3]
 class SteamDetailLayoutTests(unittest.TestCase):
     def test_scene_property_notifications_preserve_actual_detail(self):
         """Execute the real detail/observer; external account/playback leaves are inert."""
+        self.run_detail_harness()
+
+    def test_ready_video_detail_reads_only_the_current_playback_file(self):
+        if platform.system() != 'Darwin' or int(platform.mac_ver()[0].split('.')[0]) < 26:
+            self.skipTest('requires native AVAssetWriter and AppKit on macOS 26')
+        self.run_detail_harness(video=True)
+
+    def run_detail_harness(self, video=False):
         def declaration(source, prefix):
             start = source.index(prefix)
             opening = source.index('{', start)
@@ -36,6 +45,8 @@ class SteamDetailLayoutTests(unittest.TestCase):
                 ROOT / 'MyWallpaperX/Shared/UI/ToolbarMenuPopover.swift',
                 ROOT / 'MyWallpaperX/Shared/UI/WallpaperInspectorActions.swift',
                 ROOT / 'MyWallpaperX/Shared/UI/InspectorFadingScrollView.swift',
+                ROOT / 'MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift',
+                ROOT / 'MyWallpaperX/Models/VideoWallpaper.swift',
                 ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift']
             originals = {}
             def read(path):
@@ -45,7 +56,15 @@ class SteamDetailLayoutTests(unittest.TestCase):
             sources = []
             for path in paths:
                 target = work / path.name
-                target.write_text(read(path))
+                content = read(path)
+                if video and path.name == 'SteamWorkshopItemDetailSheet.swift':
+                    admission = '        videoTrackTask = Task.detached(priority: .userInitiated)'
+                    delivery = '            await self?.publishVideoTrackDetails(details, for: source)'
+                    self.assertEqual((content.count(admission), content.count(delivery)), (1, 1))
+                    content = content.replace(admission, '        SteamVideoMetadataProbe.started(source.url)\n' + admission)
+                    content = content.replace(delivery, '            await SteamVideoMetadataProbe.waitIfHeld(source.url)\n' + delivery
+                        + '\n            await SteamVideoMetadataProbe.finished(source.url)')
+                target.write_text(content)
                 sources.append(target)
             models = read(core / 'SteamWorkshopModels.swift')
             fragments = ['import AppKit\nimport Foundation'] + [declaration(models, prefix) for prefix in [
@@ -55,6 +74,8 @@ class SteamDetailLayoutTests(unittest.TestCase):
             validation = read(ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebValidationModels.swift')
             fragments += [declaration(validation, prefix) for prefix in [
                 'nonisolated enum SteamWorkshopWebDependencyStatus']]
+            fragments.append(declaration(read(core / 'SteamWorkshopPreviewImageSupport.swift'),
+                'nonisolated func steamWorkshopLocalPreviewCacheKey('))
             fragments.append(declaration(read(ROOT / 'MyWallpaperX/Shared/Components/WallpaperCardSupportViews.swift'), 'enum WallpaperCardProgressPalette'))
             service = read(ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+SceneProperties.swift')
             fragments.append('extension SteamWorkshopService {\n' + '\n\n'.join(declaration(service, prefix) for prefix in [
@@ -63,7 +84,7 @@ class SteamDetailLayoutTests(unittest.TestCase):
             actual = work / 'ActualFragments.swift'
             actual.write_text('\n\n'.join(fragments))
             sources.append(actual)
-            for name in ['SteamDetailInvalidationSupport.swift', 'SteamDetailInvalidationHarness.swift']:
+            for name in ['SteamDetailInvalidationSupport.swift', 'SteamDetailInvalidationHarness.swift', 'VideoTrackMetadataFixtures.swift']:
                 path = ROOT / 'script/tests/fixtures' / name
                 read(path)
                 sources.append(path)
@@ -74,7 +95,8 @@ class SteamDetailLayoutTests(unittest.TestCase):
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             home = work/'home'
             home.mkdir()
-            result = subprocess.run([str(binary)], env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)),
+            result = subprocess.run([str(binary), *([str(work)] if video else [])],
+                env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)),
                 capture_output=True, text=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             facts = json.loads(result.stdout)
@@ -85,7 +107,7 @@ class SteamDetailLayoutTests(unittest.TestCase):
             self.assertEqual(originals, {name: hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in originals})
             proof = os.environ.get('MWX_DETAIL_INVALIDATION_PROOF_DIR')
             if proof:
-                target = pathlib.Path(proof)
+                target = pathlib.Path(proof) / 'video' if video else pathlib.Path(proof)
                 target.mkdir(parents=True, exist_ok=True)
                 (target/'facts.json').write_text(json.dumps(facts, indent=2)+'\n')
                 (target/'source-inputs.json').write_text(json.dumps(originals, indent=2)+'\n')

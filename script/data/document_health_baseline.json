@@ -13,12 +13,12 @@
       "bytes": 8300
     },
     "docs/architecture/repository-map.md": {
-      "lines": 42,
-      "bytes": 10708
+      "lines": 44,
+      "bytes": 10998
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
-      "lines": 80,
-      "bytes": 18243
+      "lines": 83,
+      "bytes": 18931
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 42,
@@ -77,8 +77,8 @@
       "bytes": 73409
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 63,
-      "bytes": 11289
+      "lines": 69,
+      "bytes": 12538
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,19 +378,19 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "fa708e7bbf89a49b6e762b5e266e06bb83221f60d5a6a414be31f0e50181103c",
-      "after": "28d28935379a9fb44dd5e71db73652515037e08b9f5e87d8be36ddc0f13a1704",
-      "owner": "Scene runtime / App playback",
-      "reason": "记录已验证的阴影设置、实际像素与贴图预算。",
+      "before": "28d28935379a9fb44dd5e71db73652515037e08b9f5e87d8be36ddc0f13a1704",
+      "after": "d775758d9b3c1d49a39b5cd1a5c982c079f064e8b3b6929983ac076fbc797108",
+      "owner": "Video / Steam Workshop",
+      "reason": "记录真实片源轨道、发布文件身份及原生详情回归。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "5a841887e43ef5e4f30bf39e6a18d87466d4724ff05a5cf6783f2e92bc1a3e72",
-      "after": "84c5d332f79533ba5bd61b0c7220b0c5078444c48c4ea1774467082c7a10f8a6",
-      "owner": "壁纸质量对应消费端",
-      "reason": "定位 Pixabay 下载规格选择、发布和原档重试的三个入口。",
+      "before": "84c5d332f79533ba5bd61b0c7220b0c5078444c48c4ea1774467082c7a10f8a6",
+      "after": "231d686c7227e62b86dacaafdefdc2e58d2747a4ba29e82e4cd3e92131c79b41",
+      "owner": "Repository navigation",
+      "reason": "接入本地与 Steam Video 可见原片规格的唯一路径。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
@@ -585,11 +585,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/steam-workshop-acquisition-contract.md",
-      "before": "2cd621a6fd5b5db869c6d44d9acc2d1ad06d03eea87cf6e898d38c03b1f9c98f",
-      "after": "106b7f3cf498969caea81ac69b40f9f636908c833a3598c3a8b38ca7d1c614f9",
-      "owner": "repository governance",
-      "reason": "Use the current test collection paths and repair the navigation after the script move.",
-      "decision": "docs/development/repository-workflow.md#并行与验证"
+      "before": "106b7f3cf498969caea81ac69b40f9f636908c833a3598c3a8b38ca7d1c614f9",
+      "after": "5ea2b7ecc76721bf5949b0d4dd504ef62b48b3359abb1bc8c8a009ea2d526a45",
+      "owner": "Steam Workshop / Video",
+      "reason": "说明已就绪 Video 详情取实际源轨道，原页面标签与播放消费各归原入口。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",

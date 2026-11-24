@@ -77,6 +77,7 @@ nonisolated struct WallpaperInspectorDetails: Equatable, Sendable {
     let addedDateText: String
     let pathText: String
     var isLoading = false
+    var nominalFrameRateText: String? = nil
 }
 
 @MainActor
@@ -130,18 +131,17 @@ nonisolated private func prepareWallpaperInspectorDetails(for wallpaper: VideoWa
     }
     guard !Task.isCancelled else { return nil }
 
-    let resolutionText = await videoResolutionText(for: asset, fallback: wallpaper.resolution)
-    guard !Task.isCancelled else { return nil }
-    let codecText = await videoCodecText(for: asset)
+    let trackDetails = await WallpaperVideoTrackDetails.load(from: asset)
 
     return WallpaperInspectorDetails(
         fileSizeText: fileSizeText,
         formatText: formatText,
         durationText: durationText,
-        codecText: codecText,
-        resolutionText: resolutionText,
+        codecText: trackDetails?.codecText ?? String(localized: "Unknown"),
+        resolutionText: trackDetails?.resolutionText ?? wallpaper.resolution ?? String(localized: "Unknown"),
         addedDateText: addedDateText,
-        pathText: path
+        pathText: path,
+        nominalFrameRateText: trackDetails?.nominalFrameRateText
     )
 }
 
@@ -157,43 +157,44 @@ nonisolated private func formattedDuration(_ seconds: Double) -> String {
     return String(format: "%d:%02d", minutes, remainingSeconds)
 }
 
-nonisolated private func videoResolutionText(for asset: AVAsset, fallback: String? = nil) async -> String {
-    guard let tracks = try? await asset.loadTracks(withMediaType: .video),
-          !Task.isCancelled, let track = tracks.first else {
-        return fallback ?? String(localized: "Unknown")
-    }
-    guard let naturalSize = try? await track.load(.naturalSize),
-          !Task.isCancelled,
-          let preferredTransform = try? await track.load(.preferredTransform) else {
-        return fallback ?? String(localized: "Unknown")
-    }
-    let transformedSize = naturalSize.applying(preferredTransform)
-    let width = Int(abs(transformedSize.width).rounded())
-    let height = Int(abs(transformedSize.height).rounded())
-    guard width > 0, height > 0 else { return fallback ?? String(localized: "Unknown") }
-    return "\(width) × \(height)"
-}
+nonisolated struct WallpaperVideoTrackDetails: Sendable {
+    let resolutionText: String?
+    let codecText: String?
+    let nominalFrameRateText: String?
 
-nonisolated private func videoCodecText(for asset: AVAsset) async -> String {
-    guard let tracks = try? await asset.loadTracks(withMediaType: .video),
-          !Task.isCancelled, let track = tracks.first,
-          let formatDescriptions = try? await track.load(.formatDescriptions),
-          let formatDescription = formatDescriptions.first else {
-        return String(localized: "Unknown")
+    static func load(from asset: AVAsset) async -> Self? {
+        guard !Task.isCancelled, let track = try? await asset.loadTracks(withMediaType: .video).first,
+              !Task.isCancelled else { return nil }
+        let resolution = await resolutionText(for: track)
+        guard !Task.isCancelled else { return nil }
+        let format = try? await track.load(.formatDescriptions).first
+        guard !Task.isCancelled else { return nil }
+        let frameRate = try? await track.load(.nominalFrameRate)
+        let fpsText = frameRate.flatMap { fps -> String? in
+            guard fps.isFinite, fps > 0 else { return nil }
+            return String(localized: "\(fps.formatted(.number.precision(.fractionLength(0...2)))) FPS")
+        }
+        return Self(resolutionText: resolution, codecText: format.map(codecText(for:)), nominalFrameRateText: fpsText)
     }
-    let codec = CMFormatDescriptionGetMediaSubType(formatDescription)
-    switch codec {
-    case kCMVideoCodecType_H264:
-        return "H.264"
-    case kCMVideoCodecType_HEVC:
-        return "HEVC"
-    case kCMVideoCodecType_HEVCWithAlpha:
-        return "HEVC with Alpha"
-    case kCMVideoCodecType_MPEG4Video:
-        return "MPEG-4 Part 2"
-    case kCMVideoCodecType_H263:
-        return "H.263"
-    default:
-        return String(format: "0x%08X", codec)
+
+    private static func resolutionText(for track: AVAssetTrack) async -> String? {
+        guard let (naturalSize, transform) = try? await track.load(.naturalSize, .preferredTransform) else { return nil }
+        let size = CGRect(origin: .zero, size: naturalSize).applying(transform).size
+        let width = size.width.rounded()
+        let height = size.height.rounded()
+        guard width > 0, height > 0, width < Double(Int.max), height < Double(Int.max) else { return nil }
+        return "\(Int(width)) × \(Int(height))"
+    }
+
+    private static func codecText(for format: CMFormatDescription) -> String {
+        let codec = CMFormatDescriptionGetMediaSubType(format)
+        switch codec {
+        case kCMVideoCodecType_H264: return "H.264"
+        case kCMVideoCodecType_HEVC: return "HEVC"
+        case kCMVideoCodecType_HEVCWithAlpha: return "HEVC with Alpha"
+        case kCMVideoCodecType_MPEG4Video: return "MPEG-4 Part 2"
+        case kCMVideoCodecType_H263: return "H.263"
+        default: return String(format: "0x%08X", codec)
+        }
     }
 }

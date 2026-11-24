@@ -7,7 +7,7 @@ file facts and AV fallback. Test-copy entries record the original attributes,
 DateFormatter and AV initialization threads under one lock. A MainActor probe
 holds only final delivery; no file/AV result, cancellation or executor is replaced.
 Checks cover call placement, output and this H264 sample's duration, rotated
-size and codec. They do not establish accuracy for arbitrary media, I/O latency,
+size, codec and nominal frame rate. They do not establish accuracy for arbitrary media, I/O latency,
 native Inspector animation or full-App behavior.
 """
 import hashlib
@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[3]
 SUPPORT = Path(os.environ.get("MWX_VIDEO_METADATA_SUPPORT_SOURCE", ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift"))
 MODEL = ROOT / "MyWallpaperX/Models/VideoWallpaper.swift"
 FIXTURE = ROOT / "script/tests/fixtures/VideoInspectorMetadataHarness.swift"
+MEDIA_FIXTURE = FIXTURE.with_name("VideoTrackMetadataFixtures.swift")
 
 
 def observe_production(source):
@@ -35,6 +36,10 @@ def observe_production(source):
         if len(re.findall(pattern, source)) != 1:
             raise AssertionError('production observation entry is no longer unique: ' + statement)
         source = re.sub(pattern, lambda match: match[1] + 'InspectorMetadataWorkProbe.shared.record(path, stage: "' + stage + '")\n' + match[0], source)
+    track = '        guard !Task.isCancelled, let track = try? await asset.loadTracks(withMediaType: .video).first,'
+    if source.count(track) != 1:
+        raise AssertionError('expected one shared source track read')
+    source = source.replace(track, '        InspectorMetadataWorkProbe.shared.record((asset as? AVURLAsset)?.url.path ?? "", stage: "track")\n' + track)
     # Both arms retain their own original delivery cancellation check. The old
     # source remains synchronous before its Task; no compatibility scheduler.
     old = '        await MainActor.run {'
@@ -53,7 +58,7 @@ def observe_production(source):
 class VideoInspectorMetadataTests(unittest.TestCase):
     def test_real_helper_publishes_complete_template_before_return_and_honors_cancellation(self):
         production, delivery = observe_production(SUPPORT.read_text())
-        paths = [SUPPORT, MODEL, FIXTURE, Path(__file__).resolve()]
+        paths = [SUPPORT, MODEL, FIXTURE, MEDIA_FIXTURE, Path(__file__).resolve()]
         inputs = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
         with tempfile.TemporaryDirectory(prefix="mwx-inspector-metadata-", dir="/private/tmp") as folder:
             work = Path(folder)
@@ -61,7 +66,7 @@ class VideoInspectorMetadataTests(unittest.TestCase):
             home = work / "home"; home.mkdir()
             env = dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home))
             command = ["xcrun", "swiftc", "-parse-as-library", "-swift-version", "5", "-default-isolation", "MainActor",
-                "-warnings-as-errors", str(MODEL), str(helper), str(FIXTURE),
+                "-warnings-as-errors", str(MODEL), str(helper), str(FIXTURE), str(MEDIA_FIXTURE),
                 "-module-cache-path", str(work / "modules"), "-o", str(work / "checks")]
             build = subprocess.run(command, capture_output=True, text=True, env=env, timeout=120)
             proof = None

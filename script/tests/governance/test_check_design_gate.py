@@ -30,6 +30,15 @@ class DesignGateEvidenceTests(unittest.TestCase):
         ], registry)
         self.assertEqual(violations, [])
         self.assertTrue(any(entry.startswith("wallpaper-quality-settings:") for entry in advisory))
+        violations, advisory = gate.evaluate([
+            "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorView.swift",
+            "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSheet.swift",
+            "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopPreviewState.swift",
+        ], registry)
+        self.assertEqual(violations, [])
+        self.assertTrue(any(entry.startswith("wallpaper-quality-settings:") for entry in advisory))
+        violations, _ = gate.evaluate(["MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopBrowserView.swift"], registry)
+        self.assertTrue(any(entry.startswith("immersive-main-window-ui:") for entry in violations))
         violations, _ = gate.evaluate(["MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridItemView.swift"], registry)
         self.assertTrue(any(entry.startswith("immersive-main-window-ui:") for entry in violations))
         violations, _ = gate.evaluate(["MyWallpaperX/App/SettingsWindowController.swift"], registry)

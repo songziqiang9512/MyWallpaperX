@@ -123,6 +123,7 @@ final class VideoLibraryInspectorView: NSView {
         return [
             (String(localized: "Codec"), details.codecText),
             (String(localized: "Resolution"), details.resolutionText),
+            (String(localized: "Nominal Frame Rate"), details.nominalFrameRateText ?? ""),
             (String(localized: "Date Added"), details.addedDateText)
         ].filter { !$0.1.isEmpty }
     }
