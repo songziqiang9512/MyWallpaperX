@@ -39,7 +39,9 @@ struct SceneDocumentLoader {}
 struct TerminalRenderDescriptor {
     struct Camera { let clearColor: [Float]; let bloom: SceneBloomConfiguration }
     let hdrEnabled: Bool
+    var preservesSceneColorInSDR = false
     let camera: Camera
+    var persistsSceneColor: Bool { hdrEnabled || preservesSceneColorInSDR }
 }
 struct TerminalCompositor {
     let resolvedMaterialRuntime: SceneResolvedMaterialSubmissionCoordinator?

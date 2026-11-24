@@ -77,8 +77,8 @@
       "bytes": 73409
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 53,
-      "bytes": 8941
+      "lines": 55,
+      "bytes": 9537
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -93,8 +93,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 261,
-      "bytes": 49046
+      "lines": 263,
+      "bytes": 49404
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -368,29 +368,29 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "5a841887e43ef5e4f30bf39e6a18d87466d4724ff05a5cf6783f2e92bc1a3e72",
-      "after": "84c5d332f79533ba5bd61b0c7220b0c5078444c48c4ea1774467082c7a10f8a6",
-      "owner": "壁纸质量对应消费端",
-      "reason": "定位 Pixabay 下载规格选择、发布和原档重试的三个入口。",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "28522b2565e02fa28e591f59a8ecdc4144fc915ac202ad0eb0e8ea6d8de56e83",
+      "after": "d00c4e882286f01cc3eef0c2d344452a8a9347f15798f31612f3218ce9365778",
+      "owner": "Scene 后处理及跨帧输出",
+      "reason": "在降低 HDR 工作域时继续使用原 raw 历史 owner。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "b73edaacd6f24214fd4f62a4c09651025c1bf2064e3ae1d53cb7c2f1c672d672",
-      "after": "43992202bcdcd7b8f2af088be76105db8a9fa47ea970d0a6db6c10ce012d17c4",
-      "owner": "壁纸质量对应消费端",
-      "reason": "记录真实规格下载、原档重试与实际播放验收。",
+      "before": "43992202bcdcd7b8f2af088be76105db8a9fa47ea970d0a6db6c10ce012d17c4",
+      "after": "fa708e7bbf89a49b6e762b5e266e06bb83221f60d5a6a414be31f0e50181103c",
+      "owner": "Scene 后处理及跨帧输出",
+      "reason": "定义较低后处理档的准备、raw 历史和验收边界。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "41638a6833e265b374af91cb9c3b3b6af536fd4dbb53a9d51b153e248929ea7c",
-      "after": "28522b2565e02fa28e591f59a8ecdc4144fc915ac202ad0eb0e8ea6d8de56e83",
-      "owner": "Scene 后处理及各屏输出",
-      "reason": "规定两个超高档的工作域、每屏输出与现役 Scene owner。",
+      "path": "docs/architecture/repository-map.md",
+      "before": "5a841887e43ef5e4f30bf39e6a18d87466d4724ff05a5cf6783f2e92bc1a3e72",
+      "after": "84c5d332f79533ba5bd61b0c7220b0c5078444c48c4ea1774467082c7a10f8a6",
+      "owner": "壁纸质量对应消费端",
+      "reason": "定位 Pixabay 下载规格选择、发布和原档重试的三个入口。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {

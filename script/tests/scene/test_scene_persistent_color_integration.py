@@ -21,11 +21,15 @@ class ScenePersistentColorIntegrationTests(unittest.TestCase):
         cls.app = Path(app).resolve(strict=True)
 
     def run_color(self, once=False, resize=False, clear=False, app=None, expected_color=(255, 64, 128),
-                  hdr=True, source_color="1 0.25 0.5"):
+                  hdr=True, source_color="1 0.25 0.5", quality_mode=None, brightness=None, ordinary_bloom=False):
         visibility = {"value": True, "script": "export function update(value){shared.ticks=(shared.ticks||0)+1; return shared.ticks===1;}"} if once else True
         scene = {"version": 3, "general": {"orthogonalprojection": {"width": 128, "height": 128}, "clearcolor": "0 0 0", "clearenabled": clear, "hdr": hdr},
                  "objects": [{"id": 1, "name": "HDR source", "image": "models/util/solidlayer.json", "origin": "64 64 0", "size": "64 64", "color": source_color, "visible": visibility},
                              {"id": 2, "name": "Stable green peer", "image": "models/util/solidlayer.json", "origin": "110 110 0", "size": "12 12", "color": "0 1 0"}]}
+        if brightness is not None:
+            scene["objects"][0]["brightness"] = brightness
+        if ordinary_bloom:
+            scene["general"].update(bloom=True, bloomstrength=0.5, bloomthreshold=0.5, bloomhdrstrength=0)
         if resize:
             scene["objects"].append({"id": 3, "name": "Offscreen callback witness", "image": "models/util/solidlayer.json", "origin": "1000 1000 0", "size": "1 1", "visible": {"value": True, "script": "export function update(value){shared.frames=(shared.frames||0)+1; return shared.frames%2===1;}"}})
         with tempfile.TemporaryDirectory(prefix="mwx-persistent-color-app-") as temp:
@@ -43,6 +47,8 @@ class ScenePersistentColorIntegrationTests(unittest.TestCase):
                 env.pop(key, None)
             env.update(HOME=str(home), CFFIXED_USER_HOME=str(home))
             command = [str(app or self.app), "--mwx-debug-scene-root", str(content), "--mwx-debug-scene-duration", "8", "--mwx-debug-scene-evidence-dir", str(evidence)]
+            if quality_mode is not None:
+                command.extend(["-mwx.playback.quality", f"{{ scenePostProcessingMode = {quality_mode}; }}"])
             if resize:
                 env["MWX_SCENE_DEBUG_PAUSE_RESUME_AFTER"] = "1.5:3"
                 command.extend(["--mwx-debug-scene-resize-sequence", "2:0.5,3:1"])
@@ -53,8 +59,11 @@ class ScenePersistentColorIntegrationTests(unittest.TestCase):
             result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=60)
             log = result.stdout + result.stderr
             captures = list(evidence.glob("*-window.png"))
+            saved = None
             if destination := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
                 saved = Path(destination) / self._testMethodName
+                if quality_mode is not None:
+                    saved /= quality_mode
                 saved.mkdir(parents=True, exist_ok=True)
                 (saved / "app.log").write_text(log)
                 (saved / "scene.json").write_bytes(payload)
@@ -82,9 +91,15 @@ class ScenePersistentColorIntegrationTests(unittest.TestCase):
                 horizontal = [x for x in range(width) if is_hdr(rows[height // 2][x * 3:x * 3 + 3])]
                 vertical = [y for y in range(height) if is_hdr(rows[y][(width // 2) * 3:(width // 2) * 3 + 3])]
                 self.assertTrue(horizontal and vertical)
-                measurements[capture.name] = {"size": (width, height), "bounds": (min(horizontal), max(horizontal), min(vertical), max(vertical))}
-            if destination := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
-                (Path(destination) / self._testMethodName / "oracles.json").write_text(json.dumps(measurements, indent=2) + "\n")
+                left = min(horizontal)
+                halo_x = max(0, left - 8)
+                measurements[capture.name] = {
+                    "size": (width, height),
+                    "bounds": (left, max(horizontal), min(vertical), max(vertical)),
+                    "left_halo_rgb": list(rows[height // 2][halo_x * 3:halo_x * 3 + 3]),
+                }
+            if saved is not None:
+                (saved / "oracles.json").write_text(json.dumps(measurements, indent=2) + "\n")
             return log, measurements
 
     def test_continuous_hdr_is_mapped_once(self):
@@ -97,6 +112,22 @@ class ScenePersistentColorIntegrationTests(unittest.TestCase):
         log, _ = self.run_color(once=True)
         self.assertRegex(log, r"frame=0 .*layer=1 source=sceneScript value=true")
         self.assertRegex(log, r"frame=1 .*layer=1 source=sceneScript value=false")
+
+    def test_lower_post_processing_retains_raw_after_hiding_the_hdr_author_layer(self):
+        for mode in ("disabled", "enabled"):
+            with self.subTest(mode=mode):
+                log, _ = self.run_color(once=True, quality_mode=mode, brightness=2)
+                self.assertRegex(log, r"frame=0 .*layer=1 source=sceneScript value=true")
+                self.assertRegex(log, r"frame=1 .*layer=1 source=sceneScript value=false")
+                producers = set(re.findall(r"scene-color-completed frame=(\d+) [^\n]*intent=persistence", log))
+                self.assertGreaterEqual(len(producers), 3, log[-5000:])
+
+    def test_enabled_quality_uses_ordinary_bloom_and_disabled_omits_the_halo(self):
+        params = dict(clear=True, source_color="1 1 1", expected_color=(255, 255, 255), ordinary_bloom=True)
+        _, disabled = self.run_color(quality_mode="disabled", **params)
+        _, enabled = self.run_color(quality_mode="enabled", **params)
+        self.assertEqual(disabled["scene-after-window.png"]["left_halo_rgb"], [0, 0, 0])
+        self.assertGreater(min(enabled["scene-after-window.png"]["left_halo_rgb"]), 6)
 
     def test_paused_resize_redraws_current_snapshot_without_vm_advance(self):
         log, captures = self.run_color(resize=True)

@@ -12965,6 +12965,40 @@
         }
       }
     },
+    "Disabled": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disabled"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "禁用"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отключено"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deaktiviert"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Désactivé"
+          }
+        }
+      }
+    },
     "Discard Failed Job": {
       "localizations": {
         "en": {
@@ -13063,40 +13097,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Repli de Display Condition"
-          }
-        }
-      }
-    },
-    "Display HDR requires a compatible wallpaper and display": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Display HDR requires a compatible wallpaper and display"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "显示 HDR 需要作品与显示器支持"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Для HDR нужны совместимые обои и дисплей"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "HDR benötigt ein kompatibles Hintergrundbild und Display"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "L’affichage HDR requiert un fond d’écran et un écran compatibles"
           }
         }
       }
@@ -14557,6 +14557,74 @@
           "stringUnit": {
             "state": "translated",
             "value": "La largeur du texte dynamique nécessite une plage de slider finie de 1…16384 et un fallback authored."
+          }
+        }
+      }
+    },
+    "Effect changes apply the next time you apply the wallpaper": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Effect changes apply the next time you apply the wallpaper"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "效果档将在下次应用壁纸时生效"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменения эффектов вступят в силу при следующем применении обоев"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Effektänderungen gelten beim nächsten Anwenden des Hintergrundbilds"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les changements d’effets s’appliquent lorsque vous réappliquez le fond d’écran"
+          }
+        }
+      }
+    },
+    "Enabled": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enabled"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启用"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включено"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktiviert"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activé"
           }
         }
       }

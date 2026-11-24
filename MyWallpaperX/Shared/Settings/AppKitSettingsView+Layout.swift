@@ -347,9 +347,18 @@ extension AppKitSettingsContainerView {
         qualitySection.addRow(makeSettingRow(
             title: String(localized: "Animation Frame Rate"), iconSystemName: "gauge.with.needle",
             subtitle: String(localized: "Sets the frame rate cap for Scene wallpapers"), trailing: sceneMaxFPSSegmented))
-        scenePostProcessingPopup.addItems(withTitles: [String(localized: "Ultra"), String(localized: "Ultra (Display HDR)")])
+        let modes: [(ScenePostProcessingMode, String)] = [
+            (.disabled, String(localized: "Disabled")),
+            (.enabled, String(localized: "Enabled")),
+            (.ultra, String(localized: "Ultra")),
+            (.ultraDisplayHDR, String(localized: "Ultra (Display HDR)")),
+        ]
+        for (mode, title) in modes {
+            scenePostProcessingPopup.addItem(withTitle: title)
+            scenePostProcessingPopup.lastItem?.representedObject = mode.rawValue
+        }
         qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Post-Processing"), iconSystemName: "sun.max",
-            subtitle: String(localized: "Display HDR requires a compatible wallpaper and display"), trailing: scenePostProcessingPopup))
+            subtitle: String(localized: "Effect changes apply the next time you apply the wallpaper"), trailing: scenePostProcessingPopup))
         webFrameRatePopup.addItems(withTitles: [
             String(localized: "Match Display (up to 60 FPS)"),
             String(localized: "Follow Animation Frame Rate"),
@@ -366,8 +375,10 @@ extension AppKitSettingsContainerView {
 
     func refreshScenePostProcessingMenu(_ mode: ScenePostProcessingMode) {
         let displayHDRAvailable = NSScreen.screens.contains { $0.maximumPotentialExtendedDynamicRangeColorComponentValue > 1 }
-        scenePostProcessingPopup.item(at: 1)?.isHidden = !displayHDRAvailable
-        scenePostProcessingPopup.selectItem(at: displayHDRAvailable && mode.requestsDisplayHDR ? 1 : 0)
+        let displayHDR = scenePostProcessingPopup.indexOfItem(withRepresentedObject: ScenePostProcessingMode.ultraDisplayHDR.rawValue)
+        scenePostProcessingPopup.item(at: displayHDR)?.isHidden = !displayHDRAvailable
+        let effective: ScenePostProcessingMode = !displayHDRAvailable && mode.requestsDisplayHDR ? .ultra : mode
+        scenePostProcessingPopup.selectItem(at: scenePostProcessingPopup.indexOfItem(withRepresentedObject: effective.rawValue))
     }
 
     func applyNativeControlSizes() {

@@ -378,6 +378,70 @@ import CryptoKit
         return checks
     }
 
+    static func postProcessingCases(_ root: URL) throws -> [String: Bool] {
+        let folder = root.appendingPathComponent("post-processing")
+        let builder = SceneRuntimeModelBuilder()
+        let ultra = try builder.build(rootURL: folder)
+        let ordinary = try builder.build(rootURL: folder, usesHDRWorkingDomain: false)
+        let disabled = try builder.build(rootURL: folder, usesHDRWorkingDomain: false, appliesBloom: false)
+        let authorOff = try builder.build(rootURL: folder,
+            propertyOverrides: ["bloomMode": .bool(false), "strength": .number(0)],
+            usesHDRWorkingDomain: false)
+        let standard = try builder.build(rootURL: root.appendingPathComponent("ordinary-accumulation"),
+            usesHDRWorkingDomain: false)
+        let standardDisabled = try builder.build(rootURL: root.appendingPathComponent("ordinary-accumulation"),
+            usesHDRWorkingDomain: false, appliesBloom: false)
+        let inherited = ordinary.sceneDocument
+        let model = ordinary.renderDescriptor, disabledModel = disabled.renderDescriptor
+        let ultraLayers = Dictionary(uniqueKeysWithValues: ultra.renderDescriptor.layers.map { ($0.id, $0) })
+        let ordinaryLayers = Dictionary(uniqueKeysWithValues: model.layers.map { ($0.id, $0) })
+        let ordinaryTargets = Set(ordinary.runtimeInput.propertyBindingProgram.instructions.map(\.target))
+        let disabledTargets = Set(disabled.runtimeInput.propertyBindingProgram.instructions.map(\.target))
+        let ordinaryUniforms = ordinary.runtimeInput.propertyBindingProgram.evaluate(
+            effectiveValues: ordinary.runtimeInput.effectivePropertyValues)
+        return [
+            "quality-leaves-source-and-authored-general":
+                inherited.sourceWitness == ultra.sceneDocument.sourceWitness
+                && inherited.general.hdrEnabled && inherited.general.bloomEnabled
+                && inherited.objects.first?.brightness == 2,
+            "quality-keeps-author-accumulation-in-sdr":
+                !model.camera.clearEnabled && !model.hdrEnabled && model.persistsSceneColor
+                && model.colorTargetFormat == .rgbaBackbuffer && disabledModel.persistsSceneColor
+                && !standard.renderDescriptor.persistsSceneColor,
+            "quality-selects-one-bloom-route":
+                ultra.renderDescriptor.camera.bloom.hdr?.strength == 4
+                && model.camera.bloom.hdr == nil && model.camera.bloom.enabled && model.camera.bloom.allowsBloom
+                && !disabledModel.camera.bloom.enabled && !disabledModel.camera.bloom.allowsBloom,
+            "quality-retains-dynamic-ordinary-bloom":
+                ordinaryTargets.contains(.scene(.bloomEnabled))
+                && ordinaryTargets.contains(.scene(.bloomStrength))
+                && ordinaryUniforms.userValues[.scene(.bloomStrength)] == .scalar(0.5)
+                && !ordinaryTargets.contains(.scene(.bloomHDRStrength))
+                && !disabledTargets.contains(.scene(.bloomEnabled))
+                && !disabledTargets.contains(.scene(.bloomStrength))
+                && !authorOff.renderDescriptor.camera.bloom.enabled
+                && authorOff.renderDescriptor.camera.bloom.strength == 0,
+            "quality-removes-dedicated-overbright-at-descriptor":
+                ultraLayers[71]?.brightness == 2 && ordinaryLayers[71]?.brightness == nil
+                && ultraLayers[72]?.textStyle?.brightness == 2 && ordinaryLayers[72]?.textStyle?.brightness == 1
+                && ordinaryLayers[72]?.textStyle?.backgroundBrightness == 0.5
+                && ultraLayers[73]?.particleInstanceOverride?.brightness != nil
+                && ordinaryLayers[73]?.particleInstanceOverride?.brightness == nil
+                && !ordinaryTargets.contains(.layer(layerID: 71, field: .brightness))
+                && !ordinaryTargets.contains(.particle(layerID: 73, field: .brightness)),
+            "quality-retains-local-effect-and-alpha-binding":
+                ordinaryLayers[71]?.effects.first?.file == "effects/layer.json"
+                && ordinaryTargets.contains(.layer(layerID: 71, field: .alpha))
+                && disabledTargets.contains(.layer(layerID: 71, field: .alpha)),
+            "quality-keeps-ordinary-source-brightness": [standard, standardDisabled].allSatisfy { value in
+                value.renderDescriptor.layers.first?.brightness == 0.375
+                    && value.runtimeInput.propertyBindingProgram.instructions.contains {
+                        $0.target == .layer(layerID: 88, field: .brightness)
+                    }
+            },
+        ]
+    }
+
     static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1])
         let home = URL(fileURLWithPath: CommandLine.arguments[2]).standardizedFileURL
@@ -390,6 +454,7 @@ import CryptoKit
         checks.merge(try descriptorCases(root)) { _, new in new }
         checks.merge(try modelCases(root)) { _, new in new }
         checks.merge(try catalogCases(root)) { _, new in new }
+        checks.merge(try postProcessingCases(root)) { _, new in new }
         print(String(decoding: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), as: UTF8.self))
     }
 }
@@ -472,6 +537,31 @@ class SceneSourcePreparationCancellationTests(unittest.TestCase):
                 "origin": {"script": "export function update(value) { return value; }", "value": "1 2 3",
                            "scriptproperties": {"rate": {"user": "amount", "value": 1}}},
             }]}))
+            quality_folder = root / "post-processing"
+            quality_folder.mkdir()
+            property_values = {"strength": 0.5, "hdrStrength": 4, "gain": 2, "particleGain": 3, "alpha": 0.75}
+            properties = {name: {"type": "slider", "value": value, "min": 0, "max": 8}
+                          for name, value in property_values.items()}
+            properties["bloomMode"] = {"type": "bool", "value": True}
+            (quality_folder / "project.json").write_text(json.dumps({
+                "type": "scene", "file": "scene.json", "general": {"properties": properties}}))
+            (quality_folder / "scene.json").write_text(json.dumps({
+                "general": {"hdr": True, "clearenabled": False, "bloom": {"value": True, "user": "bloomMode"},
+                            "bloomstrength": {"value": 0.5, "user": "strength"},
+                            "bloomhdrstrength": {"value": 4, "user": "hdrStrength"}},
+                "objects": [{"id": 71, "image": "models/plain.json", "brightness": {"value": 2, "user": "gain"},
+                             "alpha": {"value": 0.75, "user": "alpha"}, "effects": [{"file": "effects/layer.json"}]},
+                            {"id": 72, "text": "Overbright", "brightness": 2, "backgroundbrightness": 0.5},
+                            {"id": 73, "particle": "particles/plain.json",
+                             "instanceoverride": {"alpha": 1, "brightness": {"value": 3, "user": "particleGain"}}}]}))
+            ordinary_folder = root / "ordinary-accumulation"
+            ordinary_folder.mkdir()
+            (ordinary_folder / "project.json").write_text(json.dumps({
+                "type": "scene", "file": "scene.json",
+                "general": {"properties": {"sdrGain": {"type": "slider", "value": 0.375, "min": 0, "max": 1}}}}))
+            (ordinary_folder / "scene.json").write_text(json.dumps({
+                "general": {"clearenabled": False, "hdr": False},
+                "objects": [{"id": 88, "image": "models/plain.json", "brightness": {"value": 0.375, "user": "sdrGain"}}]}))
             catalog_root = root / "catalog"
             catalog_root.mkdir()
             (catalog_root / "project.json").write_text(json.dumps({"type": "scene", "file": "scene.json"}))

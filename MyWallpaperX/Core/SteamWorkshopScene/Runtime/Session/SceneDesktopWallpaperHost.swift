@@ -75,7 +75,7 @@ final class SceneDesktopWallpaperHost {
     var presentationDeadline: DispatchWorkItem?
     var screenTopology: [SceneScreenTopology] = []
     private(set) var performanceProfile: PlaybackPerformanceProfile = .current
-    private var scenePostProcessing: ScenePostProcessingMode = .ultra
+    private(set) var scenePostProcessing: ScenePostProcessingMode = .ultra
     private var playbackPaused = false
 #if DEBUG
     private var debugPointerOverride: SceneSurfacePointerInput?

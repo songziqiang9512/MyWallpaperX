@@ -31,6 +31,8 @@ nonisolated struct SceneRuntimeSourceFactsBuilder {
         rootURL: URL,
         source: ScenePlaybackSource? = nil,
         propertyOverrides: [String: SceneUserPropertyValue] = [:],
+        usesHDRWorkingDomain: Bool = true,
+        appliesBloom: Bool = true,
         checkCancellation: (() throws -> Void)? = nil,
         preparedStaticModel: (String, SceneMdlStaticModel.PreparedSource) -> Void = { _, _ in },
         preparedParticleDefinition: (String, SceneParticleAssetGraphLoader.PreparedDefinition) -> Void = { _, _ in },
@@ -146,7 +148,8 @@ nonisolated struct SceneRuntimeSourceFactsBuilder {
                     data: input.data,
                     sourcePath: input.path,
                     propertyCatalog: project.userProperties,
-                    propertyOverrides: propertyOverrides
+                    propertyOverrides: propertyOverrides,
+                    usesHDRWorkingDomain: usesHDRWorkingDomain
                 )
             } catch {
                 sceneDocumentLoadError = error
@@ -202,6 +205,8 @@ nonisolated struct SceneRuntimeSourceFactsBuilder {
                 resourceReferences: resourceReferences,
                 capabilityProfile: capabilityProfile,
                 directStaticModelMaterialLinks: directMaterialLinks,
+                usesHDRWorkingDomain: usesHDRWorkingDomain,
+                appliesBloom: appliesBloom,
                 checkCancellation: checkCancellation
             )
         } else {

@@ -53,7 +53,11 @@ final class SceneDesktopWallpaperSession {
     var stopped = false
     var drains: [@MainActor (Bool)->Void] = []
     var drainResult:Bool?
-    init(textureDecodeCacheBudget: SceneTextureDecodeCacheBudget, surfacePreparationQueue: DispatchQueue) {}
+    let scenePostProcessing: ScenePostProcessingMode
+    init(textureDecodeCacheBudget: SceneTextureDecodeCacheBudget, surfacePreparationQueue: DispatchQueue,
+         scenePostProcessing: ScenePostProcessingMode = .ultra) {
+        self.scenePostProcessing = scenePostProcessing
+    }
     func activate(_ context: SceneDesktopWallpaperLaunchContext,
                   preparedSurfaces: [PreparedSurface],
                   userPropertyTextureLoad: SceneUserPropertyTextureLoadResult) throws {
@@ -104,7 +108,7 @@ final class SceneDesktopWallpaperSession {
                 .init(displayID:$0,playback:.init(),materialRuntime:.init())
             }
             host.launchState = .init(requestID:presentation.requestID,recordID:nil,phase:.preparingModel,message:"")
-            try host.beginCandidate(.init(),preparedSurfaces:preparedSurfaces,
+            try host.beginCandidate(.init(),scenePostProcessing:.enabled,preparedSurfaces:preparedSurfaces,
                 userPropertyTextureLoad:preparedTextures,firstPresentation:presentation) { result in
                 if case .success=result {outcomes.append(true)} else {outcomes.append(false)}
             }
@@ -113,6 +117,7 @@ final class SceneDesktopWallpaperSession {
         let a=try begin()
         a.onFirstFrameCompletion?(1,true)
         var result:[String:Bool]=[:]
+        result["candidateKeepsPreparedPostProcessing"] = a.scenePostProcessing == .enabled
         result["candidateReceivesPreparedTextures"] = a.userPropertyTextureLoad?.identity == preparedTextures.identity
         result["candidateReceivesPreparedSurfaces"] = a.preparedSurfaces.map(\.displayID) == [1,2]
             && zip(a.preparedSurfaces,preparedSurfaces).allSatisfy { actual, prepared in
@@ -236,7 +241,7 @@ final class SceneDesktopWallpaperSession {
             delayedHost.launchState = .init(requestID:requestID,recordID:nil,phase:.preparingModel,message:"")
             let delayedSurfaces:[SceneDesktopWallpaperSession.PreparedSurface] =
                 ([1,2] as [CGDirectDisplayID]).map { .init(displayID:$0,playback:.init(),materialRuntime:.init()) }
-            try delayedHost.beginCandidate(.init(),preparedSurfaces:delayedSurfaces,
+            try delayedHost.beginCandidate(.init(),scenePostProcessing:.ultra,preparedSurfaces:delayedSurfaces,
                 userPropertyTextureLoad:.init(),firstPresentation:presentation) { outcome in
                 if case .success=outcome {delayedOutcomes.append(true)} else {delayedOutcomes.append(false)}
             }
@@ -366,7 +371,8 @@ class SceneSessionActivationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='mwx-session-activation-') as temp:
             root=Path(temp); main=root/'main.swift'; main.write_text(HARNESS)
             binary=root/'test'
-            compiled=subprocess.run(['xcrun','swiftc','-parse-as-library',str(main),str(SOURCE),str(LAUNCH_MODELS),'-o',str(binary)],capture_output=True,text=True)
+            quality = ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift"
+            compiled=subprocess.run(['xcrun','swiftc','-parse-as-library',str(main),str(SOURCE),str(LAUNCH_MODELS),str(quality),'-o',str(binary)],capture_output=True,text=True)
             self.assertEqual(compiled.returncode,0,compiled.stderr)
             result=json.loads(subprocess.check_output([str(binary)],text=True))
             for name,passed in result.items():

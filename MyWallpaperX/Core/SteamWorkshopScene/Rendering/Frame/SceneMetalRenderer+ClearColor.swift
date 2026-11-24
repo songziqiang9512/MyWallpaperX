@@ -174,7 +174,7 @@ extension SceneMetalRenderer {
                                frameIndex: UInt64, clearEnabled: Bool,
                                commandBuffer: MTLCommandBuffer)
         -> (reservation: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?, failure: FrameOutcome?) {
-        guard renderDescriptor.hdrEnabled && !clearEnabled else { return (nil, nil) }
+        guard renderDescriptor.persistsSceneColor && !clearEnabled else { return (nil, nil) }
         guard let pool,
               let value = imageCompositor.resolvedMaterialRuntime?.reserveSceneColor(
                 pool: pool, width: target.width, height: target.height,
@@ -210,10 +210,7 @@ extension SceneMetalRenderer {
         guard sourceCompleted else {
             return .dropped(reasonCode: "scene-color-main-encoder-unavailable")
         }
-        if let sceneColor {
-            guard let display = sceneColor.display else {
-                return .dropped(reasonCode: "scene-color-display-reservation-invalid")
-            }
+        if let sceneColor, let display = sceneColor.display {
             // Only display scratch sees Bloom or the nonlinear output curve.
             // A paused export reuses raw without traversing authored layers.
             let copied = copySceneColor(sceneColor.raw, to: display, commandBuffer: commandBuffer)
@@ -259,6 +256,15 @@ extension SceneMetalRenderer {
                 return .dropped(reasonCode: "scene-color-output-identity-rejected")
             }
         } else {
+            if let sceneColor {
+                guard copySceneColor(sceneColor.raw, to: target, commandBuffer: commandBuffer) else {
+                    return .dropped(reasonCode: "scene-color-display-export-unavailable")
+                }
+                guard imageCompositor.resolvedMaterialRuntime?.markSceneColorOutput(
+                    on: commandBuffer, mapped: false) == true else {
+                    return .dropped(reasonCode: "scene-color-output-identity-rejected")
+                }
+            }
             bloomPostProcess?.encode(configuration: renderDescriptor.camera.bloom.resolving(
                 dynamicValues), source: target,
                 commandBuffer: commandBuffer)

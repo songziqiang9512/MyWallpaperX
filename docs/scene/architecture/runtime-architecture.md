@@ -134,6 +134,8 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 
 后处理的「超高」和「超高（显示 HDR）」共用作者工作域、资源、颜色传递函数与终端映射。App 保存选择，Scene daemon 将同一意愿交给活动、候选及以后安装的 Surface；Metal View 只消费显示意愿和当前屏有效 headroom。普通超高始终使用 SDR 范围，显示 HDR 按屏申请 EDR。切换这两档不重建 Program、附件、作者时钟或 raw history。已暂停的活动 Surface 用原冻结帧刷新，候选继续按原接管状态。这条类型化路径接管后退出独立 HDR 偏好通知及跨进程强制同步。 [现役工作卡](../../development/wallpaper-quality-work-card.md#execution)
 
+兼容降低 HDR 工作域时，带 `clear=false` 的作者场景继续通过原 `sceneColor` 保存跨帧 raw。用当前 SDR 附件描述建立资源，终端把完成 raw 复制到当前 drawable，普通 Bloom 在显示副本上执行。暂停重导出及 GPU 完成保持原身份规则。普通作者 SDR 的 `clear=false` 仍沿其原合成路径。
+
 未来确需性能档位时，先以可比CPU/GPU、内存、启动或能耗证据确定取舍，再在原prepare入口形成被真实Program/资源/后处理消费者使用的有效策略，质量只控制对应能力和采样/分辨率等实际成本。当前不先建空enum、仅透传对象、第二配置owner/cache或无消费者的uniform位；普通帧不重读UI、不重编或重复判档位。策略改变沿原受影响资源/Program准备与提交寿命更新，不分叉作者时钟、材质算法或最终输出。每项降档须说明具体画面代价，保作者控制、遮挡和健康peer，并退出被替代的旧决策；不能把缺功能、采集过载或未归因暗图称为性能优化。
 
 <a id="raster-sample-domain"></a>

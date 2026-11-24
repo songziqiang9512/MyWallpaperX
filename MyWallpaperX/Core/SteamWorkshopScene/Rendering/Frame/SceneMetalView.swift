@@ -114,7 +114,7 @@ class SceneMetalView: NSView {
             ? CGColorSpace.extendedLinearSRGB : CGColorSpace.sRGB)
         // HDR terminal export needs blits even when optional mapping pipeline
         // preparation fails: accumulating scenes safely export retained raw.
-        layer.framebufferOnly = !renderDescriptor.hdrEnabled
+        layer.framebufferOnly = !renderDescriptor.persistsSceneColor
             && !renderer.hasPreparedReflectionConsumers
             && renderer.bloomPostProcess == nil
             && renderer.displayMappingPostProcess == nil

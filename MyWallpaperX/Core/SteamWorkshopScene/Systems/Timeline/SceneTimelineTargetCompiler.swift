@@ -99,8 +99,9 @@ nonisolated enum SceneTimelineTargetCompiler {
             }
             switch timeline.host {
             case .bloomStrength:
-                guard descriptor.camera.bloom.hdr == nil else {
-                    diagnostics.append("\(label): \(Diagnostic.unsupportedHost.rawValue)")
+                let bloom = descriptor.camera.bloom
+                guard bloom.consumes(.bloomStrength) else {
+                    if bloom.allowsBloom { diagnostics.append("\(label): \(Diagnostic.unsupportedHost.rawValue)") }
                     continue
                 }
                 append(

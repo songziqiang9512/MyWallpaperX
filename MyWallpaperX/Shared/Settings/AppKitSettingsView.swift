@@ -750,8 +750,9 @@ final class AppKitSettingsContainerView: NSView {
             quality.profile = sceneMaxFPSSegmented.selectedSegment == 0 ? .efficient : .standard
         } else if sender === webFrameRatePopup {
             quality.webFrameRateMode = webFrameRatePopup.indexOfSelectedItem == 1 ? .followAnimationFrameRate : .display
-        } else {
-            quality.scenePostProcessing = scenePostProcessingPopup.indexOfSelectedItem == 1 ? .ultraDisplayHDR : .ultra
+        } else if let mode = scenePostProcessingPopup.selectedItem?.representedObject as? String,
+                  let selected = ScenePostProcessingMode(rawValue: mode) {
+            quality.scenePostProcessing = selected
         }
         PlaybackCommandMultiplexer.shared.applyQualityPreference(quality)
     }

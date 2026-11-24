@@ -17,6 +17,19 @@ nonisolated struct SceneBloomConfiguration: Codable, Equatable, Sendable {
     let threshold: Float
     let tint: SIMD3<Float>
     var hdr: HDR? = nil
+    var suppressedByQuality: Bool? = nil
+
+    var allowsBloom: Bool { suppressedByQuality != true }
+
+    func consumes(_ field: SceneDynamicSceneField) -> Bool {
+        switch field {
+        case .clearColor: true
+        case .bloomEnabled, .bloomTint: allowsBloom
+        case .bloomStrength, .bloomThreshold: allowsBloom && hdr == nil
+        case .bloomHDRStrength, .bloomHDRThreshold, .bloomHDRScatter,
+             .bloomHDRFeather, .bloomHDRIterations: allowsBloom && hdr != nil
+        }
+    }
 
     /// Read the current frame through the existing typed property snapshot.
     /// Absent or non-representable values retain the authored configuration.

@@ -30,6 +30,8 @@ DISPLAY_OUTPUT_SCENARIO = r'''
         owner.startFrameDriver()
         complete(hdr.metalView, 0, true)
         complete(sdr.metalView, 0, true)
+        owner.applyScenePostProcessing(.enabled)
+        precondition(owner.scenePostProcessing == .ultra && hdr.metalView.draws == 1)
         owner.applyScenePostProcessing(.ultraDisplayHDR)
         precondition(hdr.metalView.draws == 2 && hdr.metalView.metalLayer.wantsExtendedDynamicRangeContent)
         precondition(sdr.metalView.draws == 1 && !sdr.metalView.metalLayer.wantsExtendedDynamicRangeContent)
@@ -54,6 +56,8 @@ DISPLAY_OUTPUT_SCENARIO = r'''
         pending.startFrameDriver()
         complete(view, 0, true)
         precondition(pending.initialPresentationCohort.hasDelivered && deliveries == [true])
+        pending.applyScenePostProcessing(.disabled)
+        precondition(pending.scenePostProcessing == .ultra && view.draws == 1)
         pending.applyScenePostProcessing(.ultraDisplayHDR)
         pendingSurface.window.screen!.maximumExtendedDynamicRangeColorComponentValue = 2
         view.refreshDisplayOutputForScreenChange()
@@ -62,6 +66,11 @@ DISPLAY_OUTPUT_SCENARIO = r'''
         precondition(view.displayOutput.uniform == 2 && view.metalLayer.wantsExtendedDynamicRangeContent)
         frozen(pending, pendingBefore)
         stopped(pending)
+
+        let (ordinary, surface, _) = fixture()
+        ordinary.scenePostProcessing = .enabled
+        ordinary.applyScenePostProcessing(.disabled)
+        precondition(ordinary.scenePostProcessing == .enabled && surface.metalView.draws == 0)
     }
 '''
 

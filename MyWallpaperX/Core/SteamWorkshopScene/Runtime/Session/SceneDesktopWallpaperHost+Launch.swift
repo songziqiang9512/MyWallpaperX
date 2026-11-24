@@ -5,6 +5,7 @@ import Metal
 extension SceneDesktopWallpaperHost {
     struct PreparedLaunch {
         let model: SceneRuntimeModel
+        let scenePostProcessing: ScenePostProcessingMode
         var context: SceneDesktopWallpaperLaunchContext
         let userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
         let preparedSurfaces: [SceneDesktopWallpaperSession.PreparedSurface]
@@ -22,6 +23,7 @@ extension SceneDesktopWallpaperHost {
         requestID: UUID = UUID(),
         completion: @escaping @MainActor (Result<SceneRuntimeModel, Error>) -> Void
     ) {
+        let scenePostProcessing = self.scenePostProcessing
         rollbackUnconfirmedPromotion()
         cancelPendingLaunch()
         activeSession?.cancelPendingUserTextureUpdates()
@@ -57,6 +59,7 @@ extension SceneDesktopWallpaperHost {
                 var prepared = try Self.prepareLaunch(
                     rootURL: rootURL,
                     source: source,
+                    scenePostProcessing: scenePostProcessing,
                     propertyOverrides: propertyOverrides,
                     userPropertyTextureURLs: userPropertyTextureURLs,
                     requiredUserTextureKeys: requiredUserTextureKeys,
@@ -85,6 +88,7 @@ extension SceneDesktopWallpaperHost {
                     .filter { $0.kind == .userShortcut }.map(\.key))
                 let model = prepared.model
                 let context = prepared.context
+                let preparedPostProcessing = prepared.scenePostProcessing
                 let userPropertyTextureLoad = prepared.userPropertyTextureLoad
                 let preparedSurfaces = prepared.preparedSurfaces
                 DispatchQueue.main.async { [weak self] in
@@ -102,6 +106,7 @@ extension SceneDesktopWallpaperHost {
                         ))
                         try self.beginCandidate(
                             context,
+                            scenePostProcessing: preparedPostProcessing,
                             preparedSurfaces: preparedSurfaces,
                             userPropertyTextureLoad: userPropertyTextureLoad,
                             firstPresentation: .init(requestID: requestID, recordID: recordID)
@@ -209,6 +214,7 @@ extension SceneDesktopWallpaperHost {
     private static func prepareLaunch(
         rootURL: URL,
         source: ScenePlaybackSource?,
+        scenePostProcessing: ScenePostProcessingMode,
         propertyOverrides: [String: SceneUserPropertyValue],
         userPropertyTextureURLs: [String: URL],
         requiredUserTextureKeys: Set<String>,
@@ -238,6 +244,8 @@ extension SceneDesktopWallpaperHost {
             rootURL: rootURL,
             source: source,
             propertyOverrides: propertyOverrides,
+            usesHDRWorkingDomain: scenePostProcessing.usesHDRWorkingDomain,
+            appliesBloom: scenePostProcessing.appliesBloom,
             checkCancellation: { try cancellation?.check() },
             preparedStaticModel: { preparedStaticModels[$0] = $1 },
             preparedParticleDefinition: { preparedParticleDefinitions[$0] = $1 }
@@ -913,7 +921,7 @@ extension SceneDesktopWallpaperHost {
 #if DEBUG
         NSLog("MWX LAUNCH-STAGE: stage=prepare-end elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
 #endif
-        return PreparedLaunch(model: model, context: context,
+        return PreparedLaunch(model: model, scenePostProcessing: scenePostProcessing, context: context,
                               userPropertyTextureLoad: userPropertyTextureLoad,
                               preparedSurfaces: preparedSurfaces)
     }

@@ -217,17 +217,8 @@ extension SceneDesktopWallpaperHost {
                 ))
                 .union(propertyBindingProgram.instructions.compactMap {
                     guard case let .scene(field) = $0.target else { return nil }
-                    switch field {
-                    case .clearColor:
-                        guard descriptor.camera.clearEnabled else { return nil }
-                    case .bloomHDRStrength, .bloomHDRThreshold, .bloomHDRScatter,
-                         .bloomHDRFeather, .bloomHDRIterations:
-                        guard descriptor.camera.bloom.hdr != nil else { return nil }
-                    case .bloomStrength, .bloomThreshold:
-                        guard descriptor.camera.bloom.hdr == nil else { return nil }
-                    default:
-                        break
-                    }
+                    if field == .clearColor && !descriptor.camera.clearEnabled { return nil }
+                    guard descriptor.camera.bloom.consumes(field) else { return nil }
                     return $0.target
                 })
                 .union(cameraTargets)

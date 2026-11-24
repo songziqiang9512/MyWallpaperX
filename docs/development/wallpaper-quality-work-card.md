@@ -8,7 +8,7 @@
 
 从主工作树 `codex/engine-refactor-program` 的 `b2b80f892` 建 `Fluxo/wallpaper-quality-settings`。评估方案给技术取舍与失败判据，本卡维护唯一执行顺序与当前批。开工核对分支、实际 diff 和上批证据，从原设置行为追到真实运行消费者。 [算法与技术设计](wallpaper-quality-settings-plan.md#decision) · [源码地图](../architecture/repository-map.md#wallpaper-quality) · [验证工作流](repository-workflow.md#设计判定与记录)
 
-**当前推进 Q2 的禁用与普通泛光**。两个超高档已沿原工作域交付。M4 XDR 上同一场景验证了 SDR／EDR 输出、旧值迁移，以及暂停后按原 raw 帧重导出。实际混合显示拓扑仍待实测。接下来闭合禁用与普通泛光，再处理阴影、体积和反射。 [Scene 技术裁决](wallpaper-quality-settings-plan.md#scene-post-processing)
+**当前推进 Q2 阴影**。泛光四档已接通，两个超高档在 M4 XDR 验了 SDR／EDR 输出、旧值迁移和暂停重导出。禁用与启用验证了光晕像素差、作者 HDR 场景降档后累积保留、独立作者作品可达真实呈现。显示 HDR 的实际混合显示拓扑及官方普通缺省仍待取证。接下来闭合阴影开关及一档降预算，再处理体积和反射。 [Scene 技术裁决](wallpaper-quality-settings-plan.md#scene-post-processing)
 
 Q0 已取得 M4 上基线源码的独立 Metal 泛光和映射结果。Q1 从 App 偏好写入入口把帧率与 Web 模式投影到实际端点，Scene 保原缓存档，Video 保原片。已验签名隔离 Debug 的 30／60 真实呈现、实际 WKWebView 投递、候选端点、导入复位和独立复核。复杂作品的 60 FPS 与长稳功耗仍按 [实测门槛](wallpaper-quality-settings-plan.md#quality-release-gates)验证。每批冻结源码后跑最近门和独立审查，只提交本批文档、源码与测试。
 
@@ -43,6 +43,8 @@ Q2 先在原准备入口引入有效后处理投影。普通档和禁用档沿�
 1. `loadScene` 采纳请求时由原 Host 固定准备档。穿过已有 Model／SourceFacts 准备入口，将有效 HDR 投影给对象解释和渲染 descriptor。保留作者原始 General、属性和脚本输入。超高与显示 HDR 沿同一已准备工作域热更，跨工作域显示下次应用生效，由原候选和可见接管承载。
 2. 禁用跳过全景 Bloom 的 PSO、资源和编码。启用走普通分离模糊。两档的专用 HDR 增益沿实际消费者撤出，核对粒子实例、文字、静态模型、直接与捕获图像、图层亮度绑定和具名输出。作者其他局部效果保持各自合同。仅有 HDR 参数的作品按可区分的官方普通默认对照结算，旧解析后默认值无法证明原作者显式写入。
 3. 同一夹具检查 HDR 过亮源、仅普通亮源、作者禁用／零贡献、动态普通参数和局部效果邻例。分别量原工作域颜色、泛光轮廓、实际 pass／池计费、独立作品及原累积 history。先验 App 确实选择新路径，再测何时可开放控件。
+
+作者 HDR 且 `clear=false` 的场景降到 SDR 时，沿现有 `sceneColor` 提交保留跨 drawable 的 raw 累积。用实际 SDR 规格预约，省去 HDR 映射所需的临时显示附件。复制 raw 后在 drawable 上做普通泛光，暂停重导出可复用最近合格 raw。以至少三帧颜色累积和暂停重导出验收到同一 raw 收据，普通作者 SDR 继续走原路径。 [Scene 原输出合同](../scene/architecture/runtime-architecture.md#effective-quality-policy)
 
 ### Video 在线可选规格的实施片
 

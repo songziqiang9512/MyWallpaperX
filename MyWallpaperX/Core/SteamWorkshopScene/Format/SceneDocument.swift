@@ -94,7 +94,8 @@ nonisolated struct SceneDocumentLoader {
         data: Data,
         sourcePath: String,
         propertyCatalog: SceneUserPropertyCatalog = .empty,
-        propertyOverrides: [String: SceneUserPropertyValue] = [:]
+        propertyOverrides: [String: SceneUserPropertyValue] = [:],
+        usesHDRWorkingDomain: Bool = true
     ) throws -> SceneDocument {
         guard let sourceRoot = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw LoadError.invalidSceneJSON(sourcePath)
@@ -122,14 +123,15 @@ nonisolated struct SceneDocumentLoader {
 
         let rawObjects = root["objects"] as? [[String: Any]] ?? []
         let authoredObjects = sourceRoot["objects"] as? [[String: Any]] ?? []
-        let hdrParticleBrightness = general.hdrEnabled && general.bloomEnabled
+        let hdrEnabled = general.hdrEnabled && usesHDRWorkingDomain
+        let hdrParticleBrightness = hdrEnabled && general.bloomEnabled
         let objects = rawObjects.enumerated().compactMap { index, object in
             Self.parseObject(
                 object,
                 authoredRoot: authoredObjects.indices.contains(index)
                     ? authoredObjects[index]
                     : object,
-                hdrEnabled: general.hdrEnabled,
+                hdrEnabled: hdrEnabled,
                 hdrParticleBrightness: hdrParticleBrightness,
                 missingParallaxDepth: missingParallaxDepth,
                 declaredTexturePropertyKeys: declaredTexturePropertyKeys,

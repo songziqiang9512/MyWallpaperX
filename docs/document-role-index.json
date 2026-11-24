@@ -839,9 +839,9 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fb822a27bf7f6ddf1750e7797789a128f6d3048033dd36e8b7ddca99097c2595",
+        "sourceSHA256": "ed0fe822c70c2746f35536fdbd2b412c6e3612a97bf4b4847a08c8482a66334c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "后处理两档共享工作域、Scene 输出 ownership 和现役工作卡链接。",
+        "scope": "后处理准备、原跨帧 raw 的 SDR 低档路径、各屏输出 owner 及现役工作卡导航。",
         "limitations": "导航核对不代表真机、官方视觉或性能复验。"
       }
     },

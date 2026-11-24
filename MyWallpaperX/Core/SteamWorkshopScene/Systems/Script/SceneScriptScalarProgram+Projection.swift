@@ -105,7 +105,7 @@ nonisolated extension SceneScriptScalarProgram {
             let target: SceneDynamicTarget
             if binding.targetPath == [.key("general"), .key("bloomstrength")] {
                 guard binding.wrapperKeys == ["script", "value"],
-                      binding.properties.isEmpty, descriptor.camera.bloom.hdr == nil else { return nil }
+                      binding.properties.isEmpty, descriptor.camera.bloom.consumes(.bloomStrength) else { return nil }
                 target = .scene(.bloomStrength)
             } else if binding.targetPath == [.key("general"), .key("zoom")] {
                 guard descriptor.camera.generalZoom != nil,

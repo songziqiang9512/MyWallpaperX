@@ -5,6 +5,10 @@ extension SceneOffscreenTexturePool {
     nonisolated enum SceneColorIntent: Hashable {
         case persistence
         case snapshot
+
+        func needsDisplayScratch(pixelFormat: MTLPixelFormat) -> Bool {
+            self == .persistence && pixelFormat == .rgba16Float
+        }
     }
 
     var sceneColorResetEpoch: UUID { allocationCache.locked { allocationCache.resetEpoch } }
@@ -52,10 +56,10 @@ extension SceneOffscreenTexturePool {
         intent: SceneColorIntent = .persistence,
         textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)? = nil
     ) -> SceneColorLease? {
-        let textureCount = intent == .persistence ? 3 : 2
+        let needsDisplayScratch = intent.needsDisplayScratch(pixelFormat: pixelFormat)
+        let textureCount = needsDisplayScratch ? 3 : 2
         guard width > 0, height > 0, width <= maxDimension, height <= maxDimension,
               [.bgra8Unorm, .rgba8Unorm, .rgba16Float].contains(pixelFormat),
-              intent == .snapshot || pixelFormat == .rgba16Float,
               let cost = byteCost(width: width, height: height, textureCount: textureCount),
               cost <= residentByteBudget else { return nil }
         let key = CacheKey.sceneColor(width: width, height: height,
@@ -87,7 +91,7 @@ extension SceneOffscreenTexturePool {
             }
             guard let first = allocate(), let second = allocate() else { return nil }
             let display: MTLTexture?
-            if intent == .persistence {
+            if needsDisplayScratch {
                 guard let target = allocate() else { return nil }
                 display = target
             } else {

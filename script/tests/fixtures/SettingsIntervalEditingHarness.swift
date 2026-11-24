@@ -33,7 +33,10 @@ extension Notification.Name {
         super.init(frame: .init(x: 0, y: 0, width: 360, height: 160))
         intervalField.delegate = self
         addSubview(intervalField); addSubview(nextField)
-        scenePostProcessingPopup.addItems(withTitles: ["Ultra", "Ultra (Display HDR)"])
+        for mode in [ScenePostProcessingMode.disabled, .enabled, .ultra, .ultraDisplayHDR] {
+            scenePostProcessingPopup.addItem(withTitle: mode.rawValue)
+            scenePostProcessingPopup.lastItem?.representedObject = mode.rawValue
+        }
         for unit in TimeUnit.allCases {
             timeUnitPopup.addItem(withTitle: unit.rawValue)
             timeUnitPopup.lastItem?.representedObject = unit

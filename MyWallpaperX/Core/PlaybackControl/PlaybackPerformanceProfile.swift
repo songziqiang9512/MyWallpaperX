@@ -25,10 +25,14 @@ nonisolated enum WebFrameRateMode: String, Sendable {
 }
 
 nonisolated enum ScenePostProcessingMode: String, Sendable {
+    case disabled
+    case enabled
     case ultra
     case ultraDisplayHDR = "displayHDR"
 
     var requestsDisplayHDR: Bool { self == .ultraDisplayHDR }
+    var usesHDRWorkingDomain: Bool { self == .ultra || self == .ultraDisplayHDR }
+    var appliesBloom: Bool { self != .disabled }
 }
 
 nonisolated struct PlaybackQualityPreference: Equatable, Sendable {

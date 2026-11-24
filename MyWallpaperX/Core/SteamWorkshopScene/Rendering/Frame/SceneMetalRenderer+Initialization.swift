@@ -39,11 +39,12 @@ extension SceneMetalRenderer {
         self.device = device
         self.commandQueue = commandQueue
         self.renderDescriptor = renderDescriptor
-        self.bloomPostProcess = (renderDescriptor.camera.bloom.enabled || hasDynamicBloom)
+        let bloom = renderDescriptor.camera.bloom
+        self.bloomPostProcess = bloom.allowsBloom && (bloom.enabled || hasDynamicBloom)
             ? SceneBloomPostProcess(
                 device: device,
                 pixelFormat: renderDescriptor.colorTargetFormat.metalPixelFormat,
-                hdrEnabled: renderDescriptor.camera.bloom.hdr != nil
+                hdrEnabled: bloom.hdr != nil
             ) : nil
         // Both HDR routes map a distinct opaque source; accumulating scenes
         // retain raw scene color through the existing submission coordinator.

@@ -28,6 +28,7 @@ struct SceneRenderDescriptor: Codable {
         /// Nil for descriptors predating preservation of the authored mode.
         var authoredOrthographicProjectionActive: Bool? = nil
         var bloom: SceneBloomConfiguration = .disabled
+        var preservesSceneColorInSDR: Bool? = nil
         var fovDegrees: Float? = nil
         var perspectiveOverrideFOVDegrees: Float? = nil
         var generalZoom: Float? = nil
@@ -57,6 +58,7 @@ struct SceneRenderDescriptor: Codable {
     nonisolated var colorTargetFormat: SceneGraphRenderTargetPlan.TextureFormat {
         hdrEnabled ? .rgba16f : .rgbaBackbuffer
     }
+    var persistsSceneColor: Bool { hdrEnabled || camera.preservesSceneColorInSDR == true }
     var layers: [Layer]
     let rootLayerIDs: [Int]
     let renderOrderLayerIDs: [Int]
@@ -117,6 +119,8 @@ nonisolated struct SceneRenderDescriptorBuilder {
         directStaticModelMaterialLinks: [
             SceneRenderDescriptor.ModelMaterialLink
         ] = [],
+        usesHDRWorkingDomain: Bool = true,
+        appliesBloom: Bool = true,
         checkCancellation: (() throws -> Void)? = nil
     ) rethrows -> SceneRenderDescriptor? {
         try checkCancellation?()
@@ -177,16 +181,18 @@ nonisolated struct SceneRenderDescriptorBuilder {
             return fact.state
         }
 
+        let hdrEnabled = sceneDocument.general.hdrEnabled && usesHDRWorkingDomain
+        let suppressesHDRGain = sceneDocument.general.hdrEnabled && !hdrEnabled
         var descriptor = SceneRenderDescriptor(
             entryPath: project.entryPath,
-            camera: cameraDescriptor(from: sceneDocument),
+            camera: cameraDescriptor(from: sceneDocument, hdrEnabled: hdrEnabled, appliesBloom: appliesBloom),
             lighting: .init(
                 ambientColorRGB: sceneDocument.general.ambientColorRGB,
                 skylightColorRGB: sceneDocument.general.skylightColorRGB,
                 lightClasses: sceneDocument.general.lightClasses,
                 distanceFog: sceneDocument.general.distanceFog
             ),
-            hdrEnabled: sceneDocument.general.hdrEnabled,
+            hdrEnabled: hdrEnabled,
             transparentSorting: sceneDocument.general.transparentSorting,
             generalTimelines: sceneDocument.general.timelines,
             generalTimelineDiagnostics: sceneDocument.general.timelineDiagnostics,
@@ -254,7 +260,7 @@ nonisolated struct SceneRenderDescriptorBuilder {
                     colorBlendMode: object.colorBlendMode,
                     clampUVs: object.clampUVs,
                     noInterpolation: object.noInterpolation,
-                    brightness: object.brightness,
+                    brightness: suppressesHDRGain ? nil : object.brightness,
                     imageAlignment: object.imageAlignment,
                     origin: object.origin,
                     size: object.size,
@@ -610,7 +616,9 @@ nonisolated struct SceneRenderDescriptorBuilder {
 
     // Pulls camera + ortho box + clear color out of the parsed scene document.
     // Falls back to sane defaults when scene.json omits these (e.g. nearZ/farZ).
-    nonisolated private func cameraDescriptor(from document: SceneDocument) -> SceneRenderDescriptor.CameraDescriptor {
+    nonisolated private func cameraDescriptor(
+        from document: SceneDocument, hdrEnabled: Bool, appliesBloom: Bool
+    ) -> SceneRenderDescriptor.CameraDescriptor {
         let cam = document.camera
         let gen = document.general
         let clear: [Float] = gen.clearColor ?? [0.7, 0.7, 0.7]
@@ -622,7 +630,7 @@ nonisolated struct SceneRenderDescriptorBuilder {
             orthoHeight: gen.orthoHeight,
             authoredOrthographicProjectionActive: gen.authoredOrthographicProjectionActive,
             bloom: SceneBloomConfiguration(
-                enabled: gen.bloomEnabled,
+                enabled: appliesBloom && gen.bloomEnabled,
                 strength: gen.bloomStrength,
                 threshold: gen.bloomThreshold,
                 tint: SIMD3(
@@ -632,14 +640,16 @@ nonisolated struct SceneRenderDescriptorBuilder {
                 ),
                 // Missing-field equivalence verified with own inputs against
                 // official client 2.8.0.42; this is not display EDR selection.
-                hdr: gen.hdrEnabled ? .init(
+                hdr: hdrEnabled ? .init(
                     strength: gen.bloomHDRStrength ?? 2,
                     threshold: gen.bloomHDRThreshold ?? 1,
                     scatter: gen.bloomHDRScatter ?? 1.619,
                     feather: gen.bloomHDRFeather ?? 0.1,
                     iterations: gen.bloomHDRIterations ?? 8
-                ) : nil
+                ) : nil,
+                suppressedByQuality: appliesBloom ? nil : true
             ),
+            preservesSceneColorInSDR: gen.hdrEnabled && !hdrEnabled && !gen.clearEnabled ? true : nil,
             fovDegrees: gen.fovDegrees,
             perspectiveOverrideFOVDegrees:
                 gen.perspectiveOverrideFOVDegrees,

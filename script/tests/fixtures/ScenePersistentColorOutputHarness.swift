@@ -346,6 +346,47 @@ import Metal
             }
             return result
         }
+        let lowerOwner = coordinator(), lowerSize = 16
+        let lowerStorage = SceneOffscreenTexturePool(device: device, pixelFormat: .bgra8Unorm,
+            maxDimension: 64, residentByteBudget: lowerSize * lowerSize * 4 * 2)
+        let ordinaryBloom = SceneBloomPostProcess(device: device, pixelFormat: .bgra8Unorm)!
+        func lowerOutput(_ index: UInt64, bloom: Bool) -> (Coordinator.SceneColorReservation, [UInt8]) {
+            begin(lowerOwner, index, lowerSize)
+            let buffer = queue.makeCommandBuffer()!, target = texture(lowerSize, pixelFormat: .bgra8Unorm)
+            let config = SceneBloomConfiguration(enabled: bloom, strength: 0.8, threshold: 0.1,
+                                                 tint: SIMD3<Float>(repeating: 1))
+            let renderer = SceneMetalRenderer(renderDescriptor: .init(hdrEnabled: false,
+                preservesSceneColorInSDR: true, camera: .init(clearColor: [0.3, 0.2, 0.1], bloom: config)),
+                imageCompositor: .init(resolvedMaterialRuntime: lowerOwner),
+                bloomPostProcess: bloom ? ordinaryBloom : nil, displayMappingPostProcess: nil)
+            let start = renderer.encodeSceneColorStart(pool: lowerStorage, target: target, frameIndex: index,
+                                                        clearEnabled: false, commandBuffer: buffer)
+            precondition(start.failure == nil)
+            let raw = start.reservation!
+            if raw.requiresDraw {
+                let pass = SceneMainPassEncoder(commandBuffer: buffer, target: raw.raw,
+                    clearColor: MTLClearColorMake(0.3, 0.2, 0.1, 1), clearEnabled: raw.previous == nil)
+                precondition(pass.finishEnsuringClear())
+            }
+            let dynamic = SceneDynamicSnapshotResolver().resolve(frameIndex: index, generation: index, definitions: []).snapshot
+            precondition(renderer.prepareTerminalCapacity(sceneColor: raw, target: target, dynamicValues: dynamic))
+            precondition(renderer.encodeTerminalColor(sourceCompleted: true, sceneColor: raw, target: target,
+                offscreenTexturePool: lowerStorage, dynamicValues: dynamic, commandBuffer: buffer) == nil)
+            completeOn(lowerOwner, buffer)
+            return (raw, bytes(target))
+        }
+        let (lowerFirst, lowerPlain) = lowerOutput(1, bloom: false)
+        let (lowerReused, lowerBright) = lowerOutput(1, bloom: true)
+        let (lowerNext, lowerStable) = lowerOutput(2, bloom: false)
+        checks["sdrPersistenceUsesExactlyTwoRawTextures"] = lowerStorage.residentTextureCount == 2
+            && lowerFirst.display == nil && lowerReused.display == nil
+        checks["ordinaryBloomDoesNotTouchAccumulatedSDR"] = lowerBright[2] > lowerPlain[2]
+            && bytes(lowerReused.raw) == lowerPlain && lowerStable == lowerPlain
+        checks["sdrExportRetainsSourceIdentity"] = !lowerReused.requiresDraw
+            && lowerReused.producerReceipt == lowerFirst.producerReceipt
+            && lowerNext.previousReceipt == lowerFirst.producerReceipt
+            && lowerOwner.completedSceneColor?.displayMapped == false
+
         func snapshot(_ runtime: Coordinator, _ cache: SceneOffscreenTexturePool,
                       index: UInt64, epoch: UInt64, size: Int = 4,
                       color: MTLClearColor, copyFault: Bool = false)

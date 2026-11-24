@@ -71,6 +71,8 @@ struct SceneRuntimeModelBuilder {
         rootURL: URL,
         source: ScenePlaybackSource? = nil,
         propertyOverrides: [String: SceneUserPropertyValue] = [:],
+        usesHDRWorkingDomain: Bool = true,
+        appliesBloom: Bool = true,
         checkCancellation: (() throws -> Void)? = nil,
         preparedStaticModel: (String, SceneMdlStaticModel.PreparedSource) -> Void = { _, _ in },
         preparedParticleDefinition: (String, SceneParticleAssetGraphLoader.PreparedDefinition) -> Void = { _, _ in }
@@ -79,6 +81,8 @@ struct SceneRuntimeModelBuilder {
             rootURL: rootURL,
             source: source,
             propertyOverrides: propertyOverrides,
+            usesHDRWorkingDomain: usesHDRWorkingDomain,
+            appliesBloom: appliesBloom,
             checkCancellation: checkCancellation,
             preparedStaticModel: preparedStaticModel,
             preparedParticleDefinition: preparedParticleDefinition
@@ -251,6 +255,19 @@ struct SceneRuntimeModelBuilder {
             materialBindings: admittedMaterials
         )
         let sceneBindings = sceneDocument.userPropertyResolution.bindingReport
+        let activeSceneBindings = usesHDRWorkingDomain && appliesBloom ? sceneBindings.bindings
+            : sceneBindings.bindings.filter { binding in
+                switch binding.target {
+                case .layerBrightness, .particle(_, .brightness):
+                    return !sceneDocument.general.hdrEnabled || renderDescriptor.hdrEnabled
+                case .scene:
+                    guard case let .scene(field)? = ScenePropertyBindingCompiler.map(binding.target)?.target
+                    else { return true }
+                    return renderDescriptor.camera.bloom.consumes(field)
+                default:
+                    return true
+                }
+            }
         let materialBindings = SceneMaterialPropertyBindingCompiler.compile(
             descriptor: renderDescriptor,
             materialInstancesByLayerID: sceneDocument.materialInstancesByLayerID,
@@ -261,7 +278,7 @@ struct SceneRuntimeModelBuilder {
         )
         let compilation = ScenePropertyBindingCompiler().compile(
             report: .init(
-                bindings: sceneBindings.bindings + materialBindings,
+                bindings: activeSceneBindings + materialBindings,
                 diagnostics: sceneBindings.diagnostics
             ),
             catalog: project.userProperties,

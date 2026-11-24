@@ -44,10 +44,10 @@ struct SceneOffscreenTextureAllocationCandidate {
                 && targets.second.width == width && targets.second.height == height
                 && targets.second.pixelFormat == pixelFormat
                 && targets.first.mipmapLevelCount == 1 && targets.second.mipmapLevelCount == 1
-                && (intent == .snapshot ? targets.display == nil : targets.display.map {
+                && (intent.needsDisplayScratch(pixelFormat: pixelFormat) ? targets.display.map {
                     $0.width == width && $0.height == height
                         && $0.pixelFormat == pixelFormat && $0.mipmapLevelCount == 1
-                } == true)
+                } == true : targets.display == nil)
         case (.sharedGraphPair, .sharedGraphPair): true
         case (.graph(let effect), .graph(let lease)):
             lease.table.plan.output.effect == effect

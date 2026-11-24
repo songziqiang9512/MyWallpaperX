@@ -140,13 +140,16 @@ final class SceneDesktopWallpaperSession {
 
     /// Session 消费帧率，Host 更新共享的解码缓存上限。
     private(set) var performanceProfile: PlaybackPerformanceProfile = .current
-    private(set) var scenePostProcessing: ScenePostProcessingMode = .ultra
+    private(set) var scenePostProcessing: ScenePostProcessingMode
 
     func applyPerformanceProfile(_ profile: PlaybackPerformanceProfile) {
         performanceProfile = profile
     }
 
     func applyScenePostProcessing(_ mode: ScenePostProcessingMode) {
+        guard mode != scenePostProcessing,
+              mode.usesHDRWorkingDomain == scenePostProcessing.usesHDRWorkingDomain,
+              mode.appliesBloom == scenePostProcessing.appliesBloom else { return }
         scenePostProcessing = mode
         let requestsDisplayHDR = mode.requestsDisplayHDR
         var redraw = false
@@ -169,10 +172,12 @@ final class SceneDesktopWallpaperSession {
     /// product instance; the explicit DEBUG evidence runner owns its own.
     init(textureDecodeCacheBudget: SceneTextureDecodeCacheBudget,
          surfacePreparationQueue: DispatchQueue,
+         scenePostProcessing: ScenePostProcessingMode,
          userShortcutOpener: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) }) {
         self.userShortcutOpener = userShortcutOpener
         self.textureDecodeCacheBudget = textureDecodeCacheBudget
         self.surfacePreparationQueue = surfacePreparationQueue
+        self.scenePostProcessing = scenePostProcessing
         installObservers()
     }
 
