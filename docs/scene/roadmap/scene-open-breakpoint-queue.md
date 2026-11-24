@@ -126,7 +126,7 @@
 | 3382111183 | [官版曲线及原曲实机](../capabilities/runtime-evidence-current.md#floor-beam-emitter-338211)已测同档左右均值取峰、smoothstep后取幂和越1供值。待共享准备值合格后接普通发射器，验原包出生和运动。 |
 | 3383210272 / 3463406101 | [原曲](../capabilities/runtime-evidence-current.md#beam-shared-pcm)官版成双束、本机各2颗。[同PCM前景](../capabilities/runtime-evidence-current.md#author-low-band-pulse-346)确认原Pulse执行、两组官版取峰及准备64档已分叉。低档也见跨声道快影响与同侧慢历史。继续须可配对的运行中原谱或能裁决更新律的新输入，沿[共享设计](../../architecture/system-audio-spectrum-design.md)验原曲宽束、前景及独立消费者。沿用已测阈值和原曲证据。 |
 | 2814167871 /2835398595 | 眼部为132/e1与98/e0的pulse RGB增亮，16档band0/1均值跨.5才响应；281强度属性默认1、283常量.51。[默认PCM前5秒](../capabilities/runtime-evidence-current.md#eye-audio-input)无跨线正控；后续同作者WAV的281两App静帧已有真实16档消费，但不能判眼部闪动或闪烁。粗档候选已撤回，283不追加矩阵。重启须可裁决实际供值/首错，再核同帧pulse→tail→眼RGB；不调gain/作者参数、不强注入1，不由bus非零关闭。 |
-| 3708363772 · 配色 | [同真实封面](../capabilities/model-runtime-evidence.md#model-composition-cover-370)藏157后裸壳官版蓝、本机黄。固定色卡与播放状态，沿媒体颜色事件、156材质颜色和受光核首错。 |
+| 3708363772 · 配色 | [实机事件](../capabilities/runtime-evidence-current.md#media-palette-official-370)已分离共享次色偏差。取色续核排序与暗色过滤，着色以两端同字面颜色隔离156灯光。 |
 | 3603711180 | [播放媒体的原包与两端实帧](../capabilities/runtime-evidence-current.md#author-player-text-current-360)恢复标题、艺人、剩余时间和实际封面。已测画幅首行同在左框外，观察其他比例/第二行与字体差异须用同视口同媒体复取；按原屏幕锚与字形范围核对。 |
 | 2887099508 · 图5 | [黑纹](../capabilities/runtime-evidence-current.md#basic-interaction-288)未重现，待同相位ROI或具体版本。原生持续悬停待合格输入，仅在出现可重复的命中问题时复核。 |
 | 2999907577 | 旧终端主体完整，大片背景灰与有效默认tint相符；876e6流体的执行不授像素贡献。后续只在需要时用现有selector7→8(None)定位白弧/流体贡献，不按preview判缺纹理。 |
