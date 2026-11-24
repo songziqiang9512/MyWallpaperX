@@ -355,7 +355,7 @@ class SceneParticleCoverageRenderingTests(unittest.TestCase):
                     ("boxFractionSign", "0.75"), ("renamedBoxGarbageSign", "unknownAxis"))
         self.assertEqual(set(rows), {name for name, _ in controls} | {"sphereGarbageSign"})
         clear, source, peer = [16, 24, 40, 102], [96, 160, 224, 255], [192, 96, 48, 255]
-        # Fixed Box(-24,0,0) around screen(64,48); sign+10 must not move it right.
+        # Fixed radius around screen(64,48) supplies both sides even with an authored sign.
         for name, sign in controls:
             row = rows[name]
             with self.subTest(name=name):
@@ -372,12 +372,12 @@ class SceneParticleCoverageRenderingTests(unittest.TestCase):
                 self.assertFalse(row["facts"][0]["liveBirthRejected"], row)
                 self.assertNotIn("emitterShapeUnsupported", row["facts"][0]["diagnostics"])
                 self.assertEqual(row["vertexCount"], 64)
-                for actual, wanted in zip(row["vertexBounds"], [36, 32, 44, 64], strict=True):
+                for actual, wanted in zip(row["vertexBounds"], [36, 32, 92, 64], strict=True):
                     self.assertAlmostEqual(actual, wanted, delta=.002, msg=name)
                 self.assertEqual(row["frozenPoints"], [[40, 48], [88, 48], [64, 48], [116, 14], [4, 4]])
-                self.assertEqual(row["frozenPixels"], [source, clear, clear, peer, clear])
+                self.assertEqual(row["frozenPixels"], [source, source, clear, peer, clear])
                 self.assertEqual(row["histogram"],
-                                 {"96,160,224,255": 256, "192,96,48,255": 64, "16,24,40,102": 11968})
+                                 {"96,160,224,255": 512, "192,96,48,255": 64, "16,24,40,102": 11712})
                 self.assertLessEqual(row["maximumByteError"], 1, row)
                 for field in ("histogram", "vertexBounds", "frozenPixels"):
                     self.assertEqual(row[field], rows["boxNoSign"][field], field)

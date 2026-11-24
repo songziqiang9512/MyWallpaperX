@@ -148,6 +148,17 @@ class SceneParticleEmitterDirectionsTests(unittest.TestCase):
                     self.assertEqual(a["nextID"], b["nextID"])
                 self.assertEqual(actual["first"], actual["replayed"])
 
+    def test_box_masks_preserve_draws_and_nonfinite_axes_collapse_locally(self):
+        masked = self.results["maskedBox"]
+        collapsed = self.results["collapsedBox"]
+        self.assertEqual(masked, self.results["negativeMaskedBox"])
+        self.assertEqual(collapsed, self.results["invalidBox"])
+        self.assertNotEqual(masked["first"]["random"], collapsed["first"]["random"])
+        for row in (masked, collapsed):
+            positions = row["first"]["birthPositions"]
+            self.assertEqual(len(positions), 8)
+            self.assertTrue(all(x == z == 0 and 2 <= abs(y) <= 4 for x, y, z in positions))
+
     def test_explicit_candidates_commit_rollback_retry_and_exact_count_rejection(self):
         row = self.results["transaction"]
         self.assertTrue(row["accepted"])

@@ -159,7 +159,7 @@
 | 3789316755 /3211615441 | 频谱形状/幅度/全柱活动；321首焦点、持续按住的作者行为与多步跟随分别待验证。 |
 | 3788467391 | 漩涡方向、速度、形态与长预热的可比相位。 |
 | 1315486372 | 光线宽软、渐隐及水波位置。 |
-| 3769761761 | [成熟右侧覆盖](../capabilities/runtime-evidence-current.md#ember-continuous-field-and-coverage)仍开。关持续X仍缺右带，固定低α叠加和缩放默认已核。只在同龄非零局部出生点或原非均匀轨迹面积出现首错时修正；持续取场核与显式出生相位分别保留。 |
+| 3769761761 | [持续取场与成熟右带](../capabilities/runtime-evidence-current.md#ember-continuous-field-and-coverage)仍开。受控出生角、尾迹单卡与低α已核。重启须同龄成群面积或持续核首错。 |
 | 3113287126 | 小提琴方向/密度反馈仍开。原R0五活动root均到main/GPU、无child，全随parent500；Directions普通量/默认，旧bounded不作缺图，当前未见可证重复world转换。重启须明确root/ROI、发射与父Puppet同phase及当帧pos/vel→attachment/model/VP，不能由单图或几何实例数调count/speed；薄事实在`.artifacts/scene-violin-311-next-20261109/`。 |
 | 3743305891 | 原R0活动十字为child1的22个Sprite几何实例；root/child各取自身size空间flags，child2.5与父layer10是不同声明，当前静态消费链未见同一scale重复乘。缺同phase尺寸oracle与当帧instance.size/MVP，反馈仍开；重启须官方子world继承资格或可归属size/空间→像素错配，不调size拟合或无差别重跑。原输入、三batch/main/GPU及链路在`.artifacts/scene-cross-size-374-next-20261109/`。 |
 | 3768229922 /3770444459 | 376原R0的4秒片头与16秒后续均未定位黑滴ROI；1103/1144玻璃各30实例、color/normal/background→main与GPU已有实际供货，不判完全未执行。反馈仍开，重启须明确哪颗/哪个ROI、相位和对应活动source，不追加无差别第三场或由名称推PMA/混合；薄事实在`.artifacts/scene-droplet-3768229922-next-20261109/`。377主体/眼部完整过渡仍须同相位合成ROI。 |
@@ -228,7 +228,7 @@
 | 3454689854 | 部分修复。主薄丝对比已恢复，默认不显示环字与官版一致。其余丝层另核。[薄丝与环字](../capabilities/runtime-evidence-current.md#silk-capture-density-345) |
 | 3248220186 | 已修复。球内时钟合成恢复官版残显，球体正确遮住钟旁粒子。[文字与球体](../capabilities/runtime-evidence-current.md#author-clock-sprite-depth-324) |
 | 3603711180 | 已修复。实际媒体标题、艺人与剩余时长已接入文本，真实系统封面已同帧验收。其它画幅另核。[播放器](../capabilities/runtime-evidence-current.md#author-player-text-current-360) |
-| 3228084178 | 已修复。恒幅输入下音条周期性近熄已消除，静音保作者无柱。[音条](../capabilities/runtime-evidence-current.md#author-led-placement-tail-322) |
+| 3228084178 | 已修复音条周期性近熄，静音保无柱。196散景恢复双侧。[音条](../capabilities/runtime-evidence-current.md#author-led-placement-tail-322) · [散景](../capabilities/runtime-evidence-current.md#box-birth-distance) |
 | 2868108515 | 已修复。锁链左侧规则叠影已消除，链条和正常雾层保留。[局部光效](../capabilities/runtime-evidence-current.md#author-chain-godrays-local-grid) |
 | 3141464346 | 部分修复。环形丝雾的工作栅格与弧线曲向已修复，原摆位裁切与官版一致，随音乐变化待核。[双环](../capabilities/runtime-evidence-current.md#ring-cover-314) |
 | 3673609113 | 部分修复。背景复制从6次降到2次，GPU仍超预算。两级残影为官版同样执行的作者历史。[性能](../capabilities/runtime-evidence-current.md#root-quad-color-read-367) · [残影](../capabilities/runtime-evidence-current.md#author-motion-history-367) |

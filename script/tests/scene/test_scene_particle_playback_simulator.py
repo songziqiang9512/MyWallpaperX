@@ -567,20 +567,20 @@ import Foundation
             ("negative-ten", "-10 0 0", "-1 0 0", "1 0 0", false),
             ("positive-fraction-over-one", "1.25 0 0", "1 0 0", "1 0 0", false),
             ("negative-fraction-over-one", "-1.25 0 0", "-1 0 0", "1 0 0", false),
-            ("three-quarters", "0.75 0 0", "0 0 0", "1 0 0", false),
-            ("positive-half", 0.5, 0, "1 0 0", false),
-            ("negative-half", -0.5, 0, "1 0 0", false),
-            ("positive-tiny", "0.0000001 0 0", "0 0 0", "1 0 0", false),
-            ("negative-tiny", "-0.0000001 0 0", "0 0 0", "1 0 0", false),
+            ("three-quarters", "0.75 0 0", "1 0 0", "1 0 0", false),
+            ("positive-half", 0.5, 1, "1 0 0", false),
+            ("negative-half", -0.5, -1, "1 0 0", false),
+            ("positive-tiny", "0.0000001 0 0", "1 0 0", "1 0 0", false),
+            ("negative-tiny", "-0.0000001 0 0", "-1 0 0", "1 0 0", false),
             ("omitted", nil, 0, "1 0 0", false),
             ("scalar-number", 10, 1, "1 1 1", false),
             ("scalar-text", "-10", "-1", "1 1 1", false),
             ("finite-beyond-int", "1e300", 1, "1 0 0", false),
-            ("mixed-axes", "10 -1.25 0.75", "1 -1 0", "1 1 1", false),
+            ("mixed-axes", "10 -1.25 0.75", "1 -1 1", "1 1 1", false),
             ("fraction-before-active-y", "0.5 1 0", "0 1 0", "0 1 0", false),
             // Resource/IDs and the cold wrapper key change independently of the numeric value.
             ("renamed-wrapper", ["user": "otherCompass", "value": "10 -1.25 0.75"],
-             "1 -1 0", "1 1 1", true)]
+             "1 -1 1", "1 1 1", true)]
         for (label, rawSign, referenceSign, axes, renamed) in equivalentSigns {
             var fields: [String: Any] = ["directions": axes, "instantaneous": 32]
             if let rawSign { fields["sign"] = rawSign }
@@ -626,9 +626,10 @@ import Foundation
             "distancemin": "2 3 0", "distancemax": "2 5 0"]
         let boxControl = try radial(boxFields, omitsSign: true)
         boxControl.advance(by: 0.25)
-        result["box-sign-omitted-real-negative-x-and-nonzero-extent"] = boxControl.particles.count == 4
+        result["box-sign-omitted-real-two-sided-extent"] = boxControl.particles.count == 4
+            && Set(boxControl.birthEvents.map { $0.position.x }) == Set([2.0, 6.0])
             && boxControl.birthEvents.allSatisfy {
-                $0.position.x == -4 && (5...7).contains($0.position.y) && $0.position.z == 0
+                (3...5).contains(abs($0.position.y - 2)) && $0.position.z == 0
             } && Set(boxControl.birthEvents.map { $0.position.y }).count > 1
         let ignoredBoxSigns: [(String, Any?, Bool)] = [("omitted", nil, false), ("zero", 0, false),
             ("ten", "10 10 10", false), ("fraction", 0.75, false), ("garbage", "unusedAxis", false),

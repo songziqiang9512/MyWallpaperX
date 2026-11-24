@@ -135,23 +135,24 @@ extension SceneParticleSimulator {
         let maximum = plan.distanceMaximum
         let direction = plan.directions
         return SIMD3(
-            randomBoxComponent(minimum.x, maximum.x),
-            randomBoxComponent(minimum.y, maximum.y),
-            randomBoxComponent(minimum.z, maximum.z)
-        ) * direction
+            randomBoxComponent(minimum.x, maximum.x, direction.x),
+            randomBoxComponent(minimum.y, maximum.y, direction.y),
+            randomBoxComponent(minimum.z, maximum.z, direction.z)
+        )
     }
 
     private nonisolated func randomBoxComponent(
-        _ rawMinimum: Double,
-        _ rawMaximum: Double
+        _ minimum: Double,
+        _ maximum: Double,
+        _ direction: Double
     ) -> Double {
-        guard rawMinimum.isFinite, rawMaximum.isFinite else { return 0 }
-        guard abs(rawMinimum) <= 1e-12 else {
-            return random.value(rawMinimum, rawMaximum)
+        if minimum == 0 {
+            return maximum > 0 ? random.value(-maximum, maximum) * direction : 0
         }
-        let outer = abs(rawMaximum)
-        guard outer.isFinite, outer > 0 else { return 0 }
-        return random.value(-outer, outer)
+        let sample = random.value(-1, 1) * direction
+        guard direction != 0 else { return 0 }
+        let distance = minimum + abs(sample) * (maximum - minimum)
+        return sample.sign == .minus ? -distance : distance
     }
 }
 

@@ -2256,10 +2256,11 @@ enum Harness {
                 && explicitCenteredOffsets.contains(where: { $0.y < 0 })
                 && explicitCenteredOffsets.contains(where: { $0.y > 0 }),
             "positiveBoxPreservesInterval": positiveBoxPositions.allSatisfy {
-                (2...4).contains($0.x)
-                    && (3...5).contains($0.y)
-                    && (1...2).contains($0.z)
-            },
+                (2...4).contains(abs($0.x))
+                    && (3...5).contains(abs($0.y))
+                    && (1...2).contains(abs($0.z))
+            } && positiveBoxPositions.contains { $0.x < 0 }
+                && positiveBoxPositions.contains { $0.x > 0 },
             "movementPosition": vector(movementPosition),
             "worldMovementPosition": vector(worldMovement.particles[0].position),
             "worldMovementLocalVelocity": vector(worldMovement.particles[0].velocity),
@@ -2348,8 +2349,8 @@ enum Harness {
             "boxDirectionsBounded": boxDirections.particles.count == 64
                 && boxDirections.particles.allSatisfy { particle in
                     let position = particle.position
-                    return (2 ... 4).contains(position.x)
-                        && (-4 ... -2).contains(position.y) && position.z == 0
+                    return (1 ... 3).contains(abs(position.x))
+                        && (2 ... 4).contains(abs(position.y)) && position.z == 0
                 },
             "boxDirectionsDiagnostics": boxDirections.diagnostics.map(\.kind.rawValue),
             "invalidEmitterShapeCounts": invalidEmitterShapes.map { $0.particles.count },
@@ -3967,14 +3968,18 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             self.assertIn("controlPointEmitterAnglesUnsupported", diagnostics)
 
     def test_emitter_speed_applies_fixed_and_max_only_values_and_rejects_nonfinite(self) -> None:
-        self.assertEqual(self.results["fixedEmitterSpeedPosition"], [5, 0, 0])
-        self.assertEqual(self.results["fixedEmitterSpeedVelocity"], [3, 0, 0])
+        position = self.results["fixedEmitterSpeedPosition"]
+        velocity = self.results["fixedEmitterSpeedVelocity"]
+        self.assertEqual([abs(value) for value in position], [5, 0, 0])
+        self.assertEqual([abs(value) for value in velocity], [3, 0, 0])
+        self.assertGreater(position[0] * velocity[0], 0)
         self.assertEqual(
             self.results["fixedEmitterSpeedDiagnostics"], ["emitterSpeedBounded"]
         )
         speeds = self.results["maxOnlyEmitterSpeeds"]
         self.assertEqual(len(speeds), 16)
-        self.assertTrue(all(0 <= value <= 4 for value in speeds))
+        self.assertTrue(all(abs(value) <= 4 for value in speeds))
+        self.assertTrue(any(value < 0 for value in speeds))
         self.assertTrue(any(value > 0 for value in speeds))
         self.assertEqual(
             self.results["maxOnlyEmitterSpeedDiagnostics"], ["emitterSpeedBounded"]

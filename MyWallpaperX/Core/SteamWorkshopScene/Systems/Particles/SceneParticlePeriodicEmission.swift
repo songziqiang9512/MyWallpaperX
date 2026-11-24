@@ -84,12 +84,24 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
             sphereAxisMask = 0
             sphereRadiusMinimumPower = 0
             sphereRadiusInverseDimension = 1
-            distanceMinimum = SceneParticleSimulationMath.vector(
+            var minimum = SceneParticleSimulationMath.vector(
                 value.distanceMinimum, fallback: .zero
             )
-            distanceMaximum = SceneParticleSimulationMath.vector(
+            var maximum = SceneParticleSimulationMath.vector(
                 value.distanceMaximum, fallback: SIMD3(repeating: 256)
             )
+            if case .boxRandom = value.kind {
+                for axis in 0..<3 {
+                    if !minimum[axis].isFinite || !maximum[axis].isFinite {
+                        minimum[axis] = 0
+                        maximum[axis] = 0
+                    } else if minimum[axis] == 0 {
+                        maximum[axis] = abs(maximum[axis])
+                    }
+                }
+            }
+            distanceMinimum = minimum
+            distanceMaximum = maximum
             hasValidShapeInputs = value.hasValidDirectionsAndSign
         }
         if let range = value.boundedSpeedRange {

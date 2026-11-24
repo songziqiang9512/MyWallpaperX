@@ -297,7 +297,7 @@ enum Harness {
     """#
     private static let vortexJSON = #"""
     {"material":"p.json","maxcount":1,
-     "emitter":[{"name":"boxrandom","instantaneous":1,"directions":"1 1 1","distancemin":"10 0 0","distancemax":"10 0 0"}],
+     "emitter":[{"name":"boxrandom","instantaneous":1,"origin":"10 0 0","distancemax":0}],
      "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
      "operator":[{"name":"vortex","axis":"0 0 1","distanceinner":0,"distanceouter":10,"speedinner":0,"speedouter":100,"audioprocessingmode":3}],
      "renderer":[{"name":"sprite"}]}

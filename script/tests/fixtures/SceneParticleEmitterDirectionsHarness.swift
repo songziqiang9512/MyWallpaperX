@@ -221,8 +221,8 @@ enum SceneParticleEmitterDirectionsHarness {
 
         let finiteOverflow: [String: Any] = ["directions": "1 1 1", "instantaneous": 2,
                                              "distancemin": 1e200, "distancemax": 2e200]
-        let floatOverflow: [String: Any] = ["name": "boxrandom", "directions": "1e39 0 0",
-                                            "instantaneous": 2, "distancemin": "1 0 0", "distancemax": "1 0 0"]
+        let floatOverflow: [String: Any] = ["name": "boxrandom", "directions": "1e45 0 0",
+                                            "instantaneous": 2, "distancemin": "1 0 0", "distancemax": "2 0 0"]
         let speedBirths = try [
             "world": speedBirth(initializerY: true),
             "local": speedBirth(world: false, initializerY: true),
@@ -237,6 +237,8 @@ enum SceneParticleEmitterDirectionsHarness {
             "zeroLocal": speedBirth(["distancemin": 0, "distancemax": 0], world: false),
             "zeroExplicit": speedBirth(["distancemin": 0, "distancemax": 0], explicit: true),
         ]
+        let maskedBox: [String: Any] = ["name": "boxrandom", "directions": "0 1 0",
+                                       "distancemin": "0 2 0", "distancemax": "9 4 0"]
         let payload: [String: Any] = [
             "equivalents": equivalents, "rngProbes": probes, "subnormal": subnormal,
             "zeroDraw": zeroDraw, "zeroRadius": zeroRadius, "thresholds": thresholds, "invalid": invalid,
@@ -246,7 +248,11 @@ enum SceneParticleEmitterDirectionsHarness {
             "finiteOverflowReference": run(["directions": "1 1 1", "instantaneous": 2], peer: true),
             "floatOverflow": run(floatOverflow, peer: true),
             "floatOverflowReference": run(["name": "boxrandom", "directions": "1 0 0",
-                                            "instantaneous": 2, "distancemin": "1 0 0", "distancemax": "1 0 0"], peer: true),
+                                            "instantaneous": 2, "distancemin": "1 0 0", "distancemax": "2 0 0"], peer: true),
+            "maskedBox": run(maskedBox),
+            "negativeMaskedBox": run(maskedBox.merging(["distancemax": "-9 4 0"]) { _, value in value }),
+            "collapsedBox": run(maskedBox.merging(["distancemax": "0 4 0"]) { _, value in value }),
+            "invalidBox": run(maskedBox.merging(["distancemin": "nan 2 0"]) { _, value in value }),
             "transaction": transaction(["directions": [scale, scale, 0],
                                          "distancemin": inverse, "distancemax": 4 * inverse]),
             "overflowTransaction": transaction(finiteOverflow),

@@ -115,7 +115,7 @@ Directions 是各轴距离倍率；原形状及有限值检查在冷准备消费
 
 Sphere 的 sign 逐轴按原有限值选边，零取双侧，任意非零含小数按正负选侧，幅度不乘半径或速度。退役冷 SpawnPlan 的整数截断和抽样中的近零门。入口仍校验原形状，CP、随机顺序、实例倍率和世界转换沿原链。
 
-Box 不消费 sign，解析入口把该无关字段投影为 nil，不因其合法、错型或非有限内容拒绝有效 Box；原 root 字典及既有组件来源记录不改。Directions、sign 与 duration 在原 parseEmitter 各解析一次，复用已解析结果判 malformed；仅 Box 忽略 sign，Sphere、LayerImage 及未知 kind 的字段和资格保持。原 SpawnPlan 的 Sphere 分支才准备 sign 与轴 mask，其他 shape 写中性值；不增加字段、owner、fallback 或普通帧工作。验收核 Box 缺省/零/非单位/小数/垃圾 sign 的相同实际出生、事件、RNG 和 Metal 输出，并用带有效 emission map 的 LayerImage、Sphere 坏输入和无关健康 peer 保反例。当前没有该门独立活动拒绝的作者资格，不宣称恢复某个 Workshop 作者。
+<a id="box-distance"></a>Box 绕 CP/发射原点逐轴抽样。Distance Min 是带符号距离基值，Directions 的绝对值缩放 Min→Max 的跨度；每个非零轴以对称随机符号映射到原点两侧，零方向仍归零。Min=0 沿原双侧最大距离抽样，保持普通宽度和随机序列。轴间沿原 RNG 次序；非有限距离轴在 SpawnPlan 局部归零，邻轴仍出生。位置和径向初速继续消费同一偏移，Sphere/图像发射沿各自现役语义。验收覆盖固定/反序端点、正负/零方向、默认/改名与独立作者。Box 的 sign 无消费者，解析入口投影到省略，Sphere 与其它形状保原字段及资格。正例核自然/显式出生及 GPU，坏方向、Sphere 或图像声明失败限对应组件。
 
 官版实际1/2/3轴均用小数选侧，静止雾与无遮挡对照分离出生和画面遮挡。旧手工JPEG的双侧判断退役。验收核改名、零、正负小数/整数、坏输入、原包和独立整数源。[运行证据](runtime-evidence-current.md#moon-fog-fractional-sign)
 
