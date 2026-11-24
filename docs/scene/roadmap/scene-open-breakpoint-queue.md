@@ -6,9 +6,9 @@
 
 2026-11-24 增量筛查以现库859个目录与仓库旧归档522个 ID 对账，旧3个已不在库，340个待核。9个复用 project、包和树摘要均一致的既有实际运行。本轮331个输入进入签名候选 `740bf83d…d3016f` 的默认4秒流程，329个取得匹配终端 GPU 回执。3736952187 缺 project，3822067395 缺首帧。8个异常保并发原始记录及串行8秒复验。结果归 `.artifacts/scene-new-author-intake-20261124/intake-index.json`，短窗覆盖默认播放，后续仍须实际音频、媒体、交互、成熟时段及官版对照。
 
-11-24 的31项用户观察按首个可见断点复核。3822067395 的启动阻断与3455121165 的钟下音条已用原包闭合。[启动纹理证据](../capabilities/runtime-evidence-current.md#tex-alpha-channel-priority-author) · [实际背景截点](../capabilities/runtime-evidence-current.md#native-composition-audio-prefix)。缩略图有而两客户端当前均未见的效果保留触发条件待查。
+11-24 的31项用户观察按首个可见断点复核。接续前先对照页尾[已修复的用户反馈](#resolved-user-feedback)，只选择仍开放且有当前证据的具体问题。
 
-先处理有当前证据的播放阻断、画面和基本交互。选题时简看现有画面和[运行证据](../capabilities/runtime-evidence-current.md)，及时清除已修或已证为作者行为的条目。旧反馈若看不出具体问题，等新的可重复输入或明确差异再排，不延长试验或推测改法。仍开放的项目沿各行已有停止线。2026-11-07补报13个作者定位与图1–5；8项曾进入默认App运行，5项仅有census。原图及逐项对账保于`.artifacts/scene-user-feedback-20261107/`。
+先处理有当前证据的播放阻断、画面和基本交互。选题时简看现有画面和[运行证据](../capabilities/runtime-evidence-current.md)，已修的子现象记在页尾。旧反馈若看不出具体问题，等新的可重复输入或明确差异再排，不延长试验或推测改法。仍开放的项目沿各行已有停止线。2026-11-07补报13个作者定位与图1–5；8项曾进入默认App运行，5项仅有census。原图及逐项对账保于`.artifacts/scene-user-feedback-20261107/`。
 
 样本ID和layer仅用于复现，不选择算法。隐藏、空媒体、延迟和未触发分支不直接判缺图；Program准入、实际绑定、CPU求值、GPU执行、局部tail消费和最终像素贡献分别记录，未知保持未知。
 
@@ -116,7 +116,7 @@
 | 输入 | 当前起点 |
 |---|---|
 | 3437487219 | Cloud共同MR、颜色/HDR与pigment的自有受光合同已沿[模型正文](../capabilities/advanced-object-coverage.md#model-chroma-surface)接通，冻结云资产有可见贡献，退出这些具体缺口。旧精确受光、闪烁/collision反馈仍待同条件ROI/活动producer，不由noise或默认完整图关闭，不按旧参考调灯。 |
-| 3455121165 | 默认自然墙钟时钟和星期正常，排序开启时[原作者音条已恢复](../capabilities/runtime-evidence-current.md#native-composition-audio-prefix)。107关闭深度的官/本差异仍需能覆盖字形的前缀见证，保留 opacity 与近远观察。[条件资格](../capabilities/runtime-evidence-current.md#authored-text-depth) |
+| 3455121165 | 107关闭深度的官/本差异仍需能覆盖字形的前缀见证，保留 opacity 与近远观察。[条件资格](../capabilities/runtime-evidence-current.md#authored-text-depth) |
 
 ### 基础画面与基本交互优先
 
@@ -210,4 +210,37 @@
 | 官方原生采集 | [原作者窗](../capabilities/runtime-evidence-current.md#beam-contribution)已复核刷新，当前仅定性。量测仍须沿[采集方法](../../../.agents/skills/mywallpaperx-maintainer/references/parallels-official-oracle.md)取得有效同窗像素或实际draw数值；黑图和相机getter不能授几何资格。另零指数×10/真实改名控制在本地保完整球与peer，官版却放大填满窗口，未取得同投影/完整载体；该case退出官方尺度对照，改用同geometry的纯改名控制，不据此判相机产品错误。 |
 | 自有9000000015 | 90/91/92健康peer须有真实texture source及可区分ROI，先资格夹具，不能借主文字/clone输出代peer。 |
 
-属性接口归[输入与属性](../capabilities/runtime-input-property-coverage.md)，工具按当前实现与输入资格复现。更新队列时只删已解决的具体子问题；没有当前复现则标待核，不复述旧实验流水或维持旧 verdict。
+属性接口归[输入与属性](../capabilities/runtime-input-property-coverage.md)，工具按当前实现与输入资格复现。已解决的反馈子项移到页尾。
+
+<a id="resolved-user-feedback"></a>
+## 已修复的用户反馈
+
+11-24 反馈以现象为单位标记。下列已验证项默认跳过，有新同条件回归证据再重开。同样本剩余问题沿上方队列，截图、身份和验证边界沿链接。
+
+| 样本 | 状态与已验证范围 |
+|---|---|
+| 3653620838 | 部分修复。内圈运动、轴向/半径约束、初速和尾迹长度已修复，亮度残差仍开放。[粒子证据](../capabilities/runtime-evidence-current.md#vortex-axis-world-365) · [尾迹证据](../capabilities/runtime-evidence-current.md#vortex-world-trail-light-365) |
+| 3612940332 | 部分修复。人物后红弧的宽度、断线和背景采样已修复，音乐驱动的幅值和时变仍开放。[红弧](../capabilities/runtime-evidence-current.md#solid-background-same-pixel-native) |
+| 3822067395 | 已修复。原包可启动，首帧及相关效果已实绘。[首帧](../capabilities/runtime-evidence-current.md#tex-alpha-channel-priority-author) |
+| 3174321827 | 已修复。部件回到正确组装姿态，双臂和武器在胸前，细微姿态残差有独立证据。[组装](../capabilities/runtime-evidence-current.md#puppet-counted-reference-317) |
+| 3823864170 | 已修复。拖尾跟随鼠标，默认与可选尾迹通过跟踪、颜色对照。[运动](../capabilities/runtime-evidence-current.md#pointer-zero-angles-author) · [颜色](../capabilities/runtime-evidence-current.md#neutral-mask-trail-382) |
+| 3453730450 | 部分修复。右箭头已显示并可点击展开菜单，月雾遮挡仍有残差。[箭头与点击](../capabilities/runtime-evidence-current.md#moon-arrow-and-veil-345) |
+| 3454689854 | 部分修复。主薄丝对比已恢复，默认不显示环字与官版一致。其余丝层另核。[薄丝与环字](../capabilities/runtime-evidence-current.md#silk-capture-density-345) |
+| 3248220186 | 已修复。球内时钟合成恢复官版残显，球体正确遮住钟旁粒子。[文字与球体](../capabilities/runtime-evidence-current.md#author-clock-sprite-depth-324) |
+| 3603711180 | 已修复。实际媒体标题、艺人与剩余时长已接入文本，真实系统封面已同帧验收。其它画幅另核。[播放器](../capabilities/runtime-evidence-current.md#author-player-text-current-360) |
+| 3228084178 | 已修复。恒幅输入下音条周期性近熄已消除，静音保作者无柱。[音条](../capabilities/runtime-evidence-current.md#author-led-placement-tail-322) |
+| 2868108515 | 已修复。锁链左侧规则叠影已消除，链条和正常雾层保留。[局部光效](../capabilities/runtime-evidence-current.md#author-chain-godrays-local-grid) |
+| 3141464346 | 部分修复。环形丝雾的工作栅格与弧线曲向已修复，原摆位裁切与官版一致，随音乐变化待核。[双环](../capabilities/runtime-evidence-current.md#ring-cover-314) |
+| 3673609113 | 部分修复。背景复制从6次降到2次，GPU仍超预算。两级残影为官版同样执行的作者历史。[性能](../capabilities/runtime-evidence-current.md#root-quad-color-read-367) · [残影](../capabilities/runtime-evidence-current.md#author-motion-history-367) |
+| 3187857248 | 部分修复。双Surface拖动失效已修复，物理指针若仍间歇须新输入证据。[拖动](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318) |
+| 3766299002 | 已修复。面具属性正确选择纹理并保持眼部同步，两主题均验。[面具和眼部](../capabilities/runtime-evidence-current.md#author-conditional-mask-376) |
+| 3586705329 | 已修复。拼贴右缘错误回卷，两档镜头缩放均验。[拼贴](../capabilities/runtime-evidence-current.md#author-collage-edge-358) |
+| 3708363772 | 部分修复。真实系统封面、回退封面和模型共用透视视差，转角封面边距另核。[封面视差](../capabilities/model-runtime-evidence.md#model-perspective-parallax-370) |
+| 3337494481 | 已修复。盒体侧背文字不再错误透出。[文字遮挡](../capabilities/runtime-evidence-current.md#author-box-text-occlusion-333) |
+| 3509243656 | 已修复。轨迹打开后进入原作者发射和绘制，关后停止，再开恢复。[属性热切](../capabilities/runtime-evidence-current.md#author-normal-depth-trails-350) |
+| 3769761761 | 部分修复。斜光的预热、缺省初速和缺省相位已恢复，显式相位和持续湍流另核。[初速](../capabilities/runtime-evidence-current.md#ember-turbulent-birth-speed) · [相位](../capabilities/runtime-evidence-current.md#ember-turbulent-birth-phase) |
+| 3842265910 | 已修复双瞳缺失，身体动画按上方独立项跟进。[双瞳](../capabilities/runtime-evidence-current.md#puppet-pupil-color-order-384) |
+| 3306942838 | 部分修复。头肩脱节的主要槽与同步运动已恢复，正向相对偏移另核。[头肩](../capabilities/runtime-evidence-current.md#puppet-body-slot-330) |
+| 3455121165 | 已修复。默认排序下时钟下方的原作者音条已恢复。[钟下音条](../capabilities/runtime-evidence-current.md#native-composition-audio-prefix) |
+
+已核官版表现也可复用。3769688830 默认玩偶会持续自转并随父层摆动，属性可关闭自转。3351163962 在已测相同较窄画幅两端时钟均出圈。3617449489 的白色音频环在现行原包两端均未见。3781003282 的红尾两端均跟随，中央白块未复现。这些现象有新触发证据再查。[玩偶](../capabilities/runtime-evidence-current.md#orb-spin-parent-motion-376) · [时钟画幅](../capabilities/runtime-evidence-current.md#text-screen-anchor-viewport) · [白环](../capabilities/runtime-evidence-current.md#preview-ring-361744) · [鼠标拖尾](../capabilities/runtime-evidence-current.md#pointer-halo-378)

@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 213,
-      "bytes": 64860
+      "lines": 246,
+      "bytes": 70131
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "ca435e6fb8fee4c672ff593a674d49de738a47acb6efaaaaadf305817e0c999f",
-      "after": "b1896739f58d171464d7a410866d9aba70ff48fe378e2160e4a9eca016ac3887",
-      "owner": "Shared Scene author spectrum",
-      "reason": "移出出生速度缺省问题，保留角向场与持续力的独立必要观察。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "before": "e3a793be4410a19f2dd61cd2c98dd2ea69c7f5a37d9430089f0f7bd756dfde88",
+      "after": "531036f9f81d05b4a869fb6279d785454e1e1a5de2fde2415b198aa03e408373",
+      "owner": "Scene open breakpoint queue",
+      "reason": "按用户要求保留已修复现象和资格锚点，防止接续时重复排查。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#resolved-user-feedback"
     },
     {
       "section": "bodies",
