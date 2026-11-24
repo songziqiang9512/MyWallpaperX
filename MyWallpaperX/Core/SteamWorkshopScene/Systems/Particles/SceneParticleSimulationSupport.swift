@@ -64,7 +64,7 @@ nonisolated struct SceneParticleTurbulentVelocityPlan: Sendable {
         up = SceneParticleSimulationMath.vector(value.up, fallback: .zero)
         offset = value.offset ?? 0
         phaseMinimum = value.phaseMinimum ?? 0
-        phaseMaximum = value.phaseMaximum ?? 2 * .pi
+        phaseMaximum = value.phaseMaximum ?? 0
         scale = value.scale ?? 1
         speedMinimum = max(value.speedMinimum ?? 100, 0)
         speedMaximum = max(value.speedMaximum ?? 250, 0)

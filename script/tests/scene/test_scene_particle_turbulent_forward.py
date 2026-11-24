@@ -26,13 +26,19 @@ import Foundation
 @main enum Harness {
     static func make(_ forward: String, normal: String = "0 0 1",
                      offset: Double = 0, speed: Double = 10, count: Int = 1,
-                     speedFields: [String: Double]? = nil) throws
+                     speedFields: [String: Double]? = nil, phaseFields: [String: Double]? = nil) throws
         -> (SceneParticleSimulator, SceneParticleTrailRenderPlan) {
         var turbulence: [String: Any] = ["name": "turbulentvelocityrandom", "forward": forward,
             "right": normal, "scale": 0, "offset": offset,
             "phasemin": 0, "phasemax": 0, "timescale": 0]
         for (name, endpoint) in speedFields ?? ["speedmin": speed, "speedmax": speed] {
             turbulence[name] = endpoint
+        }
+        if let phaseFields {
+            turbulence["scale"] = 0.1
+            turbulence["timescale"] = 1
+            turbulence["phasemin"] = phaseFields["phasemin"]
+            turbulence["phasemax"] = phaseFields["phasemax"]
         }
         let authored: [String: Any] = [
             "material": "owned.json", "maxcount": count, "starttime": 0, "flags": 0,
@@ -128,6 +134,19 @@ import Foundation
             peer.advance(by: 0.125)
             return ["name": name, "initializers": observe(sim, trail), "control": observe(peer, peerTrail)] as [String: Any]
         }
+        let phaseArms: [(String, [String: Double], [String: Double])] = [
+            ("omitted", [:], ["phasemin": 0, "phasemax": 0]),
+            ("only-min", ["phasemin": 2.5], ["phasemin": 2.5, "phasemax": 0]),
+            ("only-max", ["phasemax": 2.5], ["phasemin": 0, "phasemax": 2.5]),
+            ("explicit-range", ["phasemin": 0, "phasemax": 2 * .pi], ["phasemin": 0, "phasemax": 0]),
+        ]
+        let phaseCases = try phaseArms.map { name, actual, control in
+            let (sim, trail) = try make("1 0 0", count: 16, phaseFields: actual)
+            let (peer, peerTrail) = try make("1 0 0", count: 16, phaseFields: control)
+            sim.advance(by: 0.125)
+            peer.advance(by: 0.125)
+            return ["name": name, "initializers": observe(sim, trail), "control": observe(peer, peerTrail)] as [String: Any]
+        }
         func explicit(_ sim: SceneParticleSimulator) throws -> SceneParticleSimulator.PlaybackCandidate {
             try sim.preparePlaybackCandidate(commands: [(.init(layerID: 42, action: .emit,
                 revision: 1, count: 1), .init())], charge: { _, _ in }, release: { _ in })
@@ -150,7 +169,7 @@ import Foundation
 #endif
             invalidAxes.append(["normal": normal, "rejected": rejected, "unchanged": unchanged])
         }
-        let payload: [String: Any] = ["cases": cases, "axisCases": axisCases, "speedCases": speedCases,
+        let payload: [String: Any] = ["cases": cases, "axisCases": axisCases, "speedCases": speedCases, "phaseCases": phaseCases,
             "invalidAxes": invalidAxes, "explicitPositive": positive.state.particles.map { vector($0.velocity) },
             "overflowInputsIndividuallyFinite": Float(1e38).isFinite && Float(10).isFinite,
             "overflow": observe(unsafe, unsafeTrail), "safePeer": observe(peer, peerTrail)]
@@ -258,6 +277,17 @@ class SceneParticleTurbulentForwardTests(unittest.TestCase):
         for position, velocity in zip(peer["positions"], peer["velocities"]):
             self.assert_vector(velocity, [0, 20, 0])
             self.assert_vector(position, [0, 40, 0])
+
+    def test_phase_defaults_match_explicit_zero_endpoints_through_birth(self):
+        for case in self.result["phaseCases"]:
+            with self.subTest(case=case["name"]):
+                birth, control = case["initializers"], case["control"]
+                self.assertEqual(birth["count"], 16)
+                self.assertEqual(birth["randomState"], control["randomState"])
+                if case["name"] == "explicit-range":
+                    self.assertNotEqual(birth["velocities"], control["velocities"])
+                else:
+                    self.assertEqual(birth, control)
 
     def test_non_orthogonal_axis_retains_parallel_component_and_magnitude(self):
         # Independent unit-axis rotation values, declared before product changes.
