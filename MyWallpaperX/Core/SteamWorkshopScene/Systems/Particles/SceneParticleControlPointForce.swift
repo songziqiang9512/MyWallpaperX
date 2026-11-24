@@ -55,13 +55,16 @@ nonisolated struct SceneParticleEmitterControlPointFrame {
     let controlPointOrigin: SIMD3<Double>
     let sine: SIMD3<Double>
     let cosine: SIMD3<Double>
+    let usesWorldSphereBasis: Bool
 
     init(origin: SIMD3<Double>, sine: SIMD3<Double>, cosine: SIMD3<Double>,
-         controlPointOrigin: SIMD3<Double> = .zero) {
+         controlPointOrigin: SIMD3<Double> = .zero,
+         usesWorldSphereBasis: Bool = false) {
         self.origin = origin
         self.sine = sine
         self.cosine = cosine
         self.controlPointOrigin = controlPointOrigin
+        self.usesWorldSphereBasis = usesWorldSphereBasis
     }
 
     func position(for relative: SIMD3<Double>) -> SIMD3<Double> {
@@ -322,9 +325,11 @@ nonisolated extension SceneParticleDefinition {
         let localOrigin = preparedOrigin
             ?? SceneParticleSimulationMath.vector(emitter.origin, fallback: .zero)
         guard let source = emitterControlPointSource(for: emitter) else {
-            let position = flags.isWorldSpace && emitter.kind == .sphereRandom && emitter.origin != nil
-                ? worldSpaceFrame?.localParticleDirection(localOrigin) ?? localOrigin : localOrigin
-            return .init(origin: position, sine: .zero, cosine: .init(repeating: 1))
+            let sphereBasis = flags.isWorldSpace && emitter.kind == .sphereRandom ? worldSpaceFrame : nil
+            let position = emitter.origin == nil ? localOrigin
+                : sphereBasis?.localParticleDirection(localOrigin) ?? localOrigin
+            return .init(origin: position, sine: .zero, cosine: .init(repeating: 1),
+                         usesWorldSphereBasis: sphereBasis != nil)
         }
         guard (0 ... 7).contains(source),
               controlPointSourcesAreValid

@@ -129,6 +129,22 @@ class SceneParticleEmitterDirectionsTests(unittest.TestCase):
         self.assertFalse(rejected["accepted"])
         self.assertEqual(rejected["before"], rejected["afterRejected"])
 
+    def test_natural_world_sphere_measures_only_the_emitter_speed_in_world_space(self):
+        births = self.results["speedBirths"]
+        self.assertEqual(births["world"], [[2, 0, 0], [4, 8, 0]])
+        self.assertEqual(births["local"], [[2, 0, 0], [12, 8, 0]])
+        for name in ("controlPoint", "explicit"):
+            self.assertEqual(births[name], [[2, 0, 0], [12, 0, 0]])
+        self.assertEqual(births["worldMovement"], [[2, 0, 0], [4, 0, 0]])
+
+        (x, y, _), (vx, vy, vz) = births["diagonalInward"]
+        self.assertGreater(min(x, y), 0)
+        self.assertLess(max(vx, vy), 0)
+        self.assertAlmostEqual(x * vy, y * vx)
+        self.assertAlmostEqual(math.hypot(3 * vx, 0.5 * vy, vz), 12)
+        self.assertAlmostEqual(births["tinyWorld"][1][0] * 9.99999993922529e-9, 12)
+        self.assertEqual(births["tinyLocal"][1], [0, 0, 0])
+
 
 if __name__ == "__main__":
     unittest.main()

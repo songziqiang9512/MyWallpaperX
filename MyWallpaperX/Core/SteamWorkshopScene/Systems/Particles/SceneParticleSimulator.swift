@@ -712,9 +712,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         componentObservation?.record("emitter", index, "evaluated", reason: "scheduled-count-evaluated", time: simulationTime)
         if count == 0 { componentObservation?.record("emitter", index, "not-triggered", reason: "zero-admitted-count", time: simulationTime) }
 #endif
+        let worldSpeedBasis = emitterFrame.usesWorldSphereBasis && !hasWorldSpaceMovement ? worldSpaceFrame : nil
         for _ in 0..<count {
             if let particle = makeParticle(
-                emitter, spawnPlan: spawnPlan, frame: emitterFrame
+                emitter, spawnPlan: spawnPlan, frame: emitterFrame, worldSpeedBasis: worldSpeedBasis
             ) {
                 appendBirth(particle)
 #if DEBUG
@@ -779,7 +780,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     private nonisolated func makeParticle(
         _ emitter: SceneParticleEmitter,
         spawnPlan: SceneParticleEmitterSpawnPlan,
-        frame: SceneParticleEmitterControlPointFrame, strict: Bool = false
+        frame: SceneParticleEmitterControlPointFrame,
+        worldSpeedBasis: SceneParticleWorldSpaceFrame? = nil,
+        strict: Bool = false
     ) -> SceneParticleState? {
         guard spawnPlan.hasValidShapeInputs,
               let speedMinimum = spawnPlan.speedMinimum,
@@ -799,8 +802,15 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         }
         let position = frame.position(for: relative)
         let speed = random.value(speedMinimum, speedMaximum)
-        let length = SceneParticleSimulationMath.length(relative)
-        if speed != 0, length > 1e-12 { velocity += relative / length * speed }
+        if speed != 0 {
+            let localLength = SceneParticleSimulationMath.length(relative)
+            if localLength > 1e-12 {
+                let length = worldSpeedBasis.map {
+                    SceneParticleSimulationMath.length($0.worldParticleDirection(relative))
+                } ?? localLength
+                velocity += relative / length * speed
+            }
+        }
 
         var particle = SceneParticleState(
             id: nextParticleID, position: position, velocity: velocity,

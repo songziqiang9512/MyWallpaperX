@@ -97,6 +97,34 @@ enum SceneParticleEmitterDirectionsHarness {
         }
     }
 
+    static func speedBirth(
+        _ fields: [String: Any] = [:], world: Bool = true, scaleX: Float = 3,
+        initializerY: Bool = false, worldMovement: Bool = false, explicit: Bool = false
+    ) throws -> [[Double]] {
+        var emitter: [String: Any] = ["name": "sphererandom", "instantaneous": 1, "rate": 0,
+                                      "directions": "1 0 0", "sign": "1 0 0", "distancemin": 2,
+                                      "distancemax": 2, "speedmin": 12, "speedmax": 12]
+        emitter.merge(fields) { _, value in value }
+        let initializers: [[String: Any]] = initializerY
+            ? [["name": "velocityrandom", "min": "0 8 0", "max": "0 8 0"]] : []
+        let operators: [[String: Any]] = worldMovement ? [["name": "movement", "flags": 1]] : []
+        let definition = SceneParticleDefinitionParser().parse(root: [
+            "material": "p.json", "flags": world ? 1 : 0, "emitter": [emitter],
+            "initializer": initializers, "operator": operators, "renderer": [["name": "sprite"]],
+        ])
+        let transform = simd_float4x4(diagonal: SIMD4(scaleX, 0.5, 1, 1))
+        let value = SceneParticleSimulator(definition: definition,
+            initialPlayback: .init(intent: explicit ? .paused : .playing), seed: 52,
+            worldSpaceFrame: SceneParticleWorldSpaceFrame(worldFrame: transform))
+        if explicit {
+            value.restoreFrame(try candidate(value, count: 1).state)
+        } else {
+            value.advance(by: value.fixedTimeStep)
+        }
+        let birth = value.frameSnapshot().birthEvents[0]
+        return [birth.position, birth.velocity].map { [$0.x, $0.y, $0.z] }
+    }
+
     static func main() throws {
         let scale = 1_099_511_627_776.0
         let inverse = 1 / scale
@@ -172,9 +200,21 @@ enum SceneParticleEmitterDirectionsHarness {
                                              "distancemin": 1e200, "distancemax": 2e200]
         let floatOverflow: [String: Any] = ["name": "boxrandom", "directions": "1e39 0 0",
                                             "instantaneous": 2, "distancemin": "1 0 0", "distancemax": "1 0 0"]
+        let speedBirths = try [
+            "world": speedBirth(initializerY: true),
+            "local": speedBirth(world: false, initializerY: true),
+            "diagonalInward": speedBirth(["directions": "1 1 0", "sign": "1 1 0",
+                                           "speedmin": -12, "speedmax": -12]),
+            "controlPoint": speedBirth(["controlpoint": 1]),
+            "worldMovement": speedBirth(worldMovement: true),
+            "explicit": speedBirth(explicit: true),
+            "tinyWorld": speedBirth(["distancemin": 1e-5, "distancemax": 1e-5], scaleX: 1e-8),
+            "tinyLocal": speedBirth(["distancemin": 5e-13, "distancemax": 5e-13], scaleX: 1e9),
+        ]
         let payload: [String: Any] = [
             "equivalents": equivalents, "rngProbes": probes, "subnormal": subnormal,
             "zeroDraw": zeroDraw, "zeroRadius": zeroRadius, "thresholds": thresholds, "invalid": invalid,
+            "speedBirths": speedBirths,
             "peerReference": peerReference,
             "finiteOverflow": run(finiteOverflow, peer: true),
             "finiteOverflowReference": run(["directions": "1 1 1", "instantaneous": 2], peer: true),

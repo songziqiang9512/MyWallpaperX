@@ -93,11 +93,11 @@ General world 根系统的约束端点先进入原 translation reference。world
 <a id="emitter-speed"></a>
 ### 发射速度数值
 
-speedmin/speedmax 是原发射方向上的有符号数值；缺少的每个端点独立取0。有限端点在原冷 SpawnPlan 入口准备有序区间，保负号与原值，不取绝对值、不夹到0或人为幅度上限。区间正规化不抽样；原 RNG 沿作者出生顺序取值，保每次出生的 seed/抽样协议，再经 `relative/length × speed` 消费；负值允许沿相对方向向内，作者逆序端点与其有序表达等价。
+speedmin/speedmax 是有符号初速，端点独立缺省0。原 SpawnPlan 准备有限有序区间，抽样顺序与原 seed 保留。负值沿径向向内。
 
-初始速度继续按原initializer顺序、CP frame、instance multiplier与world转换处理。最终出生状态在这些运算之后才检查正寿命及Float/GPU可表示性，有限Double不等于最终安全结果；失败局部丢弃该新生，保健康emitter和既有粒子。显式exact-n命令继续用原候选state事务回滚，不增加校验器、重试、许可、缓存或第二模拟器。Directions/sign、schedule、audio与空间仍由各原消费者的实际合同约束。
+有当前世界基底且无 CP 供货的 General 世界根球形发射器，在自然出生时用完整世界基底下的径向长度计算 `relative / worldLength × speed`，保作者速率及变换后的方向。出生半径仍随层缩放；局部粒子初速也随层缩放。Initializer、CP 发射、子粒子、显式发射与 world Movement 仍用原坐标消费者。
 
-验收经过真实Parser→冷计划→constructor→state/事件及Runtime→生产vertex/Metal：固定一轴/半径的负速度向内、正/逆序与单端缺省、改名、1e6以上但最终Float合法的输入；非有限端点、实际Float溢出及健康peer分别核。作者沿相同输入与有效rate/音频分支核accepted birth、目标batch与最终捕获，汇总PASS不代出生或draw；未做官方同条件对照时只声明本引擎已证数值合同。
+原 initializer、实例乘数和坐标变换之后才校验寿命与Float/GPU可表示性；失败只丢该新生，显式命令沿原 exact-n 事务回滚。固定轴、速度符号和端点、溢出、改名及原作者见[运行证据](runtime-evidence-current.md#world-sphere-launch-speed-365)。
 
 <a id="emitter-sign"></a>
 ### 发射方向字段
@@ -166,7 +166,7 @@ Sphere沿原DefinitionParser一次准备显式local origin、radius及bouncefact
 
 `flags=2` 的 v2 可读取已准备的非原点控制点。该作用接受可供货的局部点及其角度，沿当前 typed 角度、实例值、声明默认的优先级，在算子当步计算旋转轴。该模式的 `ringradius`、`ringwidth` 和 `ringpulldistance` 是留存值，官版删字段对照限于此模式。真正环形选择、拉力、额外旗标和未资格控制点空间保留原边界。
 
-General 世界粒子仍存于原参考坐标。无控制点供货的根球形发射器显式 origin 使用世界位移，在共用发射入口投影一次。随机形状位移、初速度和既有出生锚点各沿原消费者。显式点 Vortex 用相同世界帧的方向基底把当前选点的轴与粒子相对量带到受力空间，并保留轴的幅度。原有 Vortex 槽在作者顺序增加切向速度并约束径向速度，Movement 保唯一位置积分。径向投影使用单位轴，切向近似按当前相对距离和原 v2 强度折算，受力一次映回原粒子空间。世界子粒子的局部 scale、具体长时增益、角序和非均匀倍率须由各自对照限定。
+General 世界粒子仍存于原参考坐标。无控制点供货的根球形发射器显式 origin 使用世界位移，在共用发射入口投影一次；初速度见[发射速度数值](#emitter-speed)。显式点 Vortex 用相同世界帧的方向基底把当前选点的轴与粒子相对量带到受力空间，并保留轴的幅度。原有 Vortex 槽在作者顺序增加切向速度并约束径向速度，Movement 保唯一位置积分。径向投影使用单位轴，切向近似按当前相对距离和原 v2 强度折算，受力一次映回原粒子空间。世界子粒子的局部 scale、具体长时增益、角序和非均匀倍率须由各自对照限定。
 
 同一 Vortex kernel 保已有非世界原点固定半径。显式定向点退出 CP0 零角零位及必须隔离后续算子的关卡，沿原计划、固定模拟步、当前参考点和粒子 rollback。缺当前基底或不可用控制点仅略过该算子，后继约束和 Force 按作者顺序继续。无需其首帧固定半径状态和额外资源。验收核镜像角度、删留停用字段、原点世界出生、旋转和独立倍率、旧原点邻例、原包内圈及健康外场，并把近似结果与官方相位分开记录。
 
