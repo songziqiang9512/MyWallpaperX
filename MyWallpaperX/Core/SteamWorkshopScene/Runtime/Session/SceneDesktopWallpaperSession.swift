@@ -140,9 +140,29 @@ final class SceneDesktopWallpaperSession {
 
     /// Session 消费帧率，Host 更新共享的解码缓存上限。
     private(set) var performanceProfile: PlaybackPerformanceProfile = .current
+    private(set) var scenePostProcessing: ScenePostProcessingMode = .ultra
 
     func applyPerformanceProfile(_ profile: PlaybackPerformanceProfile) {
         performanceProfile = profile
+    }
+
+    func applyScenePostProcessing(_ mode: ScenePostProcessingMode) {
+        scenePostProcessing = mode
+        let requestsDisplayHDR = mode.requestsDisplayHDR
+        var redraw = false
+        for surface in surfaces.values {
+            if surface.metalView.setDisplayHDRRequested(requestsDisplayHDR),
+               invalidatePausedDisplayOutput(for: surface) {
+                redraw = true
+            }
+        }
+        if redraw { startFrameDriver() }
+    }
+
+    func invalidatePausedDisplayOutput(for surface: Surface) -> Bool {
+        guard isVisible, sceneClock.isPaused else { return false }
+        surface.didSubmitSimulationFrame = false
+        return true
     }
 
     /// A host is process-local runtime state. SceneDaemonRuntime owns the

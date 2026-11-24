@@ -76,6 +76,9 @@ final class PlaybackCommandMultiplexer {
         if previous.profile != preference.profile {
             dispatch(.setPerformanceProfile(maxFPS: preference.profile.maxFPS), to: .scene)
         }
+        if previous.scenePostProcessing != preference.scenePostProcessing {
+            dispatch(.setScenePostProcessing(preference.scenePostProcessing), to: .scene)
+        }
         if previous.webFrameRateSuggestion != preference.webFrameRateSuggestion {
             dispatch(.setWebFrameRateSuggestion(preference.webFrameRateSuggestion), to: .web)
         }

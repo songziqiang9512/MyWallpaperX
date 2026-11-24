@@ -141,7 +141,7 @@ final class TestWindow {
 final class TestView {
     var drawableUpdates = 0, outputUpdates = 0
     func updateDrawableSize() { drawableUpdates += 1 }
-    func refreshDisplayOutput() { outputUpdates += 1 }
+    func refreshDisplayOutputForScreenChange() { outputUpdates += 1 }
 }
 enum SceneGraphExecutionResetReason { case surfaceStop }
 struct TestInstallationBoundary {

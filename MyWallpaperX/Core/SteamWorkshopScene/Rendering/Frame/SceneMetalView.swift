@@ -9,7 +9,7 @@ class SceneMetalView: NSView {
     let renderer: SceneMetalRenderer
     let metalLayer: CAMetalLayer
     let usesLinearDisplayOutput: Bool
-    var hdrDisplayRequested = SceneHDRDisplayPreference.isEnabled
+    private(set) var hdrDisplayRequested: Bool
     var displayOutput: SceneDisplayMappingPostProcess.Output = .sRGB
     private let solidLayerTexture: MTLTexture?
     private var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
@@ -76,6 +76,7 @@ class SceneMetalView: NSView {
         resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge,
         userPropertyTextureLoad: SceneUserPropertyTextureLoadResult = .empty,
         userPropertyVideoSources: [SceneUserPropertyTextureIdentity: SceneVideoTextureSource] = [:],
+        hdrDisplayRequested: Bool,
         presentationStreamID: UInt64,
         firstFramePresentationRegistration:
             ((CAMetalDrawable) -> Bool)? = nil,
@@ -94,6 +95,7 @@ class SceneMetalView: NSView {
             pipelineRepository: pipelineRepository, resolvedMaterialRuntime: resolvedMaterialRuntime
         ) else { return nil }
         metalDevice = renderer.device
+        self.hdrDisplayRequested = hdrDisplayRequested
         self.presentationStreamID = presentationStreamID
         self.firstFramePresentationRegistration =
             firstFramePresentationRegistration
@@ -146,16 +148,17 @@ class SceneMetalView: NSView {
                 name: NSWindow.didChangeScreenNotification, object: nil)
             NotificationCenter.default.addObserver(self, selector: #selector(displayEnvironmentChanged(_:)),
                 name: NSWindow.didChangeScreenProfileNotification, object: nil)
-            DistributedNotificationCenter.default().addObserver(self,
-                selector: #selector(displayPreferenceChanged), name: SceneHDRDisplayPreference.changed,
-                object: nil)
         }
         refreshDisplayOutput()
     }
 
     deinit {
         NotificationCenter.default.removeObserver(self)
-        DistributedNotificationCenter.default().removeObserver(self)
+    }
+
+    func setDisplayHDRRequested(_ requested: Bool) -> Bool {
+        hdrDisplayRequested = requested
+        return refreshDisplayOutput()
     }
 
     @available(*, unavailable)
@@ -556,6 +559,7 @@ class SceneMetalView: NSView {
         let attachmentFrames: ScenePuppetAttachmentFrameSnapshot
     }
     var onRenderInvalidated: (() -> Void)?
+    var onDisplayOutputChanged: (() -> Void)?
 
     func renderFrame(
         simulationFrame: SimulationFrame?,
@@ -619,7 +623,7 @@ class SceneMetalView: NSView {
 #if DEBUG
         let hubDrawableWaitStart = ProcessInfo.processInfo.systemUptime
 #endif
-        refreshDisplayOutput()
+        if metalLayer.wantsExtendedDynamicRangeContent { refreshDisplayOutput() }
         guard let drawable = metalLayer.nextDrawable() else {
 #if DEBUG
         ScenePerformanceCounterHub.shared.add(

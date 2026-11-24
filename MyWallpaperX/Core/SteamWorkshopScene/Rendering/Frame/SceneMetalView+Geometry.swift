@@ -4,7 +4,7 @@ extension SceneMetalView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         updateDrawableSize()
-        refreshDisplayOutput()
+        refreshDisplayOutputForScreenChange()
     }
 
     override func setFrameSize(_ newSize: NSSize) {
@@ -18,38 +18,39 @@ extension SceneMetalView {
         updateDrawableSize()
     }
 
-    @objc func displayPreferenceChanged() {
-        SceneHDRDisplayPreference.refresh()
-        hdrDisplayRequested = SceneHDRDisplayPreference.isEnabled
-        refreshDisplayOutput()
-        onRenderInvalidated?()
-    }
-
     @objc func displayEnvironmentChanged(_ notification: Notification) {
         if let changedWindow = notification.object as? NSWindow, changedWindow !== window { return }
-        refreshDisplayOutput()
-        onRenderInvalidated?()
+        refreshDisplayOutputForScreenChange()
+    }
+
+    func refreshDisplayOutputForScreenChange() {
+        if refreshDisplayOutput() { onDisplayOutputChanged?() }
     }
 
     /// Potential admits the request; current headroom bounds this frame. The
     /// current value can be one before any app has requested EDR content.
-    func refreshDisplayOutput() {
-        guard usesLinearDisplayOutput else { return }
+    @discardableResult
+    func refreshDisplayOutput() -> Bool {
+        guard usesLinearDisplayOutput else { return false }
         let screen = window?.screen
         let potential = screen?.maximumPotentialExtendedDynamicRangeColorComponentValue ?? 1
         let enabled = hdrDisplayRequested && potential.isFinite && potential > 1
-        if metalLayer.wantsExtendedDynamicRangeContent != enabled {
+        let changedRequest = metalLayer.wantsExtendedDynamicRangeContent != enabled
+        if changedRequest {
             metalLayer.wantsExtendedDynamicRangeContent = enabled
         }
         let current = enabled ? Float(screen?.maximumExtendedDynamicRangeColorComponentValue ?? 1) : 1
         let next = SceneDisplayMappingPostProcess.Output.extendedLinearSRGB(headroom: current)
+        let changed = changedRequest || displayOutput != next
         #if DEBUG
-        if displayOutput != next {
-            NSLog("MWX Scene display: linear=true requested=%@ enabled=%@ headroom=%.4f potential=%.4f colorspace=%@ format=%lu",
-                hdrDisplayRequested ? "true" : "false", enabled ? "true" : "false", next.uniform, potential, metalLayer.colorspace?.name as String? ?? "nil", metalLayer.pixelFormat.rawValue)
+        if changed {
+            NSLog("MWX Scene display: window=%ld linear=true requested=%@ enabled=%@ headroom=%.4f potential=%.4f colorspace=%@ format=%lu",
+                window?.windowNumber ?? 0, hdrDisplayRequested ? "true" : "false", enabled ? "true" : "false",
+                next.uniform, potential, metalLayer.colorspace?.name as String? ?? "nil", metalLayer.pixelFormat.rawValue)
         }
         #endif
         displayOutput = next
+        return changed
     }
 
     func updateDrawableSize() {

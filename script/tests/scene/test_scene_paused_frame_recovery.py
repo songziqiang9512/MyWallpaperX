@@ -21,6 +21,50 @@ SESSION = SCENE / "Runtime/Session"
 
 FIXTURE = (Path(__file__).resolve().parents[1] / "fixtures") / "ScenePausedFrameRecoveryHarness.swift"
 
+DISPLAY_OUTPUT_SCENARIO = r'''
+    static func displayOutputChanges() {
+        let (owner, hdr, before) = fixture()
+        let sdr = owner.attach(2)
+        hdr.window.screen = Screen(maximumPotentialExtendedDynamicRangeColorComponentValue: 4)
+        sdr.window.screen = Screen()
+        owner.startFrameDriver()
+        complete(hdr.metalView, 0, true)
+        complete(sdr.metalView, 0, true)
+        owner.applyScenePostProcessing(.ultraDisplayHDR)
+        precondition(hdr.metalView.draws == 2 && hdr.metalView.metalLayer.wantsExtendedDynamicRangeContent)
+        precondition(sdr.metalView.draws == 1 && !sdr.metalView.metalLayer.wantsExtendedDynamicRangeContent)
+        complete(hdr.metalView, 1, true)
+        hdr.window.screen!.maximumExtendedDynamicRangeColorComponentValue = 3
+        hdr.metalView.refreshDisplayOutputForScreenChange()
+        DispatchQueue.main.drain()
+        precondition(hdr.metalView.draws == 3 && hdr.metalView.displayOutput.uniform == 3)
+        complete(hdr.metalView, 2, true)
+        owner.applyScenePostProcessing(.ultra)
+        precondition(hdr.metalView.draws == 4 && !hdr.metalView.metalLayer.wantsExtendedDynamicRangeContent)
+        precondition(hdr.metalView.displayOutput.uniform == 1 && sdr.metalView.draws == 1)
+        complete(hdr.metalView, 3, true)
+        frozen(owner, before)
+        stopped(owner)
+
+        let (pending, surfaces, pendingBefore) = candidate()
+        let pendingSurface = surfaces[0], view = pendingSurface.metalView
+        pendingSurface.window.screen = hdr.window.screen
+        var deliveries: [Bool] = []
+        pending.onFirstFrameCompletion = { _, succeeded in deliveries.append(succeeded) }
+        pending.startFrameDriver()
+        complete(view, 0, true)
+        precondition(pending.initialPresentationCohort.hasDelivered && deliveries == [true])
+        pending.applyScenePostProcessing(.ultraDisplayHDR)
+        pendingSurface.window.screen!.maximumExtendedDynamicRangeColorComponentValue = 2
+        view.refreshDisplayOutputForScreenChange()
+        DispatchQueue.main.drain()
+        precondition(pending.initialPresentationCohort.isHeld && deliveries == [true] && view.draws == 1)
+        precondition(view.displayOutput.uniform == 2 && view.metalLayer.wantsExtendedDynamicRangeContent)
+        frozen(pending, pendingBefore)
+        stopped(pending)
+    }
+'''
+
 
 def production_harness(sources=None):
     """Accept frozen source bytes for causal old/new checks; normal tests use live owners."""
@@ -37,6 +81,9 @@ def production_harness(sources=None):
     context = read("Runtime/Frame/SceneFrameContext.swift")
     outcome = read("Rendering/Frame/SceneMetalRenderer+FrameOutcome.swift")
     view = read("Rendering/Frame/SceneMetalView.swift")
+    geometry = read("Rendering/Frame/SceneMetalView+Geometry.swift")
+    display = read("Rendering/Composition/SceneDisplayMappingPostProcess.swift")
+    quality = (ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift").read_text()
     # Frozen scenarios still fail if ordinary simulation is entered.
     frame = method(driver, "private func renderFrame()")
     frame = frame[:frame.index("        promotePendingDeferredLayerVisibilityIfReady()")]
@@ -62,11 +109,21 @@ def production_harness(sources=None):
         method(pause, "func setPlaybackPaused("),
         method(session, "func textTexturePublicationDidChange("),
         method(session, "func enqueueMediaThumbnailPublication("),
+        method(session, "func applyScenePostProcessing("),
+        method(session, "func invalidatePausedDisplayOutput("),
         method(driver, "func refreshPausedMediaPublications("),
         method(teardown, "func teardownSurface("),
         retirement,
     ])
     harness = FIXTURE.read_text().replace("// INVALIDATION\n", method(assembly, "metalView.onRenderInvalidated =") + "\n")
+    harness = harness.replace("// DISPLAY_OUTPUT_INVALIDATION",
+        method(assembly, "metalView.onDisplayOutputChanged ="))
+    harness = harness.replace("// DISPLAY_OUTPUT_METHODS", "\n".join([
+        method(view, "func setDisplayHDRRequested("),
+        method(geometry, "func refreshDisplayOutput()"),
+        method(geometry, "func refreshDisplayOutputForScreenChange()"),
+    ]))
+    harness = harness.replace("// DISPLAY_OUTPUT_SCENARIO", DISPLAY_OUTPUT_SCENARIO)
     harness = harness.replace("// TEXT_FRAME_METHODS", "\n".join(
         method(view, signature) for signature in (
             "func commitPreparedDynamicTextFrame(", "func discardPreparedDynamicTextFrame(")))
@@ -77,6 +134,8 @@ def production_harness(sources=None):
     harness = harness.replace("// PRODUCTION_FRAME_PREFIX", "\n".join([
         method(driver, "enum SceneFrameDriverAttempt"),
         read("Runtime/Session/SceneInitialPresentationCohort.swift"),
+        method(quality, "nonisolated enum ScenePostProcessingMode:"),
+        "enum SceneDisplayMappingPostProcess {\n" + swift_declaration(display, "enum Output:") + "\n}",
     ]))
     return harness.replace("// PRODUCTION_FRAME_TYPES", "\n".join([
         method(context, "nonisolated struct SceneFrameTiming:"),
@@ -158,6 +217,9 @@ class ScenePausedFrameRecoveryTests(unittest.TestCase):
 
     def test_real_invalidation_rejects_cross_attempt_success_and_fails_delivered_host(self):
         self.run_scenario("realInvalidation")
+
+    def test_hdr_output_change_redraws_only_eligible_paused_surface_and_preserves_candidate(self):
+        self.run_scenario("displayOutput")
 
     def test_candidate_gpu_failure_survives_text_publication(self):
         self.run_scenario("candidateGPUFailure")

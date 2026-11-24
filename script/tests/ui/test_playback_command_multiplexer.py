@@ -24,7 +24,7 @@ final class Handler: PlaybackEngineControlling {
         switch command {
         case let .setPlaybackPaused(paused): isPlaying = !paused; return true
         case let .setVolume(value): volume = value; volumeCommands += 1; return true
-        case .setWebFrameRateSuggestion, .setPerformanceProfile:
+        case .setWebFrameRateSuggestion, .setPerformanceProfile, .setScenePostProcessing:
             qualityCommands.append(command); return true
         default: return false
         }
@@ -85,6 +85,14 @@ final class Handler: PlaybackEngineControlling {
         precondition(video.qualityCommands == [.setWebFrameRateSuggestion(30), .setWebFrameRateSuggestion(nil)])
         precondition(PlaybackQualityPreference.read(from: suite) == .defaults)
         precondition(suite.integer(forKey: PlaybackPerformanceProfile.userDefaultsKey) == 30)
+        suite.set(true, forKey: "sceneHDRDisplayEnabled")
+        precondition(PlaybackQualityPreference.read(from: suite).scenePostProcessing == .ultra)
+        suite.set(["animationFramesPerSecond": 60, "webFrameRateMode": "display"], forKey: PlaybackQualityPreference.userDefaultsKey)
+        precondition(PlaybackQualityPreference.read(from: suite).scenePostProcessing == .ultraDisplayHDR)
+        mux.applyQualityPreference(.defaults, defaults: suite)
+        precondition(PlaybackQualityPreference.read(from: suite).scenePostProcessing == .ultra)
+        precondition(scene.qualityCommands == [.setPerformanceProfile(maxFPS: 60), .setScenePostProcessing(.ultra)])
+        precondition(video.qualityCommands == [.setWebFrameRateSuggestion(30), .setWebFrameRateSuggestion(nil)])
         suite.removePersistentDomain(forName: suiteName)
         video.volume = 0
         let previousVolumeCommands = video.volumeCommands

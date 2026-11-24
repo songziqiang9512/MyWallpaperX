@@ -43,7 +43,7 @@ class PersonalSettingsImportTests(unittest.TestCase):
             'Core/LibraryCollections/UserCollectionsStore.swift', 'Core/LibraryCollections/UserCollectionsController.swift',
             'Modules/VideoLibrary/Core/WallpaperManager+ProfileSettings.swift',
             'Modules/StaticImageLibrary/Core/SILService+PersonalSettings.swift',
-            'Shared/Settings/SceneHDRDisplayPreference.swift', 'Shared/Settings/SceneMediaSourcePreference.swift',
+            'Shared/Settings/SceneMediaSourcePreference.swift',
             'Core/PlaybackControl/PlaybackPerformanceProfile.swift',
             'Core/PlaybackControl/PlaybackCommandMultiplexer.swift', 'Core/PlaybackControl/PlaybackEngineControlling.swift',
             'Core/PlaybackControl/WallpaperEngineCommand.swift', 'Core/PlaybackControl/ScenePlaybackShortcut.swift',

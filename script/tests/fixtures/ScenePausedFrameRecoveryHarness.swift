@@ -89,8 +89,13 @@ enum SceneFramePerformanceTelemetry { static let debugEvidence: Int? = nil }
 struct PlaybackPerformanceProfile { var maxFPS = 60 }
 enum SceneGraphExecutionResetReason { case testTeardown }
 final class WorkItem { func cancel() {} }
+struct Screen {
+    var maximumPotentialExtendedDynamicRangeColorComponentValue: CGFloat = 1
+    var maximumExtendedDynamicRangeColorComponentValue: CGFloat = 1
+}
 final class Window {
     var closes = 0
+    var screen: Screen?
     func orderOut(_ sender: Any?) {}
     func close() { closes += 1 }
 }
@@ -157,6 +162,14 @@ final class SceneMetalView {
     var shouldDeferResolvedMaterialFrame: Bool { submissions.blocked }
     enum Plan { case prepared, synchronousDrop, deferred, cancelled }
     var onRenderInvalidated: (() -> Void)?
+    var onDisplayOutputChanged: (() -> Void)?
+    var hdrDisplayRequested = false
+    var displayOutput: SceneDisplayMappingPostProcess.Output = .extendedLinearSRGB(headroom: 1)
+    let usesLinearDisplayOutput = true
+    var window: Window?
+    struct Layer { var wantsExtendedDynamicRangeContent = false }
+    var metalLayer = Layer()
+    // DISPLAY_OUTPUT_METHODS
     var preparedTextSnapshot: SceneDynamicTextTextureStore.Snapshot?
     var submittedTextSnapshot: SceneDynamicTextTextureStore.Snapshot?
     var onRender: (() -> Void)?
@@ -258,6 +271,7 @@ final class SceneDesktopWallpaperSession {
     var isOutputActive = true
     var initialVideoPreparation: WorkItem?
     var performanceProfile = PlaybackPerformanceProfile()
+    var scenePostProcessing: ScenePostProcessingMode = .ultra
     var screenReconciliationWorkItem: WorkItem?
     var screenTopology: [Int] = []
     var drainStarted = false
@@ -273,9 +287,11 @@ final class SceneDesktopWallpaperSession {
     func attach(_ screenID: CGDirectDisplayID = 1) -> Surface {
         let surface = Surface()
         let metalView = surface.metalView
+        metalView.window = surface.window
         surfaces[screenID] = surface
         preparedSurfaceIDs = Set(surfaces.keys)
         // INVALIDATION
+        // DISPLAY_OUTPUT_INVALIDATION
         return surface
     }
     // METHODS
@@ -284,6 +300,7 @@ final class SceneDesktopWallpaperSession {
 // PRODUCTION_FRAME_TYPES
 
 @main enum Harness {
+    // DISPLAY_OUTPUT_SCENARIO
     static func fixture() -> (SceneDesktopWallpaperSession,
                               SceneDesktopWallpaperSession.Surface, SceneClock.State) {
         let owner = SceneDesktopWallpaperSession()
@@ -952,6 +969,7 @@ final class SceneDesktopWallpaperSession {
         case "heldText": heldPublications(1)
         case "heldTextTwoSurfaces": heldPublications(2)
         case "realInvalidation": realInvalidation()
+        case "displayOutput": displayOutputChanges()
         case "candidateGPUFailure": candidateGPUFailure(false)
         case "staleGPUFailureAfterDelivery": candidateGPUFailure(true)
         case "activePausedText": activePausedText()

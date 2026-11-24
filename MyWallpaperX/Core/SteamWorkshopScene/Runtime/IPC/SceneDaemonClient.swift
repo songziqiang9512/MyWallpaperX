@@ -143,7 +143,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var activeResourceLifetime: RetainedResourceLifetime?
     var retiringResourceLifetimes: [UInt64: [PlaybackResourceLifetime]] = [:]
     private var lastPropertyRevision: UInt64 = 0
-    private var performanceProfile = PlaybackPerformanceProfile.current
+    private var performanceProfile: PlaybackPerformanceProfile
+    private var scenePostProcessing: ScenePostProcessingMode
     private var isPaused = false
     private var screenParametersObserver: NSObjectProtocol?
     var shutdownCompletions: [(generations: Set<UInt64>, completion: () -> Void)] = []
@@ -158,6 +159,9 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     }
 
     private init() {
+        let quality = PlaybackQualityPreference.current
+        performanceProfile = quality.profile
+        scenePostProcessing = quality.scenePostProcessing
         screenParametersObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
@@ -201,6 +205,16 @@ final class SceneDaemonClient: PlaybackEngineControlling {
                     "v": SceneDaemonProtocol.version,
                     "cmd": "setPerformanceProfile",
                     "maxFPS": profile.maxFPS
+                ])
+            }
+            return activeIntent != nil || pendingIntent != nil
+        case let .setScenePostProcessing(mode):
+            scenePostProcessing = mode
+            if endpointReady {
+                send([
+                    "v": SceneDaemonProtocol.version,
+                    "cmd": "setScenePostProcessing",
+                    "scenePostProcessing": mode.rawValue
                 ])
             }
             return activeIntent != nil || pendingIntent != nil
@@ -698,7 +712,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             "userPropertyTextures": textures,
             "userShortcuts": SceneDaemonProtocol.shortcutObject(request.userShortcuts),
             "requiredUserTextureKeys": request.requiredUserTextureKeys.sorted(),
-            "profile": performanceProfile.maxFPS
+            "profile": performanceProfile.maxFPS,
+            "scenePostProcessing": scenePostProcessing.rawValue
         ]
         if let sourceObject { payload["source"] = sourceObject }
         if let recordID = request.recordID {

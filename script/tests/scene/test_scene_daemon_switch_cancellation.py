@@ -403,6 +403,7 @@ IDLE_TAIL = r'''
         checks["queueAndCancellationDoNotSendLoadBeforeRetirement"]=cancelledQueued
             && a.queuedSwitchPreparation?.ticket == next
             && !a.sent.contains{$0["cmd"] as? String == "loadScene"}
+        a.scenePostProcessing = .ultraDisplayHDR
         ack(a,ra,opa)
         let newRequest=a.pendingRequestID
         checks["successfulRetirementAdoptsSameProcessWithFreshRequest"]=retiredA == 1 && oldLease == nil
@@ -410,6 +411,8 @@ IDLE_TAIL = r'''
             && a.sessionGeneration == 7 && a.pendingIntent?.recordID == "C"
             && newRequest != nil && newRequest != ra && a.spawns == 0
             && a.sent.filter{$0["cmd"] as? String == "loadScene"}.count == 1
+        checks["newLoadProjectsLatestPostProcessingAfterRetirement"] =
+            a.sent.first{$0["cmd"] as? String == "loadScene"}?["scenePostProcessing"] as? String == "displayHDR"
         ack(a,ra,opa)
         checks["duplicateAckDoesNotReplayOrFinishTwice"]=retiredA == 1 && a.pendingRequestID == newRequest
         a.stop();exit(a,ca)
@@ -542,6 +545,8 @@ extension Notification.Name {
         support = support.replace("    var sourceSchemaVersion:Int?",
             "    var audioSpectrumDemand=SceneAudioSpectrumCaptureDemand.none\n"
             "    var audioSpectrumDemandGeneration:UInt64?\n    var sourceSchemaVersion:Int?")
+        support = support.replace("    var isPaused=false",
+            "    var scenePostProcessing = ScenePostProcessingMode.ultra\n    var isPaused=false")
         actual = [method(client, signature) for signature in (
             "func cancelPreparationForRuntimeSwitch()",
             "func requestLaunch(_ request: ScenePlaybackLoadRequest)",
@@ -574,7 +579,7 @@ extension Notification.Name {
             source.write_text(admission + "\n" + support + "\n".join(actual) + IDLE_TAIL)
             binary = root / "idle"
             shared = [str(ROOT / "MyWallpaperX/Core/PlaybackControl" / name) for name in (
-                "WallpaperRuntimeSwitch.swift", "PlaybackSwitchTransaction.swift")]
+                "WallpaperRuntimeSwitch.swift", "PlaybackSwitchTransaction.swift", "PlaybackPerformanceProfile.swift")]
             built = subprocess.run(
                 ["xcrun", "swiftc", "-swift-version", "6", "-D", "DEBUG", "-parse-as-library",
                  *shared, str(ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift"),

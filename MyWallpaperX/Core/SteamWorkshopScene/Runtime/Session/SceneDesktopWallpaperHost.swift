@@ -75,6 +75,7 @@ final class SceneDesktopWallpaperHost {
     var presentationDeadline: DispatchWorkItem?
     var screenTopology: [SceneScreenTopology] = []
     private(set) var performanceProfile: PlaybackPerformanceProfile = .current
+    private var scenePostProcessing: ScenePostProcessingMode = .ultra
     private var playbackPaused = false
 #if DEBUG
     private var debugPointerOverride: SceneSurfacePointerInput?
@@ -88,6 +89,13 @@ final class SceneDesktopWallpaperHost {
         textureDecodeCacheBudget.updateMaximumBytes(profile.sceneTextureDecodeCacheByteBudget)
         activeSession?.applyPerformanceProfile(profile)
         candidateSession?.applyPerformanceProfile(profile)
+    }
+
+    func applyScenePostProcessing(_ mode: ScenePostProcessingMode) {
+        guard mode != scenePostProcessing else { return }
+        scenePostProcessing = mode
+        activeSession?.applyScenePostProcessing(mode)
+        candidateSession?.applyScenePostProcessing(mode)
     }
 
     func applyDisplayConfiguration(_ topology: [SceneScreenTopology]) {
@@ -204,6 +212,7 @@ final class SceneDesktopWallpaperHost {
 
     func configure(_ session: SceneDesktopWallpaperSession) {
         session.applyPerformanceProfile(performanceProfile)
+        session.applyScenePostProcessing(scenePostProcessing)
         session.screenTopology = screenTopology
         session.setPlaybackPaused(playbackPaused)
 #if DEBUG

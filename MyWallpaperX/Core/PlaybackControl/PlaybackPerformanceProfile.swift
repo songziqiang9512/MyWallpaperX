@@ -24,12 +24,21 @@ nonisolated enum WebFrameRateMode: String, Sendable {
     case followAnimationFrameRate
 }
 
+nonisolated enum ScenePostProcessingMode: String, Sendable {
+    case ultra
+    case ultraDisplayHDR = "displayHDR"
+
+    var requestsDisplayHDR: Bool { self == .ultraDisplayHDR }
+}
+
 nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
     static let userDefaultsKey = "mwx.playback.quality"
     static let defaults = Self(profile: .standard, webFrameRateMode: .display)
+    private static let legacySceneDisplayHDRKey = "sceneHDRDisplayEnabled"
 
     var profile: PlaybackPerformanceProfile
     var webFrameRateMode: WebFrameRateMode
+    var scenePostProcessing: ScenePostProcessingMode = .ultra
 
     var webFrameRateSuggestion: Int? {
         webFrameRateMode == .followAnimationFrameRate ? profile.rawValue : nil
@@ -38,17 +47,17 @@ nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
     static var current: Self { read(from: .standard) }
 
     static func read(from defaults: UserDefaults) -> Self {
-        if let record = defaults.dictionary(forKey: userDefaultsKey) {
-            return Self(
-                profile: (record["animationFramesPerSecond"] as? Int)
-                    .flatMap(PlaybackPerformanceProfile.init(rawValue:)) ?? .standard,
-                webFrameRateMode: (record["webFrameRateMode"] as? String)
-                    .flatMap(WebFrameRateMode.init(rawValue:)) ?? .display
-            )
-        }
+        let record = defaults.dictionary(forKey: userDefaultsKey)
+        let fps = record == nil ? defaults.integer(forKey: PlaybackPerformanceProfile.userDefaultsKey)
+            : record?["animationFramesPerSecond"] as? Int
+        let postProcessing = (record?["scenePostProcessingMode"] as? String)
+            .flatMap(ScenePostProcessingMode.init(rawValue:))
+            ?? (defaults.object(forKey: legacySceneDisplayHDRKey) as? Bool == true ? .ultraDisplayHDR : .ultra)
         return Self(
-            profile: PlaybackPerformanceProfile(rawValue: defaults.integer(forKey: PlaybackPerformanceProfile.userDefaultsKey)) ?? .standard,
-            webFrameRateMode: .display
+            profile: fps.flatMap(PlaybackPerformanceProfile.init(rawValue:)) ?? .standard,
+            webFrameRateMode: (record?["webFrameRateMode"] as? String)
+                .flatMap(WebFrameRateMode.init(rawValue:)) ?? .display,
+            scenePostProcessing: postProcessing
         )
     }
 
@@ -56,6 +65,7 @@ nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
         defaults.set([
             "animationFramesPerSecond": profile.rawValue,
             "webFrameRateMode": webFrameRateMode.rawValue,
+            "scenePostProcessingMode": scenePostProcessing.rawValue,
         ], forKey: Self.userDefaultsKey)
     }
 }

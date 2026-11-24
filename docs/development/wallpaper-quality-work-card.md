@@ -8,7 +8,7 @@
 
 从主工作树 `codex/engine-refactor-program` 的 `b2b80f892` 建 `Fluxo/wallpaper-quality-settings`。评估方案给技术取舍与失败判据，本卡维护唯一执行顺序与当前批。开工核对分支、实际 diff 和上批证据，从原设置行为追到真实运行消费者。 [算法与技术设计](wallpaper-quality-settings-plan.md#decision) · [源码地图](../architecture/repository-map.md#wallpaper-quality) · [验证工作流](repository-workflow.md#设计判定与记录)
 
-**当前进入 Q2**。先交付普通「超高」与「超高（显示 HDR）」两种真实输出意图，保持现有作者工作域。完成新档迁移和实际输出后，再接禁用及普通泛光档，随后处理阴影、体积和反射。 [Scene 技术裁决](wallpaper-quality-settings-plan.md#scene-post-processing)
+**当前推进 Q2 的禁用与普通泛光**。两个超高档已沿原工作域交付。M4 XDR 上同一场景验证了 SDR／EDR 输出、旧值迁移，以及暂停后按原 raw 帧重导出。实际混合显示拓扑仍待实测。接下来闭合禁用与普通泛光，再处理阴影、体积和反射。 [Scene 技术裁决](wallpaper-quality-settings-plan.md#scene-post-processing)
 
 Q0 已取得 M4 上基线源码的独立 Metal 泛光和映射结果。Q1 从 App 偏好写入入口把帧率与 Web 模式投影到实际端点，Scene 保原缓存档，Video 保原片。已验签名隔离 Debug 的 30／60 真实呈现、实际 WKWebView 投递、候选端点、导入复位和独立复核。复杂作品的 60 FPS 与长稳功耗仍按 [实测门槛](wallpaper-quality-settings-plan.md#quality-release-gates)验证。每批冻结源码后跑最近门和独立审查，只提交本批文档、源码与测试。
 
@@ -35,3 +35,11 @@ Q0 已取得 M4 上基线源码的独立 Metal 泛光和映射结果。Q1 从 Ap
 官版「启用／超高」控制作者普通泛光与 HDR 过亮，编辑器预览自有规则。2.8.0.42 确认物理 HDR 由「超高（显示 HDR）」选择，无支持时界面回落为普通超高。MyWallpaperX 把旧开关迁入该后处理档，显式旧开映射到显示 HDR，显式旧关和未保存选择映射到普通超高。后一种保作者 HDR 画面，物理显示 HDR 改为主动选择。保留显式请求，按屏能力和当前 headroom 映射，非适用屏沿普通超高输出。配对验收真实 HDR、HDR 主屏加 SDR 屏、关闭／重开、`clear=false`、旧导入恢复和缺省复位。接管后退出旧开关、通知、跨进程同步和它的无消费者测试。 [官方 Bloom](https://docs.wallpaperengine.io/en/scene/effects/bloom.html) · [官方显示 HDR 公告](https://steamcommunity.com/games/431960/announcements/detail/3133943554973045545) · [Scene 渲染合同](../scene/architecture/runtime-architecture.md#effective-quality-policy)
 
 Q2 先在原准备入口引入有效后处理投影。普通档和禁用档沿作者基础素材及原 source 顺序，普通档只处理普通泛光。超高与超高显示 HDR 共用同一作者工作域、粒子／文字／材质亮度和终端 Bloom 准备；显示档才申请 EDR。禁止只修改终端开关而遗漏作者过亮的直接、捕获和具名输入。冷热变更沿实际用途区分，只有工作域或资源变化才经原候选重准备。先用单输入实证颜色与效果，再开放其余的可选效果和档位。
+
+首片先落实两种超高档。新增值加入现有画质记录，旧 bool 只读迁移，便携载荷优先新字段，缺省新字段才采合法的旧 bool。App 仅在请求变更发一次 Scene 命令，启动与恢复采用原 Scene wire。原 Host 保最新意图，候选、恢复会话及换屏交给原 Surface。切档只更新每屏 EDR 申请和必要的冻结帧，复用既有颜色映射、GPU 资源和时钟。受控夹具要求验证旧／新导入、正常／暂停切换、SDR 反例和取消候选。 [Scene 质量策略](../scene/architecture/runtime-architecture.md#effective-quality-policy)
+
+### 禁用与普通泛光的实施片
+
+1. `loadScene` 采纳请求时由原 Host 固定准备档。穿过已有 Model／SourceFacts 准备入口，将有效 HDR 投影给对象解释和渲染 descriptor。保留作者原始 General、属性和脚本输入。超高与显示 HDR 沿同一已准备工作域热更，跨工作域显示下次应用生效，由原候选和可见接管承载。
+2. 禁用跳过全景 Bloom 的 PSO、资源和编码。启用走普通分离模糊。两档的专用 HDR 增益沿实际消费者撤出，核对粒子实例、文字、静态模型、直接与捕获图像、图层亮度绑定和具名输出。作者其他局部效果保持各自合同。仅有 HDR 参数的作品按可区分的官方普通默认对照结算，旧解析后默认值无法证明原作者显式写入。
+3. 同一夹具检查 HDR 过亮源、仅普通亮源、作者禁用／零贡献、动态普通参数和局部效果邻例。分别量原工作域颜色、泛光轮廓、实际 pass／池计费、独立作品及原累积 history。先验 App 确实选择新路径，再测何时可开放控件。

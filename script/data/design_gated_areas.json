@@ -878,7 +878,7 @@
       "owner": "现有播放偏好及各引擎质量消费者",
       "status": "approved",
       "designDoc": "docs/development/wallpaper-quality-settings-plan.md",
-      "design_notes": "现役顺序见 docs/development/wallpaper-quality-work-card.md#execution。Q1 只投影真实 Scene 30/60 与 Web FPS 建议，保 Video 原片。Q2 以固定版本核 HDR Bloom 和显示 HDR，合入后处理档再退役独立显示开关。其它 Scene 档及 Video 规格按技术评估的验收裁决。",
+      "design_notes": "现役顺序见 docs/development/wallpaper-quality-work-card.md#execution。Q1 投影 Scene 30/60 与 Web FPS 建议，Video 保原片。Q2 首片沿 Scene 原 IPC 与 Surface 迁入显示 HDR，旧通知退出。普通超高及显示 HDR 共用作者工作域，后续才扩普通／禁用。其它档按技术评估的验收裁决。",
       "matchPatterns": [
         "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift",
         "MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift",
@@ -887,7 +887,9 @@
         "MyWallpaperX/Core/SteamWorkshopWeb/Host/WebWallpaperHostTypes.swift",
         "MyWallpaperX/Core/SteamWorkshopWeb/Process/WebDaemonProtocol.swift",
         "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift",
-        "MyWallpaperX/Models/PersonalSettingsPayload.swift"
+        "MyWallpaperX/Models/PersonalSettingsPayload.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
       ],
       "contentPatterns": []
     },

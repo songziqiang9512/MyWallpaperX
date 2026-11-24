@@ -77,8 +77,8 @@
       "bytes": 73409
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 37,
-      "bytes": 5858
+      "lines": 45,
+      "bytes": 7649
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -93,8 +93,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 259,
-      "bytes": 48377
+      "lines": 261,
+      "bytes": 49046
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -368,6 +368,24 @@
   "adjustments": [
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "41638a6833e265b374af91cb9c3b3b6af536fd4dbb53a9d51b153e248929ea7c",
+      "after": "28522b2565e02fa28e591f59a8ecdc4144fc915ac202ad0eb0e8ea6d8de56e83",
+      "owner": "Scene 后处理及各屏输出",
+      "reason": "规定两个超高档的工作域、每屏输出与现役 Scene owner。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "7e3cda44b3f2c9cd01aa6b9ac09dbcf78e3385e6092fe5fe2cfbae8e50bafe11",
+      "after": "b73edaacd6f24214fd4f62a4c09651025c1bf2064e3ae1d53cb7c2f1c672d672",
+      "owner": "Scene 后处理及各屏输出",
+      "reason": "追加后处理两档的迁移、准备和验收步骤。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
       "path": "docs/architecture/repository-map.md",
       "before": "200372bd1a218f3d7b9e3b93d3d11a4d0d2c0c60c42eaa3f9d933cde556ac938",
       "after": "5a841887e43ef5e4f30bf39e6a18d87466d4724ff05a5cf6783f2e92bc1a3e72",
@@ -400,24 +418,6 @@
       "after": "f8eae8d4712d85ffbadbbf22bb03fb71f102afd5ce08c2e2082631cd4a38e199",
       "owner": "播放偏好和对应执行端",
       "reason": "记录 Web 启动、热更新和暂停恢复的实际帧率建议责任。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "89b781d9726271f73fd22083ccac13ed9c4ffac2ac18a43ee7f213f6d60df034",
-      "owner": "播放偏好和对应执行端",
-      "reason": "带入此前评估并记录 2.8.0.42 质量预设和独立显示 HDR 入口。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "7e3cda44b3f2c9cd01aa6b9ac09dbcf78e3385e6092fe5fe2cfbae8e50bafe11",
-      "owner": "播放偏好和对应执行端",
-      "reason": "建立唯一执行顺序、具体验收流程及官方对照决策入口。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
@@ -527,15 +527,6 @@
       "owner": "Scene authored texture and property preparation",
       "reason": "Record exact transparent replacement, baseline budget priority and authored publication scope.",
       "decision": "docs/scene/architecture/scene-resource-admission.md#conditional-tex-atlas"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "465fe388dd1d88a203936e8d2f1006e6f808007f2b1d685bfc5fd99a54aeaf83",
-      "after": "41638a6833e265b374af91cb9c3b3b6af536fd4dbb53a9d51b153e248929ea7c",
-      "owner": "Scene shared pointer, Script and Puppet frame owner",
-      "reason": "Link the shared frame order to its one cursor-selected surface contract.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#frame-order"
     },
     {
       "section": "bodies",

@@ -55,7 +55,7 @@ extension SceneDesktopWallpaperSession {
                 surface.window.setFrame(screen.frame, display: true, animate: false)
             }
             surface.metalView.updateDrawableSize()
-            surface.metalView.refreshDisplayOutput()
+            surface.metalView.refreshDisplayOutputForScreenChange()
         }
         prepareAddedSurfaces(surfaceScreens.filter { surfaces[$0.1] == nil }, context: context)
         if publishMembership, !removedIDs.isEmpty { updatePreparedSurfaceMembership(context) }
@@ -266,6 +266,7 @@ extension SceneDesktopWallpaperSession {
                 resolvedMaterialRuntime: materialRuntime,
                 userPropertyTextureLoad: userPropertyTextureLoad,
                 userPropertyVideoSources: userVideoSources,
+                hdrDisplayRequested: scenePostProcessing.requestsDisplayHDR,
                 presentationStreamID: UInt64(screenID),
                 firstFramePresentationRegistration: {
                     [weak firstFramePresentationRegistration] drawable in
@@ -422,6 +423,13 @@ extension SceneDesktopWallpaperSession {
                     }
                     surface.didSubmitSimulationFrame = false
                     if self.sceneClock.isPaused || self.awaitsInitialPresentation { self.startFrameDriver() }
+                }
+            }
+            metalView.onDisplayOutputChanged = { [weak self, weak surface] in
+                DispatchQueue.main.async { [weak self, weak surface] in
+                    guard let self, let surface, self.surfaces[screenID] === surface,
+                          self.invalidatePausedDisplayOutput(for: surface) else { return }
+                    self.startFrameDriver()
                 }
             }
             created += 1

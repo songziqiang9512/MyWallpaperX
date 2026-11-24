@@ -347,8 +347,9 @@ extension AppKitSettingsContainerView {
         qualitySection.addRow(makeSettingRow(
             title: String(localized: "Animation Frame Rate"), iconSystemName: "gauge.with.needle",
             subtitle: String(localized: "Sets the frame rate cap for Scene wallpapers"), trailing: sceneMaxFPSSegmented))
-        qualitySection.addRow(makeSettingRow(title: String(localized: "Scene HDR"), iconSystemName: "sun.max",
-            subtitle: String(localized: "Requires wallpaper support; very high power draw, enable with care"), trailing: sceneHDRDisplaySwitch))
+        scenePostProcessingPopup.addItems(withTitles: [String(localized: "Ultra"), String(localized: "Ultra (Display HDR)")])
+        qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Post-Processing"), iconSystemName: "sun.max",
+            subtitle: String(localized: "Display HDR requires a compatible wallpaper and display"), trailing: scenePostProcessingPopup))
         webFrameRatePopup.addItems(withTitles: [
             String(localized: "Match Display (up to 60 FPS)"),
             String(localized: "Follow Animation Frame Rate"),
@@ -363,6 +364,12 @@ extension AppKitSettingsContainerView {
         qualitySection.addRow(makeMaintenanceActionRow(button: resetQualityButton, iconSystemName: "arrow.counterclockwise"))
     }
 
+    func refreshScenePostProcessingMenu(_ mode: ScenePostProcessingMode) {
+        let displayHDRAvailable = NSScreen.screens.contains { $0.maximumPotentialExtendedDynamicRangeColorComponentValue > 1 }
+        scenePostProcessingPopup.item(at: 1)?.isHidden = !displayHDRAvailable
+        scenePostProcessingPopup.selectItem(at: displayHDRAvailable && mode.requestsDisplayHDR ? 1 : 0)
+    }
+
     func applyNativeControlSizes() {
         // 控件尺寸统一收口，避免每个控件自己定义大小导致页面观感失衡。
         let switches: [NSSwitch] = [
@@ -375,7 +382,6 @@ extension AppKitSettingsContainerView {
             startOnBootSwitch,
             restorePlaybackOnLaunchSwitch,
             syncSystemWallpaperSwitch,
-            sceneHDRDisplaySwitch,
             sceneMediaInfoSwitch,
             systemAudioSpectrumSwitch,
             systemHotkeysSwitch,
@@ -388,7 +394,7 @@ extension AppKitSettingsContainerView {
         switches.forEach { $0.controlSize = .mini }
         hotkeyEnableSwitches.values.forEach { $0.controlSize = .mini }
 
-        let popups: [NSPopUpButton] = [timeUnitPopup, idleTimeoutPopup, libraryBackgroundPopup, libraryCardClickPopup, webFrameRatePopup] + hotkeyPopups.values
+        let popups: [NSPopUpButton] = [timeUnitPopup, idleTimeoutPopup, libraryBackgroundPopup, libraryCardClickPopup, webFrameRatePopup, scenePostProcessingPopup] + hotkeyPopups.values
             + [systemAudioSpectrumBarCountPopup]
         popups.forEach { $0.controlSize = .small }
 

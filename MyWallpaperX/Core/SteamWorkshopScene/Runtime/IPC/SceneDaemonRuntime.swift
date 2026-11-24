@@ -218,13 +218,15 @@ final class SceneDaemonRuntime {
         guard let rootPath = Self.argumentValue(
             after: SceneDaemonProtocol.sceneRootFlag
         ) else { return }
+        let quality = PlaybackQualityPreference.current
         handle(.loadScene(
             rootURL: URL(fileURLWithPath: rootPath, isDirectory: true)
                 .resolvingSymlinksInPath().standardizedFileURL,
             propertyOverrides: [:],
             userPropertyTextures: [:],
-            profile: .current,
-            recordID: nil
+            profile: quality.profile,
+            recordID: nil,
+            scenePostProcessing: quality.scenePostProcessing
         ))
     }
 
@@ -285,7 +287,8 @@ final class SceneDaemonRuntime {
     private func handle(_ command: SceneDaemonCommand) {
         switch command {
         case let .loadScene(
-            rootURL, overrides, textureReferences, shortcuts, profile, recordID, requiredTextureKeys, requestID, source
+            rootURL, overrides, textureReferences, shortcuts, profile, recordID, requiredTextureKeys,
+            requestID, source, scenePostProcessing
         ):
             lastPropertyRevision = 0
             // Explicit parent identities use a cancellable prepare/commit/
@@ -298,6 +301,7 @@ final class SceneDaemonRuntime {
                 }
             }
             host.applyPerformanceProfile(profile)
+            host.applyScenePostProcessing(scenePostProcessing)
             host.requestLaunch(
                 rootURL: rootURL,
                 source: source,
@@ -412,6 +416,8 @@ final class SceneDaemonRuntime {
             host.applyDisplayConfiguration(topology)
         case let .setPerformanceProfile(profile):
             host.applyPerformanceProfile(profile)
+        case let .setScenePostProcessing(mode):
+            host.applyScenePostProcessing(mode)
         case let .setVolume(volume):
             PlaybackVolumeState.shared.setNormalizedVolume(volume)
             host.setMasterVolume(Double(volume))

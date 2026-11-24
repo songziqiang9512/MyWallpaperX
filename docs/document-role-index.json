@@ -835,7 +835,15 @@
       "path": "docs/scene/architecture/runtime-architecture.md",
       "role": "current-state",
       "entrypoint": "docs/scene/README.md",
-      "purpose": "Scene 当前架构与源码地图"
+      "purpose": "Scene 当前架构与源码地图",
+      "lastReviewed": "2026-11-25",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "fb822a27bf7f6ddf1750e7797789a128f6d3048033dd36e8b7ddca99097c2595",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "后处理两档共享工作域、Scene 输出 ownership 和现役工作卡链接。",
+        "limitations": "导航核对不代表真机、官方视觉或性能复验。"
+      }
     },
     {
       "path": "docs/scene/architecture/scene-dependency-boundaries.md",

@@ -47,15 +47,34 @@ import Foundation
             ]
         ])
         let loadValid: Bool
-        if case let .success(.loadScene(root, values, textures, _, profile, recordID, requiredKeys, requestID, source)) = load {
+        if case let .success(.loadScene(root, values, textures, _, profile, recordID, requiredKeys, requestID, source, postProcessing)) = load {
             loadValid = root.path == "/private/tmp/scene"
                 && profile == .efficient && recordID == "fixture" && requiredKeys.isEmpty && requestID == nil && source == nil
+                && postProcessing == .ultra
                 && values["enabled"] == .bool(true)
                 && values["rate"] == .number(1.5)
                 && values["label"] == .string("ok")
                 && textures["cover"]?.url.path == "/private/tmp/cover.png"
                 && textures["cover"]?.bookmarkData == Data([1, 2, 3])
         } else { loadValid = false }
+        let hdrLoadPayload: [String: Any] = [
+            "v": 2, "cmd": "loadScene", "rootURL": "/private/tmp/scene", "profile": 60,
+            "scenePostProcessing": "displayHDR"
+        ]
+        let hdrLoadValid: Bool
+        if case .success(.loadScene(_, _, _, _, _, _, _, _, _, .ultraDisplayHDR)) = decode(hdrLoadPayload) {
+            hdrLoadValid = true
+        } else { hdrLoadValid = false }
+        let hdrChangePayload: [String: Any] = ["v": 2, "cmd": "setScenePostProcessing", "scenePostProcessing": "ultra"]
+        let hdrChangeValid = decode(hdrChangePayload) == .success(.setScenePostProcessing(.ultra))
+        let invalidPostProcessing: [Any] = [true, "unknown", NSNull()]
+        let badPostProcessingRejected = [hdrLoadPayload, hdrChangePayload].allSatisfy { payload in
+            invalidPostProcessing.allSatisfy { value in
+                var invalid = payload
+                invalid["scenePostProcessing"] = value
+                return decode(invalid) == .failure(.invalidPayload(payload["cmd"] as! String))
+            }
+        }
         let generation = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
         let storageIdentity = "v2:scene:123-" + generation
         let source = ScenePlaybackSource(rootURL: URL(fileURLWithPath: "/private/tmp/scene"),
@@ -66,7 +85,7 @@ import Foundation
                 "profile": 30, "source": object])
         }
         let managedSourcePreserved: Bool
-        if case let .success(.loadScene(_, _, _, _, _, _, _, _, decoded)) = loadSource(sourceObject) {
+        if case let .success(.loadScene(_, _, _, _, _, _, _, _, decoded, _)) = loadSource(sourceObject) {
             managedSourcePreserved = decoded == source
         } else { managedSourcePreserved = false }
         let wireContainsOnlyCurrentLeaseIdentity = Set((sourceObject["managed"] as! [String: Any]).keys)
@@ -78,7 +97,7 @@ import Foundation
             var managed = object["managed"] as! [String: Any]
             managed["contentDigest"] = "not-a-playback-permit"
             managed["receipt"] = receipt; object["managed"] = managed
-            if case let .success(.loadScene(_, _, _, _, _, _, _, _, decoded)) = loadSource(object) {
+            if case let .success(.loadScene(_, _, _, _, _, _, _, _, decoded, _)) = loadSource(object) {
                 return decoded == source
             }
             return false
@@ -112,7 +131,7 @@ import Foundation
         let shortcutObject = SceneDaemonProtocol.shortcutObject(shortcuts)
         let shortcutRequestID = UUID()
         let shortcutLoadValid: Bool
-        if case let .success(.loadScene(_, _, _, decoded, _, recordID, _, requestID, _)) = decode([
+        if case let .success(.loadScene(_, _, _, decoded, _, recordID, _, requestID, _, _)) = decode([
             "v": 2, "cmd": "loadScene", "rootURL": "/private/tmp/scene", "profile": 60,
             "recordID": "fixture", "requestID": shortcutRequestID.uuidString,
             "userShortcuts": shortcutObject,
@@ -166,7 +185,7 @@ import Foundation
         } else { legacyShortcutVersionRejected = false }
         let explicitID = UUID()
         let explicitRequestValid: Bool
-        if case let .success(.loadScene(_, _, _, _, _, _, _, requestID, _)) = decode([
+        if case let .success(.loadScene(_, _, _, _, _, _, _, requestID, _, _)) = decode([
             "v": 2, "cmd": "loadScene", "rootURL": "/private/tmp/scene", "profile": 30,
             "requestID": explicitID.uuidString
         ]) { explicitRequestValid = requestID == explicitID } else { explicitRequestValid = false }
@@ -433,6 +452,9 @@ import Foundation
             "negativeMediaIndexRejected": negativeMediaIndexRejected,
             "mediaWrongTypeRejected": mediaWrongTypeRejected,
             "loadValid": loadValid,
+            "hdrLoadValid": hdrLoadValid,
+            "hdrChangeValid": hdrChangeValid,
+            "badPostProcessingRejected": badPostProcessingRejected,
             "shortcutLoadValid": shortcutLoadValid,
             "shortcutUpdateValid": shortcutUpdateValid,
             "invalidShortcutConfigurationRejected": invalidShortcutConfigurationRejected,

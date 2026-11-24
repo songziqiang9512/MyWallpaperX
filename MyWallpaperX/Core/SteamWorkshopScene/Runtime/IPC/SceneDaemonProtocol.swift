@@ -12,7 +12,8 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
         recordID: String?,
         requiredUserTextureKeys: Set<String> = [],
         requestID: UUID? = nil,
-        source: ScenePlaybackSource? = nil
+        source: ScenePlaybackSource? = nil,
+        scenePostProcessing: ScenePostProcessingMode = .ultra
     )
     case setProperty(
         values: [String: SceneUserPropertyValue],
@@ -29,6 +30,7 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
     case retireOutput(requestID: UUID, operationID: UUID, requireRequestRetirement: Bool = false)
     case setDisplayConfiguration([SceneScreenTopology])
     case setPerformanceProfile(PlaybackPerformanceProfile)
+    case setScenePostProcessing(ScenePostProcessingMode)
     /// Normalized master volume (0...1) applied after authored/user volume.
     case setVolume(Float)
     case setMuted(Bool)
@@ -124,6 +126,15 @@ nonisolated enum SceneDaemonProtocol {
         }
         switch action {
         case "loadScene":
+            let postProcessing: ScenePostProcessingMode
+            if let raw = payload["scenePostProcessing"] {
+                guard let value = raw as? String, let mode = ScenePostProcessingMode(rawValue: value) else {
+                    return .failure(.invalidPayload(action))
+                }
+                postProcessing = mode
+            } else {
+                postProcessing = .ultra
+            }
             let requestID: UUID?
             if let raw = payload["requestID"] {
                 guard let string = raw as? String, let parsed = UUID(uuidString: string) else {
@@ -163,7 +174,8 @@ nonisolated enum SceneDaemonProtocol {
                 recordID: payload["recordID"] as? String,
                 requiredUserTextureKeys: requiredKeys,
                 requestID: requestID,
-                source: source
+                source: source,
+                scenePostProcessing: postProcessing
             ))
         case "setUserShortcuts":
             guard let configuration = shortcutConfiguration(payload["configuration"]),
@@ -260,6 +272,12 @@ nonisolated enum SceneDaemonProtocol {
                 return .failure(.invalidPayload(action))
             }
             return .success(.setPerformanceProfile(profile))
+        case "setScenePostProcessing":
+            guard let raw = payload["scenePostProcessing"] as? String,
+                  let mode = ScenePostProcessingMode(rawValue: raw) else {
+                return .failure(.invalidPayload(action))
+            }
+            return .success(.setScenePostProcessing(mode))
         case "setVolume":
             guard let volume = finiteDouble(payload["volume"]),
                   (0 ... 1).contains(volume) else {

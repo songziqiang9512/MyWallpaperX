@@ -7,7 +7,7 @@
 
 [官方选项](#reference-and-current) · [偏好与预设](#product-and-state) · [Scene 算法](#scene-aa) · [Web](#web) · [Video](#video) · [实施顺序](#delivery) · [实测条件](#validation)
 
-[现役工作卡](wallpaper-quality-work-card.md#execution)维护批次顺序及接手状态。本文的独立 HDR 显示偏好为 Q1 兼容入口。Q2 按官版「超高（显示 HDR）」接管物理输出，验证迁移后退出旧开关。 [Wallpaper Engine 2.0.97 公告](https://steamcommunity.com/games/431960/announcements/detail/3133943554973045545)
+[现役工作卡](wallpaper-quality-work-card.md#execution)维护批次顺序及接手状态。Q2 首片由后处理的「超高（显示 HDR）」接管原独立 HDR 的物理输出。普通「超高」保作者发光，使用 SDR 输出范围。 [Wallpaper Engine 2.0.97 公告](https://steamcommunity.com/games/431960/announcements/detail/3133943554973045545)
 
 <a id="decision"></a>
 ## 实施裁决
@@ -42,19 +42,19 @@
 
 ### 入口与作用范围
 
-- 复用 `SettingsWindowController`、`AppKitSettingsView` 和 `AppSettingsPanelDependency`。质量区域由动画帧率、Scene 质量、Web 建议和 Video 素材组成。Scene HDR 显示原控件移到 Scene 区，沿用现有说明和偏好；作品的作者属性仍可从原属性面板操作。 [布局现址](../../MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift) · [设置动作注入](../../MyWallpaperX/Shared/Settings/AppSettingsPanelDependency.swift)
+- 复用 `SettingsWindowController`、`AppKitSettingsView` 和 `AppSettingsPanelDependency`。质量区域由动画帧率、Scene 质量、Web 建议和 Video 素材组成。Scene 后处理统一管理显示 HDR。作品的作者属性仍可从原属性面板操作。 [布局现址](../../MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift) · [设置动作注入](../../MyWallpaperX/Shared/Settings/AppSettingsPanelDependency.swift)
 - 全局「动画帧率」首批保留 30／60 两值，随后在已验收范围内采用可键盘步进和直接输入的 1 FPS 滑杆，目标范围为 10–120。副标题说明 Scene 使用此调度上限，受当前屏幕组合限制时并列显示意愿与生效值。Web 可选「随显示器（最高 60）」或「跟随动画帧率」，缺省随显示器；跟随后，帧率、预设或 Web 模式变更将重算作品建议。Video 显示已知的片源分辨率与素材帧率，派生达到交付门后再显示素材选择。静态图、封面、系统屏保与锁屏遵循各自既有路径。
 - 使用 AppKit 原生 segmented control、popup、switch，连续 FPS 经验证再用有数值反馈和键盘步进的 slider。Tab、VoiceOver 读出控件名和当前值，说明和失败状态用文字表达；窄窗、浅／深色及已支持语言的长文案实查。拖动时可预览数字，触发资源准备或 IPC 只在一次完成编辑时合并提交。 [本地化与布局标准](localization-contract.md#layout)
-- 「恢复默认画质」沿一次差分更新复位帧率、Web 模式和已交付的画质字段。HDR 显示偏好由同区原开关独立控制。保留用户请求值；当前作品不适用、设备不支持、重新应用才生效或回用原画的理由，从已有引擎就绪／准备结果一次反馈。未完善的档位留在开发验证面。状态基于既有事件，Web 无作者回执时显示「作品支持时应用」。
+- 「恢复默认画质」沿一次差分更新复位帧率、Web 模式和已交付的画质字段。显示 HDR 随后处理档恢复为普通超高。保留用户请求值；当前作品不适用、设备不支持、重新应用才生效或回用原画的理由，从已有引擎就绪／准备结果一次反馈。未完善的档位留在开发验证面。状态基于既有事件，Web 无作者回执时显示「作品支持时应用」。
 
 ### 数据与生命周期
 
 | 层 | 拟落地职责 |
 |---|---|
-| 持久化与入口 | 延伸现有播放偏好。Q1 的 typed UserDefaults 值只含动画 FPS 和 Web 模式，后续仅随实际消费者加入字段。按请求向量匹配预设，手改向量时重新判断「自定」。设备、内容、预算导致的有效值变化另用现有状态呈现。HDR 显示沿现有键与通知。 |
-| 首开与升级 | 新记录未建立时取 `mwx.playback.performanceProfile` 的合法 30／60 与原缓存映射，缺失或无效时用 60。已有新记录中新增字段按兼容默认初始化。旧键供一次迁移或旧版读取，日常只写新值。自定义 FPS 须先测独立 decoded cache 上限，再一起退役原帧率绑定与重复额度写入。 [现有档](../../MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift) · [HDR 显示偏好](../../MyWallpaperX/Shared/Settings/SceneHDRDisplayPreference.swift) |
+| 持久化与入口 | 延伸现有播放偏好。Q1 的 typed UserDefaults 值只含动画 FPS 和 Web 模式，后续仅随实际消费者加入字段。按请求向量匹配预设，手改向量时重新判断「自定」。设备、内容、预算导致的有效值变化另用现有状态呈现。Q2 加入后处理请求，Scene 只在有效输出意图变化时更新。 |
+| 首开与升级 | 新记录未建立时取 `mwx.playback.performanceProfile` 的合法 30／60 与原缓存映射，缺失或无效时用 60。已有新记录中新增字段按兼容默认初始化。旧键供一次迁移或旧版读取，日常只写新值。自定义 FPS 须先测独立 decoded cache 上限，再一起退役原帧率绑定与重复额度写入。 [画质偏好与旧键投影](../../MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift) |
 | 便携 v8 导入／导出 | 按明确声明的字段更新。新 FPS 合法时优先，只有缺省新 FPS 才读取合法 legacy 30／60。新字段存在但枚举未知或数值越界时保本机相应字段，类型或结构错误沿原写入前错误。旧档只含 30 时只改 FPS，保本机 Web 模式和其它档。导出向旧字段仅投影能表示的 30／60，直接退回旧二进制仍读取升级前旧键。 [v8 载荷](../../MyWallpaperX/Models/PersonalSettingsPayload.swift) |
-| 中断恢复与复位 | 旧 v3 恢复票据在 preferences 阶段前将实际声明的字段投影到相同 typed 比较，沿原 before／target 处理间隔编辑。已结算的 preferences 继续承认其收据，存储按启动迁移。画质复位和完整重置显式写默认向量，保原 reset epoch 及 HDR 独立的复位语义。验写前／写后中断、用户后续更改及旧键 30 同时存在的反例。 [导入恢复](../../MyWallpaperX/App/PersonalSettingsImportCoordinator.swift) · [完整重置](../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Persistence.swift) |
+| 中断恢复与复位 | 旧 v3 恢复票据在 preferences 阶段前将实际声明的字段投影到相同 typed 比较，沿原 before／target 处理间隔编辑。已结算的 preferences 继续承认其收据，存储按启动迁移。画质复位和完整重置显式写默认向量，保原 reset epoch。旧恢复票据里相同的隐含 HDR 布尔值作为未编辑处理。验写前／写后中断、用户后续更改及旧键 30 同时存在的反例。 [导入恢复](../../MyWallpaperX/App/PersonalSettingsImportCoordinator.swift) · [完整重置](../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Persistence.swift) |
 | App 到执行端 | 通过现有动作和命令层下发各端实际消费的 typed 字段。Scene 沿单一父端和 daemon wire。Web 定向到现有 Web 入口，处理 Video／Web handler 别名和广播去重，更新 Web 会话与以后 launch 的 seed；Video 没有需要消费的 FPS 消息。wire 以现有版本和请求信封承载，启动状态含完整有效子集，变更发一次差分或小快照。 [App 装配](../../MyWallpaperX/App/MyWallpaperXApplication.swift) · [命令层](../../MyWallpaperX/Core/PlaybackControl/PlaybackCommandMultiplexer.swift) · [Scene IPC](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonProtocol.swift) |
 | 执行端有效值 | 由当前内容、设备／显示能力、实际 consumer 与原帧／资源合同决定。字段只进入其消费点；静态资格于准备期确定，动态作者值仍由 typed snapshot 提供。执行有效值和回退原因可按已有状态／诊断观察，请求值可以在换作品或换屏时重新求有效。 |
 | 失败与回退 | 热更新只在当前会话和合法边界采用；已准备的下次应用项按最新偏好重新解析。需要更新资源／pipeline 的候选沿现有 request、generation、surface、提交和 pin，候选失败保旧画面，取消或更晚的意图淘汰旧结果。关闭/恢复档位沿原单一事务，无新 watchdog、每帧 IPC 或偏好认证。 |
@@ -63,7 +63,7 @@ Scene FPS 在下一排帧边界采纳，Web 在当前文档回调，能原位采
 
 ### 四档候选
 
-兼容默认向量为 60 FPS（升级保原 30／60）、1×、作者适用的普通／HDR 泛光、现役纹理与自适应阴影、点光原全尺寸四点和原聚光锥、作者可用的实时反射。Web 按屏幕给建议，Video 默认原片。恢复默认采用这个向量，HDR 显示保有独立偏好。
+兼容默认向量为 60 FPS（升级保原 30／60）、1×、作者适用的普通／HDR 泛光、现役纹理与自适应阴影、点光原全尺寸四点和原聚光锥、作者可用的实时反射。Web 按屏幕给建议，Video 默认原片。恢复默认采用这个向量，后处理选普通超高。
 
 表内数值是 MyWallpaperX 的起始候选。预设只组合本版已交付的字段，重复组合合并展示。高与超高须能在合格作品上观察到真实差异。高帧率和 MSAA 额外成本较大，预设的帧率候选最高 60，抗锯齿初始为无。
 
@@ -74,7 +74,7 @@ Scene FPS 在下一排帧边界采纳，Web 在当前文档回调，能原位采
 | 高 | 60 | 无 | 启用 | 高质量 | 高 | 高 | 开 |
 | 超高 | 60 | 无 | 超高 | 高质量 | 超高 | 超高 | 开 |
 
-手改即可进入自定。效果档允许作者启用的实际贡献；体积照明若首片只验证点光，控件和预设说明都明确为点光。超高体积如果无独立收益，预设仍可由已验证的 HDR Bloom 或阴影预算和高档区分。HDR 显示意愿和系统暂停由原偏好控制。验证通过的更高帧率及 MSAA 先作为手动项，Video 文件档、媒体播放速度和 Web 作者属性在各自入口选取。
+手改即可进入自定。效果档允许作者启用的实际贡献；体积照明若首片只验证点光，控件和预设说明都明确为点光。超高体积如果无独立收益，预设仍可由已验证的 HDR Bloom 或阴影预算和高档区分。显示 HDR 由后处理的专用档请求，系统暂停仍由现有策略控制。验证通过的更高帧率及 MSAA 先作为手动项，Video 文件档、媒体播放速度和 Web 作者属性在各自入口选取。
 
 <a id="scene"></a>
 ## Scene 逐项技术裁决
@@ -107,7 +107,7 @@ Scene FPS 在下一排帧边界采纳，Web 在当前文档回调，能原位采
 <a id="scene-post-processing"></a>
 ### 后处理与 HDR
 
-**选型为现有低尺寸可分离 Bloom 和保留当前 HDR 工作域的浮点金字塔。** 官方「后处理」在本项目首批落为「场景泛光」。作者启用 HDR Bloom 后，官方最终播放中的用户档需用「超高」，并可让作者另配普通 Bloom 供「启用」档使用。属性面板只控制作品公开的相应作者参数。自定义局部 effect 沿其图执行。Windows 编辑器预览与 macOS 每屏 HDR 显示各有自身状态。 [官方 Bloom 合同](https://docs.wallpaperengine.io/en/scene/effects/bloom.html)
+**选型为现有低尺寸可分离 Bloom 和保留当前 HDR 工作域的浮点金字塔。** 场景后处理首先负责全景泛光及显示 HDR。作者启用 HDR Bloom 后，官方最终播放中的用户档需用「超高」，并可让作者另配普通 Bloom 供「启用」档使用。属性面板只控制作品公开的相应作者参数。自定义局部 effect 沿其图执行。Windows 编辑器预览与 macOS 每屏 HDR 显示各有自身状态。 [官方 Bloom 合同](https://docs.wallpaperengine.io/en/scene/effects/bloom.html)
 
 | 算法 | 对本项目的取舍 |
 |---|---|
@@ -115,9 +115,9 @@ Scene FPS 在下一排帧边界采纳，Web 在当前文档回调，能原位采
 | 全尺寸 Gaussian／MPS | 可在离线或同尺寸探针中做参考。sigma、边界权重、色彩、alpha 和源步距决定实际光晕，高分辨率中间读写仍有成本。保持现有分离路径，只有相同光晕和作者结果的候选在 Apple GPU 实测有明确收益时才替换局部滤波。 [MPS Gaussian API](https://developer.apple.com/documentation/metalperformanceshaders/mpsimagegaussianblur/init%28device%3Asigma%3A%29) |
 | Dual Kawase／减少金字塔级数 | 更少采样或在小纹理处理宽晕是候选。核形、跨级权重和亚像素能量会改变光晕。优先保作者级数，缩档须守阈值、强度和局部对照。已有有界官方宽块结果支持沿当前核，薄线的官方精确能量和通用性能仍待取证。 [Dual Filtering 方法](https://community.arm.com/cfs-file/__key/communityserver-blogs-components-weblogfiles/00-00-00-20-66/siggraph2015_2D00_mmg_2D00_marius_2D00_notes.pdf) · [项目 HDR 证据](../scene/capabilities/runtime-evidence-current.md#hdr-bloom-extraction) |
 
-**档位和生效**「禁用」沿原终端让预约和编码使用同一有效配置，跳过全景泛光，保原颜色、alpha、局部效果与 raw history。用户档留在终端，作者 General 的 Bloom 开关还参与粒子 HDR 亮度。首片可交付禁用和作者效果。「启用」冷准备所需的基础 PSO，包括 HDR 工作域的浮点目标。现有 HDR 初始化选 HDR PSO，清空 HDR 参数会缺普通分支。「超高」采用作者 HDR 金字塔，普通作品仍可用基础路径。作者禁用、零贡献或可选分配失败沿原局部结果。`SceneHDRDisplayPreference` 继续决定终端每屏 headroom 映射。 [作者场景和粒子](../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift) · [合成与终端](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ClearColor.swift) · [Apple EDR 映射](https://developer.apple.com/documentation/metal/performing-your-own-tone-mapping)
+**档位和生效**「禁用」沿原终端让预约和编码使用同一有效配置，跳过全景泛光，保原颜色、alpha、局部效果与 raw history。作者 General 开关仍供作者逻辑。普通与禁用档须在原准备入口确定有效 HDR 工作域和亮度，终端再分别走普通泛光或跳过。当前 HDR 初始化选择 HDR PSO，普通档使用原普通准备入口。「超高」采用作者 HDR 金字塔，普通作品仍可用基础路径。作者禁用、零贡献或可选分配失败沿原局部结果。两个超高档共用作者工作域，只有「超高（显示 HDR）」向可用屏申请 EDR。 [作者场景和粒子](../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift) · [合成与终端](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ClearColor.swift) · [Apple EDR 映射](https://developer.apple.com/documentation/metal/performing-your-own-tone-mapping)
 
-普通参数缺省在 General 已补为 1／0.65／白色。先用固定官版对照仅配置 HDR、显式普通参数等于默认、以及有动态普通绑定的场景。「启用」如适用普通缺省就直接用现有值。如果仅显式配置时才生效，在现有 General 解码保留消费所需的最少声明或绑定信息，沿当前 descriptor 投影。该语义通过黑盒与原 App 夹具后再开放三档。 [General 解码](../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument+General.swift) · [摄像机配置](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift)
+普通参数缺省在 General 已补为 1／0.65／白色。先用固定官版对照仅配置 HDR、显式普通参数等于默认、以及有动态普通绑定的场景。「启用」如适用普通缺省就直接用现有值。如果仅显式配置时才生效，在现有 General 解码保留消费所需的最少声明或绑定信息，沿当前 descriptor 投影。该语义通过黑盒与原 App 夹具后再开放「启用／禁用」。 [General 解码](../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument+General.swift) · [摄像机配置](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift)
 
 当前禁用／零贡献早退会留下原 `SceneBloomPostProcess` 对暖纹理的引用。用户改档停用一条链时由该 owner 在帧边释去该链的缓存引用，保在途 command buffer 的资源直到完成。作者动画短暂经过零只跳过当前帧工作，沿原容量规则复用。退出暖占用须以同进程里的实际配额可再次取得验证，必要附件优先。
 

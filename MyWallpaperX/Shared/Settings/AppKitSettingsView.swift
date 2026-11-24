@@ -100,7 +100,7 @@ final class AppKitSettingsContainerView: NSView {
     let startOnBootSwitch = NSSwitch()
     let restorePlaybackOnLaunchSwitch = NSSwitch()
     let syncSystemWallpaperSwitch = NSSwitch()
-    let sceneHDRDisplaySwitch = NSSwitch()
+    let scenePostProcessingPopup = NSPopUpButton()
     let sceneMediaInfoSwitch = NSSwitch()
     let webFrameRatePopup = NSPopUpButton()
     let resetQualityButton = NSButton(title: String(localized: "Restore Default Quality"), target: nil, action: nil)
@@ -190,7 +190,6 @@ final class AppKitSettingsContainerView: NSView {
         isUpdatingUI = true
         defer { isUpdatingUI = false }
 
-        sceneHDRDisplaySwitch.state = SceneHDRDisplayPreference.isEnabled ? .on : .off
         sceneMediaInfoSwitch.state = SceneMediaSourcePreference.isEnabled ? .on : .off
         let settings = dependency.settings
         let visibilityBefore = layoutVisibilitySignature()
@@ -266,6 +265,7 @@ final class AppKitSettingsContainerView: NSView {
         let quality = PlaybackQualityPreference.current
         sceneMaxFPSSegmented.selectedSegment = quality.profile == .efficient ? 0 : 1
         webFrameRatePopup.selectItem(at: quality.webFrameRateMode == .display ? 0 : 1)
+        refreshScenePostProcessingMenu(quality.scenePostProcessing)
         idleTimeoutRowView?.isHidden = !settings.pauseWhenIdle
         selectIdleTimeout(settings.idleTimeoutMinutes)
 
@@ -414,8 +414,8 @@ final class AppKitSettingsContainerView: NSView {
         restorePlaybackOnLaunchSwitch.action = #selector(handleRestorePlaybackOnLaunchToggle)
         syncSystemWallpaperSwitch.target = self
         syncSystemWallpaperSwitch.action = #selector(handleSyncSystemWallpaperToggle)
-        sceneHDRDisplaySwitch.target = self
-        sceneHDRDisplaySwitch.action = #selector(handleSceneHDRDisplayChange)
+        scenePostProcessingPopup.target = self
+        scenePostProcessingPopup.action = #selector(handleQualityChange(_:))
         sceneMediaInfoSwitch.target = self
         sceneMediaInfoSwitch.action = #selector(handleSceneMediaInfoToggle)
         systemAudioSpectrumSwitch.target = self
@@ -488,6 +488,10 @@ final class AppKitSettingsContainerView: NSView {
             .sink { [weak self] _ in
                 self?.refreshFromState()
             }
+            .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.refreshScenePostProcessingMenu(PlaybackQualityPreference.current.scenePostProcessing) }
             .store(in: &cancellables)
         // 静音可能来自开关/热键/状态栏三种入口；volume>0 时静音不产生
         // settings 写入，必须靠静音通知驱动回填（滑块显示 0/开关状态）。
@@ -625,10 +629,6 @@ final class AppKitSettingsContainerView: NSView {
         }
     }
 
-    @objc private func handleSceneHDRDisplayChange() {
-        SceneHDRDisplayPreference.setEnabled(sceneHDRDisplaySwitch.state == .on)
-    }
-
     @objc private func handleSceneMediaInfoToggle() {
         guard !isUpdatingUI else { return }
         let enabled = sceneMediaInfoSwitch.state == .on
@@ -748,8 +748,10 @@ final class AppKitSettingsContainerView: NSView {
         var quality = PlaybackQualityPreference.current
         if sender === sceneMaxFPSSegmented {
             quality.profile = sceneMaxFPSSegmented.selectedSegment == 0 ? .efficient : .standard
-        } else {
+        } else if sender === webFrameRatePopup {
             quality.webFrameRateMode = webFrameRatePopup.indexOfSelectedItem == 1 ? .followAnimationFrameRate : .display
+        } else {
+            quality.scenePostProcessing = scenePostProcessingPopup.indexOfSelectedItem == 1 ? .ultraDisplayHDR : .ultra
         }
         PlaybackCommandMultiplexer.shared.applyQualityPreference(quality)
     }

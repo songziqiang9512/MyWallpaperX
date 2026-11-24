@@ -13067,6 +13067,40 @@
         }
       }
     },
+    "Display HDR requires a compatible wallpaper and display": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Display HDR requires a compatible wallpaper and display"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示 HDR 需要作品与显示器支持"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для HDR нужны совместимые обои и дисплей"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HDR benötigt ein kompatibles Hintergrundbild und Display"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’affichage HDR requiert un fond d’écran et un écran compatibles"
+          }
+        }
+      }
+    },
     "Display Settings": {
       "localizations": {
         "en": {
@@ -31787,40 +31821,6 @@
         }
       }
     },
-    "Requires wallpaper support; very high power draw, enable with care": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Requires wallpaper support; very high power draw, enable with care"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "需要壁纸自身支持，功耗极高慎开"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Требуется поддержка в обоях; очень высокое энергопотребление, включайте осторожно"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Erfordert Unterstützung durch das Wallpaper; sehr hoher Stromverbrauch, mit Vorsicht aktivieren"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nécessite la prise en charge par le fond d’écran ; consommation très élevée, à activer avec prudence"
-          }
-        }
-      }
-    },
     "Reset": {
       "localizations": {
         "en": {
@@ -33621,36 +33621,36 @@
         }
       }
     },
-    "Scene HDR": {
+    "Scene Post-Processing": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scene HDR"
+            "value": "Scene Post-Processing"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "场景壁纸HDR"
+            "value": "场景后处理"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "HDR для Scene"
+            "value": "Постобработка сцен"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scene-HDR"
+            "value": "Scene-Nachbearbeitung"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "HDR pour Scene"
+            "value": "Post-traitement des scènes"
           }
         }
       }
@@ -47963,6 +47963,74 @@
           "stringUnit": {
             "state": "translated",
             "value": "Type"
+          }
+        }
+      }
+    },
+    "Ultra": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ultra"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "超高"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ультра"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ultra"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ultra"
+          }
+        }
+      }
+    },
+    "Ultra (Display HDR)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ultra (Display HDR)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "超高（显示 HDR）"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ультра (HDR-дисплей)"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ultra (HDR-Ausgabe)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ultra (affichage HDR)"
           }
         }
       }

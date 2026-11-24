@@ -98,7 +98,9 @@ import ImageIO
         try requireGeneration(epoch, resetEpoch: state.resetEpoch)
         let target = payload.preferences.applying(to: manager.settings)
         var targetPreferences = PersonalSettingsPreferences(from: target)
-        targetPreferences.sceneHDRDisplayEnabled = payload.preferences.sceneHDRDisplayEnabled ?? preferences.sceneHDRDisplayEnabled
+        let importedPostProcessing = payload.preferences.compatibleScenePostProcessing ?? preferences.compatibleScenePostProcessing
+        targetPreferences.scenePostProcessingMode = importedPostProcessing?.rawValue
+        targetPreferences.sceneHDRDisplayEnabled = importedPostProcessing?.requestsDisplayHDR
         targetPreferences.sceneMediaInfoEnabled = payload.preferences.sceneMediaInfoEnabled ?? preferences.sceneMediaInfoEnabled
         let importedProfile = payload.preferences.compatibleAnimationProfile
         targetPreferences.animationFramesPerSecond = importedProfile?.rawValue ?? preferences.animationFramesPerSecond
@@ -203,6 +205,7 @@ import ImageIO
             var before = recovery.plan.beforePreferences, target = recovery.plan.targetPreferences
             // Only the WallpaperSettings fields cross into its original owner.
             before.sceneHDRDisplayEnabled = nil; target.sceneHDRDisplayEnabled = nil
+            before.scenePostProcessingMode = nil; target.scenePostProcessingMode = nil
             before.sceneMediaInfoEnabled = nil; target.sceneMediaInfoEnabled = nil
             before.playbackPerformanceProfile = nil; target.playbackPerformanceProfile = nil
             before.animationFramesPerSecond = nil; target.animationFramesPerSecond = nil
@@ -230,9 +233,17 @@ import ImageIO
             if recovery.stage.rawValue < Stage.preferences.rawValue {
                 // Relationship persistence above may have yielded to an edit
                 // in Settings; check each owner once at this consumption point.
-                try validateExternalPreferences(before: recovery.plan.beforePreferences, target: recovery.plan.targetPreferences)
+                let externalBefore = recovery.plan.beforePreferences
+                var externalTarget = recovery.plan.targetPreferences
+                // Old journals materialized the implicit HDR-on default in
+                // both snapshots, even when the import never edited it.
+                if externalBefore.scenePostProcessingMode == nil, externalTarget.scenePostProcessingMode == nil,
+                   externalBefore.sceneHDRDisplayEnabled == externalTarget.sceneHDRDisplayEnabled {
+                    externalTarget.sceneHDRDisplayEnabled = nil
+                }
+                try validateExternalPreferences(before: externalBefore, target: externalTarget)
                 try manager.applyPersonalSettingsPreferences(expected: before, target: target)
-                applyExternalPreferences(recovery.plan.targetPreferences)
+                applyExternalPreferences(externalTarget)
                 recovery.stage = .preferences; try writeRecovery(recovery)
             }
             try requireGeneration(epoch, resetEpoch: recovery.plan.resetEpoch)
@@ -255,9 +266,10 @@ import ImageIO
 
     private func currentPreferences() -> PersonalSettingsPreferences {
         var value = PersonalSettingsPreferences(from: manager.settings)
-        value.sceneHDRDisplayEnabled = SceneHDRDisplayPreference.isEnabled
         value.sceneMediaInfoEnabled = SceneMediaSourcePreference.isEnabled
         let quality = PlaybackQualityPreference.current
+        value.scenePostProcessingMode = quality.scenePostProcessing.rawValue
+        value.sceneHDRDisplayEnabled = quality.scenePostProcessing.requestsDisplayHDR
         value.animationFramesPerSecond = quality.profile.rawValue
         value.playbackPerformanceProfile = quality.profile.rawValue
         value.webFrameRateMode = quality.webFrameRateMode.rawValue
@@ -271,7 +283,7 @@ import ImageIO
             next == nil || current == old || current == next
         }
         let quality = PlaybackQualityPreference.current
-        guard admits(SceneHDRDisplayPreference.isEnabled, before.sceneHDRDisplayEnabled, target.sceneHDRDisplayEnabled),
+        guard admits(quality.scenePostProcessing, before.compatibleScenePostProcessing, target.compatibleScenePostProcessing),
               admits(SceneMediaSourcePreference.isEnabled, before.sceneMediaInfoEnabled, target.sceneMediaInfoEnabled),
               admits(quality.profile, before.compatibleAnimationProfile, target.compatibleAnimationProfile),
               admits(quality.webFrameRateMode.rawValue, before.webFrameRateMode, target.webFrameRateMode) else {
@@ -280,16 +292,14 @@ import ImageIO
     }
 
     private func applyExternalPreferences(_ preferences: PersonalSettingsPreferences) {
-        if let enabled = preferences.sceneHDRDisplayEnabled, enabled != SceneHDRDisplayPreference.isEnabled {
-            SceneHDRDisplayPreference.setEnabled(enabled)
-        }
         if let enabled = preferences.sceneMediaInfoEnabled, enabled != SceneMediaSourcePreference.isEnabled {
             SceneMediaSourcePreference.setEnabled(enabled)
         }
         let current = PlaybackQualityPreference.current
         let next = PlaybackQualityPreference(
             profile: preferences.compatibleAnimationProfile ?? current.profile,
-            webFrameRateMode: preferences.webFrameRateMode.flatMap(WebFrameRateMode.init(rawValue:)) ?? current.webFrameRateMode
+            webFrameRateMode: preferences.webFrameRateMode.flatMap(WebFrameRateMode.init(rawValue:)) ?? current.webFrameRateMode,
+            scenePostProcessing: preferences.compatibleScenePostProcessing ?? current.scenePostProcessing
         )
         if current != next {
             PlaybackCommandMultiplexer.shared.applyQualityPreference(next)
@@ -338,6 +348,11 @@ import ImageIO
 }
 
 private extension PersonalSettingsPreferences {
+    var compatibleScenePostProcessing: ScenePostProcessingMode? {
+        if let scenePostProcessingMode { return ScenePostProcessingMode(rawValue: scenePostProcessingMode) }
+        return sceneHDRDisplayEnabled.map { $0 ? .ultraDisplayHDR : .ultra }
+    }
+
     var compatibleAnimationProfile: PlaybackPerformanceProfile? {
         (animationFramesPerSecond ?? playbackPerformanceProfile).flatMap(PlaybackPerformanceProfile.init(rawValue:))
     }

@@ -78,6 +78,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var pendingResourceLifetime: Lifetime?
     var requestResourceLifetimes: [UUID: Int] = [:]
     var performanceProfile: PlaybackPerformanceProfile = .standard
+    var scenePostProcessing: ScenePostProcessingMode = .ultra
     var commands: [[String: Any]] = []
     var launchFailures: [[String: Any]] = []
     func handleLaunchState(_ payload: [String: Any]) { launchFailures.append(payload) }
@@ -111,6 +112,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         // Scene handshake / restart replay must retain a pause received before ready.
         scene.pendingIntent = ScenePlaybackLoadRequest(rootURL: URL(fileURLWithPath: "/fixture"),
             propertyOverrides: [:], userPropertyTextures: [:], recordID: "fixture")
+        precondition(mux.dispatch(.setScenePostProcessing(.ultraDisplayHDR), to: .scene))
+        precondition(scene.commands.isEmpty)
         scene.endpointReady = true
         scene.hasRequestRetirementControl = true
         scene.replayPendingIntent()
@@ -126,7 +129,11 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         DaemonPlaybackProcessRegistry.shared.acceptsNewProcesses = true
         scene.replayPendingIntent()
         precondition(scene.commands.first?["cmd"] as? String == "loadScene")
+        precondition(scene.commands.first?["scenePostProcessing"] as? String == "displayHDR")
         precondition(scene.commands.last?["cmd"] as? String == "pause")
+        precondition(mux.dispatch(.setScenePostProcessing(.ultra), to: .scene))
+        precondition(scene.commands.last?["cmd"] as? String == "setScenePostProcessing")
+        precondition(scene.commands.last?["scenePostProcessing"] as? String == "ultra")
         // Web preparing alongside retained Video must pause/resume both surfaces.
         engine.currentPlaybackContentKind = .web
         engine.currentWebRequestID = UUID()

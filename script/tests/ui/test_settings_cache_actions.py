@@ -20,9 +20,11 @@ ROOT = Path(__file__).resolve().parents[3]
 class SettingsCacheActionsTests(unittest.TestCase):
     def test_interval_draft_uses_the_native_field_editor_across_unrelated_publications(self):
         settings = ROOT / "MyWallpaperX/Shared/Settings/AppKitSettingsView.swift"
+        layout = ROOT / "MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift"
         dependency = ROOT / "MyWallpaperX/Shared/Settings/AppSettingsPanelDependency.swift"
+        quality = ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift"
         fixture = ROOT / "script/tests/fixtures/SettingsIntervalEditingHarness.swift"
-        paths = [settings, dependency, fixture, Path(__file__).resolve()]
+        paths = [settings, layout, dependency, quality, fixture, Path(__file__).resolve()]
         hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
         source = settings.read_text()
         refresh = declaration(source, "    func refreshFromState()")
@@ -30,6 +32,8 @@ class SettingsCacheActionsTests(unittest.TestCase):
         # NSTextField/NSWindow. Unrelated settings groups are outside this gate.
         refresh = refresh[:refresh.index("        let clampedVolume")] + "        _ = visibilityBefore\n    }"
         actual = fixture.read_text().replace("// ACTUAL_INTERVAL_REFRESH", refresh)
+        actual = actual.replace("// ACTUAL_SCENE_POST_PROCESSING_MENU", declaration(
+            layout.read_text(), "    func refreshScenePostProcessingMenu("))
         for marker, signature in (
             ("// ACTUAL_SETTINGS_OBSERVER", "    private func observeManager()"),
             ("// ACTUAL_INTERVAL_COMMIT", "    func controlTextDidEndEditing("),
@@ -41,7 +45,7 @@ class SettingsCacheActionsTests(unittest.TestCase):
             copied = work / "Checks.swift"; copied.write_text(actual)
             binary = work / "checks"
             build = subprocess.run(["xcrun", "swiftc", "-parse-as-library", *SWIFT_ISOLATION_FLAGS,
-                "-warnings-as-errors", str(dependency), str(copied), "-module-cache-path", str(work / "modules"), "-o", str(binary)],
+                "-warnings-as-errors", str(dependency), str(quality), str(copied), "-module-cache-path", str(work / "modules"), "-o", str(binary)],
                 capture_output=True, text=True, timeout=100)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             run = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30)

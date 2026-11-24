@@ -10,7 +10,6 @@ struct WallpaperSettings {
 struct PersonalSettingsExportSummary {}
 struct PersonalSettingsImportSummary {}
 enum PersonalSettingsError: Error { case recoveryRequired(String) }
-enum SceneHDRDisplayPreference { static let isEnabled = false }
 enum SceneMediaSourcePreference { static let isEnabled = false }
 extension Notification.Name {
     static let playbackMuteStateDidChange = Self("fixture.mute")
@@ -22,7 +21,8 @@ extension Notification.Name {
     var isUpdatingUI = false
     var cancellables = Set<AnyCancellable>()
     var muteStateObserver: NSObjectProtocol?, loginItemSyncFailureObserver: NSObjectProtocol?
-    let sceneHDRDisplaySwitch = NSSwitch(), sceneMediaInfoSwitch = NSSwitch()
+    let sceneMediaInfoSwitch = NSSwitch()
+    let scenePostProcessingPopup = NSPopUpButton()
     let loopSwitch = NSSwitch(), randomSwitch = NSSwitch(), sequentialSwitch = NSSwitch(), autoSwitchSwitch = NSSwitch()
     let intervalField = NSTextField(frame: .init(x: 20, y: 70, width: 160, height: 28))
     let timeUnitPopup = NSPopUpButton()
@@ -33,6 +33,7 @@ extension Notification.Name {
         super.init(frame: .init(x: 0, y: 0, width: 360, height: 160))
         intervalField.delegate = self
         addSubview(intervalField); addSubview(nextField)
+        scenePostProcessingPopup.addItems(withTitles: ["Ultra", "Ultra (Display HDR)"])
         for unit in TimeUnit.allCases {
             timeUnitPopup.addItem(withTitle: unit.rawValue)
             timeUnitPopup.lastItem?.representedObject = unit
@@ -48,6 +49,7 @@ extension Notification.Name {
     func presentLoginItemSyncFailure(_ note: Notification) {}
     // ACTUAL_INTERVAL_REFRESH
     // ACTUAL_SETTINGS_OBSERVER
+    // ACTUAL_SCENE_POST_PROCESSING_MENU
     // ACTUAL_INTERVAL_COMMIT
     // ACTUAL_TIME_UNIT_SELECTION
 }
