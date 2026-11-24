@@ -7,7 +7,7 @@ enum SceneParticleEmitterDirectionsHarness {
                            renamed: Bool = false) -> SceneParticleDefinition {
         var emitter: [String: Any] = [
             "id": renamed ? 907 : 17, "name": "sphererandom", "instantaneous": 8,
-            "rate": 0, "origin": "0 0 0", "directions": "1 1 0", "sign": "0 0 0",
+            "rate": 0, "origin": "0 0 0", "sign": "0 0 0",
             "distancemin": 1, "distancemax": 4, "speedmin": 0, "speedmax": 0,
         ]
         emitter.merge(fields) { _, value in value }
@@ -41,6 +41,7 @@ enum SceneParticleEmitterDirectionsHarness {
          "positions": coordinates(state.particles), "ages": state.particles.map(\.age),
          "birthIDs": state.birthEvents.map { String($0.id) },
          "birthPositions": coordinates(state.birthEvents),
+         "birthVelocities": state.birthEvents.map { [$0.velocity.x, $0.velocity.y, $0.velocity.z] },
          "random": String(state.random.state), "nextID": String(state.nextParticleID),
          "time": state.simulationTime, "revision": String(state.playback.revision),
          "intent": state.playback.intent.rawValue]
@@ -173,6 +174,28 @@ enum SceneParticleEmitterDirectionsHarness {
                             "distancemin": 1e-200, "distancemax": 1e200], randomState: zeroState)
         let zeroRadius = run(["directions": "1e308 -1e308 1e308", "origin": "7 8 9",
                               "distancemin": 0, "distancemax": 0])
+        let launch: [String: Any] = ["origin": "7 8 9", "distancemin": 0, "distancemax": 0,
+                                    "speedmin": 12, "speedmax": 12]
+        let variableLaunch = launch.merging(["directions": "1 0 0", "speedmin": 5]) { _, v in v }
+        let weightedLaunch = launch.merging(["directions": "4 .25 0"]) { _, v in v }
+        let zeroLaunch = [
+            "plane": run(launch),
+            "positive": run(launch.merging(["directions": "1 0 0", "sign": "1 0 0"]) { _, v in v }),
+            "renamed": run(launch.merging(["directions": ["user": "travelAxes", "value": [1, 0, 0]],
+                                            "sign": "-1 0 0"]) { _, v in v }, renamed: true),
+            "negative": run(launch.merging(["directions": "1 0 0", "speedmin": -12,
+                                             "speedmax": -12]) { _, v in v }),
+            "zeroSpeed": run(launch.merging(["speedmin": 0, "speedmax": 0]) { _, v in v }),
+            "noAxis": run(launch.merging(["directions": "0 0 0"]) { _, v in v }),
+            "zAxis": run(launch.merging(["directions": "0 0 1"]) { _, v in v }),
+            "positiveRadius": run(launch.merging(["distancemin": 1, "distancemax": 1,
+                                                   "directions": "1 0 0", "sign": "1 0 0"]) { _, v in v }),
+            "variableZero": run(variableLaunch),
+            "variablePositive": run(variableLaunch.merging(["distancemin": 1, "distancemax": 1]) { _, v in v }),
+            "weightedZero": run(weightedLaunch),
+            "weightedPositive": run(weightedLaunch.merging(["distancemin": 1, "distancemax": 1]) { _, v in v }),
+            "scaledWeights": run(launch.merging(["directions": "1e308 -6.25e306 0"]) { _, v in v }),
+        ]
         let threshold = 1e-6
         let thresholds = [("below", threshold.nextDown), ("at", threshold),
                           ("above", threshold.nextUp), ("negative-below", -threshold.nextDown),
@@ -210,11 +233,14 @@ enum SceneParticleEmitterDirectionsHarness {
             "explicit": speedBirth(explicit: true),
             "tinyWorld": speedBirth(["distancemin": 1e-5, "distancemax": 1e-5], scaleX: 1e-8),
             "tinyLocal": speedBirth(["distancemin": 5e-13, "distancemax": 5e-13], scaleX: 1e9),
+            "zeroWorld": speedBirth(["distancemin": 0, "distancemax": 0]),
+            "zeroLocal": speedBirth(["distancemin": 0, "distancemax": 0], world: false),
+            "zeroExplicit": speedBirth(["distancemin": 0, "distancemax": 0], explicit: true),
         ]
         let payload: [String: Any] = [
             "equivalents": equivalents, "rngProbes": probes, "subnormal": subnormal,
             "zeroDraw": zeroDraw, "zeroRadius": zeroRadius, "thresholds": thresholds, "invalid": invalid,
-            "speedBirths": speedBirths,
+            "speedBirths": speedBirths, "zeroLaunch": zeroLaunch,
             "peerReference": peerReference,
             "finiteOverflow": run(finiteOverflow, peer: true),
             "finiteOverflowReference": run(["directions": "1 1 1", "instantaneous": 2], peer: true),

@@ -792,26 +792,29 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
               let speedMaximum = spawnPlan.speedMaximum else { return nil }
         var velocity = SIMD3<Double>.zero
         let relative: SIMD3<Double>
+        let launchVector: SIMD3<Double>
         switch emitter.kind {
         case .sphereRandom:
-            relative = randomSphereOffset(spawnPlan)
+            (relative, launchVector) = randomSphereBirth(spawnPlan)
         case .boxRandom:
             relative = randomBoxOffset(spawnPlan)
+            launchVector = relative
         case .layerImage:
             guard let point = layerImageEmissionMap?.sample(using: &random) else { return nil }
             relative = point
+            launchVector = point
         case .unsupported:
             return nil
         }
         let position = frame.position(for: relative)
         let speed = random.value(speedMinimum, speedMaximum)
         if speed != 0 {
-            let localLength = SceneParticleSimulationMath.length(relative)
+            let localLength = SceneParticleSimulationMath.length(launchVector)
             if localLength > 1e-12 {
                 let length = worldSpeedBasis.map {
-                    SceneParticleSimulationMath.length($0.worldParticleDirection(relative))
+                    SceneParticleSimulationMath.length($0.worldParticleDirection(launchVector))
                 } ?? localLength
-                velocity += relative / length * speed
+                velocity += launchVector / length * speed
             }
         }
 

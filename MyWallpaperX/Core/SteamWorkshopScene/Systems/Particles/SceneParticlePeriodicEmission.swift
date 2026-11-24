@@ -53,19 +53,20 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
 
     nonisolated init(_ value: SceneParticleEmitter) {
         origin = SceneParticleSimulationMath.vector(value.origin, fallback: .zero)
-        directions = SceneParticleSimulationMath.vector(
+        let authoredDirections = SceneParticleSimulationMath.vector(
             value.directions, fallback: SIMD3(1, 1, 0)
         )
         if case .sphereRandom = value.kind {
+            let weights = SIMD3(abs(authoredDirections.x), abs(authoredDirections.y), abs(authoredDirections.z))
             var preparedSign = SceneParticleSimulationMath.vector(value.sign, fallback: .zero)
             // Sign selects an integer direction; fractions truncate before sampling.
             for component in 0..<3 {
                 preparedSign[component] = preparedSign[component].rounded(.towardZero)
             }
             sign = preparedSign
-            sphereAxisMask = (abs(directions.x) > 1e-6 ? 1 : 0)
-                | (abs(directions.y) > 1e-6 ? 2 : 0)
-                | (abs(directions.z) > 1e-6 ? 4 : 0)
+            sphereAxisMask = (weights.x > 1e-6 ? 1 : 0)
+                | (weights.y > 1e-6 ? 2 : 0)
+                | (weights.z > 1e-6 ? 4 : 0)
             let dimensions = Double(max(sphereAxisMask.nonzeroBitCount, 1))
             let minimum = max(
                 0, SceneParticleSimulationMath.scalar(value.distanceMinimum, fallback: 0)
@@ -73,6 +74,8 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
             let maximum = max(
                 minimum, SceneParticleSimulationMath.scalar(value.distanceMaximum, fallback: 256)
             )
+            let largestWeight = max(weights.x, weights.y, weights.z)
+            directions = maximum == 0 && largestWeight > 0 ? weights / largestWeight : weights
             distanceMinimum = SIMD3(repeating: minimum)
             distanceMaximum = SIMD3(repeating: maximum)
             hasValidShapeInputs = value.hasValidDirectionsAndSign
@@ -81,6 +84,7 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
                 ? pow(minimum / maximum, dimensions) : 0
             sphereRadiusInverseDimension = 1 / dimensions
         } else {
+            directions = authoredDirections
             sign = .zero
             sphereAxisMask = 0
             sphereRadiusMinimumPower = 0

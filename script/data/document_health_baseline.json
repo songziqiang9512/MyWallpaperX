@@ -121,8 +121,8 @@
       "bytes": 7411
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 342,
-      "bytes": 67547
+      "lines": 344,
+      "bytes": 68237
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 419,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 309322
+      "bytes": 310316
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 215,
-      "bytes": 66203
+      "bytes": 66266
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "cf83d7776266fd4980b950bb70976bdf5dda3542e3ecaa7ae9f6cc52f768baeb",
-      "after": "e9824603644da9892e9db00a560aabdd20927d092bd64f640cca3d9b0593e6ba",
-      "owner": "Scene native Sprite depth and MainPass",
-      "reason": "Defines authored test and ineffective write for ordinary translucent sprites in the qualified native perspective root pass.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#native-particle-main-depth"
+      "before": "f08cd9a00ae5d5465307a5a8f9eefd8c8fbaab37a6b25240bab1b7c4aab5349d",
+      "after": "d13e46ad78fb98e7eaa6f73278da2c5bc9867a09d6c71ff546df59f91b6e4248",
+      "owner": "Scene Sphere emitter birth",
+      "reason": "Documents the fixed-zero Sphere launch seed and cold axis weights in the existing emitter contract.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#emitter-speed"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "42c079e82fc0fac424ad17cad4a2f4ed5a84b68a6ede6c9a5d48075cee475e2f",
-      "after": "1b936a8aba71e7beb4ffd42f52c9e00ff4ebc0c7bb25166ca4385fc12832f44c",
-      "owner": "Scene material property binding and prepared uniform",
-      "reason": "Records official, signed App, rename and wrong ABI Shader seed and hot-update evidence.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-null-shake-seed-377"
+      "before": "3d3b1f6d0e54afe98a392b87ce3036ca60f3b36733874e3c08279448a92f773c",
+      "after": "3548fd3bfa051f319b9dea65a467cbf4a129ca77bafe50fec525b000e50a6ce2",
+      "owner": "Scene Sphere emitter birth",
+      "reason": "Qualifies native and official Sprite motion and direction weights, with original author and rejection controls.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#zero-radius-sphere-launch"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "6d5905e780e1aab1b98656856b0f55bf49c4504943c459bb25ca350a68c8788b",
-      "after": "daff4ee0709552d1497aa1ebe5ccba6a62552f19f4e4f58a0726ab80ae06f5e7",
-      "owner": "Scene material property binding and prepared uniform",
-      "reason": "Retires the closed authored missing-seed Slider issue.",
+      "before": "9b7158ec3a1b0757a51cb1d786e6ca2ea27296059bc562278f69196631036109",
+      "after": "a950f3a5cd006e70eeac73a10d4df059d0fb2b3c7990ef858380784a09b480b9",
+      "owner": "Scene Sphere emitter birth",
+      "reason": "Retires the loss of initial speed and preserves the separately observed all-zero-axis appearance difference.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {

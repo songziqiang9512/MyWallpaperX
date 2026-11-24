@@ -68,6 +68,41 @@ class SceneParticleEmitterDirectionsTests(unittest.TestCase):
         for position in tiny["actual"]["first"]["positions"]:
             self.assertAlmostEqual(math.dist(position, (0, 0, 0)), 1, places=6)
 
+    def test_zero_radius_launches_from_the_origin_without_clamping_sampled_direction(self):
+        rows = self.results["zeroLaunch"]
+        first = {name: row["first"] for name, row in rows.items()}
+        for name, row in rows.items():
+            self.assertEqual(row["first"], row["replayed"])
+            self.assertEqual(row["first"]["birthIDs"], list(map(str, range(8))))
+            if name not in ("positiveRadius", "variablePositive", "weightedPositive"):
+                self.assertEqual(row["first"]["birthPositions"], [[7, 8, 9]] * 8)
+
+        east = [[12, 0, 0]] * 8
+        x_velocities = first["positive"]["birthVelocities"]
+        self.assertEqual({tuple(v) for v in x_velocities}, {(-12, 0, 0), (12, 0, 0)})
+        self.assertEqual(rows["positive"], rows["renamed"])
+        self.assertEqual(first["negative"]["birthVelocities"],
+                         [[-x, 0, 0] for x, _, _ in x_velocities])
+        self.assertEqual(first["positiveRadius"]["birthVelocities"], east)
+        self.assertEqual(first["positiveRadius"]["birthPositions"], [[8, 8, 9]] * 8)
+        self.assertEqual(first["positive"]["random"], first["positiveRadius"]["random"])
+        self.assertEqual(first["plane"]["random"], first["zeroSpeed"]["random"])
+        variable = first["variableZero"]["birthVelocities"]
+        self.assertEqual(variable, first["variablePositive"]["birthVelocities"])
+        self.assertGreater(len({abs(x) for x, _, _ in variable}), 1)
+        for name in ("zeroSpeed", "noAxis"):
+            self.assertEqual(first[name]["birthVelocities"], [[0, 0, 0]] * 8)
+        for x, y, z in first["plane"]["birthVelocities"]:
+            self.assertAlmostEqual(math.hypot(x, y), 12)
+            self.assertEqual(z, 0)
+        for x, y, z in first["zAxis"]["birthVelocities"]:
+            self.assertEqual((x, y, abs(z)), (0, 0, 12))
+        weighted = first["weightedZero"]["birthVelocities"]
+        for name in ("weightedPositive", "scaledWeights"):
+            for actual, expected in zip(first[name]["birthVelocities"], weighted, strict=True):
+                self.assertLess(math.dist(actual, expected), 1e-12)
+        self.assertNotEqual(weighted, first["plane"]["birthVelocities"])
+
     def test_radial_zero_and_subnormal_eighth_use_real_rng_and_do_not_collapse(self):
         self.assertEqual(self.results["rngProbes"], {"zero": 0, "eighth": 0.125})
         self.assertEqual(self.results["zeroDraw"]["first"]["positions"], [[1, 0, 0]])
@@ -144,6 +179,10 @@ class SceneParticleEmitterDirectionsTests(unittest.TestCase):
         self.assertAlmostEqual(math.hypot(3 * vx, 0.5 * vy, vz), 12)
         self.assertAlmostEqual(births["tinyWorld"][1][0] * 9.99999993922529e-9, 12)
         self.assertEqual(births["tinyLocal"][1], [0, 0, 0])
+        for name, magnitude in (("zeroWorld", 4), ("zeroLocal", 12), ("zeroExplicit", 12)):
+            position, (vx, vy, vz) = births[name]
+            self.assertEqual(position, [0, 0, 0])
+            self.assertEqual((abs(vx), vy, vz), (magnitude, 0, 0))
 
 
 if __name__ == "__main__":

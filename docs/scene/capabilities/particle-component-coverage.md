@@ -93,9 +93,11 @@ General world 根系统的约束端点先进入原 translation reference。world
 <a id="emitter-speed"></a>
 ### 发射速度数值
 
-speedmin/speedmax 是有符号初速，端点独立缺省0。原 SpawnPlan 准备有限有序区间，抽样顺序与原 seed 保留。负值沿径向向内。
+speedmin/speedmax 是有符号初速，端点独立缺省0。原 SpawnPlan 准备有限有序区间，抽样顺序与原 seed 保留。非零半径的负值沿径向向内。
 
-有当前世界基底且无 CP 供货的 General 世界根球形发射器，在自然出生时用完整世界基底下的径向长度计算 `relative / worldLength × speed`，保作者速率及变换后的方向。出生半径仍随层缩放；局部粒子初速也随层缩放。Initializer、CP 发射、子粒子、显式发射与 world Movement 仍用原坐标消费者。
+Sphere 固定零半径时，出生位移为零，初速使用同一次球面抽样的方向。Directions 缺省沿 XY，各轴幅度参与方向加权，sign 仍用于选择非零出生位置的侧向。原 SpawnPlan 预备绝对轴权重，零半径按最大权重归一；轴集合不变时，统一放大 Directions 不改变初速。保留轴、径向和速度抽样的次序，沿原初速、initializer、实例倍率和坐标链。正半径和极小正半径继续用实际位移，Box、图像发射与全零轴沿原行为。不新增粒子字段或渲染分支。对照见[零半径初速证据](runtime-evidence-current.md#zero-radius-sphere-launch)。
+
+有当前世界基底且无 CP 供货的 General 世界根球形发射器，在自然出生时用完整世界基底下的发射向量长度计算 `launchVector / worldLength × speed`，保作者速率及变换后的方向。出生半径仍随层缩放；局部粒子初速也随层缩放。Initializer、CP 发射、子粒子、显式发射与 world Movement 仍用原坐标消费者。
 
 原 initializer、实例乘数和坐标变换之后才校验寿命与Float/GPU可表示性；失败只丢该新生，显式命令沿原 exact-n 事务回滚。固定轴、速度符号和端点、溢出、改名及原作者见[运行证据](runtime-evidence-current.md#world-sphere-launch-speed-365)。
 

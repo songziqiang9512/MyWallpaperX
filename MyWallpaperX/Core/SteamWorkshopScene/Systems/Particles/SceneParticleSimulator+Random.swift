@@ -80,10 +80,9 @@ extension SceneParticleSimulator {
         return generator.value(first, second)
     }
 
-    nonisolated func randomSphereOffset(
+    nonisolated func randomSphereBirth(
         _ plan: SceneParticleEmitterSpawnPlan
-    ) -> SIMD3<Double> {
-        let directions = plan.directions
+    ) -> (offset: SIMD3<Double>, launchVector: SIMD3<Double>) {
         // Direct sampling has bounded work and no retry-exhaustion axis.
         // Keep the existing active-axis threshold and radial distribution.
         let mask = plan.sphereAxisMask
@@ -109,9 +108,9 @@ extension SceneParticleSimulator {
             unit = .zero
         }
         let radialUnit = random.unit()
-        var absoluteDirections = directions
-        for component in 0..<3 { absoluteDirections[component] = abs(absoluteDirections[component]) }
-        var result = unit * absoluteDirections
+        var result = unit * plan.directions
+        // Fixed-zero spheres keep the sampled direction before the position sign is applied.
+        if plan.distanceMaximum.x == 0 { return (.zero, result) }
         if radialUnit == 0 {
             result *= plan.distanceMinimum.x
         } else {
@@ -126,7 +125,7 @@ extension SceneParticleSimulator {
         for component in 0..<3 where abs(sign[component]) > 1e-6 {
             result[component] = abs(result[component]) * (sign[component] < 0 ? -1 : 1)
         }
-        return result
+        return (result, result)
     }
 
     nonisolated func randomBoxOffset(
