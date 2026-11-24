@@ -19,6 +19,7 @@ STUBS = r'''
 import Foundation
 struct MTLDevice {}
 struct SceneResourceView {}
+enum SceneUserPropertyValue {}
 struct SceneAssetCatalog { struct ModelAsset {} }
 struct SceneTextureUploadCommandQueue {}
 struct SceneTextureDecodeCacheBudget { init(maximumBytes: Int) {} }
@@ -29,10 +30,11 @@ struct SceneRenderDescriptor {
     var colorTargetFormat = Format()
     var requiresImageDepthAttachment = false
     var requiresImageAdditiveRGB = false
+    var requiresImageNormalDepth = false
 }
 enum SceneDesktopWallpaperHostLaunchError: Error { case requiredImagePipelineUnavailable }
 struct SceneImageLayerPipeline {
-    init?(device: MTLDevice, pixelFormat: Int, preparesDepth: Bool, preparesAdditive: Bool) {
+    init?(device: MTLDevice, pixelFormat: Int, preparesDepth: Bool, preparesAdditive: Bool, preparesNormalDepth: Bool) {
         if Backend.rejectPipeline { return nil }
     }
 }
@@ -52,7 +54,8 @@ struct ScenePreparedBaseImageResources {
     let puppetClipping: [String: Int] = [:]
     static func prepare(descriptor: SceneRenderDescriptor, resourceView: SceneResourceView,
         device: MTLDevice, spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
-        sceneGeneration: UInt64, cacheDirectory: URL, dynamicImageModelPathsProvider: (() throws -> Set<String>)?,
+        sceneGeneration: UInt64, cacheDirectory: URL, effectivePropertyValues: [String: SceneUserPropertyValue],
+        dynamicImageModelPathsProvider: (() throws -> Set<String>)?,
         deferredBaseImageLayerIDs: Set<Int>, imageGeometryModels: [SceneAssetCatalog.ModelAsset],
         geometryPrepared: ([Int: [Float]]) -> Void, uploadCommandQueue: SceneTextureUploadCommandQueue,
         decodeCacheBudget: SceneTextureDecodeCacheBudget, cancellationCheck: () throws -> Void) throws -> Self {
@@ -70,12 +73,15 @@ struct ScenePreparedStaticModelResources {
     struct MaterialPlan { let token: Int; static let empty = Self(token: 0) }
     let planToken: Int
     let states: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
-    static func prepare(descriptor: SceneRenderDescriptor, resourceView: SceneResourceView,
+    let directionalShadowDimensionLimit: Int?
+    static func prepare(descriptor: SceneRenderDescriptor, directionalShadowDimensionLimit: Int?,
+        resourceView: SceneResourceView,
         device: MTLDevice, textureLoader: Loader,
         materialPlan: MaterialPlan, albedoStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
         preparedSources: inout [String: SceneMdlStaticModel.PreparedSource],
         cancellationCheck: () throws -> Void) throws -> Self {
-        try cancellationCheck(); return .init(planToken: materialPlan.token, states: albedoStates)
+        try cancellationCheck(); return .init(planToken: materialPlan.token, states: albedoStates,
+            directionalShadowDimensionLimit: directionalShadowDimensionLimit)
     }
 }
 struct ScenePreparedDeviceResources {
@@ -91,7 +97,8 @@ enum Backend { static var rejectPipeline = false; static let entered = DispatchS
 HARNESS = r'''
 @main enum Harness {
     static func task() -> ScenePreparedDeviceResourcesTask {
-        .init(descriptor: .init(), resourceView: .init(), device: .init(), sceneGeneration: 1,
+        .init(descriptor: .init(), directionalShadowDimensionLimit: 1024,
+            resourceView: .init(), device: .init(), sceneGeneration: 1,
             cacheDirectory: URL(fileURLWithPath: "/unused-resource-task-cache", isDirectory: true),
             cancellationCheck: {})
     }
@@ -107,6 +114,7 @@ HARNESS = r'''
         let prepared = try t.value()
         out["plannedModels"] = prepared.baseImages.models.sorted()
         out["samePlanningPayload"] = prepared.staticModels.planToken == 73 && prepared.staticModels.states == states
+            && prepared.staticModels.directionalShadowDimensionLimit == 1024
         let empty = task(); empty.start()
         _ = try empty.preparedImageGeometry(); _ = Backend.entered.wait(timeout: .now()+2)
         empty.completeResourcePlanning(.init(dynamicImageModelPaths: [], modelMaterialPlan: .empty, modelAlbedoStates: [:]))

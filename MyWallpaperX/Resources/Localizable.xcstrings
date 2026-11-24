@@ -14561,36 +14561,36 @@
         }
       }
     },
-    "Effect changes apply the next time you apply the wallpaper": {
+    "Some effect changes require reloading the wallpaper": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Effect changes apply the next time you apply the wallpaper"
+            "value": "Some effect changes require reloading the wallpaper"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "效果档将在下次应用壁纸时生效"
+            "value": "部分效果变更需重新载入壁纸"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Изменения эффектов вступят в силу при следующем применении обоев"
+            "value": "Для некоторых изменений эффектов нужно перезагрузить обои"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Effektänderungen gelten beim nächsten Anwenden des Hintergrundbilds"
+            "value": "Einige Effektänderungen erfordern ein Neuladen des Hintergrundbilds"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les changements d’effets s’appliquent lorsque vous réappliquez le fond d’écran"
+            "value": "Certains changements d’effets nécessitent de recharger le fond d’écran"
           }
         }
       }
@@ -33821,6 +33821,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Réglage des propriétés Scene"
+          }
+        }
+      }
+    },
+    "Scene Shadows": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scene Shadows"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "场景阴影"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тени сцены"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scene-Schatten"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ombres de scène"
           }
         }
       }

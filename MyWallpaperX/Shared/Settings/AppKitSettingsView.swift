@@ -101,6 +101,7 @@ final class AppKitSettingsContainerView: NSView {
     let restorePlaybackOnLaunchSwitch = NSSwitch()
     let syncSystemWallpaperSwitch = NSSwitch()
     let scenePostProcessingPopup = NSPopUpButton()
+    let sceneShadowsPopup = NSPopUpButton()
     let sceneMediaInfoSwitch = NSSwitch()
     let webFrameRatePopup = NSPopUpButton()
     let resetQualityButton = NSButton(title: String(localized: "Restore Default Quality"), target: nil, action: nil)
@@ -265,7 +266,8 @@ final class AppKitSettingsContainerView: NSView {
         let quality = PlaybackQualityPreference.current
         sceneMaxFPSSegmented.selectedSegment = quality.profile == .efficient ? 0 : 1
         webFrameRatePopup.selectItem(at: quality.webFrameRateMode == .display ? 0 : 1)
-        refreshScenePostProcessingMenu(quality.scenePostProcessing)
+        refreshScenePostProcessingMenu(quality.scene.postProcessing)
+        sceneShadowsPopup.selectItem(at: sceneShadowsPopup.indexOfItem(withRepresentedObject: quality.scene.shadows.rawValue))
         idleTimeoutRowView?.isHidden = !settings.pauseWhenIdle
         selectIdleTimeout(settings.idleTimeoutMinutes)
 
@@ -414,8 +416,10 @@ final class AppKitSettingsContainerView: NSView {
         restorePlaybackOnLaunchSwitch.action = #selector(handleRestorePlaybackOnLaunchToggle)
         syncSystemWallpaperSwitch.target = self
         syncSystemWallpaperSwitch.action = #selector(handleSyncSystemWallpaperToggle)
-        scenePostProcessingPopup.target = self
-        scenePostProcessingPopup.action = #selector(handleQualityChange(_:))
+        for popup in [scenePostProcessingPopup, sceneShadowsPopup] {
+            popup.target = self
+            popup.action = #selector(handleQualityChange(_:))
+        }
         sceneMediaInfoSwitch.target = self
         sceneMediaInfoSwitch.action = #selector(handleSceneMediaInfoToggle)
         systemAudioSpectrumSwitch.target = self
@@ -491,7 +495,7 @@ final class AppKitSettingsContainerView: NSView {
             .store(in: &cancellables)
         NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.refreshScenePostProcessingMenu(PlaybackQualityPreference.current.scenePostProcessing) }
+            .sink { [weak self] _ in self?.refreshScenePostProcessingMenu(PlaybackQualityPreference.current.scene.postProcessing) }
             .store(in: &cancellables)
         // 静音可能来自开关/热键/状态栏三种入口；volume>0 时静音不产生
         // settings 写入，必须靠静音通知驱动回填（滑块显示 0/开关状态）。
@@ -750,9 +754,12 @@ final class AppKitSettingsContainerView: NSView {
             quality.profile = sceneMaxFPSSegmented.selectedSegment == 0 ? .efficient : .standard
         } else if sender === webFrameRatePopup {
             quality.webFrameRateMode = webFrameRatePopup.indexOfSelectedItem == 1 ? .followAnimationFrameRate : .display
-        } else if let mode = scenePostProcessingPopup.selectedItem?.representedObject as? String,
-                  let selected = ScenePostProcessingMode(rawValue: mode) {
-            quality.scenePostProcessing = selected
+        } else if let mode = (sender as? NSPopUpButton)?.selectedItem?.representedObject as? String {
+            if sender === sceneShadowsPopup, let selected = SceneShadowQuality(rawValue: mode) {
+                quality.scene.shadows = selected
+            } else if sender === scenePostProcessingPopup, let selected = ScenePostProcessingMode(rawValue: mode) {
+                quality.scene.postProcessing = selected
+            }
         }
         PlaybackCommandMultiplexer.shared.applyQualityPreference(quality)
     }

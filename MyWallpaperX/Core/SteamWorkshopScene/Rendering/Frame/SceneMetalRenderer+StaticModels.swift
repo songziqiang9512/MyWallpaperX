@@ -842,7 +842,8 @@ extension SceneMetalRenderer {
         cameraFrame: SceneParticleCameraFrame, shadowOnlyDraws: [Int: [StaticModelDraw]] = [:],
         mandatoryCapacity: () -> Bool = { true }
     ) {
-        guard let pipeline = staticModelResources.pipeline else { return }
+        guard let pipeline = staticModelResources.pipeline,
+              let dimensionLimit = staticModelResources.directionalShadowDimensionLimit else { return }
         let includesDirectional = lights.contains { if case .directional = $0 { return true }; return false }
         var casters: [(draw: StaticModelDraw, frontFacing: MTLWinding)] = []
         var bounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4)] = []
@@ -901,7 +902,7 @@ extension SceneMetalRenderer {
                     receiverBounds: receiverBounds,
                     directionTowardLight: value.directionTowardLight, resolution: 1024) else { continue }
                 projection = .directional(value)
-                resolution = directionalResolution
+                resolution = min(directionalResolution, dimensionLimit)
             case .spot(let value):
                 guard let value = SceneSpotShadowProjection.make(light: value) else { continue }
                 projection = .spot(value)

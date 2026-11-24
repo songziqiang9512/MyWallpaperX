@@ -155,7 +155,7 @@ class SceneDirectionalShadowIntegrationTests(unittest.TestCase):
         cls.runs = {}
         print(f'directional shadow App evidence: {cls.root}', flush=True)
 
-    def run_case(self, name, **options):
+    def run_case(self, name, *, shadow_quality=None, **options):
         if name in self.runs:
             return self.runs[name]
         from PIL import Image, ImageChops, ImageStat
@@ -170,6 +170,9 @@ class SceneDirectionalShadowIntegrationTests(unittest.TestCase):
         command = [str(self.executable), '--mwx-debug-scene-root', str(work / 'content'),
                    '--mwx-debug-scene-duration', '9' if moving else '6',
                    '--mwx-debug-scene-evidence-dir', str(work / 'evidence')]
+        if shadow_quality:
+            command += ['-mwx.playback.quality',
+                        f'{{ scenePostProcessingMode = ultra; sceneShadowQuality = {shadow_quality}; }}']
         if moving:
             command += ['--mwx-debug-scene-periodic-snapshot-interval', '1.5',
                         '--mwx-debug-scene-after-snapshot-delay', '7.2']
@@ -210,6 +213,8 @@ class SceneDirectionalShadowIntegrationTests(unittest.TestCase):
             ready = Image.open(work / 'evidence/scene-ready-window.png').convert('RGB')
             after = Image.open(work / 'evidence/scene-after-window.png').convert('RGB')
             self.assertIsNone(ImageChops.difference(ready, after).getbbox(), report)
+        if shadow_quality:
+            self.assertRegex(log, rf'phase=session-candidate .* shadowQuality={shadow_quality}\b')
         if (options.get('caster', True) and options.get('layer_alpha', 1) == 1
                 and options.get('named_source') != 'missing'
                 and options.get('texture_alpha', 255) == 255 and options.get('caster_x', 70) == 70
@@ -251,6 +256,24 @@ class SceneDirectionalShadowIntegrationTests(unittest.TestCase):
                 self.assertAlmostEqual(a, b, delta=3, msg=str(enabled))
         self.assert_visibility(self.run_case('light-off', light_cast=False), shadowed=False)
         self.assert_visibility(self.run_case('no-caster', caster=False), shadowed=False)
+
+    def test_user_shadow_quality_preserves_named_caster_depth_and_effect(self):
+        options = {'named_source': 'ready', 'caster_first': True, 'healthy_effect': True}
+        enabled = self.run_case('user-shadow-ultra', shadow_quality='ultra', **options)
+        disabled = self.run_case('user-shadow-disabled', shadow_quality='disabled', **options)
+        self.assert_shadow_lifecycle(enabled)
+        self.assertEqual(disabled['shadowEvents'], {}, disabled)
+        authored_source = lambda row: (Path(row['work']) / 'content/scene.pkg').read_bytes()
+        self.assertEqual(authored_source(enabled), authored_source(disabled))
+        for phase in ('scene-ready-window.png', 'scene-after-window.png'):
+            base, no_maps = enabled['pixels'][phase], disabled['pixels'][phase]
+            for region in ('control', 'caster', 'healthy'):
+                for a, b in zip(base[region], no_maps[region]):
+                    self.assertAlmostEqual(a, b, delta=3, msg=region)
+            self.assertGreater(no_maps['caster'][1], max(no_maps['caster'][0], no_maps['caster'][2]) + 20)
+            self.assertAlmostEqual(no_maps['healthy'][1], 100, delta=3)
+            self.assertGreater(min(no_maps['shadow']), 50)
+            self.assertLess(max(base['shadow']), min(no_maps['shadow']) * 0.3)
 
     def test_singular_caster_is_local_and_valid_caster_still_shadows(self):
         result = self.run_case('singular-and-valid', singular_caster=True, extra_valid_caster=True)

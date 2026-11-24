@@ -19,6 +19,7 @@ final class ScenePreparedDeviceResourcesTask {
 
     private let condition = NSCondition()
     private let descriptor: SceneRenderDescriptor
+    private let directionalShadowDimensionLimit: Int?
     private let resourceView: SceneResourceView
     private let device: MTLDevice
     private let cacheDirectory: URL
@@ -37,6 +38,7 @@ final class ScenePreparedDeviceResourcesTask {
 
     init(
         descriptor: SceneRenderDescriptor,
+        directionalShadowDimensionLimit: Int?,
         resourceView: SceneResourceView,
         device: MTLDevice,
         sceneGeneration: UInt64,
@@ -52,6 +54,7 @@ final class ScenePreparedDeviceResourcesTask {
         cancellationCheck: @escaping () throws -> Void
     ) {
         self.descriptor = descriptor
+        self.directionalShadowDimensionLimit = directionalShadowDimensionLimit
         self.resourceView = resourceView
         self.device = device
         self.cacheDirectory = cacheDirectory
@@ -126,6 +129,7 @@ final class ScenePreparedDeviceResourcesTask {
                 let planning = resourcePlanningResult!
                 let staticModels = try ScenePreparedStaticModelResources.prepare(
                     descriptor: descriptor,
+                    directionalShadowDimensionLimit: directionalShadowDimensionLimit,
                     resourceView: resourceView,
                     device: device,
                     textureLoader: baseImages.textureLoader,

@@ -22,7 +22,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() {} }
             return
         }
         let library = try device.makeLibrary(URL: URL(fileURLWithPath: "default.metallib"))
-        let modelPipeline = SceneStaticModelPipeline(device: device, preparesCameraDepth: true)!
+        let modelPipeline = SceneStaticModelPipeline(device: device, preparesCameraDepth: true, preparesShadows: false)!
         // A scaled copy at each distance keeps the same projected upper-half footprint.
         let vertices = [SIMD3<Float>(-0.5, 0.04, -1), SIMD3(0.5, 0.04, -1),
                         SIMD3(-0.5, 0.5, -1), SIMD3(0.5, 0.5, -1)].map { position in

@@ -35,6 +35,17 @@ nonisolated enum ScenePostProcessingMode: String, Sendable {
     var appliesBloom: Bool { self != .disabled }
 }
 
+nonisolated enum SceneShadowQuality: String, Sendable {
+    case disabled
+    case medium
+    case adaptive = "ultra"
+}
+
+nonisolated struct SceneRenderQuality: Equatable, Sendable {
+    var postProcessing: ScenePostProcessingMode = .ultra
+    var shadows: SceneShadowQuality = .adaptive
+}
+
 nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
     static let userDefaultsKey = "mwx.playback.quality"
     static let defaults = Self(profile: .standard, webFrameRateMode: .display)
@@ -42,7 +53,7 @@ nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
 
     var profile: PlaybackPerformanceProfile
     var webFrameRateMode: WebFrameRateMode
-    var scenePostProcessing: ScenePostProcessingMode = .ultra
+    var scene: SceneRenderQuality = .init()
 
     var webFrameRateSuggestion: Int? {
         webFrameRateMode == .followAnimationFrameRate ? profile.rawValue : nil
@@ -61,7 +72,11 @@ nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
             profile: fps.flatMap(PlaybackPerformanceProfile.init(rawValue:)) ?? .standard,
             webFrameRateMode: (record?["webFrameRateMode"] as? String)
                 .flatMap(WebFrameRateMode.init(rawValue:)) ?? .display,
-            scenePostProcessing: postProcessing
+            scene: .init(
+                postProcessing: postProcessing,
+                shadows: (record?["sceneShadowQuality"] as? String)
+                    .flatMap(SceneShadowQuality.init(rawValue:)) ?? .adaptive
+            )
         )
     }
 
@@ -69,7 +84,8 @@ nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
         defaults.set([
             "animationFramesPerSecond": profile.rawValue,
             "webFrameRateMode": webFrameRateMode.rawValue,
-            "scenePostProcessingMode": scenePostProcessing.rawValue,
+            "scenePostProcessingMode": scene.postProcessing.rawValue,
+            "sceneShadowQuality": scene.shadows.rawValue,
         ], forKey: Self.userDefaultsKey)
     }
 }

@@ -147,6 +147,7 @@ struct ScenePreparedStaticModelResources {
   }
  }
  let pipeline:SceneStaticModelPipeline?;let entries:[Int:[Entry]]
+ var directionalShadowDimensionLimit:Int?=4096
  subscript(_ id:Int)->[Entry]? { entries[id] }
 }
 struct NamedAlbedo {
@@ -904,11 +905,13 @@ def model_shadow_density_cases():
     rows += [dict(name=f'four-budget-{budget}', width=2049, height=8,
                   budgetBytes=budget * 1024 * 1024, lights=four)
              for budget in [16, 12, 384]]
-    rows += [dict(name='mixed-with-spot-gap', width=2049, height=8,
+    mixed = dict(name='mixed-with-spot-gap', width=2049, height=8,
                   budgetBytes=384 * 1024 * 1024,
                   lights=[{'kind': kind, 'id': i} for kind, i in
                           [('directional', 101), ('invalid-spot', 102),
-                           ('point', 103), ('spot', 104)]]),
+                           ('point', 103), ('spot', 104)]])
+    rows += [mixed, dict(mixed, name='medium-mixed-with-spot-gap', directionalLimit=1024),
+             dict(mixed, name='disabled-mixed-with-spot-gap', directionalLimit=None),
              dict(name='unlit-large-pass', width=4096, height=8, lit=False,
                   budgetBytes=384 * 1024 * 1024, lights=directional)]
     return rows
@@ -971,6 +974,16 @@ class SceneDirectionalShadowDensityTests(unittest.TestCase):
         self.assertTrue(row['colorEncodedLit'], row)
         self.assert_maps(row, [(101, [0], 4096, 4096),
                                (103, [2], 3072, 2048), (104, [3], 1024, 1024)])
+        medium = self.rows['medium-mixed-with-spot-gap']
+        self.assert_healthy_color(medium)
+        self.assert_maps(medium, [(101, [0], 1024, 1024),
+                                  (103, [2], 3072, 2048), (104, [3], 1024, 1024)])
+        self.assertEqual(medium['maps'][0]['matrix'], row['maps'][0]['matrix'])
+        disabled = self.rows['disabled-mixed-with-spot-gap']
+        self.assert_healthy_color(disabled)
+        self.assert_maps(disabled, [])
+        self.assertEqual(disabled['shadowResidentBytes'], 0)
+        self.assertTrue(disabled['shadowPipelinesSkipped'])
 
     def test_no_lit_receiver_keeps_color_without_directional_target(self):
         row = self.rows['unlit-large-pass']

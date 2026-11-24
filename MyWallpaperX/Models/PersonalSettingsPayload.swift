@@ -57,6 +57,7 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
     var toggleMuteHotkey: String?
     var sceneHDRDisplayEnabled: Bool?
     var scenePostProcessingMode: String?
+    var sceneShadowQuality: String?
     var sceneMediaInfoEnabled: Bool?
     var playbackPerformanceProfile: Int?
     var animationFramesPerSecond: Int?

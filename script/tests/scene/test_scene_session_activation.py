@@ -108,7 +108,7 @@ final class SceneDesktopWallpaperSession {
                 .init(displayID:$0,playback:.init(),materialRuntime:.init())
             }
             host.launchState = .init(requestID:presentation.requestID,recordID:nil,phase:.preparingModel,message:"")
-            try host.beginCandidate(.init(),scenePostProcessing:.enabled,preparedSurfaces:preparedSurfaces,
+            try host.beginCandidate(.init(),sceneRenderQuality:.init(postProcessing:.enabled,shadows:.medium),preparedSurfaces:preparedSurfaces,
                 userPropertyTextureLoad:preparedTextures,firstPresentation:presentation) { result in
                 if case .success=result {outcomes.append(true)} else {outcomes.append(false)}
             }
@@ -241,7 +241,7 @@ final class SceneDesktopWallpaperSession {
             delayedHost.launchState = .init(requestID:requestID,recordID:nil,phase:.preparingModel,message:"")
             let delayedSurfaces:[SceneDesktopWallpaperSession.PreparedSurface] =
                 ([1,2] as [CGDirectDisplayID]).map { .init(displayID:$0,playback:.init(),materialRuntime:.init()) }
-            try delayedHost.beginCandidate(.init(),scenePostProcessing:.ultra,preparedSurfaces:delayedSurfaces,
+            try delayedHost.beginCandidate(.init(),sceneRenderQuality:.init(),preparedSurfaces:delayedSurfaces,
                 userPropertyTextureLoad:.init(),firstPresentation:presentation) { outcome in
                 if case .success=outcome {delayedOutcomes.append(true)} else {delayedOutcomes.append(false)}
             }

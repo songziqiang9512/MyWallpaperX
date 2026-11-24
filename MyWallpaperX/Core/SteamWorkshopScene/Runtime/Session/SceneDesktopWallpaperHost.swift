@@ -75,7 +75,7 @@ final class SceneDesktopWallpaperHost {
     var presentationDeadline: DispatchWorkItem?
     var screenTopology: [SceneScreenTopology] = []
     private(set) var performanceProfile: PlaybackPerformanceProfile = .current
-    private(set) var scenePostProcessing: ScenePostProcessingMode = .ultra
+    private(set) var sceneRenderQuality = SceneRenderQuality()
     private var playbackPaused = false
 #if DEBUG
     private var debugPointerOverride: SceneSurfacePointerInput?
@@ -91,11 +91,12 @@ final class SceneDesktopWallpaperHost {
         candidateSession?.applyPerformanceProfile(profile)
     }
 
-    func applyScenePostProcessing(_ mode: ScenePostProcessingMode) {
-        guard mode != scenePostProcessing else { return }
-        scenePostProcessing = mode
-        activeSession?.applyScenePostProcessing(mode)
-        candidateSession?.applyScenePostProcessing(mode)
+    func applySceneRenderQuality(_ quality: SceneRenderQuality) {
+        let previousPostProcessing = sceneRenderQuality.postProcessing
+        sceneRenderQuality = quality
+        guard quality.postProcessing != previousPostProcessing else { return }
+        activeSession?.applyScenePostProcessing(quality.postProcessing)
+        candidateSession?.applyScenePostProcessing(quality.postProcessing)
     }
 
     func applyDisplayConfiguration(_ topology: [SceneScreenTopology]) {
@@ -212,7 +213,7 @@ final class SceneDesktopWallpaperHost {
 
     func configure(_ session: SceneDesktopWallpaperSession) {
         session.applyPerformanceProfile(performanceProfile)
-        session.applyScenePostProcessing(scenePostProcessing)
+        session.applyScenePostProcessing(sceneRenderQuality.postProcessing)
         session.screenTopology = screenTopology
         session.setPlaybackPaused(playbackPaused)
 #if DEBUG

@@ -226,7 +226,7 @@ final class SceneDaemonRuntime {
             userPropertyTextures: [:],
             profile: quality.profile,
             recordID: nil,
-            scenePostProcessing: quality.scenePostProcessing
+            sceneRenderQuality: quality.scene
         ))
     }
 
@@ -288,7 +288,7 @@ final class SceneDaemonRuntime {
         switch command {
         case let .loadScene(
             rootURL, overrides, textureReferences, shortcuts, profile, recordID, requiredTextureKeys,
-            requestID, source, scenePostProcessing
+            requestID, source, sceneRenderQuality
         ):
             lastPropertyRevision = 0
             // Explicit parent identities use a cancellable prepare/commit/
@@ -301,7 +301,7 @@ final class SceneDaemonRuntime {
                 }
             }
             host.applyPerformanceProfile(profile)
-            host.applyScenePostProcessing(scenePostProcessing)
+            host.applySceneRenderQuality(sceneRenderQuality)
             host.requestLaunch(
                 rootURL: rootURL,
                 source: source,
@@ -416,8 +416,8 @@ final class SceneDaemonRuntime {
             host.applyDisplayConfiguration(topology)
         case let .setPerformanceProfile(profile):
             host.applyPerformanceProfile(profile)
-        case let .setScenePostProcessing(mode):
-            host.applyScenePostProcessing(mode)
+        case let .setSceneRenderQuality(quality):
+            host.applySceneRenderQuality(quality)
         case let .setVolume(volume):
             PlaybackVolumeState.shared.setNormalizedVolume(volume)
             host.setMasterVolume(Double(volume))

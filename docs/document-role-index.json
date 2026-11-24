@@ -839,10 +839,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ed0fe822c70c2746f35536fdbd2b412c6e3612a97bf4b4847a08c8482a66334c",
+        "sourceSHA256": "6b8476927ea438754e7c9dd17b4331f59aa38fbbca84a08a4a220ad78df56198",
         "method": "document_registry --audit + document_health --check",
-        "scope": "后处理准备、原跨帧 raw 的 SDR 低档路径、各屏输出 owner 及现役工作卡导航。",
-        "limitations": "导航核对不代表真机、官方视觉或性能复验。"
+        "scope": "后处理准备、SDR 低档 raw 历史、阴影冷准备及原相机／体积深度的现行职责。",
+        "limitations": "导航核对与隔离运行证据分开，未复验全部作品、官方像素或更广显示拓扑。"
       }
     },
     {

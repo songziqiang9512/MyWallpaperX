@@ -479,14 +479,14 @@ struct SceneUserPropertyTextureLoadResult {}
     struct PreparedLaunch {
         var context: SceneDesktopWallpaperLaunchContext
         let model: SceneRuntimeModel
-        let scenePostProcessing: ScenePostProcessingMode
+        let sceneRenderQuality: SceneRenderQuality
         let userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
         let preparedSurfaces: [SceneDesktopWallpaperSession.PreparedSurface]
     }
     let launchPreparationQueue = DispatchQueue(label: "self-authored-launch-boundary")
     let textureDecodeCacheBudget: SceneTextureDecodeCacheBudget
     var nextLaunchRequestGeneration: UInt64 = 0, nextSceneScriptGeneration: UInt64 = 0
-    var scenePostProcessing: ScenePostProcessingMode = .ultra
+    var sceneRenderQuality = SceneRenderQuality()
     var screenTopology: [SceneScreenTopology] = []
     var pendingLaunchCompletion: (@MainActor (Result<SceneRuntimeModel, Error>) -> Void)?
     var launchCancellation: SceneWallpaperLaunchCancellation?
@@ -495,10 +495,10 @@ struct SceneUserPropertyTextureLoadResult {}
     var unconfirmedPromotion:(requestID:UUID,previous:SceneDesktopWallpaperSession?)?
     var onState: ((SceneWallpaperLaunchState) -> Void)?
     var began: [UInt64] = [], trace: [String] = []
-    var adoptedPostProcessing: [ScenePostProcessingMode] = []
+    var adoptedRenderQualities: [SceneRenderQuality] = []
     init(_ control: PreparationControl) { textureDecodeCacheBudget = .init(control: control) }
     nonisolated static func prepareLaunch(rootURL: URL, source: ScenePlaybackSource? = nil,
-        scenePostProcessing: ScenePostProcessingMode,
+        sceneRenderQuality: SceneRenderQuality,
         propertyOverrides: [String: SceneUserPropertyValue], userPropertyTextureURLs: [String: URL],
         requiredUserTextureKeys: Set<String>, logURL: URL?, recordID: String?,
         sceneScriptGeneration: UInt64, textureDecodeCacheBudget: SceneTextureDecodeCacheBudget,
@@ -509,7 +509,7 @@ struct SceneUserPropertyTextureLoadResult {}
         // A noncooperative leaf probes the production generation guards too.
         progress?(.preparingPrograms, "controlled late preparation")
         return .init(context: .init(values: propertyOverrides, generation: sceneScriptGeneration),
-                     model: .init(values: propertyOverrides), scenePostProcessing: scenePostProcessing,
+                     model: .init(values: propertyOverrides), sceneRenderQuality: sceneRenderQuality,
                      userPropertyTextureLoad: .init(), preparedSurfaces: [])
     }
     func publishLaunchState(_ state: SceneWallpaperLaunchState) {
@@ -525,13 +525,13 @@ struct SceneUserPropertyTextureLoadResult {}
         trace.append("rollback-unconfirmed")
     }
     func beginCandidate(_ context: SceneDesktopWallpaperLaunchContext,
-        scenePostProcessing: ScenePostProcessingMode,
+        sceneRenderQuality: SceneRenderQuality,
         preparedSurfaces: [SceneDesktopWallpaperSession.PreparedSurface],
         userPropertyTextureLoad: SceneUserPropertyTextureLoadResult,
         firstPresentation: SceneFirstFramePresentationRegistration,
         completion: @escaping (Result<Void, Error>) -> Void) throws {
         began.append(context.generation)
-        adoptedPostProcessing.append(scenePostProcessing)
+        adoptedRenderQualities.append(sceneRenderQuality)
         activeSession = .init(context.values)
         completion(.success(()))
     }
@@ -844,9 +844,10 @@ struct SceneUserPropertyTextureLoadResult {}
             let oldCancellation = runtime.launchCancellation!
             let oldCalls = session.calls
             let next: SceneUserPropertyValue = .number(kind == "same" ? 0 : 3)
-            runtime.scenePostProcessing = .enabled
+            let admittedQuality = SceneRenderQuality(postProcessing: .enabled, shadows: .medium)
+            runtime.sceneRenderQuality = admittedQuality
             facts[kind + "-secondDispatched"] = client.edit(["J": next], revision: 2)
-            runtime.scenePostProcessing = .disabled
+            runtime.sceneRenderQuality = .init(postProcessing: .disabled, shadows: .disabled)
             facts[kind + "-activeNotDelegated"] = session.calls == oldCalls && session.values == initial
             facts[kind + "-fullIntentReplayed"] = client.replayed.count == 2
                 && client.replayed.last?.propertyOverrides == ["K": .number(1), "J": next]
@@ -859,7 +860,7 @@ struct SceneUserPropertyTextureLoadResult {}
                 && !runtime.trace.contains("preparingPrograms:\(oldGeneration)")
             facts[kind + "-replacementCompletesOnce"] = runtime.began == [2]
                 && client.completions == [false, true]
-            facts[kind + "-preparationKeepsAdmittedPostProcessing"] = runtime.adoptedPostProcessing == [.enabled]
+            facts[kind + "-preparationKeepsAdmittedRenderQuality"] = runtime.adoptedRenderQualities == [admittedQuality]
             facts[kind + "-latestActivated"] = runtime.activeSession?.values == ["K": .number(1), "J": next]
                 && client.activeIntent?.propertyOverrides == runtime.activeSession?.values
                 && client.pendingIntent == nil && runtime.launchState?.phase == .launched

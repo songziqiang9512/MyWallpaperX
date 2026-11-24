@@ -4,21 +4,21 @@ import Foundation
 extension SceneDesktopWallpaperHost {
     func beginCandidate(
         _ context: SceneDesktopWallpaperLaunchContext,
-        scenePostProcessing: ScenePostProcessingMode,
+        sceneRenderQuality: SceneRenderQuality,
         preparedSurfaces: [SceneDesktopWallpaperSession.PreparedSurface],
         userPropertyTextureLoad: SceneUserPropertyTextureLoadResult,
         firstPresentation: SceneFirstFramePresentationRegistration,
         completion: @escaping (Result<Void, Error>) -> Void
     ) throws {
         let session = SceneDesktopWallpaperSession(textureDecodeCacheBudget: textureDecodeCacheBudget,
-            surfacePreparationQueue: launchPreparationQueue, scenePostProcessing: scenePostProcessing)
+            surfacePreparationQueue: launchPreparationQueue, scenePostProcessing: sceneRenderQuality.postProcessing)
         session.launchRequestID = firstPresentation.requestID
         configure(session)
         candidateSession = session
         candidateCompletion = completion
 #if DEBUG
-        NSLog("MWX Scene: phase=session-candidate session=%@ postProcessing=%@",
-              session.lifecycleID.uuidString, scenePostProcessing.rawValue)
+        NSLog("MWX Scene: phase=session-candidate session=%@ postProcessing=%@ shadowQuality=%@",
+              session.lifecycleID.uuidString, sceneRenderQuality.postProcessing.rawValue, sceneRenderQuality.shadows.rawValue)
 #endif
         var pendingScreens: Set<CGDirectDisplayID> = []
         var didPrepare = false

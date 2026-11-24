@@ -358,7 +358,18 @@ extension AppKitSettingsContainerView {
             scenePostProcessingPopup.lastItem?.representedObject = mode.rawValue
         }
         qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Post-Processing"), iconSystemName: "sun.max",
-            subtitle: String(localized: "Effect changes apply the next time you apply the wallpaper"), trailing: scenePostProcessingPopup))
+            subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: scenePostProcessingPopup))
+        let shadowTiers: [(SceneShadowQuality, String)] = [
+            (.disabled, String(localized: "Disabled")),
+            (.medium, String(localized: "Medium")),
+            (.adaptive, String(localized: "Ultra")),
+        ]
+        for (tier, title) in shadowTiers {
+            sceneShadowsPopup.addItem(withTitle: title)
+            sceneShadowsPopup.lastItem?.representedObject = tier.rawValue
+        }
+        qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Shadows"), iconSystemName: "shadow",
+            subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: sceneShadowsPopup))
         webFrameRatePopup.addItems(withTitles: [
             String(localized: "Match Display (up to 60 FPS)"),
             String(localized: "Follow Animation Frame Rate"),
@@ -406,7 +417,7 @@ extension AppKitSettingsContainerView {
         hotkeyEnableSwitches.values.forEach { $0.controlSize = .mini }
 
         let popups: [NSPopUpButton] = [timeUnitPopup, idleTimeoutPopup, libraryBackgroundPopup, libraryCardClickPopup, webFrameRatePopup, scenePostProcessingPopup] + hotkeyPopups.values
-            + [systemAudioSpectrumBarCountPopup]
+            + [sceneShadowsPopup, systemAudioSpectrumBarCountPopup]
         popups.forEach { $0.controlSize = .small }
 
         intervalField.controlSize = .small

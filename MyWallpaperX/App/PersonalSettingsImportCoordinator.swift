@@ -100,6 +100,8 @@ import ImageIO
         var targetPreferences = PersonalSettingsPreferences(from: target)
         let importedPostProcessing = payload.preferences.compatibleScenePostProcessing ?? preferences.compatibleScenePostProcessing
         targetPreferences.scenePostProcessingMode = importedPostProcessing?.rawValue
+        targetPreferences.sceneShadowQuality =
+            (payload.preferences.compatibleSceneShadows ?? preferences.compatibleSceneShadows)?.rawValue
         targetPreferences.sceneHDRDisplayEnabled = importedPostProcessing?.requestsDisplayHDR
         targetPreferences.sceneMediaInfoEnabled = payload.preferences.sceneMediaInfoEnabled ?? preferences.sceneMediaInfoEnabled
         let importedProfile = payload.preferences.compatibleAnimationProfile
@@ -206,6 +208,7 @@ import ImageIO
             // Only the WallpaperSettings fields cross into its original owner.
             before.sceneHDRDisplayEnabled = nil; target.sceneHDRDisplayEnabled = nil
             before.scenePostProcessingMode = nil; target.scenePostProcessingMode = nil
+            before.sceneShadowQuality = nil; target.sceneShadowQuality = nil
             before.sceneMediaInfoEnabled = nil; target.sceneMediaInfoEnabled = nil
             before.playbackPerformanceProfile = nil; target.playbackPerformanceProfile = nil
             before.animationFramesPerSecond = nil; target.animationFramesPerSecond = nil
@@ -268,8 +271,9 @@ import ImageIO
         var value = PersonalSettingsPreferences(from: manager.settings)
         value.sceneMediaInfoEnabled = SceneMediaSourcePreference.isEnabled
         let quality = PlaybackQualityPreference.current
-        value.scenePostProcessingMode = quality.scenePostProcessing.rawValue
-        value.sceneHDRDisplayEnabled = quality.scenePostProcessing.requestsDisplayHDR
+        value.scenePostProcessingMode = quality.scene.postProcessing.rawValue
+        value.sceneShadowQuality = quality.scene.shadows.rawValue
+        value.sceneHDRDisplayEnabled = quality.scene.postProcessing.requestsDisplayHDR
         value.animationFramesPerSecond = quality.profile.rawValue
         value.playbackPerformanceProfile = quality.profile.rawValue
         value.webFrameRateMode = quality.webFrameRateMode.rawValue
@@ -283,7 +287,8 @@ import ImageIO
             next == nil || current == old || current == next
         }
         let quality = PlaybackQualityPreference.current
-        guard admits(quality.scenePostProcessing, before.compatibleScenePostProcessing, target.compatibleScenePostProcessing),
+        guard admits(quality.scene.postProcessing, before.compatibleScenePostProcessing, target.compatibleScenePostProcessing),
+              admits(quality.scene.shadows, before.compatibleSceneShadows, target.compatibleSceneShadows),
               admits(SceneMediaSourcePreference.isEnabled, before.sceneMediaInfoEnabled, target.sceneMediaInfoEnabled),
               admits(quality.profile, before.compatibleAnimationProfile, target.compatibleAnimationProfile),
               admits(quality.webFrameRateMode.rawValue, before.webFrameRateMode, target.webFrameRateMode) else {
@@ -299,7 +304,10 @@ import ImageIO
         let next = PlaybackQualityPreference(
             profile: preferences.compatibleAnimationProfile ?? current.profile,
             webFrameRateMode: preferences.webFrameRateMode.flatMap(WebFrameRateMode.init(rawValue:)) ?? current.webFrameRateMode,
-            scenePostProcessing: preferences.compatibleScenePostProcessing ?? current.scenePostProcessing
+            scene: .init(
+                postProcessing: preferences.compatibleScenePostProcessing ?? current.scene.postProcessing,
+                shadows: preferences.compatibleSceneShadows ?? current.scene.shadows
+            )
         )
         if current != next {
             PlaybackCommandMultiplexer.shared.applyQualityPreference(next)
@@ -351,6 +359,10 @@ private extension PersonalSettingsPreferences {
     var compatibleScenePostProcessing: ScenePostProcessingMode? {
         if let scenePostProcessingMode { return ScenePostProcessingMode(rawValue: scenePostProcessingMode) }
         return sceneHDRDisplayEnabled.map { $0 ? .ultraDisplayHDR : .ultra }
+    }
+
+    var compatibleSceneShadows: SceneShadowQuality? {
+        sceneShadowQuality.flatMap(SceneShadowQuality.init(rawValue:))
     }
 
     var compatibleAnimationProfile: PlaybackPerformanceProfile? {

@@ -8,7 +8,7 @@
 
 从主工作树 `codex/engine-refactor-program` 的 `b2b80f892` 建 `Fluxo/wallpaper-quality-settings`。评估方案给技术取舍与失败判据，本卡维护唯一执行顺序与当前批。开工核对分支、实际 diff 和上批证据，从原设置行为追到真实运行消费者。 [算法与技术设计](wallpaper-quality-settings-plan.md#decision) · [源码地图](../architecture/repository-map.md#wallpaper-quality) · [验证工作流](repository-workflow.md#设计判定与记录)
 
-**当前推进 Q2 阴影**。泛光四档已接通，两个超高档在 M4 XDR 验了 SDR／EDR 输出、旧值迁移和暂停重导出。禁用与启用验证了光晕像素差、作者 HDR 场景降档后累积保留、独立作者作品可达真实呈现。显示 HDR 的实际混合显示拓扑及官方普通缺省仍待取证。接下来闭合阴影开关及一档降预算，再处理体积和反射。 [Scene 技术裁决](wallpaper-quality-settings-plan.md#scene-post-processing)
+**当前推进 Q2 体积照明**。泛光四档已接通，两个超高档在 M4 XDR 验了 SDR／EDR 输出、旧值迁移和暂停重导出。禁用与启用验证了光晕像素差、作者 HDR 场景降档后累积保留、独立作者作品可达真实呈现。显示 HDR 的实际混合显示拓扑及官方普通缺省仍待取证。阴影已闭合禁用与定向图封顶。接下来先沿根域点光证明体积开关，再核聚光锥和反射的作用域。 [Scene 技术裁决](wallpaper-quality-settings-plan.md#scene-post-processing)
 
 Q0 已取得 M4 上基线源码的独立 Metal 泛光和映射结果。Q1 从 App 偏好写入入口把帧率与 Web 模式投影到实际端点，Scene 保原缓存档，Video 保原片。已验签名隔离 Debug 的 30／60 真实呈现、实际 WKWebView 投递、候选端点、导入复位和独立复核。复杂作品的 60 FPS 与长稳功耗仍按 [实测门槛](wallpaper-quality-settings-plan.md#quality-release-gates)验证。每批冻结源码后跑最近门和独立审查，只提交本批文档、源码与测试。
 
@@ -45,6 +45,14 @@ Q2 先在原准备入口引入有效后处理投影。普通档和禁用档沿�
 3. 同一夹具检查 HDR 过亮源、仅普通亮源、作者禁用／零贡献、动态普通参数和局部效果邻例。分别量原工作域颜色、泛光轮廓、实际 pass／池计费、独立作品及原累积 history。先验 App 确实选择新路径，再测何时可开放控件。
 
 作者 HDR 且 `clear=false` 的场景降到 SDR 时，沿现有 `sceneColor` 提交保留跨 drawable 的 raw 累积。用实际 SDR 规格预约，省去 HDR 映射所需的临时显示附件。复制 raw 后在 drawable 上做普通泛光，暂停重导出可复用最近合格 raw。以至少三帧颜色累积和暂停重导出验收到同一 raw 收据，普通作者 SDR 继续走原路径。 [Scene 原输出合同](../scene/architecture/runtime-architecture.md#effective-quality-policy)
+
+### 阴影开关与定向预算的实施片
+
+Scene 端沿一份质量请求接收后处理与阴影。用同一个更新命令代替首次单字段命令，加载沿用原版本及缺省。Host 取已接纳档传给已有冷准备和静态模型资源。不会使旧帧读回设置，也不加第二资源 owner。阴影档在下次重新准备时生效，包括重新应用、属性重载和 daemon 恢复。两个超高后处理之间仍可热更新。
+
+先支持禁用、中、超高。禁用让可选阴影生产和 receiver 样本失去输入，直接光、作者投影声明、点光体积资格、相机深度与 named source 继续原作用。中档只将定向图实际尺寸封顶 1024，沿原 fit、分配回退和 PCF，点光与聚光保持已有尺寸。超高采用现有自适应定向预算。用三类灯的像素、实际定向尺寸、屏外与具名 caster、体积／相机深度和紧预算验收，再决定较低或较高的新尺寸档。 [技术评估](wallpaper-quality-settings-plan.md#scene-shadow-quality)
+
+签名隔离 Debug 的同输入具名 caster 对照，在同一接收探针测得超高 5／255、禁用 81／255，未遮挡区均为 81／255。具名实体、相机深度和独立图层保持。Metal 的实际贴图由定向 4096² 降至 1024²，点／聚光尺寸及紧预算回退不变；禁用三套可选遮挡管线的贴图驻留为零，点光体积原实体遮挡仍成立。原作者项目 3589454154 三档均完成出图、GPU 排空，禁用未编码光空间深度，中和超高各见三灯图阶段。动画时间不同，停在真实接管与产出证据。官版阴影档的实际贴图尺寸和本机长稳功耗尚未取得。
 
 ### Video 在线可选规格的实施片
 

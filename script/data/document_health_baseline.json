@@ -77,8 +77,8 @@
       "bytes": 73409
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 55,
-      "bytes": 9537
+      "lines": 63,
+      "bytes": 11289
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -93,8 +93,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 263,
-      "bytes": 49404
+      "lines": 265,
+      "bytes": 50025
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,19 +369,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "28522b2565e02fa28e591f59a8ecdc4144fc915ac202ad0eb0e8ea6d8de56e83",
-      "after": "d00c4e882286f01cc3eef0c2d344452a8a9347f15798f31612f3218ce9365778",
-      "owner": "Scene 后处理及跨帧输出",
-      "reason": "在降低 HDR 工作域时继续使用原 raw 历史 owner。",
+      "before": "d00c4e882286f01cc3eef0c2d344452a8a9347f15798f31612f3218ce9365778",
+      "after": "8adb2c0f159ed48faafc3938f018d3962c9ee931b3b027d801ed101e0b69fc44",
+      "owner": "Scene runtime/Metal",
+      "reason": "补 Scene 阴影实际消费、重载边界与相机深度保留。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "43992202bcdcd7b8f2af088be76105db8a9fa47ea970d0a6db6c10ce012d17c4",
-      "after": "fa708e7bbf89a49b6e762b5e266e06bb83221f60d5a6a414be31f0e50181103c",
-      "owner": "Scene 后处理及跨帧输出",
-      "reason": "定义较低后处理档的准备、raw 历史和验收边界。",
+      "before": "fa708e7bbf89a49b6e762b5e266e06bb83221f60d5a6a414be31f0e50181103c",
+      "after": "28d28935379a9fb44dd5e71db73652515037e08b9f5e87d8be36ddc0f13a1704",
+      "owner": "Scene runtime / App playback",
+      "reason": "记录已验证的阴影设置、实际像素与贴图预算。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {

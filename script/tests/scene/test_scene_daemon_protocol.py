@@ -47,10 +47,10 @@ import Foundation
             ]
         ])
         let loadValid: Bool
-        if case let .success(.loadScene(root, values, textures, _, profile, recordID, requiredKeys, requestID, source, postProcessing)) = load {
+        if case let .success(.loadScene(root, values, textures, _, profile, recordID, requiredKeys, requestID, source, quality)) = load {
             loadValid = root.path == "/private/tmp/scene"
                 && profile == .efficient && recordID == "fixture" && requiredKeys.isEmpty && requestID == nil && source == nil
-                && postProcessing == .ultra
+                && quality == .init()
                 && values["enabled"] == .bool(true)
                 && values["rate"] == .number(1.5)
                 && values["label"] == .string("ok")
@@ -62,18 +62,35 @@ import Foundation
             "scenePostProcessing": "displayHDR"
         ]
         let hdrLoadValid: Bool
-        if case .success(.loadScene(_, _, _, _, _, _, _, _, _, .ultraDisplayHDR)) = decode(hdrLoadPayload) {
-            hdrLoadValid = true
+        if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(hdrLoadPayload) {
+            hdrLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, shadows: .adaptive)
         } else { hdrLoadValid = false }
-        let hdrChangePayload: [String: Any] = ["v": 2, "cmd": "setScenePostProcessing", "scenePostProcessing": "ultra"]
-        let hdrChangeValid = decode(hdrChangePayload) == .success(.setScenePostProcessing(.ultra))
-        let invalidPostProcessing: [Any] = [true, "unknown", NSNull()]
-        let badPostProcessingRejected = [hdrLoadPayload, hdrChangePayload].allSatisfy { payload in
-            invalidPostProcessing.allSatisfy { value in
-                var invalid = payload
-                invalid["scenePostProcessing"] = value
-                return decode(invalid) == .failure(.invalidPayload(payload["cmd"] as! String))
+        let qualityChangePayload: [String: Any] = ["v": 2, "cmd": "setSceneRenderQuality",
+            "scenePostProcessing": "displayHDR", "shadowQuality": "medium"]
+        let qualityChangeValid = decode(qualityChangePayload) == .success(.setSceneRenderQuality(
+            .init(postProcessing: .ultraDisplayHDR, shadows: .medium)))
+        var shadowLoadPayload = hdrLoadPayload
+        shadowLoadPayload.removeValue(forKey: "scenePostProcessing")
+        shadowLoadPayload["shadowQuality"] = "disabled"
+        let shadowLoadValid: Bool
+        if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(shadowLoadPayload) {
+            shadowLoadValid = quality == .init(postProcessing: .ultra, shadows: .disabled)
+        } else { shadowLoadValid = false }
+        let invalidQualityValues: [Any] = [true, "unknown", NSNull()]
+        let qualityKeys = ["scenePostProcessing", "shadowQuality"]
+        let malformedQualityRejected = [hdrLoadPayload, qualityChangePayload].allSatisfy { payload in
+            qualityKeys.allSatisfy { key in
+                invalidQualityValues.allSatisfy { value in
+                    var invalid = payload
+                    invalid[key] = value
+                    return decode(invalid) == .failure(.invalidPayload(payload["cmd"] as! String))
+                }
             }
+        }
+        let incompleteQualityUpdateRejected = qualityKeys.allSatisfy { key in
+            var invalid = qualityChangePayload
+            invalid.removeValue(forKey: key)
+            return decode(invalid) == .failure(.invalidPayload("setSceneRenderQuality"))
         }
         let generation = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
         let storageIdentity = "v2:scene:123-" + generation
@@ -453,8 +470,10 @@ import Foundation
             "mediaWrongTypeRejected": mediaWrongTypeRejected,
             "loadValid": loadValid,
             "hdrLoadValid": hdrLoadValid,
-            "hdrChangeValid": hdrChangeValid,
-            "badPostProcessingRejected": badPostProcessingRejected,
+            "shadowLoadValid": shadowLoadValid,
+            "qualityChangeValid": qualityChangeValid,
+            "malformedQualityRejected": malformedQualityRejected,
+            "incompleteQualityUpdateRejected": incompleteQualityUpdateRejected,
             "shortcutLoadValid": shortcutLoadValid,
             "shortcutUpdateValid": shortcutUpdateValid,
             "invalidShortcutConfigurationRejected": invalidShortcutConfigurationRejected,

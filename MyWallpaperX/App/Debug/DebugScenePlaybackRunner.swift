@@ -99,7 +99,7 @@ enum DebugScenePlaybackRunner {
             return
         }
         guard applyRequestedPerformanceProfile() else { return }
-        runtimeHost.applyScenePostProcessing(PlaybackQualityPreference.current.scenePostProcessing)
+        runtimeHost.applySceneRenderQuality(PlaybackQualityPreference.current.scene)
         let requestsDynamicValuesFault = ProcessInfo.processInfo.arguments.contains(
             "--mwx-debug-scene-drop-dynamic-values-frame"
         )

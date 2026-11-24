@@ -24,7 +24,7 @@ final class Handler: PlaybackEngineControlling {
         switch command {
         case let .setPlaybackPaused(paused): isPlaying = !paused; return true
         case let .setVolume(value): volume = value; volumeCommands += 1; return true
-        case .setWebFrameRateSuggestion, .setPerformanceProfile, .setScenePostProcessing:
+        case .setWebFrameRateSuggestion, .setPerformanceProfile, .setSceneRenderQuality:
             qualityCommands.append(command); return true
         default: return false
         }
@@ -86,13 +86,21 @@ final class Handler: PlaybackEngineControlling {
         precondition(PlaybackQualityPreference.read(from: suite) == .defaults)
         precondition(suite.integer(forKey: PlaybackPerformanceProfile.userDefaultsKey) == 30)
         suite.set(true, forKey: "sceneHDRDisplayEnabled")
-        precondition(PlaybackQualityPreference.read(from: suite).scenePostProcessing == .ultra)
+        precondition(PlaybackQualityPreference.read(from: suite).scene.postProcessing == .ultra)
         suite.set(["animationFramesPerSecond": 60, "webFrameRateMode": "display"], forKey: PlaybackQualityPreference.userDefaultsKey)
-        precondition(PlaybackQualityPreference.read(from: suite).scenePostProcessing == .ultraDisplayHDR)
+        precondition(PlaybackQualityPreference.read(from: suite).scene.postProcessing == .ultraDisplayHDR)
         mux.applyQualityPreference(.defaults, defaults: suite)
-        precondition(PlaybackQualityPreference.read(from: suite).scenePostProcessing == .ultra)
-        precondition(scene.qualityCommands == [.setPerformanceProfile(maxFPS: 60), .setScenePostProcessing(.ultra)])
+        precondition(PlaybackQualityPreference.read(from: suite).scene.postProcessing == .ultra)
+        precondition(scene.qualityCommands == [.setPerformanceProfile(maxFPS: 60), .setSceneRenderQuality(.init())])
         precondition(video.qualityCommands == [.setWebFrameRateSuggestion(30), .setWebFrameRateSuggestion(nil)])
+        var quality = PlaybackQualityPreference.defaults
+        quality.scene.shadows = .medium
+        mux.applyQualityPreference(quality, defaults: suite)
+        mux.applyQualityPreference(quality, defaults: suite)
+        precondition(PlaybackQualityPreference.read(from: suite) == quality)
+        precondition(scene.qualityCommands.count == 3 && scene.qualityCommands.last == .setSceneRenderQuality(quality.scene))
+        suite.set(["sceneShadowQuality": "future"], forKey: PlaybackQualityPreference.userDefaultsKey)
+        precondition(PlaybackQualityPreference.read(from: suite).scene.shadows == .adaptive)
         suite.removePersistentDomain(forName: suiteName)
         video.volume = 0
         let previousVolumeCommands = video.volumeCommands

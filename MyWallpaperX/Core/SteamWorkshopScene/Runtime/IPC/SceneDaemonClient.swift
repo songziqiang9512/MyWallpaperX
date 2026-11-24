@@ -144,7 +144,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var retiringResourceLifetimes: [UInt64: [PlaybackResourceLifetime]] = [:]
     private var lastPropertyRevision: UInt64 = 0
     private var performanceProfile: PlaybackPerformanceProfile
-    private var scenePostProcessing: ScenePostProcessingMode
+    private var sceneRenderQuality: SceneRenderQuality
     private var isPaused = false
     private var screenParametersObserver: NSObjectProtocol?
     var shutdownCompletions: [(generations: Set<UInt64>, completion: () -> Void)] = []
@@ -161,7 +161,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     private init() {
         let quality = PlaybackQualityPreference.current
         performanceProfile = quality.profile
-        scenePostProcessing = quality.scenePostProcessing
+        sceneRenderQuality = quality.scene
         screenParametersObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
@@ -208,13 +208,14 @@ final class SceneDaemonClient: PlaybackEngineControlling {
                 ])
             }
             return activeIntent != nil || pendingIntent != nil
-        case let .setScenePostProcessing(mode):
-            scenePostProcessing = mode
+        case let .setSceneRenderQuality(quality):
+            sceneRenderQuality = quality
             if endpointReady {
                 send([
                     "v": SceneDaemonProtocol.version,
-                    "cmd": "setScenePostProcessing",
-                    "scenePostProcessing": mode.rawValue
+                    "cmd": "setSceneRenderQuality",
+                    "scenePostProcessing": quality.postProcessing.rawValue,
+                    "shadowQuality": quality.shadows.rawValue
                 ])
             }
             return activeIntent != nil || pendingIntent != nil
@@ -713,7 +714,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             "userShortcuts": SceneDaemonProtocol.shortcutObject(request.userShortcuts),
             "requiredUserTextureKeys": request.requiredUserTextureKeys.sorted(),
             "profile": performanceProfile.maxFPS,
-            "scenePostProcessing": scenePostProcessing.rawValue
+            "scenePostProcessing": sceneRenderQuality.postProcessing.rawValue,
+            "shadowQuality": sceneRenderQuality.shadows.rawValue
         ]
         if let sourceObject { payload["source"] = sourceObject }
         if let recordID = request.recordID {

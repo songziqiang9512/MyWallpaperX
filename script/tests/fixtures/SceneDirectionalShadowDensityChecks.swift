@@ -20,7 +20,8 @@
         let width = item["width"] as! Int, height = item["height"] as! Int
         let lit = item["lit"] as? Bool ?? true
         let layerID = item["layerID"] as? Int ?? 11
-        let pipeline = SceneStaticModelPipeline(device: device)!
+        let directionalLimit = item["directionalLimit"] is NSNull ? nil : (item["directionalLimit"] as? Int ?? 4096)
+        let pipeline = SceneStaticModelPipeline(device: device, preparesShadows: directionalLimit != nil)!
         let vertices = [SIMD3<Float>(16, 16, 0), SIMD3(48, 16, 0),
                         SIMD3(48, 48, 0), SIMD3(16, 48, 0)].map {
             SceneMdlStaticModel.Vertex(position: $0, normal: SIMD3(0, 0, 1),
@@ -49,7 +50,8 @@
             material: material)
         let layers = [SceneRenderDescriptor.Layer(id: layerID)]
         let renderer = SceneMetalRenderer(device: device,
-            resources: .init(pipeline: pipeline, entries: [layerID: [entry]]))
+            resources: .init(pipeline: pipeline, entries: [layerID: [entry]],
+                directionalShadowDimensionLimit: directionalLimit))
         let cameraDescriptor = SceneRenderDescriptor.CameraDescriptor(
             eye: [0, 0, 0], center: [0, 0, -1], up: [0, 1, 0],
             orthoWidth: 64, orthoHeight: 64, fovDegrees: nil,
@@ -110,6 +112,29 @@
             orderedLayers: layers, visible: visible, batches: [:], particlePipeline: nil,
             mainPass: pass, groups: nil, pool: pool, commandBuffer: cb, leases: &leases,
             mandatoryCapacity: { true }, recordsEvidence: false, cameraFrame: camera)
+        var shadowPipelinesSkipped = false
+        if directionalLimit == nil {
+            let depth = MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: .depth32Float, width: 16, height: 16, mipmapped: false)
+            depth.storageMode = .private
+            depth.usage = .renderTarget
+            let pass = MTLRenderPassDescriptor()
+            pass.depthAttachment.texture = device.makeTexture(descriptor: depth)!
+            pass.depthAttachment.loadAction = .clear
+            let encoder = cb.makeRenderCommandEncoder(descriptor: pass)!
+            let projections: [SceneStaticModelShadowProjection] = [
+                .directional(.init(worldToClip: matrix_identity_float4x4, depthBias: 0)),
+                .spot(SceneSpotShadowProjection.make(light: spots.last!)!),
+                .point(.init(light: points[0]))
+            ]
+            shadowPipelinesSkipped = projections.allSatisfy { projection in
+                !pipeline.drawShadow(mesh: mesh, texture: source, textureFrame: .identity, sampling: .linearClamp,
+                    modelMatrix: matrix_identity_float4x4, projection: projection, face: 0,
+                    viewport: .init(originX: 0, originY: 0, width: 16, height: 16, znear: 0, zfar: 1),
+                    layerAlpha: 1, material: material, encoder: encoder)
+            }
+            encoder.endEncoding()
+        }
         let maps: [[String: Any]] = state.shadows.map { shadow in
             // Observe the existing residency key without reserving another target.
             let slots = pool.allocationCache.locked {
@@ -147,6 +172,6 @@
             "maps": maps, "colorRGBA": [pixel[2], pixel[1], pixel[0], pixel[3]],
             "colorEncodedLit": colorEncodedLit, "finished": finished,
             "completed": cb.status == .completed && cb.error == nil,
-            "shadowResidentBytes": pool.residentByteCost]
+            "shadowResidentBytes": pool.residentByteCost, "shadowPipelinesSkipped": shadowPipelinesSkipped]
     }
 }

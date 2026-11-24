@@ -13,7 +13,7 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
         requiredUserTextureKeys: Set<String> = [],
         requestID: UUID? = nil,
         source: ScenePlaybackSource? = nil,
-        scenePostProcessing: ScenePostProcessingMode = .ultra
+        sceneRenderQuality: SceneRenderQuality = .init()
     )
     case setProperty(
         values: [String: SceneUserPropertyValue],
@@ -30,7 +30,7 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
     case retireOutput(requestID: UUID, operationID: UUID, requireRequestRetirement: Bool = false)
     case setDisplayConfiguration([SceneScreenTopology])
     case setPerformanceProfile(PlaybackPerformanceProfile)
-    case setScenePostProcessing(ScenePostProcessingMode)
+    case setSceneRenderQuality(SceneRenderQuality)
     /// Normalized master volume (0...1) applied after authored/user volume.
     case setVolume(Float)
     case setMuted(Bool)
@@ -126,14 +126,8 @@ nonisolated enum SceneDaemonProtocol {
         }
         switch action {
         case "loadScene":
-            let postProcessing: ScenePostProcessingMode
-            if let raw = payload["scenePostProcessing"] {
-                guard let value = raw as? String, let mode = ScenePostProcessingMode(rawValue: value) else {
-                    return .failure(.invalidPayload(action))
-                }
-                postProcessing = mode
-            } else {
-                postProcessing = .ultra
+            guard let renderQuality = renderQuality(payload, fallback: .init()) else {
+                return .failure(.invalidPayload(action))
             }
             let requestID: UUID?
             if let raw = payload["requestID"] {
@@ -175,7 +169,7 @@ nonisolated enum SceneDaemonProtocol {
                 requiredUserTextureKeys: requiredKeys,
                 requestID: requestID,
                 source: source,
-                scenePostProcessing: postProcessing
+                sceneRenderQuality: renderQuality
             ))
         case "setUserShortcuts":
             guard let configuration = shortcutConfiguration(payload["configuration"]),
@@ -272,12 +266,11 @@ nonisolated enum SceneDaemonProtocol {
                 return .failure(.invalidPayload(action))
             }
             return .success(.setPerformanceProfile(profile))
-        case "setScenePostProcessing":
-            guard let raw = payload["scenePostProcessing"] as? String,
-                  let mode = ScenePostProcessingMode(rawValue: raw) else {
+        case "setSceneRenderQuality":
+            guard let quality = renderQuality(payload) else {
                 return .failure(.invalidPayload(action))
             }
-            return .success(.setScenePostProcessing(mode))
+            return .success(.setSceneRenderQuality(quality))
         case "setVolume":
             guard let volume = finiteDouble(payload["volume"]),
                   (0 ... 1).contains(volume) else {
@@ -415,6 +408,14 @@ nonisolated enum SceneDaemonProtocol {
     private static func profile(_ raw: Any?) -> PlaybackPerformanceProfile? {
         guard let value = integer(raw) else { return nil }
         return PlaybackPerformanceProfile(rawValue: value)
+    }
+
+    private static func renderQuality(_ payload: [String: Any], fallback: SceneRenderQuality? = nil) -> SceneRenderQuality? {
+        let postProcessingRaw = payload["scenePostProcessing"] ?? fallback.map { $0.postProcessing.rawValue as Any }
+        let shadowRaw = payload["shadowQuality"] ?? fallback.map { $0.shadows.rawValue as Any }
+        guard let postProcessing = (postProcessingRaw as? String).flatMap(ScenePostProcessingMode.init(rawValue:)),
+              let shadows = (shadowRaw as? String).flatMap(SceneShadowQuality.init(rawValue:)) else { return nil }
+        return .init(postProcessing: postProcessing, shadows: shadows)
     }
 
     private static func displayConfiguration(

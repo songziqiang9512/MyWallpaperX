@@ -403,7 +403,7 @@ IDLE_TAIL = r'''
         checks["queueAndCancellationDoNotSendLoadBeforeRetirement"]=cancelledQueued
             && a.queuedSwitchPreparation?.ticket == next
             && !a.sent.contains{$0["cmd"] as? String == "loadScene"}
-        a.scenePostProcessing = .ultraDisplayHDR
+        a.sceneRenderQuality = .init(postProcessing: .ultraDisplayHDR, shadows: .medium)
         ack(a,ra,opa)
         let newRequest=a.pendingRequestID
         checks["successfulRetirementAdoptsSameProcessWithFreshRequest"]=retiredA == 1 && oldLease == nil
@@ -411,8 +411,9 @@ IDLE_TAIL = r'''
             && a.sessionGeneration == 7 && a.pendingIntent?.recordID == "C"
             && newRequest != nil && newRequest != ra && a.spawns == 0
             && a.sent.filter{$0["cmd"] as? String == "loadScene"}.count == 1
-        checks["newLoadProjectsLatestPostProcessingAfterRetirement"] =
-            a.sent.first{$0["cmd"] as? String == "loadScene"}?["scenePostProcessing"] as? String == "displayHDR"
+        let newLoad = a.sent.first { $0["cmd"] as? String == "loadScene" }
+        checks["newLoadProjectsLatestRenderQualityAfterRetirement"] =
+            newLoad?["scenePostProcessing"] as? String == "displayHDR" && newLoad?["shadowQuality"] as? String == "medium"
         ack(a,ra,opa)
         checks["duplicateAckDoesNotReplayOrFinishTwice"]=retiredA == 1 && a.pendingRequestID == newRequest
         a.stop();exit(a,ca)
@@ -546,7 +547,7 @@ extension Notification.Name {
             "    var audioSpectrumDemand=SceneAudioSpectrumCaptureDemand.none\n"
             "    var audioSpectrumDemandGeneration:UInt64?\n    var sourceSchemaVersion:Int?")
         support = support.replace("    var isPaused=false",
-            "    var scenePostProcessing = ScenePostProcessingMode.ultra\n    var isPaused=false")
+            "    var sceneRenderQuality = SceneRenderQuality()\n    var isPaused=false")
         actual = [method(client, signature) for signature in (
             "func cancelPreparationForRuntimeSwitch()",
             "func requestLaunch(_ request: ScenePlaybackLoadRequest)",

@@ -168,7 +168,8 @@ struct SceneStaticModelPipeline {
         depthPixelFormat: MTLPixelFormat = .depth32Float,
         preparesReflection: Bool = false,
         preparesAdditive: Bool = false,
-        preparesCameraDepth: Bool = false
+        preparesCameraDepth: Bool = false,
+        preparesShadows: Bool = true
     ) {
         guard Self.hasExpectedUniformABI,
               let library = device.makeDefaultLibrary(),
@@ -267,38 +268,37 @@ struct SceneStaticModelPipeline {
             depthDescriptor.depthAttachmentPixelFormat = depthPixelFormat
             cameraDepthState = try? device.makeRenderPipelineState(descriptor: depthDescriptor)
         } else { cameraDepthState = nil }
-        let shadowDescriptor = MTLRenderPipelineDescriptor()
-        shadowDescriptor.label = "Scene directional model shadow"
-        shadowDescriptor.vertexFunction = library.makeFunction(name: "sceneStaticModelShadowVertex")
-        shadowDescriptor.fragmentFunction = library.makeFunction(name: device.supportsShaderBarycentricCoordinates
-            ? "sceneStaticModelCoveredShadowFragment" : "sceneStaticModelShadowFragment")
-        shadowDescriptor.depthAttachmentPixelFormat = .depth32Float
-        // Metal permits a nil fragment for depth-only pipelines. Each model
-        // shadow requires its fragment for coverage and the chosen depth domain.
-        if shadowDescriptor.vertexFunction != nil, shadowDescriptor.fragmentFunction != nil {
-            shadowState = try? device.makeRenderPipelineState(descriptor: shadowDescriptor)
+        if preparesShadows {
+            let shadowDescriptor = MTLRenderPipelineDescriptor()
+            shadowDescriptor.depthAttachmentPixelFormat = .depth32Float
+            // Each model shadow needs its fragment for coverage and the chosen
+            // depth domain. Metal also accepts a vertex-only depth descriptor.
+            func shadowPipeline(_ label: String, vertex: MTLFunction?, fragment: String) -> MTLRenderPipelineState? {
+                guard let vertex, let fragment = library.makeFunction(name: fragment) else { return nil }
+                shadowDescriptor.label = label
+                shadowDescriptor.vertexFunction = vertex
+                shadowDescriptor.fragmentFunction = fragment
+                return try? device.makeRenderPipelineState(descriptor: shadowDescriptor)
+            }
+            shadowState = shadowPipeline("Scene directional model shadow",
+                vertex: library.makeFunction(name: "sceneStaticModelShadowVertex"),
+                fragment: device.supportsShaderBarycentricCoordinates
+                    ? "sceneStaticModelCoveredShadowFragment" : "sceneStaticModelShadowFragment")
+            let localLightVertex = library.makeFunction(name: "sceneStaticModelSpotShadowVertex")
+            spotShadowState = shadowPipeline("Scene spot model shadow",
+                vertex: localLightVertex, fragment: "sceneStaticModelSpotShadowFragment")
+            pointShadowState = shadowPipeline("Scene point model shadow",
+                vertex: localLightVertex, fragment: "sceneStaticModelPointShadowFragment")
+            let shadowDepth = MTLDepthStencilDescriptor()
+            shadowDepth.depthCompareFunction = .lessEqual
+            shadowDepth.isDepthWriteEnabled = true
+            shadowDepthState = device.makeDepthStencilState(descriptor: shadowDepth)
         } else {
             shadowState = nil
-        }
-        shadowDescriptor.label = "Scene spot model shadow"
-        shadowDescriptor.vertexFunction = library.makeFunction(name: "sceneStaticModelSpotShadowVertex")
-        shadowDescriptor.fragmentFunction = library.makeFunction(name: "sceneStaticModelSpotShadowFragment")
-        if shadowDescriptor.vertexFunction != nil, shadowDescriptor.fragmentFunction != nil {
-            spotShadowState = try? device.makeRenderPipelineState(descriptor: shadowDescriptor)
-        } else {
             spotShadowState = nil
-        }
-        shadowDescriptor.label = "Scene point model shadow"
-        shadowDescriptor.fragmentFunction = library.makeFunction(name: "sceneStaticModelPointShadowFragment")
-        if shadowDescriptor.vertexFunction != nil, shadowDescriptor.fragmentFunction != nil {
-            pointShadowState = try? device.makeRenderPipelineState(descriptor: shadowDescriptor)
-        } else {
             pointShadowState = nil
+            shadowDepthState = nil
         }
-        let shadowDepth = MTLDepthStencilDescriptor()
-        shadowDepth.depthCompareFunction = .lessEqual
-        shadowDepth.isDepthWriteEnabled = true
-        shadowDepthState = device.makeDepthStencilState(descriptor: shadowDepth)
     }
 
     /// Uploads the Reader's immutable geometry. Format owns nonempty triangles

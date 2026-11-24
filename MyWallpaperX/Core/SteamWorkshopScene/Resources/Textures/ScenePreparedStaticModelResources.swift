@@ -99,16 +99,18 @@ struct ScenePreparedStaticModelResources {
     }
 
     let pipeline: SceneStaticModelPipeline?
+    let directionalShadowDimensionLimit: Int?
     private let entriesByLayerID: [Int: [Entry]]
     private let animationsByLayerID: [Int: Animation]
     let namedAlbedoLayerIDs: Set<Int>
     let reflectiveLayerIDs: Set<Int>
     let videoAlbedoAssetsByLayerID: [Int: Set<SceneAssetTextureIdentity>]
 
-    private init(pipeline: SceneStaticModelPipeline?, entriesByLayerID: [Int: [Entry]],
+    private init(pipeline: SceneStaticModelPipeline?, directionalShadowDimensionLimit: Int?, entriesByLayerID: [Int: [Entry]],
                  animationsByLayerID: [Int: Animation] = [:], reflectiveLayerIDs: Set<Int> = [],
                  videoAlbedoAssetsByLayerID: [Int: Set<SceneAssetTextureIdentity>] = [:]) {
         self.pipeline = pipeline
+        self.directionalShadowDimensionLimit = directionalShadowDimensionLimit
         self.entriesByLayerID = entriesByLayerID
         self.animationsByLayerID = animationsByLayerID
         namedAlbedoLayerIDs = Set(entriesByLayerID.compactMap {
@@ -121,6 +123,7 @@ struct ScenePreparedStaticModelResources {
 
     static let empty = ScenePreparedStaticModelResources(
         pipeline: nil,
+        directionalShadowDimensionLimit: nil,
         entriesByLayerID: [:]
     )
 
@@ -191,6 +194,7 @@ struct ScenePreparedStaticModelResources {
 
     static func prepare(
         descriptor: SceneRenderDescriptor,
+        directionalShadowDimensionLimit: Int? = 4096,
         resourceView: SceneResourceView,
         device: MTLDevice,
         textureLoader: SceneTextureLoader,
@@ -354,9 +358,10 @@ struct ScenePreparedStaticModelResources {
                 preparesAdditive: entries.values.contains { $0.contains { $0.materialBlending == .additive } },
                 preparesCameraDepth: descriptor.camera.clearEnabled && descriptor.layers.contains {
                     $0.pointLight?.unshadowedVolume != nil
-                }) else { return .empty }
+                }, preparesShadows: directionalShadowDimensionLimit != nil) else { return .empty }
             return ScenePreparedStaticModelResources(
                 pipeline: pipeline,
+                directionalShadowDimensionLimit: directionalShadowDimensionLimit,
                 entriesByLayerID: entries,
                 animationsByLayerID: animations.filter { entries[$0.key]?.count == 1 },
                 reflectiveLayerIDs: pipeline.supportsReflection ? reflectiveLayerIDs : [],
