@@ -2,9 +2,8 @@ import Metal
 
 /// Reusable, per-surface copy of the current main render target.
 ///
-/// The snapshot is intentionally full resolution. A proven ordinary quad may
-/// capture only its read footprint at matching coordinates; other consumers copy
-/// the whole target. Each capture observes every preceding layer. New allocations
+/// The snapshot remains full resolution. A proven footprint can be copied at
+/// matching coordinates. Each capture observes every preceding layer. New allocations
 /// use the shared resident budget and any explicit caller limit at original size.
 final class SceneFramebufferSnapshot {
     private let device: MTLDevice

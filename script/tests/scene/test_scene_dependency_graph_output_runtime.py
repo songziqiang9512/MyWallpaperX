@@ -394,6 +394,7 @@ struct SceneGeometryProduct {
     let samplingTexture: MTLTexture
     let resourceGeneration: UInt64
     let isPreparedForPublication: (MTLCommandBuffer) -> Bool
+    var backgroundBounds: (() -> SIMD4<Float>?)? = nil
     let encode: (
         MTLRenderCommandEncoder,
         MTLTexture,

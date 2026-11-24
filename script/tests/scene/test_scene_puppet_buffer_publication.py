@@ -66,6 +66,7 @@ class PuppetBufferPublicationTests(unittest.TestCase):
     def test_frozen_image_frame_controls_gpu_pixels_coverage_and_clipping_roi(self):
         facts = self.result["frozenImage"]
         for key in ("frozenVertices", "frozenCoverage", "frozenPixels", "frozenPixelCoverage", "frozenROI",
+                    "frozenBackgroundBounds",
                     "gpuDoesNotPrepareCPU"):
             with self.subTest(check=key):
                 self.assertTrue(facts[key], facts)

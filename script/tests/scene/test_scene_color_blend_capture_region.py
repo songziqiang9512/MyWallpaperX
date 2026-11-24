@@ -139,6 +139,19 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
             self.assertEqual(row["right"], [255, 0, 0, 255], row)
             self.assertEqual(row["farPeer"], [0, 255, 0, 255], row)
 
+    def test_bounded_mesh_preserves_frozen_pixels_and_falls_back_without_current_projection(self):
+        rows = self.result["geometryRows"]
+        self.assertEqual(len(rows), 12)
+        for row in rows:
+            with self.subTest(name=row["name"]):
+                self.assertTrue(row["equal"] and row["changed"] and row["capacityEqual"], row)
+                self.assertEqual(row["copies"], 1, row)
+                if row["name"] in ("varying-w", "stale-pose", "group"):
+                    self.assertEqual(row["bytes"], row["fullBytes"], row)
+                else:
+                    self.assertGreater(row["bytes"], 0, row)
+                    self.assertLess(row["bytes"], row["fullBytes"], row)
+
     def test_repeated_attachment_reads_and_finish_keep_pixels_without_extra_passes(self):
         rows = self.result["repeatedAttachmentReads"]
         self.assertEqual([row["clears"] for row in rows], [True, False])

@@ -295,9 +295,9 @@ Geometry 的 primary named 输入表示 provider 自身的 authored-local 色图
 <a id="root-quad-current-color-blend"></a>
 ### 普通四边形的主色混合
 
-根主画布上恒定正齐次 W 的普通高级混合 quad，来源存储与目标分离且单采样格式支持时，在作者截点读 `color(0)`。无子 Composition 可用同一入口。原 MainPass 承接前绘、清屏和 load；两条入口共用混合、雾、覆盖及 alpha。当前颜色直接读退出背景复制，完整快照继续服务历史、具名、组、网格、折射及未取得 PSO 的路径。保原 source 和唯一终端写。
+根主图恒正 W 的普通 quad 经 `color(0)` 混合，须单采样、格式支持且来源独立。无子 Composition 共用。其它用原快照。[Metal imageblock](https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf)。<br><a id="puppet-background-footprint"></a>高级混合 Puppet 保冻结背景。原静态网格准备或动画顶点装配只为该混合求 XY 界，与同帧网格发布。根主图恒正 W 用当前 MVP 投影四角，在原坐标外扩复制；组、变 W、界不可用走全图。没有新池或读回。
 
-验收看普通/HDR、相邻重叠、清屏、透明与非法网格，原包核历史、前后绘和实呈，单测复制、GPU 和目标成本。 [Metal 隐式 imageblock](https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf)。
+两格式与全图快照逐像素比，含重叠、移动、镜像、裁边和回退。原367核实呈及驻留，独立作者核实际终图。
 
 <a id="scaled-image-framebuffers"></a>
 ### 普通根图像的相对帧缓冲

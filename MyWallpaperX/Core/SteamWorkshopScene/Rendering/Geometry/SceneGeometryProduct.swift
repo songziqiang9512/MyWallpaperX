@@ -31,6 +31,8 @@ struct SceneGeometryProduct {
     let samplingTexture: MTLTexture
     let resourceGeneration: UInt64
     let isPreparedForPublication: (MTLCommandBuffer) -> Bool
+    /// Local XY min/max of the vertices selected by the current publication.
+    let backgroundBounds: (() -> SIMD4<Float>?)?
     let authoredSize: SIMD2<Float>
     /// Fixed when this source product is prepared. Effects process the atlas
     /// before the mesh samples it, so changing its extent changes the product.
@@ -42,6 +44,7 @@ struct SceneGeometryProduct {
         resourceGeneration: UInt64 = 0,
         prepare: ((MTLCommandBuffer, SIMD2<Int>, simd_float4x4, AuxiliaryRetainer) -> Void)? = nil,
         isPreparedForPublication: @escaping (MTLCommandBuffer) -> Bool = { _ in true },
+        backgroundBounds: (() -> SIMD4<Float>?)? = nil,
         encode: @escaping (
             MTLRenderCommandEncoder,
             MTLTexture,
@@ -58,6 +61,7 @@ struct SceneGeometryProduct {
         self.samplingTexture = samplingTexture
         self.resourceGeneration = resourceGeneration
         self.isPreparedForPublication = isPreparedForPublication
+        self.backgroundBounds = backgroundBounds
         self.encode = encode
         self.authoredSize = authoredSize
         self.effectSourceExtentContract = effectSourceExtentContract
@@ -70,6 +74,7 @@ struct SceneGeometryProduct {
             resourceGeneration: resourceGeneration,
             prepare: prepare,
             isPreparedForPublication: isPreparedForPublication,
+            backgroundBounds: backgroundBounds,
             encode: encode,
             authoredSize: authoredSize,
             effectSourceExtentContract: effectSourceExtentContract

@@ -306,6 +306,8 @@ struct SceneGeometryProduct {
  typealias AuxiliaryRetainer=(@escaping ()->Void)->Void
  let prepare:((MTLCommandBuffer,SIMD2<Int>,simd_float4x4,AuxiliaryRetainer)->Void)?=nil
  typealias ColorBlendBinder=(MTLRenderCommandEncoder,MTLTexture,simd_float4x4)->Void
+ let isPreparedForPublication:(MTLCommandBuffer)->Bool={_ in true}
+ let backgroundBounds:(()->SIMD4<Float>?)?=nil
  let encode:(MTLRenderCommandEncoder,MTLTexture,MTLTexture?,simd_float4x4,SceneLayerFragmentUniforms,ColorBlendBinder?)->Bool
 }
 final class SceneImageLayerCompositor {

@@ -33,6 +33,7 @@ final class ScenePuppetPlaybackState {
         }
         let revision: UInt64
         let geometry: Geometry
+        let backgroundBounds: SIMD4<Float>?
 #if DEBUG
         let boneRevision: UInt64
         let scriptWritten: Bool
@@ -63,6 +64,8 @@ final class ScenePuppetPlaybackState {
 
     final class ImagePose {
         let mesh: SceneMdlPuppetMesh
+        let tracksBackgroundBounds: Bool
+        var backgroundBounds: SIMD4<Float>?
         private(set) var hasBoneAlpha = false
         private(set) var hasMorphCoverage = false
         var hasVertexCoverage: Bool { hasBoneAlpha || hasMorphCoverage }
@@ -72,8 +75,9 @@ final class ScenePuppetPlaybackState {
         var boneAlphaScratch: [Float]
 
         init(mesh: SceneMdlPuppetMesh, evaluator: ScenePuppetAnimationEvaluator,
-             selection: ScenePuppetAnimationSelection) {
+             selection: ScenePuppetAnimationSelection, tracksBackgroundBounds: Bool) {
             self.mesh = mesh
+            self.tracksBackgroundBounds = tracksBackgroundBounds
             positionScratch = Array(repeating: .zero, count: mesh.vertices.count)
             coverageScratch = Array(repeating: 1, count: mesh.vertices.count)
             boneAlphaScratch = Array(repeating: 1, count: evaluator.boneCount)
@@ -145,28 +149,33 @@ final class ScenePuppetPlaybackState {
         layerID: Int, mesh: SceneMdlPuppetMesh,
         evaluator: ScenePuppetAnimationEvaluator,
         selection: ScenePuppetAnimationSelection,
-        attachments: [SceneMdlPuppetAttachment]
+        attachments: [SceneMdlPuppetAttachment],
+        tracksBackgroundBounds: Bool = false
     ) -> ScenePuppetPlaybackState {
         ScenePuppetPlaybackState(layerID: layerID,
-            geometry: .image(ImagePose(mesh: mesh, evaluator: evaluator, selection: selection)),
+            geometry: .image(ImagePose(mesh: mesh, evaluator: evaluator, selection: selection,
+                tracksBackgroundBounds: tracksBackgroundBounds)),
             selection: selection, evaluator: evaluator, attachments: attachments)
     }
 
     var renderFrame: RenderFrame? {
         guard let renderRevision else { return nil }
         let output: RenderFrame.Geometry
+        let backgroundBounds: SIMD4<Float>?
         switch geometry {
         case let .image(image):
             output = .image(vertices: image.vertexScratch, vertexCoverageVaries: image.hasVertexCoverage)
+            backgroundBounds = image.backgroundBounds
         case let .direct(direct):
             output = .direct(vertices: direct.outputVertices, status: direct.status)
+            backgroundBounds = nil
         }
 #if DEBUG
-        return RenderFrame(revision: renderRevision, geometry: output,
+        return RenderFrame(revision: renderRevision, geometry: output, backgroundBounds: backgroundBounds,
             boneRevision: preparedBoneRevision ?? boneRevision,
             scriptWritten: boneWrittenInFrame && preparedBoneRevision == boneRevision)
 #else
-        return RenderFrame(revision: renderRevision, geometry: output)
+        return RenderFrame(revision: renderRevision, geometry: output, backgroundBounds: backgroundBounds)
 #endif
     }
 
@@ -284,12 +293,25 @@ final class ScenePuppetPlaybackState {
     #endif
             // Build a complete value once. Retained frozen frames keep their
             // storage without first copying old vertices only to overwrite them.
-            image.vertexScratch = image.mesh.vertices.indices.map { index in
+            func vertex(at index: Int) -> SceneQuadVertex {
                 SceneQuadVertex(
                     position: image.positionScratch[index],
                     texcoord: SIMD2(image.mesh.vertices[index].u, image.mesh.vertices[index].v),
                     vertexCoverage: image.coverageScratch[index]
                 )
+            }
+            if image.tracksBackgroundBounds {
+                var minimum = SIMD2<Float>(repeating: .infinity)
+                var maximum = -minimum
+                image.vertexScratch = image.mesh.vertices.indices.map { index in
+                    let vertex = vertex(at: index)
+                    minimum = simd_min(minimum, vertex.position)
+                    maximum = simd_max(maximum, vertex.position)
+                    return vertex
+                }
+                image.backgroundBounds = SIMD4(minimum.x, minimum.y, maximum.x, maximum.y)
+            } else {
+                image.vertexScratch = image.mesh.vertices.indices.map(vertex(at:))
             }
         }
         renderRevision = (renderRevision ?? 0) &+ 1

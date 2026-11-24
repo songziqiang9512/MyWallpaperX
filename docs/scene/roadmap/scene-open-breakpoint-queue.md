@@ -185,7 +185,7 @@
 | 密集预热 · 3337494481 | [原包交错实测](../capabilities/runtime-evidence-current.md#particle-turbulence-borrow)确认签名优化态可启动，普通Debug超时仅限该取证配置。单root去隐藏轨迹的隔离计时重叠，候选退出。实际首屏仍以完整预热为主；继续依据可移除的工作，保作者时序、随机、历史和首帧。 |
 | 3749463715 | [现役历史结算唤醒](../capabilities/runtime-evidence-current.md#gpu-admission-wake-374)已降低等待。[末端消融](../capabilities/runtime-evidence-current.md#terminal-main-ablation)每帧去掉五个离屏材质，实呈与GPU时间持平，候选已撤回。后续只追有新证据的显著成本，保跨帧历史与回滚；不重跑末端消融、不放宽容量或按重叠时戳删材质。 |
 | 3420215721 | [同包实测](../capabilities/runtime-evidence-current.md#scene-playback-triage-342)确认 GPU 超预算，稳定帧 history split 已减少 seed copy。[运行时失败反例](../capabilities/runtime-evidence-current.md#stale-history-seed)补查历史保持；后续只补同 scene-time 像素 A/B、真实 descriptor/reset 与 activation 切换的未覆盖范围，不重复已有效的构建和稳定帧测量，不增 pin 或 history owner。 |
-| 3673609113 | [实呈和同像素主色读](../capabilities/runtime-evidence-current.md#root-quad-color-read-367)已去四次普通背景复制，保 Puppet 冻结背景、作者两级递推及散景。GPU 仍超预算。继续须有实际帧阶段证据。后段散景停用时另有 history rehydrate 与 passthrough，若能退复制须保实际历史及终端。[残影与消融](../capabilities/runtime-evidence-current.md#author-motion-history-367)记录原作者行为。 |
+| 3673609113 | [主色读](../capabilities/runtime-evidence-current.md#root-quad-color-read-367)去四次复制，[Puppet范围](../capabilities/runtime-evidence-current.md#puppet-frozen-background-region-367)缩剩余两次。GPU仍超预算，继续须定位实际帧成本。后段关散景的历史恢复与旁路若可合并，须保作者两级历史及终端。[残影](../capabilities/runtime-evidence-current.md#author-motion-history-367) |
 
 测量与退出规则只归[性能方法](performance-convergence-card.md)，本表不沿用旧实验数值或认领收益。
 
@@ -228,7 +228,7 @@
 | 3228084178 | 已修复音条周期性近熄，静音保无柱。196散景恢复双侧。[音条](../capabilities/runtime-evidence-current.md#author-led-placement-tail-322) · [散景](../capabilities/runtime-evidence-current.md#box-birth-distance) |
 | 2868108515 | 已修复。锁链左侧规则叠影已消除，链条和正常雾层保留。[局部光效](../capabilities/runtime-evidence-current.md#author-chain-godrays-local-grid) |
 | 3141464346 | 部分修复。环形丝雾的工作栅格与弧线曲向已修复，原摆位裁切与官版一致，随音乐变化待核。[双环](../capabilities/runtime-evidence-current.md#ring-cover-314) |
-| 3673609113 | 部分修复。背景复制从6次降到2次，GPU仍超预算。两级残影为官版同样执行的作者历史。[性能](../capabilities/runtime-evidence-current.md#root-quad-color-read-367) · [残影](../capabilities/runtime-evidence-current.md#author-motion-history-367) |
+| 3673609113 | 部分修复。背景复制6→2，剩余两次每帧95→27 MB，GPU仍超预算。两级残影与官版同属作者合成。[性能](../capabilities/runtime-evidence-current.md#puppet-frozen-background-region-367) · [残影](../capabilities/runtime-evidence-current.md#author-motion-history-367) |
 | 3187857248 | 部分修复。双Surface拖动失效已修复，物理指针若仍间歇须新输入证据。[拖动](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318) |
 | 3766299002 | 已修复。面具属性正确选择纹理并保持眼部同步，两主题均验。[面具和眼部](../capabilities/runtime-evidence-current.md#author-conditional-mask-376) |
 | 3586705329 | 已修复。拼贴右缘错误回卷，两档镜头缩放均验。[拼贴](../capabilities/runtime-evidence-current.md#author-collage-edge-358) |

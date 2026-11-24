@@ -44,6 +44,7 @@ final class ScenePuppetMeshGeometry {
         var preparedVertexBufferIndex: Int?
         weak var publicationCommandBuffer: MTLCommandBuffer?
         var vertexCoverageVaries = false
+        var backgroundBounds: SIMD4<Float>?
 
         init(mesh: SceneMdlPuppetMesh, vertexBuffers: [MTLBuffer], indexBuffer: MTLBuffer,
              renderPipelineState: MTLRenderPipelineState, clipping: ScenePuppetClipping?,
@@ -103,7 +104,8 @@ final class ScenePuppetMeshGeometry {
         device: MTLDevice,
         pipeline: SceneImageLayerPipeline,
         clipping: ScenePuppetClipping? = nil,
-        animated: Bool = false
+        animated: Bool = false,
+        tracksBackgroundBounds: Bool = false
     ) -> Result<Output, Failure> {
         guard layerWidth.isFinite, layerHeight.isFinite,
               layerWidth >= 1, layerHeight >= 1 else {
@@ -115,14 +117,25 @@ final class ScenePuppetMeshGeometry {
         ) else { return .failure(.resourceAllocationFailed) }
         let byteCount = mesh.vertices.count * MemoryLayout<SceneQuadVertex>.stride
         let vertexBuffers: [MTLBuffer]
+        var backgroundBounds: SIMD4<Float>?
         if animated {
             vertexBuffers = (0..<3).compactMap { _ in
                 device.makeSceneBuffer(length: byteCount, options: .storageModeShared)
             }
             guard vertexBuffers.count == 3 else { return .failure(.resourceAllocationFailed) }
         } else {
-            var vertices = mesh.vertices.map {
-                SceneQuadVertex(position: SIMD2($0.x, $0.y), texcoord: SIMD2($0.u, $0.v))
+            var minimum = SIMD2<Float>(repeating: .infinity)
+            var maximum = -minimum
+            var vertices = mesh.vertices.map { vertex in
+                let position = SIMD2(vertex.x, vertex.y)
+                if tracksBackgroundBounds {
+                    minimum = simd_min(minimum, position)
+                    maximum = simd_max(maximum, position)
+                }
+                return SceneQuadVertex(position: position, texcoord: SIMD2(vertex.u, vertex.v))
+            }
+            if tracksBackgroundBounds {
+                backgroundBounds = SIMD4(minimum.x, minimum.y, maximum.x, maximum.y)
             }
             guard let buffer = device.makeSceneBuffer(
                 bytes: &vertices, length: byteCount, options: .storageModeShared
@@ -131,9 +144,11 @@ final class ScenePuppetMeshGeometry {
         }
         let image = ImageGeometry(mesh: mesh, vertexBuffers: vertexBuffers, indexBuffer: indexBuffer,
             renderPipelineState: pipeline.state, clipping: clipping, animated: animated)
+        image.backgroundBounds = backgroundBounds
         let owner = ScenePuppetMeshGeometry(layerID: layerID, geometry: .image(image))
         return .success(Output(
             product: owner.geometryProduct(image: image, atlasTexture: atlasTexture,
+                tracksBackgroundBounds: tracksBackgroundBounds,
                 authoredSize: SIMD2(layerWidth, layerHeight)),
             geometry: owner, vertexCount: mesh.vertices.count, triangleCount: mesh.triangleCount))
     }
@@ -182,6 +197,7 @@ final class ScenePuppetMeshGeometry {
             }
             image.preparedVertexBufferIndex = index
             image.vertexCoverageVaries = coverageVaries
+            image.backgroundBounds = frame.backgroundBounds
             image.publicationCommandBuffer = commandBuffer
 #if DEBUG
             recordImageEvidence(image, frame: frame, sceneTime: sceneTime,
@@ -212,6 +228,7 @@ final class ScenePuppetMeshGeometry {
     }
 
     private func geometryProduct(image: ImageGeometry, atlasTexture: MTLTexture,
+                                 tracksBackgroundBounds: Bool,
                                  authoredSize: SIMD2<Float>) -> SceneGeometryProduct {
         SceneGeometryProduct(
             ownerLayerID: layerID,
@@ -227,6 +244,7 @@ final class ScenePuppetMeshGeometry {
             isPreparedForPublication: { [image] commandBuffer in
                 image.submissions == nil || image.publicationCommandBuffer === commandBuffer
             },
+            backgroundBounds: tracksBackgroundBounds ? { image.backgroundBounds } : nil,
             encode: { [self, image] encoder, sourceTexture, dependencyTexture, mvp, uniforms, bindColorBlend in
                 guard let index = image.preparedVertexBufferIndex else { return false }
 #if DEBUG
