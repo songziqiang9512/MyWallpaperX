@@ -66,7 +66,7 @@ nonisolated extension SceneParticleSimulator {
                 let tangent = cross(radial, axis) / (usesOrientedPoint ? distance : radialLength)
                 var impulse = tangent * (speed * impulseScale)
                 if plan.maintainsRadius {
-                    let unit = radial / radialLength
+                    let unit = usesOrientedPoint ? relative / distance : radial / radialLength
                     let localVelocity = buffer[index].velocity
                     let velocity = worldFrame?.worldParticleDirection(localVelocity) ?? localVelocity
                     impulse -= unit * dot(velocity, unit)

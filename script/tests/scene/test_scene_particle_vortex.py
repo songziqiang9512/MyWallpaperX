@@ -228,6 +228,18 @@ def fixtures() -> list[dict]:
         {"name": "oriented-point-unrelated-angle", "definition": with_ring_fields,
          "dynamicPointID": 2, "dynamicAngles": [math.pi, 0, 0]},
     ])
+    off_plane = copy.deepcopy(oriented)
+    off_plane["emitter"][0]["origin"] = "120 0 80"
+    off_plane["initializer"].append({"name": "velocityrandom", "min": "0 0 12", "max": "0 0 12"})
+    off_plane["operator"].pop(0)
+    cases.append({"name": "oriented-point-off-plane", "definition": off_plane,
+                  "dynamicPointID": 3, "dynamicAngles": [0, 0.7, 0], "deltas": [1 / 60]})
+    renamed = copy.deepcopy(cases[-1])
+    renamed.update(name="oriented-point-off-plane-renamed", dynamicPointID=5)
+    renamed["definition"]["material"] = "renamed.json"
+    renamed["definition"]["controlpoint"][0]["id"] = 5
+    renamed["definition"]["operator"][0]["controlpoint"] = 5
+    cases.append(renamed)
     return cases
 
 
@@ -398,6 +410,16 @@ class SceneParticleVortexTests(unittest.TestCase):
         for field in ["position", "velocity"]:
             for index, sign in enumerate([1, -1, 1]):
                 self.assertAlmostEqual(positive[field][index], sign * negative[field][index], delta=1e-8)
+
+    def test_oriented_radius_projects_along_the_full_point_to_particle_direction(self):
+        particle, = self.result["oriented-point-off-plane"]["particles"]
+        self.assertEqual(particle["position"], [120, 0, 80])
+        self.assertTrue(all(math.isfinite(value) for value in particle["velocity"]))
+        self.assertNotEqual(particle["velocity"], [0, 0, 12])
+        self.assertAlmostEqual(
+            math.fsum(a * b for a, b in zip(particle["position"], particle["velocity"])), 0, places=9
+        )
+        self.assertEqual(self.result["oriented-point-off-plane-renamed"]["particles"], [particle])
 
     def test_oriented_point_applies_its_current_axis_and_ignores_inactive_ring_fields(self):
         original = self.result["oriented-point"]
