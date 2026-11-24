@@ -3,7 +3,7 @@
 
 # 共享音频分析与消费域设计
 
-> 状态：当前三类消费者仍共用显示响应。[粒子16档](../scene/capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)与[shader 32档](../scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361)分别已证从准备64档取组内峰值，端点对照把频带身份差定位在折叠前。固定x64默认分析窗与现有窗不同，尚未取得x86实机等同证据。先核频轴、同声道阶跃与同索引换位，依据实际准备64档裁决共同变换。
+> 状态：当前三类消费者仍共用显示响应。[粒子16档](../scene/capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)与[shader 32档](../scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361)分别已证从准备64档取组内峰值，端点对照把频带身份差定位在折叠前。固定x64默认分析窗与现有窗不同，尚未取得x86实机等同证据。频轴锚点、同声道阶跃与同索引换位已核。下一门用边界相邻音和同档双音，依据实际准备64档裁决物理格、归约及是否必须保两种窗口。
 
 ## 目标与职责
 

@@ -22,7 +22,7 @@
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 42,
-      "bytes": 6692
+      "bytes": 6779
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 200,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 314496
+      "bytes": 315290
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 215,
-      "bytes": 66270
+      "bytes": 66291
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -361,10 +361,10 @@
     {
       "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "e466901bdb6c416ac81021e07435a2fdab21d669e77fe9aa674ccfa3bd29ec12",
-      "after": "41ff1673ea3087d2d681e9d401e0d83c2f1797dc0ae4980da9087e08ac76f0ce",
+      "before": "41ff1673ea3087d2d681e9d401e0d83c2f1797dc0ae4980da9087e08ac76f0ce",
+      "after": "d2cf33f0ab7c9b5887e30050cec95fc25a3c14b5e6f3d8364172f20179594408",
       "owner": "Shared Scene author spectrum",
-      "reason": "Records calibrated 32/64 readout with same endpoint stereo PCM and reflects the demonstrated group projections in the architecture and open queue.",
+      "reason": "Qualifies measured axis anchors and step response with fixed-index readback, and corrects file versus device-frame continuity.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361"
     },
     {
@@ -577,10 +577,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "30fe8be589895a766239b68a600cfaf878e892658e398799d878e2510d5b92cb",
-      "after": "4a3c38874af0e67d7a77ac9938af01cc0ad21f80a0d11c1e05a27234a13c0d3f",
+      "before": "4a3c38874af0e67d7a77ac9938af01cc0ad21f80a0d11c1e05a27234a13c0d3f",
+      "after": "58cc861a4294c5345e58c7faa3d4ab8238a2d0e7c0cb98ae47e3d392b2ba5de6",
       "owner": "Shared Scene author spectrum",
-      "reason": "Records calibrated 32/64 readout with same endpoint stereo PCM and reflects the demonstrated group projections in the architecture and open queue.",
+      "reason": "Qualifies measured axis anchors and step response with fixed-index readback, and corrects file versus device-frame continuity.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361"
     },
     {
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a0e9deb51ac23561b3e46894ad91569fad304ddd893efe4b081406ae7062247e",
-      "after": "f2fba09c4accc5475a4e5113b1f0fac51b7c73b5eefc4d3f60ce35ae44eca3b8",
+      "before": "f2fba09c4accc5475a4e5113b1f0fac51b7c73b5eefc4d3f60ce35ae44eca3b8",
+      "after": "bfc61b944d3a9c54645b5ed5bde1f1a06eec9e4f0e7af622205d39945cd22c4b",
       "owner": "Shared Scene author spectrum",
-      "reason": "Records calibrated 32/64 readout with same endpoint stereo PCM and reflects the demonstrated group projections in the architecture and open queue.",
+      "reason": "Qualifies measured axis anchors and step response with fixed-index readback, and corrects file versus device-frame continuity.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361"
     },
     {
