@@ -24,7 +24,6 @@
 | 月雾的遮挡范围 · 3453730450 | [只读主深度与实机](../capabilities/runtime-evidence-current.md#moon-fog-main-depth)已恢复部分重叠遮挡。锁姿态后右月面变化方向相同，本机幅度偏小，中心仍随测试开关变化；两端共有灰纹也未归因。若继续，固定同相机与两批粒子的出生位置、朝向和尺度，沿实际交叠边缘比较几何覆盖与存活轨迹，再决定修正点。 |
 | 3454689854 的相邻丝层 | [同画幅单丝、原包和实际预算](../capabilities/runtime-evidence-current.md#silk-capture-density-345)已闭两条SDR根丝密度。子层及多阶段保持原工作域，只有取得可归属的同相位残差再重启。原默认绕身文字两端均隐藏，条件另见[原包对照](../capabilities/runtime-evidence-current.md#author-silk-raster-345)。 |
 | Puppet 约束的剩余时序与组合 | [原317和313已恢复主要播放](../capabilities/runtime-evidence-current.md#puppet-planar-constraints-native)。固定根解析投影在317额外+96对照的肘误差约2.17px，313极近伸直时官版定槽后仍收敛。待有原包可见差异再核有效根位移与收敛。复杂链、挂点及同链脚本与物理后写按实际消费者验证。 |
-| 向量右值写入标量成员 · 3201593389 | 161/204 的 Hue Shift 默认活动 cursor 分支把 `frac` 的向量结果写入单个成员。strict GLSL 与 bounded Metal 在同一赋值失败，原图经局部旁路仍写主画布。26的同源关闭分支实际绘制。沿现有 typed 转换验证首分量与明确只取 X 的等价写法、改名和不应降阶的反例，官版原包画面待查。[Wallpaper Engine 方言](https://docs.wallpaperengine.io/en/scene/shader/syntax.html) · [HLSL 转换](https://microsoft.github.io/hlsl-specs/specs/4-Conv.html#Conv.vtrunc) |
 | 初始组合源未解析 · 2982559622 | 两次原包的111/e0在开头三次 preflight 读到 `resourceSnapshotUnresolved`，随后整景 Ready 且有终端 GPU 回执。保独立的103属性脚本 bad-return。先核111所需视频或命名源、显隐与首次可用时刻，再查目标 Program 有无恢复。 |
 | 筛查分母 · 3843644227 | 288作者自身 true，但父20使有效可见为 false，默认仅雾层298实际绘制。两次报告1/2、终端GPU正常，候选计数包含隐藏项。点击切换父层后再核288的实际绘制。 |
 | 3589454154 环黑点/快速闪烁（持续开放） | [全投影部件的实际足迹](../capabilities/model-runtime-evidence.md#model-shadow-fragment-taps)确认一处暗跳由共同接收三角形以外的真实阴影 tap 引起；直接收窄在另一处放大阶跃。再改滤波须先补实际子像素获胜域、相邻反例、宽主影与可比播放成本；颜色覆盖保原N2停止线。旧728848与官方关影待查。 |

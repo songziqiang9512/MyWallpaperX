@@ -1,6 +1,6 @@
 nonisolated enum SceneAuthoredShaderVectorConversion {
     private static let componentWiseBuiltIns: Set<String> = [
-        "abs", "ceil", "clamp", "floor", "fract", "max", "min", "pow",
+        "abs", "ceil", "clamp", "floor", "frac", "fract", "max", "min", "pow",
         "round", "saturate", "sign", "smoothstep", "step", "trunc",
     ]
 
@@ -22,11 +22,10 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
             guard ["=", "+=", "-=", "*=", "/="].contains(tokens[index].text),
                   index > 0,
                   tokens[index - 1].kind == .identifier,
-                  let end = statementEnd(after: index, in: tokens),
-                  let target = SceneAuthoredShaderGlobalReferenceAnalyzer.valueType(
+                  let targetWidth = assignmentWidth(
                     at: index - 1, tokens: tokens, in: unit
                 ),
-                  let targetWidth = assignmentWidth(target) else {
+                  let end = statementEnd(after: index, in: tokens) else {
                 return []
             }
             if targetWidth == 2,
@@ -127,7 +126,7 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
         return .init(range: expression, suffix: suffix)
     }
 
-    /// Wallpaper Engine's HLSL-facing authored dialect permits a float local
+    /// Wallpaper Engine's HLSL-facing authored dialect permits a float target
     /// to take the first lane of one component-wise vector expression. Keep
     /// that conversion explicit for Metal/GLSL only when every vector operand
     /// has the same statically known width and every call is a component-wise
@@ -708,8 +707,23 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
         }
     }
 
-    private static func assignmentWidth(_ type: SceneAuthoredShaderValueType) -> Int? {
-        type == .float ? 1 : floatVectorWidth(type)
+    private static func assignmentWidth(
+        at index: Int,
+        tokens: [SceneAuthoredShaderToken],
+        in unit: SceneAuthoredShaderSyntaxUnit
+    ) -> Int? {
+        if index >= 2, tokens[index - 1].text == "." {
+            guard swizzleType(tokens[index].text) == .float,
+                  let base = SceneAuthoredShaderGlobalReferenceAnalyzer.valueType(
+                      at: index - 2, tokens: tokens, in: unit
+                  ),
+                  floatVectorWidth(base) != nil else { return nil }
+            return 1
+        }
+        guard let type = SceneAuthoredShaderGlobalReferenceAnalyzer.valueType(
+            at: index, tokens: tokens, in: unit
+        ) else { return nil }
+        return type == .float ? 1 : floatVectorWidth(type)
     }
 
     private static func floatVectorWidth(_ type: SceneAuthoredShaderValueType) -> Int? {

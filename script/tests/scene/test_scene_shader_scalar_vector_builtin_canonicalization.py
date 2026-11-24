@@ -914,6 +914,15 @@ void main() {
             ("scalar-neighbor", "float v=mix(.125,.625,.5);"
              "float gate=min(1,smoothstep(0,.5,.125)+step(.5,.25)); gl_FragColor=vec4(v,gate,.5,1.0);",
              [.375,.15625,.5,1.0]),
+            ("component-assignment", "vec2 inputScale=vec2(2.625,3.5); vec3 pigment=vec3(.5,.25,.75);"
+             "pigment.x=frac(pigment.x*inputScale); gl_FragColor=vec4(pigment,1.0);", [.3125,.25,.75,1.0]),
+            ("renamed-component-assignment", "vec2 direction=vec2(2.625,3.5); vec3 tint=vec3(.25,.5,.75);"
+             "tint.g=fract((direction)*tint.g); gl_FragColor=vec4(tint,1.0);", [.25,.3125,.75,1.0]),
+            ("explicit-component-assignment", "vec2 direction=vec2(2.625,3.5); vec3 tint=vec3(.25,.5,.75);"
+             "tint.g=(frac(tint.g*direction)).x; gl_FragColor=vec4(tint,1.0);", [.25,.3125,.75,1.0]),
+            ("vector-member-neighbor", "vec2 direction=vec2(2.625,3.5); vec3 tint=vec3(.25,.5,.75);"
+             "tint.rg=frac(direction*.5); tint.b=frac(tint.b*.5); gl_FragColor=vec4(tint,1.0);",
+             [.3125,.75,.375,1.0]),
         ]
         for name, body, expected in cases:
             with self.subTest(name=name):
