@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 312610
+      "bytes": 313523
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 215,
-      "bytes": 66234
+      "bytes": 66146
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "3548fd3bfa051f319b9dea65a467cbf4a129ca77bafe50fec525b000e50a6ce2",
-      "after": "9b626e320350463b058f7386cd8989298eb199f6ce79b5cbe774181f6d1544c3",
-      "owner": "Scene legacy Puppet constraints",
-      "reason": "Official compiled chain, weighted targets and independent skin proof, plus signed native playback and closest negative controls.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-planar-constraints-native"
+      "before": "9b626e320350463b058f7386cd8989298eb199f6ce79b5cbe774181f6d1544c3",
+      "after": "30fe8be589895a766239b68a600cfaf878e892658e398799d878e2510d5b92cb",
+      "owner": "Scene solid background terminal raster",
+      "reason": "Replaces the uninstructed follow-up with calibrated prefix, derivative and contour evidence from the same terminal submission.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#solid-background-raster-361"
     },
     {
       "section": "bodies",
