@@ -132,6 +132,7 @@ extension ScenePropertyBindingCompiler {
             case .rate: particleScalar(layerID, .rate)
             case .speed: particleScalar(layerID, .speed)
             case .count: particleScalar(layerID, .count)
+            case .brightness: particleScalar(layerID, .brightness)
             case .normalizedColor:
                 (.particle(layerID: layerID, field: .normalizedColor), .vector3, .color)
             case .color: nil

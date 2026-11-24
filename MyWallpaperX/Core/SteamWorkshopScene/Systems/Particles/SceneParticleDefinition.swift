@@ -421,4 +421,5 @@ nonisolated struct SceneParticleInstanceOverride: Codable, Equatable, Sendable {
     let normalizedColor: SceneParticleBoundValue?
     let controlPoints: [Int: SceneParticleBoundValue]
     let controlPointAngles: [Int: SceneParticleBoundValue]
+    var brightness: SceneParticleBoundValue? = nil
 }

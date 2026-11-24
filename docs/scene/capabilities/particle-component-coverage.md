@@ -52,9 +52,9 @@ Turbulence、Turbulent Velocity、Remap 和 Position Offset 共用梯度噪声�
 <a id="instance-color"></a>
 ### 实例颜色覆盖
 
-General `instanceoverride.color`（0…255，除以255一次）和 `colorn`（0…1）在 initializer 后任选一项替换新生粒子的直色，`color` 优先。禁用覆盖、无覆盖和已出生粒子沿原顺序；动态值只供之后的出生。原 Simulator 的平方颜色换算与直色特例布尔合并为这一路径。原材质覆盖率、后继颜色 writer 及 GPU blend 各自拥有原职责。
-
-`instanceoverride.brightness` 不进入粒子出生着色。官版 SDR/HDR 的静态值及 HDR 中三次属性取值均保持原色，同窗 alpha 对照正常热更新。退出该字段的粒子准备、动态绑定和子系统继承。属性入口保留原始内容，停止为该字段解析值或报告绑定，允许同一属性继续供给 alpha 等实际目标。材质 `overbright` 由原材质和 fragment 消费，普通图层亮度仍由所属图层消费。真实原包、独立 HDR 作者、改名、legacy 优先、无覆盖、禁用覆盖、原出生/后继 writer 与既有薄雾覆盖分别验收。
+`instanceoverride.color` 除以255一次，优先于 `colorn`，在 initializer 后替换新生直色。属性只改变后续出生。
+<a id="hdr-instance-brightness"></a>
+`instanceoverride.brightness` 在场景装载时由 HDR 与 Bloom 同开选中，强度为0也有效。沿原 typed slider 和 Simulator 出生 writer 给直色乘有限标量，缺省或不可用取1。三类颜色均可乘，保零值、超白、alpha、后继 writer 与材质 `overbright`。热值只供有绑定的根实例，不传 child 模板。父事件颜色仍是实际出生值。禁用颜色覆盖沿原实现，官版 bit8、运行中切换 Bloom、脚本和动画供值待证。[运行对照](runtime-evidence-current.md#hdr-particle-instance-brightness)
 
 <a id="neutral-mask-trail-color"></a>普通无光照、SDR 半透明 SpriteTrail 使用实际 R8 白色覆盖纹理及独立根 `colorn` 时，原普通片元对已有 PMA RGB 限至 `alpha`，等价于先把增亮后的直色限制到1，再乘一次覆盖率。裁幅随已准备绘制状态传入原 uniform，保现有 blend、采样和 PSO。Legacy `color`、HDR、折射、有色纹理、后继颜色写入与子系统的材质裁幅沿原路径。双背景、改名和独立纹理的[验收](runtime-evidence-current.md#neutral-mask-trail-382)。
 

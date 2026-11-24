@@ -122,6 +122,7 @@ nonisolated struct SceneDocumentLoader {
 
         let rawObjects = root["objects"] as? [[String: Any]] ?? []
         let authoredObjects = sourceRoot["objects"] as? [[String: Any]] ?? []
+        let hdrParticleBrightness = general.hdrEnabled && general.bloomEnabled
         let objects = rawObjects.enumerated().compactMap { index, object in
             Self.parseObject(
                 object,
@@ -129,6 +130,7 @@ nonisolated struct SceneDocumentLoader {
                     ? authoredObjects[index]
                     : object,
                 hdrEnabled: general.hdrEnabled,
+                hdrParticleBrightness: hdrParticleBrightness,
                 missingParallaxDepth: missingParallaxDepth,
                 declaredTexturePropertyKeys: declaredTexturePropertyKeys,
                 startupMaterialScalarKeys: Set(["metallic", "roughness", "emissivecolor", "emissivebrightness", "reflectivity", "reflectivitydistance"].filter { key in
@@ -186,6 +188,7 @@ nonisolated struct SceneDocumentLoader {
         _ root: [String: Any],
         authoredRoot: [String: Any],
         hdrEnabled: Bool,
+        hdrParticleBrightness: Bool,
         missingParallaxDepth: String?,
         declaredTexturePropertyKeys: Set<String>,
         startupMaterialScalarKeys: Set<String>
@@ -228,7 +231,7 @@ nonisolated struct SceneDocumentLoader {
             directionalLight: SceneDirectionalLightDefinition.parse(root),
             tubeLight: SceneTubeLightDefinition.parse(root),
             particleInstanceOverride: SceneParticleDefinitionParser().parseInstanceOverride(
-                root["instanceoverride"]
+                root["instanceoverride"], hdrBrightness: hdrParticleBrightness
             ),
             materialInstance: SceneDocument.SceneLayerMaterialInstance.parse(
                 root["instance"],

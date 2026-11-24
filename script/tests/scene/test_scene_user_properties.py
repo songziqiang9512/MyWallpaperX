@@ -195,17 +195,28 @@ enum Harness {
                 ]],
             ]
         ).bindings.allSatisfy(\.target.isUnsupported)
-        let sharedParticleProperty = SceneUserPropertyDocumentResolver().resolve(
-            root: ["objects": [["id": 14, "particle": "particles/fog.json", "instanceoverride": [
-                "brightness": ["user": "gain", "value": 0.55],
-                "alpha": ["user": "gain", "value": 0.75],
-            ]]]], effectiveValues: ["gain": .number(0.2)])
+        let particleRoot: [String: Any] = ["objects": [["id": 14,
+            "particle": "particles/fog.json", "instanceoverride": [
+            "brightness": ["user": "gain", "value": 0.55],
+            "alpha": ["user": "gain", "value": 0.75],
+        ]]]]
+        let propertyResolver = SceneUserPropertyDocumentResolver()
+        let sharedParticleProperty = propertyResolver.resolve(
+            root: particleRoot, effectiveValues: ["gain": .number(0.2)])
         let sharedParticleObjects = sharedParticleProperty.root["objects"] as? [[String: Any]]
         let sharedParticleOverrides = sharedParticleObjects?.first?["instanceoverride"] as? [String: [String: Any]]
-        let retiredParticleFieldIgnored = sharedParticleProperty.bindingReport.bindings.map(\.target)
+        let inactiveParticleBrightnessIgnored = sharedParticleProperty.bindingReport.bindings.map(\.target)
             == [.particle(layerID: 14, field: .alpha)] && sharedParticleProperty.diagnostics.isEmpty
             && sharedParticleOverrides?["alpha"]?["value"] as? Double == 0.2
             && sharedParticleOverrides?["brightness"]?["value"] as? Double == 0.55
+        var hdrParticleRoot = particleRoot
+        hdrParticleRoot["general"] = ["hdr": true, "bloom": true, "bloomhdrstrength": 0]
+        let hdrParticle = propertyResolver.resolve(root: hdrParticleRoot, effectiveValues: ["gain": .number(0.2)])
+        let hdrObjects = hdrParticle.root["objects"] as? [[String: Any]]
+        let hdrOverrides = hdrObjects?.first?["instanceoverride"] as? [String: [String: Any]]
+        let hdrParticleBrightnessResolved = hdrParticle.bindingReport.bindings.map(\.target)
+            == [.particle(layerID: 14, field: .alpha), .particle(layerID: 14, field: .brightness)]
+            && hdrParticle.diagnostics.isEmpty && hdrOverrides?["brightness"]?["value"] as? Double == 0.2
         let exactCombo = SceneUserPropertyDocumentResolver().resolve(
             root: ["general": ["bloom": ["user": ["name": "mode", "condition": "01"], "value": true]],
                    "objects": [["id": 50, "effects": [["file": "effects/test/effect.json",
@@ -277,7 +288,8 @@ enum Harness {
             "scaleTargetClassified": scaleTargetClassified,
             "lightIntensityTargetClassified": lightIntensityTargetClassified,
             "nonLightIntensityRejected": nonLightIntensityRejected,
-            "retiredParticleFieldIgnored": retiredParticleFieldIgnored,
+            "inactiveParticleBrightnessIgnored": inactiveParticleBrightnessIgnored,
+            "hdrParticleBrightnessResolved": hdrParticleBrightnessResolved,
             "shaderStrength": wrapperValue(shaderValues, key: "strength"),
             "layerAlpha": wrapperValue(object, key: "alpha"),
             "particleCount": wrapperValue(particleOverride, key: "count"),
@@ -649,7 +661,8 @@ class SceneUserPropertyTests(unittest.TestCase):
         self.assertTrue(result["scaleTargetClassified"])
         self.assertTrue(result["lightIntensityTargetClassified"])
         self.assertTrue(result["nonLightIntensityRejected"])
-        self.assertTrue(result["retiredParticleFieldIgnored"])
+        self.assertTrue(result["inactiveParticleBrightnessIgnored"])
+        self.assertTrue(result["hdrParticleBrightnessResolved"])
         self.assertEqual(result["unsupportedNestedDirect"], "Hello")
         self.assertEqual(result["missingFallback"], 0.25)
         self.assertEqual(result["unsupportedConditionalFallback"], 0.2)

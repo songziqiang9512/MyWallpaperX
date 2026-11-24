@@ -31,10 +31,14 @@ extension SceneParticleRuntime {
         if worldSpaceRequiringLayerIDs.contains(layerID), world == nil {
             throw SceneParticleEmissionFailure.unavailable
         }
+        let authoredOverride = root.simulator.instanceOverride
         return .init(controlPoints: points,
             controlPointAngles: dynamicValues.particleControlPointAngles(layerID: layerID),
-            instanceOverride: SceneParticleInstanceOverride.resolving(authored: root.simulator.instanceOverride,
-                dynamic: dynamicValues.particleInstanceValues(layerID: layerID)),
+            instanceOverride: SceneParticleInstanceOverride.resolving(authored: authoredOverride,
+                dynamic: dynamicValues.particleInstanceValues(layerID: layerID),
+                brightness: dynamicValues.particleBrightness(
+                    layerID: layerID, isBound: authoredOverride?.brightness?.userPropertyKey != nil
+                )),
             audio: audio, worldFrame: world,
             controlPointFrame: root.simulator.needsWorldControlPointFrame
                 ? .init(worldFrame: worldFrame, sceneOrthoHeight: descriptor.camera.orthoHeight) : nil)

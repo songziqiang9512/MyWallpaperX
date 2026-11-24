@@ -278,6 +278,9 @@ extension SceneDesktopWallpaperHost {
                 targets.formUnion(fields.map {
                     .particle(layerID: layer.id, field: $0)
                 })
+                if layer.particleInstanceOverride?.brightness?.userPropertyKey != nil {
+                    targets.insert(.particle(layerID: layer.id, field: .brightness))
+                }
             case "composition", "project", "fullscreen":
                 if utilityPlans[layer.id]?.shouldCapture == true {
                     targets.insert(.layer(layerID: layer.id, field: .alpha))

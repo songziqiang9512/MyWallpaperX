@@ -35,7 +35,8 @@ nonisolated enum SceneScriptParticleProjection {
                 count: admitted(value.count, .count),
                 color: value.color, normalizedColor: admitted(value.normalizedColor, .normalizedColor),
                 controlPoints: value.controlPoints,
-                controlPointAngles: value.controlPointAngles
+                controlPointAngles: value.controlPointAngles,
+                brightness: value.brightness
             )
             return layer
         }

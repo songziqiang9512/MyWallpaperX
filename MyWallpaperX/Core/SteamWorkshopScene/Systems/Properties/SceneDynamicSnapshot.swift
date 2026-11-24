@@ -179,6 +179,7 @@ nonisolated enum SceneDynamicParticleField: Codable, Equatable, Hashable, Sendab
     case count
     case color
     case normalizedColor
+    case brightness
     case controlPoint(Int)
     case controlPointAngles(Int)
 
@@ -192,6 +193,7 @@ nonisolated enum SceneDynamicParticleField: Codable, Equatable, Hashable, Sendab
         case .count: "count"
         case .color: "color"
         case .normalizedColor: "normalizedColor"
+        case .brightness: "brightness"
         case let .controlPoint(index): "controlPoint:\(index)"
         case let .controlPointAngles(index): "controlPointAngles:\(index)"
         }
@@ -463,6 +465,12 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
             return nil
         }
         return result
+    }
+
+    nonisolated func particleBrightness(layerID: Int, isBound: Bool) -> Double? {
+        guard isBound, case let .scalar(value)? = self[.particle(layerID: layerID, field: .brightness)]?.value
+        else { return nil }
+        return value
     }
 
     nonisolated func hasSameValuePayload(as other: SceneDynamicSnapshot) -> Bool {

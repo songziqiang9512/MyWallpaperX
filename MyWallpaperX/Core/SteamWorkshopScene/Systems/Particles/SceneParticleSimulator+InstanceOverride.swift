@@ -28,6 +28,9 @@ extension SceneParticleSimulator {
             } else if let color = overrideVector(value.normalizedColor) {
                 particle.color = color
             }
+            if let brightness = value.brightness {
+                particle.color *= overrideScalar(brightness)
+            }
         }
     }
 

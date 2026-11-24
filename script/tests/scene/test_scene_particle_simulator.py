@@ -1496,22 +1496,31 @@ enum Harness {
             ("disabled", #"{"colorn":"0.5 0.25 1","brightness":2}"#, 8),
             ("black", #"{"colorn":"0 0 0"}"#, 0),
             ("operator", #"{"colorn":"0.5 0.25 1"}"#, 0),
+            ("hdrNormalized", #"{"colorn":[0.5,0.25,1],"brightness":{"value":[1.4]},"alpha":0.5}"#, 0),
+            ("hdrLegacy", #"{"color":"127.5 63.75 255","brightness":0.5}"#, 0),
+            ("hdrInitializer", #"{"brightness":0.25}"#, 0),
+            ("hdrZero", #"{"brightness":0}"#, 0),
+            ("hdrDisabled", #"{"colorn":"0.5 0.25 1","brightness":0}"#, 8),
+            ("hdrOperator", #"{"colorn":"0.5 0.25 1","brightness":2}"#, 0),
         ]
         var colorBirthResults: [String: Any] = [:]
         for (name, rawOverride, flags) in colorBirthCases {
             var root = colorBirthRoot
             root["flags"] = flags
-            if name == "operator" {
+            if name == "operator" || name == "hdrOperator" {
                 root["operator"] = [["name": "colorchange", "starttime": 0, "endtime": 1,
                     "startvalue": "0.5 1 0.25", "endvalue": "0.5 1 0.25"]]
             }
-            let value = colorParser.parseInstanceOverride(try rawOverride.map { try object($0) })
+            let value = colorParser.parseInstanceOverride(
+                try rawOverride.map { try object($0) }, hdrBrightness: name.hasPrefix("hdr")
+            )
             var candidate = SceneParticleSimulator(definition: colorParser.parse(root: root),
                 instanceOverride: value, seed: 52, fixedTimeStep: 0.1)
             candidate.advance(by: 0.1)
             colorBirthResults[name] = [
                 "colors": candidate.particles.map { vector($0.color) },
                 "birthColors": candidate.particles.map { vector($0.initialColor) },
+                "alpha": candidate.particles.map(\.alpha),
                 "diagnostics": candidate.diagnostics.map(\.kind.rawValue),
             ]
         }
@@ -4082,6 +4091,22 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         for name, result in results.items():
             with self.subTest(profile=name):
                 self.assertEqual(result["diagnostics"], [])
+
+    def test_hdr_brightness_scales_the_birth_color_without_changing_alpha(self) -> None:
+        results = self.results["colorBirthResults"]
+        expected = {
+            "hdrNormalized": [0.7, 0.35, 1.4],
+            "hdrLegacy": [0.25, 0.125, 0.5],
+            "hdrInitializer": [32 / 255, 16 / 255, 0],
+            "hdrZero": [0, 0, 0],
+            "hdrDisabled": [128 / 255, 64 / 255, 0],
+            "hdrOperator": [1, 0.5, 2],
+        }
+        for name, color in expected.items():
+            with self.subTest(profile=name):
+                self.assertEqual(results[name]["birthColors"], [color])
+                self.assertEqual(results[name]["alpha"], [0.5 if name == "hdrNormalized" else 1])
+        self.assertEqual(results["hdrOperator"]["colors"], [[0.5, 0.5, 0.5]])
 
     def test_dynamic_color_override_changes_only_new_births_and_preserves_peer(self) -> None:
         initial = [0.5, 0.25, 1]

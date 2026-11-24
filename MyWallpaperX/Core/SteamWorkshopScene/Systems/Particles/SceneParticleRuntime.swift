@@ -602,8 +602,12 @@ final class SceneParticleRuntime {
                     identities: root.pointerControlPointIdentities
                 )
                 rootControlPoints.merge(pointerValues) { _, pointer in pointer }
+                let authoredOverride = root.simulator.instanceOverride
                 let instanceOverride = SceneParticleInstanceOverride.resolving(
-                    authored: root.simulator.instanceOverride, dynamic: dynamicOverride)
+                    authored: authoredOverride, dynamic: dynamicOverride,
+                    brightness: dynamicValues.particleBrightness(
+                        layerID: layerID, isBound: authoredOverride?.brightness?.userPropertyKey != nil
+                    ))
                 let collisionFrame: SceneParticleCollisionBoundsFrame?
                 if layerDelta > 0, let extent = root.collisionBoundsExtent,
                    let worldFrame = layerWorldFrames[layerID] {
@@ -824,7 +828,10 @@ final class SceneParticleRuntime {
         }
         let initialInstanceOverride = SceneParticleInstanceOverride.resolving(
             authored: layer.particleInstanceOverride,
-            dynamic: initialDynamicValues.particleInstanceValues(layerID: layer.id))
+            dynamic: initialDynamicValues.particleInstanceValues(layerID: layer.id),
+            brightness: initialDynamicValues.particleBrightness(
+                layerID: layer.id, isBound: layer.particleInstanceOverride?.brightness?.userPropertyKey != nil
+            ))
         let usesStraightMaskTint = prepared[0].renderState.blendMode == .translucent
             && !descriptor.hdrEnabled && !hasChildSystems && asset.refraction == nil
             && layer.particleInstanceOverride?.normalizedColor?.value != nil

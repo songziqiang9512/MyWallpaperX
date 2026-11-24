@@ -61,7 +61,7 @@ nonisolated struct SceneUserPropertyDocumentResolver {
         if let dictionary = value as? [String: Any] {
             var result: [String: Any] = [:]
             for (key, child) in dictionary {
-                if SceneUserPropertyBindingParser.isRetiredInstanceField(key, under: path) {
+                if SceneUserPropertyBindingParser.skipsInactiveParticleBrightness(key, under: path, root: root) {
                     result[key] = child
                     continue
                 }

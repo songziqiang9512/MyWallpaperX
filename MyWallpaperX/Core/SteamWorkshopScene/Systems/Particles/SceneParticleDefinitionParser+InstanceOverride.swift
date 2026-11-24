@@ -1,7 +1,7 @@
 import Foundation
 
 nonisolated extension SceneParticleDefinitionParser {
-    func parseInstanceOverride(_ rawValue: Any?) -> SceneParticleInstanceOverride? {
+    func parseInstanceOverride(_ rawValue: Any?, hdrBrightness: Bool = false) -> SceneParticleInstanceOverride? {
         guard let root = rawValue as? [String: Any] else { return nil }
         var controlPoints: [Int: SceneParticleBoundValue] = [:]
         var controlPointAngles: [Int: SceneParticleBoundValue] = [:]
@@ -20,7 +20,8 @@ nonisolated extension SceneParticleDefinitionParser {
             color: Self.boundValue(root["color"]),
             normalizedColor: Self.boundValue(root["colorn"]),
             controlPoints: controlPoints,
-            controlPointAngles: controlPointAngles
+            controlPointAngles: controlPointAngles,
+            brightness: hdrBrightness ? Self.boundValue(root["brightness"]) : nil
         )
     }
 }

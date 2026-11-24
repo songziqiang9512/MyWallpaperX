@@ -1,18 +1,19 @@
 import Foundation
 
 nonisolated extension SceneParticleInstanceOverride {
-    static func resolving(authored: Self?, dynamic: SceneDynamicParticleValues?) -> Self? {
+    static func resolving(
+        authored: Self?, dynamic: SceneDynamicParticleValues?, brightness: Double? = nil
+    ) -> Self? {
         guard let authored else {
             guard dynamic != nil else { return nil }
             return Self(id: nil, alpha: nil, size: nil, lifetime: nil, rate: nil,
                 speed: nil, count: nil, color: nil, normalizedColor: nil,
                 controlPoints: [:], controlPointAngles: [:]).resolving(dynamic)
         }
-        return authored.resolving(dynamic)
+        return authored.resolving(dynamic, brightness: brightness)
     }
 
-    func resolving(_ dynamic: SceneDynamicParticleValues?) -> Self {
-        guard let dynamic else { return self }
+    func resolving(_ dynamic: SceneDynamicParticleValues?, brightness currentBrightness: Double? = nil) -> Self {
         func scalar(
             _ value: Double?,
             fallback: SceneParticleBoundValue?
@@ -22,6 +23,12 @@ nonisolated extension SceneParticleInstanceOverride {
                 value: .scalar(value), userPropertyKey: nil,
                 hasScript: false, hasAnimation: false
             )
+        }
+        guard let dynamic else {
+            guard currentBrightness != nil else { return self }
+            var resolved = self
+            resolved.brightness = scalar(currentBrightness, fallback: brightness)
+            return resolved
         }
         let normalizedColor = dynamic.normalizedColor.map {
             SceneParticleBoundValue(
@@ -40,7 +47,8 @@ nonisolated extension SceneParticleInstanceOverride {
             color: color,
             normalizedColor: normalizedColor,
             controlPoints: controlPoints,
-            controlPointAngles: controlPointAngles
+            controlPointAngles: controlPointAngles,
+            brightness: scalar(currentBrightness, fallback: brightness)
         )
     }
 }
