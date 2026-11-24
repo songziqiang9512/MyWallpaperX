@@ -22,7 +22,7 @@
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 42,
-      "bytes": 6779
+      "bytes": 6841
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 200,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 316433
+      "bytes": 317151
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 214,
-      "bytes": 65907
+      "bytes": 65938
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -361,10 +361,10 @@
     {
       "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "41ff1673ea3087d2d681e9d401e0d83c2f1797dc0ae4980da9087e08ac76f0ce",
-      "after": "d2cf33f0ab7c9b5887e30050cec95fc25a3c14b5e6f3d8364172f20179594408",
+      "before": "d2cf33f0ab7c9b5887e30050cec95fc25a3c14b5e6f3d8364172f20179594408",
+      "after": "4327d1f54340afb434803d0afb213a285dedab1a5ddb8dee51c1c582929d8ed2",
       "owner": "Shared Scene author spectrum",
-      "reason": "Qualifies measured axis anchors and step response with fixed-index readback, and corrects file versus device-frame continuity.",
+      "reason": "Updates the single capture design for two measured window contracts and records tested frequency and within-band peak behavior.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361"
     },
     {
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "58cc861a4294c5345e58c7faa3d4ab8238a2d0e7c0cb98ae47e3d392b2ba5de6",
-      "after": "5f2081bba17314a7555e5fb8fb8d0ebaef345d181637c7f4d30abb0fa78fa30c",
-      "owner": "Scene object color script admission",
-      "reason": "Updates the existing color admission contract and records qualified original-package visible output and independent regressions.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#hidden-media-color-owner"
+      "before": "5f2081bba17314a7555e5fb8fb8d0ebaef345d181637c7f4d30abb0fa78fa30c",
+      "after": "9c138187876ed4493b8dc14cce623277cc463453f1e04aeccf52404fbc1f6b56",
+      "owner": "Shared Scene author spectrum",
+      "reason": "Updates the single capture design for two measured window contracts and records tested frequency and within-band peak behavior.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f2fba09c4accc5475a4e5113b1f0fac51b7c73b5eefc4d3f60ce35ae44eca3b8",
-      "after": "bfc61b944d3a9c54645b5ed5bde1f1a06eec9e4f0e7af622205d39945cd22c4b",
+      "before": "1300e063000d240f4ffbb82162be21f8c99db4076c68a9a2b313716f1a155f47",
+      "after": "199b4594e21525bc0c55db1d23b8cf442dab8093a6102054b06a6fd316d9a88c",
       "owner": "Shared Scene author spectrum",
-      "reason": "Qualifies measured axis anchors and step response with fixed-index readback, and corrects file versus device-frame continuity.",
+      "reason": "Updates the single capture design for two measured window contracts and records tested frequency and within-band peak behavior.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361"
     },
     {

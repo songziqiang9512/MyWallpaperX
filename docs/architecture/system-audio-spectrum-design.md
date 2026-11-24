@@ -3,13 +3,13 @@
 
 # 共享音频分析与消费域设计
 
-> 状态：当前三类消费者仍共用显示响应。[粒子16档](../scene/capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)与[shader 32档](../scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361)分别已证从准备64档取组内峰值，端点对照把频带身份差定位在折叠前。固定x64默认分析窗与现有窗不同，尚未取得x86实机等同证据。频轴锚点、同声道阶跃与同索引换位已核。下一门用边界相邻音和同档双音，依据实际准备64档裁决物理格、归约及是否必须保两种窗口。
+> 状态：当前三类消费者仍共用显示响应。[粒子16档](../scene/capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)与[shader 32档](../scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361)分别已证从准备64档取组内峰值，端点对照把频带身份差定位在折叠前。固定x64默认分析窗与现有窗不同，尚未取得x86实机等同证据。48kHz相邻频轴与同档取峰已有实机资格，短矩形候选可复现邻谱；约85ms Hann 后的幅值无法恢复该窗口。下一门核相同输入不同历史的组内增益，并比较短窗精确数值与成本。
 
 ## 目标与职责
 
-Video/Web 保留现有可视响应与样式；Scene 作者的选带、bounds、指数和条件行为消费明确的作者输入，不能由原生柱形显示风格改写。两类数值域共享物理分析，不能为减少状态而统一错误域。Video现有产品只有柱形。
+Video/Web 保留现有可视响应与样式。Scene 作者的选带、bounds、指数和条件行为消费作者数值域。两域共享PCM采集、完整快照、分析调度与发布时钟；相同分析窗只求一次。Video现有产品只有柱形。
 
-SystemAudioSpectrumService独占采集、需求和约30Hz发布；原Analyzer承接同一完整PCM窗的一次去DC/Hann/每声道FFT，并在同次分析调用中形成所需消费域。原 CaptureBuffer 独占连续PCM历史，Analyzer不另存窗口；物理频率格留在原私有scratch，不送IPC、不建provider/registry。消费域不另设采集器、FFT或时钟，若证据表明现有窗/变换不足，先返回本设计裁决，不能暗加第二分析链。
+SystemAudioSpectrumService独占采集、需求和约30Hz发布。原 CaptureBuffer 保存连续PCM，一次移交同时间的完整快照；原 Analyzer 按消费者需求分析，Video/Web共用原去DC/Hann输出，已证不同的Scene短窗取该快照尾段，在同一worker和调用中变换。只在两个不同窗口同时被消费时各求一次，复用底层FFT资源、冷系数与有界scratch。Analyzer不另存PCM，也没有第二采集器、调度、时钟或IPC。短窗实现先验精确物理格、端点格式和GPU作者画面，再用实测成本选用有界等效算法。
 
 `PlaybackSpectrumDelivery`继续由控制面更新有身份的进程目标，后台沿原有界transport发布成品数组，普通帧不经主App的AppKit队列。Scene仍沿原六数组→Inbox→帧快照→shader/Script/particle消费，不让消费者反推显示值或各自调增益、分档。scope、generation、停止及替换撤权归原owner。
 
@@ -19,7 +19,7 @@ Video helper仍首次开启才建子层并采用已接纳高度；空数组表�
 
 ## 分域与旧职责退出
 
-现 `frequencyAmplitudes` 已混入自选64带频轴、覆盖面积均值和固定频率增益，不能当原始作者输入。共用变换取得资格时，在这些显示选择之前分域，同次幅值计算只做一次。格式权重沿原冷准备更新，不逐粒子、Surface或渲染帧重算，也不在热路径建权重/诊断/哈希。
+现 `frequencyAmplitudes` 的64带轴、覆盖面积均值和固定频率增益归显示域。Scene只在短窗得到实证的物理格上归约，并从同一份64档准备值折叠。格式权重沿原冷准备更新，各域计算一次，每屏读取同一结果。
 
 | 消费域 | 合同与资格 |
 |---|---|
