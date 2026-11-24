@@ -98,6 +98,12 @@ enum Harness {
         telemetry.recordDriverCallback(at: 10)
         telemetry.recordDriverCallback(at: 10.02)
         telemetry.recordDriverCallback(at: 10.04)
+        telemetry.recordTimerCallback(lateness: 0.001, frameInterval: 0.04, waitingForGPU: false)
+        telemetry.recordTimerCallback(lateness: 0.091, frameInterval: 0.04, waitingForGPU: false)
+        telemetry.recordTimerCallback(lateness: -0.010, frameInterval: 0.04, waitingForGPU: true)
+        telemetry.recordTimerCallback(lateness: 0.041, frameInterval: 0.04, waitingForGPU: true)
+        telemetry.recordAdmissionWait()
+        telemetry.recordScheduleRealignment()
         telemetry.recordFrameDelta(raw: 0.5, dropped: 0.25)
         telemetry.recordFrameDelta(raw: 0.02, dropped: 0)
         // Per-frame aggregation: nested-stage runs twice inside the first frame
@@ -154,6 +160,13 @@ enum Harness {
         let payload: [String: Any] = [
             "elapsed": value.elapsed,
             "callbacks": value.driverCallbacks,
+            "timerCallbacks": value.cadence.timerCallbacks,
+            "admissionWaits": value.cadence.admissionWaits,
+            "timerExpiredSlots": value.cadence.timerExpiredSlots,
+            "admissionExpiredSlots": value.cadence.admissionExpiredSlots,
+            "scheduleRealignments": value.cadence.scheduleRealignments,
+            "firstStreamMedian": value.presentationsByStreamID[1]?.intervalP50 ?? -1,
+            "secondStreamMedian": value.presentationsByStreamID[2]?.intervalP50 ?? -1,
             "submitted": value.submitted,
             "completed": value.completed,
             "failed": value.failed,
@@ -450,6 +463,13 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
     def test_counts_throughput_and_frame_budgets(self) -> None:
         self.assertEqual(self.result["elapsed"], 1)
         self.assertEqual(self.result["callbacks"], 3)
+        self.assertEqual(self.result["timerCallbacks"], 4)
+        self.assertEqual(self.result["admissionWaits"], 1)
+        self.assertEqual(self.result["timerExpiredSlots"], 3)
+        self.assertEqual(self.result["admissionExpiredSlots"], 1)
+        self.assertEqual(self.result["scheduleRealignments"], 1)
+        self.assertAlmostEqual(self.result["firstStreamMedian"], 0.028)
+        self.assertAlmostEqual(self.result["secondStreamMedian"], 0.060)
         self.assertEqual(self.result["submitted"], 1)
         self.assertEqual(self.result["completed"], 1)
         self.assertEqual(self.result["failed"], 0)
@@ -510,8 +530,8 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         renderer = read_source_family(RENDERER_SOURCE)
         runner = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
         performance_runner = PERFORMANCE_RUNNER_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("debugEvidence.recordDriverCallback()", frame_driver)
-        self.assertIn("debugEvidence.recordFrameDelta", frame_driver)
+        self.assertIn("performanceTelemetry?.recordDriverCallback()", frame_driver)
+        self.assertIn("performanceTelemetry?.recordFrameDelta", frame_driver)
         self.assertIn("performanceTelemetry?.recordPreparation", view)
         self.assertIn("performanceTelemetry?.recordCPUFrame", renderer)
         self.assertIn("performanceTelemetry?.recordSubmitted", renderer)

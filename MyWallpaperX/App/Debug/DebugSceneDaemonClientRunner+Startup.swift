@@ -23,6 +23,8 @@ private final class DebugSceneStartupRun {
     private let roots: [URL]
     private let timeoutSeconds: TimeInterval
     private let requestedFPS: Int?
+    private let performance: SceneProductPerformanceConfiguration?
+    private var awaitingPerformance = false
     private var observers: [NSObjectProtocol] = []
     private var deadline: DispatchWorkItem?
     private var current: DebugSceneStartupMeasurement?
@@ -74,6 +76,14 @@ private final class DebugSceneStartupRun {
             throw InvalidConfiguration(reason: "invalid-startup-mode-or-report")
         }
         self.mode = mode
+        if let value = ProcessInfo.processInfo.environment[SceneProductPerformanceConfiguration.environmentKey] {
+            guard mode == "single", let configuration = SceneProductPerformanceConfiguration(value) else {
+                throw InvalidConfiguration(reason: "invalid-product-performance-window")
+            }
+            performance = configuration
+        } else {
+            performance = nil
+        }
         let reportTarget = URL(fileURLWithPath: reportPath).standardizedFileURL
         reportURL = reportTarget
         guard let realHome = DebugSceneProductEntryPolicy.protectedUserHomeURL(),
@@ -140,7 +150,11 @@ private final class DebugSceneStartupRun {
 
     private func installObservers() {
         let client = SceneDaemonClient.shared
-        if mode == "reentry-video" || mode == "lifecycle" {
+        if performance != nil {
+            client.debugStartupWireObserver = { [weak self] generation, pid, _, payload in
+                self?.observePerformance(generation: generation, pid: pid, payload: payload)
+            }
+        } else if mode == "reentry-video" || mode == "lifecycle" {
             client.debugStartupWireObserver = { [weak self] generation, pid, uptime, payload in
                 self?.observeWire(generation: generation, pid: pid, uptime: uptime, payload: payload)
             }
@@ -274,9 +288,23 @@ private final class DebugSceneStartupRun {
 
     private func settleCompletedCurrent() {
         completionScheduled = false
-        guard !finished, current?.isComplete == true else { return }
+        guard !finished, current?.isComplete == true,
+              !awaitingPerformance || currentFacts["productPerformance"] != nil else { return }
         deadline?.cancel()
         deadline = nil
+        if let performance, currentFacts["productPerformance"] == nil, current?.failures.isEmpty == true {
+            awaitingPerformance = true
+            let work = DispatchWorkItem { [weak self] in
+                self?.current?.fail("product-performance-timeout")
+                self?.finishCurrentAndStop(reason: "Scene daemon did not complete the performance window")
+            }
+            deadline = work
+            DispatchQueue.main.asyncAfter(
+                deadline: .now() + performance.warmupSeconds + performance.durationSeconds + 5,
+                execute: work
+            )
+            return
+        }
         // Observe the request that actually crossed the parent commit barrier.
         // A benchmark input path or a receipt beside it does not prove that
         // this playback request carried the managed source.
@@ -307,6 +335,21 @@ private final class DebugSceneStartupRun {
         }
     }
 
+    private func observePerformance(generation: UInt64, pid: Int32?, payload: [String: Any]) {
+        guard !finished, payload["event"] as? String == "frameStats",
+              let receipt = payload["productPerformance"] as? [String: Any],
+              let current, let requestID = current.requestID, let pid,
+              requestID.uuidString == receipt["requestID"] as? String,
+              current.daemonPID == pid, current.daemonGeneration == generation,
+              receipt["daemonPID"] as? Int32 == pid else { return }
+        currentFacts["productPerformance"] = receipt
+        if receipt["passed"] as? Bool != true
+            || receipt["selectedFPS"] as? Int != currentFacts["appliedFPS"] as? Int {
+            self.current?.fail("product-performance-window-invalid")
+        }
+        completeCurrentIfReady()
+    }
+
     private func appendCurrent() {
         guard let current else { return }
         rows.append(current.report.merging(currentFacts) { _, facts in facts })
@@ -326,7 +369,7 @@ private final class DebugSceneStartupRun {
         observers.removeAll()
         SceneDaemonClient.shared.debugStartupObserver = nil
         SceneDaemonClient.shared.debugStartupPrefixObserver = nil
-        if mode == "reentry-video" || mode == "lifecycle" {
+        if performance != nil || mode == "reentry-video" || mode == "lifecycle" {
             SceneDaemonClient.shared.debugStartupWireObserver = nil
         }
         var report: [String: Any] = [

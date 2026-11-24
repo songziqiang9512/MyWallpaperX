@@ -27,6 +27,8 @@
 <a id="wallpaper-quality"></a>
 壁纸质量从 [AppKit 设置](../../MyWallpaperX/Shared/Settings/AppKitSettingsView.swift)、[播放偏好](../../MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift)与[导入恢复](../../MyWallpaperX/App/PersonalSettingsImportCoordinator.swift)进入。Scene 跟 [daemon 控制面](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient.swift)、[帧驱动](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift)及[有效策略](../scene/architecture/runtime-architecture.md#effective-quality-policy)。Web 跟 [宿主投影](../../MyWallpaperX/Core/SteamWorkshopWeb/Process/WebDaemonHostAdapter.swift)，Video 跟 [原片执行](../../WallpaperDaemonSources/Daemon/Playback/WallpaperDaemon+Video.swift)。新启动或重建路径沿各端种子检查，执行工作见[现役工作卡](../development/wallpaper-quality-work-card.md#execution)。
 
+Scene 稳态节律用 [原产品启动基准](../../script/web/wallpaper_startup_benchmark.py) 对实际接管的 daemon 采集逐屏呈现与 GPU 完成。参数、观测边界和当前 A/A 见[工作卡](../development/wallpaper-quality-work-card.md#连续帧率的产品测量与接管)。
+
 本地 Video 和已就绪 Steam Video 详情共用[原片轨道读取](../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift)。标称帧率来自实际播放文件；[Steam 获取合同](steam-workshop-acquisition-contract.md#source-video-facts)约定适用范围。
 
 Pixabay 新下载由 [规格选择](../../MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadQualityPrompt.swift)交给[下载服务](../../MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift)发布实际文件。[下载历史](../../MyWallpaperX/App/DownloadTasksController.swift)用原档位重试。播放仍由原 Video daemon 读取发布文件。

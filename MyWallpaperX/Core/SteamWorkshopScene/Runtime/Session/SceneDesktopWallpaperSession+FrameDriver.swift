@@ -119,6 +119,11 @@ extension SceneDesktopWallpaperSession {
             frameDriverDeadline = nil
             return
         }
+#if DEBUG
+        if (attempt == .rendered || attempt == .dropped), nextDeadline > scheduledDeadline + sceneFrameInterval {
+            SceneFramePerformanceTelemetry.productEvidence(sessionID: lifecycleID)?.recordScheduleRealignment()
+        }
+#endif
         armFrameDriver(at: nextDeadline)
     }
     @discardableResult
@@ -128,8 +133,21 @@ extension SceneDesktopWallpaperSession {
         let delay = max(0.000_001, deadline - CACurrentMediaTime())
         let timer = Timer(timeInterval: delay, repeats: false) { [weak self] timer in
             guard let self, self.frameTimer === timer else { return }
+#if DEBUG
+            // The timer runs on the main RunLoop and is also fired by main-actor admission callbacks.
+            let telemetry = MainActor.assumeIsolated {
+                SceneFramePerformanceTelemetry.productEvidence(sessionID: self.lifecycleID)
+            }
+            telemetry?.recordTimerCallback(lateness: CACurrentMediaTime() - deadline,
+                frameInterval: self.sceneFrameInterval, waitingForGPU: waitingForGPU)
+#endif
             self.frameTimer = nil
-            if !waitingForGPU, self.waitForFrameAdmission(until: deadline + self.sceneFrameInterval) { return }
+            if !waitingForGPU, self.waitForFrameAdmission(until: deadline + self.sceneFrameInterval) {
+#if DEBUG
+                telemetry?.recordAdmissionWait()
+#endif
+                return
+            }
             let cadence = waitingForGPU ? CACurrentMediaTime() : deadline
             let attempt = self.renderFrame()
             self.scheduleFrameDriver(after: attempt, scheduledDeadline: cadence)
@@ -180,9 +198,12 @@ extension SceneDesktopWallpaperSession {
         guard let launchContext else { return .inactive }
         defer { reconcileSystemInputConsumers(launchContext) }
 #if DEBUG
-        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
-            SceneFramePerformanceTelemetry.debugEvidence.recordDriverCallback()
-        }
+        let performanceTelemetry = SceneDesktopWallpaperHost.usesDebugEvidenceWindow
+            ? SceneFramePerformanceTelemetry.debugEvidence
+            : SceneFramePerformanceTelemetry.productEvidence(sessionID: lifecycleID)
+        performanceTelemetry?.recordDriverCallback()
+#else
+        let performanceTelemetry = SceneFramePerformanceTelemetry.debugEvidence
 #endif
         updateMouseLocations()
 #if DEBUG
@@ -213,12 +234,7 @@ extension SceneDesktopWallpaperSession {
         let timing = advancedTiming
 #endif
 #if DEBUG
-        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
-            SceneFramePerformanceTelemetry.debugEvidence.recordFrameDelta(
-                raw: timing.rawFrameTime,
-                dropped: timing.droppedFrameTime
-            )
-        }
+        performanceTelemetry?.recordFrameDelta(raw: timing.rawFrameTime, dropped: timing.droppedFrameTime)
 #endif
         soundPlaybackRegistry?.advance(sceneTime: timing.sceneTime)
         let definitionIndex = launchContext.dynamicDefinitionIndex
@@ -922,8 +938,7 @@ extension SceneDesktopWallpaperSession {
                 mediaThumbnail: mediaThumbnailSnapshot,
                 mediaInputGeneration: mediaInput.generation,
                 audioSpectrum: audioSpectrum,
-                performanceTelemetry: SceneDesktopWallpaperHost.usesDebugEvidenceWindow
-                    ? SceneFramePerformanceTelemetry.debugEvidence : nil
+                performanceTelemetry: performanceTelemetry
             )
         }
         let attempt = renderSurfaces()

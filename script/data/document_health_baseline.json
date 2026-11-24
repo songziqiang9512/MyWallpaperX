@@ -13,8 +13,8 @@
       "bytes": 8300
     },
     "docs/architecture/repository-map.md": {
-      "lines": 44,
-      "bytes": 10998
+      "lines": 46,
+      "bytes": 11292
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -77,8 +77,8 @@
       "bytes": 73409
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 90,
-      "bytes": 16286
+      "lines": 100,
+      "bytes": 18669
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,19 +378,19 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "bdb55214dc5d148b0bac24aa21df5bca15dd66d94a79cb4e78ed66ecf7c78694",
-      "after": "a589a5b268884ae83a9d1168df0f562a8059e8e525664e53882910cb4e2cf91f",
-      "owner": "Scene runtime / App playback",
-      "reason": "记录同包模型反射像素、独立 authored input 保持与关闭档产出。",
+      "before": "a589a5b268884ae83a9d1168df0f562a8059e8e525664e53882910cb4e2cf91f",
+      "after": "3867955cd87447385175f295cfd9c99d44f6a36e293ac47e1a2cb87ec43727a6",
+      "owner": "Scene timing / Product Debug",
+      "reason": "记录实际接管的逐屏呈现、真实排空与原 30/60 A/A。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "84c5d332f79533ba5bd61b0c7220b0c5078444c48c4ea1774467082c7a10f8a6",
-      "after": "231d686c7227e62b86dacaafdefdc2e58d2747a4ba29e82e4cd3e92131c79b41",
+      "before": "231d686c7227e62b86dacaafdefdc2e58d2747a4ba29e82e4cd3e92131c79b41",
+      "after": "4aad62c1a5d0648982165c71c0808744c3953f3efc48f9312cfe5435124ad406",
       "owner": "Repository navigation",
-      "reason": "接入本地与 Steam Video 可见原片规格的唯一路径。",
+      "reason": "接入一处原产品逐屏呈现测量入口。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {

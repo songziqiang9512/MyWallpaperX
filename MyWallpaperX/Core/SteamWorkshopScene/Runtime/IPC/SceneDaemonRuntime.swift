@@ -1,6 +1,7 @@
 import AppKit
 import Darwin
 import Foundation
+import QuartzCore
 import ScreenCaptureKit
 
 /// Serializes daemon output away from the Scene main thread. At most one
@@ -151,6 +152,10 @@ final class SceneDaemonRuntime {
 #if DEBUG
     var debugStartupPrefixUptimes: [String: UInt64]?
     private var statsTimer: DispatchSourceTimer?
+    private let productPerformance = ProcessInfo.processInfo.environment[SceneProductPerformanceConfiguration.environmentKey]
+        .flatMap(SceneProductPerformanceConfiguration.init)
+    private var performanceWindow: SceneProductPerformanceWindow?
+    private var didReportNonSilentAudioPublication = false
 #endif
     private var currentRequestID: UUID?
     private var lastPropertyRevision: UInt64 = 0
@@ -158,9 +163,6 @@ final class SceneDaemonRuntime {
     private var isShuttingDown = false
     private var pendingRequestRetirement: (requestID: UUID, operationID: UUID)?
     private var audioDemand = SceneAudioSpectrumCaptureDemand.none
-#if DEBUG
-    private var didReportNonSilentAudioPublication = false
-#endif
     private var systemMediaReceiver = SceneDaemonMediaReceiver()
     private var systemMediaLease: DispatchWorkItem?
 
@@ -372,7 +374,16 @@ final class SceneDaemonRuntime {
         case let .commitCandidate(requestID):
             host.commitCandidate(requestID: requestID)
         case let .finalizeCandidate(requestID):
+#if DEBUG
+            let measure = productPerformance != nil && host.unconfirmedPromotion?.requestID == requestID
+#endif
             host.finalizeCandidate(requestID: requestID)
+#if DEBUG
+            if measure, let session = host.activeSession {
+                performanceWindow = .init(requestID: requestID, sessionID: session.lifecycleID,
+                    selectedFPS: host.performanceProfile.maxFPS, finalizedAt: CACurrentMediaTime())
+            }
+#endif
         case let .cancelCandidate(requestID, operationID):
             let windows = host.outputWindows(requestID: requestID)
             let accepted = host.cancelCandidate(requestID: requestID)
@@ -703,6 +714,46 @@ final class SceneDaemonRuntime {
             outputDirectory: outputDirectory
         )
     }
+    private func productPerformanceReceipt() -> [String: Any]? {
+        guard let configuration = productPerformance, var window = performanceWindow else { return nil }
+        let now = CACurrentMediaTime()
+        guard window.startedAt != nil || now >= window.finalizedAt + configuration.warmupSeconds else { return nil }
+
+        let session = host.activeSession
+        let surfaces = session?.surfaces.compactMap { displayID, surface -> SceneProductPerformanceSurface? in
+            guard let screen = surface.window.screen else { return nil }
+            return .init(displayID: displayID, identity: String(UInt(bitPattern: ObjectIdentifier(surface))),
+                windowNumber: surface.window.windowNumber, maximumFPS: screen.maximumFramesPerSecond,
+                modeRefreshRate: CGDisplayCopyDisplayMode(displayID)?.refreshRate ?? 0,
+                minimumRefreshInterval: screen.minimumRefreshInterval, maximumRefreshInterval: screen.maximumRefreshInterval)
+        }.sorted { $0.displayID < $1.displayID } ?? []
+        // Compare on each stats tick during measurement, including the two endpoints.
+        window.recordStabilitySample(at: now)
+        let stable = session?.lifecycleID == window.sessionID && host.isPlaybackActive
+            && host.performanceProfile.maxFPS == window.selectedFPS && !surfaces.isEmpty
+            && surfaces.count == session?.surfaces.count && (window.startedAt == nil || surfaces == window.surfaces)
+        if stable {
+            if let startedAt = window.startedAt {
+                if now < startedAt + configuration.durationSeconds {
+                    performanceWindow = window
+                    return nil
+                }
+            } else {
+                window.surfaces = surfaces
+                window.startedAt = now
+                performanceWindow = window
+                SceneFramePerformanceTelemetry.debugEvidence.reset(at: now, targetFPS: window.selectedFPS)
+                SceneFramePerformanceTelemetry.productSessionID = window.sessionID
+                return nil
+            }
+        }
+        performanceWindow = nil
+        SceneFramePerformanceTelemetry.productSessionID = nil
+        let snapshot = stable ? SceneFramePerformanceTelemetry.debugEvidence.snapshot(at: now) : nil
+        return window.receipt(daemonPID: getpid(), snapshot: snapshot,
+            failure: stable ? nil : "product-performance-observed-session-display-or-profile-drift")
+    }
+
     private func installStatsTimer() {
         let timer = DispatchSource.makeTimerSource(queue: .main)
         timer.schedule(deadline: .now() + 1, repeating: 1)
@@ -729,8 +780,12 @@ final class SceneDaemonRuntime {
                     counters[.cpuFrameMicros] ?? 0
                 ) / Double(rendered) / 1_000
             }
-            guard let data = Self.encode(event) else { return }
-            writer.sendLatestStats(data)
+            if let receipt = self.productPerformanceReceipt() {
+                event["productPerformance"] = receipt
+                self.emit(event)
+            } else if let data = Self.encode(event) {
+                self.writer.sendLatestStats(data)
+            }
         }
         timer.resume()
         statsTimer = timer

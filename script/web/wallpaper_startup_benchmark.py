@@ -6,6 +6,7 @@ that HOME in a new App process. W0 requests the same content twice in one App.
 Copy inputs once before invoking this tool; their absolute paths stay fixed.
 With --baseline-app, each iteration runs both arms serially and reverses their
 order on alternate iterations; each arm keeps its C0/C1/W0 group together.
+--scene-performance measures one finalized Scene request per arm and iteration.
 """
 from __future__ import annotations
 import sys as _sys
@@ -39,6 +40,17 @@ from web_wallpaper_benchmark import terminate_process
 
 STARTUP_BUNDLE_ID = "com.songziqiang.MyWallpaperX.Debug.Startup"
 PRODUCTION_BUNDLE_ID = "com.songziqiang.MyWallpaperX"
+SCENE_PERFORMANCE_ENV = "MWX_SCENE_PRODUCT_PERFORMANCE"
+
+
+def scene_performance_window(value: str) -> tuple[float, float]:
+    try:
+        warmup, duration = map(float, value.split(","))
+    except ValueError:
+        raise argparse.ArgumentTypeError("expected WARMUP,DURATION in seconds") from None
+    if not 0 <= warmup <= 60 or not 2 <= duration <= 120:
+        raise argparse.ArgumentTypeError("expected warmup 0–60 and duration 2–120 seconds")
+    return warmup, duration
 
 
 def defaults_values(domain: str) -> dict | None:
@@ -155,6 +167,67 @@ def native_result_valid(native: object, engine: str, item_id: str, mode: str) ->
     return True
 
 
+def scene_daemon_command_matches(identity: str, binary: Path) -> bool:
+    fields = identity.split(maxsplit=5)
+    if len(fields) != 6:
+        return False
+    # lstart occupies five fields. ps prints the remaining argv joined by spaces.
+    executable, flag, suffix = fields[5].partition(" --mwx-scene-daemon")
+    path = Path(executable)
+    return (bool(flag) and (not suffix or suffix[0].isspace())
+            and path.is_absolute() and path.resolve() == binary.resolve())
+
+
+def scene_performance_matches(row: dict, fps: int, window: tuple[float, float],
+                              children: dict[int, str], binary: Path, log: str) -> bool:
+    receipt = row.get("productPerformance")
+    if not isinstance(receipt, dict) or receipt.get("passed") is not True:
+        return False
+    request_id, pid = row["requestID"], row["daemonPID"]
+    child = children.get(pid, "")
+    if (receipt.get("requestID") != request_id or receipt.get("daemonPID") != pid
+            or receipt.get("selectedFPS") != fps or row.get("appliedFPS") != fps
+            or not receipt.get("sessionID") or not scene_daemon_command_matches(child, binary)
+            or f"phase=daemon-gpu-drained request={request_id} pid={pid} gpuDrained=true code=0" not in log):
+        return False
+    for key, minimum in zip(("warmupSeconds", "elapsedSeconds"), window, strict=True):
+        value = receipt.get(key)
+        if type(value) not in (int, float) or not math.isfinite(value) or value < minimum:
+            return False
+    timer_callbacks = receipt.get("timerCallbacks")
+    stability_samples = receipt.get("stabilitySamples")
+    maximum_gap = receipt.get("maximumStabilitySampleGapSeconds")
+    if (type(timer_callbacks) is not int or timer_callbacks <= 0
+            or type(stability_samples) is not int or stability_samples < 2
+            or type(maximum_gap) not in (int, float)
+            or not 0 < maximum_gap <= receipt["elapsedSeconds"]):
+        return False
+    surfaces = receipt.get("surfaces")
+    if not isinstance(surfaces, list) or not surfaces:
+        return False
+    display_ids = set()
+    presented = 0
+    for surface in surfaces:
+        if not isinstance(surface, dict) or not surface.get("surfaceIdentity"):
+            return False
+        display_id = surface.get("displayID")
+        if type(display_id) is not int or display_id <= 0 or display_id in display_ids:
+            return False
+        display_ids.add(display_id)
+        frames, intervals = surface.get("presented"), surface.get("presentIntervals")
+        if type(frames) is not int or type(intervals) is not int or not 0 < intervals < frames:
+            return False
+        tails = [surface.get(key) for key in ("presentP50MS", "presentP95MS", "presentP99MS", "presentMaxMS")]
+        if (not all(type(value) in (int, float) and math.isfinite(value) for value in tails)
+                or not 0 < tails[0] <= tails[1] <= tails[2] <= tails[3]):
+            return False
+        presented += frames
+    submitted, completed = receipt.get("submitted"), receipt.get("completed")
+    return (presented == receipt.get("presented")
+            and type(submitted) is int and type(completed) is int
+            and 0 < completed <= submitted and presented <= submitted)
+
+
 def input_paths_match(native: object, engine: str, sample: Path, workshop: Path) -> bool:
     if not isinstance(native, dict):
         return False
@@ -257,6 +330,12 @@ def run_selection(binary: Path, args, home: Path, suite: str, token: str, output
     removed_overrides = sorted(key for key in os.environ if key.startswith(("MWX_", "MYWALLPAPERX_")))
     environment = {key: value for key, value in os.environ.items() if key not in removed_overrides}
     environment.update(HOME=str(home), CFFIXED_USER_HOME=str(home))
+    window = getattr(args, "scene_performance", None)
+    timeout = args.timeout
+    if window is not None:
+        warmup, duration = window
+        environment[SCENE_PERFORMANCE_ENV] = f"{warmup},{duration}"
+        timeout += warmup + duration + 5
     # Inherited route/cache/diagnostic overrides invalidate the declared policy.
     native = None
     failure = None
@@ -267,7 +346,7 @@ def run_selection(binary: Path, args, home: Path, suite: str, token: str, output
         original_error = None
         try:
             started = time.monotonic()
-            deadline = started + args.timeout
+            deadline = started + timeout
             while time.monotonic() < deadline:
                 children.update(child_processes(process.pid))
                 if process.poll() is not None:
@@ -294,13 +373,18 @@ def run_selection(binary: Path, args, home: Path, suite: str, token: str, output
             failure = f"invalid native report: {error}"
     remaining = cleanup["remainingOwnedChildren"]
     cleanup_remaining = cleanup["remainingAfterFailureCleanup"]
-    suites = debug_defaults_suites((output / "app.log").read_text(errors="replace"))
+    log = (output / "app.log").read_text(errors="replace")
+    suites = debug_defaults_suites(log)
     passed = (failure is None and exit_code == 0 and not remaining and cleanup["ownedProcessesExited"] and suite in suites
               and native_result_valid(native, args.engine, args.item_id, mode)
               and input_paths_match(native, args.engine, args.sample_root, args.workshop_root)
               and home_paths_match(native, args.engine, home)
               and native.get("standardDefaultsDomain") == STARTUP_BUNDLE_ID
               and native.get("standardDefaultsSentinelVerified") is True)
+    if window is not None and passed:
+        passed = scene_performance_matches(native["rows"][0], args.fps, window, children, binary, log)
+        if not passed:
+            failure = "invalid Scene performance window or daemon identity"
     return {"passed": passed, "failure": failure, "command": command, "appPID": process.pid,
             "exitCode": exit_code, "normalExit": failure is None and exit_code == 0,
             "debugDefaultsConfirmed": suite in suites, "remainingOwnedChildren": remaining,
@@ -421,7 +505,7 @@ def run_arm_conditions(binary: Path, identity: dict, args, index: int, arm: str,
         reset_startup_defaults(identity["bundle_identifier"])
         subprocess.run(["/usr/bin/defaults", "write", STARTUP_BUNDLE_ID,
                         "MWXStartupDefaultsToken", "-string", token], check=True, capture_output=True)
-        for condition in ("C0", "C1", "W0"):
+        for condition in ("C0",) if args.scene_performance is not None else ("C0", "C1", "W0"):
             owned_processes_exited = False
             try:
                 row = run_selection(binary, args, home, suite, token,
@@ -515,11 +599,16 @@ def main() -> int:
     parser.add_argument("--iterations", type=int, default=5)
     parser.add_argument("--timeout", type=float, default=90)
     parser.add_argument("--fps", choices=(30, 60), type=int, default=30)
+    parser.add_argument("--scene-performance", nargs="?", metavar="WARMUP,DURATION",
+                        type=scene_performance_window, const=(30.0, 60.0),
+                        help="measure one steady Scene request per run (default 30,60 seconds)")
     parser.add_argument("--label", required=True)
     parser.add_argument("--keep-runtime", action="store_true")
     args = parser.parse_args()
     if not 1 <= args.iterations <= 20 or not 1 <= args.timeout <= 300:
         parser.error("iterations must be 1...20 and timeout 1...300 seconds")
+    if args.scene_performance is not None and args.engine != "scene":
+        parser.error("--scene-performance requires --engine scene")
     for key in ("sample_root", "workshop_root", "runtime_root", "output_dir"):
         setattr(args, key, isolated_path(getattr(args, key)))
     protected = [args.sample_root, args.workshop_root]
@@ -555,6 +644,11 @@ def main() -> int:
             if identity["bundle_identifier"] != STARTUP_BUNDLE_ID or info.get("CFBundleIdentifier") != STARTUP_BUNDLE_ID:
                 discard_staged_app(identity)
                 raise ValueError("startup tests require the dedicated signed Debug.Startup bundle identity")
+            if args.scene_performance is not None:
+                debug_dylib = binary.with_name(binary.name + ".debug.dylib")
+                if debug_dylib.is_file():
+                    with debug_dylib.open("rb") as handle:
+                        identity["debug_dylib_sha256"] = hashlib.file_digest(handle, "sha256").hexdigest()
         identity = arms["candidate"][1]
         for index in range(args.iterations):
             order = list(arms) if index % 2 == 0 else list(reversed(arms))
@@ -590,7 +684,12 @@ def main() -> int:
             report["appIdentities"] = {arm: staged[1] for arm, staged in arms.items()}
             report["summary"] = {arm: summarize([run for run in runs if run["arm"] == arm], args.engine)
                                  for arm in arms}
-            report["pairedSummary"] = summarize_paired(runs if not failed else [], args.engine, args.iterations)
+            if args.scene_performance is None:
+                report["pairedSummary"] = summarize_paired(runs if not failed else [], args.engine, args.iterations)
+        if args.scene_performance is not None:
+            warmup, duration = args.scene_performance
+            report["scenePerformance"] = {"requestedFPS": args.fps, "warmupSeconds": warmup,
+                                          "measurementSeconds": duration}
         if not failed and not args.keep_runtime:
             for _, staged_identity in arms.values():
                 discard_staged_app(staged_identity)

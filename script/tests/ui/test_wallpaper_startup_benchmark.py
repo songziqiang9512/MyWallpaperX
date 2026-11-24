@@ -47,6 +47,64 @@ class WallpaperStartupBenchmarkTests(unittest.TestCase):
         row["passed"] = False
         self.assertFalse(native_result_valid(result, "scene", "sample", "single"))
 
+    def test_scene_performance_window_uses_the_same_request_and_finished_daemon(self):
+        binary = Path("/staged/MyWallpaperX.app/Contents/MacOS/MyWallpaperX")
+        children = {42: f"Sat Nov 25 00:00:00 2026 {binary} --mwx-scene-daemon"}
+        log = "phase=daemon-gpu-drained request=req pid=42 gpuDrained=true code=0"
+        receipt = {"passed": True, "requestID": "req", "daemonPID": 42, "sessionID": "session",
+                   "selectedFPS": 60, "warmupSeconds": 30.2, "elapsedSeconds": 60.1,
+                   "timerCallbacks": 3640, "stabilitySamples": 61, "maximumStabilitySampleGapSeconds": 1.03,
+                   "submitted": 3605, "completed": 3603, "presented": 3601,
+                   "surfaces": [{"displayID": 1, "surfaceIdentity": "surface",
+                                 "presented": 3601, "presentIntervals": 3600,
+                                 "presentP50MS": 16.6, "presentP95MS": 16.7,
+                                 "presentP99MS": 18.2, "presentMaxMS": 33.4}]}
+        row = {"requestID": "req", "daemonPID": 42, "appliedFPS": 60, "productPerformance": receipt}
+        validate = benchmark.scene_performance_matches
+        self.assertTrue(validate(row, 60, (30, 60), children, binary, log))
+        self.assertFalse(validate(row, 60, (30, 60), children, binary, ""))
+        self.assertFalse(validate(row, 60, (30, 60), {}, binary, log))
+        invalid_surface = dict(receipt["surfaces"][0], presentP50MS=40)
+        for changes in ({"requestID": "retired"}, {"selectedFPS": 30}, {"elapsedSeconds": 59.9},
+                        {"timerCallbacks": 0}, {"stabilitySamples": 1},
+                        {"maximumStabilitySampleGapSeconds": 61}, {"surfaces": []},
+                        {"surfaces": [invalid_surface]}, {"presented": 0}):
+            self.assertFalse(validate(dict(row, productPerformance=dict(receipt, **changes)),
+                                      60, (30, 60), children, binary, log))
+
+    def test_scene_daemon_command_matches_exact_executable_and_first_flag(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            binary = root / "Signed App" / "MyWallpaperX.app" / "Contents" / "MacOS" / "MyWallpaperX"
+            binary.parent.mkdir(parents=True)
+            binary.touch()
+            alias = root / "Path Alias"
+            alias.symlink_to(root / "Signed App", target_is_directory=True)
+            observed = alias / binary.relative_to(root / "Signed App")
+            start = "Wed Nov  5 05:28:48 2026     "
+            matches = benchmark.scene_daemon_command_matches
+            self.assertTrue(matches(start + f"{observed} --mwx-scene-daemon --mwx-debug-scene-startup-prefix",
+                                    binary))
+            self.assertTrue(matches(start + f"{binary} --mwx-scene-daemon", binary))
+            for command in (
+                f"{observed}.backup --mwx-scene-daemon",
+                f"{observed} --mwx-scene-daemon-extra",
+                f"{observed} --another-flag --mwx-scene-daemon",
+                f"{observed} --some-argument={binary}",
+                f"/elsewhere/MyWallpaperX --mwx-scene-daemon {binary}",
+                f"{observed}",
+            ):
+                with self.subTest(command=command):
+                    self.assertFalse(matches(start + command, binary))
+
+    def test_scene_performance_window_bounds(self):
+        from argparse import ArgumentTypeError
+        self.assertEqual(benchmark.scene_performance_window("0,4"), (0, 4))
+        self.assertEqual(benchmark.scene_performance_window("30,60"), (30, 60))
+        for value in ("nan,60", "30,inf", "0,1", "61,60", "30,60,90", ""):
+            with self.subTest(value=value), self.assertRaises(ArgumentTypeError):
+                benchmark.scene_performance_window(value)
+
     def test_scene_warm_requires_the_same_daemon_instance(self):
         one = {"recordID": "sample", "requestID": "one", "entryToPresentedMs": 20,
                "entryToParentFinalizedMs": 25, "daemonPID": 42, "daemonGeneration": 1}

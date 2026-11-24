@@ -15,6 +15,13 @@ extension SceneDesktopWallpaperSession {
         var frameOutcomes: [SceneMetalRenderer.FrameOutcome] = []
         frameOutcomes.reserveCapacity(surfaces.count)
         let dynamicTextSnapshot = dynamicTextTextures?.snapshot()
+#if DEBUG
+        let performanceTelemetry = SceneDesktopWallpaperHost.usesDebugEvidenceWindow
+            ? SceneFramePerformanceTelemetry.debugEvidence
+            : SceneFramePerformanceTelemetry.productEvidence(sessionID: lifecycleID)
+#else
+        let performanceTelemetry = SceneFramePerformanceTelemetry.debugEvidence
+#endif
         for (displayID, surface) in surfaces {
             if sceneClock.isPaused && surface.didSubmitSimulationFrame && !awaitsInitialPresentation { continue }
 #if DEBUG
@@ -25,8 +32,7 @@ extension SceneDesktopWallpaperSession {
                 simulationFrame: surface.simulationFrame,
                 dynamicTextSnapshot: dynamicTextSnapshot,
                 collectsInitialVideoReadiness: true,
-                performanceTelemetry: SceneDesktopWallpaperHost.usesDebugEvidenceWindow
-                    ? SceneFramePerformanceTelemetry.debugEvidence : nil
+                performanceTelemetry: performanceTelemetry
             )
 #if DEBUG
             if case let .prepared(candidate) = frameOutcome {
@@ -56,11 +62,7 @@ extension SceneDesktopWallpaperSession {
                 )
                 NSLog("MWX DEBUG SCENE: phase=surface-submission state=rejected frame=%llu surface=%u totalSurfaces=%d", simulationFrameIndex, displayID, surfaces.count)
             }
-            if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
-                SceneFramePerformanceTelemetry.debugEvidence.recordMainFrame(
-                    duration: ProcessInfo.processInfo.systemUptime - mainFrameStart
-                )
-            }
+            performanceTelemetry?.recordMainFrame(duration: ProcessInfo.processInfo.systemUptime - mainFrameStart)
 #endif
             let outcomeIndex = frameOutcomes.count - 1
             var presentsFrame = true

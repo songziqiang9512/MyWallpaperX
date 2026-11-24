@@ -4,6 +4,37 @@ import Synchronization
 @preconcurrency import Metal
 @preconcurrency import QuartzCore
 
+nonisolated struct SceneProductPerformanceConfiguration: Sendable {
+    static let environmentKey = "MWX_SCENE_PRODUCT_PERFORMANCE"
+    let warmupSeconds: TimeInterval
+    let durationSeconds: TimeInterval
+
+    init?(_ rawValue: String) {
+        let fields = rawValue.split(separator: ",", omittingEmptySubsequences: false)
+        guard fields.count == 2, let warmup = Double(fields[0]), let duration = Double(fields[1]),
+              (0...60).contains(warmup), (2...120).contains(duration) else { return nil }
+        warmupSeconds = warmup
+        durationSeconds = duration
+    }
+}
+
+nonisolated struct ScenePresentationPerformance: Sendable {
+    let presented: Int
+    let intervalCount: Int
+    let intervalP50: TimeInterval
+    let intervalP95: TimeInterval
+    let intervalP99: TimeInterval
+    let intervalMax: TimeInterval
+}
+
+nonisolated struct SceneFrameCadencePerformance: Sendable {
+    var timerCallbacks = 0
+    var admissionWaits = 0
+    var timerExpiredSlots = 0
+    var admissionExpiredSlots = 0
+    var scheduleRealignments = 0
+}
+
 nonisolated struct SceneFramePerformanceSnapshot: Sendable {
     let elapsed: TimeInterval
     let driverCallbacks: Int
@@ -14,6 +45,8 @@ nonisolated struct SceneFramePerformanceSnapshot: Sendable {
     let completedFPS: Double
     let presented: Int
     let presentationStreamCount: Int
+    let presentationsByStreamID: [UInt64: ScenePresentationPerformance]
+    let cadence: SceneFrameCadencePerformance
     let presentationIntervalCount: Int
     let presentationIntervalP50: TimeInterval
     let presentationIntervalP95: TimeInterval
@@ -95,6 +128,18 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
     }
 
     static let debugEvidence = SceneFramePerformanceTelemetry()
+    @MainActor static var productSessionID: UUID?
+
+    @MainActor static func productEvidence(sessionID: UUID) -> SceneFramePerformanceTelemetry? {
+        productSessionID == sessionID ? debugEvidence : nil
+    }
+
+    private struct PresentationStream {
+        var presented = 0
+        var lastPresentation: TimeInterval = 0
+        var intervals: [TimeInterval] = []
+    }
+
     private static let frameBudget = 1.0 / 60.0
     private let lock = NSLock()
     private var generation: UInt64 = 0
@@ -106,8 +151,8 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
     private var failed = 0
     private var presented = 0
     private var presentationFrameBudget: TimeInterval = 1.0 / 60.0
-    private var lastPresentationByStreamID: [UInt64: TimeInterval] = [:]
-    private var presentationIntervals: [TimeInterval] = []
+    private var presentationStreams: [UInt64: PresentationStream] = [:]
+    private var cadence = SceneFrameCadencePerformance()
     private var drawableMissed = 0
     private var callbackIntervals: [TimeInterval] = []
     private var stageDurations: [String: [TimeInterval]] = [:]
@@ -142,8 +187,8 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
             failed = 0
             presented = 0
             presentationFrameBudget = 1.0 / Double(targetFPS)
-            lastPresentationByStreamID.removeAll(keepingCapacity: true)
-            presentationIntervals.removeAll(keepingCapacity: true)
+            presentationStreams.removeAll(keepingCapacity: true)
+            cadence = .init()
             drawableMissed = 0
             callbackIntervals.removeAll(keepingCapacity: true)
             stageDurations.removeAll(keepingCapacity: true)
@@ -160,6 +205,24 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
             mainFrameDurations.removeAll(keepingCapacity: true)
             particleLayers.removeAll(keepingCapacity: true)
         }
+    }
+
+    func recordTimerCallback(lateness: TimeInterval, frameInterval: TimeInterval, waitingForGPU: Bool) {
+        withLock {
+            cadence.timerCallbacks += 1
+            // A wait timer's deadline is the end of the original slot. Only
+            // additional whole intervals after that deadline belong to timer lateness.
+            cadence.timerExpiredSlots += Int(max(0, lateness) / frameInterval)
+            if waitingForGPU && lateness >= 0 { cadence.admissionExpiredSlots += 1 }
+        }
+    }
+
+    func recordAdmissionWait() {
+        withLock { cadence.admissionWaits += 1 }
+    }
+
+    func recordScheduleRealignment() {
+        withLock { cadence.scheduleRealignments += 1 }
     }
 
     func recordDriverCallback(at uptime: TimeInterval = ProcessInfo.processInfo.systemUptime) {
@@ -351,6 +414,20 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
         -> SceneFramePerformanceSnapshot {
         withLock {
             let elapsed = max(uptime - measurementStart, .leastNonzeroMagnitude)
+            let presentationIntervals = presentationStreams.values.flatMap(\.intervals).sorted()
+            let presentationsByStreamID = presentationStreams.mapValues { stream in
+                let intervals = stream.intervals.sorted()
+                let middle = intervals.count / 2
+                let median = intervals.isEmpty ? 0 : (intervals[(intervals.count - 1) / 2] + intervals[middle]) / 2
+                return ScenePresentationPerformance(
+                    presented: stream.presented,
+                    intervalCount: intervals.count,
+                    intervalP50: median,
+                    intervalP95: Self.percentile(inSorted: intervals, 0.95),
+                    intervalP99: Self.percentile(inSorted: intervals, 0.99),
+                    intervalMax: intervals.last ?? 0
+                )
+            }
             return SceneFramePerformanceSnapshot(
                 elapsed: elapsed,
                 driverCallbacks: driverCallbacks,
@@ -360,18 +437,14 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
                 submittedFPS: Double(submitted) / elapsed,
                 completedFPS: Double(completed) / elapsed,
                 presented: presented,
-                presentationStreamCount: lastPresentationByStreamID.count,
+                presentationStreamCount: presentationStreams.count,
+                presentationsByStreamID: presentationsByStreamID,
+                cadence: cadence,
                 presentationIntervalCount: presentationIntervals.count,
-                presentationIntervalP50: Self.percentile(
-                    presentationIntervals, 0.50
-                ),
-                presentationIntervalP95: Self.percentile(
-                    presentationIntervals, 0.95
-                ),
-                presentationIntervalP99: Self.percentile(
-                    presentationIntervals, 0.99
-                ),
-                presentationIntervalMax: presentationIntervals.max() ?? 0,
+                presentationIntervalP50: Self.percentile(inSorted: presentationIntervals, 0.50),
+                presentationIntervalP95: Self.percentile(inSorted: presentationIntervals, 0.95),
+                presentationIntervalP99: Self.percentile(inSorted: presentationIntervals, 0.99),
+                presentationIntervalMax: presentationIntervals.last ?? 0,
                 presentationOverOneAndHalfBudget: Self.countOverThreshold(
                     presentationIntervals,
                     threshold: presentationFrameBudget * 1.5
@@ -455,20 +528,23 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
         withLock {
             guard generation == token else { return }
             presented += 1
-            if let previous = lastPresentationByStreamID[streamID],
-               uptime > previous {
-                presentationIntervals.append(uptime - previous)
+            let previous = presentationStreams[streamID]?.lastPresentation ?? 0
+            presentationStreams[streamID, default: PresentationStream()].presented += 1
+            if uptime > previous {
+                if previous > 0 {
+                    presentationStreams[streamID]?.intervals.append(uptime - previous)
+                }
+                presentationStreams[streamID]?.lastPresentation = uptime
             }
-            lastPresentationByStreamID[streamID] = max(
-                uptime,
-                lastPresentationByStreamID[streamID] ?? 0
-            )
         }
     }
 
     private static func percentile(_ values: [TimeInterval], _ quantile: Double) -> TimeInterval {
-        guard !values.isEmpty else { return 0 }
-        let sorted = values.sorted()
+        percentile(inSorted: values.sorted(), quantile)
+    }
+
+    private static func percentile(inSorted sorted: [TimeInterval], _ quantile: Double) -> TimeInterval {
+        guard !sorted.isEmpty else { return 0 }
         let index = Int((Double(sorted.count - 1) * quantile).rounded(.up))
         return sorted[min(max(index, 0), sorted.count - 1)]
     }
@@ -491,6 +567,90 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return operation()
+    }
+}
+
+nonisolated struct SceneProductPerformanceSurface: Equatable {
+    let displayID: UInt32
+    let identity: String
+    let windowNumber: Int
+    let maximumFPS: Int
+    let modeRefreshRate: Double
+    let minimumRefreshInterval: TimeInterval
+    let maximumRefreshInterval: TimeInterval
+}
+
+nonisolated struct SceneProductPerformanceWindow {
+    let requestID: UUID
+    let sessionID: UUID
+    let selectedFPS: Int
+    let finalizedAt: TimeInterval
+    var startedAt: TimeInterval?
+    var surfaces: [SceneProductPerformanceSurface] = []
+    private(set) var stabilitySamples = 0
+    private(set) var maximumStabilitySampleGap: TimeInterval = 0
+    private var lastStabilitySample: TimeInterval?
+
+    init(requestID: UUID, sessionID: UUID, selectedFPS: Int, finalizedAt: TimeInterval) {
+        self.requestID = requestID
+        self.sessionID = sessionID
+        self.selectedFPS = selectedFPS
+        self.finalizedAt = finalizedAt
+    }
+
+    mutating func recordStabilitySample(at now: TimeInterval) {
+        stabilitySamples += 1
+        if let lastStabilitySample {
+            maximumStabilitySampleGap = max(maximumStabilitySampleGap, now - lastStabilitySample)
+        }
+        lastStabilitySample = now
+    }
+
+    func receipt(daemonPID: Int32, snapshot: SceneFramePerformanceSnapshot?, failure: String?) -> [String: Any] {
+        var receipt: [String: Any] = [
+            "requestID": requestID.uuidString, "sessionID": sessionID.uuidString,
+            "daemonPID": daemonPID, "selectedFPS": selectedFPS, "passed": false,
+            "stabilitySamples": stabilitySamples, "maximumStabilitySampleGapSeconds": maximumStabilitySampleGap
+        ]
+        guard let snapshot, let startedAt else {
+            receipt["failure"] = failure
+            return receipt
+        }
+        let hasPresentations = surfaces.allSatisfy {
+            (snapshot.presentationsByStreamID[UInt64($0.displayID)]?.intervalCount ?? 0) > 0
+        }
+        receipt["passed"] = hasPresentations
+        if !hasPresentations { receipt["failure"] = "product-performance-presentation-missing" }
+        receipt["warmupSeconds"] = startedAt - finalizedAt
+        receipt["elapsedSeconds"] = snapshot.elapsed
+        receipt["timerCallbacks"] = snapshot.cadence.timerCallbacks
+        receipt["simulationCallbacks"] = snapshot.driverCallbacks
+        receipt["admissionWaits"] = snapshot.cadence.admissionWaits
+        receipt["timerExpiredSlots"] = snapshot.cadence.timerExpiredSlots
+        receipt["admissionExpiredSlots"] = snapshot.cadence.admissionExpiredSlots
+        receipt["scheduleRealignments"] = snapshot.cadence.scheduleRealignments
+        receipt["submitted"] = snapshot.submitted
+        receipt["completed"] = snapshot.completed
+        receipt["failed"] = snapshot.failed
+        receipt["presented"] = snapshot.presented
+        receipt["drawableMissed"] = snapshot.drawableMissed
+        receipt["drawableWaitP95MS"] = snapshot.drawableWaitP95 * 1_000
+        receipt["rendererWallP95MS"] = snapshot.cpuFrameP95 * 1_000
+        receipt["gpuP95MS"] = snapshot.gpuFrameP95 * 1_000
+        receipt["surfaces"] = surfaces.map { surface -> [String: Any] in
+            let present = snapshot.presentationsByStreamID[UInt64(surface.displayID)]
+            return [
+                "displayID": surface.displayID, "surfaceIdentity": surface.identity, "windowNumber": surface.windowNumber,
+                "maximumDisplayFPS": surface.maximumFPS, "modeRefreshRate": surface.modeRefreshRate,
+                "minimumRefreshInterval": surface.minimumRefreshInterval, "maximumRefreshInterval": surface.maximumRefreshInterval,
+                "presented": present?.presented ?? 0, "presentIntervals": present?.intervalCount ?? 0,
+                "presentP50MS": (present?.intervalP50 ?? 0) * 1_000,
+                "presentP95MS": (present?.intervalP95 ?? 0) * 1_000,
+                "presentP99MS": (present?.intervalP99 ?? 0) * 1_000,
+                "presentMaxMS": (present?.intervalMax ?? 0) * 1_000
+            ]
+        }
+        return receipt
     }
 }
 

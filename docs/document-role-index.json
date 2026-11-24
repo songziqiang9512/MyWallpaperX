@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f1f34ed7e823bc530a9ee9fb945b5aa3c332d6b59d18c179aa09d8c8d61a236c",
+        "sourceSHA256": "643e56d10347717afdab4bb7a131f8960ffcd149416504d08309563552fd7d84",
         "method": "document_registry --audit + document_health --check",
-        "scope": "三引擎设置、源素材获取和实际播放入口；本地与 Steam Video 详情同轨道读取。",
-        "limitations": "导航与源码核对；单个隔离 App 或媒体读取结论见对应证据。"
+        "scope": "三引擎质量入口、Video 片源及 Scene 稳态逐屏呈现测量位置。",
+        "limitations": "导航核对；运行边界以本机签名 Debug 的同身份收据为准。"
       }
     },
     {
