@@ -22,7 +22,7 @@
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 42,
-      "bytes": 6841
+      "bytes": 6987
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 200,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 317151
+      "bytes": 318391
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 214,
-      "bytes": 65938
+      "bytes": 65992
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -361,10 +361,10 @@
     {
       "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "d2cf33f0ab7c9b5887e30050cec95fc25a3c14b5e6f3d8364172f20179594408",
-      "after": "4327d1f54340afb434803d0afb213a285dedab1a5ddb8dee51c1c582929d8ed2",
+      "before": "4327d1f54340afb434803d0afb213a285dedab1a5ddb8dee51c1c582929d8ed2",
+      "after": "528cae877612ae0c90714a60b2f26ef3138c948e4c562eeb47a62a0a23c0239f",
       "owner": "Shared Scene author spectrum",
-      "reason": "Updates the single capture design for two measured window contracts and records tested frequency and within-band peak behavior.",
+      "reason": "Preserves the exact PCM history distinction, static boundary, and measured accuracy and work of the short transform candidate.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361"
     },
     {
@@ -577,10 +577,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "5f2081bba17314a7555e5fb8fb8d0ebaef345d181637c7f4d30abb0fa78fa30c",
-      "after": "9c138187876ed4493b8dc14cce623277cc463453f1e04aeccf52404fbc1f6b56",
+      "before": "9c138187876ed4493b8dc14cce623277cc463453f1e04aeccf52404fbc1f6b56",
+      "after": "a8de7a1bf666ee59c26482cbd0f856fbabe3676aeca2968c50c3938bfe09cf76",
       "owner": "Shared Scene author spectrum",
-      "reason": "Updates the single capture design for two measured window contracts and records tested frequency and within-band peak behavior.",
+      "reason": "Preserves the exact PCM history distinction, static boundary, and measured accuracy and work of the short transform candidate.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361"
     },
     {
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "1300e063000d240f4ffbb82162be21f8c99db4076c68a9a2b313716f1a155f47",
-      "after": "199b4594e21525bc0c55db1d23b8cf442dab8093a6102054b06a6fd316d9a88c",
+      "before": "199b4594e21525bc0c55db1d23b8cf442dab8093a6102054b06a6fd316d9a88c",
+      "after": "5012af0dfaf2c144d167245bd74d7908401bc928cd8d1dc6b09a54b415071e28",
       "owner": "Shared Scene author spectrum",
-      "reason": "Updates the single capture design for two measured window contracts and records tested frequency and within-band peak behavior.",
+      "reason": "Preserves the exact PCM history distinction, static boundary, and measured accuracy and work of the short transform candidate.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361"
     },
     {

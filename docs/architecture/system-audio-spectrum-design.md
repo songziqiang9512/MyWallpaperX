@@ -3,13 +3,13 @@
 
 # 共享音频分析与消费域设计
 
-> 状态：当前三类消费者仍共用显示响应。[粒子16档](../scene/capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)与[shader 32档](../scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361)分别已证从准备64档取组内峰值，端点对照把频带身份差定位在折叠前。固定x64默认分析窗与现有窗不同，尚未取得x86实机等同证据。48kHz相邻频轴与同档取峰已有实机资格，短矩形候选可复现邻谱；约85ms Hann 后的幅值无法恢复该窗口。下一门核相同输入不同历史的组内增益，并比较短窗精确数值与成本。
+> 状态：当前三类消费者仍共用显示响应。[粒子16档](../scene/capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)与[shader 32档](../scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361)分别已证从准备64档取组内峰值，端点对照把频带身份差定位在折叠前。固定x64默认分析窗与现有窗不同，尚未取得x86实机等同证据。48kHz相邻频轴与同档取峰已有实机资格，短矩形候选可复现邻谱；约85ms Hann 后的幅值无法恢复该窗口。同PCM已证共享快影响与局部慢状态，更新律未定。48kHz离线比较选择精确短窗变换，格式、增益及作者画面仍待验证。
 
 ## 目标与职责
 
 Video/Web 保留现有可视响应与样式。Scene 作者的选带、bounds、指数和条件行为消费作者数值域。两域共享PCM采集、完整快照、分析调度与发布时钟；相同分析窗只求一次。Video现有产品只有柱形。
 
-SystemAudioSpectrumService独占采集、需求和约30Hz发布。原 CaptureBuffer 保存连续PCM，一次移交同时间的完整快照；原 Analyzer 按消费者需求分析，Video/Web共用原去DC/Hann输出，已证不同的Scene短窗取该快照尾段，在同一worker和调用中变换。只在两个不同窗口同时被消费时各求一次，复用底层FFT资源、冷系数与有界scratch。Analyzer不另存PCM，也没有第二采集器、调度、时钟或IPC。短窗实现先验精确物理格、端点格式和GPU作者画面，再用实测成本选用有界等效算法。
+SystemAudioSpectrumService独占采集、需求和约30Hz发布。原 CaptureBuffer 保存连续PCM，一次移交同时间的完整快照；原 Analyzer 按消费者需求分析，Video/Web共用原去DC/Hann输出，已证不同的Scene短窗取该快照尾段，在同一worker和调用中变换。只在两个不同窗口同时被消费时各求一次，复用底层FFT资源、冷系数与有界scratch。Analyzer不另存PCM，也没有第二采集器、调度、时钟或IPC。短窗候选只算准备档消费的物理格，冷备系数，热用原私有工作区。精确变换及数值误差以实测为准；完整输出仍验端点格式、历史响应和作者画面。
 
 `PlaybackSpectrumDelivery`继续由控制面更新有身份的进程目标，后台沿原有界transport发布成品数组，普通帧不经主App的AppKit队列。Scene仍沿原六数组→Inbox→帧快照→shader/Script/particle消费，不让消费者反推显示值或各自调增益、分档。scope、generation、停止及替换撤权归原owner。
 
