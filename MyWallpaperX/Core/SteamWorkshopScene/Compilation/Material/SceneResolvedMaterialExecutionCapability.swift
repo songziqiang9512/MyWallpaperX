@@ -545,10 +545,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
             dependencyOwnership: dependencyOwnership,
             sceneBackgroundRequirement: sceneBackgroundRequirement
         )
-        let placementTail = Self.transparentCompositionPlacementTail(
+        let placementTail = Self.placementTail(
             admitted: admitted, stages: preparedStages, materials: materials,
-            dependencyOwnership: dependencyOwnership, sceneBackgroundRequirement: sceneBackgroundRequirement)
-        let terminalReadsCurrentAttachment = Self.backgroundAttachmentReplaySupported(
+            dependencyOwnership: dependencyOwnership, sceneBackgroundRequirement: sceneBackgroundRequirement,
+            usesSourceSizedEffects: simpleColor.intermediates)
+        let terminalReadsCurrentAttachment = (placementTail != nil && sceneBackgroundRequirement != nil)
+            || Self.backgroundAttachmentReplaySupported(
                 admitted: admitted, stages: preparedStages, materials: materials,
                 dependencyOwnership: dependencyOwnership,
                 sceneBackgroundRequirement: sceneBackgroundRequirement)

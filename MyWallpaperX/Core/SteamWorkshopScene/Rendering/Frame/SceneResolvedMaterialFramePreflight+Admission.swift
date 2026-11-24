@@ -13,6 +13,7 @@ extension SceneMetalRenderer {
         mainSource: MTLTexture
     ) -> MTLTexture? {
         guard claim.supportsTerminalMaterialReplay,
+              claim.sceneBackgroundRequirement == nil,
               claim.dependencyOwnership == .none,
               (layer.colorBlendMode ?? 0) == 0,
               imageTextures.geometryProducts[layer.id] == nil,

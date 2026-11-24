@@ -195,8 +195,8 @@ extension SceneMetalRenderer {
                     guard cameraFrame.defaultsToPerspective,
                           cameraFrame.resolvesPerspective(for: layer) else { continue }
                     if layer.contentKind != "image", layer.contentKind != "text", !layer.effects.isEmpty,
-                       imageCompositor.preflightResolvedMaterialClaim(layerID: id).execution?
-                        .supportsTerminalMaterialReplay == true {
+                       let claim = imageCompositor.preflightResolvedMaterialClaim(layerID: id).execution,
+                       claim.sceneBackgroundRequirement == nil, claim.supportsTerminalMaterialReplay {
                         continue
                     }
                 }

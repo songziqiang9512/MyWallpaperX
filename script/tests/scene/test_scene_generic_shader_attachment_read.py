@@ -42,9 +42,9 @@ def shader(body=BODY, parameters=PARAMETERS, prefix=PREFIX, entry='draw'):
     return prefix + f'fragment Output {entry}({parameters})\n{{\n' + body + '}\n'
 
 
-def case(name, source, *, entry='draw', texture='sourceImage', count=1):
+def case(name, source, *, entry='draw', texture='sourceImage', count=1, slot=0):
     return dict(name=name, metalSource=source, fragmentFunctionName=entry,
-                sourceTextureName=texture, sourceSampleCallCount=count)
+                sourceTextureName=texture, sourceSampleCallCount=count, sourceSlot=slot)
 
 
 BASE = shader()
@@ -56,8 +56,14 @@ TWO_BODY = BODY.replace('float4 base = decodeColor(' + SAMPLE + ');',
     'float4 base = decodeColor(' + SAMPLE + ') + decodeColor(' + GROUPED_SAMPLE + ');')
 ONLY_PARAMETERS = 'texture2d<float> sourceImage [[texture(0)]], sampler baseSampling [[sampler(0)]]'
 ONLY_BODY = '    return Output{sourceImage.sample(baseSampling, float2(0.5))};\n'
+PROJECTED = shader(
+    BODY.replace('overlayImage.sample(overlaySampling,', 'overlayImage.sample(baseSampling,'),
+    PARAMETERS.replace('sourceImage [[texture(0)]]', 'sourceImage [[texture(2)]]')
+    .replace('overlayImage [[texture(1)]]', 'overlayImage [[texture(0)]]'),
+)
 CASES = [
     case('ordinary', BASE),
+    case('projected', PROJECTED, slot=2),
     case('renamed', RENAMED, entry='shade', texture='backdrop'),
     case('grouped', shader(BODY.replace(SAMPLE, GROUPED_SAMPLE))),
     case('twoSamples', shader(TWO_BODY), count=2),
@@ -109,7 +115,9 @@ CASES += [case(name, text, count=2 if name == 'nestedSourceSample' else 1)
           for name, text in REJECTED.items()]
 CASES += [case('zeroCount', BASE, count=0), case('countMismatch', BASE, count=2),
           case('optimizedCountMismatch', shader(TWO_BODY), count=1),
-          case('wrongEntry', BASE, entry='otherEntry')]
+          case('wrongEntry', BASE, entry='otherEntry'),
+          case('duplicateProjectedSlot', PROJECTED.replace('overlayImage [[texture(0)]]',
+               'overlayImage [[texture(2)]]'), slot=2)]
 
 HARNESS = r'''
 import Foundation
@@ -119,6 +127,7 @@ private struct Input: Decodable {
     let fragmentFunctionName: String
     let sourceTextureName: String
     let sourceSampleCallCount: Int
+    let sourceSlot: Int
 }
 private struct Output: Encodable { let name: String; let lowered: String? }
 @main private enum Main {
@@ -128,7 +137,8 @@ private struct Output: Encodable { let name: String; let lowered: String? }
         let output = input.map { value in Output(name: value.name,
             lowered: SceneGenericShaderAttachmentReadLowering.lower(
                 metalSource: value.metalSource, fragmentFunctionName: value.fragmentFunctionName,
-                sourceTextureName: value.sourceTextureName, sourceSampleCallCount: value.sourceSampleCallCount)) }
+                sourceTextureName: value.sourceTextureName, sourceSampleCallCount: value.sourceSampleCallCount,
+                sourceSlot: value.sourceSlot)) }
         FileHandle.standardOutput.write(try JSONEncoder().encode(output))
     }
 }
@@ -222,8 +232,18 @@ class SceneGenericShaderAttachmentReadTests(unittest.TestCase):
         self.assertIn('float4 mwxAttachmentColor1 [[color(0)]]', collision)
         self.assertIn('decodeColor(mwxAttachmentColor1)', collision)
 
+    def test_projected_slot_does_not_remove_other_textures_or_shared_sampler(self):
+        result = self.results['projected']
+        self.assertIsNotNone(result)
+        self.assertIn('float4 mwxAttachmentColor [[color(0)]]', result)
+        self.assertIn('decodeColor(mwxAttachmentColor)', result)
+        self.assertIn('texture2d<float> overlayImage [[texture(0)]]', result)
+        self.assertIn('sampler baseSampling [[sampler(0)]]', result)
+        self.assertNotIn('texture(2)', result)
+
     def test_unproved_resource_uses_and_count_or_signature_mismatches_are_absent(self):
-        names = [*REJECTED, 'zeroCount', 'countMismatch', 'optimizedCountMismatch', 'wrongEntry']
+        names = [*REJECTED, 'zeroCount', 'countMismatch', 'optimizedCountMismatch',
+                 'wrongEntry', 'duplicateProjectedSlot']
         for name in names:
             with self.subTest(case=name):
                 self.assertIsNone(self.results[name], name)

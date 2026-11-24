@@ -77,7 +77,15 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             // The accepted artifact already validated this exact compiler ABI.
             // Reclassifying it with bounded-frontend rules loses mixed inputs.
             premultipliedColorInputSlots = inputSlots
-            frontend = program
+            if template.graphRole.effectInput == .effectOutput,
+               sceneBackgroundColorSlots.count == 1, let slot = sceneBackgroundColorSlots.first {
+                frontend = prepareProjectedBackground(
+                    program: program, slot: slot, vertexSource: compilerSources.vertex,
+                    fragmentSource: compilerSources.fragment
+                )
+            } else {
+                frontend = program
+            }
             routeDecision = decision
             boundedOutput = nil
             artifactFailure = ["generic-artifact-accepted", requestKey]
@@ -139,5 +147,28 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             artifactFailure,
             premultipliedColorInputSlots
         )
+    }
+
+    private static func prepareProjectedBackground(
+        program: SceneAuthoredShaderProgram, slot: Int, vertexSource: String, fragmentSource: String
+    ) -> SceneAuthoredShaderProgram {
+        guard program.supportsPlacementSpaceTerminalReplay,
+              let input = program.textureBindings.first(where: { $0.slot == slot }),
+              let fact = SceneAuthoredShaderSamePixelSourceAnalyzer.analyze(
+                vertexSource: vertexSource, fragmentSource: fragmentSource, sceneBackgroundSlot: slot
+              ), fact.positionMatrixUniformName == "g_ModelViewProjectionMatrix",
+              let source = SceneGenericShaderAttachmentReadLowering.lower(
+                metalSource: program.metalSource, fragmentFunctionName: program.fragmentFunctionName,
+                sourceTextureName: input.name, sourceSampleCallCount: fact.sampleCallCount, sourceSlot: slot
+              )
+        else { return program }
+        var result = program
+        result.attachmentReadVariant = .init(
+            schemaVersion: 1, sourceSlot: slot, metalSource: source,
+            metalSourceSHA256: SceneShaderStableDigest.hash(Data(source.utf8)),
+            physicalTextureSlots: program.textureBindings.map(\.slot).filter { $0 != slot }.sorted(),
+            usesSceneProjection: true
+        )
+        return result
     }
 }

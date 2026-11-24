@@ -21,7 +21,8 @@ nonisolated enum SceneGenericShaderAttachmentReadLowering {
         metalSource: String,
         fragmentFunctionName: String,
         sourceTextureName: String,
-        sourceSampleCallCount: Int
+        sourceSampleCallCount: Int,
+        sourceSlot: Int = 0
     ) -> String? {
         guard sourceSampleCallCount > 0, metalSource.utf8.count <= 512 * 1_024,
               let lexicalSource = SceneShaderLexicalScanner.compilerMetalSource(metalSource) else { return nil }
@@ -46,14 +47,14 @@ nonisolated enum SceneGenericShaderAttachmentReadLowering {
                 tokens: tokens, ranges: ranges) else { return nil }
         let body = (close + 2)..<bodyClose
         let candidates = parameters.indices.filter {
-            textureName(parameters[$0].tokens, tokens: tokens, binding: 0) == sourceTextureName
+            textureName(parameters[$0].tokens, tokens: tokens, binding: sourceSlot) == sourceTextureName
         }
         let textureAttributes = parameters.compactMap {
             Scanner.integerAttributeValues("texture", in: $0.tokens, tokens: tokens)
         }
         guard candidates.count == 1, let sourceParameter = candidates.first,
               textureAttributes.count == parameters.count,
-              textureAttributes.filter({ $0.contains(0) }).count == 1,
+              textureAttributes.filter({ $0.contains(sourceSlot) }).count == 1,
               !parameters.contains(where: { parameter in
                 parameter.tokens.contains { tokens[$0].text == "color" }
               }) else { return nil }

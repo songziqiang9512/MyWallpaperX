@@ -125,12 +125,12 @@
       "bytes": 69690
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 419,
-      "bytes": 86301
+      "lines": 428,
+      "bytes": 88036
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 321472
+      "bytes": 322886
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 215,
-      "bytes": 66653
+      "bytes": 66473
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -460,11 +460,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "c9fd8028c4892fac3cdcde50fe3fab4a45aa906fdbf96eeb1571794b27390a48",
-      "after": "76db7e35470a9d5aea0b2ab93cd7d3d76833bd20443e110c0ffdec1e32bb9733",
+      "before": "76db7e35470a9d5aea0b2ab93cd7d3d76833bd20443e110c0ffdec1e32bb9733",
+      "after": "5068da070ff76061a5c029fae6f33af1d62c9c24c9de2f644508c0c974643dcf",
       "owner": "Scene captured attachment and material graph",
-      "reason": "Defines native terminal raster from the authored graph prefix without a materialized second output.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#placement-only-composition-tail"
+      "reason": "Defines placement-space same-pixel attachment reading for an authored solid terminal.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#solid-background-same-pixel-tail"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f7bd36d3ef78f8ce1669a2c8d5738fae7b7272a414783c4bdd67e2e41e481fb2",
-      "after": "efe4100ba04a6188d5e45608be73a317d96d1291b32c4a5406d5c97c4c6c32eb",
+      "before": "efe4100ba04a6188d5e45608be73a317d96d1291b32c4a5406d5c97c4c6c32eb",
+      "after": "671980ee7958dffcf232f1b882583e138f321cc042c1bd7b4585d4d638579ee3",
       "owner": "Shared Scene author spectrum",
-      "reason": "记录同窗官版本机颜色、热更新、粒子选级与两个作者回归。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-instance-tint-native"
+      "reason": "记录固体末材官版本机像素、输入、透视反例、实际音频路径和全尺寸GPU计数。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#solid-background-same-pixel-native"
     },
     {
       "section": "bodies",

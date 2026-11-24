@@ -402,10 +402,12 @@ struct SceneImageLayerCompositor {
                 guard compositeOutput, request.terminalMaterialState == nil,
                       resolvedMaterialGraphOutputPublisher == nil,
                       (ticket.terminalReadsCurrentAttachment
-                        ? request.layer.utilityLayer?.kind == .composition
+                        ? (request.layer.contentKind == "solid" && ticket.placementTailEffect != nil
+                            && !hasDependencyInput && request.terminalDepth == nil)
+                            || (request.layer.utilityLayer?.kind == .composition
                             && request.layer.utilityLayer?.copyBackground == true
                             && request.layer.childLayerIDs.isEmpty && request.requiresSourceCopy
-                            && !hasDependencyInput && request.terminalDepth == nil
+                            && !hasDependencyInput && request.terminalDepth == nil)
                         : transparentComposition || request.layer.contentKind == "solid" || request.layer.contentKind == "text"
                             || (request.layer.contentKind == "image"
                                 && request.terminalDepth == nil && request.terminalMVP == nil

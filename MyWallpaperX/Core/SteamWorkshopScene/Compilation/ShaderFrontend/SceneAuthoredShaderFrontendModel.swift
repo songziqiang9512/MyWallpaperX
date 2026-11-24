@@ -468,6 +468,7 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
         let metalSource: String
         let metalSourceSHA256: String
         let physicalTextureSlots: [Int]
+        var usesSceneProjection: Bool? = nil
     }
 
     enum VertexPositionInput: String, Codable, Hashable, Sendable {
@@ -530,7 +531,7 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
     /// Prepared source fact. Older artifacts retain ordinary execution but
     /// cannot opt into a different terminal placement space.
     let fragmentReadsRasterPosition: Bool?
-    let attachmentReadVariant: AttachmentReadVariant?
+    var attachmentReadVariant: AttachmentReadVariant?
 
     var supportsTerminalMaterialReplay: Bool { vertexPositionInput == .targetPixels }
 

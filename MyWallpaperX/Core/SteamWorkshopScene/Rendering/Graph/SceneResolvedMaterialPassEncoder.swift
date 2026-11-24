@@ -10,6 +10,7 @@ final class SceneResolvedMaterialPassEncoder {
         let fragmentOutput: SceneShaderColorRepresentation?
         let storedContent: SceneTextureContent
         let role: SceneResolvedMaterialProgram.PassRole
+        let attachmentReadSlot: Int?
 #if DEBUG
         var programCacheKey = ""
         var placementEffectGeneration: UInt64?
@@ -198,8 +199,16 @@ final class SceneResolvedMaterialPassEncoder {
             return .failure(.targetRejected)
         }
         // Keep logical source resources and samplers: another physical texture
-        // may share source0's sampler after its texture read becomes color(0).
-        guard let bindings = validatedBindings(program, target: target) else {
+        // may share the lowered texture's sampler after its read becomes color(0).
+        let read = role.readsCurrentAttachment ? program.frontendProgram.attachmentReadVariant : nil
+        if let read {
+            let source = program.textureSlots[read.sourceSlot]?.resource.publication.texture
+            guard (source === target) == (read.usesSceneProjection == true) else {
+                return .failure(.bindingsRejected)
+            }
+        }
+        guard let bindings = validatedBindings(program, target: target,
+                                                attachmentReadSlot: read?.sourceSlot) else {
             return .failure(.bindingsRejected)
         }
         #if SCENE_GRAPH_TESTING
@@ -242,6 +251,7 @@ final class SceneResolvedMaterialPassEncoder {
             fragmentOutput: output.colorRepresentation,
             storedContent: storedContent,
             role: role,
+            attachmentReadSlot: read?.sourceSlot,
             ownerToken: ownerToken,
             resetGeneration: cached.generation,
             pipeline: cached.pipeline,
@@ -393,7 +403,9 @@ final class SceneResolvedMaterialPassEncoder {
             && commandBuffer.commandQueue.device.registryID == device.registryID
             && SceneResolvedMaterialAttachmentStorage.target(
                 pass.target, belongsTo: device, stores: pass.storedContent, role: pass.role)
-            && pass.bindings.allSatisfy { valid($0, target: pass.target) }
+            && pass.bindings.allSatisfy {
+                valid($0, target: pass.target, attachmentReadSlot: pass.attachmentReadSlot)
+            }
     }
 
     private func encodeDraw(_ pass: PreparedPass, encoder: MTLRenderCommandEncoder) {
@@ -418,7 +430,7 @@ final class SceneResolvedMaterialPassEncoder {
             }
         }
         for binding in pass.bindings {
-            if !pass.role.readsCurrentAttachment || binding.slot != 0 {
+            if binding.slot != pass.attachmentReadSlot {
                 encoder.setVertexTexture(binding.texture, index: binding.slot)
                 encoder.setFragmentTexture(binding.texture, index: binding.slot)
             }
@@ -442,18 +454,19 @@ final class SceneResolvedMaterialPassEncoder {
                 row.kind = pass.role == .offscreenOverwrite ? "material" : "terminal-material-replay"
                 row.target = .init(pass.target, role: pass.role == .offscreenOverwrite ? "graph-material-target" : "terminal-replay-target")
                 if let slot = row.slot, let binding = pass.bindings.first(where: { $0.slot == slot }) {
-                    let actual = pass.role.readsCurrentAttachment && slot == 0 ? pass.target : binding.texture
+                    let readsAttachment = slot == pass.attachmentReadSlot
+                    let actual = readsAttachment ? pass.target : binding.texture
                     let token = String(UInt(bitPattern: ObjectIdentifier(actual)))
                     if row.source?.textureToken != token {
                         row.details = ["preparedTextureToken": row.source?.textureToken ?? "unknown",
                             "selectionMetadataRole": "prepared-logical-origin",
-                            "physicalBinding": pass.role.readsCurrentAttachment && slot == 0 ? "current-attachment" : "replacement-copy"]
+                            "physicalBinding": readsAttachment ? "current-attachment" : "replacement-copy"]
                     }
                     row.source?.textureToken = token
                     row.source?.width = actual.width
                     row.source?.height = actual.height
                     row.source?.pixelFormat = actual.pixelFormat.rawValue
-                    row.access = pass.role.readsCurrentAttachment && slot == 0 ? "color-attachment-read" : "texture-bind"
+                    row.access = readsAttachment ? "color-attachment-read" : "texture-bind"
                 }
                 row.outcome = encoded ? "draw-encoded" : "failed"
                 row.reason = reason
@@ -474,7 +487,8 @@ final class SceneResolvedMaterialPassEncoder {
 
     private func validatedBindings(
         _ program: SceneResolvedMaterialProgram,
-        target: MTLTexture
+        target: MTLTexture,
+        attachmentReadSlot: Int?
     ) -> [Binding]? {
         let slots = program.semanticIdentity.shader.textureSlots
         var result: [Binding] = []
@@ -483,7 +497,7 @@ final class SceneResolvedMaterialPassEncoder {
             let candidate = slot.resource.publication.candidate
             let texture = candidate.texture
             guard texture.device.registryID == device.registryID,
-                  ObjectIdentifier(texture) != ObjectIdentifier(target) else {
+                  slotIndex == attachmentReadSlot || texture !== target else {
                 return nil
             }
             let sampler: MTLSamplerState
@@ -499,14 +513,14 @@ final class SceneResolvedMaterialPassEncoder {
         return result
     }
 
-    private func valid(_ binding: Binding, target: MTLTexture) -> Bool {
+    private func valid(_ binding: Binding, target: MTLTexture, attachmentReadSlot: Int?) -> Bool {
         binding.texture.device.registryID == device.registryID
             && binding.texture.textureType == .type2D
             && binding.texture.width > 0
             && binding.texture.height > 0
             && binding.texture.sampleCount == 1
             && binding.texture.usage.contains(.shaderRead)
-            && ObjectIdentifier(binding.texture) != ObjectIdentifier(target)
+            && (binding.slot == attachmentReadSlot || binding.texture !== target)
     }
 
     func pipeline(

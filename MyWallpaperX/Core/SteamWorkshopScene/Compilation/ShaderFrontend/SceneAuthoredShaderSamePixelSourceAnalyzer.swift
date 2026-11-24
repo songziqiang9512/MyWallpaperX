@@ -31,14 +31,20 @@ nonisolated enum SceneAuthoredShaderSamePixelSourceAnalyzer {
         let arguments: [Range<Int>]
     }
 
-    static func analyze(vertexSource: String, fragmentSource: String) -> Fact? {
+    static func analyze(vertexSource: String, fragmentSource: String,
+                        sceneBackgroundSlot: Int? = nil) -> Fact? {
+        let slot = sceneBackgroundSlot ?? 0
+        let sampler = "g_Texture\(slot)"
         guard let vertex = unit(vertexSource, stage: .vertex),
               let fragment = unit(fragmentSource, stage: .fragment),
-              let samples = sourceSamples(fragment),
-              let matrix = canonicalVertex(vertex, varying: samples.varying),
-              let vertexSamplerUses = references("g_Texture0", in: vertex),
+              let samples = sourceSamples(fragment, sampler: sampler,
+                                          projected: sceneBackgroundSlot != nil),
+              let matrix = sceneBackgroundSlot == nil
+                ? canonicalVertex(vertex, varying: samples.varying)
+                : projectedVertex(vertex, varying: samples.varying),
+              let vertexSamplerUses = references(sampler, in: vertex),
               vertexSamplerUses.isEmpty else { return nil }
-        return Fact(textureSlot: 0, sampleCallCount: samples.count,
+        return Fact(textureSlot: slot, sampleCallCount: samples.count,
                     coordinateVaryingName: samples.varying,
                     positionMatrixUniformName: matrix)
     }
@@ -47,18 +53,8 @@ nonisolated enum SceneAuthoredShaderSamePixelSourceAnalyzer {
     /// requiring a texture sample or constraining unrelated varying math.
     static func preservesTargetPixelFootprint(vertexSource: String) -> Bool {
         guard let unit = unit(vertexSource, stage: .vertex),
-              declaration("a_Position", storage: .attribute, type: "vec3", in: unit),
-              let main = unit.functions.first(where: { $0.name == "main" }),
-              !unit.tokens[main.bodyRange].contains(where: {
-                  ["return", "discard"].contains($0.text)
-              }),
-              let uses = references("gl_Position", in: unit), uses.count == 1,
-              let statements = SceneAuthoredShaderUniformRGBMixAnalyzer.topLevelStatements(
-                  in: main.bodyRange, tokens: unit.tokens, skippingNestedBlocks: true),
-              let statement = statements.first(where: { $0.lowerBound == uses[0] }),
-              statement.count > 2, unit.tokens[statement.lowerBound + 1].text == "=",
-              positionMatrix((statement.lowerBound + 2)..<statement.upperBound, unit: unit)
-                == "g_ModelViewProjectionMatrix" else { return false }
+              positionedVertex(unit)?.matrix == "g_ModelViewProjectionMatrix"
+        else { return false }
         return onlySafeUses("a_Position", protected: [0, 1, 2], in: unit,
                             producers: [], calls: callSites(unit))
     }
@@ -69,71 +65,128 @@ nonisolated enum SceneAuthoredShaderSamePixelSourceAnalyzer {
         return output.diagnostics.isEmpty ? output.unit : nil
     }
 
-    private static func sourceSamples(_ unit: Unit) -> (varying: String, width: Int, count: Int)? {
-        guard declaration("g_Texture0", storage: .uniform, type: "sampler2D", in: unit),
+    private static func positionedVertex(_ unit: Unit) -> (matrix: String, statements: [Range<Int>])? {
+        guard declaration("a_Position", storage: .attribute, type: "vec3", in: unit),
               let main = unit.functions.first(where: { $0.name == "main" }),
-              let uses = references("g_Texture0", in: unit), !uses.isEmpty else { return nil }
+              !unit.tokens[main.bodyRange].contains(where: { ["return", "discard"].contains($0.text) }),
+              let statements = SceneAuthoredShaderUniformRGBMixAnalyzer.topLevelStatements(
+                  in: main.bodyRange, tokens: unit.tokens, skippingNestedBlocks: true),
+              let position = references("gl_Position", in: unit), position.count == 1,
+              let output = statements.first(where: { $0.lowerBound == position[0] }), output.count > 2,
+              unit.tokens[output.lowerBound + 1].text == "=",
+              let matrix = positionMatrix((output.lowerBound + 2)..<output.upperBound, unit: unit)
+        else { return nil }
+        return (matrix, statements)
+    }
+
+    private static func sourceSamples(_ unit: Unit, sampler: String,
+                                      projected: Bool) -> (varying: String, count: Int)? {
+        guard declaration(sampler, storage: .uniform, type: "sampler2D", in: unit),
+              let main = unit.functions.first(where: { $0.name == "main" }),
+              let uses = references(sampler, in: unit), !uses.isEmpty else { return nil }
         let calls = callSites(unit)
         var consumed: Set<Int> = []
-        var coordinate: (name: String, width: Int)?
-        var count = 0
+        var coordinate: String?
         for call in calls {
             let samplerUses = uses.filter(call.range.contains)
             guard !samplerUses.isEmpty else { continue }
             // An outer arithmetic/helper call can enclose a valid sample. Only
             // the call whose first argument is the sampler consumes its use.
             guard let first = call.arguments.first,
-                  let sampler = Scanner.identifier(unit.tokens[stripped(first, in: unit)]), sampler == "g_Texture0",
+                  Scanner.identifier(unit.tokens[stripped(first, in: unit)]) == sampler,
                   let use = uses.first(where: stripped(first, in: unit).contains)
             else { continue }
             guard ["texture2D", "texSample2D"].contains(call.name),
                   !unit.functions.contains(where: { $0.name == call.name }),
                   call.arguments.count == 2,
                   main.bodyRange.contains(call.range.lowerBound),
-                  let lanes = identity(call.arguments[1], unit: unit,
-                                       storage: .varying), lanes.count == 2,
-                  case let .input(name, 0) = lanes[0],
-                  lanes[1] == .input(name, 1),
-                  let varying = unit.declarations.first(where: { $0.name == name }),
-                  let width = vectorWidth(varying.typeName),
-                  coordinate == nil || (coordinate?.name == name && coordinate?.width == width),
+                  let name = projected
+                    ? projectedCoordinates(call.arguments[1], unit: unit)
+                    : identityCoordinates(call.arguments[1], unit: unit),
+                  coordinate == nil || coordinate == name,
                   consumed.insert(use).inserted else { return nil }
-            coordinate = (name, width)
-            count += 1
+            coordinate = name
         }
         guard consumed == Set(uses), let coordinate,
-              onlySafeUses(coordinate.name, protected: [0, 1], in: unit,
+              onlySafeUses(coordinate, protected: projected ? [0, 1, 2] : [0, 1], in: unit,
                            producers: [], calls: calls) else { return nil }
-        return (coordinate.name, coordinate.width, count)
+        return (coordinate, consumed.count)
+    }
+
+    private static func identityCoordinates(_ range: Range<Int>, unit: Unit) -> String? {
+        guard let lanes = identity(range, unit: unit, storage: .varying), lanes.count == 2,
+              case let .input(name, 0) = lanes[0], lanes[1] == .input(name, 1)
+        else { return nil }
+        return name
+    }
+
+    private static func projectedCoordinates(_ range: Range<Int>, unit: Unit) -> String? {
+        guard let sum = Scanner.split(stripped(range, in: unit), separator: "+", tokens: unit.tokens),
+              let scaled = otherOperand(nextToHalfIn: sum, unit: unit),
+              let product = Scanner.split(stripped(scaled, in: unit), separator: "*", tokens: unit.tokens),
+              let divided = otherOperand(nextToHalfIn: product, unit: unit),
+              let quotient = Scanner.split(stripped(divided, in: unit), separator: "/", tokens: unit.tokens),
+              quotient.count == 2,
+              let name = identityCoordinates(quotient[0], unit: unit),
+              declaration(name, storage: .varying, type: "vec3", in: unit),
+              identity(quotient[1], unit: unit, storage: .varying) == [.input(name, 2)]
+        else { return nil }
+        return name
+    }
+
+    private static func otherOperand(nextToHalfIn operands: [Range<Int>], unit: Unit) -> Range<Int>? {
+        guard operands.count == 2 else { return nil }
+        for (index, operand) in operands.enumerated() {
+            let lanes = identity(operand, unit: unit, storage: .varying)
+            if lanes == [.scalar(0.5)] || lanes == [.scalar(0.5), .scalar(0.5)] {
+                return operands[1 - index]
+            }
+            if let cast = call(operand, unit: unit), ["vec2", "CAST2"].contains(cast.name),
+               !unit.functions.contains(where: { $0.name == cast.name }), cast.arguments.count == 1,
+               identity(cast.arguments[0], unit: unit, storage: .varying) == [.scalar(0.5)] {
+                return operands[1 - index]
+            }
+        }
+        return nil
+    }
+
+    private static func projectedVertex(_ unit: Unit, varying: String) -> String? {
+        guard declaration(varying, storage: .varying, type: "vec3", in: unit),
+              let vertex = positionedVertex(unit)
+        else { return nil }
+        let assignments = vertex.statements.compactMap { statement in
+            assignment(statement, name: varying, width: 3, unit: unit).map { (statement.lowerBound, $0) }
+        }
+        guard assignments.count == 2,
+              assignments[0].1.lanes == [0, 1, 2], assignments[1].1.lanes == [1]
+        else { return nil }
+        let clip = stripped(assignments[0].1.value, in: unit)
+        let y = stripped(assignments[1].1.value, in: unit)
+        guard clip.count >= 3, unit.tokens[clip.upperBound - 2].text == ".",
+              swizzle(unit.tokens[clip.upperBound - 1].text) == [0, 1, 3],
+              positionMatrix(clip.lowerBound..<(clip.upperBound - 2), unit: unit)
+                == "g_EffectModelViewProjectionMatrix",
+              y.count >= 2, unit.tokens[y.lowerBound].text == "-",
+              identity((y.lowerBound + 1)..<y.upperBound, unit: unit, storage: .varying) == [.input(varying, 1)]
+        else { return nil }
+        let calls = callSites(unit)
+        guard onlySafeUses(varying, protected: [0, 1, 2], in: unit,
+                           producers: Set(assignments.map(\.0)), calls: calls),
+              onlySafeUses("a_Position", protected: [0, 1, 2], in: unit,
+                           producers: [], calls: calls) else { return nil }
+        return vertex.matrix
     }
 
     private static func canonicalVertex(_ unit: Unit, varying: String) -> String? {
-        guard declaration("a_Position", storage: .attribute, type: "vec3", in: unit),
-              declaration("a_TexCoord", storage: .attribute, type: "vec2", in: unit),
+        guard declaration("a_TexCoord", storage: .attribute, type: "vec2", in: unit),
               let varyingDeclaration = unit.declarations.first(where: {
                   $0.name == varying && $0.storage == .varying && $0.arraySize == nil
               }), let width = vectorWidth(varyingDeclaration.typeName),
-              let main = unit.functions.first(where: { $0.name == "main" }),
-              !unit.tokens[main.bodyRange].contains(where: {
-                  ["return", "discard"].contains($0.text)
-              }),
-              let statements = SceneAuthoredShaderUniformRGBMixAnalyzer.topLevelStatements(
-                in: main.bodyRange, tokens: unit.tokens, skippingNestedBlocks: true),
-              let positionUses = references("gl_Position", in: unit), positionUses.count == 1
+              let vertex = positionedVertex(unit)
         else { return nil }
-        var matrix: String?
         var producers: Set<Int> = []
         var written: Set<Int> = []
-        for statement in statements {
-            let tokens = unit.tokens
-            let start = statement.lowerBound
-            if tokens[start].text == "gl_Position", statement.count > 2,
-               tokens[start + 1].text == "=" {
-                guard matrix == nil, positionUses == [start],
-                      let name = positionMatrix((start + 2)..<statement.upperBound, unit: unit)
-                else { return nil }
-                matrix = name
-            }
+        for statement in vertex.statements {
             guard let target = assignment(statement, name: varying, width: width, unit: unit),
                   target.lanes.contains(where: { $0 < 2 }) else { continue }
             guard let values = identity(target.value, unit: unit, storage: .attribute),
@@ -142,17 +195,17 @@ nonisolated enum SceneAuthoredShaderSamePixelSourceAnalyzer {
                 guard value == .input("a_TexCoord", lane), written.insert(lane).inserted
                 else { return nil }
             }
-            producers.insert(start)
+            producers.insert(statement.lowerBound)
         }
         let calls = callSites(unit)
-        guard let matrix, written == [0, 1],
+        guard written == [0, 1],
               onlySafeUses(varying, protected: [0, 1], in: unit,
                            producers: producers, calls: calls),
               onlySafeUses("a_TexCoord", protected: [0, 1], in: unit,
                            producers: [], calls: calls),
               onlySafeUses("a_Position", protected: [0, 1, 2], in: unit,
                            producers: [], calls: calls) else { return nil }
-        return matrix
+        return vertex.matrix
     }
 
     private static func positionMatrix(_ raw: Range<Int>, unit: Unit) -> String? {

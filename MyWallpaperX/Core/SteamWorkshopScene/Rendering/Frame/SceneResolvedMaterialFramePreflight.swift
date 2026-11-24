@@ -286,7 +286,8 @@ extension SceneMetalRenderer {
                     && baseMaterialProviderBindings.baseMaterialBindings[layerID] == nil
                 if !cameraFrame.resolvesPerspective(for: layer),
                    usesAuthoredBackgroundWork
-                    || ((layer.colorBlendMode ?? 0) == 0 && claim.supportsTerminalMaterialReplay)
+                    || ((layer.colorBlendMode ?? 0) == 0 && claim.supportsTerminalMaterialReplay
+                        && claim.sceneBackgroundRequirement == nil)
                     || ((layer.colorBlendMode ?? 0) != 0 && claim.supportsSourceSizedSolidEffects
                         && claim.sceneBackgroundRequirement == nil && claim.dependencyOwnership == .none),
                    frameVisibleLayerIDs.contains(layerID),

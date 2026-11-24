@@ -61,6 +61,7 @@ private struct Input: Decodable {
     let name: String
     let vertexSource: String
     let fragmentSource: String
+    let sceneBackgroundSlot: Int?
 }
 
 private struct PreparedInput: Decodable {
@@ -71,6 +72,7 @@ private struct PreparedInput: Decodable {
     let vertexPath: String
     let fragmentPath: String
     let combos: [String: Int64]
+    let sceneBackgroundSlot: Int?
 }
 
 private struct Request: Decodable {
@@ -116,7 +118,8 @@ private enum Harness {
             }
             entries.append(evaluate(Input(name: input.name,
                 vertexSource: try prepare(input.vertexPath, stage: .vertex),
-                fragmentSource: try prepare(input.fragmentPath, stage: .fragment))))
+                fragmentSource: try prepare(input.fragmentPath, stage: .fragment),
+                sceneBackgroundSlot: input.sceneBackgroundSlot)))
         }
         FileHandle.standardOutput.write(try JSONEncoder().encode(entries))
     }
@@ -124,7 +127,8 @@ private enum Harness {
     private static func evaluate(_ input: Input) -> ResultEntry {
         ResultEntry(name: input.name,
             fact: SceneAuthoredShaderSamePixelSourceAnalyzer.analyze(
-                vertexSource: input.vertexSource, fragmentSource: input.fragmentSource),
+                vertexSource: input.vertexSource, fragmentSource: input.fragmentSource,
+                sceneBackgroundSlot: input.sceneBackgroundSlot),
             vertexSHA256: SceneShaderStableDigest.hash(Data(input.vertexSource.utf8)),
             fragmentSHA256: SceneShaderStableDigest.hash(Data(input.fragmentSource.utf8)))
     }
@@ -260,6 +264,53 @@ class SceneAuthoredShaderSamePixelSourceTests(unittest.TestCase):
                     self.assertEqual(fact, {"textureSlot": 0, "sampleCallCount": count,
                         "coordinateVaryingName": varying, "positionMatrixUniformName": matrix})
 
+    def test_projected_background_reads_require_the_same_pixel(self) -> None:
+        vertex = """
+uniform mat4 g_ModelViewProjectionMatrix;
+uniform mat4 g_EffectModelViewProjectionMatrix;
+attribute vec3 a_Position;
+varying vec3 projection;
+void main() {
+    gl_Position = mul(vec4(a_Position, 1.0), g_ModelViewProjectionMatrix);
+    projection = mul(vec4(a_Position, 1.0), g_EffectModelViewProjectionMatrix).xyw;
+    projection.y = -projection.y;
+}
+"""
+        uv = "projection.xy / projection.z * CAST2(0.5) + 0.5"
+        fragment = f"""
+uniform sampler2D g_Texture2;
+varying vec3 projection;
+void main() {{ gl_FragColor = texSample2D(g_Texture2, {uv}); }}
+"""
+        cases = []
+
+        def add(name, vertex_source=vertex, fragment_source=fragment, slot=2):
+            cases.append({"name": name, "vertexSource": vertex_source,
+                          "fragmentSource": fragment_source, "sceneBackgroundSlot": slot})
+
+        add("projected")
+        add("renamed", vertex.replace("projection", "placement"),
+            fragment.replace(uv, "vec2(0.5) + (0.5 * ((projection.xy) / projection.z))")
+            .replace("projection", "placement").replace("g_Texture2", "g_Texture4"), slot=4)
+        add("offset", fragment_source=fragment.replace("+ 0.5", "+ 0.501"))
+        add("lod", fragment_source=fragment.replace("texSample2D", "texture2DLod"))
+        add("wrong-slot", slot=1)
+        add("unflipped", vertex.replace("projection.y = -projection.y;", ""))
+        add("warp", vertex.replace("vec4(a_Position, 1.0)", "vec4(a_Position * 2., 1.0)", 1))
+        add("wrong-w", vertex.replace(").xyw", ").xyz"))
+        add("conditional", vertex.replace("projection.y =", "if (a_Position.x > 0.) projection.y ="))
+        add("texture-read-neighbor", fragment_source=fragment.replace(
+            "); }", ") + texSample2D(g_Texture2, vec2(0.4)); }"))
+        results = self.evaluate(cases)
+        self.assertEqual(results["projected"]["fact"], {
+            "textureSlot": 2, "sampleCallCount": 1, "coordinateVaryingName": "projection",
+            "positionMatrixUniformName": "g_ModelViewProjectionMatrix",
+        })
+        self.assertEqual(results["renamed"]["fact"]["textureSlot"], 4)
+        self.assertEqual(results["renamed"]["fact"]["coordinateVaryingName"], "placement")
+        for name in results.keys() - {"projected", "renamed"}:
+            self.assertIsNone(results[name].get("fact"), name)
+
     def test_resource_renaming_uses_existing_preprocessor(self) -> None:
         root = self.root / "own-resources"
         prepared = []
@@ -284,7 +335,7 @@ class SceneAuthoredShaderSamePixelSourceTests(unittest.TestCase):
         before = {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
                   for path in Path(context["projectRoot"]).rglob("*") if path.is_file()}
         result = self.evaluate([], [context])[context["name"]]
-        self.assertEqual(result["fact"]["textureSlot"], 0)
+        self.assertEqual(result["fact"]["textureSlot"], context.get("sceneBackgroundSlot", 0))
         self.assertGreaterEqual(result["fact"]["sampleCallCount"], 1)
         self.assertEqual(result["fact"]["positionMatrixUniformName"], "g_ModelViewProjectionMatrix")
         self.assertEqual(before, {str(path): hashlib.sha256(path.read_bytes()).hexdigest()

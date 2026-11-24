@@ -348,13 +348,17 @@ extension SceneResolvedMaterialGraphExecutor {
                         rejection: rejection
                     ))
                 }
+                let placementMVP = frameInputs.terminalReplayModelViewProjection
+                    ?? frameInputs.effectOutputModelViewProjection
                 if let terminalReplayTarget, capability.placementTail != nil,
+                   !capability.terminalReadsCurrentAttachment
+                    || placementMVP == frameInputs.effectOutputModelViewProjection,
                    case let .success(replay) = materialEncoder.prepareTerminalReplay(
                        program: program,
                        target: terminalReplayTarget,
-                       unitModelViewProjection: frameInputs.terminalReplayModelViewProjection
-                           ?? frameInputs.effectOutputModelViewProjection,
-                       blendMode: terminalReplayBlendMode
+                       unitModelViewProjection: placementMVP,
+                       blendMode: terminalReplayBlendMode,
+                       readsCurrentAttachment: capability.terminalReadsCurrentAttachment
                    ) {
 #if DEBUG
                     recordPreparedMaterialDiagnostics(program, node: node, nodeIndex: nodeIndex,

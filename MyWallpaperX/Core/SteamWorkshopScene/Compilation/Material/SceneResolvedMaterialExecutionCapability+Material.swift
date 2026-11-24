@@ -102,7 +102,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
                 return (false, false, false)
             }
             // The graph can sample the existing main attachment into its
-            // local pair. Terminal replay would alias that sampled attachment.
+            // local pair. A proved placement tail owns any attachment read.
             let canSizeWork = stages.allSatisfy { stage in
                 switch stage.execution {
                 case .resolved: true
@@ -134,29 +134,40 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
                 replay.values.allSatisfy(\.placement))
     }
 
-    static func transparentCompositionPlacementTail(
+    static func placementTail(
         admitted: SceneResolvedMaterialAdmittedLayer,
         stages: [SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability],
         materials: [SceneResolvedMaterialExecutionCapabilityCatalog.MaterialKey:
             SceneResolvedMaterialExecutionCapabilityCatalog.MaterialCapability],
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
-        sceneBackgroundRequirement: SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement?
+        sceneBackgroundRequirement: SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement?,
+        usesSourceSizedEffects: Bool
     ) -> SceneResolvedMaterialExecutionCapabilityCatalog.MaterialKey? {
-        guard admitted.isTransparentCompositionRoot, admitted.isVisibleExecutionRoot,
-              !admitted.isGraphOutputProvider, admitted.sourceRoute == .capturedMainTargetTexture,
-              admitted.terminalReplayBlendMode == 0 || admitted.terminalReplayBlendMode == 31,
-              dependencyOwnership == .none, sceneBackgroundRequirement == nil,
+        guard admitted.isVisibleExecutionRoot, !admitted.isGraphOutputProvider, dependencyOwnership == .none,
               stages.count > 1, let stage = stages.last, case .resolved = stage.execution,
               let node = terminalColorNode(in: stage) else { return nil }
+        if let background = sceneBackgroundRequirement {
+            guard usesSourceSizedEffects, admitted.sourceRoute == .capturedLayerTexture,
+                  admitted.terminalReplayBlendMode == 0,
+                  background.bindingCount == 1, background.effect == node.effect,
+                  background.nodeIndex == node.nodeIndex else { return nil }
+        } else {
+            guard admitted.isTransparentCompositionRoot, admitted.sourceRoute == .capturedMainTargetTexture,
+                  admitted.terminalReplayBlendMode == 0 || admitted.terminalReplayBlendMode == 31
+            else { return nil }
+        }
         let key = SceneResolvedMaterialExecutionCapabilityCatalog.MaterialKey(
             effect: node.effect, nodeIndex: node.nodeIndex)
         guard let material = materials[key], material.attachmentStorage == .color,
               material.template.graphRole.effectInput == .effectOutput
         else { return nil }
         let snapshot = material.variants.launchEnvelopeCapabilitySnapshot()
-        guard snapshot.allEntriesReady, !snapshot.variants.isEmpty,
-              snapshot.variants.allSatisfy({ $0.frontendProgram.supportsPlacementSpaceTerminalReplay })
-        else { return nil }
+        guard snapshot.allEntriesReady, !snapshot.variants.isEmpty, snapshot.variants.allSatisfy({ variant in
+            guard variant.frontendProgram.supportsPlacementSpaceTerminalReplay else { return false }
+            guard let background = sceneBackgroundRequirement else { return true }
+            let read = variant.frontendProgram.attachmentReadVariant
+            return read?.usesSceneProjection == true && read?.sourceSlot == background.slot
+        }) else { return nil }
         return key
     }
 
