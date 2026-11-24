@@ -353,10 +353,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "390497e452dcdd0163fdbbda913434a42b1d442b97f7bfc768f862d2611c7f2d",
+        "sourceSHA256": "30258a46a201edc7a806b3aa49f7fce8c168ab862bffebe30c698d5c3bcfecce",
         "method": "document_registry --audit + document_health --check",
-        "scope": "2× 证据、生效及后续实际档位。",
-        "limitations": "运行开销与硬件适用范围在正文。"
+        "scope": "点光候选原生、原包正反例及同签名稳态窗口。",
+        "limitations": "该机型只测 GPU 时间和呈现，未量墙端功耗。"
       }
     },
     {

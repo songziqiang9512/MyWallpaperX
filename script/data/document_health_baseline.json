@@ -77,8 +77,8 @@
       "bytes": 73409
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 201,
-      "bytes": 40041
+      "lines": 207,
+      "bytes": 41005
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "1db1865af9673d5530766835a6eaa6e89670a0866585dc06b4d572798cbdd752",
-      "after": "37a56996b9605ec539bc379bb355b9a0b281b4ac081e3763be64910dafdb31d5",
-      "owner": "Scene quality / Metal",
-      "reason": "录入真实主域 2×、误差与显存证据和限制。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-aa-rollout"
+      "before": "37a56996b9605ec539bc379bb355b9a0b281b4ac081e3763be64910dafdb31d5",
+      "after": "27f5045cf19c10fb5969fc72786eb9a6972ae7a13711a6bca16180074e5a5af1",
+      "owner": "Scene lighting / GPU",
+      "reason": "保存两点求积的实测退出条件和候选工作。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#点光求积阶数的测量结论"
     },
     {
       "section": "bodies",
