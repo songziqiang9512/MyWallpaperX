@@ -86,7 +86,7 @@ import Foundation
                 && quality.pointVolume == .enabled && quality.reflections == .enabled
         } else { hdrLoadValid = false }
         let requestedQuality = SceneRenderQuality(postProcessing: .ultraDisplayHDR,
-            shadows: .medium, pointVolume: .disabled, reflections: .disabled)
+            shadows: .medium, pointVolume: .disabled, reflections: .disabled, textures: .performance)
         var qualityChangePayload: [String: Any] = ["v": 2, "cmd": "setSceneRenderQuality"]
         SceneDaemonProtocol.writeRenderQuality(requestedQuality, to: &qualityChangePayload)
         let qualityChangeValid = decode(qualityChangePayload) == .success(.setSceneRenderQuality(requestedQuality))
@@ -109,10 +109,22 @@ import Foundation
         if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(reflectionLoadPayload) {
             reflectionLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, reflections: .disabled)
         } else { reflectionLoadValid = false }
+        var legacyQualityChange = qualityChangePayload
+        legacyQualityChange.removeValue(forKey: "textureQuality")
+        var legacyExpected = requestedQuality
+        legacyExpected.textures = .full
+        let legacyTextureDefaults = decode(legacyQualityChange) == .success(.setSceneRenderQuality(legacyExpected))
+        var textureLoadPayload = hdrLoadPayload
+        textureLoadPayload["textureQuality"] = "performance"
+        let textureLoadValid: Bool
+        if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(textureLoadPayload) {
+            textureLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, textures: .performance)
+        } else { textureLoadValid = false }
         let invalidQualityValues: [Any] = [true, "unknown", NSNull()]
         let qualityKeys = ["scenePostProcessing", "shadowQuality", "pointVolumeQuality", "reflectionQuality"]
-        let malformedQualityRejected = [hdrLoadPayload, qualityChangePayload].allSatisfy { payload in
-            qualityKeys.allSatisfy { key in
+        let malformedQualityRejected = legacyTextureDefaults && textureLoadValid
+            && [hdrLoadPayload, qualityChangePayload].allSatisfy { payload in
+            (qualityKeys + ["textureQuality"]).allSatisfy { key in
                 invalidQualityValues.allSatisfy { value in
                     var invalid = payload
                     invalid[key] = value

@@ -296,6 +296,13 @@ nonisolated struct SceneRenderDescriptorBuilder {
                 let facts = object.imagePath.flatMap { imageMaterialFacts[SceneModelResourceIdentity($0).value] }
                 layer.proceduralSolidSource = facts?.procedural
                 let plainImage = layer.contentKind == "image" && object.materialInstance == nil
+                if plainImage, facts?.scalableStaticColor == true, utilityLayer == nil,
+                   puppetMeshPath == nil, object.staticModelPath == nil,
+                   layer.parentID == nil, layer.childLayerIDs.isEmpty,
+                   layer.effects.isEmpty, layer.dependencyLayerIDs.isEmpty, layer.authoredDependencies.isEmpty,
+                   (object.colorBlendMode ?? 0) == 0, object.shape == nil || object.shape == "quad" {
+                    layer.scalableStaticColorSource = true
+                }
                 let acceptsMaterialState: Bool
                 if facts?.state?.supportsImageNormalDepth == true {
                     acceptsMaterialState = preparesNativeImageState && layer.usesPerspective != false
@@ -360,13 +367,14 @@ nonisolated struct SceneRenderDescriptorBuilder {
         models: [String: [SceneAssetCatalog.ModelAsset]],
         materials: [String: [SceneAssetCatalog.MaterialAsset]],
         shaderContracts: [SceneShaderContract]
-    ) -> [String: (state: SceneMaterialRenderState?, procedural: SceneMaterialRenderState.ProceduralSolidSource?)] {
+    ) -> [String: (state: SceneMaterialRenderState?, procedural: SceneMaterialRenderState.ProceduralSolidSource?,
+                   scalableStaticColor: Bool)] {
         let contracts = Dictionary(grouping: shaderContracts) { $0.identity.lowercased() }
-        var facts: [String: (SceneMaterialRenderState?, SceneMaterialRenderState.ProceduralSolidSource?)] = [:]
+        var facts: [String: (SceneMaterialRenderState?, SceneMaterialRenderState.ProceduralSolidSource?, Bool)] = [:]
         for (identity, matches) in models {
             guard matches.count == 1, let model = matches.first, model.puppetPath == nil else { continue }
             guard let materialPath = model.materialPath else {
-                if model.isSolidLayer { facts[identity] = (nil, .neutral) }
+                if model.isSolidLayer { facts[identity] = (nil, .neutral, false) }
                 continue
             }
             guard let matchingMaterials = materials[SceneModelResourceIdentity(materialPath).value],
@@ -413,6 +421,10 @@ nonisolated struct SceneRenderDescriptorBuilder {
                     ($0.key == "VERSION" && $0.value == 2)
                         || ($0.key == "LIGHTING" && $0.value == 0)
                 }
+            let scalableStaticColor = builtinImage && plainImageInput
+                && state?.blending == .translucent && state?.requiresDepthAttachment == false
+                && state?.alphaWriting == .unspecified
+                && pass.combos.allSatisfy { $0.key == "VERSION" || $0.value == 0 }
             facts[identity] = (
                 state.flatMap {
                     if normalDepth { return $0 }
@@ -421,7 +433,7 @@ nonisolated struct SceneRenderDescriptorBuilder {
                     }
                     return additiveImage && $0.supportsImageAdditiveRGB ? $0 : nil
                 },
-                neutral ? .neutral : nil)
+                neutral ? .neutral : nil, scalableStaticColor)
         }
         return facts
     }

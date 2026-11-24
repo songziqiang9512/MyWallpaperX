@@ -242,6 +242,7 @@ nonisolated extension SceneScriptValueOwner {
             exports: exports
         )
         domain.dynamicImageRequestedModelPaths.formUnion(imagePaths.values)
+        if allowsStatefulLayerSideEffects { domain.hasStatefulLayerMutationOwner = true }
     }
 
 }

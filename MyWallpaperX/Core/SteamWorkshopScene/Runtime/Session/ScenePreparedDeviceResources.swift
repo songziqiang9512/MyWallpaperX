@@ -165,9 +165,10 @@ final class ScenePreparedBaseImageResources {
         cacheDirectory: URL,
         effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
         dynamicImageModelPaths: Set<String> = [],
-        dynamicImageModelPathsProvider: (() throws -> Set<String>)? = nil,
+        dynamicImageRequestsProvider: (() throws -> (models: Set<String>, retainsModelDefaultAliases: Bool))? = nil,
         deferredBaseImageLayerIDs: Set<Int> = [],
         imageGeometryModels: [SceneAssetCatalog.ModelAsset] = [],
+        ordinaryColorMipLongEdge: Int? = nil,
         geometryPrepared: ([Int: [Float]]) -> Void = { _ in },
         uploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
         decodeCacheBudget: SceneTextureDecodeCacheBudget = .init(
@@ -281,8 +282,19 @@ final class ScenePreparedBaseImageResources {
                     failedCount += atlas.layerIDs.count
                 }
             }
-            for layer in descriptor.layers {
-                guard let request = imageRequests.removeValue(forKey: layer.id) else { continue }
+            var fullResolutionLayerIDs: Set<Int> = []
+            if ordinaryColorMipLongEdge != nil {
+                fullResolutionLayerIDs = SceneNamedTextureDependencyReferenceAnalysis.participatingLayerIDs(
+                    in: descriptor.layers, includingPotential: true)
+                fullResolutionLayerIDs.formUnion(descriptor.materialPasses.lazy.flatMap(\.textureSlots)
+                    .compactMap { SceneNamedTextureReference.parse($0)?.providerLayerID })
+                for layer in descriptor.layers {
+                    fullResolutionLayerIDs.formUnion(layer.dependencyLayerIDs)
+                    for dependency in layer.authoredDependencies { fullResolutionLayerIDs.insert(dependency.layerID) }
+                }
+            }
+            func loadInitialImage(_ layer: SceneRenderDescriptor.Layer, mipLongEdge: Int? = nil) throws {
+                guard let request = imageRequests.removeValue(forKey: layer.id) else { return }
                 try cancellationCheck()
                 let outcome = SceneBaseImageTextureLoad.load(
                     from: request.url,
@@ -290,6 +302,7 @@ final class ScenePreparedBaseImageResources {
                     loader: textureLoader,
                     spriteTextureLoader: spriteTextureLoader,
                     device: device, source: request.source, preparedDirectImageSource: request.direct,
+                    maximumMipLongEdge: mipLongEdge,
                     checkCancellation: cancellationCheck
                 )
                 if case let .failed(failure) = outcome { try failure.rethrowResourceReadFailure() }
@@ -302,10 +315,29 @@ final class ScenePreparedBaseImageResources {
                     failedCount += 1
                 }
             }
+            var mipTailLayers: [SceneRenderDescriptor.Layer] = []
+            for layer in descriptor.layers {
+                if let ordinaryColorMipLongEdge, layer.scalableStaticColorSource == true,
+                   let request = imageRequests[layer.id], request.url.pathExtension.lowercased() == "tex",
+                   let size = entries[layer.id]?.naturalSizeWH,
+                   size.contains(where: { $0 > Float(ordinaryColorMipLongEdge) }),
+                   !fullResolutionLayerIDs.contains(layer.id) {
+                    mipTailLayers.append(layer)
+                } else {
+                    try loadInitialImage(layer)
+                }
+            }
+            let (requestedModels, retainsModelDefaultAliases) = try dynamicImageRequestsProvider?()
+                ?? (dynamicImageModelPaths, false)
+            // Admitted layer mutation owners can resolve computed paths from
+            // existing model aliases even with no literal requests.
+            let canReduceModelDefaults = requestedModels.isEmpty && !retainsModelDefaultAliases
+            let effectiveMipLongEdge = canReduceModelDefaults ? ordinaryColorMipLongEdge : nil
+            for layer in mipTailLayers { try loadInitialImage(layer, mipLongEdge: effectiveMipLongEdge) }
+
             var dynamicImageResources: [String: ScenePreparedDynamicImageResource] = [:]
             var videoFiles: [SceneTextureLoader.SourceKey: Result<SceneVideoOwnedFile, Error>] = [:]
             let imageMaterials = ScenePreparedImageMaterialCatalog(descriptor: descriptor)
-            let requestedModels = try dynamicImageModelPathsProvider?() ?? dynamicImageModelPaths
             for modelPath in requestedModels.union(videoModelPaths).sorted() {
                 try cancellationCheck()
                 // Puppet resources enter below through mesh + straight atlas, never a quad.

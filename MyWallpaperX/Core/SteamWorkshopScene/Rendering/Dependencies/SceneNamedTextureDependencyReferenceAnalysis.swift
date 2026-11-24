@@ -69,9 +69,13 @@ nonisolated enum SceneNamedTextureDependencyReferenceAnalysis {
     }
 
     nonisolated static func participatingLayerIDs(
-        in layers: [SceneRenderDescriptor.Layer]
+        in layers: [SceneRenderDescriptor.Layer],
+        includingPotential: Bool = false
     ) -> Set<Int> {
-        references(in: layers).reduce(into: Set<Int>()) { result, reference in
+        references(in: layers, includingInactiveEffects: includingPotential) { slotIndex, pass, _ in
+            !hasUserTexture(slotIndex: slotIndex, pass: pass)
+                || (includingPotential && hasOptionalUserTexture(slotIndex: slotIndex, pass: pass))
+        }.reduce(into: Set<Int>()) { result, reference in
             result.insert(reference.consumerLayerID)
             result.insert(reference.providerLayerID)
         }

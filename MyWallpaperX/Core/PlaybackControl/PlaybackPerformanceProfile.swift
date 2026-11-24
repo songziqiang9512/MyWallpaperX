@@ -49,11 +49,19 @@ nonisolated enum SceneReflectionQuality: String, Sendable {
     case enabled
 }
 
+nonisolated enum SceneTextureQuality: String, Sendable {
+    case full = "quality"
+    case performance
+
+    var ordinaryColorMipLongEdge: Int? { self == .performance ? 2_048 : nil }
+}
+
 nonisolated struct SceneRenderQuality: Equatable, Sendable {
     var postProcessing: ScenePostProcessingMode = .ultra
     var shadows: SceneShadowQuality = .adaptive
     var pointVolume: ScenePointVolumeQuality = .enabled
     var reflections: SceneReflectionQuality = .enabled
+    var textures: SceneTextureQuality = .full
 }
 
 nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
@@ -92,7 +100,9 @@ nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
                 pointVolume: (record?["scenePointVolumeQuality"] as? String)
                     .flatMap(ScenePointVolumeQuality.init(rawValue:)) ?? .enabled,
                 reflections: (record?["sceneReflectionQuality"] as? String)
-                    .flatMap(SceneReflectionQuality.init(rawValue:)) ?? .enabled
+                    .flatMap(SceneReflectionQuality.init(rawValue:)) ?? .enabled,
+                textures: (record?["sceneTextureQuality"] as? String)
+                    .flatMap(SceneTextureQuality.init(rawValue:)) ?? .full
             ),
             keepsLegacySceneDecodeLimit: (record?["keepsLegacySceneDecodeLimit"] as? Bool) ?? (fps == 30)
         )
@@ -107,6 +117,7 @@ nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
             "sceneShadowQuality": scene.shadows.rawValue,
             "scenePointVolumeQuality": scene.pointVolume.rawValue,
             "sceneReflectionQuality": scene.reflections.rawValue,
+            "sceneTextureQuality": scene.textures.rawValue,
         ], forKey: Self.userDefaultsKey)
     }
 }

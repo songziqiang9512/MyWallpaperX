@@ -101,6 +101,7 @@ final class AppKitSettingsContainerView: NSView {
     let restorePlaybackOnLaunchSwitch = NSSwitch()
     let syncSystemWallpaperSwitch = NSSwitch()
     let scenePostProcessingPopup = NSPopUpButton()
+    let sceneTextureQualityPopup = NSPopUpButton()
     let sceneShadowsPopup = NSPopUpButton()
     let scenePointVolumePopup = NSPopUpButton()
     let sceneReflectionsSwitch = NSSwitch()

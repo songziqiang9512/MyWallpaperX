@@ -60,6 +60,7 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
     var sceneShadowQuality: String?
     var scenePointVolumeQuality: String?
     var sceneReflectionQuality: String?
+    var sceneTextureQuality: String?
     var sceneMediaInfoEnabled: Bool?
     var playbackPerformanceProfile: Int?
     var animationFramesPerSecond: Int?

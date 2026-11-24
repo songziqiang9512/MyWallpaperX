@@ -14,6 +14,7 @@ nonisolated extension SceneRenderDescriptor {
         var staticBaseTexturePath: String? = nil
         /// Explicit ordinary-quad terminal state; nil keeps unproven defaults.
         var imageMaterialRenderState: SceneMaterialRenderState? = nil
+        var scalableStaticColorSource: Bool? = nil
         /// Prepared source semantics, never inferred from an empty pass list.
         var proceduralSolidSource: SceneMaterialRenderState.ProceduralSolidSource? = nil
         var staticModelPath: String? = nil

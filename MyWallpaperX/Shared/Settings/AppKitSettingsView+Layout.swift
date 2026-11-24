@@ -377,6 +377,9 @@ extension AppKitSettingsContainerView {
         }
         qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Post-Processing"), iconSystemName: "sun.max",
             subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: scenePostProcessingPopup))
+        sceneTextureQualityPopup.addItems(withTitles: [String(localized: "High Quality"), String(localized: "High Performance")])
+        qualitySection.addRow(makeSettingRow(title: String(localized: "Texture Resolution"), iconSystemName: "square.stack.3d.up",
+            subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: sceneTextureQualityPopup))
         let shadowTiers: [(SceneShadowQuality, String)] = [
             (.disabled, String(localized: "Disabled")),
             (.medium, String(localized: "Medium")),
@@ -403,7 +406,7 @@ extension AppKitSettingsContainerView {
         qualitySection.addRow(makeSettingRow(
             title: String(localized: "Video Quality"), iconSystemName: "film",
             trailing: NSTextField(labelWithString: String(localized: "Original Video"))))
-        let controls: [NSControl] = [scenePostProcessingPopup,
+        let controls: [NSControl] = [scenePostProcessingPopup, sceneTextureQualityPopup,
                                      sceneShadowsPopup, scenePointVolumePopup, sceneReflectionsSwitch, webFrameRatePopup]
         for control in controls {
             control.target = self
@@ -424,6 +427,7 @@ extension AppKitSettingsContainerView {
         }
         webFrameRatePopup.selectItem(at: quality.webFrameRateMode == .display ? 0 : 1)
         refreshScenePostProcessingMenu(quality.scene.postProcessing)
+        sceneTextureQualityPopup.selectItem(at: quality.scene.textures == .performance ? 1 : 0)
         sceneShadowsPopup.selectItem(at: sceneShadowsPopup.indexOfItem(withRepresentedObject: quality.scene.shadows.rawValue))
         scenePointVolumePopup.selectItem(at: quality.scene.pointVolume == .disabled ? 0 : 1)
         sceneReflectionsSwitch.state = quality.scene.reflections == .enabled ? .on : .off
@@ -477,6 +481,8 @@ extension AppKitSettingsContainerView {
         var quality = PlaybackQualityPreference.current
         if sender === webFrameRatePopup {
             quality.webFrameRateMode = webFrameRatePopup.indexOfSelectedItem == 1 ? .followAnimationFrameRate : .display
+        } else if sender === sceneTextureQualityPopup {
+            quality.scene.textures = sceneTextureQualityPopup.indexOfSelectedItem == 1 ? .performance : .full
         } else if sender === sceneReflectionsSwitch {
             quality.scene.reflections = sceneReflectionsSwitch.state == .on ? .enabled : .disabled
         } else if sender === scenePointVolumePopup {
@@ -530,7 +536,7 @@ extension AppKitSettingsContainerView {
         hotkeyEnableSwitches.values.forEach { $0.controlSize = .mini }
 
         let popups: [NSPopUpButton] = [timeUnitPopup, idleTimeoutPopup, libraryBackgroundPopup, libraryCardClickPopup, webFrameRatePopup, scenePostProcessingPopup] + hotkeyPopups.values
-            + [sceneShadowsPopup, scenePointVolumePopup, systemAudioSpectrumBarCountPopup]
+            + [sceneShadowsPopup, scenePointVolumePopup, sceneTextureQualityPopup, systemAudioSpectrumBarCountPopup]
         popups.forEach { $0.controlSize = .small }
 
         intervalField.controlSize = .small

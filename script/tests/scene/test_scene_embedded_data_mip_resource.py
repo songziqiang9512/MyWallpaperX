@@ -68,12 +68,73 @@ private enum EmbeddedDataMipHarness {
         case let .failed(failure):
             return ["status": "failed", "failure": String(describing: failure)]
         case let .loaded(candidate):
-            var facts = pixels(candidate.texture, queue: queue, expected: expected, tolerance: tolerance)
-            facts["mapped"] = [Int(candidate.mappedSize.width), Int(candidate.mappedSize.height)]
-            facts["identityUV"] = candidate.uvTransform == .identity
-            facts["purposeMatches"] = candidate.purpose == purpose
-            return facts
+            return observe(candidate, purpose: purpose, queue: queue, expected: expected, tolerance: tolerance)
         }
+    }
+
+    static func observe(
+        _ candidate: SceneTextureCandidate, purpose: SceneTextureLoadPurpose,
+        queue: MTLCommandQueue, expected: [[UInt8]], tolerance: Int = 0
+    ) -> [String: Any] {
+        var facts = pixels(candidate.texture, queue: queue, expected: expected, tolerance: tolerance)
+        facts["mapped"] = [Int(candidate.mappedSize.width), Int(candidate.mappedSize.height)]
+        facts["identityUV"] = candidate.uvTransform == .identity
+        facts["purposeMatches"] = candidate.purpose == purpose
+        return facts
+    }
+
+    static func mipTail(
+        root: URL, device: MTLDevice, queue: MTLCommandQueue,
+        raw: [[UInt8]], small: [[UInt8]]
+    ) throws -> [String: Any] {
+        func candidate(
+            _ loader: SceneTextureLoader, _ prepared: SceneTextureLoader.PreparedTexSource,
+            _ maximum: Int?, purpose: SceneTextureLoadPurpose = .straightAlbedo
+        ) throws -> SceneTextureCandidate {
+            switch try loader.loadCandidate(from: prepared, purpose: purpose, device: device,
+                maximumMipLongEdge: maximum) {
+            case let .loaded(value): return value
+            case let .failed(failure): fatalError("mip tail fixture could not load: \(failure)")
+            }
+        }
+        var observations: [String: Any] = [:]
+        for tailFirst in [false, true] {
+            let loader = SceneTextureLoader()
+            let prepared = try loader.prepareTexSource(from: root.appendingPathComponent("authored-data-mips.tex"))!
+            let first = try candidate(loader, prepared, tailFirst ? 2048 : nil)
+            let second = try candidate(loader, prepared, tailFirst ? nil : 2048)
+            let full = tailFirst ? second : first
+            let tail = tailFirst ? first : second
+            let sameTail = try candidate(loader, prepared, 2049)
+            let lastMip = try candidate(loader, prepared, 1024)
+            let originalMip = try candidate(loader, prepared, 4097)
+            let belowChain = try candidate(loader, prepared, 1023)
+            let data = try candidate(loader, prepared, 2048, purpose: .mask)
+            observations[tailFirst ? "tailFirst" : "fullFirst"] = [
+                "full": observe(full, purpose: .straightAlbedo, queue: queue, expected: raw),
+                "tail": observe(tail, purpose: .straightAlbedo, queue: queue, expected: Array(raw.dropFirst())),
+                "lastMip": observe(lastMip, purpose: .straightAlbedo, queue: queue, expected: Array(raw.suffix(1))),
+                "differentTexture": full.texture !== tail.texture,
+                "cacheReusesTail": sameTail.texture === tail.texture,
+                "cacheReusesOriginal": originalMip.texture === full.texture && belowChain.texture === full.texture,
+                "sameSourceAndSampling": full.identity == tail.identity && full.generation == tail.generation
+                    && full.sampling == tail.sampling && full.sampling.rawFlags == tail.sampling.rawFlags
+                    && full.authoredFormat == tail.authoredFormat && full.content == tail.content,
+                "smallerAllocation": tail.texture.allocatedSize < full.texture.allocatedSize,
+                "decodedLevels": loader.texEmbeddedImageDecodeAttemptCount,
+                "data": observe(data, purpose: .mask, queue: queue, expected: raw),
+            ]
+        }
+        for (name, maximum, expected) in [("padded-authored.tex", 2048, raw), ("single-small.tex", 4, small)] {
+            let loader = SceneTextureLoader()
+            let prepared = try loader.prepareTexSource(from: root.appendingPathComponent(name))!
+            let requested = try candidate(loader, prepared, maximum)
+            let full = try candidate(loader, prepared, nil)
+            var facts = observe(requested, purpose: .straightAlbedo, queue: queue, expected: expected)
+            facts["cacheReusesOriginal"] = requested.texture === full.texture
+            observations[name] = facts
+        }
+        return observations
     }
 
     static func image(
@@ -270,6 +331,9 @@ private enum EmbeddedDataMipHarness {
         }
         let report: [String: Any] = ["available": true, "results": results,
             "rejected": rejected, "singleSmall": small,
+            "mipTail": try mipTail(root: root, device: device, queue: queue,
+                raw: raw.map { $0.map { UInt8($0.intValue) } },
+                small: (manifest["small"] as! [[NSNumber]]).map { $0.map { UInt8($0.intValue) } }),
             "packedLayouts": packedLayouts(device: device, queue: queue),
             "encodedChannels": encodedChannels,
             "mixedJPEG": try mixedJPEG(root: root, device: device, queue: queue),
@@ -322,9 +386,10 @@ interpose_properties __attribute__((section("__DATA,__interpose"))) = {
 '''
 
 
-def _tex(mips: list[tuple[int, int, bytes]], *, mapped: tuple[int, int] = (4097, 4)) -> bytes:
+def _tex(mips: list[tuple[int, int, bytes]], *, mapped: tuple[int, int] = (4097, 4),
+         physical: tuple[int, int] = (8192, 8)) -> bytes:
     data = (b"TEXV0005\0TEXI0001\0"
-            + struct.pack("<7I", 0, 2, 8192, 8, *mapped, 0)
+            + struct.pack("<7I", 0, 2, *physical, *mapped, 0)
             + b"TEXB0003\0" + struct.pack("<3I", 1, 13, len(mips)))
     for width, height, payload in mips:
         data += struct.pack("<5I", width, height, 0, 0, len(payload)) + payload
@@ -339,6 +404,7 @@ def prepare_inputs(root: Path) -> None:
     authored = _tex(mips)
     (root / "authored-data-mips.tex").write_bytes(authored)
     (root / "renamed-signal.tex").write_bytes(authored)
+    (root / "padded-authored.tex").write_bytes(_tex(mips, mapped=(4096, 4), physical=(4097, 4)))
     (root / "single-oversized.tex").write_bytes(_tex(mips[:1]))
     (root / "bad-mip-table.tex").write_bytes(_tex([mips[0], (2047, 2, mips[1][2])]))
     (root / "bad-mip-payload.tex").write_bytes(_tex([mips[0], (2048, 2, mips[2][2])]))
@@ -415,6 +481,40 @@ class SceneEmbeddedDataMipResourceTests(unittest.TestCase):
     def test_embedded_metadata_is_captured_once_and_reused_across_purposes(self) -> None:
         self.assertEqual(self.result["preparationHeaderReads"], 3)
         self.assertEqual(self.result["reuseHeaderReads"], 0)
+
+    def test_authored_mip_tail_has_distinct_metal_storage_and_shared_decode_in_both_load_orders(self) -> None:
+        observations = self.result["mipTail"]
+        for order in ("fullFirst", "tailFirst"):
+            facts = observations[order]
+            with self.subTest(order=order):
+                for key in ("differentTexture", "cacheReusesTail", "cacheReusesOriginal",
+                            "sameSourceAndSampling", "smallerAllocation"):
+                    self.assertTrue(facts[key], facts)
+                self.assertEqual(facts["decodedLevels"], 3, facts)
+                for role, extent, levels in (("full", [4097, 4], 3), ("tail", [2048, 2], 2),
+                                             ("lastMip", [1024, 1], 1),
+                                             ("data", [4097, 4], 3)):
+                    result = facts[role]
+                    self.assertEqual(result["status"], "loaded", result)
+                    self.assertEqual(result["physical"], extent, result)
+                    self.assertEqual(result["mapped"], extent, result)
+                    self.assertEqual(result["levels"], levels, result)
+                    self.assertEqual(result["levelPixelsMatch"], [True] * levels, result)
+                    for key in ("identityUV", "purposeMatches", "gpuCompleted"):
+                        self.assertTrue(result[key], result)
+
+    def test_mip_tail_request_preserves_padded_and_single_mip_sources(self) -> None:
+        for name, extent, mapped, levels in (("padded-authored.tex", [4097, 4], [4096, 4], 3),
+                                             ("single-small.tex", [8, 2], [8, 2], 1)):
+            facts = self.result["mipTail"][name]
+            with self.subTest(source=name):
+                self.assertTrue(facts["cacheReusesOriginal"], facts)
+                self.assertTrue(facts["gpuCompleted"], facts)
+                self.assertEqual(facts["physical"], extent, facts)
+                self.assertEqual(facts["mapped"], mapped, facts)
+                self.assertEqual(facts["levels"], levels, facts)
+                self.assertEqual(facts["levelPixelsMatch"], [True] * levels, facts)
+                self.assertEqual(facts["identityUV"], extent == mapped, facts)
 
     def test_packed_rgb_gray_alpha_and_padding_preserve_gpu_channels(self) -> None:
         layouts = self.result["packedLayouts"]

@@ -13,8 +13,8 @@
       "bytes": 8300
     },
     "docs/architecture/repository-map.md": {
-      "lines": 46,
-      "bytes": 11573
+      "lines": 48,
+      "bytes": 11992
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -77,8 +77,8 @@
       "bytes": 73409
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 148,
-      "bytes": 28257
+      "lines": 159,
+      "bytes": 31064
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -93,8 +93,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 274,
-      "bytes": 52510
+      "lines": 277,
+      "bytes": 53425
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,28 +369,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "65de8e39e23635c9d1a8bf3e727abfbf207625eb8b0d85d128535780d889de4f",
-      "after": "e749a86953269fa294ed77f7274c08b07ac23ae91cbf0c20cc5718e3e871032c",
-      "owner": "Scene runtime",
-      "reason": "约定显示模式、几何与节律变更、已确认会话的生效值。",
+      "before": "e749a86953269fa294ed77f7274c08b07ac23ae91cbf0c20cc5718e3e871032c",
+      "after": "c036426c6a5d7cdebcd34ec3763ef415ec5188b81ae0d7a3cb0f09a5db5afbd7",
+      "owner": "Scene runtime / Metal",
+      "reason": "约定纹理规格、精确用途和共享设备缓存表示。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "2331f6e89bdb277170b4bfc85ffb05203671fb16daa6574aa4d756180a1f567d",
-      "after": "87a6d50a681c6825ac85f53c76510b9def4be0fd16fc155f0351212dcd375d64",
-      "owner": "Video / Quality",
-      "reason": "记录可比短循环的真实解码、签名 helper 成本与派生门。",
+      "before": "87a6d50a681c6825ac85f53c76510b9def4be0fd16fc155f0351212dcd375d64",
+      "after": "eb5dba50d44287fd241769762ac6f10bf70f00e9e13bc98612329c2e80224bbb",
+      "owner": "Scene texture / Quality",
+      "reason": "记录作者 mip、具名和计算路径回归及原始图片边界。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "864de0febc28b7aba8213e0ead0e8868a84125e39dedfd54796b5ccb4443b18c",
-      "after": "7bdb537bdb28a9edc49fb421225f883550c6d6332cc00e7b2d7bee81014eb212",
+      "before": "7bdb537bdb28a9edc49fb421225f883550c6d6332cc00e7b2d7bee81014eb212",
+      "after": "a2c3d823e1c24e729b0b6a33fdc7f5313a09bd00ee7b9e9422a9d31e4162e273",
       "owner": "Repository navigation",
-      "reason": "路由目标屏模式到原 Scene 拓扑和帧率合同。",
+      "reason": "路由原图设备准备和 TEX 候选执行点。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {

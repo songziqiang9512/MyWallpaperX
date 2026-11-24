@@ -51,19 +51,21 @@ struct Loader { func evictDecodedCaches() {} }
 struct ScenePreparedBaseImageResources {
     let textureLoader = Loader()
     let models: Set<String>
+    let retainsModelDefaultAliases: Bool
     let puppetClipping: [String: Int] = [:]
     static func prepare(descriptor: SceneRenderDescriptor, resourceView: SceneResourceView,
         device: MTLDevice, spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
         sceneGeneration: UInt64, cacheDirectory: URL, effectivePropertyValues: [String: SceneUserPropertyValue],
-        dynamicImageModelPathsProvider: (() throws -> Set<String>)?,
+        dynamicImageRequestsProvider: (() throws -> (models: Set<String>, retainsModelDefaultAliases: Bool))?,
         deferredBaseImageLayerIDs: Set<Int>, imageGeometryModels: [SceneAssetCatalog.ModelAsset],
+        ordinaryColorMipLongEdge: Int?,
         geometryPrepared: ([Int: [Float]]) -> Void, uploadCommandQueue: SceneTextureUploadCommandQueue,
         decodeCacheBudget: SceneTextureDecodeCacheBudget, cancellationCheck: () throws -> Void) throws -> Self {
         geometryPrepared([17:[200,100]])
         Backend.entered.signal()
-        let models = try dynamicImageModelPathsProvider!()
+        let requests = try dynamicImageRequestsProvider!()
         try cancellationCheck()
-        return .init(models: models)
+        return .init(models: requests.models, retainsModelDefaultAliases: requests.retainsModelDefaultAliases)
     }
 }
 enum SceneMdlStaticModel { struct PreparedSource {} }
@@ -113,10 +115,11 @@ HARNESS = r'''
         let states: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [
             .init(token: 1): .ready, .init(token: 2): .preparedVideo, .init(token: 3): .absent]
         t.completeResourcePlanning(.init(dynamicImageModelPaths: ["models/a.json", "models/b.json"],
-            modelMaterialPlan: .init(token: 73), modelAlbedoStates: states))
+            hasStatefulLayerMutationOwner: true, modelMaterialPlan: .init(token: 73), modelAlbedoStates: states))
         let prepared = try t.value()
         out["plannedModels"] = prepared.baseImages.models.sorted()
-        out["samePlanningPayload"] = prepared.staticModels.planToken == 73 && prepared.staticModels.states == states
+        out["samePlanningPayload"] = prepared.baseImages.retainsModelDefaultAliases
+            && prepared.staticModels.planToken == 73 && prepared.staticModels.states == states
             && prepared.staticModels.directionalShadowDimensionLimit == 1024
             && !prepared.staticModels.pointVolumeEnabled && !prepared.staticModels.modelReflectionsEnabled
         let empty = task(); empty.start()
@@ -124,6 +127,7 @@ HARNESS = r'''
         empty.completeResourcePlanning(.init(dynamicImageModelPaths: [], modelMaterialPlan: .empty, modelAlbedoStates: [:]))
         let emptyResult = try empty.value()
         out["emptyCompleted"] = emptyResult.baseImages.models.isEmpty
+            && !emptyResult.baseImages.retainsModelDefaultAliases
             && emptyResult.staticModels.planToken == 0 && emptyResult.staticModels.states.isEmpty
         let failedProgram = task(); failedProgram.start()
         _ = try failedProgram.preparedImageGeometry(); _ = Backend.entered.wait(timeout: .now()+2)

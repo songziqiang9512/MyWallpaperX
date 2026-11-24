@@ -10,6 +10,7 @@ extension SceneBaseImageTextureLoad {
         preparedTexSource: SceneTextureLoader.PreparedTexSource? = nil,
         preparedDirectImageSource: SceneTextureLoader.PreparedDirectImageSource? = nil,
         conditionalVariantIDs: Set<UInt32>? = nil,
+        maximumMipLongEdge: Int? = nil,
         checkCancellation: (() throws -> Void)? = nil
     ) throws -> Outcome {
         if let preparedTexSource, preparedTexSource.input != url { throw SceneResourceView.ReadError.invalidHandle }
@@ -18,7 +19,7 @@ extension SceneBaseImageTextureLoad {
         if let preparedTexSource {
             outcome = try loader.loadCandidate(from: preparedTexSource, purpose: purpose,
                 device: device, conditionalVariantIDs: conditionalVariantIDs,
-                checkCancellation: checkCancellation)
+                maximumMipLongEdge: maximumMipLongEdge, checkCancellation: checkCancellation)
         } else if let preparedDirectImageSource {
             outcome = try loader.loadCandidate(from: preparedDirectImageSource, purpose: purpose,
                 device: device, checkCancellation: checkCancellation)

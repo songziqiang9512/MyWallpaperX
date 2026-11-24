@@ -8,6 +8,7 @@ import Metal
 final class ScenePreparedDeviceResourcesTask {
     struct Planning {
         let dynamicImageModelPaths: Set<String>
+        var hasStatefulLayerMutationOwner = false
         let modelMaterialPlan: ScenePreparedStaticModelResources.MaterialPlan
         let modelAlbedoStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
     }
@@ -22,6 +23,7 @@ final class ScenePreparedDeviceResourcesTask {
     private let directionalShadowDimensionLimit: Int?
     private let pointVolumeEnabled: Bool
     private let modelReflectionsEnabled: Bool
+    private let ordinaryColorMipLongEdge: Int?
     private let resourceView: SceneResourceView
     private let device: MTLDevice
     private let cacheDirectory: URL
@@ -43,6 +45,7 @@ final class ScenePreparedDeviceResourcesTask {
         directionalShadowDimensionLimit: Int?,
         pointVolumeEnabled: Bool,
         modelReflectionsEnabled: Bool,
+        ordinaryColorMipLongEdge: Int? = nil,
         resourceView: SceneResourceView,
         device: MTLDevice,
         sceneGeneration: UInt64,
@@ -61,6 +64,7 @@ final class ScenePreparedDeviceResourcesTask {
         self.directionalShadowDimensionLimit = directionalShadowDimensionLimit
         self.pointVolumeEnabled = pointVolumeEnabled
         self.modelReflectionsEnabled = modelReflectionsEnabled
+        self.ordinaryColorMipLongEdge = ordinaryColorMipLongEdge
         self.resourceView = resourceView
         self.device = device
         self.cacheDirectory = cacheDirectory
@@ -116,9 +120,10 @@ final class ScenePreparedDeviceResourcesTask {
                     sceneGeneration: sceneGeneration,
                     cacheDirectory: cacheDirectory,
                     effectivePropertyValues: effectivePropertyValues,
-                    dynamicImageModelPathsProvider: plannedDynamicImageModelPaths,
+                    dynamicImageRequestsProvider: plannedDynamicImageRequests,
                     deferredBaseImageLayerIDs: deferredBaseImageLayerIDs,
                     imageGeometryModels: imageGeometryModels,
+                    ordinaryColorMipLongEdge: ordinaryColorMipLongEdge,
                     geometryPrepared: { geometry in
                         condition.lock()
                         geometryResult = .success(geometry)
@@ -175,13 +180,13 @@ final class ScenePreparedDeviceResourcesTask {
         condition.unlock()
     }
 
-    private func plannedDynamicImageModelPaths() throws -> Set<String> {
+    private func plannedDynamicImageRequests() throws -> (models: Set<String>, retainsModelDefaultAliases: Bool) {
         condition.lock()
         while resourcePlanningResult == nil && !cancellationRequested { condition.wait() }
         let planning = resourcePlanningResult
         condition.unlock()
         try checkCancellation()
-        return planning!.dynamicImageModelPaths
+        return (planning!.dynamicImageModelPaths, planning!.hasStatefulLayerMutationOwner)
     }
 
     func preparedImageGeometry() throws -> [Int: [Float]] {

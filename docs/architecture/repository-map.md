@@ -29,6 +29,8 @@
 
 Scene 的 [显示模式与目标屏](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneScreenTopology.swift) 进入原 daemon 拓扑入口。请求、生效上限及解码配额见 [帧率合同](../scene/architecture/runtime-architecture.md#scene-frame-rate-policy)。Scene 稳态节律用 [原产品启动基准](../../script/web/wallpaper_startup_benchmark.py) 对实际接管的 daemon 采集逐屏呈现与 GPU 完成。参数、观测边界和当前 A/A 见[工作卡](../development/wallpaper-quality-work-card.md#连续帧率的产品测量与接管)。
 
+Scene 的 [基础图像准备](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift) 和 [TEX 候选加载](../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader+Candidate.swift) 负责真实纹理规格。精确用途、GPU 表示与作者布局见 [纹理档位合同](../scene/architecture/runtime-architecture.md#scene-texture-quality-policy)。
+
 本地 Video 和已就绪 Steam Video 详情共用[原片轨道读取](../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift)。标称帧率来自实际播放文件；[Steam 获取合同](steam-workshop-acquisition-contract.md#source-video-facts)约定适用范围。
 
 Pixabay 新下载由 [规格选择](../../MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadQualityPrompt.swift)交给[下载服务](../../MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift)发布实际文件。[下载历史](../../MyWallpaperX/App/DownloadTasksController.swift)用原档位重试。播放仍由原 Video daemon 读取发布文件。

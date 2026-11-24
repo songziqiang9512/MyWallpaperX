@@ -283,6 +283,7 @@ extension SceneDesktopWallpaperHost {
             directionalShadowDimensionLimit: sceneRenderQuality.shadows.directionalDimensionLimit,
             pointVolumeEnabled: sceneRenderQuality.pointVolume == .enabled,
             modelReflectionsEnabled: sceneRenderQuality.reflections == .enabled,
+            ordinaryColorMipLongEdge: sceneRenderQuality.textures.ordinaryColorMipLongEdge,
             resourceView: model.resourceView,
             device: device,
             sceneGeneration: sceneScriptGeneration,
@@ -679,6 +680,7 @@ extension SceneDesktopWallpaperHost {
         let assetLaunchStates = materialAssetCatalog.launchStates
         deviceResourcesPreparation.completeResourcePlanning(.init(
             dynamicImageModelPaths: committedPrograms.domain?.dynamicImageRequestedModelPaths ?? [],
+            hasStatefulLayerMutationOwner: committedPrograms.domain?.hasStatefulLayerMutationOwner == true,
             modelMaterialPlan: modelMaterialPlan,
             modelAlbedoStates: modelMaterialPlan.assetDemands.reduce(into: [:]) {
                 $0[$1] = assetLaunchStates[$1]

@@ -17,10 +17,10 @@ extension SceneDesktopWallpaperHost {
         candidateSession = session
         candidateCompletion = completion
 #if DEBUG
-        NSLog("MWX Scene: phase=session-candidate session=%@ postProcessing=%@ shadowQuality=%@ pointVolumeQuality=%@ reflectionQuality=%@",
+        NSLog("MWX Scene: phase=session-candidate session=%@ postProcessing=%@ shadowQuality=%@ pointVolumeQuality=%@ reflectionQuality=%@ textureQuality=%@",
               session.lifecycleID.uuidString, sceneRenderQuality.postProcessing.rawValue,
               sceneRenderQuality.shadows.rawValue, sceneRenderQuality.pointVolume.rawValue,
-              sceneRenderQuality.reflections.rawValue)
+              sceneRenderQuality.reflections.rawValue, sceneRenderQuality.textures.rawValue)
 #endif
         var pendingScreens: Set<CGDirectDisplayID> = []
         var didPrepare = false

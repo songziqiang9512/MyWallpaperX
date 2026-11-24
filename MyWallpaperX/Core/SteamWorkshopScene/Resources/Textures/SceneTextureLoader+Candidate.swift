@@ -107,10 +107,12 @@ nonisolated extension SceneTextureLoader {
     func loadCandidate(
         from prepared: PreparedTexSource, purpose: SceneTextureLoadPurpose, device: MTLDevice,
         conditionalVariantIDs: Set<UInt32>? = nil,
+        maximumMipLongEdge: Int? = nil,
         checkCancellation: (() throws -> Void)? = nil
     ) throws -> SceneTextureCandidateLoadOutcome {
         try loadCandidate(from: prepared.input, source: prepared.source, prepared: prepared,
             purpose: purpose, device: device, conditionalVariantIDs: conditionalVariantIDs,
+            maximumMipLongEdge: maximumMipLongEdge,
             checkCancellation: checkCancellation)
     }
 
@@ -127,6 +129,7 @@ nonisolated extension SceneTextureLoader {
         preparedDirect: PreparedDirectImageSource? = nil,
         purpose: SceneTextureLoadPurpose, device: MTLDevice,
         conditionalVariantIDs: Set<UInt32>? = nil,
+        maximumMipLongEdge: Int? = nil,
         checkCancellation: (() throws -> Void)?
     ) throws -> SceneTextureCandidateLoadOutcome {
         let isTex = input.pathExtension.lowercased() == "tex"
@@ -147,6 +150,10 @@ nonisolated extension SceneTextureLoader {
             }
             spriteFrame = nil
         }
+        let embeddedBaseMip = if let maximumMipLongEdge, let prepared, purpose == .straightAlbedo,
+                                 spriteFrame == nil, conditionalVariantIDs == nil {
+            embeddedUploadBaseMip(prepared.resource, maximumLongEdge: maximumMipLongEdge)
+        } else { 0 }
         let outcome: SceneTextureLoadOutcome
         if let prepared, let conditionalVariantIDs {
             try checkCancellation?()
@@ -155,11 +162,13 @@ nonisolated extension SceneTextureLoader {
         } else {
             outcome = try load(from: input, source: source, purpose: purpose, device: device,
                 preparedTexSource: prepared, preparedDirectImageSource: preparedDirect,
+                embeddedBaseMip: embeddedBaseMip,
                 checkCancellation: checkCancellation)
         }
         guard case .loaded(let texture) = outcome else { return .failed(outcome) }
         return try makeCandidate(texture: texture, resource: prepared?.resource, source: source,
-            purpose: purpose, spriteFrame: spriteFrame, checkCancellation: checkCancellation)
+            purpose: purpose, spriteFrame: spriteFrame, embeddedBaseMip: embeddedBaseMip,
+            checkCancellation: checkCancellation)
     }
 
     /// Catalog-only admission shares the exact source/device cache and typed
@@ -213,6 +222,7 @@ nonisolated extension SceneTextureLoader {
         purpose: SceneTextureLoadPurpose,
         decodedSourceImage: CGImage? = nil,
         spriteFrame: SceneTexContainer.SpriteFrame? = nil,
+        embeddedBaseMip: Int = 0,
         checkCancellation: (() throws -> Void)?
     ) throws -> SceneTextureCandidateLoadOutcome {
         guard texture.textureType == .type2D else {
@@ -240,7 +250,7 @@ nonisolated extension SceneTextureLoader {
                       texture: texture,
                       container: container, resource: resource,
                       sourcePhysicalSize: sourcePhysicalSize,
-                      purpose: purpose
+                      purpose: purpose, embeddedBaseMip: embeddedBaseMip
                   ) else {
                 return .failed(.decodeFailed(
                     "typed slot candidate has inconsistent physical/mapped dimensions"
@@ -428,17 +438,29 @@ nonisolated extension SceneTextureLoader {
         return mapped
     }
 
+    private func embeddedUploadBaseMip(_ resource: TexResource, maximumLongEdge: Int) -> Int {
+        guard let container = resource.container, container.containerVersion == .texb0003,
+              resource.hasValidTexb3EmbeddedMipChain, container.conditionalVariants.isEmpty,
+              !container.isVolume, let base = container.mips.first,
+              base.width == container.imageWidth, base.height == container.imageHeight else { return 0 }
+        return container.mips.firstIndex { max($0.width, $0.height) <= maximumLongEdge } ?? 0
+    }
+
     private func candidateOutputGeometry(
         texture: MTLTexture,
         container: SceneTexContainer, resource: TexResource,
         sourcePhysicalSize: CGSize,
-        purpose: SceneTextureLoadPurpose
+        purpose: SceneTextureLoadPurpose, embeddedBaseMip: Int
     ) -> (physical: CGSize, mapped: CGSize)? {
         let output = CGSize(width: texture.width, height: texture.height)
         let sourceMapped = CGSize(
             width: container.imageWidth,
             height: container.imageHeight
         )
+        if embeddedBaseMip > 0 {
+            let base = container.mips[embeddedBaseMip]
+            return output == CGSize(width: base.width, height: base.height) ? (output, output) : nil
+        }
         if output == sourcePhysicalSize {
             return (sourcePhysicalSize, sourceMapped)
         }

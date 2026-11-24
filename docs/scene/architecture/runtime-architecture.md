@@ -147,6 +147,9 @@ App 以 10–120 整数保存动画帧率，Scene 启动和热更新沿原数值
 
 解码租约预算在 Scene host 初始化时定一次，并与帧率分开。升级前使用旧小预算的设备保留本机兼容值，便携导入不传递它；改帧率不会扫描或缩减已有缓存。 [移除旧预算的验证条件](../../development/wallpaper-quality-work-card.md#scene-rate-rollout)
 
+<a id="scene-texture-quality-policy"></a>
+纹理「高质量」沿原物理规格。「高性能」可在冷准备选择普通图像的已验证作者 TEX mip 尾。唯一静态普通颜色采样、无其它需精确像素的消费者和真实无 padding 是首批资格。同一源的布局尺寸、归一 UV、作者颜色／alpha 和采样保持。原解码缓存共享，设备纹理按实际起始 mip 区分。作者材质、具名供货、粒子像素及动态模型独立加载全规格，借用原模型别名时不得把缩小图当作全规格。含 padding、单 mip、数据通道及非适用格式沿原 Loader。偏好与 v8 便携设置沿 Scene 质量快照交付，随原候选重载生效。 [代码入口](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift) · [已验范围](../../development/wallpaper-quality-work-card.md#scene-texture-rollout)
+
 增加新的性能档位前，先以可比CPU/GPU、内存、启动或能耗证据确定取舍，再在原prepare入口形成被真实Program/资源/后处理消费者使用的有效策略，质量只控制对应能力和采样/分辨率等实际成本。当前不先建空enum、仅透传对象、第二配置owner/cache或无消费者的uniform位；普通帧不重读UI、不重编或重复判档位。策略改变沿原受影响资源/Program准备与提交寿命更新，不分叉作者时钟、材质算法或最终输出。每项降档须说明具体画面代价，保作者控制、遮挡和健康peer，并退出被替代的旧决策；不能把缺功能、采集过载或未归因暗图称为性能优化。
 
 <a id="raster-sample-domain"></a>

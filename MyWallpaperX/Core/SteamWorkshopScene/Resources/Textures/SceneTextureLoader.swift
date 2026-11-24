@@ -136,6 +136,7 @@ nonisolated final class SceneTextureLoader {
         let source: SourceKey
         let deviceRegistryID: UInt64
         let purpose: SceneTextureLoadPurpose
+        let embeddedBaseMip: Int
     }
 
     struct TexResource {
@@ -307,6 +308,7 @@ nonisolated final class SceneTextureLoader {
         from input: Input, source expectedSource: SourceKey?, purpose: SceneTextureLoadPurpose,
         device: MTLDevice, preparedTexSource: PreparedTexSource? = nil,
         preparedDirectImageSource: PreparedDirectImageSource? = nil,
+        embeddedBaseMip: Int = 0,
         checkCancellation: (() throws -> Void)? = nil
     ) throws -> SceneTextureLoadOutcome {
         try checkCancellation?()
@@ -324,7 +326,8 @@ nonisolated final class SceneTextureLoader {
             source = current
         }
         if let expectedSource, expectedSource != source { throw SceneResourceView.ReadError.sourceChanged }
-        let key = TextureKey(source: source, deviceRegistryID: device.registryID, purpose: purpose)
+        let key = TextureKey(source: source, deviceRegistryID: device.registryID, purpose: purpose,
+            embeddedBaseMip: embeddedBaseMip)
         if let cached = textures[key] { return .loaded(cached) }
         let ext = input.pathExtension.lowercased()
         let outcome: SceneTextureLoadOutcome
@@ -334,6 +337,7 @@ nonisolated final class SceneTextureLoader {
         } else if ext == Self.texExtension {
             outcome = try loadWallpaperEngineTex(input: input, source: source, purpose: purpose,
                 device: device, preparedResource: preparedTexSource?.resource,
+                embeddedBaseMip: embeddedBaseMip,
                 checkCancellation: checkCancellation)
         } else {
             outcome = .unsupportedFormat(extension: ext)
@@ -586,6 +590,7 @@ nonisolated final class SceneTextureLoader {
         purpose: SceneTextureLoadPurpose,
         device: MTLDevice,
         preparedResource: TexResource? = nil,
+        embeddedBaseMip: Int,
         checkCancellation: (() throws -> Void)?
     ) throws -> SceneTextureLoadOutcome {
         guard let resource = try preparedResource ?? texResource(from: input, source: source,
@@ -598,7 +603,7 @@ nonisolated final class SceneTextureLoader {
         if container.format == 0 {
             return loadFormatZeroContainer(
                 container, embeddedMipChainIsValid: resource.hasValidTexb3EmbeddedMipChain,
-                source: source, purpose: purpose, device: device
+                source: source, purpose: purpose, device: device, embeddedBaseMip: embeddedBaseMip
             )
         }
         return makeDirectUploadTexture(
@@ -668,7 +673,8 @@ nonisolated final class SceneTextureLoader {
         embeddedMipChainIsValid: Bool,
         source: SourceKey,
         purpose: SceneTextureLoadPurpose,
-        device: MTLDevice
+        device: MTLDevice,
+        embeddedBaseMip: Int = 0
     ) -> SceneTextureLoadOutcome {
         guard let firstMip = container.mips.first else {
             return .decodeFailed("TEX container has no mip data")
@@ -700,9 +706,10 @@ nonisolated final class SceneTextureLoader {
             ) else {
                 return .decodeFailed("compiled TEX embedded mip chain could not be decoded")
             }
+            let selectedImages = embeddedBaseMip == 0 ? images : Array(images.dropFirst(embeddedBaseMip))
             let uploaded = purpose.preservesSourceChannels
                 ? SceneTextureMipUploader.uploadEmbeddedDataImages(
-                    images,
+                    selectedImages,
                     purpose: purpose,
                     maximumDimension: Self.maxTextureDimension,
                     device: device
