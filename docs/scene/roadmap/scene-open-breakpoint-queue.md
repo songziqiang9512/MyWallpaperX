@@ -19,7 +19,7 @@
 |---|---|
 | Sphere 全零方向的出生可见性（待证） | [固定零半径初速](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)已恢复。显式全零 Directions 的隔离 Sprite 在官版窗内无像素，本机可见且静止。需分出生资格与可见条件，先找活动作者或单轴逐步归零的反例，保零速度和非零轴的正常出生。 |
 | 音频供值 · 3612940332 | 红弧几何及合成已修。跨声道快影响与声道分组恢复已由[同PCM脉冲](../capabilities/runtime-evidence-current.md#author-spectrum-pulse-361)区分。待异幅能判更新律或取得运行中原值，再沿[共享设计](../../architecture/system-audio-spectrum-design.md)接分域并验原包有声弧。 |
-| 世界粒子的外围分布 · 3653620838 | [Project 光效栅格](../capabilities/runtime-evidence-current.md#project-framebuffer-resolution-365)已纠正，内圈更近。外圈在345之前已有差，先隔离259稀疏分布和时相，保内圈现验收。 |
+| 粒子外圈 · 3653620838 | [外圈隔离](../capabilities/runtime-evidence-current.md#vortex-outer-cohorts-365)见345前已偏亮。四方位轨迹与原淡入接近，待实际外瓣方向足迹或重复成熟群组。 |
 | 普通粒子材质增亮的裁幅 | 平面 RG88 同窗对照测得材质 gain1.4 的官版 `(0,144,144)`、本机新 `(0,163,202)`。先找实际作者消费，并用有色 texel、半透明底和双层加色区分 tint、采样与裁幅顺序。已验证的中性 R8 半透明 Trail 裁幅另有原证据。 [运行证据](../capabilities/runtime-evidence-current.md#particle-instance-tint-native) |
 | 3454689854 的相邻丝层 | [同画幅单丝、原包和实际预算](../capabilities/runtime-evidence-current.md#silk-capture-density-345)已闭两条SDR根丝密度。子层及多阶段保持原工作域，只有取得可归属的同相位残差再重启。原默认绕身文字两端均隐藏，条件另见[原包对照](../capabilities/runtime-evidence-current.md#author-silk-raster-345)。 |
 | Puppet 约束的剩余时序与组合 | [原317和313已恢复主要播放](../capabilities/runtime-evidence-current.md#puppet-planar-constraints-native)。固定根解析投影在317额外+96对照的肘误差约2.17px，313极近伸直时官版定槽后仍收敛。待有原包可见差异再核有效根位移与收敛。复杂链、挂点及同链脚本与物理后写按实际消费者验证。 |
