@@ -26,6 +26,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
     /// the provider capability without making either layer a visible graph root.
     let isStaticModelGraphOutputPreparationRoot: Bool
     let terminalReplayBlendMode: Int
+    let isTransparentCompositionRoot: Bool
     let directDrawGeometryRole: DirectDrawGeometryRole?
     let directDrawGeometryFallback: DirectDrawGeometryFallback?
 
@@ -42,6 +43,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         isGraphOutputProvider: Bool,
         isStaticModelGraphOutputPreparationRoot: Bool = false,
         terminalReplayBlendMode: Int = 0,
+        isTransparentCompositionRoot: Bool = false,
         directDrawGeometryRole: DirectDrawGeometryRole? = nil,
         directDrawGeometryFallback: DirectDrawGeometryFallback? = nil
     ) {
@@ -58,6 +60,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         self.isStaticModelGraphOutputPreparationRoot =
             isStaticModelGraphOutputPreparationRoot
         self.terminalReplayBlendMode = terminalReplayBlendMode
+        self.isTransparentCompositionRoot = isTransparentCompositionRoot
         self.directDrawGeometryRole = directDrawGeometryRole
         self.directDrawGeometryFallback = directDrawGeometryFallback
     }
@@ -616,6 +619,9 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 isStaticModelGraphOutputPreparationRoot:
                     isStaticModelGraphOutputPreparationRoot,
                 terminalReplayBlendMode: layer.colorBlendMode ?? 0,
+                isTransparentCompositionRoot: layer.utilityLayer?.kind == .composition
+                    && layer.utilityLayer?.copyBackground == false && layer.utilityLayer?.framebufferSource == nil
+                    && layer.childLayerIDs.isEmpty && layer.parentID == nil,
                 directDrawGeometryRole: directDrawGeometryRole,
                 directDrawGeometryFallback: directDrawGeometryFallback
             ))

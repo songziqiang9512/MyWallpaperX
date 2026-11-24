@@ -125,12 +125,12 @@
       "bytes": 67961
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 410,
-      "bytes": 84512
+      "lines": 419,
+      "bytes": 86301
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 308030
+      "bytes": 308947
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 170,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 218,
-      "bytes": 67533
+      "lines": 217,
+      "bytes": 67235
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -460,11 +460,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "ba98a725e7d8a4493602b951f2a7691b567d59acbc221d5ea071d9d86817c225",
-      "after": "c9fd8028c4892fac3cdcde50fe3fab4a45aa906fdbf96eeb1571794b27390a48",
+      "before": "c9fd8028c4892fac3cdcde50fe3fab4a45aa906fdbf96eeb1571794b27390a48",
+      "after": "76db7e35470a9d5aea0b2ab93cd7d3d76833bd20443e110c0ffdec1e32bb9733",
       "owner": "Scene captured attachment and material graph",
-      "reason": "Defines authored work sizing independently of terminal replay for an isolated generated-color solid that samples the current main attachment.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#solid-background-local-effect-raster"
+      "reason": "Defines native terminal raster from the authored graph prefix without a materialized second output.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#placement-only-composition-tail"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "80427406dc1f15def03a2aa7cb5a589ee216649b002b5d6233bc31a60ad87a4b",
-      "after": "2e1cb2cd49fc1287977f6a28edf0759c089633ccc9b727515d7d29dba5629374",
-      "owner": "Scene particle raster and root scene depth",
-      "reason": "Keeps signed author, locked-client, capture-order and independent peer evidence, including differing spatial coverage.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#moon-fog-main-depth"
+      "before": "2e1cb2cd49fc1287977f6a28edf0759c089633ccc9b727515d7d29dba5629374",
+      "after": "52bf47c72fe38fe304f9365ff913b6253ca53dc5be520c66751628cfb4b3b3bd",
+      "owner": "Scene captured attachment and material graph",
+      "reason": "Records measured raster ownership, identical LOD samples, author PCM visibility and actual MainPass terminal evidence.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-led-placement-tail-322"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b00ee5f29d2eddbbb3799a0f96c2bfccf8f97dab55a7ac1b4fe865946d6d572b",
-      "after": "212f4afef8dbe3a7ff35482f3e91ecb37cb74d766e7cc157e175ed6f6ca8dae8",
-      "owner": "Scene particle raster and root scene depth",
-      "reason": "Separates the remaining moon fog geometry difference from semantics of particle writers.",
+      "before": "212f4afef8dbe3a7ff35482f3e91ecb37cb74d766e7cc157e175ed6f6ca8dae8",
+      "after": "c6a23070147a7e45607ae1461a70f624c4b867c9fb98b5bdd911c10154ad7a58",
+      "owner": "Scene captured attachment and material graph",
+      "reason": "Closes the verified stripe raster fault and names the identified existing submission fixture compile debt.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {

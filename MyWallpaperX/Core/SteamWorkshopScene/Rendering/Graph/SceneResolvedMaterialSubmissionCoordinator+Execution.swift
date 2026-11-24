@@ -187,14 +187,15 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 identity: ledger.identity,
                 epoch: ledger.epoch,
                 finalTextureIdentity: ObjectIdentifier(ledger.prepared.finalTexture),
-                finalContent: ledger.prepared.finalResource.publication.candidate.content,
+                finalContent: ledger.prepared.compositionContent,
                 consumesExternalPrimaryDependency: !ledger.preparedDependencyEffects.isEmpty,
                 effectFailures: effectFailures,
                 hasTerminalMaterialReplay: ledger.prepared.terminalMaterialReplay != nil,
                 terminalReplayBlendMode:
                     ledger.prepared.terminalMaterialReplay?.role.terminalReplayBlendMode ?? 0,
                 terminalReadsCurrentAttachment:
-                    ledger.prepared.terminalMaterialReplay?.role.readsCurrentAttachment == true
+                    ledger.prepared.terminalMaterialReplay?.role.readsCurrentAttachment == true,
+                placementTailEffect: ledger.prepared.placementTailEffect
             )
         )
     }

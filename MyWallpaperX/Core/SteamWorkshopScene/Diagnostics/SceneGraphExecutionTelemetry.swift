@@ -6,7 +6,7 @@ nonisolated final class SceneGraphExecutionTelemetry: @unchecked Sendable {
 
     // Execution evidence remains process-wide across graph/runtime instances.
     private static let genericShaderExecutionLock = NSLock()
-    private static var genericShaderExecutionIdentities = Set<String>()
+    nonisolated(unsafe) private static var genericShaderExecutionIdentities = Set<String>()
 
     static func recordGenericShaderExecution(
         state: String,
@@ -445,6 +445,7 @@ nonisolated extension SceneGraphExecutionObservation {
             "publication=\(SceneGraphExecutionLogToken.encode(finalOutput?.publicationIdentity))",
             "publicationGeneration=\(finalOutput.map { String($0.publicationGeneration) } ?? "-")",
             "compositorConsumed=\(compositorConsumed)",
+            "placementOnly=\(compositorConsumed && finalOutput == nil)",
             "outcome=\(outcome.details.value)",
             "failure=\(SceneGraphExecutionLogToken.encode(outcome.details.reason))",
             "gpuCompletion=\(gpuCompletionStatus?.rawValue ?? "-")",

@@ -49,7 +49,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               effects.count == prepared.stages.count,
               generations.count == 1,
               let generation = generations.first,
-              targets.leases.count == prepared.stages.count,
+              targets.leases.count == prepared.stages.count + (prepared.placementTailEffect == nil ? 0 : 1),
               targets.leases.allSatisfy({ $0.generation == generation }),
               Set(blueprint.states.keys) == effects,
               Set(blueprint.resources.keys) == effects,
@@ -294,7 +294,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         guard ledger.claimConsumed, ledger.phase == .encoded,
               ledger.candidateTails != nil,
               ticket.finalTextureIdentity == ObjectIdentifier(ledger.prepared.finalTexture),
-              ticket.finalContent == ledger.prepared.finalResource.publication.candidate.content,
+              ticket.finalContent == ledger.prepared.compositionContent,
+              ticket.placementTailEffect == ledger.prepared.placementTailEffect,
               ticket.hasTerminalMaterialReplay == (ledger.prepared.terminalMaterialReplay != nil),
               ticket.terminalReplayBlendMode == ledger.prepared.terminalMaterialReplay?.role.terminalReplayBlendMode,
               ticket.terminalReadsCurrentAttachment == (ledger.prepared.terminalMaterialReplay?.role.readsCurrentAttachment == true) else {

@@ -131,7 +131,8 @@ enum SceneResolvedMaterialGraphComposition {
             // 诊断 trace 存在时执行；正常播放 trace 为 nil，整段跳过。
 #if DEBUG
             if let executionTrace {
-                for subject in runtime.executionEvidenceSubjects(for: claim) {
+                for subject in runtime.executionEvidenceSubjects(for: claim)
+                where subject.key != ticket.placementTailEffect {
                     let outcome: SceneEffectCPUInvocationOutcome
                     switch runtime.executionEvidenceOutcome(
                         for: subject,
@@ -393,6 +394,14 @@ extension SceneImageLayerCompositor {
         ) {
         case .consumed:
 #if DEBUG
+            if let effect = ticket.placementTailEffect, let executionTrace,
+               let family = resolvedMaterialRuntime.executionEvidenceFamily(for: effect) {
+                executionTrace.recordExact(identity: .init(layerID: effect.layerID,
+                    effectIndex: effect.effectIndex, descriptorID: effect.descriptorID),
+                    origin: executionOrigin,
+                    family: family,
+                    backend: "resolved-material-graph", outcome: .encodedOutput)
+            }
             if let executionTrace, executionTrace.isCompositionSelected {
                 executionTrace.recordComposition(.init(kind: "tail-consume", layerID: layerID,
                     target: mainPass.compositionTarget, access: "terminal-material-replay", outcome: "terminal-consumed",

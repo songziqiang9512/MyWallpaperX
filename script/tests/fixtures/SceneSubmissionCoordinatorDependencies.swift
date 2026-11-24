@@ -889,6 +889,8 @@ final class SceneResolvedMaterialGraphExecutor {
     struct PreparedTerminalPass {
         struct Role { let terminalReplayBlendMode: Int?; var readsCurrentAttachment = false }
         let role: Role
+        var programCacheKey = ""
+        var placementEffectGeneration: UInt64? = nil
     }
     struct PreparedGraph {
         let stages: [PreparedStage]
@@ -897,6 +899,8 @@ final class SceneResolvedMaterialGraphExecutor {
         let historyTokensByEffect: [Graph.EffectKey: Set<State.PhysicalToken>]
         let sceneBackgroundResource: SceneFrameTextureResource? = nil
         var terminalMaterialReplay: PreparedTerminalPass? = nil
+        var placementTailEffect: Graph.EffectKey? = nil
+        var compositionContent: SceneTextureContent { finalResource.publication.candidate.content }
     }
     static var prepareCallCount = 0
     static var prepareTokens: [Int] = []

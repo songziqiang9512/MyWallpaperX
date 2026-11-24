@@ -731,8 +731,10 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         var result: [Int: MTLTexture] = [:]
         for identity in activeTransactions {
             guard let ledger = activeByID[identity],
-                  ledger.phase == .allocationCommitted,
-                  result.updateValue(
+                  ledger.phase == .allocationCommitted else { return nil }
+            // Keep the prefix private to its placement terminal.
+            if ledger.prepared.placementTailEffect != nil { continue }
+            guard result.updateValue(
                       ledger.prepared.finalTexture,
                       forKey: ledger.layerID
                   ) == nil else {

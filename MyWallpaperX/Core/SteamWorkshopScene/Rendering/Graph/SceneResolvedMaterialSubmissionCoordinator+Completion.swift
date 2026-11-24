@@ -308,6 +308,17 @@ extension SceneResolvedMaterialSubmissionCoordinator {
 #if DEBUG
         var emission = Emission()
         guard capturesExecutionObservations else { return emission }
+        if ledger.prepared.placementTailEffect != nil, ledger.compositorConsumed,
+           let graph = capabilities.resolve(ledger.capabilityToken)?.stages.last?.product.graph {
+            do {
+                emission.observations.append(try SceneResolvedMaterialGraphObservationBuilder.makePlacementTail(
+                    ledger.prepared, graph: graph, runtimeInstanceIdentity: runtimeInstanceIdentity,
+                    frameIndex: ledger.frameIndex, transactionID: ledger.identity, executionEpoch: ledger.epoch
+                ))
+            } catch {
+                emission.diagnostics.append("invalid-placement-tail-observation")
+            }
+        }
         for value in ledger.prepared.stages {
             let localFailure = ledger.localOutputFailureReasonCode
             let committedBase = ledger.committedBaseTails[value.effect]
@@ -336,7 +347,7 @@ emission.diagnostics.append(
                             ? ledger.blueprint?.resetReasons[value.effect] : nil,
                         committedBaseState: localFailure == nil
                             ? nil : committedBase?.state,
-                        terminalEffect: ledger.prepared.stages[
+                        terminalEffect: ledger.prepared.placementTailEffect ?? ledger.prepared.stages[
                             ledger.prepared.stages.count - 1
                         ].effect,
                         terminalCompositorConsumed: ledger.compositorConsumed,
@@ -385,7 +396,7 @@ emission.diagnostics.append(
                         mappingGeneration: base?.mappingGeneration ?? 0,
                         resetReason: nil,
                         committedBaseState: base?.state,
-                        terminalEffect: ledger.prepared.stages[
+                        terminalEffect: ledger.prepared.placementTailEffect ?? ledger.prepared.stages[
                             ledger.prepared.stages.count - 1
                         ].effect,
                         terminalCompositorConsumed: false,

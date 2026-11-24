@@ -146,6 +146,39 @@ enum SceneResolvedMaterialGraphObservationBuilder {
         )
     }
 
+    static func makePlacementTail(
+        _ prepared: SceneResolvedMaterialGraphExecutor.PreparedGraph,
+        graph: Graph, runtimeInstanceIdentity: String,
+        frameIndex: UInt64, transactionID: UInt64, executionEpoch: UInt64
+    ) throws -> SceneGraphExecutionObservation {
+        guard let effect = prepared.placementTailEffect,
+              let node = graph.nodes.first,
+              let replay = prepared.terminalMaterialReplay,
+              let effectGeneration = replay.placementEffectGeneration,
+              let prefix = prepared.stages.last else { throw Failure.invalidGraph }
+        return try .init(
+            runtimeInstanceIdentity: runtimeInstanceIdentity,
+            identity: .init(layerID: effect.layerID, effectIndex: effect.effectIndex,
+                descriptorID: effect.descriptorID),
+            graphIdentity: SceneShaderStableDigest.hash(graph), programIdentity: replay.programCacheKey,
+            programSequenceIdentity: SceneShaderStableDigest.hash(Data(replay.programCacheKey.utf8)),
+            transactionIdentity: "r4:\(executionEpoch):\(transactionID):\(effect.effectIndex)",
+            frameIndex: frameIndex, effectGeneration: effectGeneration,
+            allocationGeneration: prefix.transition.transaction.allocationGeneration, mappingGeneration: 0,
+            authoredNodeIndices: [node.nodeIndex],
+            nodes: [.init(nodeIndex: node.nodeIndex, kind: .material, materialOrdinal: node.materialOrdinal,
+                commandOrdinal: nil, commandSource: nil, commandTarget: nil,
+                advancesComposePair: false, disposition: .executed)],
+            expectedNodeCounts: .init(authored: 1, material: 1, copy: 0, swap: 0, compose: 0, rejected: 0),
+            logicalMappingBefore: [], logicalMappingAfter: [],
+            inputWidth: prepared.finalTexture.width, inputHeight: prepared.finalTexture.height,
+            fullFramePairStorage: nil, fullFramePairGeneration: nil, historyRehydrateCopyCount: 0,
+            historyContentDiscarded: false, composeSlotBefore: .none, composeSlotAfter: .none,
+            historyState: .none, finalOutput: nil, compositorConsumed: true,
+            outcome: .succeeded, gpuCompletionStatus: .completed
+        )
+    }
+
     private static func nodeObservations(
         _ value: Prepared,
         rejectedReason: String?

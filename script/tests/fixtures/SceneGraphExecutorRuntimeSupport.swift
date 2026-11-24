@@ -24,6 +24,8 @@ extension SceneEffectDefinition {
 }
 
 struct SceneUtilityLayer {
+    let copyBackground = true
+    let framebufferSource: Int? = nil
     enum Kind { case composition, project, fullscreen }
     let kind: Kind
     var passthrough = false

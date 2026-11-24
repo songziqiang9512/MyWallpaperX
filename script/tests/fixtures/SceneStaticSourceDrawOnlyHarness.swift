@@ -341,6 +341,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         var hasTerminalMaterialReplay: Bool { false }
         var terminalReplayBlendMode: Int? { nil }
         var terminalReadsCurrentAttachment: Bool { false }
+        var placementTailEffect: ExecutionEvidenceSubject.Key? { nil }
     }
     enum ExecutionResult {
         case encoded(texture: MTLTexture, ticket: ExecutionTicket)
@@ -350,7 +351,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     struct FramePreparationRequest {}
     enum FramePreparationResult { case ready; case rejected(reasonCode: String) }
     struct ExecutionEvidenceSubject {
-        struct Key {
+        struct Key: Equatable {
             let layerID: Int
             let effectIndex: Int
             let descriptorID: String

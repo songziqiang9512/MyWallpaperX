@@ -12,6 +12,7 @@ final class SceneResolvedMaterialPassEncoder {
         let role: SceneResolvedMaterialProgram.PassRole
 #if DEBUG
         var programCacheKey = ""
+        var placementEffectGeneration: UInt64?
         var compositionTrace: SceneEffectExecutionFrameTrace?
         var compositionRows: [SceneCompositionObservationRow] = []
 

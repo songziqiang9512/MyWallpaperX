@@ -6,6 +6,7 @@ import simd
 extension SceneResolvedMaterialGraphExecutor {
     enum StagePreparationResult {
         case prepared
+        case placement(SceneResolvedMaterialPassEncoder.PreparedPass)
         case passthrough(StagePassthrough)
         case failure(Failure)
     }
@@ -347,6 +348,28 @@ extension SceneResolvedMaterialGraphExecutor {
                         rejection: rejection
                     ))
                 }
+                if let terminalReplayTarget, capability.placementTail != nil,
+                   case let .success(replay) = materialEncoder.prepareTerminalReplay(
+                       program: program,
+                       target: terminalReplayTarget,
+                       unitModelViewProjection: frameInputs.terminalReplayModelViewProjection
+                           ?? frameInputs.effectOutputModelViewProjection,
+                       blendMode: terminalReplayBlendMode
+                   ) {
+#if DEBUG
+                    recordPreparedMaterialDiagnostics(program, node: node, nodeIndex: nodeIndex,
+                        frame: frame, frameInputs: frameInputs)
+                    var observed = replay
+                    observed.placementEffectGeneration = transition.transaction.effectGeneration
+                    if executionTrace?.isCompositionSelected == true {
+                        observed.observeComposition(program: program, layerID: node.effect.layerID,
+                            effectIndex: node.effect.effectIndex, nodeIndex: nodeIndex, materialOrdinal: ordinal)
+                    }
+                    return .placement(observed)
+#else
+                    return .placement(replay)
+#endif
+                }
                 guard let passPreparation = prepareMaterialPass(
                     program: program,
                     material: material,
@@ -388,7 +411,7 @@ extension SceneResolvedMaterialGraphExecutor {
                 commands.append(.material(observedPass))
                 // The executor selects the last successful material and keeps
                 // any input that later passthrough commands would overwrite.
-                if let terminalReplayTarget,
+                if let terminalReplayTarget, capability.placementTail == nil,
                    prepared.fragmentOutput == .opaque
                     || prepared.fragmentOutput == .premultipliedAlpha
                     || prepared.fragmentOutput == .straightAlpha {
@@ -399,7 +422,7 @@ extension SceneResolvedMaterialGraphExecutor {
                             frameInputs.terminalReplayModelViewProjection
                                 ?? frameInputs.effectOutputModelViewProjection,
                         blendMode: terminalReplayBlendMode,
-                        readsCurrentAttachment: capability.sourceRoute == .capturedMainTargetTexture
+                        readsCurrentAttachment: capability.terminalReadsCurrentAttachment
                     ) {
                     case let .success(replay):
 #if DEBUG
@@ -431,46 +454,8 @@ extension SceneResolvedMaterialGraphExecutor {
                     }
                 }
 #if DEBUG
-                recordTypedUserPropertyUniformPublications(
-                    program: program,
-                    effect: node.effect,
-                    nodeIndex: nodeIndex,
-                    frameInputs: frameInputs
-                )
-#endif
-#if DEBUG
-                recordTypedFrameDrivenUniformConsumptions(
-                    program: program,
-                    effect: node.effect,
-                    nodeIndex: nodeIndex,
-                    frameInputs: frameInputs
-                )
-#endif
-#if DEBUG
-                recordTypedAudioSpectrumUniformConsumptions(
-                    program: program,
-                    effect: node.effect,
-                    nodeIndex: nodeIndex,
-                    frameIndex: frame.frameIndex,
-                    audioSpectrum: frame.audioSpectrum
-                )
-#endif
-#if DEBUG
-                if capturesExecutionDiagnostics, let routeDecision = program.routeDecision {
-                    SceneGraphExecutionTelemetry.recordGenericShaderExecution(
-                        state: routeDecision.state,
-                        profile: routeDecision.profile,
-                        backend: program.frontendProgram.backend.rawValue,
-                        graphInputDiagnostics: program.textureSlots.compactMap {
-                            $0?.graphInputSourceFact?.diagnosticIdentity
-                        },
-                        layerID: node.effect.layerID,
-                        effectIndex: node.effect.effectIndex,
-                        descriptorID: node.effect.descriptorID,
-                        nodeIndex: nodeIndex,
-                        preparedKey: program.preparedShader.cacheKey
-                    )
-                }
+                recordPreparedMaterialDiagnostics(program, node: node, nodeIndex: nodeIndex,
+                    frame: frame, frameInputs: frameInputs)
 #endif
 
                 if let fboTarget {

@@ -31,6 +31,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                                       .offscreenOverwrite)].compactMap { $0 }
                     let fields = variant.frontendProgram.uniformLayout.fields
                     if capability.supportsTerminalMaterialReplay,
+                       capability.placementTail.map({ $0 == material.key }) ?? true,
                        variant.frontendProgram.supportsTerminalMaterialReplay,
                        material.attachmentStorage == .color,
                        fields.contains(where: {
@@ -40,7 +41,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                                && $0.type == .float4x4
                        }) {
                         let roles: [SceneResolvedMaterialProgram.PassRole]
-                        if case .capturedMainTargetTexture = capability.sourceRoute {
+                        if capability.terminalReadsCurrentAttachment {
                             roles = capability.terminalReplayBlendMode == 0
                                 && variant.frontendProgram.attachmentReadVariant != nil
                                 ? [.terminalAttachmentSourceOver,

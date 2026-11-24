@@ -545,8 +545,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
             dependencyOwnership: dependencyOwnership,
             sceneBackgroundRequirement: sceneBackgroundRequirement
         )
-        let supportsTerminalMaterialReplay = simpleColor.terminal
-            || Self.backgroundAttachmentReplaySupported(
+        let placementTail = Self.transparentCompositionPlacementTail(
+            admitted: admitted, stages: preparedStages, materials: materials,
+            dependencyOwnership: dependencyOwnership, sceneBackgroundRequirement: sceneBackgroundRequirement)
+        let terminalReadsCurrentAttachment = Self.backgroundAttachmentReplaySupported(
                 admitted: admitted, stages: preparedStages, materials: materials,
                 dependencyOwnership: dependencyOwnership,
                 sceneBackgroundRequirement: sceneBackgroundRequirement)
@@ -566,8 +568,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
             isVisibleExecutionRoot: admitted.isVisibleExecutionRoot,
             isGraphOutputProvider: admitted.isGraphOutputProvider,
             supportsSourceSizedSolidEffects: simpleColor.intermediates,
-            supportsTerminalMaterialReplay: supportsTerminalMaterialReplay,
-            supportsPlacementSpaceTerminalReplay: simpleColor.placement,
+            supportsTerminalMaterialReplay: simpleColor.terminal || terminalReadsCurrentAttachment || placementTail != nil,
+            supportsPlacementSpaceTerminalReplay: simpleColor.placement || placementTail != nil,
+            placementTail: placementTail,
+            terminalReadsCurrentAttachment: terminalReadsCurrentAttachment,
             terminalReplayBlendMode: admitted.terminalReplayBlendMode,
             effectSubjectsAreConserved: effectSubjectsAreConserved
         )

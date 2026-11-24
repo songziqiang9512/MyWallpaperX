@@ -265,11 +265,8 @@ struct SceneImageLayerCompositor {
                 reasonCode: "layer-color-blend-unsupported")
             return .failed
         }
-        let colorBlendPipeline = layerColorBlendMode == 0 ? nil : colorBlendPipelineSlot.resolve()
-        guard layerColorBlendMode == 0 || colorBlendPipeline != nil else {
-            _ = rejectResolvedMaterialClaim(resolvedMaterialClaim,
-                reasonCode: "layer-color-blend-pipeline-unavailable")
-            return .failed
+        func colorBlendPipeline() -> SceneLayerColorBlendPipeline? {
+            layerColorBlendMode == 0 ? nil : colorBlendPipelineSlot.resolve()
         }
         if resolvedMaterialClaim == nil, let lighting = request.sourceLighting,
            lighting.requiresReflection {
@@ -372,7 +369,7 @@ struct SceneImageLayerCompositor {
                     uniforms: fallbackUniforms,
                     dependencyTexture: dependencyEffect?.texture,
                     layer: request.layer, pipeline: pipeline,
-                    colorBlendPipeline: colorBlendPipeline,
+                    colorBlendPipeline: colorBlendPipeline(),
                     distanceFog: request.distanceFog,
                     geometryProduct: request.geometryProduct,
                     terminalDepth: request.terminalDepth,
@@ -397,6 +394,11 @@ struct SceneImageLayerCompositor {
             var graphOutputPublished = false
             if let ticket = graphExecutionTicket,
                ticket.hasTerminalMaterialReplay {
+                let transparentComposition = request.layer.utilityLayer?.kind == .composition
+                    && request.layer.utilityLayer?.copyBackground == false
+                    && request.layer.utilityLayer?.framebufferSource == nil
+                    && request.layer.childLayerIDs.isEmpty
+                    && !hasDependencyInput && request.terminalDepth == nil
                 guard compositeOutput, request.terminalMaterialState == nil,
                       resolvedMaterialGraphOutputPublisher == nil,
                       (ticket.terminalReadsCurrentAttachment
@@ -404,7 +406,7 @@ struct SceneImageLayerCompositor {
                             && request.layer.utilityLayer?.copyBackground == true
                             && request.layer.childLayerIDs.isEmpty && request.requiresSourceCopy
                             && !hasDependencyInput && request.terminalDepth == nil
-                        : request.layer.contentKind == "solid" || request.layer.contentKind == "text"
+                        : transparentComposition || request.layer.contentKind == "solid" || request.layer.contentKind == "text"
                             || (request.layer.contentKind == "image"
                                 && request.terminalDepth == nil && request.terminalMVP == nil
                                 && request.distanceFog.color.w <= 0.5)),
@@ -412,7 +414,7 @@ struct SceneImageLayerCompositor {
                       ticket.consumesExternalPrimaryDependency == hasDependencyInput,
                       ticket.terminalReplayBlendMode == (request.layer.colorBlendMode ?? 0),
                       ((request.layer.colorBlendMode ?? 0) == 0
-                        || (request.layer.contentKind == "solid" && request.layer.colorBlendMode == 31
+                        || ((transparentComposition || request.layer.contentKind == "solid") && request.layer.colorBlendMode == 31
                             && !hasDependencyInput && request.terminalDepth == nil
                             && request.distanceFog.color.w <= 0.5)),
                       (request.finalCompositeAlpha ?? 1) == 1,
@@ -523,7 +525,7 @@ struct SceneImageLayerCompositor {
             return compositeOffscreenOutput(
                 request, texture: finalTexture, ticket: graphExecutionTicket,
                 hasDependencyInput: hasDependencyInput,
-                colorBlendPipeline: colorBlendPipeline, pipeline: pipeline, mainPass: mainPass,
+                colorBlendPipeline: colorBlendPipeline(), pipeline: pipeline, mainPass: mainPass,
                 executionTrace: executionTrace, executionOrigin: executionOrigin
             )
         }
@@ -546,7 +548,7 @@ struct SceneImageLayerCompositor {
             dependencyTexture: dependencyEffect?.texture,
             layer: request.layer,
             pipeline: pipeline,
-            colorBlendPipeline: colorBlendPipeline,
+            colorBlendPipeline: colorBlendPipeline(),
             distanceFog: request.distanceFog,
             geometryProduct: request.geometryProduct,
             terminalDepth: request.terminalDepth,

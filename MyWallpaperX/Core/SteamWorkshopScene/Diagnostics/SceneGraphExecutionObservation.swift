@@ -219,13 +219,17 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
               ) else {
             throw SceneGraphExecutionObservationError.invalidLifecycle
         }
-        try Self.validateComposeTransition(
-            count: expectedNodeCounts.compose,
-            before: composeSlotBefore,
-            after: composeSlotAfter,
-            outcome: outcome,
-            successfulRejectedPassthrough: effectPassthrough
-        )
+        let placementOnly = compositorConsumed && finalOutput == nil
+        if placementOnly {
+            guard expectedNodeCounts.compose == 0, composeSlotBefore == .none, composeSlotAfter == .none else {
+                throw SceneGraphExecutionObservationError.invalidCompose
+            }
+        } else {
+            try Self.validateComposeTransition(
+                count: expectedNodeCounts.compose, before: composeSlotBefore, after: composeSlotAfter,
+                outcome: outcome, successfulRejectedPassthrough: effectPassthrough
+            )
+        }
         if let finalOutput {
             guard Self.hasText(finalOutput.identity),
                   Self.hasText(finalOutput.physicalIdentity),
@@ -234,17 +238,15 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
                 throw SceneGraphExecutionObservationError.invalidFinalOutput
             }
         }
-        guard !compositorConsumed || finalOutput != nil else {
-            throw SceneGraphExecutionObservationError.invalidFinalOutput
-        }
-
         switch outcome {
         case .succeeded:
             guard (expectedNodeCounts.rejected == 0
                     || effectPassthrough),
-                  finalOutput != nil,
-                  fullFramePairStorage != nil,
-                  fullFramePairGeneration != nil,
+                  (placementOnly
+                    ? (expectedNodeCounts.material == 1 && expectedNodeCounts.authored == 1
+                       && logicalMappingBefore.isEmpty && logicalMappingAfter.isEmpty
+                       && fullFramePairStorage == nil && historyState == .none)
+                    : (finalOutput != nil && fullFramePairStorage != nil)),
                   gpuCompletionStatus == .completed else {
                 throw SceneGraphExecutionObservationError.invalidOutcome
             }

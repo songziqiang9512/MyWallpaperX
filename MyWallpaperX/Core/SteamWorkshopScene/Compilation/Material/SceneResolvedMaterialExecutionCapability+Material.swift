@@ -52,6 +52,18 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
 }
 
 extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
+    private static func terminalColorNode(
+        in stage: SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability
+    ) -> SceneAuthoredEffectRenderPlan.Node? {
+        let product = stage.product
+        guard product.clearFunctions.functions.isEmpty,
+              product.graph.renderTargets.isEmpty, product.graph.effects.count == 1,
+              product.graph.nodes.count == 1, let node = product.graph.nodes.first,
+              node.kind == .material, node.target == product.graph.effects[0].output,
+              node.compose == nil else { return nil }
+        return node
+    }
+
     /// Proves a simple color chain whose intermediates follow its real source.
     /// Every possible terminal has the same proven placement contract;
     /// the graph executor preserves inputs across trailing passthroughs.
@@ -81,18 +93,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
         case .graphInternal, .externalAggregate:
             return (false, false, false)
         }
-        for stage in stages {
-            let product = stage.product
-            guard product.clearFunctions.functions.isEmpty,
-                  product.graph.renderTargets.isEmpty,
-                  product.graph.effects.count == 1,
-                  product.graph.nodes.count == 1,
-                  let node = product.graph.nodes.first,
-                  node.kind == .material,
-                  node.target == product.graph.effects[0].output,
-                  node.compose == nil else { return (false, false, false) }
-        }
-        guard materials.values.allSatisfy({ $0.attachmentStorage == .color }) else {
+        guard stages.allSatisfy({ terminalColorNode(in: $0) != nil }),
+              materials.values.allSatisfy({ $0.attachmentStorage == .color }) else {
             return (false, false, false)
         }
         if let background = sceneBackgroundRequirement {
@@ -132,6 +134,32 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
                 replay.values.allSatisfy(\.placement))
     }
 
+    static func transparentCompositionPlacementTail(
+        admitted: SceneResolvedMaterialAdmittedLayer,
+        stages: [SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability],
+        materials: [SceneResolvedMaterialExecutionCapabilityCatalog.MaterialKey:
+            SceneResolvedMaterialExecutionCapabilityCatalog.MaterialCapability],
+        dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
+        sceneBackgroundRequirement: SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement?
+    ) -> SceneResolvedMaterialExecutionCapabilityCatalog.MaterialKey? {
+        guard admitted.isTransparentCompositionRoot, admitted.isVisibleExecutionRoot,
+              !admitted.isGraphOutputProvider, admitted.sourceRoute == .capturedMainTargetTexture,
+              admitted.terminalReplayBlendMode == 0 || admitted.terminalReplayBlendMode == 31,
+              dependencyOwnership == .none, sceneBackgroundRequirement == nil,
+              stages.count > 1, let stage = stages.last, case .resolved = stage.execution,
+              let node = terminalColorNode(in: stage) else { return nil }
+        let key = SceneResolvedMaterialExecutionCapabilityCatalog.MaterialKey(
+            effect: node.effect, nodeIndex: node.nodeIndex)
+        guard let material = materials[key], material.attachmentStorage == .color,
+              material.template.graphRole.effectInput == .effectOutput
+        else { return nil }
+        let snapshot = material.variants.launchEnvelopeCapabilitySnapshot()
+        guard snapshot.allEntriesReady, !snapshot.variants.isEmpty,
+              snapshot.variants.allSatisfy({ $0.frontendProgram.supportsPlacementSpaceTerminalReplay })
+        else { return nil }
+        return key
+    }
+
     /// One source-preserving material may read the current attachment instead
     /// of resampling a captured background. Earlier active stages cannot be
     /// replaced by the original background, so this cohort has one stage.
@@ -149,13 +177,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
               dependencyOwnership == .none, sceneBackgroundRequirement == nil,
               stages.count == 1, materials.count == 1,
               case .resolved = stages[0].execution,
-              stages[0].product.clearFunctions.functions.isEmpty,
-              stages[0].product.graph.renderTargets.isEmpty,
-              stages[0].product.graph.effects.count == 1,
-              stages[0].product.graph.nodes.count == 1,
-              let node = stages[0].product.graph.nodes.first,
-              node.kind == .material, node.compose == nil,
-              node.target == stages[0].product.graph.effects[0].output,
+              let node = terminalColorNode(in: stages[0]),
               let material = materials.values.first,
               material.attachmentStorage == .color,
               material.template.graphRole.effectInput == .layerSource,

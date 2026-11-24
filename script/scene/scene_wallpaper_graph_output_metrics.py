@@ -367,6 +367,7 @@ def resolved_material_graph_observation_metrics(
         ):
             continue
 
+        placement = fields.get("placementOnly") == "true"
         try:
             counts = {
                 key: int(fields[field]) for key, field in count_fields.items()
@@ -376,8 +377,8 @@ def resolved_material_graph_observation_metrics(
             )
             allocation_generation = int(fields["allocationGeneration"])
             mapping_generation = int(fields["mappingGeneration"])
-            full_frame_pair_generation = int(fields["fullFramePairGeneration"])
-            publication_generation = int(fields["publicationGeneration"])
+            full_frame_pair_generation = 0 if placement else int(fields["fullFramePairGeneration"])
+            publication_generation = 0 if placement else int(fields["publicationGeneration"])
             input_width = int(fields["inputWidth"])
             input_height = int(fields["inputHeight"])
             history_rehydrate_copy_count = int(
@@ -397,9 +398,7 @@ def resolved_material_graph_observation_metrics(
             unquote(fields["descriptor"])
             if "descriptor" in fields else None
         )
-        exact_effect_identity_complete = (
-            (effect_index is None) == (descriptor_id is None)
-        )
+        exact_effect_identity_complete = (effect_index is None) == (descriptor_id is None)
         history = fields["history"]
         reset = fields["reset"]
         full_frame_pair_storage = fields["fullFramePairStorage"]
@@ -490,15 +489,15 @@ def resolved_material_graph_observation_metrics(
                     "resolved material graph observation compose count invalid",
                 ),
                 (
-                    fields["transaction"] != "-" and "-" not in outputs,
+                    fields["transaction"] != "-" and (outputs == ("-", "-", "-") if placement else "-" not in outputs),
                     "resolved material graph observation final publication missing",
                 ),
                 (
-                    publication_generation > 0,
+                    fields["publicationGeneration"] == "-" if placement else publication_generation > 0,
                     "resolved material graph observation publication generation invalid",
                 ),
                 (
-                    allocation_generation > 0 and mapping_generation > 0,
+                    allocation_generation > 0 and (mapping_generation == 0 if placement else mapping_generation > 0),
                     "resolved material graph lifecycle generation invalid",
                 ),
                 (
@@ -507,7 +506,11 @@ def resolved_material_graph_observation_metrics(
                     and (
                         full_frame_pair_storage == "shared"
                         or full_frame_pair_generation == allocation_generation
-                    ),
+                    ) if not placement else (
+                        fields["fullFramePairGeneration"] == "-" and full_frame_pair_storage == "-"
+                        and fields["compositorConsumed"] == "true" and history == "none"
+                        and fields.get("composeSlotBefore") == fields.get("composeSlotAfter") == "none"
+                        and counts["authored_nodes"] == counts["material_nodes"] == 1 and counts["compose_nodes"] == 0),
                     "resolved material graph full-frame pair identity invalid",
                 ),
                 (

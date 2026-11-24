@@ -22,8 +22,8 @@ CAPTURE_BUFFER_SOURCE = (
 SERVICE_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/Playback/SystemAudioSpectrumService.swift"
 )
-GRAPH_EXECUTOR_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift"
+GRAPH_DIAGNOSTICS_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+DynamicUniformDiagnostics.swift"
 )
 GRAPH_PREPARATION_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Preparation.swift"
@@ -447,7 +447,7 @@ class SceneAudioSpectrumWiringTests(unittest.TestCase):
         self.assertNotIn("sin(", source, "stale 处理不得生成时间驱动的假波形")
 
     def test_debug_audio_consumption_proof_joins_encoded_uniform_to_snapshot(self) -> None:
-        source = GRAPH_EXECUTOR_SOURCE.read_text(encoding="utf-8")
+        source = GRAPH_DIAGNOSTICS_SOURCE.read_text(encoding="utf-8")
         preparation = GRAPH_PREPARATION_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
             "func recordTypedAudioSpectrumUniformConsumptions(",
@@ -469,6 +469,10 @@ class SceneAudioSpectrumWiringTests(unittest.TestCase):
         )
         self.assertIn(
             "recordTypedAudioSpectrumUniformConsumptions(",
+            source.split("func recordTypedUserPropertyUniformPublications(", 1)[0],
+        )
+        self.assertIn(
+            "recordPreparedMaterialDiagnostics(",
             preparation,
             "the proof must run at the existing prepared Program consumer boundary",
         )

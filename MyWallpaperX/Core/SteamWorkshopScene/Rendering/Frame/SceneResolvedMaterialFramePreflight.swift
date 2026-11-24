@@ -368,13 +368,19 @@ extension SceneMetalRenderer {
                 utilityCaptureGeometry = source.geometry
                 framebufferSourceMaterial = source.material
                 let publishesGraphOutput = dependencyRuntime.requiresGraphOutputCapture(for: layerID)
+                let permitsPlacementTail = claim.supportsPlacementSpaceTerminalReplay
+                    && memberLayerIDs?.isEmpty != false
+                    && (compositionGroupRuntime.map {
+                        $0.compositeTargetPass(forRootID: layerID)?.isSceneRoot == true
+                    } ?? true)
+                    && effectDrawAlpha == 1 && !cameraFrame.resolvesPerspective(for: layer)
                 if claim.supportsTerminalMaterialReplay,
                    frameVisibleLayerIDs.contains(layerID),
                    !publishesGraphOutput,
-                   source.permitsAttachmentRead(layer: layer, alpha: effectDrawAlpha, cameraFrame: cameraFrame,
+                   permitsPlacementTail || source.permitsAttachmentRead(layer: layer, alpha: effectDrawAlpha, cameraFrame: cameraFrame,
                        viewportSize: viewportSize, groups: compositionGroupRuntime,
                        memberLayerIDs: memberLayerIDs) {
-                    terminalReplayTarget = selectedMainSource
+                    terminalReplayTarget = permitsPlacementTail ? mainTarget : selectedMainSource
                 }
                 if terminalReplayTarget == nil, !publishesGraphOutput,
                    utility.kind == .composition, utility.copyBackground, source.material == nil,
@@ -648,8 +654,9 @@ extension SceneMetalRenderer {
                 effectOutputModelViewProjection:
                     directDrawGeometry?.squareModelViewProjection ?? effectProjectionMVP,
                 effectUnitModelMatrix: effectUnitModelMatrix,
-                terminalReplayModelViewProjection: compositionGroupRuntime?
-                    .rasterModelViewProjection(forLayerID: layer.id, worldMVP: outputMVP),
+                terminalReplayModelViewProjection:
+                    claim.sourceRoute == .capturedMainTargetTexture && claim.supportsPlacementSpaceTerminalReplay
+                    ? outputMVP : compositionGroupRuntime?.rasterModelViewProjection(forLayerID: layer.id, worldMVP: outputMVP),
                 effectTextureProjectionMatrixInverse:
                     effectTextureProjectionMatrixInverse,
                 effectDrawAlpha: effectDrawAlpha,

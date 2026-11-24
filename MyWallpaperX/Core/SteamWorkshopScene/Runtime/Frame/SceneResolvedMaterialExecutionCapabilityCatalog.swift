@@ -98,6 +98,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let supportsSourceSizedSolidEffects: Bool
         let supportsTerminalMaterialReplay: Bool
         let supportsPlacementSpaceTerminalReplay: Bool
+        let placementTail: MaterialKey?
+        let terminalReadsCurrentAttachment: Bool
         let terminalReplayBlendMode: Int
         let effectSubjectsAreConserved: Bool
 
@@ -121,6 +123,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             supportsSourceSizedSolidEffects: Bool,
             supportsTerminalMaterialReplay: Bool,
             supportsPlacementSpaceTerminalReplay: Bool,
+            placementTail: MaterialKey? = nil,
+            terminalReadsCurrentAttachment: Bool = false,
             terminalReplayBlendMode: Int,
             effectSubjectsAreConserved: Bool
         ) {
@@ -141,6 +145,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             self.supportsSourceSizedSolidEffects = supportsSourceSizedSolidEffects
             self.supportsTerminalMaterialReplay = supportsTerminalMaterialReplay
             self.supportsPlacementSpaceTerminalReplay = supportsPlacementSpaceTerminalReplay
+            self.placementTail = placementTail
+            self.terminalReadsCurrentAttachment = terminalReadsCurrentAttachment
             self.terminalReplayBlendMode = terminalReplayBlendMode
             self.effectSubjectsAreConserved = effectSubjectsAreConserved
         }

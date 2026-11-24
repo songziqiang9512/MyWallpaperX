@@ -81,6 +81,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let hasTerminalMaterialReplay: Bool
         let terminalReplayBlendMode: Int?
         let terminalReadsCurrentAttachment: Bool
+        let placementTailEffect: SceneAuthoredEffectRenderPlan.EffectKey?
 
         init(identity: UInt64, epoch: UInt64,
              finalTextureIdentity: ObjectIdentifier,
@@ -89,7 +90,8 @@ final class SceneResolvedMaterialRuntimeBridge {
              effectFailures: [EffectFailure],
              hasTerminalMaterialReplay: Bool = false,
              terminalReplayBlendMode: Int = 0,
-             terminalReadsCurrentAttachment: Bool = false) {
+             terminalReadsCurrentAttachment: Bool = false,
+             placementTailEffect: SceneAuthoredEffectRenderPlan.EffectKey? = nil) {
             self.identity = identity
             self.epoch = epoch
             self.finalTextureIdentity = finalTextureIdentity
@@ -99,6 +101,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.hasTerminalMaterialReplay = hasTerminalMaterialReplay
             self.terminalReplayBlendMode = hasTerminalMaterialReplay ? terminalReplayBlendMode : nil
             self.terminalReadsCurrentAttachment = hasTerminalMaterialReplay && terminalReadsCurrentAttachment
+            self.placementTailEffect = placementTailEffect
         }
     }
 
