@@ -133,7 +133,7 @@
 | 2814167871 /2835398595 | 眼部为132/e1与98/e0的pulse RGB增亮，16档band0/1均值跨.5才响应；281强度属性默认1、283常量.51。[默认PCM前5秒](../capabilities/runtime-evidence-current.md#eye-audio-input)无跨线正控；后续同作者WAV的281两App静帧已有真实16档消费，但不能判眼部闪动或闪烁。粗档候选已撤回，283不追加矩阵。重启须可裁决实际供值/首错，再核同帧pulse→tail→眼RGB；不调gain/作者参数、不强注入1，不由bus非零关闭。 |
 | 3708363772 | [实体、回退封面与真实系统封面](../capabilities/model-runtime-evidence.md#model-perspective-parallax-370)已共用透视视差。仍可见的转角封面边距需同一真实媒体、角度及画幅隔离面片采样、反光和模型外缘。 |
 | 3603711180 | [播放媒体的原包与两端实帧](../capabilities/runtime-evidence-current.md#author-player-text-current-360)恢复标题、艺人、剩余时间和实际封面。已测画幅首行同在左框外，观察其他比例/第二行与字体差异须用同视口同媒体复取；按原屏幕锚与字形范围核对。 |
-| 2868108515 | [链左实图与Godrays单变量](../capabilities/runtime-evidence-current.md#author-chain-godrays-286)确认39/e43181为规则密纹的必要层。旧234726和本轮51 WaterFlow控制均独立。固定相位的H/V脚印能显著降低密纹，下一轮用可通过原颜色终端的官版中间extent或射线探针裁定局部工作栅格，再保背景和射线。退出两个未执行的诊断变体。 |
+| 2868108515 | [链左实图与Godrays单变量](../capabilities/runtime-evidence-current.md#author-chain-godrays-286)定位39/e43181。本机固定相位扩大H/V脚印可压低密纹，保链条和背景。[两级位移正控](../capabilities/runtime-evidence-current.md#author-chain-godrays-clip-witness)本机成立、官版末材始终未取得码；包内场景改动已实际显示。退出该顶点探针。重启须能区分尺寸的实际官版Gaussian脚印或中间资源读回，再核作者尺寸与刚好等半的mask。原布局和不同缓存的视图先各自注册。 |
 | 2887099508 · 图5 | [黑纹](../capabilities/runtime-evidence-current.md#basic-interaction-288)未重现，待同相位ROI或具体版本。原生持续悬停待合格输入，仅在出现可重复的命中问题时复核。 |
 | 2999907577 | 旧终端主体完整，大片背景灰与有效默认tint相符；876e6流体的执行不授像素贡献。后续只在需要时用现有selector7→8(None)定位白弧/流体贡献，不按preview判缺纹理。 |
 | 3436945972 /3463406101 /3443450456 | 分别偏暗、暗绿配色及灰白底黑字；同亮度、遮罩、配色/时段与音频输入后定位writer。 |
