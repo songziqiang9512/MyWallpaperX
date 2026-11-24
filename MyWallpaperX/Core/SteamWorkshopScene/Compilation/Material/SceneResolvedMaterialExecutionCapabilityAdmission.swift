@@ -180,7 +180,7 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
             if let utility = layer.utilityLayer {
                 // Resolve each nested group too: a valid outer member list
                 // does not prove a nested group's dependency/source contract.
-                guard utility.kind != .fullscreen,
+                guard utility.kind != .fullscreen || (id == layerID && layer.parentID == nil),
                       layer.dependencyLayerIDs.isEmpty,
                       layer.authoredDependencies.isEmpty,
                       let sourceRoute = try? SceneUtilityLayerSourceRoute.resolve(
@@ -229,8 +229,8 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
             else { return nil }
             current = layer.parentID
         }
-        var pending = [layerID]
-        var result: Set<Int> = []
+        var pending = children[layerID, default: []]
+        var result: Set<Int> = [layerID]
         while let id = pending.popLast() {
             guard result.insert(id).inserted, supportedLayer(id) != nil
             else { return nil }

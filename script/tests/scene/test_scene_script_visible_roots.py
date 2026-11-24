@@ -18,13 +18,18 @@ struct SceneLayerDisplayScriptOwnership {
     var fields: [String] { [] }
 }
 struct SceneRenderDescriptor {
-    struct Camera { var authoredOrthographicProjectionActive: Bool? = nil }
+    struct Camera {
+        var authoredOrthographicProjectionActive: Bool? = nil
+        var orthoWidth: Float? = nil
+        var orthoHeight: Float? = nil
+    }
     var camera = Camera()
     struct Utility {
         enum Kind: String { case composition, fullscreen, project }
         let kind: Kind
         var copyBackground = true
         var passthrough = false
+        var framebufferSource: Bool? = nil
     }
     struct Effect { let visible: Bool }
     struct Layer {
@@ -41,10 +46,12 @@ struct SceneRenderDescriptor {
         var staticModelPath: String? = nil
         var particlePath: String? = nil
         var usesPerspective: Bool? = nil
+        var renderSizeWH: [Float]? = nil
     }
     let layers: [Layer]
     var renderOrderLayerIDs: [Int] { layers.map(\.id) }
 }
+typealias SceneUtilityLayer = SceneRenderDescriptor.Utility
 // Stored prepared-plan carriers only. The production DirectBool admission
 // and utility source-route implementation consume these explicit sets.
 struct SceneDependencyRenderPlan {

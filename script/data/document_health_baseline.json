@@ -113,8 +113,8 @@
       "bytes": 121682
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
-      "lines": 101,
-      "bytes": 15909
+      "lines": 110,
+      "bytes": 17218
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 68,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 304010
+      "bytes": 304983
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 170,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 218,
-      "bytes": 67973
+      "lines": 217,
+      "bytes": 67549
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -388,11 +388,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/effect-execution-coverage.md",
-      "before": "3f3967ffa9a6bf5badd0e70383d075cc24c0ba33942cbf0f47546a34974dd7f9",
-      "after": "2b9097552ec62841fde0f36c1795e368080c423d39dd20206c71fb9d36ec5009",
-      "owner": "Existing Scene composition and evidence authorities",
-      "reason": "Specify sort-dependent placement of eligible opaque models at the native Composition capture.",
-      "decision": "docs/scene/capabilities/effect-execution-coverage.md#perspective-composition-prefix"
+      "before": "2b9097552ec62841fde0f36c1795e368080c423d39dd20206c71fb9d36ec5009",
+      "after": "8035b7f7ec854aced1811acd02ddb8dce731c240d99ed4d9adea59ec366802ab",
+      "owner": "Scene utility source and effect execution",
+      "reason": "Record the proved Fullscreen prefix cutoff and its existing viewport execution and activation ownership.",
+      "decision": "docs/scene/capabilities/effect-execution-coverage.md#fullscreen-ordered-prefix"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "1201ac0af2095ba8e8e5b8634a2b5b2e9ea357de9d41445c936a124bfb52372c",
-      "after": "73128f601a4e25374f33a3948b2989cd07f5505d10b418b5daffd233424b8cb1",
-      "owner": "Scene particle prepared simulation",
-      "reason": "Retain actual independent and exact-author captures for the Sprite and deterministic live/prewarm controls.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ember-prewarm-time-376"
+      "before": "73128f601a4e25374f33a3948b2989cd07f5505d10b418b5daffd233424b8cb1",
+      "after": "7444e5c8b40067e2d6fd8a896b4a21f517979a5777647d811979f0dbf5f9bdea",
+      "owner": "Scene utility source and effect execution",
+      "reason": "Retain matched official and signed native color selection, original media motion, and unaffected author evidence.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#fullscreen-native-source-380"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "ca003612f6a408bc2a7c0d263af64e3ab8ca636d8bd70359c0c040cd6e996dc1",
-      "after": "3bb9139738715898199401b6f926e89dbe4f5ab4522867fd56521beae7bb8f99",
-      "owner": "Scene particle prepared simulation",
-      "reason": "Close the witnessed prewarm time-domain breakpoint and route remaining 376 motion differences.",
+      "before": "3bb9139738715898199401b6f926e89dbe4f5ab4522867fd56521beae7bb8f99",
+      "after": "c98dfc3975829d7248d94bbff6c97ea1e3ac2039ff74099adc057a1c1175f5a2",
+      "owner": "Scene utility source and effect execution",
+      "reason": "Remove the resolved contiguous Fullscreen issue after real author GPU and visual qualification.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     },
     {

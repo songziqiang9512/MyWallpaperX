@@ -236,9 +236,9 @@ enum Harness {
         }
         func route(_ root: SceneRenderDescriptor.Layer,
                    peers: [SceneRenderDescriptor.Layer] = [],
-                   order: [Int]? = nil) -> [String: Any] {
+                   order: [Int]? = nil, ortho: Bool = false) -> [String: Any] {
             let descriptor = SceneRenderDescriptor(layers: [root] + peers,
-                renderOrderOverride: order)
+                renderOrderOverride: order, camera: .init(authoredOrthographicProjectionActive: ortho))
             switch SceneUtilityLayerSourceRoute.resolve(layer: root, descriptor: descriptor) {
             case let .failure(failure): return ["failure": failure.rawValue]
             case let .success(value): return [
@@ -345,7 +345,7 @@ enum Harness {
             let middle = SceneRenderDescriptor.Layer(id: 31, contentKind: "solid")
             let suffix = SceneRenderDescriptor.Layer(id: 40, contentKind: "solid")
             result["\(kind)-children"] = route(typedGroup,
-                peers: [child, provider, middle, suffix], order: [30, 20, 31, 21, 40])
+                peers: [child, provider, middle, suffix], order: [30, 20, 31, 21, 40], ortho: true)
             result["\(kind)-wrong-parent"] = route(typedGroup, peers: [wrongParent, provider])
             result["\(kind)-wrong-descendant-parent"] = route(typedGroup,
                 peers: [wrongDescendant, transformParent, provider])
@@ -356,6 +356,19 @@ enum Harness {
         result["project-child-before-root"] = route(renamedProject,
             peers: [.init(id: 218, parentID: 901, contentKind: "solid"),
                     .init(id: 709, contentKind: "solid")], order: [709, 218, 901])
+        var fullscreen = renamedProject
+        fullscreen.contentKind = "fullscreen"
+        fullscreen.utilityLayer = SceneUtilityLayer.parse(imagePath: "models/util/fullscreenlayer.json", object: [:])
+        fullscreen.childLayerIDs = [218, 219]
+        let peers: [SceneRenderDescriptor.Layer] = [.init(id: 218, parentID: 901, contentKind: "solid"),
+            .init(id: 709, contentKind: "solid"), .init(id: 219, visible: false, parentID: 901),
+            .init(id: 302, contentKind: "solid")]
+        result["fullscreen-contiguous-hidden-last"] = route(fullscreen, peers: peers,
+            order: [709, 901, 218, 219, 302], ortho: true)
+        result["fullscreen-root-last"] = route(fullscreen, peers: peers,
+            order: [709, 219, 218, 901, 302], ortho: true)
+        result["fullscreen-native-camera"] = route(fullscreen, peers: peers,
+            order: [709, 901, 218, 219, 302])
         return result
     }
 
@@ -561,10 +574,17 @@ class SceneUtilityLayerTests(unittest.TestCase):
                      "passthrough-children-false", "passthrough-children-true",
                      "passthrough-duplicate-id", "passthrough-duplicate-order",
                      "project-wrong-parent", "project-wrong-descendant-parent",
-                     "fullscreen-children", "fullscreen-wrong-parent", "fullscreen-wrong-descendant-parent"):
+                     "fullscreen-children", "fullscreen-native-camera", "fullscreen-wrong-parent",
+                     "fullscreen-wrong-descendant-parent"):
             with self.subTest(route=name):
                 self.assertEqual(routes[name], {"failure": "utility-composition-subtree-shape"})
         self.assertEqual(routes["utility-kind"], {"failure": "utility-shape"})
+
+    def test_fullscreen_prefix_uses_contiguous_block_end_without_a_group_target(self) -> None:
+        for name, trigger in (("fullscreen-contiguous-hidden-last", 219), ("fullscreen-root-last", 901)):
+            with self.subTest(route=name):
+                self.assertEqual(self.result["sourceRoutes"][name], {
+                    "trigger": trigger, "isolated": False, "capturesSubtree": False, "members": []})
 
     def test_hidden_advanced_blend_reserves_readable_drawable_usage(self) -> None:
         self.assertEqual(self.result["hiddenAdvancedBlend"],

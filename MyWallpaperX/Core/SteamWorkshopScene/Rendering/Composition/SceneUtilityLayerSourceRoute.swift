@@ -1,9 +1,8 @@
 import Foundation
 
-/// Selects the prepared source for a utility. Group descendants belong
-/// to their root's input in authored relative order, independent of the root's
-/// array position. Background inclusion is an authored flag, never a prefix
-/// or child-count inference.
+/// Selects the prepared source and authored capture point for a utility.
+/// Isolated groups collect their descendants; Fullscreen can read a child
+/// block already drawn into the enclosing main target.
 nonisolated enum SceneUtilityLayerSourceRoute {
     enum Failure: String, Error, Equatable {
         case utilityShape = "utility-shape"
@@ -60,11 +59,6 @@ nonisolated enum SceneUtilityLayerSourceRoute {
                 orderedCompositionSubtreeLayerIDs: []
             ))
         }
-        // A childless passthrough has no members to pass through. Its explicit
-        // background choice still owns the effect input, including transparency.
-        guard utility.kind != .fullscreen else {
-            return .failure(.compositionSubtreeShape)
-        }
         let groupedLayers = Dictionary(grouping: descriptor.layers, by: \.id)
         let order = descriptor.renderOrderLayerIDs
         guard groupedLayers.values.allSatisfy({ $0.count == 1 }),
@@ -98,6 +92,27 @@ nonisolated enum SceneUtilityLayerSourceRoute {
                 }
                 pending.append(childID)
             }
+        }
+        if utility.kind == .fullscreen {
+            guard layer.parentID == nil,
+                  descriptor.camera.authoredOrthographicProjectionActive == true,
+                  !utility.passthrough,
+                  layer.dependencyLayerIDs.isEmpty, layer.authoredDependencies.isEmpty,
+                  descendants.count == layer.childLayerIDs.count,
+                  descendants.allSatisfy({
+                      layersByID[$0]?.utilityLayer == nil && layersByID[$0]?.usesPerspective != true
+                  }) else { return .failure(.compositionSubtreeShape) }
+            let inBlock: (Int) -> Bool = { $0 == layer.id || descendants.contains($0) }
+            guard let first = order.firstIndex(where: inBlock),
+                  let last = order.lastIndex(where: inBlock),
+                  last - first == descendants.count else {
+                return .failure(.compositionSubtreeShape)
+            }
+            return .success(.init(
+                triggerLayerID: order[last],
+                capturesCompositionSubtree: false,
+                orderedCompositionSubtreeLayerIDs: []
+            ))
         }
         // A composition's local canvas belongs to its admitted structure,
         // independently of root effect declarations or visibility. Keep the

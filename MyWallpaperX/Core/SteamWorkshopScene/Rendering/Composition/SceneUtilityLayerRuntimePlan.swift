@@ -150,7 +150,7 @@ enum SceneUtilityLayerRuntimePlanner {
             let preparedFullscreen = utility.kind == .fullscreen
                 && layer.contentKind == "fullscreen"
                 && resolvedMaterialLayerIDs.contains(layer.id)
-                && layer.parentID == nil && layer.childLayerIDs.isEmpty
+                && layer.parentID == nil
                 && layer.dependencyLayerIDs.isEmpty && sourceRoute != nil
             let isolatedGroup = sourceRoute?.usesIsolatedGroupTarget == true
             let preparedSource = utility.kind != .fullscreen

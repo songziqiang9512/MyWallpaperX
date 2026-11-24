@@ -37,7 +37,8 @@ def white_png():
 
 
 def fixture_entries(*, mixed_particle=False, no_capture=False, inactive_effect=False,
-                    missing_shader=False, legal_particle=False, project_script=False, fullscreen_script=False):
+                    missing_shader=False, legal_particle=False, project_script=False,
+                    fullscreen_script=False, fullscreen_children=False):
     def visible(condition, fallback=True):
         return {"user": {"name": "mode", "condition": condition}, "value": fallback}
     objects = [
@@ -57,6 +58,12 @@ def fixture_entries(*, mixed_particle=False, no_capture=False, inactive_effect=F
             "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]}),
         "shaders/own_dim.vert": VERTEX,
         "shaders/own_dim.frag": FRAGMENT}
+    if fullscreen_children:
+        objects[2:2] = [
+            {"id": 70, "parent": 20, "name": "Red foreground inside effect", "image": "models/own_solid.json",
+             "origin": "-64 0 0", "size": "48 48", "color": "1 0 0"},
+            {"id": 71, "parent": 20, "name": "Hidden final child", "image": "models/own_solid.json",
+             "origin": "-64 0 0", "size": "48 48", "color": "0 0 1", "visible": False}]
     if no_capture:
         # This authored fullscreen layer contributes no pixels. Visibility is
         # a legal no-op; an unavailable authored effect is a different case.
@@ -137,7 +144,8 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
         cls.frozen_app_hashes = app_hashes(cls.app)
 
     def run_case(self, *, mixed_particle=False, no_capture=False, inactive_effect=False,
-                 missing_shader=False, legal_particle=False, project_script=False, fullscreen_script=False, launch=None, sequence=None,
+                 missing_shader=False, legal_particle=False, project_script=False, fullscreen_script=False,
+                 fullscreen_children=False, launch=None, sequence=None,
                  expected_dims=None, expected_accepted=None, effect_layer_id=20,
                  initially_dimmed=False):
         unavailable = mixed_particle or missing_shader
@@ -149,19 +157,24 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
         accepted = ([str(value).lower() for value in expected_accepted]
                     if expected_accepted is not None
                     else ["false" if unavailable else "true"] * len(sequence))
-        def oracle(dim, particle=False):
-            return {key: {"canvasRect": RECTS[key], "expectedRGB": GREEN if key == "nonchild"
-                          else RED if key == "child" and particle
-                          else GRAY if dim else WHITE} for key in RECTS}
+        def oracle(dim, particle=False, child_visible=False):
+            child = (128, 0, 0) if dim else RED
+            colors = {"background": GRAY if dim else WHITE, "nonchild": GREEN,
+                      "child": child if child_visible else RED if particle else GRAY if dim else WHITE}
+            return {key: {"canvasRect": rect, "expectedRGB": colors[key]} for key, rect in RECTS.items()}
         after_delay = 2 * len(sequence) + 3
-        snapshots = {"scene-ready-window.png": oracle(initially_dimmed)}
+        root_mode = launch.get("mode")
+        snapshots = {"scene-ready-window.png": oracle(initially_dimmed,
+            child_visible=fullscreen_children and root_mode == "on")}
         times = {"scene-ready-window.png": 1}
         for index, dim in enumerate(expected_dims):
             # Each intermediate capture is 1.5s after its property request and
             # 0.5s before the next; the last gets the existing settled 'after'.
             name = ("scene-after-window.png" if index == len(sequence) - 1
                     else f"scene-series-{2 + index * 2:04d}-window.png")
-            snapshots[name] = oracle(dim, legal_particle and index == 0)
+            root_mode = sequence[index].get("mode", root_mode)
+            snapshots[name] = oracle(dim, legal_particle and index == 0,
+                child_visible=fullscreen_children and root_mode == "on")
             times[name] = after_delay if index == len(sequence) - 1 else 3.5 + index * 2
         protocol = {"canvas": [256, 256], "channelTolerance": 4, "minimumCorrectFraction": .99,
                     "launch": launch, "sequenceEvery2Seconds": sequence,
@@ -169,12 +182,13 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
                     "noEffectNoOp": no_capture, "initiallyInactiveEffect": inactive_effect,
                     "missingEffectFragment": missing_shader, "legalParticleCohort": legal_particle,
                     "projectVisibilityScript": project_script, "fullscreenVisibilityScript": fullscreen_script,
+                    "fullscreenChildren": fullscreen_children,
                     "effectLayerID": effect_layer_id, "initiallyDimmed": initially_dimmed,
                     "snapshotTimesSeconds": times, "snapshotOracles": snapshots,
                     "captureMapping": "centered orthographic cover, 256 square canvas"}
         project, entries = fixture_entries(mixed_particle=mixed_particle, no_capture=no_capture,
             inactive_effect=inactive_effect, missing_shader=missing_shader, legal_particle=legal_particle,
-            project_script=project_script, fullscreen_script=fullscreen_script)
+            project_script=project_script, fullscreen_script=fullscreen_script, fullscreen_children=fullscreen_children)
         self.assertEqual(app_hashes(self.app), self.frozen_app_hashes)
         with tempfile.TemporaryDirectory(prefix="mwx-fullscreen-visibility-") as temporary:
             root = Path(temporary)
@@ -258,6 +272,12 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
 
     def test_prepared_fullscreen_can_show_and_hide_in_authored_slot(self):
         self.run_case()
+
+    def test_fullscreen_reads_visible_children_before_later_peer_with_hidden_final_trigger(self):
+        self.run_case(inactive_effect=True, fullscreen_children=True,
+            launch={"mode": "on", "fx": False},
+            sequence=[{"fx": True}, {"mode": "off"}, {"mode": "on"}, {"fx": False}],
+            expected_dims=[True, False, True, False])
 
     def test_project_script_can_reveal_hide_and_reveal_its_prepared_capture(self):
         self.run_case(project_script=True, launch={"mode": False},

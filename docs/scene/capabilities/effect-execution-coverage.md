@@ -42,6 +42,15 @@ Utility provider 在原 source 触发点执行一次，由同一 compositor 发�
 
 源码：[Composition runtime](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift)、[Dependency runtime](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyFrameRuntime.swift)、[Graph composition](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift)。
 
+<a id="fullscreen-ordered-prefix"></a>
+### Fullscreen 与连续直属子层
+
+顶级正交 Fullscreen 的根和直属平面子层形成连续作者块时，效果读取该块末尾现存的主画布。前序画面与可见子层已经写入，后置兄弟仍按作者顺序继续。普通子层沿自身 transform、视频、材质及显隐路径各绘一次。取源以块末作者节点为截点，末节点隐藏仍执行该截点。
+
+`SourceRoute` 在准备时沿原层级闭包验证块与截点，`RuntimePlanner`、依赖准备和原 layer-loop defer 共同消费已有的 trigger。本批复用 Fullscreen 原 viewport source、Program、main attachment 和 compositor，无组纹理或普通帧成员遍历。根的有界显隐准备复用同一来源资格，实际 GPU 执行仍由当前帧效果开启与目标供货决定。未知或不可用 Program 沿现有最小降级，健康子层和后继继续绘制。交错、嵌套、专用 framebuffer、外部依赖及子层热显隐仍各沿原边界。
+
+验收用官版三色见证区分前序红、直属绿、后绘蓝，验证根效果开关、末子层隐藏和改名。原作者须从当帧视频及贴图命中实际 prefix 采样，经父效果和末合成到 GPU 封帧；独立作者或相邻无子 Fullscreen 检查原播放和显隐。
+
 <a id="perspective-composition-prefix"></a>
 ### Composition 透视与嵌套背景
 
