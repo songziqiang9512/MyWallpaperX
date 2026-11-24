@@ -477,6 +477,7 @@ final class SceneOffscreenTexturePool {
         let makeInputsDigests: [Int]
         let width: Int
         let height: Int
+        let scaledFramebufferBase: SceneGraphRenderTargetPlan.PixelExtent?
         // Requested pair storage is part of this original memo. A shared
         // request may retain its successful owned fallback, as before.
         var layerPlans: [SceneLayerGraphTargetPlan.FullFramePairStorage: SceneLayerGraphTargetPlan] = [:]
@@ -491,6 +492,7 @@ final class SceneOffscreenTexturePool {
         extentPolicy: SceneFullFrameExtentPolicy = .standard,
         requestedWidth: Int,
         requestedHeight: Int,
+        scaledFramebufferBase: SceneGraphRenderTargetPlan.PixelExtent? = nil,
         plansMemoIdentity: PersistentPlansMemoIdentity? = nil
     ) -> Result<(
         plans: [SceneGraphRenderTargetPlan],
@@ -523,7 +525,8 @@ final class SceneOffscreenTexturePool {
                 height: size.1,
                 materialFunctionTargets: materialFunctionTargetsByEffect
             )
-            if let cached = persistentPlansMemo[memoKey] {
+            if let cached = persistentPlansMemo[memoKey],
+               cached.scaledFramebufferBase == scaledFramebufferBase {
                 return .success(
                     (plans: cached.plans,
                      makeInputsDigests: cached.makeInputsDigests,
@@ -535,12 +538,14 @@ final class SceneOffscreenTexturePool {
                 admittedGraphs: admittedGraphs,
                 materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
                 pairPlan: pairPlan,
-                size: size
+                size: size,
+                scaledFramebufferBase: scaledFramebufferBase
             )
             guard case let .success(value) = derived else { return derived }
             persistentPlansMemo[memoKey] = .init(
                 plans: value.plans, makeInputsDigests: value.makeInputsDigests,
-                width: value.width, height: value.height
+                width: value.width, height: value.height,
+                scaledFramebufferBase: scaledFramebufferBase
             )
             return .success(
                 (plans: value.plans,
@@ -553,7 +558,8 @@ final class SceneOffscreenTexturePool {
             admittedGraphs: admittedGraphs,
             materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
             pairPlan: pairPlan,
-            size: size
+            size: size,
+            scaledFramebufferBase: scaledFramebufferBase
         )
     }
 
@@ -563,6 +569,7 @@ final class SceneOffscreenTexturePool {
         pairPlan: SceneLayerFullFramePairPlan,
         extentPolicy: SceneFullFrameExtentPolicy,
         requestedWidth: Int, requestedHeight: Int,
+        scaledFramebufferBase: SceneGraphRenderTargetPlan.PixelExtent? = nil,
         usesSharedFullFrameWorkingPair: Bool,
         plansMemoIdentity: PersistentPlansMemoIdentity?
     ) -> Result<SceneLayerGraphTargetPlan, ScenePersistentGraphTargetPlanningFailure> {
@@ -572,6 +579,7 @@ final class SceneOffscreenTexturePool {
             materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
             pairPlan: pairPlan, extentPolicy: extentPolicy,
             requestedWidth: requestedWidth, requestedHeight: requestedHeight,
+            scaledFramebufferBase: scaledFramebufferBase,
             plansMemoIdentity: plansMemoIdentity
         ) {
         case let .success(value): prepared = value
@@ -615,13 +623,23 @@ final class SceneOffscreenTexturePool {
         admittedGraphs: [SceneAuthoredEffectRenderPlan],
         materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>],
         pairPlan: SceneLayerFullFramePairPlan,
-        size: (width: Int, height: Int)
+        size: (width: Int, height: Int),
+        scaledFramebufferBase: SceneGraphRenderTargetPlan.PixelExtent?
     ) -> Result<(
         plans: [SceneGraphRenderTargetPlan],
         makeInputsDigests: [Int],
         width: Int,
         height: Int
     ), ScenePersistentGraphTargetPlanningFailure> {
+        let boundedFramebufferBase = scaledFramebufferBase.flatMap { base -> SceneGraphRenderTargetPlan.PixelExtent? in
+            let (width, height) = SceneOffscreenResolutionPolicy.limitedDimensions(
+                width: base.width, height: base.height,
+                maximumDimension: SceneOffscreenResolutionPolicy.maximumDimension(
+                    hardLimit: maxDimension, policy: .standard
+                )
+            )
+            return (width, height) == size ? nil : .init(width: width, height: height)
+        }
         var plans: [SceneGraphRenderTargetPlan] = []
         plans.reserveCapacity(admittedGraphs.count)
         var makeInputsDigests: [Int] = []
@@ -636,6 +654,7 @@ final class SceneOffscreenTexturePool {
                 inputRole: inputRole,
                 inputWidth: size.width,
                 inputHeight: size.height,
+                scaledFramebufferBase: boundedFramebufferBase,
                 materialFunctionTargets: targets,
                 backbufferFormat: backbufferFormat
             )
@@ -648,6 +667,7 @@ final class SceneOffscreenTexturePool {
                 inputRole: inputRole,
                 inputWidth: size.width,
                 inputHeight: size.height,
+                scaledFramebufferBase: plan.scaledFramebufferBase,
                 materialFunctionTargets: targets,
                 backbufferFormat: backbufferFormat
             ))

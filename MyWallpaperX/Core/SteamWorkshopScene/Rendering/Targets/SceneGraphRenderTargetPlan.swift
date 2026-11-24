@@ -83,6 +83,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
     let output: Graph.TextureIdentity
     let inputRole: SceneAuthoredEffectInputRole
     let inputExtent: PixelExtent
+    let scaledFramebufferBase: PixelExtent?
     let backbufferFormat: TextureFormat
     let logicalTargets: [LogicalTarget]
     let commands: [Command]
@@ -93,6 +94,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         output: Graph.TextureIdentity,
         inputRole: SceneAuthoredEffectInputRole = .layerSource,
         inputExtent: PixelExtent,
+        scaledFramebufferBase: PixelExtent? = nil,
         backbufferFormat: TextureFormat = .rgbaBackbuffer,
         logicalTargets: [LogicalTarget],
         commands: [Command] = []
@@ -102,6 +104,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         self.output = output
         self.inputRole = inputRole
         self.inputExtent = inputExtent
+        self.scaledFramebufferBase = scaledFramebufferBase
         self.backbufferFormat = backbufferFormat
         self.logicalTargets = logicalTargets
         self.commands = commands
@@ -141,6 +144,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         inputRole: SceneAuthoredEffectInputRole,
         inputWidth: Int,
         inputHeight: Int,
+        scaledFramebufferBase: PixelExtent? = nil,
         materialFunctionTargets: Set<Graph.TextureIdentity>,
         backbufferFormat: TextureFormat = .rgbaBackbuffer
     ) -> Int {
@@ -149,6 +153,8 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         hasher.combine(backbufferFormat)
         hasher.combine(inputWidth)
         hasher.combine(inputHeight)
+        hasher.combine(scaledFramebufferBase?.width)
+        hasher.combine(scaledFramebufferBase?.height)
         var elementXor = 0
         for target in materialFunctionTargets {
             elementXor ^= target.hashValue
@@ -162,6 +168,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         inputRole: SceneAuthoredEffectInputRole,
         inputWidth: Int,
         inputHeight: Int,
+        scaledFramebufferBase: PixelExtent? = nil,
         materialFunctionTargets: Set<Graph.TextureIdentity> = [],
         backbufferFormat: TextureFormat = .rgbaBackbuffer
     ) -> Result<Self, Failure> {
@@ -170,6 +177,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             inputRole: inputRole,
             inputWidth: inputWidth,
             inputHeight: inputHeight,
+            scaledFramebufferBase: scaledFramebufferBase,
             materialFunctionTargets: materialFunctionTargets,
             backbufferFormat: backbufferFormat
         )
@@ -180,6 +188,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         inputRole: SceneAuthoredEffectInputRole,
         inputWidth: Int,
         inputHeight: Int,
+        scaledFramebufferBase: PixelExtent?,
         materialFunctionTargets: Set<Graph.TextureIdentity>,
         backbufferFormat: TextureFormat
     ) -> Result<Self, Failure> {
@@ -223,11 +232,20 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
 
         var descriptors: [Graph.TextureIdentity: TargetDescriptor] = [:]
         descriptors.reserveCapacity(graph.renderTargets.count)
+        let usesMixedCopyGrids = scaledFramebufferBase != nil && graph.nodes.contains { node in
+            guard node.kind == .copy,
+                  let source = node.commandSource.flatMap({ declarations[$0] }),
+                  let target = node.commandTarget.flatMap({ declarations[$0] }) else { return false }
+            return usesLayerLocalFramebufferGrid(source.extent)
+                != usesLayerLocalFramebufferGrid(target.extent)
+        }
+        let declaredFramebufferBase = usesMixedCopyGrids ? nil : scaledFramebufferBase
         for target in graph.renderTargets {
             guard let descriptor = targetDescriptor(
                 target,
                 inputWidth: inputWidth,
                 inputHeight: inputHeight,
+                scaledFramebufferBase: declaredFramebufferBase,
                 backbufferFormat: backbufferFormat
             ) else {
                 return .failure(.unsupportedTargetDescriptor)
@@ -438,6 +456,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             output: effect.output,
             inputRole: inputRole,
             inputExtent: PixelExtent(width: inputWidth, height: inputHeight),
+            scaledFramebufferBase: declaredFramebufferBase,
             backbufferFormat: backbufferFormat,
             logicalTargets: targets,
             commands: commands

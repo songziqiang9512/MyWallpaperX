@@ -56,12 +56,14 @@ extension Harness {
         let pool = SceneOffscreenTexturePool(device: device, residentByteBudget: 1_048_576)
         func plan(_ targetPool: SceneOffscreenTexturePool, width: Int = 8,
                   shared: Bool = true, targets: Set<Graph.TextureIdentity> = [],
+                  framebufferBase: SceneGraphRenderTargetPlan.PixelExtent? = nil,
                   capabilityToken: SceneResolvedMaterialExecutionCapabilityCatalog.Token? = nil)
             -> SceneLayerGraphTargetPlan {
             guard case let .success(frame) = targetPool.framePlanResultForPersistentGraphTargets(
                 admittedGraphs: graphs,
                 materialFunctionTargetsByEffect: [pair.effects[0].effect: targets],
                 pairPlan: pair, requestedWidth: width, requestedHeight: 8,
+                scaledFramebufferBase: framebufferBase,
                 usesSharedFullFrameWorkingPair: shared,
                 plansMemoIdentity: .init(capabilityToken: capabilityToken ?? token, layerID: pair.layerID)
             ) else { fatalError("expected memo fixture plan") }
@@ -72,11 +74,32 @@ extension Harness {
         let owned = plan(pool, shared: false)
         let functions = plan(pool, targets: Set(fixture.framebufferIdentities))
         let changedCapability = plan(pool, capabilityToken: .init())
+        let extent = SceneGraphRenderTargetPlan.PixelExtent(width: 6, height: 4)
+        let scaled = plan(pool, framebufferBase: extent)
+        let changedBase = plan(pool, framebufferBase: .init(width: 5, height: 3))
+        let rebuilt = plan(pool, framebufferBase: extent)
+        let repeated = plan(pool, framebufferBase: extent)
+        func copyExtents(_ a: Graph.TargetExtent, _ b: Graph.TargetExtent)
+            -> [SceneGraphRenderTargetPlan.PixelExtent] {
+            let copy = copyExtentFixture(layerID: 936, firstExtent: a, secondExtent: b)
+            guard case let .success(value) = pool.persistentTargetPlansResult(
+                admittedGraphs: admittedGraphs([copy]), pairPlan: pairPlan([copy]),
+                requestedWidth: 8, requestedHeight: 8, scaledFramebufferBase: extent
+            ), value.plans.first?.commands.map(\.kind) == [.copy] else { return [] }
+            return value.plans.flatMap(\.logicalTargets).map(\.extent)
+        }
+        let inherited = Graph.TargetExtent(width: nil, height: nil, fit: nil, scale: nil)
+        let unit = Graph.TargetExtent(width: nil, height: nil, fit: nil, scale: 1)
+        let absolute = Graph.TargetExtent(width: 8, height: 8, fit: nil, scale: nil)
+        let pairExtent = SceneGraphRenderTargetPlan.PixelExtent(width: 8, height: 8)
         guard let firstExecution = first.stages[0].preparedExecution,
               let againExecution = again.stages[0].preparedExecution,
               let resizedExecution = resized.stages[0].preparedExecution,
               let ownedExecution = owned.stages[0].preparedExecution,
               let functionExecution = functions.stages[0].preparedExecution,
+              let scaledExecution = scaled.stages[0].preparedExecution,
+              let changedBaseExecution = changedBase.stages[0].preparedExecution,
+              let rebuiltExecution = rebuilt.stages[0].preparedExecution,
               let changedExecution = changedCapability.stages[0].preparedExecution else {
             fatalError("expected captured static execution")
         }
@@ -103,6 +126,13 @@ extension Harness {
                 && functionExecution.materialFunctionTargets == Set(fixture.framebufferIdentities),
             "capability-is-keyed": firstExecution !== changedExecution
                 && first.capabilityID != changedCapability.capabilityID,
+            "framebuffer-base-replaces-memo-for-the-same-pair": scaledExecution !== rebuiltExecution
+                && rebuiltExecution === repeated.stages[0].preparedExecution
+                && scaledExecution.plan.inputExtent == changedBaseExecution.plan.inputExtent
+                && rebuiltExecution.plan.logicalTargets.map(\.extent) == [extent]
+                && changedBaseExecution.plan.logicalTargets.map(\.extent) == [.init(width: 5, height: 3)],
+            "equivalent-inherited-copy-extents": copyExtents(inherited, unit) == [extent, extent],
+            "mixed-copy-preserves-compatible-pair-grid": copyExtents(inherited, absolute) == [pairExtent, pairExtent],
             "reset-drops-static-memo": firstExecution !== afterReset.stages[0].preparedExecution,
             "memo-holds-no-residency": noResidency && pool.residentByteCost == 0,
             "other-budget-remains-effective": rejectedBudget,

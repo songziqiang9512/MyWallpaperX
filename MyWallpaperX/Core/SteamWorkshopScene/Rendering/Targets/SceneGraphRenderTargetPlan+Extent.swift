@@ -17,12 +17,14 @@ nonisolated extension SceneGraphRenderTargetPlan {
         _ target: Graph.RenderTarget,
         inputWidth: Int,
         inputHeight: Int,
+        scaledFramebufferBase: PixelExtent? = nil,
         backbufferFormat: TextureFormat = .rgbaBackbuffer
     ) -> TargetDescriptor? {
+        let scaleBase = usesLayerLocalFramebufferGrid(target.extent) ? scaledFramebufferBase : nil
         guard let extent = pixelExtent(
             target.extent,
-            inputWidth: inputWidth,
-            inputHeight: inputHeight
+            inputWidth: scaleBase?.width ?? inputWidth,
+            inputHeight: scaleBase?.height ?? inputHeight
         ), let authoredFormat = textureFormat(target.format),
               let addressMode = uvAddressMode(target.uvs),
               target.conditions == nil else {
@@ -42,6 +44,10 @@ nonisolated extension SceneGraphRenderTargetPlan {
             isUnique: target.declaredUnique,
             initialClear: initialClear
         )
+    }
+
+    static func usesLayerLocalFramebufferGrid(_ extent: Graph.TargetExtent) -> Bool {
+        extent.kind == .input || extent.kind == .scale
     }
 
     /// Command compatibility must not depend on a probe extent. In particular,
@@ -190,6 +196,7 @@ nonisolated extension SceneGraphRenderTargetPlan {
                       declaration,
                       inputWidth: inputExtent.width,
                       inputHeight: inputExtent.height,
+                      scaledFramebufferBase: scaledFramebufferBase,
                       backbufferFormat: backbufferFormat
                   ) else {
                 return false

@@ -7,6 +7,7 @@ extension SceneMetalRenderer {
         let claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution
         let requestedWidth: Int
         let requestedHeight: Int
+        let scaledFramebufferBase: SceneGraphRenderTargetPlan.PixelExtent?
         let extentPolicy: SceneFullFrameExtentPolicy
         let preferredExtent: SIMD2<Int>?
         let materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey:
@@ -148,6 +149,7 @@ extension SceneMetalRenderer {
             var utilityCaptureGeometry: SceneCaptureGeometry?
             var framebufferSourceMaterial: SceneResolvedMaterialRuntimeBridge.FramebufferSourceMaterial?
             var effectSourceExtent: SceneLayerEffectSourceExtent?
+            var scaledFramebufferBase: SceneGraphRenderTargetPlan.PixelExtent?
             let preparedSourceMaterial = imageCompositor.resolvedMaterialRuntime?.sourceMaterials[layerID]
             if layer.utilityLayer?.framebufferSource != nil {
                 guard case .capturedMain? = preparedSourceMaterial?.outputDomain,
@@ -253,6 +255,11 @@ extension SceneMetalRenderer {
                         )
                     }
                     effectSourceExtent = extent
+                    if layer.contentKind == "image", layer.parentID == nil,
+                       let width = Int(exactly: extent.pixelSize.width.rounded(.up)),
+                       let height = Int(exactly: extent.pixelSize.height.rounded(.up)) {
+                        scaledFramebufferBase = .init(width: width, height: height)
+                    }
                     let model = imageModel(layer, imageTextures.layerSourceRenderSize(for: layer.id))
                     capturedUnitModelMatrix = model
                     if dependencyRuntime.requiresGraphOutputCapture(for: layerID) {
@@ -742,6 +749,7 @@ SceneBaseMaterialLitCaptureMissLog.record(
             }
             sources[layerID] = .init(
                 claim: claim, requestedWidth: requestedWidth, requestedHeight: requestedHeight,
+                scaledFramebufferBase: scaledFramebufferBase,
                 extentPolicy: effectSourceExtentContract.targetPolicy,
                 preferredExtent: preferredExtent,
                 materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
@@ -794,6 +802,7 @@ SceneBaseMaterialLitCaptureMissLog.record(
                     extentPolicy: policy,
                     requestedWidth: width,
                     requestedHeight: height,
+                    scaledFramebufferBase: source.scaledFramebufferBase,
                     // Later graphs may overwrite shared scratch before this layer's authored draw.
                     usesSharedFullFrameWorkingPair: usesSharedPair,
                     orderingContext: orderingContext,

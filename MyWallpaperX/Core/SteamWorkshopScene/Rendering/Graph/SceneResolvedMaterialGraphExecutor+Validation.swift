@@ -53,6 +53,7 @@ extension SceneResolvedMaterialGraphExecutor {
                     inputRole: role,
                     inputWidth: lease.table.plan.inputExtent.width,
                     inputHeight: lease.table.plan.inputExtent.height,
+                    scaledFramebufferBase: lease.table.plan.scaledFramebufferBase,
                     materialFunctionTargets:
                         materialFunctionTargetsByEffect[step.effect] ?? [],
                     backbufferFormat: lease.table.plan.backbufferFormat
@@ -65,6 +66,7 @@ extension SceneResolvedMaterialGraphExecutor {
                         inputRole: index == 0 ? .layerSource : .priorEffectOutput,
                         inputWidth: lease.table.plan.inputExtent.width,
                         inputHeight: lease.table.plan.inputExtent.height,
+                        scaledFramebufferBase: lease.table.plan.scaledFramebufferBase,
                         materialFunctionTargets:
                             materialFunctionTargetsByEffect[step.effect] ?? [],
                         backbufferFormat: lease.table.plan.backbufferFormat
