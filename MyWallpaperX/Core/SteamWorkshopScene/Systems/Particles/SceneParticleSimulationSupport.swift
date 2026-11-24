@@ -66,8 +66,8 @@ nonisolated struct SceneParticleTurbulentVelocityPlan: Sendable {
         phaseMinimum = value.phaseMinimum ?? 0
         phaseMaximum = value.phaseMaximum ?? 2 * .pi
         scale = value.scale ?? 1
-        speedMinimum = value.speedMinimum ?? 0
-        speedMaximum = value.speedMaximum ?? 100
+        speedMinimum = max(value.speedMinimum ?? 100, 0)
+        speedMaximum = max(value.speedMaximum ?? 250, 0)
         timeScale = value.timeScale ?? 1
         audioResponseEnabled = value.audioResponse.isEnabled
         audioResponsePlan = SceneParticleAudioResponsePlan(value.audioResponse)
@@ -210,12 +210,10 @@ nonisolated enum SceneParticleSimulationMath {
             directionLength = length(direction)
         }
         guard directionLength.isFinite, directionLength > 1e-9 else { return strict ? SIMD3(repeating: .nan) : .zero }
-        let minimumSpeed = max(value.speedMinimum, 0)
-        let maximumSpeed = max(value.speedMaximum, minimumSpeed)
         // Forward carries authored velocity magnitude as well as direction.
         // Normalize only for orientation, then retain its scale in the result.
         return direction / directionLength
-            * (forwardLength * random.value(minimumSpeed, maximumSpeed))
+            * (forwardLength * random.value(value.speedMinimum, value.speedMaximum))
     }
 
     @inline(__always)

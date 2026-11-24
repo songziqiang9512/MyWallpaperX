@@ -121,8 +121,8 @@
       "bytes": 7411
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 353,
-      "bytes": 69690
+      "lines": 356,
+      "bytes": 70261
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 428,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 323826
+      "bytes": 325358
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 215,
-      "bytes": 66638
+      "bytes": 66649
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "23d375270130ae0b77475a185688c4cab1e71df9967949cbf3135aedb6bc125c",
-      "after": "9c90667ef16f3b0d1bf7ca5ea02d1586e4929a8e9caffc45e7589dc77c07f3ed",
+      "before": "9c90667ef16f3b0d1bf7ca5ea02d1586e4929a8e9caffc45e7589dc77c07f3ed",
+      "after": "7440a35fac7fc280f70fe41ff72dbc94d43786de4f6f64be7788ab75ce4ac0f6",
       "owner": "Scene Sphere emitter birth",
-      "reason": "统一出生颜色并退出无消费者的实例亮度。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#instance-color"
+      "reason": "记录出生湍流各自缺省端点、反序取样以及现有实例与RNG职责。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#turbulent-velocity-speed-range"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "671980ee7958dffcf232f1b882583e138f321cc042c1bd7b4585d4d638579ee3",
-      "after": "4cb5ae83c2fb3d4cc3c5016156ae6fd4258a54f3ea0d0e48ce2bd82fbb96232c",
+      "before": "4cb5ae83c2fb3d4cc3c5016156ae6fd4258a54f3ea0d0e48ce2bd82fbb96232c",
+      "after": "5d95adef5efe2062a44b6f0c93cce2a8657eae16798c0eaa801ab45abf6d345f",
       "owner": "Shared Scene author spectrum",
-      "reason": "记录 Godrays 同包终端探针的本机正控、官方投递正控与尺寸未取证边界。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-chain-godrays-clip-witness"
+      "reason": "记录两端定点速度、区间端点、真实原包运动和独立出图。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ember-turbulent-birth-speed"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "59ef8591695d928d6a07e861ef7813ad6439103bd1bcb68b1bbf56dd41f85b86",
-      "after": "ca435e6fb8fee4c672ff593a674d49de738a47acb6efaaaaadf305817e0c999f",
+      "before": "ca435e6fb8fee4c672ff593a674d49de738a47acb6efaaaaadf305817e0c999f",
+      "after": "b1896739f58d171464d7a410866d9aba70ff48fe378e2160e4a9eca016ac3887",
       "owner": "Shared Scene author spectrum",
-      "reason": "退出未进入官版末端像素的诊断路径，保留能区分有效工作尺寸的复验条件。",
+      "reason": "移出出生速度缺省问题，保留角向场与持续力的独立必要观察。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     },
     {

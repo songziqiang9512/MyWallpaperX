@@ -161,7 +161,7 @@
 | 3789316755 /3211615441 | 频谱形状/幅度/全柱活动；321首焦点、持续按住的作者行为与多步跟随分别待验证。 |
 | 3788467391 | 漩涡方向、速度、形态与长预热的可比相位。 |
 | 1315486372 | 光线宽软、渐隐及水波位置。 |
-| 3769761761 | [隔离根、删子与高alpha跨端](../capabilities/runtime-evidence-current.md#ember-root-footprint-376)将差异归到429根拖尾跨度和斜率，[稀疏实绘](../capabilities/runtime-evidence-current.md#ember-sparse-motion-376)证普通Sprite也有运动差异。[固定初速度与预热对照](../capabilities/runtime-evidence-current.md#ember-prewarm-time-376)闭合共享预热时域并恢复起始粒子状态，实时速率和线性空间已有正反例。下一断点为稳定后的初始湍流速度分布及后续力场。 |
+| 3769761761 | [根拖尾范围](../capabilities/runtime-evidence-current.md#ember-root-footprint-376)与[稀疏Sprite](../capabilities/runtime-evidence-current.md#ember-sparse-motion-376)定位了根运动。[预热时域](../capabilities/runtime-evidence-current.md#ember-prewarm-time-376)和[出生速度缺省](../capabilities/runtime-evidence-current.md#ember-turbulent-birth-speed)已修正。剩余为出生方向场及持续X轴湍流。先沿已配对的非零局部点与时钟分开复验，再以原包低透明度的稳定阶段复核光带连续性。 |
 | 3113287126 | 小提琴方向/密度反馈仍开。原R0五活动root均到main/GPU、无child，全随parent500；Directions普通量/默认，旧bounded不作缺图，当前未见可证重复world转换。重启须明确root/ROI、发射与父Puppet同phase及当帧pos/vel→attachment/model/VP，不能由单图或几何实例数调count/speed；薄事实在`.artifacts/scene-violin-311-next-20261109/`。 |
 | 3743305891 | 原R0活动十字为child1的22个Sprite几何实例；root/child各取自身size空间flags，child2.5与父layer10是不同声明，当前静态消费链未见同一scale重复乘。缺同phase尺寸oracle与当帧instance.size/MVP，反馈仍开；重启须官方子world继承资格或可归属size/空间→像素错配，不调size拟合或无差别重跑。原输入、三batch/main/GPU及链路在`.artifacts/scene-cross-size-374-next-20261109/`。 |
 | 3768229922 /3770444459 | 376原R0的4秒片头与16秒后续均未定位黑滴ROI；1103/1144玻璃各30实例、color/normal/background→main与GPU已有实际供货，不判完全未执行。反馈仍开，重启须明确哪颗/哪个ROI、相位和对应活动source，不追加无差别第三场或由名称推PMA/混合；薄事实在`.artifacts/scene-droplet-3768229922-next-20261109/`。377主体/眼部完整过渡仍须同相位合成ROI。 |

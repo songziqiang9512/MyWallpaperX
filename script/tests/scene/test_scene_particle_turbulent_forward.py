@@ -25,8 +25,15 @@ import Foundation
 
 @main enum Harness {
     static func make(_ forward: String, normal: String = "0 0 1",
-                     offset: Double = 0, speed: Double = 10, count: Int = 1) throws
+                     offset: Double = 0, speed: Double = 10, count: Int = 1,
+                     speedFields: [String: Double]? = nil) throws
         -> (SceneParticleSimulator, SceneParticleTrailRenderPlan) {
+        var turbulence: [String: Any] = ["name": "turbulentvelocityrandom", "forward": forward,
+            "right": normal, "scale": 0, "offset": offset,
+            "phasemin": 0, "phasemax": 0, "timescale": 0]
+        for (name, endpoint) in speedFields ?? ["speedmin": speed, "speedmax": speed] {
+            turbulence[name] = endpoint
+        }
         let authored: [String: Any] = [
             "material": "owned.json", "maxcount": count, "starttime": 0, "flags": 0,
             "emitter": [["name": "boxrandom", "rate": 0, "instantaneous": count,
@@ -34,10 +41,7 @@ import Foundation
             "initializer": [
                 ["name": "lifetimerandom", "min": 8, "max": 8],
                 ["name": "sizerandom", "min": 32, "max": 32],
-                ["name": "turbulentvelocityrandom", "forward": forward,
-                 "right": normal, "scale": 0, "offset": offset,
-                 "phasemin": 0, "phasemax": 0, "timescale": 0,
-                 "speedmin": speed, "speedmax": speed]],
+                turbulence],
             "operator": [["name": "movement", "flags": 0, "gravity": "0 0 0", "drag": 0]],
             "renderer": [["name": "spritetrail", "length": 0.007]]]
         // Exercise the same JSON representation accepted from authored files.
@@ -109,6 +113,21 @@ import Foundation
             for _ in 1..<16 { sim.advance(by: 0.125) }
             axisCases.append(["name": name, "birth": birth, "after": observe(sim, trail)])
         }
+        let speedArms: [(String, [String: Double], [String: Double])] = [
+            ("omitted", [:], ["speedmin": 100, "speedmax": 250]),
+            ("only-min", ["speedmin": 0], ["speedmin": 0, "speedmax": 250]),
+            ("only-max", ["speedmax": 100], ["speedmin": 100, "speedmax": 100]),
+            ("reversed", ["speedmin": 260], ["speedmin": 250, "speedmax": 260]),
+            ("explicit-reversed", ["speedmin": 260, "speedmax": 250], ["speedmin": 250, "speedmax": 260]),
+            ("fixed-zero", ["speedmin": 0, "speedmax": 0], ["speedmin": 0, "speedmax": 0]),
+        ]
+        let speedCases = try speedArms.map { name, actual, control in
+            let (sim, trail) = try make("1 0 0", count: 16, speedFields: actual)
+            let (peer, peerTrail) = try make("1 0 0", count: 16, speedFields: control)
+            sim.advance(by: 0.125)
+            peer.advance(by: 0.125)
+            return ["name": name, "initializers": observe(sim, trail), "control": observe(peer, peerTrail)] as [String: Any]
+        }
         func explicit(_ sim: SceneParticleSimulator) throws -> SceneParticleSimulator.PlaybackCandidate {
             try sim.preparePlaybackCandidate(commands: [(.init(layerID: 42, action: .emit,
                 revision: 1, count: 1), .init())], charge: { _, _ in }, release: { _ in })
@@ -131,7 +150,7 @@ import Foundation
 #endif
             invalidAxes.append(["normal": normal, "rejected": rejected, "unchanged": unchanged])
         }
-        let payload: [String: Any] = ["cases": cases, "axisCases": axisCases,
+        let payload: [String: Any] = ["cases": cases, "axisCases": axisCases, "speedCases": speedCases,
             "invalidAxes": invalidAxes, "explicitPositive": positive.state.particles.map { vector($0.velocity) },
             "overflowInputsIndividuallyFinite": Float(1e38).isFinite && Float(10).isFinite,
             "overflow": observe(unsafe, unsafeTrail), "safePeer": observe(peer, peerTrail)]
@@ -210,6 +229,19 @@ class SceneParticleTurbulentForwardTests(unittest.TestCase):
                 self.assertAlmostEqual(case["birth"]["stretch"][0], stretch, places=6)
                 self.assertAlmostEqual(case["after"]["stretch"][0], stretch, places=6)
                 self.assertTrue(case["repeatSameSeed"])
+
+    def test_speed_defaults_are_independent_and_explicit_zero_and_ordered_ranges_survive(self):
+        bounds = {"omitted": (100, 250), "only-min": (0, 250), "only-max": (100, 100),
+                  "reversed": (250, 260), "explicit-reversed": (250, 260), "fixed-zero": (0, 0)}
+        for case in self.result["speedCases"]:
+            with self.subTest(case=case["name"]):
+                initialized = case["initializers"]
+                self.assertEqual(initialized, case["control"])
+                self.assertEqual(initialized["count"], 16)
+                velocities = initialized["velocities"]
+                minimum, maximum = bounds[case["name"]]
+                self.assertTrue(all(minimum <= v[0] <= maximum and v[1:] == [0, 0] for v in velocities))
+                self.assertEqual(len({v[0] for v in velocities}) > 1, minimum != maximum)
 
     def test_multiplied_float_overflow_rejects_births_and_safe_peer_survives(self):
         self.assertTrue(self.result["overflowInputsIndividuallyFinite"])
