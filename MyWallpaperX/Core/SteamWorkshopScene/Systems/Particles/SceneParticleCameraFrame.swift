@@ -62,6 +62,7 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
     let cameraOrigin: SIMD3<Float>
     private let orthographicViewBasis: SceneParticleOrientationBasis
     let perspectiveEyePosition: SIMD3<Float>
+    let legacyModelEyePosition: SIMD3<Float>
     let defaultsToPerspective: Bool
     // Shares the immutable frame value payload; no per-camera dictionary copy.
     private let dynamicValues: SceneDynamicSnapshot?
@@ -84,6 +85,8 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
     ) {
         self.dynamicValues = dynamicValues
         self.perspectiveReplayRootIDs = perspectiveReplayRootIDs
+        // The canvas shader eye is fixed while the model's clip projection fits the viewport.
+        legacyModelEyePosition = SIMD3((camera.orthoWidth ?? 0) * 0.5, (camera.orthoHeight ?? 0) * 0.5, 2_000)
         let safeOrigin = cameraOrigin.x.isFinite && cameraOrigin.y.isFinite
             && cameraOrigin.z.isFinite ? cameraOrigin : .zero
         let isCanvas = camera.orthoWidth != nil || camera.orthoHeight != nil

@@ -326,7 +326,8 @@ extension SceneMetalRenderer {
                 normalMatrix: draw.normalMatrix,
                 viewProjection: viewProjection,
                 frontFacing: frontFacing,
-                cameraPosition: cameraFrame.perspectiveEyePosition,
+                cameraPosition: draw.material.legacyLighting == nil
+                    ? cameraFrame.perspectiveEyePosition : cameraFrame.legacyModelEyePosition,
                 textureFrame: draw.textureFrame, sampling: draw.sampling,
                 layerAlpha: draw.alpha, material: draw.material,
                 materialColorIsOpaque: draw.entry.materialBlending == .normal,

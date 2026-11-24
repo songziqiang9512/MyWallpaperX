@@ -479,6 +479,17 @@ main/named consumer 分别按实际 extent/MVP、target bounds 和采样密度�
 
 源码：[LightSnapshot](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneLightSnapshot.swift)、[2D lit material](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal)。采样/颜色合同见[Shader/Graph](render-graph-shader-coverage.md#color)。
 
+<a id="legacy-generic2-model-lighting"></a>
+### 正交画布上 stock generic2 的旧点光
+
+同一作者网格及两组等值色隔离了封面取色。官版壳面在无灯时混合环境色与天光，有旧 `point` 时再受随世界距离衰减的漫反射与高光。当前固定模型路径在该材质 `LIGHTING=0` 时直接输出原色。stock generic2 自身不以该 combo 选择受光分支，现代 `lpoint` 与旧点光亦分属不同灯组。选原模型材质和现有点光槽承接这个响应，现代 PBR 与旧平面图像入口保各自合同。
+
+原 MaterialPlan 确认同名 stock shader 的两根阶段及各自通用 include 来自 stock，几何法线变体无 normal map、反射及 detail alpha。准备 `Light`、`Metal`、`Rough` 的静态响应系数，缺省为零并保作者已证 `Metal=2`；非有限系数或会使正面/背向入射零点失去定义的幂值沿原模型 fallback。原冻结 draw 保这一个 profile，旧 `LIGHTING` combo 在已接管的材质上退出颜色选择。原相机帧供画布中点 XY 和 Z 2000 的旧 shader 眼位，保模型原 VP、group 局部尺寸及位置。原世界基的前向线性变换给顶点法线，天空与环境插值在该基下复用共享灯快照的半球系数；片元漫反射和高光使用重新归一化的插值法线。
+
+同一光快照中原始 `point` 按作者顺序向该 draw 供最多四灯，不占现代灯或 shadow atlas 预算。片元共用原 point 循环的世界位差和距离，按半径归一余量平方衰减漫反射，`Light` 控制 Lambert 与 half-Lambert 的插值，金属边缘项同属漫反射；Blinn 半角高光按余量一次衰减并加回表面。两种材质响应共用常量槽、顶点/片元路径与最终合成；旧分支复用 rim 向量、相机槽和 material flags，保现有 ABI 大小、纹理、alpha、深度、排序和投影。旧灯不走现代 shadow 采样。由原顶点 shader 应用前向矩阵，免重复逆矩阵及无必要的可逆性检查。无新资源、缓存、pass、所有者或逐帧材料解析。动态材质参数和其余 generic2 贴图/反射分支仍走现有路径，各自待真实结果资格。
+
+验收冻结同网格、同色、零灯、彩色半球、范围内外的单灯、改名以及现代灯和作者覆盖 shader 对照。以相同输入两端的原像素和实际模型到 drawable 的 GPU 完成为准，另核独立作者和现代模型回归；不以重用素材的单包衍生物代替独立作者。分别记录取色与着色结果，剩余取色缺口保持开放。
+
 <a id="tube-light"></a>
 ### 管状光源的线段受光
 

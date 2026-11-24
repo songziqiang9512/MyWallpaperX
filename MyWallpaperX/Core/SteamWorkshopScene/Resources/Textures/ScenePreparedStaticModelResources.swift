@@ -157,13 +157,16 @@ struct ScenePreparedStaticModelResources {
         var seen: Set<SceneVFSAssetPath> = []
         var materials: [SceneVFSAssetPath: MaterialPlan.Item] = [:]
         var demands: Set<SceneAssetTextureIdentity> = []
+        let isOrthographicCanvas = (descriptor.camera.orthoWidth ?? 0) > 0
+            && (descriptor.camera.orthoHeight ?? 0) > 0
         for pass in descriptor.materialPasses where pass.passIndex == 0 {
             try cancellationCheck()
             guard let path = SceneVFSAssetPath(pass.materialPath),
                   seen.insert(path).inserted,
                   let bindings = pass.staticModelMaterialBindings,
                   bindings.state != .rejected,
-                  let material = material(pass, hdrEnabled: descriptor.hdrEnabled, resourceView: resourceView)
+                  let material = material(pass, hdrEnabled: descriptor.hdrEnabled,
+                      isOrthographicCanvas: isOrthographicCanvas, resourceView: resourceView)
             else { continue }
             let userProperty = pass.userTextureInputs.first.flatMap { input in
                 input.flatMap { $0.kind == .property ? SceneUserPropertyTextureIdentity(
@@ -428,6 +431,7 @@ struct ScenePreparedStaticModelResources {
     private static func material(
         _ pass: SceneRenderDescriptor.MaterialPassDescriptor,
         hdrEnabled: Bool,
+        isOrthographicCanvas: Bool,
         resourceView: SceneResourceView
     ) -> SceneStaticModelMaterial? {
         let color: [Double]
@@ -453,6 +457,7 @@ struct ScenePreparedStaticModelResources {
         let emissiveColor = components(named: "emissivecolor", in: pass)
             ?? [1, 1, 1]
         let surface = surfaceProfile(pass, resourceView: resourceView)
+        let legacy = isOrthographicCanvas ? legacyLighting(pass, resourceView: resourceView) : nil
         let emissiveBrightness = components(
             named: "emissivebrightness",
             in: pass
@@ -491,7 +496,7 @@ struct ScenePreparedStaticModelResources {
             ),
             // Clamp before narrowing: finite authored alpha can exceed Float.
             opacity: Float(min(max(opacity, 0), 1)),
-            receivesLighting: pass.combos["LIGHTING"] != 0,
+            receivesLighting: legacy == nil && pass.combos["LIGHTING"] != 0,
             textureAlphaIsOpacity: pass.combos["TINTMASKALPHA"] != 1,
             textureAlphaIsTintMask: pass.combos["TINTMASKALPHA"] == 1,
             emissiveColor: SIMD3(
@@ -505,6 +510,7 @@ struct ScenePreparedStaticModelResources {
             viewTint: viewTint,
             channelBindings: pass.staticModelMaterialBindings,
             surfaceProfile: surface,
+            legacyLighting: legacy,
             // Missing or unrecognized state retains the existing back-face
             // policy; only the authored no-cull state opens both mesh sides.
             cullMode: SceneMaterialRenderState.Cull(rawValue:
@@ -512,6 +518,38 @@ struct ScenePreparedStaticModelResources {
                     .localizedLowercase ?? ""
             ) == .noCull ? .none : .back
         )
+    }
+
+    private static func legacyLighting(
+        _ pass: SceneRenderDescriptor.MaterialPassDescriptor,
+        resourceView: SceneResourceView
+    ) -> SceneStaticModelMaterial.LegacyLighting? {
+        guard let shader = pass.shaderPath.map(identity),
+              shader == "generic2" || shader == "shaders/generic2",
+              (pass.combos["REFLECTION"] ?? 0) == 0,
+              (pass.combos["DETAILINALPHA"] ?? 0) == 0 else { return nil }
+        let hasNormalInput = pass.textureSlots.dropFirst().first.flatMap { $0 } != nil
+            || pass.userTextureInputs.dropFirst().first.flatMap { $0 } != nil
+        guard (pass.combos["NORMALMAP"] ?? (hasNormalInput ? 1 : 0)) == 0 else { return nil }
+        guard ["generic2.vert", "generic2.frag", "common_vertex.h", "common_fragment.h"].allSatisfy({
+            resourceView.resolvedResource(relativePath: "shaders/" + $0)?.source == .stock
+        }) else { return nil }
+        func scalar(_ key: String) -> Double? {
+            guard pass.userShaderValues[key] == nil else { return nil }
+            return SceneMaterialPropertyBindingCompiler.staticComponents(
+                key, instance: nil, pass: pass, count: 1, fallback: [0], requiresCompleteScalar: true
+            )?.first
+        }
+        guard let light = scalar("Light"), let metal = scalar("Metal"), let rough = scalar("Rough") else { return nil }
+        let result = SceneStaticModelMaterial.LegacyLighting(
+            halfLambert: Float(light), rimStrength: Float(2 * metal),
+            highlightExponent: Float((1.01 - rough) * (400 - 150 * metal)),
+            highlightStrength: Float(0.5 * (1 + metal) * (1 - 0.9 * rough)))
+        // Zero alignment and a head-on view occur on ordinary model surfaces.
+        guard result.halfLambert.isFinite, result.rimStrength.isFinite, result.rimStrength < 6,
+              result.highlightExponent.isFinite, result.highlightExponent > 0,
+              result.highlightStrength.isFinite else { return nil }
+        return result
     }
 
     /// The resource namespace owns source precedence. An author override of

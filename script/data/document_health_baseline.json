@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 541,
-      "bytes": 123651
+      "lines": 552,
+      "bytes": 126226
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 110,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 243,
-      "bytes": 68640
+      "bytes": 68611
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -222,7 +222,7 @@
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
       "lines": 600,
-      "bytes": 172489
+      "bytes": 173633
     },
     "docs/development/localization-contract.md": {
       "lines": 390,
@@ -487,20 +487,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "2451917a891d52acc6330cbc6a3ff12af816fd0a1b55ab0b943de7bee1c78dbb",
-      "after": "9f2dd0457ba96e77b708fb4863cbbc7990109781463d4a66177fb042e4175923",
-      "owner": "Scene model runtime",
-      "reason": "Record isolated model movement, cover integration and existing gate limits.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-perspective-parallax-370"
+      "before": "d68b57ad4ea2b3481fc0736d18c3c2f157b72f83c846741a0ccfea6f66ade46c",
+      "after": "5601a91ca514ef21a5e0123c21f2274a6eb1f12481995cbe3b7a320a4530ca6f",
+      "owner": "Scene model rendering",
+      "reason": "Keep the fixed-color official and native model lighting qualification with the current model evidence.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#legacy-generic2-model-lighting"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "c217ca108cb2c0f08d2bb4efe5cf41f42f2f38f5d333788e9f43f2509771e9f7",
-      "after": "3ac235e4f1f42349a73d55d1223fca893f0625dab3a37fff81ec24ae2328ca13",
-      "owner": "Scene legacy Puppet constraints",
-      "reason": "Canonical prepared rig, shared pose, and bounded fallback for legacy planar constraints.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-planar-compiled-constraints"
+      "before": "3140a1e9851d4758dbf8617fc8bd9b0679fb5f7a388ea5fa862eee1879ec36ec",
+      "after": "0244ad9fc8ae468e0ce252952bc4756f6e171b5442430a13c57681546191c834",
+      "owner": "Scene model rendering",
+      "reason": "Specify the verified stock generic2 light family and its existing render owner.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#legacy-generic2-model-lighting"
     },
     {
       "section": "bodies",
