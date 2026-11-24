@@ -270,6 +270,7 @@ final class SceneDesktopWallpaperSession {
     var isOutputActive = true
     var initialVideoPreparation: WorkItem?
     private(set) var animationFrameRate: AnimationFrameRate = .standard
+    private var displayCadenceLimit: Double = 60
     var scenePostProcessing: ScenePostProcessingMode = .ultra
     var screenReconciliationWorkItem: WorkItem?
     var screenTopology: [Int] = []

@@ -171,7 +171,7 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
 
     func reset(
         at uptime: TimeInterval = ProcessInfo.processInfo.systemUptime,
-        targetFPS: Int = 60
+        targetFPS: Double = 60
     ) {
         if self === Self.debugEvidence {
             SceneGPUStageTimestampHook.invalidate(reason: "telemetry-reset")
@@ -185,7 +185,7 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
             completed = 0
             failed = 0
             presented = 0
-            presentationFrameBudget = 1.0 / Double(targetFPS)
+            presentationFrameBudget = 1.0 / targetFPS
             presentationStreams.removeAll(keepingCapacity: true)
             cadence = .init()
             drawableMissed = 0
@@ -583,7 +583,7 @@ nonisolated struct SceneProductPerformanceWindow {
     let requestID: UUID
     let sessionID: UUID
     let selectedFPS: Int
-    let effectiveFPS: Int
+    let effectiveFPS: Double
     let finalizedAt: TimeInterval
     var startedAt: TimeInterval?
     var surfaces: [SceneProductPerformanceSurface] = []
@@ -591,7 +591,7 @@ nonisolated struct SceneProductPerformanceWindow {
     private(set) var maximumStabilitySampleGap: TimeInterval = 0
     private var lastStabilitySample: TimeInterval?
 
-    init(requestID: UUID, sessionID: UUID, selectedFPS: Int, effectiveFPS: Int, finalizedAt: TimeInterval) {
+    init(requestID: UUID, sessionID: UUID, selectedFPS: Int, effectiveFPS: Double, finalizedAt: TimeInterval) {
         self.requestID = requestID
         self.sessionID = sessionID
         self.selectedFPS = selectedFPS

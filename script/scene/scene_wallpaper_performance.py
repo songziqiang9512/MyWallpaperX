@@ -66,7 +66,6 @@ PERFORMANCE_STAGE_RE = re.compile(
 )
 
 PERFORMANCE_INT_FIELDS = {
-    "targetFPS": "target_fps",
     "callbacks": "driver_callbacks",
     "submitted": "submitted_frames",
     "completed": "completed_frames",
@@ -87,6 +86,7 @@ PERFORMANCE_INT_FIELDS = {
 }
 
 PERFORMANCE_FLOAT_FIELDS = {
+    "targetFPS": "target_fps",
     "warmupSeconds": "measurement_warmup_seconds",
     "elapsed": "measurement_elapsed_seconds",
     "submittedFPS": "submitted_fps_total",
@@ -466,8 +466,8 @@ def performance_metrics(log_text: str, surface_count: int | None) -> dict[str, A
     elapsed = metrics["measurement_elapsed_seconds"]
     if elapsed <= 0:
         return {"available": False, "error": "performance elapsed must be positive"}
-    if metrics["target_fps"] not in (30, 60):
-        return {"available": False, "error": "performance target FPS must be 30 or 60"}
+    if not 0 < metrics["target_fps"] <= 120:
+        return {"available": False, "error": "effective performance target FPS must be greater than 0 and at most 120"}
     if surface_count is None or surface_count <= 0:
         return {"available": False, "error": "performance surface count must be positive"}
     if metrics["presentation_stream_count"] != surface_count:

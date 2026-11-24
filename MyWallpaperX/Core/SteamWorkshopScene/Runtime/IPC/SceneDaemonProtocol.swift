@@ -97,6 +97,17 @@ nonisolated enum SceneDaemonProtocol {
     static let commandFlag = "--mwx-scene-daemon"
     static let sceneRootFlag = "--mwx-scene-root"
 
+    static func animationCadenceEvent(_ payload: [String: Any]) -> (
+        requestID: UUID, requestedFPS: AnimationFrameRate, effectiveFPS: Double
+    )? {
+        guard let rawID = payload["requestID"] as? String,
+              let requestID = UUID(uuidString: rawID),
+              let requestedFPS = animationFrameRate(payload["requestedFPS"]),
+              let effectiveFPS = finiteDouble(payload["effectiveFPS"]),
+              effectiveFPS > 0, effectiveFPS <= Double(requestedFPS.rawValue) else { return nil }
+        return (requestID, requestedFPS, effectiveFPS)
+    }
+
     static func sourceObject(_ source: ScenePlaybackSource) throws -> [String: Any] {
         guard source.isValid,
               let object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(source)) as? [String: Any] else {
@@ -454,10 +465,14 @@ nonisolated enum SceneDaemonProtocol {
             }
             let displayID = CGDirectDisplayID(rawID)
             guard displayIDs.insert(displayID).inserted else { return nil }
+            let modeRate = finiteDouble(screen["modeRefreshRate"]).flatMap { $0 > 0 ? $0 : nil }
+            let fallback = finiteDouble(screen["unknownModeRefreshLimit"]).flatMap { $0 > 0 ? $0 : nil }
             result.append(SceneScreenTopology(
                 displayID: displayID,
                 frame: CGRect(x: x, y: y, width: width, height: height),
-                backingScaleFactor: scale
+                backingScaleFactor: scale,
+                modeRefreshRate: modeRate,
+                unknownModeRefreshLimit: modeRate == nil ? fallback : nil
             ))
         }
         return result.sorted { $0.displayID < $1.displayID }

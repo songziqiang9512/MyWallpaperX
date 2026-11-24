@@ -13169,6 +13169,40 @@
         }
       }
     },
+    "Display limit: %@ FPS": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anzeigelimit: %@ FPS"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Display limit: %@ FPS"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limite de l’écran : %@ i/s"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предел дисплея: %@ кадр/с"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示上限：%@ FPS"
+          }
+        }
+      }
+    },
     "Display Settings": {
       "localizations": {
         "en": {

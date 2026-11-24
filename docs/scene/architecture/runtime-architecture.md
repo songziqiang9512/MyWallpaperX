@@ -143,7 +143,7 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 场景反射档在冷准备选择可选模型反射管线和普通图像的默认屏幕反射。关闭时保模型材质声明与原 HDR 发光、颜色和深度。普通图像的原 [光照 profile](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialLightingProfile.swift) 供直绘与基础图像捕获，共用作者 alpha、直接光及剩余有效纹理需求。作者 Program 的显式环境输入沿原资格供货。Shader 声明默认环境槽的基础材质随实际消费者准备，复用原前后帧颜色。具名模型源晚到时，独立环境消费者可用原根深度预约，无需可选反射模型作为许可。无其它环境需求时，模型关档退出原可选快照和 mip 工作，持久 raw、终端完成及具名输出继续由原提交 owner 管理。 [反射合同](../capabilities/advanced-object-coverage.md#static-model-screen-reflection)
 
 <a id="scene-frame-rate-policy"></a>
-App 以 10–120 整数保存动画帧率，Scene 启动和热更新沿原数值 IPC。当前 Scene 生效上限为 60，高于上限的请求继续保存，设置同时显示帧率请求和当前生效值。 [活动及候选会话](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift) 各接收同一请求，活动会话重排原 timer，不更换作者时钟。过载找下一未来槽，暂停首帧保原有界准入。粒子沿原 1／60 秒固定步进，在正常低帧率期间按该会话有效间隔调节过载上限。
+App 以 10–120 整数保存动画帧率，Scene 启动和热更新沿原数值 IPC。现有目标屏拓扑同时记录当前显示模式的小数刷新率。单屏和同频屏按当前模式限制，不同频或未知模式采用共同保守上限，最多 60。仅刷新率变化时重排原 timer，保候选身份和原 Surface。设置显示已确认会话的生效值，尚未接管时显示当前配置能预测的上限。 [活动及候选会话](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift) 各接收同一请求，活动会话重排原 timer，不更换作者时钟。过载找下一未来槽，暂停首帧保原有界准入。粒子沿原 1／60 秒固定步进，在正常低帧率期间按该会话有效间隔调节过载上限。
 
 解码租约预算在 Scene host 初始化时定一次，并与帧率分开。升级前使用旧小预算的设备保留本机兼容值，便携导入不传递它；改帧率不会扫描或缩减已有缓存。 [移除旧预算的验证条件](../../development/wallpaper-quality-work-card.md#scene-rate-rollout)
 

@@ -184,7 +184,8 @@ def scene_daemon_command_matches(identity: str, binary: Path) -> bool:
 
 
 def scene_performance_matches(row: dict, fps: int, window: tuple[float, float],
-                              children: dict[int, str], binary: Path, log: str) -> bool:
+                              children: dict[int, str], binary: Path, log: str, *,
+                              expected_fps: float | None = None) -> bool:
     receipt = row.get("productPerformance")
     if not isinstance(receipt, dict) or receipt.get("passed") is not True:
         return False
@@ -200,7 +201,9 @@ def scene_performance_matches(row: dict, fps: int, window: tuple[float, float],
         if type(value) not in (int, float) or not math.isfinite(value) or value < minimum:
             return False
     effective_fps = receipt.get("effectiveFPS")
-    if type(effective_fps) is not int or effective_fps != min(fps, 60):
+    if (type(effective_fps) not in (int, float)
+            or not math.isclose(effective_fps, fps if expected_fps is None else expected_fps,
+                                rel_tol=0, abs_tol=0.001)):
         return False
     timer_callbacks = receipt.get("timerCallbacks")
     stability_samples = receipt.get("stabilitySamples")
@@ -390,7 +393,8 @@ def run_selection(binary: Path, args, home: Path, suite: str, token: str, output
               and native.get("standardDefaultsDomain") == STARTUP_BUNDLE_ID
               and native.get("standardDefaultsSentinelVerified") is True)
     if window is not None and passed:
-        passed = scene_performance_matches(native["rows"][0], args.fps, window, children, binary, log)
+        passed = scene_performance_matches(native["rows"][0], args.fps, window, children, binary, log,
+                                           expected_fps=args.scene_effective_fps)
         if not passed:
             failure = "invalid Scene performance window or daemon identity"
     return {"passed": passed, "failure": failure, "command": command, "appPID": process.pid,
@@ -610,6 +614,8 @@ def main() -> int:
     parser.add_argument("--scene-performance", nargs="?", metavar="WARMUP,DURATION",
                         type=scene_performance_window, const=(30.0, 60.0),
                         help="measure one steady Scene request per run (default 30,60 seconds)")
+    parser.add_argument("--scene-effective-fps", type=float, metavar="RATE",
+                        help="expected Scene cadence if the display caps the requested FPS")
     parser.add_argument("--label", required=True)
     parser.add_argument("--keep-runtime", action="store_true")
     args = parser.parse_args()
@@ -619,6 +625,9 @@ def main() -> int:
         parser.error("fps must be 10–120")
     if args.scene_performance is not None and args.engine != "scene":
         parser.error("--scene-performance requires --engine scene")
+    if args.scene_effective_fps is not None and (
+            args.scene_performance is None or not 0 < args.scene_effective_fps <= args.fps):
+        parser.error("--scene-effective-fps requires a performance window and a positive RATE up to --fps")
     for key in ("sample_root", "workshop_root", "runtime_root", "output_dir"):
         setattr(args, key, isolated_path(getattr(args, key)))
     protected = [args.sample_root, args.workshop_root]
@@ -699,7 +708,8 @@ def main() -> int:
         if args.scene_performance is not None:
             warmup, duration = args.scene_performance
             report["scenePerformance"] = {"requestedFPS": args.fps, "warmupSeconds": warmup,
-                                          "measurementSeconds": duration}
+                                          "measurementSeconds": duration,
+                                          "expectedEffectiveFPS": args.scene_effective_fps or args.fps}
         if not failed and not args.keep_runtime:
             for _, staged_identity in arms.values():
                 discard_staged_app(staged_identity)

@@ -70,7 +70,15 @@ final class SceneDesktopWallpaperHost {
     var candidatePromotion: (requestID: UUID, promote: () -> Void)?
     var unconfirmedPromotion: (requestID: UUID, previous: SceneDesktopWallpaperSession?)?
     var presentationDeadline: DispatchWorkItem?
-    var screenTopology: [SceneScreenTopology] = []
+    var screenTopology: [SceneScreenTopology] = [] {
+        didSet {
+            let limit = SceneScreenTopology.cadenceLimit(for: screenTopology)
+            guard limit != displayCadenceLimit else { return }
+            displayCadenceLimit = limit
+            applyAnimationFrameRate(animationFrameRate)
+        }
+    }
+    private var displayCadenceLimit = SceneScreenTopology.conservativeCadenceLimit
     private(set) var animationFrameRate: AnimationFrameRate
     private(set) var sceneRenderQuality = SceneRenderQuality()
     private var playbackPaused = false
@@ -90,8 +98,8 @@ final class SceneDesktopWallpaperHost {
 
     func applyAnimationFrameRate(_ frameRate: AnimationFrameRate) {
         animationFrameRate = frameRate
-        activeSession?.applyAnimationFrameRate(frameRate)
-        candidateSession?.applyAnimationFrameRate(frameRate)
+        activeSession?.applyAnimationFrameRate(frameRate, displayLimit: displayCadenceLimit)
+        candidateSession?.applyAnimationFrameRate(frameRate, displayLimit: displayCadenceLimit)
     }
 
     func applySceneRenderQuality(_ quality: SceneRenderQuality) {
@@ -104,7 +112,9 @@ final class SceneDesktopWallpaperHost {
 
     func applyDisplayConfiguration(_ topology: [SceneScreenTopology]) {
         guard topology != screenTopology else { return }
+        let geometryChanged = !SceneScreenTopology.hasSameGeometry(topology, screenTopology)
         screenTopology = topology
+        guard geometryChanged else { return }
         if let promotion = unconfirmedPromotion { cancelCandidate(requestID: promotion.requestID) }
         cancelPendingLaunch()
         activeSession?.applyDisplayConfiguration(topology)
@@ -215,7 +225,7 @@ final class SceneDesktopWallpaperHost {
     }
 
     func configure(_ session: SceneDesktopWallpaperSession) {
-        session.applyAnimationFrameRate(animationFrameRate)
+        session.applyAnimationFrameRate(animationFrameRate, displayLimit: displayCadenceLimit)
         session.applyScenePostProcessing(sceneRenderQuality.postProcessing)
         session.screenTopology = screenTopology
         session.setPlaybackPaused(playbackPaused)

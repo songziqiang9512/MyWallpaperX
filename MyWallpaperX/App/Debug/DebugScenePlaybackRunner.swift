@@ -99,6 +99,7 @@ enum DebugScenePlaybackRunner {
             return
         }
         guard applyRequestedPerformanceProfile() else { return }
+        runtimeHost.applyDisplayConfiguration(SceneScreenTopology.capture())
         runtimeHost.applySceneRenderQuality(PlaybackQualityPreference.current.scene)
         let requestsDynamicValuesFault = ProcessInfo.processInfo.arguments.contains(
             "--mwx-debug-scene-drop-dynamic-values-frame"
@@ -498,7 +499,8 @@ enum DebugScenePlaybackRunner {
             if retainedCount == nil, targetIndices == nil {
                 let first = requested[0]
                 requested[0] = .init(displayID: first.displayID, frame: first.frame.insetBy(dx: 0.5, dy: 0),
-                    backingScaleFactor: first.backingScaleFactor)
+                    backingScaleFactor: first.backingScaleFactor, modeRefreshRate: first.modeRefreshRate,
+                    unknownModeRefreshLimit: first.unknownModeRefreshLimit)
                 guard runtimeHost.debugResizeSurfaces(scale: 0.8) else { return }
             }
             let before = runtimeHost.debugSnapshot(captureSurfaceState: true)

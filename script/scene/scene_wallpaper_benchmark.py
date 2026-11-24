@@ -318,9 +318,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--performance-fps",
         type=int,
-        choices=(30, 60),
+        choices=range(10, 121),
+        metavar="10–120",
         default=60,
-        help="explicit playback performance profile used by the Debug evidence runner",
+        help="requested FPS used by the Debug evidence runner",
     )
     parser.add_argument(
         "--performance-warmup",

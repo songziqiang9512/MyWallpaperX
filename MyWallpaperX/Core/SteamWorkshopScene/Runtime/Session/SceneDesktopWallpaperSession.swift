@@ -139,13 +139,15 @@ final class SceneDesktopWallpaperSession {
     }
 
     private(set) var animationFrameRate: AnimationFrameRate = .standard
+    private var displayCadenceLimit = SceneScreenTopology.conservativeCadenceLimit
     private(set) var scenePostProcessing: ScenePostProcessingMode
 
-    var effectiveAnimationFPS: Int { min(animationFrameRate.rawValue, AnimationFrameRate.sceneRolloutLimit) }
+    var effectiveAnimationFPS: Double { min(Double(animationFrameRate.rawValue), displayCadenceLimit) }
 
-    func applyAnimationFrameRate(_ frameRate: AnimationFrameRate) {
+    func applyAnimationFrameRate(_ frameRate: AnimationFrameRate, displayLimit: Double) {
         let previousFPS = effectiveAnimationFPS
         animationFrameRate = frameRate
+        displayCadenceLimit = displayLimit
         if effectiveAnimationFPS != previousFPS { retuneFrameDriver() }
     }
 
@@ -447,11 +449,12 @@ final class SceneDesktopWallpaperSession {
 
     func debugRetainSurfaces(_ count: Int) -> Bool {
         guard SceneDesktopWallpaperHost.usesDebugEvidenceWindow, let context = launchContext else { return false }
-        let screens = Self.surfaceScreens(topology: screenTopology).filter { surfaces[$0.1] != nil }
+        let topology = screenTopology.isEmpty ? SceneScreenTopology.capture() : screenTopology
+        let screens = Self.surfaceScreens(topology: topology).filter { surfaces[$0.1] != nil }
         guard count > 0, count < surfaces.count, count <= screens.count else { return false }
         let selected = Array(screens.prefix(count))
-        screenTopology = selected.map { .init(displayID: $0.1, frame: $0.0.frame,
-            backingScaleFactor: $0.0.backingScaleFactor) }
+        let retainedIDs = Set(selected.map(\.1))
+        screenTopology = topology.filter { retainedIDs.contains($0.displayID) }
         reconcileSurfaceScreens(selected, context: context)
         return surfaces.count == count
     }
@@ -461,10 +464,8 @@ final class SceneDesktopWallpaperSession {
         let pool = Self.debugSurfacePool()
         guard !indices.isEmpty, Set(indices).count == indices.count,
               indices.allSatisfy({ pool.indices.contains($0) }) else { return false }
-        let selected = indices.map { pool[$0] }
-        screenTopology = selected.map { .init(displayID: $0.1, frame: $0.0.frame,
-            backingScaleFactor: $0.0.backingScaleFactor) }
-        reconcileSurfaceScreens(selected, context: context)
+        screenTopology = indices.map { pool[$0] }
+        reconcileSurfaceScreens(Self.surfaceScreens(topology: screenTopology), context: context)
         return true
     }
 

@@ -431,11 +431,25 @@ extension AppKitSettingsContainerView {
 
     private func updateSceneFrameRateLabels(_ requested: Int) {
         sceneFPSField.stringValue = String(requested)
-        let effective = min(requested, AnimationFrameRate.sceneRolloutLimit)
-        sceneFPSEffectiveLabel.isHidden = effective == requested
-        if effective != requested {
-            sceneFPSEffectiveLabel.stringValue = String(localized: "Current: \(effective.formatted()) FPS")
-        }
+        updateSceneFrameRateReadout(requested)
+    }
+
+    func refreshSceneFrameRateReadout() {
+        guard !sceneFPSControl.isTracking else { return }
+        updateSceneFrameRateReadout(PlaybackQualityPreference.current.animationFrameRate.rawValue)
+    }
+
+    private func updateSceneFrameRateReadout(_ requested: Int) {
+        let daemon = SceneDaemonClient.shared
+        let active = daemon.activeAnimationCadence
+        let confirmed = active?.requestedFPS.rawValue == requested ? active?.effectiveFPS : nil
+        let effective = confirmed ?? min(Double(requested), daemon.configuredAnimationCadenceLimit)
+        sceneFPSEffectiveLabel.isHidden = effective == Double(requested)
+        guard !sceneFPSEffectiveLabel.isHidden else { return }
+        let fps = effective.formatted(.number.precision(.fractionLength(0...2)))
+        sceneFPSEffectiveLabel.stringValue = confirmed != nil
+            ? String(localized: "Current: \(fps) FPS")
+            : String(localized: "Display limit: \(fps) FPS")
     }
 
     func commitSceneFrameRate(_ selection: AnimationFrameRate?) {

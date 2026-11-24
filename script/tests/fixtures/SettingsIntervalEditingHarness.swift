@@ -14,6 +14,7 @@ enum SceneMediaSourcePreference { static let isEnabled = false }
 extension Notification.Name {
     static let playbackMuteStateDidChange = Self("fixture.mute")
     static let wallpaperManagerLoginItemSyncFailed = Self("fixture.login-item")
+    static let sceneDaemonAnimationCadenceDidChange = Self("fixture.cadence")
 }
 
 @MainActor final class PlaybackCommandMultiplexer {
@@ -24,6 +25,16 @@ extension Notification.Name {
         preference.write(to: .standard)
         requests.append(preference.animationFrameRate.rawValue)
     }
+}
+
+@MainActor final class SceneDaemonClient {
+    struct ActiveAnimationCadence {
+        let requestedFPS: AnimationFrameRate
+        let effectiveFPS: Double
+    }
+    static let shared = SceneDaemonClient()
+    var configuredAnimationCadenceLimit: Double = 60
+    var activeAnimationCadence: ActiveAnimationCadence?
 }
 
 // ACTUAL_FRAME_RATE_SLIDER
@@ -76,6 +87,8 @@ extension Notification.Name {
     // ACTUAL_SETTINGS_OBSERVER
     // ACTUAL_SCENE_POST_PROCESSING_MENU
     // ACTUAL_FRAME_RATE_LABELS
+    // ACTUAL_REFRESH_FRAME_RATE_READOUT
+    // ACTUAL_FRAME_RATE_READOUT
     // ACTUAL_FRAME_RATE_COMMIT
     // ACTUAL_FRAME_RATE_ACTION
     // ACTUAL_INTERVAL_COMMIT
@@ -162,6 +175,17 @@ extension Notification.Name {
         checks["frame-rate-keeps-request-and-shows-lower-active-cap"] = requests.requests == [97]
             && view.sceneFPSField.stringValue == "97" && view.sceneFPSControl.integerValue == 97
             && !view.sceneFPSEffectiveLabel.isHidden && view.sceneFPSEffectiveLabel.stringValue.contains("60")
+        let cadence = SceneDaemonClient.shared
+        let rateDraft = try draft("91", in: view.sceneFPSField)
+        cadence.activeAnimationCadence = .init(requestedFPS: .init(rawValue: 97)!, effectiveFPS: 59.94)
+        NotificationCenter.default.post(name: .sceneDaemonAnimationCadenceDidChange, object: cadence)
+        pump()
+        let displayRate = 59.94.formatted(.number.precision(.fractionLength(0...2)))
+        checks["frame-rate-confirmed-fractional-readout-does-not-replace-field-draft"] =
+            view.sceneFPSField.currentEditor() === rateDraft && rateDraft.string == "91"
+                && view.sceneFPSEffectiveLabel.stringValue.contains(displayRate) && requests.requests == [97]
+        rateDraft.insertText("97", replacementRange: NSRange(location: 0, length: rateDraft.string.utf16.count))
+        window.makeFirstResponder(view.nextField); pump()
         for invalid in ["121", "9", "25.5", "", "97"] {
             _ = try draft(invalid, in: view.sceneFPSField)
             window.makeFirstResponder(view.nextField); pump()

@@ -92,7 +92,7 @@ CONTINUOUS_RATE_SCENARIO = r'''
         TransportTime.now += 0.005
         let clockTime = owner.sceneClock.currentSceneTime(hostTime: TransportTime.now)
         let fps25 = AnimationFrameRate(rawValue: 25)!
-        owner.applyAnimationFrameRate(fps25)
+        owner.applyAnimationFrameRate(fps25, displayLimit: 60)
         let firstRetunedDeadline = TransportTime.now + 0.04
         precondition(!originalTimer.isValid && callbacks == [100] && RunLoop.main.activeCount == 1)
         precondition(owner.frameDriverDeadline == firstRetunedDeadline)
@@ -114,17 +114,27 @@ CONTINUOUS_RATE_SCENARIO = r'''
         precondition(RunLoop.main.fireNext() && callbacks.count == 5)
         precondition(abs(owner.frameDriverDeadline! - (TransportTime.now + 0.04)) < 0.000001)
 
-        owner.applyAnimationFrameRate(AnimationFrameRate(rawValue: 120)!)
-        precondition(owner.animationFrameRate.rawValue == 120 && owner.effectiveAnimationFPS == 60)
+        let fps120 = AnimationFrameRate(rawValue: 120)!
+        owner.applyAnimationFrameRate(fps120, displayLimit: 120)
+        let fastTimer = owner.frameTimer!
+        let timeBeforeModeChange = owner.sceneClock.currentSceneTime(hostTime: TransportTime.now)
+        precondition(owner.effectiveAnimationFPS == 120)
+        precondition(abs(owner.frameDriverDeadline! - (TransportTime.now + 1.0 / 120)) < 0.000001)
+
+        owner.applyAnimationFrameRate(fps120, displayLimit: 59.94)
+        precondition(!fastTimer.isValid && RunLoop.main.activeCount == 1)
+        precondition(owner.animationFrameRate.rawValue == 120 && owner.effectiveAnimationFPS == 59.94)
+        precondition(abs(owner.frameDriverDeadline! - (TransportTime.now + 1.0 / 59.94)) < 0.000001)
+        precondition(owner.sceneClock.currentSceneTime(hostTime: TransportTime.now) == timeBeforeModeChange)
         let limitedTimer = owner.frameTimer
-        owner.applyAnimationFrameRate(AnimationFrameRate(rawValue: 90)!)
+        owner.applyAnimationFrameRate(AnimationFrameRate(rawValue: 90)!, displayLimit: 59.94)
         precondition(owner.animationFrameRate.rawValue == 90 && owner.frameTimer === limitedTimer)
 
         owner.isVisible = false
-        owner.applyAnimationFrameRate(fps25)
+        owner.applyAnimationFrameRate(fps25, displayLimit: 59.94)
         precondition(owner.frameTimer === limitedTimer && callbacks.count == 5)
         owner.setPlaybackPaused(true)
-        owner.applyAnimationFrameRate(AnimationFrameRate(rawValue: 10)!)
+        owner.applyAnimationFrameRate(AnimationFrameRate(rawValue: 10)!, displayLimit: 120)
         precondition(owner.sceneClock.isPaused && owner.frameTimer == nil && callbacks.count == 5)
         stopped(owner)
     }

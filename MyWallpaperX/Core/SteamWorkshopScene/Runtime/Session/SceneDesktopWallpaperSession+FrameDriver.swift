@@ -9,7 +9,7 @@ enum SceneFrameDriverAttempt {
 }
 extension SceneDesktopWallpaperSession {
     private var sceneFrameInterval: TimeInterval {
-        1.0 / Double(effectiveAnimationFPS)
+        1.0 / effectiveAnimationFPS
     }
     private var sceneBusyFrameRetryInterval: TimeInterval {
         max(0.001, sceneFrameInterval / 8.0)

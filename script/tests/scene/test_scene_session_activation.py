@@ -60,7 +60,13 @@ final class SceneDesktopWallpaperSession {
     var drainResult:Bool?
     let scenePostProcessing: ScenePostProcessingMode
     private(set) var animationFrameRate: AnimationFrameRate = .standard
-    func applyAnimationFrameRate(_ value: AnimationFrameRate) { animationFrameRate = value }
+    var displayCadenceLimit: Double?
+    var displayConfigurations = 0
+    func applyAnimationFrameRate(_ value: AnimationFrameRate, displayLimit: Double) {
+        animationFrameRate = value
+        displayCadenceLimit = displayLimit
+    }
+    func applyDisplayConfiguration(_ topology: [SceneScreenTopology]) { displayConfigurations += 1 }
     init(textureDecodeCacheBudget: SceneTextureDecodeCacheBudget, surfacePreparationQueue: DispatchQueue,
          scenePostProcessing: ScenePostProcessingMode = .ultra) {
         self.scenePostProcessing = scenePostProcessing
@@ -85,6 +91,7 @@ final class SceneDesktopWallpaperSession {
 @MainActor final class SceneDesktopWallpaperHost {
     let textureDecodeCacheBudget: SceneTextureDecodeCacheBudget
     private(set) var animationFrameRate: AnimationFrameRate
+    private var displayCadenceLimit = SceneScreenTopology.conservativeCadenceLimit
     // HOST_FRAME_RATE
     var activeSession: SceneDesktopWallpaperSession?
     var candidateSession: SceneDesktopWallpaperSession?
@@ -130,6 +137,8 @@ final class SceneDesktopWallpaperSession {
         migrated.animationFrameRate = AnimationFrameRate(rawValue: 25)!
         migrated.keepsLegacySceneDecodeLimit = true
         let quotaHost = SceneDesktopWallpaperHost(quality: migrated)
+        let originalScreen = SceneScreenTopology(displayID: 1, frame: .zero, backingScaleFactor: 2, modeRefreshRate: 120)
+        quotaHost.applyDisplayConfiguration([originalScreen])
         quotaHost.activeSession = SceneDesktopWallpaperSession(textureDecodeCacheBudget: quotaHost.textureDecodeCacheBudget,
             surfacePreparationQueue: quotaHost.launchPreparationQueue)
         quotaHost.candidateSession = SceneDesktopWallpaperSession(textureDecodeCacheBudget: quotaHost.textureDecodeCacheBudget,
@@ -143,6 +152,21 @@ final class SceneDesktopWallpaperSession {
             && quotaHost.candidateSession?.animationFrameRate == retune
             && quotaHost.textureDecodeCacheBudget === budget && budget.maximumBytes == 512 * 1_024 * 1_024
             && SceneDesktopWallpaperHost(quality: .defaults).textureDecodeCacheBudget.maximumBytes == 1_024 * 1_024 * 1_024
+        let activeForRate = quotaHost.activeSession!
+        let candidateForRate = quotaHost.candidateSession!
+        let activeSurfaces = activeForRate.surfaces
+        activeForRate.launchRequestID = UUID()
+        let activeRequest = activeForRate.launchRequestID
+        let fixedMode = SceneScreenTopology(displayID: 1, frame: .zero, backingScaleFactor: 2, modeRefreshRate: 59.94)
+        quotaHost.applyDisplayConfiguration([fixedMode])
+        result["sameGeometryRetunesSessionsAndPreservesOutput"] = quotaHost.activeSession === activeForRate
+            && quotaHost.candidateSession === candidateForRate && activeForRate.launchRequestID == activeRequest
+            && activeForRate.surfaces == activeSurfaces && activeForRate.displayConfigurations == 0
+            && activeForRate.displayCadenceLimit == 59.94 && candidateForRate.displayCadenceLimit == 59.94
+        let changedGeometry = SceneScreenTopology(displayID: 2, frame: .zero, backingScaleFactor: 2, modeRefreshRate: 60)
+        quotaHost.applyDisplayConfiguration([changedGeometry])
+        result["changedGeometryStillReconcilesAndRetiresCandidate"] = quotaHost.candidateSession == nil
+            && activeForRate.displayConfigurations == 1 && activeForRate.displayCadenceLimit == 60
         result["candidateKeepsPreparedPostProcessing"] = a.scenePostProcessing == .enabled
         result["candidateReceivesPreparedTextures"] = a.userPropertyTextureLoad?.identity == preparedTextures.identity
         result["candidateReceivesPreparedSurfaces"] = a.preparedSurfaces.map(\.displayID) == [1,2]
@@ -397,12 +421,13 @@ class SceneSessionActivationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='mwx-session-activation-') as temp:
             host = SOURCE.with_name('SceneDesktopWallpaperHost.swift').read_text()
             rate_methods = "\n".join(method(host, signature) for signature in (
-                "init(quality:", "func applyAnimationFrameRate("))
+                "var screenTopology:", "init(quality:", "func applyAnimationFrameRate(", "func applyDisplayConfiguration("))
             root=Path(temp); main=root/'main.swift'
             main.write_text(HARNESS.replace("// HOST_FRAME_RATE", rate_methods))
             binary=root/'test'
             quality = ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift"
-            compiled=subprocess.run(['xcrun','swiftc','-parse-as-library',str(main),str(SOURCE),str(LAUNCH_MODELS),str(quality),'-o',str(binary)],capture_output=True,text=True)
+            topology = SOURCE.parents[1] / "Frame/SceneScreenTopology.swift"
+            compiled=subprocess.run(['xcrun','swiftc','-parse-as-library',str(main),str(SOURCE),str(LAUNCH_MODELS),str(quality),str(topology),'-o',str(binary)],capture_output=True,text=True)
             self.assertEqual(compiled.returncode,0,compiled.stderr)
             result=json.loads(subprocess.check_output([str(binary)],text=True))
             for name,passed in result.items():

@@ -98,8 +98,8 @@ def append_performance_profile_argument(
     command: list[str],
     frames_per_second: int,
 ) -> None:
-    if frames_per_second not in (30, 60):
-        raise ValueError("performance profile must be 30 or 60 FPS")
+    if not 10 <= frames_per_second <= 120:
+        raise ValueError("requested FPS must be 10–120")
     command.extend([
         "--mwx-debug-scene-performance-fps",
         str(frames_per_second),

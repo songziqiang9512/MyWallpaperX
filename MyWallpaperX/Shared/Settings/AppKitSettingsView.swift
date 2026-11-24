@@ -486,6 +486,10 @@ final class AppKitSettingsContainerView: NSView {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.refreshScenePostProcessingMenu(PlaybackQualityPreference.current.scene.postProcessing) }
             .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: .sceneDaemonAnimationCadenceDidChange)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.refreshSceneFrameRateReadout() }
+            .store(in: &cancellables)
         // 静音可能来自开关/热键/状态栏三种入口；volume>0 时静音不产生
         // settings 写入，必须靠静音通知驱动回填（滑块显示 0/开关状态）。
         muteStateObserver = NotificationCenter.default.addObserver(

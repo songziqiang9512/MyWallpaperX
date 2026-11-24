@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 46,
-      "bytes": 11426
+      "bytes": 11573
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -77,8 +77,8 @@
       "bytes": 73409
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 133,
-      "bytes": 24671
+      "lines": 144,
+      "bytes": 27014
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -94,7 +94,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 274,
-      "bytes": 52287
+      "bytes": 52510
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,28 +369,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "465c1b79a59d1c829230b646f11911a547c23fde8790aa889c4d8a5e4498aac5",
-      "after": "65de8e39e23635c9d1a8bf3e727abfbf207625eb8b0d85d128535780d889de4f",
+      "before": "65de8e39e23635c9d1a8bf3e727abfbf207625eb8b0d85d128535780d889de4f",
+      "after": "e749a86953269fa294ed77f7274c08b07ac23ae91cbf0c20cc5718e3e871032c",
       "owner": "Scene runtime",
-      "reason": "约定一次帧率交付、共用 timer 与独立缓存配额。",
+      "reason": "约定显示模式、几何与节律变更、已确认会话的生效值。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "c5c396ee6297a655fa898916178c3a5a0b889054681270994eec755f75aac135",
-      "after": "35d97516b00b32eaa81e67610e25ec3a9ad71335994cc0352b949bd504860fd0",
-      "owner": "Video / Quality",
-      "reason": "记录 HLS 专用偏好退出、原片真实输出和派生四臂验证入口。",
+      "before": "35d97516b00b32eaa81e67610e25ec3a9ad71335994cc0352b949bd504860fd0",
+      "after": "2331f6e89bdb277170b4bfc85ffb05203671fb16daa6574aa4d756180a1f567d",
+      "owner": "Scene timing / Quality",
+      "reason": "记录高刷实呈、小数上限与当前固定和混屏实机范围。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "4aad62c1a5d0648982165c71c0808744c3953f3efc48f9312cfe5435124ad406",
-      "after": "864de0febc28b7aba8213e0ead0e8868a84125e39dedfd54796b5ccb4443b18c",
+      "before": "864de0febc28b7aba8213e0ead0e8868a84125e39dedfd54796b5ccb4443b18c",
+      "after": "7bdb537bdb28a9edc49fb421225f883550c6d6332cc00e7b2d7bee81014eb212",
       "owner": "Repository navigation",
-      "reason": "路由 Scene 请求、运行生效及解码缓存规范。",
+      "reason": "路由目标屏模式到原 Scene 拓扑和帧率合同。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {

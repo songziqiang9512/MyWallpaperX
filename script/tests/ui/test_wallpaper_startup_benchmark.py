@@ -63,9 +63,14 @@ class WallpaperStartupBenchmarkTests(unittest.TestCase):
         validate = benchmark.scene_performance_matches
         self.assertTrue(validate(row, 60, (30, 60), children, binary, log))
         capped = dict(row, requestedFPS=120, productPerformance=dict(receipt, selectedFPS=120, effectiveFPS=60))
-        self.assertTrue(validate(capped, 120, (30, 60), children, binary, log))
-        self.assertFalse(validate(dict(capped, productPerformance=dict(receipt, selectedFPS=120, effectiveFPS=120)),
-                                  120, (30, 60), children, binary, log))
+        self.assertTrue(validate(capped, 120, (30, 60), children, binary, log, expected_fps=60))
+        self.assertFalse(validate(capped, 120, (30, 60), children, binary, log))
+        uncapped = dict(capped, productPerformance=dict(receipt, selectedFPS=120, effectiveFPS=120))
+        self.assertTrue(validate(uncapped, 120, (30, 60), children, binary, log))
+        self.assertFalse(validate(uncapped, 120, (30, 60), children, binary, log, expected_fps=60))
+        fractional = dict(row, productPerformance=dict(receipt, effectiveFPS=59.94005994))
+        self.assertTrue(validate(fractional, 60, (30, 60), children, binary, log, expected_fps=59.94))
+        self.assertFalse(validate(fractional, 60, (30, 60), children, binary, log))
         missing = {key: value for key, value in receipt.items() if key != "effectiveFPS"}
         self.assertFalse(validate(dict(row, productPerformance=missing), 60, (30, 60), children, binary, log))
         self.assertFalse(validate(row, 60, (30, 60), children, binary, ""))

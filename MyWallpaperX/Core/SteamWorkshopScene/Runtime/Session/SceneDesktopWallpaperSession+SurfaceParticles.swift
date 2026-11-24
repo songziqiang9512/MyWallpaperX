@@ -118,7 +118,7 @@ extension SceneDesktopWallpaperSession {
         if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
            let requested = ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_SURFACE_COUNT"].flatMap(Int.init),
            (2...4).contains(requested),
-           let firstID = SceneScreenTopology.capture(screens: allScreens).first?.displayID,
+           let firstID = liveScreensByID.keys.min(),
            let first = liveScreensByID[firstID] {
             for index in 1..<requested {
                 liveScreensByID[CGDirectDisplayID.max - UInt32(index)] = first
@@ -131,12 +131,14 @@ extension SceneDesktopWallpaperSession {
     }
 
 #if DEBUG
-    static func debugSurfacePool() -> [(NSScreen, CGDirectDisplayID)] {
-        var screens = surfaceScreens(topology: SceneScreenTopology.capture())
+    static func debugSurfacePool() -> [SceneScreenTopology] {
+        var screens = SceneScreenTopology.capture()
         if let requested = ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_SURFACE_COUNT"].flatMap(Int.init),
            (2...4).contains(requested), let first = screens.first {
             while screens.count < requested {
-                screens.append((first.0, CGDirectDisplayID.max - UInt32(screens.count)))
+                screens.append(.init(displayID: CGDirectDisplayID.max - UInt32(screens.count),
+                    frame: first.frame, backingScaleFactor: first.backingScaleFactor,
+                    modeRefreshRate: first.modeRefreshRate, unknownModeRefreshLimit: first.unknownModeRefreshLimit))
             }
         }
         return screens
@@ -146,18 +148,14 @@ extension SceneDesktopWallpaperSession {
         guard ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_SURFACE_COUNT"] != nil
             || ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_SURFACE_INITIAL_INDICES"] != nil else { return topology }
         let pool = debugSurfacePool()
-        let selected: [(NSScreen, CGDirectDisplayID)]
         if let raw = ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_SURFACE_INITIAL_INDICES"] {
             let parts = raw.split(separator: ",", omittingEmptySubsequences: false)
             let indices = parts.compactMap { Int($0) }
             guard indices.count == parts.count, !indices.isEmpty,
                   Set(indices).count == indices.count, indices.allSatisfy({ pool.indices.contains($0) }) else { return topology }
-            selected = indices.map { pool[$0] }
-        } else {
-            selected = pool
+            return indices.map { pool[$0] }
         }
-        return selected.map { .init(displayID: $0.1, frame: $0.0.frame,
-            backingScaleFactor: $0.0.backingScaleFactor) }
+        return pool
     }
 #endif
 }

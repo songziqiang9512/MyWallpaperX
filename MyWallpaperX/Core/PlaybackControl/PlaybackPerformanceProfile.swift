@@ -3,7 +3,6 @@ import Foundation
 nonisolated struct AnimationFrameRate: RawRepresentable, Equatable, Sendable {
     static let minimum = 10
     static let maximum = 120
-    static let sceneRolloutLimit = 60
     static let standard = Self(rawValue: 60)!
 
     let rawValue: Int

@@ -37,6 +37,8 @@ class SettingsCacheActionsTests(unittest.TestCase):
         for marker, signature in (
             ("// ACTUAL_SCENE_POST_PROCESSING_MENU", "    func refreshScenePostProcessingMenu("),
             ("// ACTUAL_FRAME_RATE_LABELS", "    private func updateSceneFrameRateLabels("),
+            ("// ACTUAL_REFRESH_FRAME_RATE_READOUT", "    func refreshSceneFrameRateReadout("),
+            ("// ACTUAL_FRAME_RATE_READOUT", "    private func updateSceneFrameRateReadout("),
             ("// ACTUAL_FRAME_RATE_COMMIT", "    func commitSceneFrameRate("),
             ("// ACTUAL_FRAME_RATE_ACTION", "    @objc private func handleSceneFrameRateSlider("),
             ("// ACTUAL_FRAME_RATE_SLIDER", "final class SceneFrameRateSlider:"),

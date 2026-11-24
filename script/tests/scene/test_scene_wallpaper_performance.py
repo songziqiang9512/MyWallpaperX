@@ -83,6 +83,11 @@ class SceneWallpaperPerformanceTests(unittest.TestCase):
         metrics = benchmark.performance_metrics(log, surface_count=1)
         self.assertTrue(metrics["available"])
         self.assertEqual(metrics["target_fps"], 60)
+        fractional = benchmark.performance_metrics(log.replace("targetFPS=60", "targetFPS=59.940"), surface_count=1)
+        self.assertTrue(fractional["available"])
+        self.assertAlmostEqual(fractional["target_fps"], 59.94)
+        self.assertFalse(benchmark.performance_metrics(
+            log.replace("targetFPS=60", "targetFPS=121.0"), surface_count=1)["available"])
         self.assertEqual(metrics["measurement_warmup_seconds"], 30)
         self.assertFalse(metrics["steady_state_eligible"])
         self.assertEqual(
@@ -264,9 +269,9 @@ class SceneWallpaperPerformanceTests(unittest.TestCase):
             "processCPUTimeStatus=available "
             "gpuAllocatedSampledPeakBytes=300 renderTargetPoolSampledPeakBytes=400"
         )
-        invalid_target = valid_log.replace("targetFPS=60", "targetFPS=45", 1)
+        invalid_target = valid_log.replace("targetFPS=60", "targetFPS=120.5", 1)
         self.assertIn(
-            "target FPS must be 30 or 60",
+            "target FPS must be greater than 0 and at most 120",
             benchmark.performance_metrics(invalid_target, 1)["error"],
         )
         missing_stream = valid_log.replace("presentStreams=1", "presentStreams=0", 1)
@@ -453,7 +458,7 @@ class SceneWallpaperPerformanceTests(unittest.TestCase):
                 benchmark.bounded_duration(invalid)
 
     def test_performance_profile_argument_is_explicit_and_bounded(self) -> None:
-        for frames_per_second in (30, 60):
+        for frames_per_second in (10, 25, 30, 60, 90, 120):
             command = ["MyWallpaperX"]
             benchmark.append_performance_profile_argument(
                 command,
@@ -464,8 +469,9 @@ class SceneWallpaperPerformanceTests(unittest.TestCase):
                 "--mwx-debug-scene-performance-fps",
                 str(frames_per_second),
             ])
-        with self.assertRaisesRegex(ValueError, "30 or 60 FPS"):
-            benchmark.append_performance_profile_argument([], 45)
+        for invalid in (9, 121):
+            with self.assertRaisesRegex(ValueError, "10–120"):
+                benchmark.append_performance_profile_argument([], invalid)
 
     def test_performance_warmup_argument_is_explicit_and_bounded(self) -> None:
         command = ["MyWallpaperX"]

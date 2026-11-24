@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -30,9 +31,27 @@ AUDIO = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpe
 
 
 HARNESS = r'''
+import CoreGraphics
 import Foundation
 
 @main enum Harness {
+    static var physicalScreens: [SceneScreenTopology] = []
+    // PRODUCTION_DEBUG_TOPOLOGY
+
+    static func debugTopologyPreservesCadence() -> Bool {
+        let physical = SceneScreenTopology(displayID: 7, frame: .zero, backingScaleFactor: 2, modeRefreshRate: 59.94)
+        physicalScreens = [physical]
+        let selected = debugInitialSurfaceTopology([])
+        let pool = debugSurfacePool()
+        physicalScreens = [.init(displayID: 7, frame: .zero, backingScaleFactor: 2, unknownModeRefreshLimit: 48)]
+        let unknownPool = debugSurfacePool()
+        return selected == [physical] && pool.count == 2
+            && pool.last?.displayID == CGDirectDisplayID.max - 1 && pool.last?.modeRefreshRate == 59.94
+            && SceneScreenTopology.cadenceLimit(for: pool) == 59.94
+            && unknownPool.last?.unknownModeRefreshLimit == 48
+            && SceneScreenTopology.cadenceLimit(for: unknownPool) == 48
+    }
+
     static func main() throws {
         func decode(_ object: [String: Any]) -> Result<SceneDaemonCommand, SceneDaemonProtocolFailure> {
             let data = try! JSONSerialization.data(withJSONObject: object)
@@ -364,6 +383,39 @@ import Foundation
                 backingScaleFactor: 2
             )]
         } else { displayValid = false }
+        func detectedDisplay(_ id: Int, mode: Any? = nil, fallback: Any? = nil) -> [String: Any] {
+            var display: [String: Any] = [
+                "id": id, "frame": ["x": 0, "y": 0, "width": 10, "height": 10], "scale": 1
+            ]
+            display["modeRefreshRate"] = mode
+            display["unknownModeRefreshLimit"] = fallback
+            return display
+        }
+        func decodedCadenceLimit(_ displays: [[String: Any]]) -> Double? {
+            guard case let .success(.setDisplayConfiguration(screens)) = decode([
+                "v": 2, "cmd": "setDisplayConfiguration", "screens": displays
+            ]) else { return nil }
+            return SceneScreenTopology.cadenceLimit(for: screens)
+        }
+        let displayCadenceValid = decodedCadenceLimit([detectedDisplay(1, mode: 59.94)]) == 59.94
+            && decodedCadenceLimit([detectedDisplay(1, mode: 60, fallback: 48)]) == 60
+            && decodedCadenceLimit([detectedDisplay(1, mode: 120), detectedDisplay(2, mode: 120)]) == 120
+            && decodedCadenceLimit([detectedDisplay(1, mode: 120), detectedDisplay(2, mode: 90)]) == 60
+            && decodedCadenceLimit([detectedDisplay(1, mode: 120), detectedDisplay(2, mode: 59.94)]) == 59.94
+            && decodedCadenceLimit([detectedDisplay(1, mode: 120), detectedDisplay(2)]) == 60
+            && decodedCadenceLimit([detectedDisplay(1, mode: 0, fallback: 48)]) == 48
+            && decodedCadenceLimit([detectedDisplay(1, mode: true, fallback: 120)]) == 60
+        let cadence = SceneDaemonProtocol.animationCadenceEvent([
+            "requestID": candidateID.uuidString, "requestedFPS": 120, "effectiveFPS": 59.94
+        ])
+        let cadenceEventValid = cadence?.requestID == candidateID && cadence?.requestedFPS.rawValue == 120
+            && cadence?.effectiveFPS == 59.94
+            && SceneDaemonProtocol.animationCadenceEvent([
+                "requestID": candidateID.uuidString, "requestedFPS": 60, "effectiveFPS": 60.1
+            ]) == nil
+            && SceneDaemonProtocol.animationCadenceEvent([
+                "requestID": candidateID.uuidString, "requestedFPS": 120, "effectiveFPS": true
+            ]) == nil
         let duplicateDisplayRejected: Bool
         if case .failure(.invalidPayload("setDisplayConfiguration")) = decode([
             "v": 2, "cmd": "setDisplayConfiguration", "screens": [
@@ -539,6 +591,9 @@ import Foundation
             "retirementDefaultPreserved": retirementDefaultPreserved,
             "malformedRetirementRejected": malformedRetirementRejected,
             "displayValid": displayValid,
+            "displayCadenceValid": displayCadenceValid,
+            "debugTopologyPreservesCadence": debugTopologyPreservesCadence(),
+            "cadenceEventValid": cadenceEventValid,
             "duplicateDisplayRejected": duplicateDisplayRejected,
             "badBookmarkRejected": badBookmarkRejected,
             "audioValid": audioValid,
@@ -561,7 +616,12 @@ class SceneDaemonProtocolTests(unittest.TestCase):
             root = Path(directory)
             harness = root / "Harness.swift"
             binary = root / "harness"
-            harness.write_text(HARNESS, encoding="utf-8")
+            particles = HOST.with_name("SceneDesktopWallpaperSession+SurfaceParticles.swift").read_text()
+            signatures = ("static func debugSurfacePool() -> [SceneScreenTopology]",
+                          "static func debugInitialSurfaceTopology(_ topology: [SceneScreenTopology]) -> [SceneScreenTopology]")
+            debug_methods = "\n".join(f"{signature} {function_body(particles, signature)}" for signature in signatures)
+            harness.write_text(HARNESS.replace("// PRODUCTION_DEBUG_TOPOLOGY",
+                debug_methods.replace("SceneScreenTopology.capture()", "physicalScreens")), encoding="utf-8")
             compiled = subprocess.run(
                 [
                     "xcrun", "swiftc", "-parse-as-library",
@@ -583,7 +643,9 @@ class SceneDaemonProtocolTests(unittest.TestCase):
             )
             self.assertEqual(compiled.returncode, 0, compiled.stderr)
             completed = subprocess.run(
-                [str(binary)], capture_output=True, text=True, timeout=10
+                [str(binary)], capture_output=True, text=True, timeout=10,
+                env={**os.environ, "MWX_SCENE_DEBUG_SURFACE_COUNT": "2",
+                     "MWX_SCENE_DEBUG_SURFACE_INITIAL_INDICES": "0"},
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
             for name, passed in json.loads(completed.stdout).items():

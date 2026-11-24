@@ -33,6 +33,7 @@ nonisolated struct SceneDaemonActiveSessionFactsChange: Sendable {
 }
 
 extension Notification.Name {
+    static let sceneDaemonAnimationCadenceDidChange = Notification.Name("SceneDaemonAnimationCadenceDidChange")
     static let sceneDaemonActiveSessionFactsDidChange = Notification.Name(
         "SceneDaemonActiveSessionFactsDidChange"
     )
@@ -98,7 +99,20 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var queuedSwitchPreparation: QueuedSwitchPreparation?
     var committedSwitchRecovery: CommittedSwitchRecovery?
     var deferredDisplayConfigurationUpdate = false
-    var activeRequestID: UUID?
+    var activeRequestID: UUID? {
+        didSet {
+            if oldValue != activeRequestID { activeAnimationCadence = nil }
+        }
+    }
+    nonisolated struct ActiveAnimationCadence: Equatable, Sendable {
+        let requestedFPS: AnimationFrameRate
+        let effectiveFPS: Double
+    }
+    var activeAnimationCadence: ActiveAnimationCadence? {
+        didSet {
+            if oldValue != activeAnimationCadence { notifyAnimationCadenceChanged() }
+        }
+    }
     nonisolated struct ActiveCallbackPropertyFacts: Equatable {
         let transportGeneration: UInt64
         let requestID: UUID
@@ -149,6 +163,11 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     private var screenParametersObserver: NSObjectProtocol?
     var shutdownCompletions: [(generations: Set<UInt64>, completion: () -> Void)] = []
     var displayConfiguration = SceneScreenTopology.capture()
+    var configuredAnimationCadenceLimit: Double { SceneScreenTopology.cadenceLimit(for: displayConfiguration) }
+
+    func notifyAnimationCadenceChanged() {
+        NotificationCenter.default.post(name: .sceneDaemonAnimationCadenceDidChange, object: self)
+    }
     /// 多屏语义与 video/web 对齐：开=全部显示器，关=仅首屏。主 App 是
     /// 显示集的唯一裁决者，daemon 按收到的拓扑建表面。
     var multiDisplayEnabled = true
@@ -585,6 +604,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         }
 
         sessionGeneration &+= 1
+        activeAnimationCadence = nil
         activeCallbackPropertyFacts = nil
         let generation = sessionGeneration
         expectedTerminationGenerations.remove(generation)

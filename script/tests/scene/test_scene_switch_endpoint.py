@@ -40,10 +40,17 @@ struct Backoff {mutating func reset(){}}
 enum SceneDaemonProtocol {static let version=2
 // PROTOCOL_BOOLEAN
 }
-enum NSScreen {static let screens=[1,2]}
+@MainActor enum NSScreen {static let screens=[1,2];static var modeRefreshRate: Double = 120}
 struct SceneScreenTopology:Equatable {
-    let id:Int
-    static func capture(screens:[Int])->[Self] {screens.map{.init(id:$0)}}
+    let displayID:Int
+    let modeRefreshRate:Double?
+    let frame=0
+    let backingScaleFactor:Double=1
+    let unknownModeRefreshLimit:Double?=nil
+    @MainActor static func capture(screens:[Int])->[Self] {
+        screens.map{.init(displayID:$0,modeRefreshRate:NSScreen.modeRefreshRate)}
+    }
+    // DISPLAY_CADENCE_METHODS
 }
 extension Notification.Name {
     static let sceneWallpaperLaunchStateDidChange=Notification.Name("state")
@@ -83,7 +90,10 @@ extension Notification.Name {
     var committedSwitchRecovery:CommittedSwitchRecovery?
     var deferredDisplayConfigurationUpdate=false
     var multiDisplayEnabled=false
-    var displayConfiguration=[SceneScreenTopology(id:1)]
+    var displayConfiguration=[SceneScreenTopology(displayID:1,modeRefreshRate:120)]
+    var configuredAnimationCadenceLimit:Double {SceneScreenTopology.cadenceLimit(for:displayConfiguration)}
+    var cadenceNotifications=0
+    func notifyAnimationCadenceChanged() {cadenceNotifications += 1}
     var displayUpdates=0
     var switchPrepared:((PlaybackSwitchTicket,PlaybackSwitchEndpoint)->Void)?
     var switchVisible:((PlaybackSwitchTicket,UUID)->Void)?
@@ -229,8 +239,13 @@ HARNESS = r'''
         client.cancelSwitch(ticket:queuedTicket){queueCancelled=true}
         precondition(queueCancelled && client.queuedSwitchPreparation == nil && client.pendingRequestID == thirdID)
         client.prepareSwitch(.init(recordID:"after-finalize"),ticket:queuedTicket,resourceLifetime:nil)
+        NSScreen.modeRefreshRate=59.94
+        client.updateDisplayConfiguration(multiDisplayEnabled:false)
+        precondition(!client.deferredDisplayConfigurationUpdate && client.displayUpdates == 1
+            && client.pendingRequestID == thirdID && client.cadenceNotifications == 1
+            && client.configuredAnimationCadenceLimit == 59.94,"same geometry sends a cadence change while finalize is pending")
         client.updateDisplayConfiguration(multiDisplayEnabled:true)
-        precondition(client.deferredDisplayConfigurationUpdate && client.displayUpdates == 0
+        precondition(client.deferredDisplayConfigurationUpdate && client.displayUpdates == 1
             && client.pendingRequestID == thirdID,"topology must not revoke visible product commitment")
         var oldRetired=false
         first.retire(nil) {oldRetired=true}
@@ -242,7 +257,7 @@ HARNESS = r'''
         third.finalize()
         precondition(client.queuedSwitchPreparation == nil && client.pendingSwitchTicket == queuedTicket
             && client.pendingIntent?.recordID == "after-finalize", "finalize releases queued native preparation")
-        precondition(!client.deferredDisplayConfigurationUpdate && client.displayUpdates == 1
+        precondition(!client.deferredDisplayConfigurationUpdate && client.displayUpdates == 2
             && client.displayConfiguration.count == 2,"finalize flushes latest display policy before queued prepare")
         client.pendingIntent=nil;client.pendingSwitchTicket=nil // leaf startLaunch in this harness does no IPC
         var retired=false
@@ -425,6 +440,12 @@ class SceneSwitchEndpointTests(unittest.TestCase):
         events = (IPC / "SceneDaemonClient+Events.swift").read_text()
         protocol = (IPC / "SceneDaemonProtocol.swift").read_text()
         support = SUPPORT.replace("// PROTOCOL_BOOLEAN", method(protocol, "static func boolean(_ raw: Any?) -> Bool?"))
+        screen = (IPC.parent / "Frame/SceneScreenTopology.swift").read_text()
+        support = support.replace("// DISPLAY_CADENCE_METHODS", "\n".join([
+            next(line for line in screen.splitlines() if "static let conservativeCadenceLimit:" in line),
+            method(screen, "static func hasSameGeometry(_ lhs: [Self], _ rhs: [Self]) -> Bool"),
+            method(screen, "static func cadenceLimit(for screens: [Self]) -> Double"),
+        ]))
         source = support.replace("// EVENTS", "\n".join(method(events, signature) for signature in (
             "private func handleCandidatePrepared(_ payload: [String: Any])",
             "private func handleFirstFrame(_ payload: [String: Any])",
@@ -435,6 +456,7 @@ class SceneSwitchEndpointTests(unittest.TestCase):
         source += "\nextension SceneDaemonClient {\n" + "\n".join(method(topology, signature) for signature in (
             "func updateDisplayConfiguration(multiDisplayEnabled: Bool)",
             "func flushDeferredDisplayConfigurationUpdate()",
+            "private func installDisplayConfiguration(_ configuration: [SceneScreenTopology])",
         )) + "\n}\n" + HARNESS
         with tempfile.TemporaryDirectory(prefix="mwx-scene-endpoint-") as directory:
             directory = Path(directory)

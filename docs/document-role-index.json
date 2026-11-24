@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5b543d0c516c783547819b43ce98d378084417e28595b13a841cd1bd56c958af",
+        "sourceSHA256": "d4432dcf4d0f8035c1ec9a4783d02a12d5486d20e8fa65dfda25b7cc9638cdfe",
         "method": "document_registry --audit + document_health --check",
-        "scope": "三引擎质量入口、Scene 帧率消费与真实测量。",
-        "limitations": "导航核对；运行证据见现役工作卡。"
+        "scope": "三引擎质量入口、Scene 小数刷新生效和逐屏实测。",
+        "limitations": "导航审查，实际性能见工作卡。"
       }
     },
     {
@@ -839,10 +839,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d902e15aea9457e0025010eed2ede49c0fb987124c471c379db4c07482ff3ec9",
+        "sourceSHA256": "7006084b14e518e25f36771dd571e7ef71b6bef1d780771dd4237aa9d7b3466f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene 真实策略、帧率和资源所有权。",
-        "limitations": "运行边界与物理显示结果见现役工作卡。"
+        "scope": "Scene 质量、实际帧率上限和原生命周期的关系。",
+        "limitations": "逐屏运行证据及混屏边界见现役工作卡。"
       }
     },
     {

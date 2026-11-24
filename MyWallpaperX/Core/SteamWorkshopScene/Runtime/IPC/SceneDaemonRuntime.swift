@@ -302,7 +302,7 @@ final class SceneDaemonRuntime {
                         "event": "candidatePrepared", "requestID": preparedID.uuidString])
                 }
             }
-            host.applyAnimationFrameRate(frameRate)
+            applyAnimationFrameRate(frameRate)
             host.applySceneRenderQuality(sceneRenderQuality)
             host.requestLaunch(
                 rootURL: rootURL,
@@ -374,12 +374,11 @@ final class SceneDaemonRuntime {
         case let .commitCandidate(requestID):
             host.commitCandidate(requestID: requestID)
         case let .finalizeCandidate(requestID):
-#if DEBUG
-            let measure = productPerformance != nil && host.unconfirmedPromotion?.requestID == requestID
-#endif
+            let isFinalizing = host.unconfirmedPromotion?.requestID == requestID
             host.finalizeCandidate(requestID: requestID)
+            if isFinalizing { emitActiveAnimationCadence() }
 #if DEBUG
-            if measure, let session = host.activeSession {
+            if isFinalizing, productPerformance != nil, let session = host.activeSession {
                 performanceWindow = .init(requestID: requestID, sessionID: session.lifecycleID,
                     selectedFPS: host.animationFrameRate.rawValue, effectiveFPS: session.effectiveAnimationFPS,
                     finalizedAt: CACurrentMediaTime())
@@ -425,9 +424,11 @@ final class SceneDaemonRuntime {
                 topology.count
             )
 #endif
+            let previousFPS = host.activeSession?.effectiveAnimationFPS
             host.applyDisplayConfiguration(topology)
+            if host.activeSession?.effectiveAnimationFPS != previousFPS { emitActiveAnimationCadence() }
         case let .setAnimationFrameRate(frameRate):
-            host.applyAnimationFrameRate(frameRate)
+            applyAnimationFrameRate(frameRate)
         case let .setSceneRenderQuality(quality):
             host.applySceneRenderQuality(quality)
         case let .setVolume(volume):
@@ -623,6 +624,20 @@ final class SceneDaemonRuntime {
         ])
     }
 
+    private func applyAnimationFrameRate(_ frameRate: AnimationFrameRate) {
+        guard frameRate != host.animationFrameRate else { return }
+        host.applyAnimationFrameRate(frameRate)
+        emitActiveAnimationCadence()
+    }
+
+    private func emitActiveAnimationCadence() {
+        guard host.unconfirmedPromotion == nil,
+              let session = host.activeSession, let requestID = session.launchRequestID else { return }
+        emit(["v": SceneDaemonProtocol.version, "event": "animationCadenceChanged",
+              "requestID": requestID.uuidString, "requestedFPS": session.animationFrameRate.rawValue,
+              "effectiveFPS": session.effectiveAnimationFPS])
+    }
+
     private func installObservers() {
         observers.append(NotificationCenter.default.addObserver(
             forName: .sceneWallpaperLaunchStateDidChange,
@@ -653,6 +668,7 @@ final class SceneDaemonRuntime {
                 }
                 self.emit(payload)
                 if state.phase == .failed || state.phase == .cancelled {
+                    self.emitActiveAnimationCadence()
                     self.host.whenRequestResourcesReleased(requestID: state.requestID) { [weak self] succeeded in
                         guard let self else { return }
                         if succeeded { self.emitRequestResourcesReleased(state.requestID, gpuDrained: succeeded) }

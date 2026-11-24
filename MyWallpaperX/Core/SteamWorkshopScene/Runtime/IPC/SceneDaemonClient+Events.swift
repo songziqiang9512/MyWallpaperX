@@ -53,6 +53,11 @@ extension SceneDaemonClient {
                 }
             case "launchStateChanged": handleLaunchState(payload)
             case "firstFramePresented": handleFirstFrame(payload)
+            case "animationCadenceChanged":
+                if let cadence = SceneDaemonProtocol.animationCadenceEvent(payload),
+                   cadence.requestID == activeRequestID {
+                    activeAnimationCadence = .init(requestedFPS: cadence.requestedFPS, effectiveFPS: cadence.effectiveFPS)
+                }
             case "frameStats": handleFrameStats(payload)
             case "propertyUpdateResult": handlePropertyUpdateResult(payload)
             case "textureUpdateResult": handleTextureUpdateResult(payload)
