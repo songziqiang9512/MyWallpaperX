@@ -88,6 +88,7 @@ nonisolated struct SceneParticleControlPointForcePlan {
     let acceleration: Double
     let maximumDistance: Double
     var sourceSpace: SourceSpace = .local
+    var measuresWorldDistance = false
 }
 
 /// Scene facts are supplied at preparation, never inferred from a render fallback.
@@ -417,7 +418,11 @@ nonisolated extension SceneParticleDefinition {
         guard let point = controlPoints.first(where: { $0.id == plan.controlPoint }) else {
             return plan
         }
-        if point.hasBoundedPointerInput || point.hasBoundedStaticInput(identity: plan.controlPoint) {
+        if point.hasBoundedPointerInput {
+            plan.measuresWorldDistance = flags.isWorldSpace
+            return plan
+        }
+        if point.hasBoundedStaticInput(identity: plan.controlPoint) {
             return plan
         }
         guard environment.allowsWorldSource, plan.origin == .zero,

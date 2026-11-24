@@ -72,6 +72,34 @@ import simd
         sim.advance(by: 1, controlPointFrame: frame)
         return sim.particles.first.map { vector($0.velocity) } ?? []
     }
+    static func pointerForceCases() -> [String: [Double]] {
+        let cases: [(String, Int, Int, SIMD3<Float>, SIMD3<Double>?, Double)] = [
+            ("scaled", 1, 1, .init(2, 2, 1), .init(2, 0, 0), 8),
+            ("unit", 1, 1, .init(1, 1, 1), .init(4, 0, 0), 8),
+            ("world-outside", 1, 1, .init(2, 2, 1), .init(6, 0, 0), 8),
+            ("world-edge", 1, 1, .init(2, 2, 1), .init(4, 0, 0), 8),
+            ("local", 0, 1, .init(2, 2, 1), .init(6, 0, 0), 8),
+            ("reflected-taper", 1, 1, .init(-3, 2, 1), .init(1, 2, 0), -8),
+            ("static-world", 1, 0, .init(2, 2, 1), nil, 8),
+            ("no-pointer", 1, 1, .init(2, 2, 1), nil, 8),
+            ("child", 1, 1, .init(2, 2, 1), .init(2, 0, 0), 8),
+            ("current-frame", 1, 1, .init(3, 2, 1), .init(2, 0, 0), 8),
+        ]
+        return Dictionary(uniqueKeysWithValues: cases.map { name, flags, pointFlags, scale, target, strength in
+            let definition = parse(root(threshold: 8, point: pointFlags == 0 ? .init(2, 0, 0) : .zero,
+                                        pointFlags: pointFlags, systemFlags: flags, material: "\(name).json",
+                                        scale: strength))
+            let frame = SceneParticleWorldSpaceFrame(worldFrame: .init(diagonal: .init(scale, 1)))
+            let child = name == "child" ? SceneParticleControlPointParticleSpace(
+                currentOrigin: .zero, scale: .init(repeating: 1), birthOrigins: [:]) : nil
+            let sim = SceneParticleSimulator(definition: definition, seed: 81, fixedTimeStep: 1,
+                                             worldSpaceFrame: name == "current-frame" ? nil : frame)
+            sim.advance(by: 1, dynamicControlPoints: target.map { [1: $0] } ?? [:],
+                        worldSpaceFrameOverride: name == "current-frame" ? frame : nil,
+                        controlPointParticleSpace: child)
+            return (name, vector(sim.particles[0].velocity))
+        })
+    }
     static func main() throws {
         let inputs: [(String, [String: Any]?)] = [
             ("fixed", canvas), ("auto", ["orthogonalprojection": ["auto": true]]),
@@ -226,6 +254,7 @@ import simd
             && forcePlan(parse(root(threshold: 20)), unavailable) != nil
             && forcePlan(moving, unavailable) == nil
         let output: [String: Any] = ["projection": projection, "distances": distances,
+            "pointerForce": pointerForceCases(),
             "legacyUnknownDefault": unknown.defaultMaximumDistance == nil,
             "malformedThreshold": malformed, "world": world, "admission": admissions, "invalidFrames": invalidFrames,
             "fixedWorldAfterTranslation": vector(frame(shifted)!.localPosition(worldPoint: fixedTarget)!),

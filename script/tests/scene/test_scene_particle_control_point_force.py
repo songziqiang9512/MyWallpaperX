@@ -95,6 +95,17 @@ class SceneParticleControlPointForceTests(unittest.TestCase):
         self.assertTrue(self.results["rollbackRestoresForceFrame"])
         self.assertTrue(self.results["prewarmUsesInitialFrame"])
 
+    def test_world_root_pointer_measures_force_range_and_taper_in_world_units(self) -> None:
+        expected = {"scaled": [1.5, 0, 0], "unit": [3, 0, 0], "world-outside": [0, 0, 0],
+                    "world-edge": [0, 0, 0], "local": [1.5, 0, 0],
+                    "reflected-taper": [-.45, -.9, 0], "static-world": [4.5, 0, 0],
+                    "no-pointer": [0, 0, 0], "child": [4.5, 0, 0], "current-frame": [.5, 0, 0]}
+        results = self.results["pointerForce"]
+        self.assertEqual(results.keys(), expected.keys())
+        for name, result in results.items():
+            with self.subTest(name=name):
+                self.assertVector(result, expected[name])
+
     def test_world_admission_and_invalid_frame_failure_are_local(self) -> None:
         for row in self.results["admission"]:
             with self.subTest(name=row["name"]):

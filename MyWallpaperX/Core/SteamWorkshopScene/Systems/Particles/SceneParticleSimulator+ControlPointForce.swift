@@ -22,10 +22,13 @@ nonisolated extension SceneParticleSimulator {
         }
         let impulse = plan.acceleration * duration
         let range = plan.maximumDistance
+        let worldBasis = plan.measuresWorldDistance && controlPointParticleSpace == nil
+            ? activeWorldSpaceFrame : nil
         for index in particles.indices {
             let delta = target + positionReferenceOffset(for: particles[index], space: controlPointParticleSpace)
                 - particles[index].position
-            let distance = SceneParticleSimulationMath.length(delta)
+            let measuredDelta = worldBasis?.worldParticleDirection(delta) ?? delta
+            let distance = SceneParticleSimulationMath.length(measuredDelta)
             guard distance.isFinite, distance > 1e-12,
                   distance < range else { continue }
             let radialScale = (range - distance) / (range * distance)
