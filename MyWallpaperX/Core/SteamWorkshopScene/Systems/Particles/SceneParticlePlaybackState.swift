@@ -6,7 +6,7 @@ final class SceneParticlePlaybackState {
     private nonisolated static let maximumRealtimeSimulationDelta: TimeInterval = 2.0 / 60.0
 
     let lifecycleIdentity = UUID()
-    var requiredPipelineVariants: Set<SceneParticlePipelineVariant> { runtime.requiredPipelineVariants }
+    var pipelineVariants: SceneParticlePipelineVariant.Preparation { runtime.pipelineVariants }
     private let runtime: SceneParticleRuntime
     private var retainedLayerIDs: Set<Int>
     var preparedLayerIDs: Set<Int> { didTeardown ? [] : retainedLayerIDs }

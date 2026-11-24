@@ -663,7 +663,7 @@ enum SceneParticleCameraRenderingHarness {
             defer { try? FileManager.default.removeItem(at: directory) }
             let runtime = try CameraHarness.childPlaneScaleRuntime(under: directory, device: device, renamed: renamed)
             defer { runtime.teardown() }
-            guard let pipeline = SceneParticleMetalPipeline(device: device, requiredVariants: runtime.requiredPipelineVariants)
+            guard let pipeline = SceneParticleMetalPipeline(device: device, requiredVariants: runtime.pipelineVariants.required)
             else { return [] }
             _ = runtime.advance(by: 1.0 / 60.0)
             let batches = runtime.advance(by: 1.0 / 60.0)
@@ -925,7 +925,7 @@ enum SceneParticleCameraRenderingHarness {
             let graph = try SceneParticleRuntime.prepareAssets(descriptor: descriptor,
                 resourceView: .init(projectRootURL: directory, packageRootURL: nil, stockAssetsRootURL: nil), stockTextureBundleURL: nil)
             let runtime = SceneParticleRuntime(descriptor: descriptor, preparedAssets: graph, device: device)
-            let required = runtime.requiredPipelineVariants
+            let required = runtime.pipelineVariants.required
             guard let pipeline = SceneParticleMetalPipeline(device: device, requiredVariants: required)
             else { return [["scenario": scenario, "completed": false, "reason": "pipeline"]] }
             let before = pipelineVariantNames(Set(pipeline.pipelineStates.keys))

@@ -23,7 +23,7 @@ final class SceneParticleRuntime {
     private var frozenWorldSpaceLayerIDs: Set<Int> = []
     /// Prepared root/child pointer demand retires with its owning layer.
     private(set) var pointerControlPointDemands: Set<Int> = []
-    private(set) var requiredPipelineVariants: Set<SceneParticlePipelineVariant> = []
+    private(set) var pipelineVariants: SceneParticlePipelineVariant.Preparation = ([], [])
 #if DEBUG
     var pendingAudioEvaluationObservations:
         [SceneParticleRuntimeAudioEvaluationObservation] = []
@@ -444,7 +444,8 @@ final class SceneParticleRuntime {
         }
         pointerControlPointDemands = pointerDemands
         worldSpaceRequiringLayerIDs = worldSpaceDemandLayerIDs
-        requiredPipelineVariants = layers.reduce(into: []) { variants, layer in
+        let canUseSceneDepth = SceneParticleCameraFrame.acceptsNativePerspectiveProjection(camera: descriptor.camera)
+        pipelineVariants = layers.reduce(into: ([], [])) { variants, layer in
             var layerVariants = layer.childRuntime?.requiredPipelineVariants ?? []
             if let root = layer.rootRender {
                 for output in root.outputs {
@@ -452,9 +453,16 @@ final class SceneParticleRuntime {
                     layerVariants.insert(.init(isRefraction: renderer.refraction != nil,
                         blendMode: renderer.renderState.blendMode,
                         usesDepthAttachment: renderer.renderState.depthWriteEnabled))
+                    if canUseSceneDepth, renderer.renderState.readsSceneDepth(
+                        usesSceneCamera: renderer.usesSceneCamera, isRefraction: renderer.refraction != nil
+                    ) {
+                        variants.sceneDepth.insert(.init(
+                            blendMode: renderer.renderState.blendMode, usesDepthAttachment: true
+                        ))
+                    }
                 }
             }
-            variants.formUnion(SceneParticlePipelineVariant.includingLayerDepth(layerVariants))
+            variants.required.formUnion(SceneParticlePipelineVariant.includingLayerDepth(layerVariants))
         }
     }
 

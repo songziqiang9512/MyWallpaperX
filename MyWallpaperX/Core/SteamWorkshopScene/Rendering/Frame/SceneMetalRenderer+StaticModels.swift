@@ -37,10 +37,13 @@ extension SceneMetalRenderer {
             }
         }
         private final class SceneDepthDomain {
+            enum ModelProjection { case unwritten, perspective, incompatible }
+
             // Keep the pass alive while its ObjectIdentifier is a domain key.
             let pass: SceneMainPassEncoder
             let acquisition: SceneParticleDepthTargetPool.Acquisition
             var wasCleared = false
+            var modelProjection: ModelProjection = .unwritten
 
             init(pass: SceneMainPassEncoder, acquisition: SceneParticleDepthTargetPool.Acquisition) {
                 self.pass = pass
@@ -149,6 +152,19 @@ extension SceneMetalRenderer {
                       clearsDepth: !domain.wasCleared, clearDepth: 0) else { return nil }
             domain.wasCleared = true
             return encoder
+        }
+
+        func recordModelDepthWrite(pass: SceneMainPassEncoder, usesPerspective: Bool) {
+            guard let domain = sceneDepthByPass[ObjectIdentifier(pass)],
+                  domain.modelProjection != .incompatible else { return }
+            domain.modelProjection = usesPerspective ? .perspective : .incompatible
+        }
+
+        func particleReadOnlyDepth(pass: SceneMainPassEncoder,
+                                   commandBuffer: MTLCommandBuffer) -> MTLTexture? {
+            guard let domain = qualifiedSceneDepthDomain(pass: pass, commandBuffer: commandBuffer),
+                  domain.modelProjection == .perspective else { return nil }
+            return domain.lease?.texture
         }
 
         func terminalDepthBinding(pass: SceneMainPassEncoder,
@@ -292,6 +308,7 @@ extension SceneMetalRenderer {
             usesPerspective: usesPerspective, pass: pass)
         let frontFacing = pass.rasterFrontFacing
         var encodedLit = false
+        var encodedDepthWriter = false
         for draw in draws {
             _ = state.sharedDepth(pass: pass, pool: staticModelDepthTargetPool,
                 device: device, commandBuffer: commandBuffer, leases: &leases)
@@ -382,8 +399,12 @@ extension SceneMetalRenderer {
             }
 #endif
             encodedLit = encodedLit || (encoded && draw.material.receivesLighting)
+            encodedDepthWriter = encodedDepthWriter || (encoded && draw.entry.writesDepth)
             dependencyRuntime.recordStaticModelBindingIfRequired(
                 for: layer.id, encoded: encoded, on: commandBuffer)
+        }
+        if encodedDepthWriter && pass.isSceneRoot {
+            state.recordModelDepthWrite(pass: pass, usesPerspective: usesPerspective)
         }
         return encodedLit
     }

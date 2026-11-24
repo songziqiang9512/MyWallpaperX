@@ -7,6 +7,8 @@ nonisolated enum SceneParticlePipelineBlendMode: String, Hashable, Sendable {
 }
 
 nonisolated struct SceneParticlePipelineVariant: Hashable, Sendable {
+    typealias Preparation = (required: Set<SceneParticlePipelineVariant>, sceneDepth: Set<SceneParticlePipelineVariant>)
+
     let isRefraction: Bool
     let blendMode: SceneParticlePipelineBlendMode
     let usesDepthAttachment: Bool
@@ -52,6 +54,11 @@ nonisolated struct SceneParticlePipelineRenderState: Equatable, Sendable {
     let depthTestEnabled: Bool
     let depthWriteEnabled: Bool
     let overbright: Float
+
+    func readsSceneDepth(usesSceneCamera: Bool, isRefraction: Bool) -> Bool {
+        usesSceneCamera && !isRefraction && blendMode != .alphaToCoverage
+            && depthTestEnabled && !depthWriteEnabled
+    }
 
     nonisolated init(
         blendMode: SceneParticlePipelineBlendMode,

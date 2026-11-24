@@ -403,7 +403,7 @@ enum SceneParticleCoverageRenderingHarness {
             "history": runtime.frameSnapshot().layers.first?.root?.outputs.contains {
                 $0.renderer.index == batch.rendererIndex && $0.ropeTrailHistory != nil
             } ?? false,
-            "requiredCoverage": runtime.requiredPipelineVariants.contains { $0.blendMode == .alphaToCoverage },
+            "requiredCoverage": runtime.pipelineVariants.required.contains { $0.blendMode == .alphaToCoverage },
             "blend": batch.renderState.blendMode.rawValue, "cull": batch.renderState.cullMode.rawValue,
             "depthTest": batch.renderState.depthTestEnabled, "depthWrite": batch.renderState.depthWriteEnabled,
             "usesSceneCamera": batch.usesSceneCamera,

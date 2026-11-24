@@ -188,11 +188,11 @@ extension Harness {
         guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
         let playback = SceneParticlePlaybackState(descriptor: descriptor, cacheDirectory: directory, device: device)
         var result: [String: Bool] = [:]
-        result["preparedVariantDemandRemainsAvailable"] = playback.requiredPipelineVariants.contains(.init(blendMode: .additive))
+        result["preparedVariantDemandRemainsAvailable"] = playback.pipelineVariants.required.contains(.init(blendMode: .additive))
         let empty = SceneParticlePlaybackState(descriptor: .init(layers: [], renderOrderLayerIDs: [], materialPasses: []),
             cacheDirectory: directory, device: device)
         result["emptyCPUStateNeedsNoPipeline"] = empty.batches.isEmpty && empty.preparedLayerIDs.isEmpty
-            && empty.requiredPipelineVariants.isEmpty && empty.lifecycleSnapshot == .empty
+            && empty.pipelineVariants.required.isEmpty && empty.lifecycleSnapshot == .empty
         result["preparedLive"] = playback.playbackObservation(layerID: 42)?.liveAny == true
             && !playback.batches.filter { $0.layerID == 42 }.flatMap(\.instances).isEmpty
         result["unavailableIsNotFalse"] = [43, 44, 46].allSatisfy { playback.playbackObservation(layerID: $0) == nil }

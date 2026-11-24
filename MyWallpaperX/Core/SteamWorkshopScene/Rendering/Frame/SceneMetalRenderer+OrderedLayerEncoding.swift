@@ -46,7 +46,7 @@ extension SceneMetalRenderer {
         visible: Set<Int>, cameraFrame: SceneParticleCameraFrame, snapshot: SceneDynamicSnapshot,
         worldFrames: [Int: simd_float4x4],
         utility: SceneUtilityLayerRuntimePlanner.Execution, backgroundCuts: Set<Int>,
-        particleBatches: [Int: [SceneParticleMetalPipeline.PreparedBatch]]
+        particleBatches: [Int: [SceneParticleMetalPipeline.PreparedBatch]], particlePipeline: SceneParticleMetalPipeline?
     ) -> [SceneRenderDescriptor.Layer]? {
         func drawsOpaqueModel(_ layer: SceneRenderDescriptor.Layer) -> Bool {
             layer.contentKind == "model" && cameraFrame.resolvesPerspective(for: layer)
@@ -74,9 +74,13 @@ extension SceneMetalRenderer {
             case "container", "sound", "pointLight", "directionalLight", "tubeLight": return false
             case "spotLight": return layer.spotLight?.castsVolumetrics == true
             case "particle":
+                let canReadSceneDepth = cameraFrame.defaultsToPerspective
+                    && cameraFrame.resolvesPerspective(for: layer)
                 return particleBatches[layer.id]?.contains {
                     $0.draw.refraction != nil || $0.draw.renderState.depthWriteEnabled
                         || $0.draw.renderState.blendMode != .additive
+                        || (canReadSceneDepth && $0.draw.readsSceneDepth
+                            && particlePipeline?.supportsSceneDepth(for: $0.draw.renderState.blendMode) == true)
                 } ?? false
             case "image", "solid", "text":
                 guard (layer.colorBlendMode ?? 0) == 0,
@@ -611,11 +615,12 @@ extension SceneMetalRenderer {
                     configuration: parallaxConfiguration,
                     referenceWorldFrame: layerBatches.first?.draw.referenceWorldFrame
                 )
+                let usesPerspective = cameraFrame.resolvesPerspective(for: layer)
                 if let depthLease = particlePipeline.drawBatches(
                     layerBatches,
                     model: model,
                     cameraFrame: cameraFrame,
-                    layerUsesPerspective: cameraFrame.resolvesPerspective(for: layer),
+                    layerUsesPerspective: usesPerspective,
                     viewportSize: SIMD2(
                         Float(viewportSize.width),
                         Float(viewportSize.height)
@@ -625,6 +630,11 @@ extension SceneMetalRenderer {
                     mainPass: layerMainPass,
                     commandBuffer: commandBuffer,
                     preparedDepth: modelFrame.particleDepth[layer.id]?.acquisition,
+                    readOnlySceneDepth: {
+                        guard layerMainPass === mainPass, cameraFrame.defaultsToPerspective,
+                              usesPerspective else { return nil }
+                        return modelFrame.particleReadOnlyDepth(pass: mainPass, commandBuffer: commandBuffer)
+                    },
                     performanceObservations: &particlePerformanceObservations
                 ) {
                     if modelFrame.particleDepth[layer.id] == nil { frameDepthLeases.append(depthLease) }

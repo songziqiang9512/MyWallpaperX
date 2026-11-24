@@ -22,6 +22,12 @@ struct SceneParticleDrawBatch {
     var referenceWorldFrame: simd_float4x4? = nil
     var sizeIsWorldSpace: Bool = false
     var spriteYScale: Float = 1
+
+    var readsSceneDepth: Bool {
+        childTemplateIndex == nil
+            && renderState.readsSceneDepth(usesSceneCamera: usesSceneCamera, isRefraction: refraction != nil)
+    }
+
 #if DEBUG
     var debugRendererComponentIndex: Int? = nil
     var debugRendererKind: String? = nil
@@ -80,7 +86,8 @@ final class SceneParticleMetalPipeline {
 
     init?(
         device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm,
-        requiredVariants: Set<SceneParticlePipelineVariant> = SceneParticlePipelineVariant.standaloneDefaults
+        requiredVariants: Set<SceneParticlePipelineVariant> = SceneParticlePipelineVariant.standaloneDefaults,
+        sceneDepthVariants: Set<SceneParticlePipelineVariant> = []
     ) {
         let library: MTLLibrary?
         let coverageLibrary: MTLLibrary?
@@ -99,7 +106,7 @@ final class SceneParticleMetalPipeline {
         }
         guard let library,
               let samplerStates = SceneParticleSamplerStateSet(device: device),
-              let depthStates = Self.makeDepthStates(device: device) else {
+              let depthStates = Self.makeDepthStates(device: device, sceneDepth: !sceneDepthVariants.isEmpty) else {
             return nil
         }
         let vertex = library.makeFunction(name: "sceneParticleVert")
@@ -108,7 +115,7 @@ final class SceneParticleMetalPipeline {
         let coverageVertex = coverageLibrary?.makeFunction(name: "sceneParticleCoverageVert")
         let coverageFragment = coverageLibrary?.makeFunction(name: "sceneParticleCoverageFrag")
         var states: [SceneParticlePipelineVariant: MTLRenderPipelineState] = [:]
-        for variant in requiredVariants {
+        for variant in requiredVariants.union(sceneDepthVariants) {
             let usesCoverage = variant.blendMode == .alphaToCoverage
             if usesCoverage && variant.isRefraction { continue }
             let variantVertex = usesCoverage ? coverageVertex : vertex
@@ -121,7 +128,7 @@ final class SceneParticleMetalPipeline {
                    depthPixelFormat: variant.usesDepthAttachment ? .depth32Float : .invalid
                ) {
                 states[variant] = state
-            } else if !usesCoverage {
+            } else if !usesCoverage && requiredVariants.contains(variant) {
                 return nil
             }
         }
@@ -192,6 +199,7 @@ final class SceneParticleMetalPipeline {
         colorUVScale: SIMD2<Float> = SIMD2(repeating: 1),
         colorSampling: SceneParticleTextureSampling,
         usesDepthAttachment: Bool = false,
+        readsReverseDepth: Bool = false,
         encoder: MTLRenderCommandEncoder,
         observeBindings: ((MTLTexture, SceneParticleRefractionBinding.NormalArguments?, MTLTexture?, Int) -> Void)? = nil
     ) -> Bool {
@@ -205,7 +213,9 @@ final class SceneParticleMetalPipeline {
 #endif
         encoder.setRenderPipelineState(state)
         if usesDepthAttachment {
-            encoder.setDepthStencilState(depthState(for: renderState))
+            encoder.setDepthStencilState(
+                readsReverseDepth ? depthStates[Self.reverseReadDepthKey] : depthState(for: renderState)
+            )
         }
         configureCull(renderState.cullMode, encoder: encoder)
         defer { encoder.setCullMode(.none) }
@@ -381,6 +391,13 @@ final class SceneParticleMetalPipeline {
         depthStates[(state.depthTestEnabled ? 2 : 0) | (state.depthWriteEnabled ? 1 : 0)]
     }
 
+    private static let reverseReadDepthKey = 4
+
+    func supportsSceneDepth(for blend: SceneParticlePipelineBlendMode) -> Bool {
+        depthStates[Self.reverseReadDepthKey] != nil
+            && pipelineStates[.init(blendMode: blend, usesDepthAttachment: true)] != nil
+    }
+
     private static func makeState(
         device: MTLDevice,
         vertex: MTLFunction,
@@ -413,7 +430,7 @@ final class SceneParticleMetalPipeline {
     }
 
     private static func makeDepthStates(
-        device: MTLDevice
+        device: MTLDevice, sceneDepth: Bool
     ) -> [Int: MTLDepthStencilState]? {
         var states: [Int: MTLDepthStencilState] = [:]
         for depthTest in [false, true] {
@@ -427,6 +444,11 @@ final class SceneParticleMetalPipeline {
                 }
                 states[key] = state
             }
+        }
+        if sceneDepth {
+            let readOnlyScene = MTLDepthStencilDescriptor()
+            readOnlyScene.depthCompareFunction = .greaterEqual
+            states[reverseReadDepthKey] = device.makeDepthStencilState(descriptor: readOnlyScene)
         }
         return states
     }

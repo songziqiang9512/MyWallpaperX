@@ -363,13 +363,13 @@ extension SceneDesktopWallpaperSession {
                 candidateParticles.retire(layerIDs: committedTopology.destroyedAuthoredLayerIDs)
                 candidateParticles.adoptPlayback(committedTopology.particlePlayback)
             }
-            let particleVariants = candidateParticles.requiredPipelineVariants
-            if particleVariants.isEmpty {
+            let particleVariants = candidateParticles.pipelineVariants
+            if particleVariants.required.isEmpty {
                 surface.particlePlayback = candidateParticles
             } else if let pipeline = SceneParticleMetalPipeline(
                 device: metalView.metalDevice,
                 pixelFormat: metalView.renderer.renderDescriptor.colorTargetFormat.metalPixelFormat,
-                requiredVariants: particleVariants
+                requiredVariants: particleVariants.required, sceneDepthVariants: particleVariants.sceneDepth
             ) {
                 metalView.particlePipeline = pipeline
                 surface.particlePlayback = candidateParticles

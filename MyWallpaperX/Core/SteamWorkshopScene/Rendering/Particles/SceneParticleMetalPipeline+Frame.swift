@@ -13,6 +13,7 @@ extension SceneParticleMetalPipeline {
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer,
         preparedDepth: SceneParticleDepthTargetPool.Acquisition? = nil,
+        readOnlySceneDepth: () -> MTLTexture? = { nil },
         performanceObservations: inout [SceneParticlePerformanceObservation]?
     ) -> SceneParticleDepthTargetLease? {
         // Install completion ownership before the first draw.  A command can
@@ -52,11 +53,16 @@ extension SceneParticleMetalPipeline {
         for prepared in batches {
             let batch = prepared.draw
             let instanceBuffer = prepared.instanceBuffer
+            let sharedDepth = !usesDepth && batch.readsSceneDepth
+                && supportsSceneDepth(for: batch.renderState.blendMode) ? readOnlySceneDepth() : nil
+            let depthTexture = depthLease?.texture ?? sharedDepth
 #if DEBUG
             let observeBindings: ((MTLTexture, SceneParticleRefractionBinding.NormalArguments?, MTLTexture?, Int) -> Void)?
             if let trace = mainPass.compositionTrace, trace.isCompositionSelected {
                 let target = mainPass.compositionTarget
-                let depth = depthLease.map { SceneCompositionTextureObservation($0.texture, role: "particle-depth") }
+                let depth = depthTexture.map {
+                    SceneCompositionTextureObservation($0, role: sharedDepth == nil ? "particle-depth" : "scene-depth")
+                }
                 let ordinal = observationBatchOrdinal
                 let layerID = batch.layerID
                 let colorUV = [batch.colorUVScale.x, batch.colorUVScale.y]
@@ -72,7 +78,8 @@ extension SceneParticleMetalPipeline {
                         "depthTestEnabled": String(batch.renderState.depthTestEnabled),
                         "depthWriteEnabled": String(batch.renderState.depthWriteEnabled),
                         "usesSceneCamera": String(batch.usesSceneCamera),
-                        "usesDepthAttachment": String(usesDepth)]
+                        "usesDepthAttachment": String(depth != nil),
+                        "readsSceneDepth": String(sharedDepth != nil)]
                 if let depth { batchDetails["depthTextureToken"] = depth.textureToken }
                 observeBindings = { color, normal, background, count in
                     var details = batchDetails
@@ -115,6 +122,9 @@ extension SceneParticleMetalPipeline {
                 usesPerspectiveTrailEye: batch.usesPerspectiveTrailEye,
                 spriteYScale: batch.spriteYScale
             )
+            if sharedDepth != nil {
+                uniforms.viewProjection = cameraFrame.reverseDepthPerspectiveViewProjection
+            }
             uniforms.rasterClipX = raster.x
             uniforms.rasterClipY = raster.y
             let didEncode: Bool
@@ -152,12 +162,7 @@ extension SceneParticleMetalPipeline {
                 } else {
                     didEncode = false
                 }
-            } else if let encoder = usesDepth
-                ? mainPass.encoder(
-                    depthTexture: depthLease?.texture,
-                    clearsDepth: clearsDepth
-                )
-                : mainPass.encoder() {
+            } else if let encoder = mainPass.encoder(depthTexture: depthTexture, clearsDepth: clearsDepth) {
                 didEncode = draw(
                     texture: batch.texture,
                     instances: instanceBuffer,
@@ -165,7 +170,8 @@ extension SceneParticleMetalPipeline {
                     renderState: batch.renderState,
                     colorUVScale: batch.colorUVScale,
                     colorSampling: batch.colorSampling,
-                    usesDepthAttachment: usesDepth,
+                    usesDepthAttachment: depthTexture != nil,
+                    readsReverseDepth: sharedDepth != nil,
                     encoder: encoder, observeBindings: observeBindings
                 )
             } else {
