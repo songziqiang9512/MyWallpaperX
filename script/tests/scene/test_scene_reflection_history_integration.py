@@ -307,6 +307,7 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
                    REPO / "script/tests/scene/test_scene_named_model_shadow.py",
                    REPO / "script/tests/scene/test_scene_directional_shadow_integration.py",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
+                   REPO / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialLightingProfile.swift",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+SceneDrawing.swift",
                    REPO / "script/tests/support/scene_display_reconciliation_fixture.py",
                    REPO / "script/web/web_benchmark_capture.py",
@@ -595,6 +596,104 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
                 self.assertGreater(delta[0], 40, delta)
                 self.assertLessEqual(max(abs(delta[1]), abs(delta[2])), PIXEL_TOLERANCE, delta)
 
+    def settled_composition(self, work, log):
+        capture = terminal_snapshot_metrics(work / "evidence", log)
+        observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
+        self.assertEqual(observations["parse_errors"], 0)
+        receipt = terminal_composition_snapshot(capture, observations)
+        self.assertTrue(receipt["composition_receipt_matched"], receipt)
+        event = next(e for e in observations["events"] if e.get("captureRequestID") == capture["request_id"]
+                     and e.get("commandBufferToken") == capture["command_buffer_token"])
+        self.assertEqual(event["truncatedRows"], 0, event)
+        return event
+
+    def run_image_reflection_quality_pair(self, *, with_effect=False):
+        entries = fixture_entries(1)
+        material = json.loads(entries["materials/receiver.json"])
+        image_pass = material["passes"][0]
+        image_pass["constantshadervalues"]["Alpha"] = 0.5
+        if with_effect:
+            from script.tests.scene.test_scene_authored_environment_integration import fixture_entries as authored_environment
+
+            source = authored_environment(slot=0, shader_default=False)
+            scene = json.loads(entries["scene.json"])
+            scene["objects"][0]["effects"] = json.loads(source.pop("scene.json"))["objects"][0]["effects"]
+            # Reuse the authored normal probe's point light position and
+            # intensity. Blue isolates its contribution from emission and reflection.
+            scene["objects"].append({"id": 9, "light": "point", "origin": "180 48 100",
+                                     "color": "0 0 1", "intensity": 1.5, "radius": 1000})
+            entries["scene.json"] = json.dumps(scene, sort_keys=True).encode()
+            image_pass["combos"].update(LIGHTING=1, METALLIC_MAP=0, ROUGHNESS_MAP=0,
+                                        REFLECTION_MAP=0, EMISSIVE_MAP=1)
+            image_pass["constantshadervalues"]["emissivecolor"] = "0 0.5 0"
+            image_pass["textures"].append("materials/green-emission.png")
+            entries["materials/green-emission.png"] = rgba_png((0, 0, 0))
+            for path in ("effects/environment/effect.json", "shaders/own_environment.vert"):
+                entries[path] = source[path]
+            effect_material = json.loads(source["materials/environment.json"])
+            effect_material["passes"][0]["textures"] = [None]
+            entries["materials/environment.json"] = json.dumps(effect_material).encode()
+            entries["shaders/own_environment.frag"] = (
+                b"uniform sampler2D g_Texture0;\n"
+                b"varying vec2 v_TexCoord;\n"
+                b"void main(){vec4 c=texSample2D(g_Texture0,v_TexCoord);c.rgb*=0.5;gl_FragColor=c;}\n"
+            )
+        entries["materials/receiver.json"] = json.dumps(material).encode()
+        reflected_red = self.oracle["Ref1"][0] - self.oracle["Ref0"][0]
+        direct_light = {}
+        package_hashes = []
+        for quality in ("enabled", "disabled"):
+            with self.subTest(quality=quality):
+                enabled = quality == "enabled"
+                name = f"image-reflection-{'base-capture' if with_effect else 'plain'}-{quality}"
+                result = self.run_case(1, capture=True, entries=entries, name=name,
+                    extra_arguments=("-mwx.playback.quality", f"{{ sceneReflectionQuality = {quality}; }}"))
+                work = self.evidence_root / name
+                identity = json.loads((work / "identity.json").read_text())
+                package_hashes.append((identity["package"], identity["project"]))
+                log = (work / "app.log").read_text()
+                self.assertRegex(log, rf"phase=session-candidate [^\n]*reflectionQuality={quality}\b")
+                event = self.settled_composition(work, log)
+                rows = [r for r in event["rows"] if r.get("layerID") == 1]
+                captures = [r for r in rows if r["kind"] == "sourceCapture"
+                            and r.get("outcome") in ("encoded", "draw-encoded")]
+                self.assertEqual(bool(captures), enabled or with_effect, rows)
+                self.assertTrue(any(r["kind"] == "ordinary" and r["outcome"] == "draw-encoded" for r in rows), rows)
+                if with_effect:
+                    source_tokens = {row["target"]["textureToken"] for row in captures}
+                    self.assertTrue(any(row["kind"] == "material" and row.get("slot") == 0
+                        and row.get("outcome") == "draw-encoded"
+                        and row["source"]["textureToken"] in source_tokens for row in rows), rows)
+                if enabled:
+                    self.assertGreaterEqual(len(set(result["completedSourceSubmissions"])), 2, result)
+                else:
+                    self.assertFalse(result["completedSourceSubmissions"], result)
+                pixels = result["pixels"]["scene-after-window.png"]
+                expected = [0, 16, 0] if with_effect else [64, 64, 64]
+                if enabled:
+                    expected[0] += reflected_red * (0.25 if with_effect else 0.5)
+                receiver = pixels["receiver"]
+                if with_effect:
+                    red, green, blue = receiver["mean"]
+                    self.assert_pixel({"mean": [red, green]}, expected[:2])
+                    self.assertGreater(blue, 8, receiver)
+                    direct_light[quality] = blue
+                else:
+                    self.assert_pixel(receiver, expected)
+                self.assert_pixel(pixels["lateRed"], self.oracle["lateRed"])
+                self.assert_pixel(pixels["greenPeer"], self.oracle["greenPeer"])
+        self.assertEqual(len(package_hashes), 2)
+        self.assertEqual(package_hashes[0], package_hashes[1])
+        if with_effect:
+            self.assertEqual(set(direct_light), {"enabled", "disabled"})
+            self.assertAlmostEqual(direct_light["enabled"], direct_light["disabled"], delta=2)
+
+    def test_image_reflection_quality_omits_optional_capture_and_history(self):
+        self.run_image_reflection_quality_pair()
+
+    def test_image_reflection_quality_preserves_lit_graph_capture_and_alpha(self):
+        self.run_image_reflection_quality_pair(with_effect=True)
+
     def test_static_model_reflection_uses_completed_color_and_keeps_depth(self):
         cold = "scene-resize-00-window.png"
         warm = "scene-after-window.png"
@@ -650,14 +749,7 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
                 log = (work / "app.log").read_text()
                 self.assertRegex(log, rf"phase=session-candidate [^\n]*reflectionQuality={quality}\b")
 
-                capture = terminal_snapshot_metrics(work / "evidence", log)
-                observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
-                self.assertEqual(observations["parse_errors"], 0)
-                receipt = terminal_composition_snapshot(capture, observations)
-                self.assertTrue(receipt["composition_receipt_matched"], receipt)
-                event = next(e for e in observations["events"] if e.get("captureRequestID") == capture["request_id"]
-                             and e.get("commandBufferToken") == capture["command_buffer_token"])
-                self.assertEqual(event["truncatedRows"], 0, event)
+                event = self.settled_composition(work, log)
 
                 pixels = result["pixels"]["scene-after-window.png"]
                 enabled = quality == "enabled"

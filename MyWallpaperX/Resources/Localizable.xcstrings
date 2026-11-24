@@ -33961,36 +33961,36 @@
         }
       }
     },
-    "Model Reflections": {
+    "Scene Reflections": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Model Reflections"
+            "value": "Scene Reflections"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "模型实时反射"
+            "value": "场景反射"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Отражения на моделях"
+            "value": "Отражения сцены"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Modellreflexionen"
+            "value": "Scene-Reflexionen"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reflets des modèles"
+            "value": "Reflets de scène"
           }
         }
       }

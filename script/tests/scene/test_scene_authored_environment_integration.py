@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import unittest
@@ -68,8 +69,10 @@ class SceneAuthoredEnvironmentIntegrationTests(unittest.TestCase):
         cls.root = Path(tempfile.mkdtemp(prefix="authored-environment-", dir=destination))
         print(f"Authored environment App evidence: {cls.root}", flush=True)
 
-    def run_case(self, slot: int, shader_default: bool, *, capture: bool = True, with_f5: bool = False):
-        work = self.root / f"slot{slot}-{'default' if shader_default else 'explicit'}-{'capture' if capture else 'drawable'}-f5{int(with_f5)}"
+    def run_case(self, slot: int, shader_default: bool, *, capture: bool = True,
+                 with_f5: bool = False, reflection_quality: str | None = None):
+        name = f"slot{slot}-{'default' if shader_default else 'explicit'}-{'capture' if capture else 'drawable'}-f5{int(with_f5)}"
+        work = self.root / (f"{name}-{reflection_quality}" if reflection_quality is not None else name)
         content = work / "content"
         content.mkdir(parents=True)
         home = work / "home"
@@ -81,12 +84,15 @@ class SceneAuthoredEnvironmentIntegrationTests(unittest.TestCase):
                    "--mwx-debug-scene-duration", "6"]
         if capture:
             command += ["--mwx-debug-scene-evidence-dir", str(work / "evidence")]
+        if reflection_quality is not None:
+            command += ["-mwx.playback.quality", f"{{ sceneReflectionQuality = {reflection_quality}; }}"]
         env = {k: v for k, v in os.environ.items() if not k.startswith("MWX_SCENE_DEBUG_")}
         env.update(HOME=str(home), CFFIXED_USER_HOME=str(home), MWX_SCENE_DEBUG_SURFACE_COUNT="1")
+        package_hash = reflection.sha256(content / "scene.pkg")
         (work / "identity.json").write_text(json.dumps({
             "app": self.identity, "command": command,
             "fixture": reflection.sha256(Path(__file__)),
-            "package": reflection.sha256(content / "scene.pkg"),
+            "package": package_hash,
         }, indent=2) + "\n")
         with (work / "app.log").open("w") as log_file:
             run = subprocess.run(command, cwd=reflection.REPO, env=env,
@@ -120,9 +126,19 @@ class SceneAuthoredEnvironmentIntegrationTests(unittest.TestCase):
                 self.assertAlmostEqual(actual, golden, delta=reflection.PIXEL_TOLERANCE,
                                        msg=f"{work}: {name} {after[name]}")
         if with_f5:
-            for actual, expected in zip(after["f5"]["mean"], reflection.reflection_oracle()["Ref1"]):
+            oracle = reflection.reflection_oracle()["Ref0" if reflection_quality == "disabled" else "Ref1"]
+            for actual, expected in zip(after["f5"]["mean"], oracle, strict=True):
                 self.assertAlmostEqual(actual, expected, delta=reflection.PIXEL_TOLERANCE)
+        if reflection_quality is not None:
+            self.assertRegex(log, rf"phase=session-candidate [^\n]*reflectionQuality={reflection_quality}\b")
+            receipts = re.findall(r"diagnostic=scene-color-completed[^\n]*intent=snapshot sourceSubmission=(\S+)", log)
+            self.assertGreaterEqual(len(set(receipts)), 2, log[-6000:])
+            event = reflection.SceneReflectionHistoryIntegrationTests.settled_composition(self, work, log)
+            inputs = [r["source"] for r in event["rows"] if r["kind"] == "material" and r.get("layerID") == 1
+                      and r.get("slot") == slot and r.get("outcome") == "draw-encoded"]
+            self.assertEqual([item["logical"] for item in inputs], ["provider:sceneEnvironment"], event)
         self.assertEqual({str(p): reflection.sha256(p) for p in self.artifacts}, self.identity)
+        return package_hash
 
     def test_explicit_slot_zero_reads_completed_suffix_without_f5(self):
         self.run_case(0, False)
@@ -135,6 +151,13 @@ class SceneAuthoredEnvironmentIntegrationTests(unittest.TestCase):
 
     def test_authored_and_default_f5_share_completed_suffix(self):
         self.run_case(3, False, with_f5=True)
+
+    def test_image_reflection_quality_preserves_explicit_and_shader_default_environment(self):
+        for slot, shader_default in ((3, False), (2, True)):
+            with self.subTest(slot=slot, shader_default=shader_default):
+                enabled = self.run_case(slot, shader_default, with_f5=True, reflection_quality="enabled")
+                disabled = self.run_case(slot, shader_default, with_f5=True, reflection_quality="disabled")
+                self.assertEqual(enabled, disabled)
 
     def test_authored_only_without_debug_capture(self):
         self.run_case(0, False, capture=False)

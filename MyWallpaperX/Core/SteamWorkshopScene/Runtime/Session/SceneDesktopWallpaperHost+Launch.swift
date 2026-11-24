@@ -515,7 +515,8 @@ extension SceneDesktopWallpaperHost {
                 materialPropertyTargets: materialPropertyTargets,
                 materialColorTargets: model.propertyVectorProjection.dynamicImageMaterialColorTargets
                     .filter { loweredMaterialModelPaths.contains($0.key) },
-                provenBindings: provenMaterialBindings
+                provenBindings: provenMaterialBindings,
+                defaultScreenReflectionsEnabled: sceneRenderQuality.reflections == .enabled
             )
         let modelMaterialPlan = try ScenePreparedStaticModelResources.compileMaterialPlan(
             descriptor: runtimeInput.renderDescriptor, resourceView: model.resourceView,

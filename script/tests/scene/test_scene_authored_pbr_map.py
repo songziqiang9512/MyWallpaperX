@@ -94,14 +94,31 @@ struct SceneAssetTextureIdentity: Equatable, Sendable {
         let document=facts.sceneDocument!,descriptor=facts.renderDescriptor!
         let instances=Dictionary(uniqueKeysWithValues:document.objects.compactMap { o in o.materialInstance.map { (o.id,$0) } })
         let profiles=SceneBaseMaterialLightingProfileCompiler.profiles(descriptor:descriptor,materialInstancesByLayerID:instances,materialPropertyTargets:[])
-        let result=descriptor.layers.map { layer -> [String:Any] in
-            let p=profiles[layer.id]!
-            return ["id":layer.id,"direct":p.lightingEnabled,"surface":p.surfaceEnabled,
-                "reflection":p.reflection.map { [$0.x,$0.y] } as Any? ?? NSNull(),
-                "normalDemand":p.normalAsset != nil,
-                "reflectionMapAllowed":p.mapAllowedComponents & 4 != 0]
+        let disabled=SceneBaseMaterialLightingProfileCompiler.profiles(descriptor:descriptor,
+            materialInstancesByLayerID:instances,materialPropertyTargets:[],defaultScreenReflectionsEnabled:false)
+        let passes=SceneMaterialPropertyBindingCompiler.imageMaterialPasses(descriptor:descriptor)
+        func describe(_ input: [Int: SceneBaseMaterialLightingProfile]) -> [[String:Any]] {
+            descriptor.layers.map { layer in
+                let p=input[layer.id]!
+                let emission: [Float]?
+                if case let .constant(value) = p.emission { emission = [value.x,value.y,value.z,value.w] } else { emission = nil }
+                let alpha: Float?
+                if case let .constant(value) = SceneMaterialPropertyBindingCompiler.sourceMaterialAlpha(
+                    layer: layer, instance: instances[layer.id], passes: passes[layer.id] ?? [],
+                    materialPropertyTargets: []) { alpha = value } else { alpha = nil }
+                return ["id":layer.id,"direct":p.lightingEnabled,"surface":p.surfaceEnabled,
+                    "reflection":p.reflection.map { [$0.x,$0.y] } as Any? ?? NSNull(),
+                    "normalDemand":p.normalAsset != nil,
+                    "normalAsset":p.normalAsset?.path as Any? ?? NSNull(),
+                    "mapAsset":p.mapAsset?.path as Any? ?? NSNull(),
+                    "reflectionMapAllowed":p.mapAllowedComponents & 4 != 0,
+                    "enabledMapChannels":p.mapAllowedComponents,
+                    "emission":emission as Any? ?? NSNull(),
+                    "alpha":alpha as Any? ?? NSNull()]
+            }
         }
-        print(String(decoding:try JSONSerialization.data(withJSONObject:result),as:UTF8.self))
+        print(String(decoding:try JSONSerialization.data(withJSONObject:["default":describe(profiles),
+            "disabled":describe(disabled)]),as:UTF8.self))
     }
 }
 '''
@@ -115,6 +132,10 @@ struct SceneAssetTextureIdentity: Equatable, Sendable {
         add('generic2-default')
         add('generic4-default',{'shader':'genericimage4'})
         add('independent-both',{'combos':{'LIGHTING':1,'REFLECTION':1}},direct=True)
+        add('lit-shared-map-and-alpha',{'combos':{'LIGHTING':1,'REFLECTION':1,'REFLECTION_MAP':1},
+            'constantshadervalues':{'Alpha':0.5,'emissivecolor':'0 0.5 0','emissivebrightness':2}},direct=True)
+        add('lit-reflection-only-map',{'combos':{'LIGHTING':1,'REFLECTION':1,'REFLECTION_MAP':1,
+            'METALLIC_MAP':0,'ROUGHNESS_MAP':0,'EMISSIVE_MAP':0}},direct=True)
         add('direct-only',{'combos':{'LIGHTING':1,'REFLECTION':0}},reflection=None,direct=True)
         add('reflection-zero',{'combos':{'LIGHTING':0,'REFLECTION':0}},reflection=None)
         add('strength-zero',{'constantshadervalues':{'reflectivity':0}},reflection=None)
@@ -160,15 +181,42 @@ struct SceneAssetTextureIdentity: Equatable, Sendable {
             compile_result=subprocess.run(['xcrun','swiftc',*map(str,sources),str(source),'-module-cache-path',str(work/'cache'),'-o',str(binary)],capture_output=True,text=True)
             self.assertEqual(compile_result.returncode,0,compile_result.stderr)
             run=subprocess.run([str(binary),str(work)],capture_output=True,text=True);self.assertEqual(run.returncode,0,run.stderr)
-            result=json.loads(run.stdout);self.assertEqual(len(result),len(cases))
-            report=dict(schema='f5-authored-profile-v1',cases=[c[0] for c in cases],actual=result)
+            rows=json.loads(run.stdout)
+            result=rows["default"]
+            disabled=rows["disabled"]
+            self.assertEqual(len(result),len(cases))
+            self.assertEqual(len(disabled),len(cases))
+            report=dict(schema='f5-authored-profile-v1',cases=[c[0] for c in cases],
+                        actual=result,disabled=disabled)
             print(json.dumps(report,sort_keys=True))
             if destination:=os.environ.get('MWX_REFLECTION_EVIDENCE'):
                 Path(destination).mkdir(parents=True,exist_ok=True)
                 (Path(destination)/'authored-profile.json').write_text(json.dumps(report,indent=2))
-            for actual,(name,_,_,expected) in zip(result,cases):
-                for key,wanted in expected.items():self.assertEqual(actual[key],wanted,(name,actual))
-                if expected['reflection'] is not None:self.assertTrue(actual['normalDemand'],(name,actual))
+            for actual,off,(name,_,_,expected) in zip(result,disabled,cases,strict=True):
+                with self.subTest(name=name):
+                    for key,wanted in expected.items():
+                        self.assertEqual(actual[key],wanted,actual)
+                    if expected['reflection'] is not None:
+                        self.assertTrue(actual['normalDemand'],actual)
+                    self.assertIsNone(off["reflection"],off)
+                    self.assertFalse(off["reflectionMapAllowed"],off)
+                    self.assertEqual(off["direct"],actual["direct"],off)
+                    self.assertEqual(off["surface"],actual["direct"],off)
+                    self.assertEqual(off["emission"],actual["emission"],off)
+                    self.assertEqual(off["alpha"],actual["alpha"],off)
+                    self.assertEqual(off["normalAsset"],actual["normalAsset"] if actual["direct"] else None,off)
+                    non_reflection_channels = actual["enabledMapChannels"] & ~4 if actual["direct"] else 0
+                    self.assertEqual(off["enabledMapChannels"],non_reflection_channels,off)
+                    self.assertEqual(off["mapAsset"],actual["mapAsset"] if non_reflection_channels else None,off)
+                    if name == "lit-shared-map-and-alpha":
+                        self.assertEqual(off["mapAsset"],"materials/map.tex")
+                        self.assertEqual(off["normalAsset"],"materials/normal.png")
+                        self.assertEqual(off["emission"],[0,0.5,0,2])
+                        self.assertEqual(off["alpha"],0.5)
+                    if name == "lit-reflection-only-map":
+                        self.assertEqual(actual["mapAsset"],"materials/map.tex")
+                        self.assertEqual(off["normalAsset"],"materials/normal.png")
+                        self.assertIsNone(off["mapAsset"])
 
 
     def test_authored_map_profile_and_emission_projection(self):

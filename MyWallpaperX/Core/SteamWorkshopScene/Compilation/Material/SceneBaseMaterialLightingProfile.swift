@@ -55,7 +55,8 @@ nonisolated enum SceneBaseMaterialLightingProfileCompiler {
         layer: SceneRenderDescriptor.Layer,
         materialInstance: SceneDocument.SceneLayerMaterialInstance?,
         materialPasses: [SceneRenderDescriptor.MaterialPassDescriptor],
-        materialPropertyTargets: Set<SceneDynamicTarget>
+        materialPropertyTargets: Set<SceneDynamicTarget>,
+        defaultScreenReflectionsEnabled: Bool = true
     ) -> SceneBaseMaterialLightingProfile {
         guard layer.isImageRenderable,
               materialInstance?.isMalformed != true,
@@ -64,7 +65,8 @@ nonisolated enum SceneBaseMaterialLightingProfileCompiler {
             materialInstance: materialInstance, materialPasses: materialPasses,
             materialPropertyTargets: materialPropertyTargets,
             builtinSurface: SceneMaterialPropertyBindingCompiler.supportsBuiltinImage(
-                layer: layer, instance: materialInstance, passes: materialPasses))
+                layer: layer, instance: materialInstance, passes: materialPasses),
+            defaultScreenReflectionsEnabled: defaultScreenReflectionsEnabled)
     }
 
     /// The prepared model-default caller proves its complete built-in shape
@@ -73,7 +75,8 @@ nonisolated enum SceneBaseMaterialLightingProfileCompiler {
         layerID: Int, usesPuppet: Bool,
         materialInstance: SceneDocument.SceneLayerMaterialInstance?,
         materialPasses: [SceneRenderDescriptor.MaterialPassDescriptor],
-        materialPropertyTargets: Set<SceneDynamicTarget>, builtinSurface: Bool
+        materialPropertyTargets: Set<SceneDynamicTarget>, builtinSurface: Bool,
+        defaultScreenReflectionsEnabled: Bool = true
     ) -> SceneBaseMaterialLightingProfile {
         let pass = materialPasses.first
         let isBuiltin = pass?.shaderPath.map(SceneBuiltinShaderIdentity.isImage) ?? true
@@ -82,14 +85,14 @@ nonisolated enum SceneBaseMaterialLightingProfileCompiler {
         let builtinLighting = builtinSurface && lightingEnabled
         // This slice owns only the declared default environment. Empty/null
         // instance slots inherit; they cannot erase an authored provider.
-        let hasExplicitEnvironment = [materialInstance?.textureSlots, pass?.textureSlots]
-            .compactMap { $0 }.contains { $0.indices.contains(3) && $0[3]?.isEmpty == false }
-            || [materialInstance?.userTextureInputs, pass?.userTextureInputs]
-                .compactMap { $0 }.contains { $0.indices.contains(3) && $0[3] != nil }
         var reflection: SIMD2<Float>?
-        if builtinSurface, !usesPuppet, !hasExplicitEnvironment,
+        if defaultScreenReflectionsEnabled, builtinSurface, !usesPuppet,
            (materialInstance?.combos["REFLECTION"] ?? pass?.combos["REFLECTION"]) == 1,
            let pass,
+           ![materialInstance?.textureSlots, pass.textureSlots].compactMap({ $0 })
+                .contains(where: { $0.indices.contains(3) && $0[3]?.isEmpty == false }),
+           ![materialInstance?.userTextureInputs, pass.userTextureInputs].compactMap({ $0 })
+                .contains(where: { $0.indices.contains(3) && $0[3] != nil }),
            let strength = SceneMaterialPropertyBindingCompiler.staticComponents(
             "reflectivity", instance: materialInstance, pass: pass, count: 1, fallback: [1])?.first,
            let distance = SceneMaterialPropertyBindingCompiler.staticComponents(
@@ -197,7 +200,8 @@ nonisolated enum SceneBaseMaterialLightingProfileCompiler {
     static func profiles(
         descriptor: SceneRenderDescriptor,
         materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance],
-        materialPropertyTargets: Set<SceneDynamicTarget>
+        materialPropertyTargets: Set<SceneDynamicTarget>,
+        defaultScreenReflectionsEnabled: Bool = true
     ) -> [Int: SceneBaseMaterialLightingProfile] {
         let passes = SceneMaterialPropertyBindingCompiler.imageMaterialPasses(descriptor: descriptor)
         return descriptor.layers.reduce(into: [:]) { result, layer in
@@ -206,7 +210,8 @@ nonisolated enum SceneBaseMaterialLightingProfileCompiler {
                 layer: layer,
                 materialInstance: materialInstancesByLayerID[layer.id],
                 materialPasses: passes[layer.id] ?? [],
-                materialPropertyTargets: materialPropertyTargets
+                materialPropertyTargets: materialPropertyTargets,
+                defaultScreenReflectionsEnabled: defaultScreenReflectionsEnabled
             )
         }
     }

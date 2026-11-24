@@ -72,7 +72,8 @@ enum SceneBaseMaterialProviderBindingCompiler {
         scriptBindings: [SceneScriptBindingIR],
         materialPropertyTargets: Set<SceneDynamicTarget>,
         materialColorTargets: [String: SceneDynamicTarget] = [:],
-        provenBindings: [SceneBaseMaterialColorModulationCompiler.Binding] = []
+        provenBindings: [SceneBaseMaterialColorModulationCompiler.Binding] = [],
+        defaultScreenReflectionsEnabled: Bool = true
     ) -> SceneBaseMaterialProviderBindingProgram {
         _ = scriptBindings
         let provenModels = Set(provenBindings.map(\.modelPath))
@@ -215,7 +216,8 @@ enum SceneBaseMaterialProviderBindingCompiler {
                 .profiles(
                     descriptor: descriptor,
                     materialInstancesByLayerID: materialInstancesByLayerID,
-                    materialPropertyTargets: materialPropertyTargets
+                    materialPropertyTargets: materialPropertyTargets,
+                    defaultScreenReflectionsEnabled: defaultScreenReflectionsEnabled
                 ),
             sourceMaterialAlphaByLayerID: descriptor.layers.reduce(into: [:]) {
                 result, layer in

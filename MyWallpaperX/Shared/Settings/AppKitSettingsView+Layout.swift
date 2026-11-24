@@ -373,7 +373,7 @@ extension AppKitSettingsContainerView {
         scenePointVolumePopup.addItems(withTitles: [String(localized: "Disabled"), String(localized: "Enabled")])
         qualitySection.addRow(makeSettingRow(title: String(localized: "Point Light Volume"), iconSystemName: "light.max",
             subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: scenePointVolumePopup))
-        qualitySection.addRow(makeSettingRow(title: String(localized: "Model Reflections"), iconSystemName: "sparkle",
+        qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Reflections"), iconSystemName: "sparkle",
             subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: sceneReflectionsSwitch))
         webFrameRatePopup.addItems(withTitles: [
             String(localized: "Match Display (up to 60 FPS)"),

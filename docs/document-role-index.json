@@ -839,10 +839,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "902a36052088e2dd00b3ef7d7077dc7b7cb1c9b7f7aed334981eca536c71d693",
+        "sourceSHA256": "6f6ef26551548b82f69805a98bd5b22525bcde4bc79d382d2b48c91bc91c74b9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene 质量进入后处理、阴影、点光体积与模型反射；作者环境与模型槽消费独立。",
-        "limitations": "导航及源码核对；实测限于独立签名 App 与选定具名和基础材质样本。"
+        "scope": "冷准备中的场景反射、普通图像 profile 与作者环境供货。",
+        "limitations": "导航和源码核对；App 与画面范围见现役工作卡。"
       }
     },
     {

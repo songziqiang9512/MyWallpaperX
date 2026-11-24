@@ -77,8 +77,8 @@
       "bytes": 73409
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 100,
-      "bytes": 18669
+      "lines": 109,
+      "bytes": 20479
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -94,7 +94,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 269,
-      "bytes": 51122
+      "bytes": 51358
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,19 +369,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "1d268ccfeaf930f9df03a89bd5eba33ef8f20dcc0a39b09c2123ee76752d6d38",
-      "after": "0afa259654d4f020d88ba77a8fc77b76435ae5072f69a109cbd7eeaf4f2e5470",
+      "before": "0afa259654d4f020d88ba77a8fc77b76435ae5072f69a109cbd7eeaf4f2e5470",
+      "after": "465c1b79a59d1c829230b646f11911a547c23fde8790aa889c4d8a5e4498aac5",
       "owner": "Scene runtime / Metal",
-      "reason": "补模型反射冷准备、作者环境和独立持久帧的权威交界。",
+      "reason": "普通图像反射与既有作者供货方式的准备合同。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "a589a5b268884ae83a9d1168df0f562a8059e8e525664e53882910cb4e2cf91f",
-      "after": "3867955cd87447385175f295cfd9c99d44f6a36e293ac47e1a2cb87ec43727a6",
-      "owner": "Scene timing / Product Debug",
-      "reason": "记录实际接管的逐屏呈现、真实排空与原 30/60 A/A。",
+      "before": "3867955cd87447385175f295cfd9c99d44f6a36e293ac47e1a2cb87ec43727a6",
+      "after": "9d982017a4447b0c09402cb2802e50c66f47b8404165b86c9ff081d35e6c0c9d",
+      "owner": "Scene / Quality",
+      "reason": "记录场景反射覆盖、真实像素与环境快照，维护连续帧率及 Video 的现役顺序。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {

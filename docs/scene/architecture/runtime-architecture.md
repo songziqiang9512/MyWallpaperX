@@ -140,7 +140,7 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 
 点光体积档在同一 Scene 准备请求生效。禁用时跳过点光体积及其专用实体遮挡深度管线，清屏透视和作者无阴影灯的准入仍归原点光路径。主相机深度、表面光、聚光锥和阴影消费者保持各自职责。已显示会话保本代体积结果，效果随原壁纸重载换代。 [点光体积合同](../capabilities/advanced-object-coverage.md#point-light-volume)
 
-模型实时反射的冷准备选择决定可选模型反射管线和实际消费者。关闭时保模型材质声明与原 HDR 发光、颜色和深度。普通图像及作者 Program 的环境输入沿原资格供货。Shader 声明默认环境槽的基础材质随实际消费者准备，复用原前后帧颜色。具名模型源晚到时，独立环境消费者可用原根深度预约，无需可选反射模型作为许可。无其它环境需求时，模型关档退出原可选快照和 mip 工作，持久 raw、终端完成及具名输出继续由原提交 owner 管理。 [反射合同](../capabilities/advanced-object-coverage.md#static-model-screen-reflection)
+场景反射档在冷准备选择可选模型反射管线和普通图像的默认屏幕反射。关闭时保模型材质声明与原 HDR 发光、颜色和深度。普通图像的原 [光照 profile](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialLightingProfile.swift) 供直绘与基础图像捕获，共用作者 alpha、直接光及剩余有效纹理需求。作者 Program 的显式环境输入沿原资格供货。Shader 声明默认环境槽的基础材质随实际消费者准备，复用原前后帧颜色。具名模型源晚到时，独立环境消费者可用原根深度预约，无需可选反射模型作为许可。无其它环境需求时，模型关档退出原可选快照和 mip 工作，持久 raw、终端完成及具名输出继续由原提交 owner 管理。 [反射合同](../capabilities/advanced-object-coverage.md#static-model-screen-reflection)
 
 增加新的性能档位前，先以可比CPU/GPU、内存、启动或能耗证据确定取舍，再在原prepare入口形成被真实Program/资源/后处理消费者使用的有效策略，质量只控制对应能力和采样/分辨率等实际成本。当前不先建空enum、仅透传对象、第二配置owner/cache或无消费者的uniform位；普通帧不重读UI、不重编或重复判档位。策略改变沿原受影响资源/Program准备与提交寿命更新，不分叉作者时钟、材质算法或最终输出。每项降档须说明具体画面代价，保作者控制、遮挡和健康peer，并退出被替代的旧决策；不能把缺功能、采集过载或未归因暗图称为性能优化。
 
