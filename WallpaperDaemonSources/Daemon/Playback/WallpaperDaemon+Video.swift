@@ -56,7 +56,6 @@ extension WallpaperDaemon {
 
         let item = AVPlayerItem(url: URL(fileURLWithPath: videoPath))
         item.preferredForwardBufferDuration = 1.5
-        item.preferredMaximumResolution = CGSize(width: screen.frame.width, height: screen.frame.height)
 
         incomingPlayer.volume = 0
         if shouldLoopCurrentItem {

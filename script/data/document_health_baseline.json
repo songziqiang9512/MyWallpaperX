@@ -77,8 +77,8 @@
       "bytes": 73409
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 125,
-      "bytes": 23381
+      "lines": 133,
+      "bytes": 24671
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,10 +378,10 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "9d982017a4447b0c09402cb2802e50c66f47b8404165b86c9ff081d35e6c0c9d",
-      "after": "c5c396ee6297a655fa898916178c3a5a0b889054681270994eec755f75aac135",
-      "owner": "Scene timing / Quality",
-      "reason": "记录已验证的整数请求、节律、实际呈现和旧缓存迁移。",
+      "before": "c5c396ee6297a655fa898916178c3a5a0b889054681270994eec755f75aac135",
+      "after": "35d97516b00b32eaa81e67610e25ec3a9ad71335994cc0352b949bd504860fd0",
+      "owner": "Video / Quality",
+      "reason": "记录 HLS 专用偏好退出、原片真实输出和派生四臂验证入口。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {

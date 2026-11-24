@@ -123,3 +123,11 @@ QV1 已验原生详情选择、重复 URL、单个有效规格、取消、原档
 原视频异步详情入口只加载一次视频轨道，复用这一轨读方向变换、实际分辨率、编码和标称帧率。帧率为零、不可读或没有视频轨道时省略，VFR 采用标称口径。Steam 的就绪 Video 详情复用该读取，取与播放器相同的 `record.videoURL`，厂商标签保持原口径。复用预览已取得的同文件身份，轨道读取不随无关重建或库刷新重复，换条目时晚完成不能回填别处。验证非直角旋转、缺轨、导出回退、同路径替换和旧启动缓存，不增加预扫描、库索引字段或播放器重写。 [原媒体详情入口](../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift)
 
 原生详情回归通过导出优先、同一源回退与重扫只读取一次、换源取消、同路径同修改时间替换，以及失效或非 Video 记录清理。生产读取对 90° 和 45° MOV 分别返回 32 × 64、68 × 68，无轨不填标称帧率。独立 Workshop 3834029472 的实际源由生产 AVFoundation 入口和 ffprobe 匹配为 H.264、1920 × 1080、24 FPS。该验证读取本机真实文件和原生详情，不含在线下载、AVPlayer 输出帧率或整机能耗。
+
+### Video 派生验证与本地播放设置
+
+本地 Video 继续提交原文件给 AVFoundation，移除只影响 HLS 的分辨率偏好赋值，保原缓冲和播放器层。先由同一已签名运行链及真实媒体验证实际尺寸、就绪和循环。
+
+真实 Workshop 3821417083 的 UHD 60 FPS 原片在隔离签名 Xcode helper 通过实际屏确认。同一窗口两个阶段的非黑覆盖均约 99.9%，平均 RGB 差为 28.66／255。进程正常退出，原片摘要一致。原生 AVPlayer 探针另确认同源 MP4 短片的两次媒体时钟回绕，生成 MOV 另验回滚。Apple 将该分辨率偏好限定于 HLS，所有产品入口当前交给 helper 的是本地常规文件。 [Apple 播放项接口](https://developer.apple.com/documentation/avfoundation/avplayeritem/preferredmaximumresolution)
+
+选一个已确认的高规格 SDR 源，隔离生成原片、只降空间、只降帧率和同时降低四臂。实际产物以尺寸、逐帧 PTS、音轨和首尾闭环验收。先用现有 helper 和本机累计 CPU 时间／RSS 筛查同显示条件的实际区别。取得整机功耗和转码能量之前保留原片默认，CPU 或 RSS 只作为筛查，四臂及 1080p24 原片负控仍需复现。 [技术评估](wallpaper-quality-settings-plan.md#video)
