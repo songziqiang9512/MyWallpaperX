@@ -52,7 +52,7 @@ nonisolated struct SceneParticlePipelineRenderState: Equatable, Sendable {
     let blendMode: SceneParticlePipelineBlendMode
     let cullMode: SceneParticlePipelineCullMode
     let depthTestEnabled: Bool
-    let depthWriteEnabled: Bool
+    var depthWriteEnabled: Bool
     let overbright: Float
 
     func readsSceneDepth(usesSceneCamera: Bool, isRefraction: Bool) -> Bool {

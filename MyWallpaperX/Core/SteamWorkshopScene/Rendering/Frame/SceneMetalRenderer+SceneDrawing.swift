@@ -150,7 +150,22 @@ extension SceneMetalRenderer {
 #endif
         // Upload once before depth qualification, so only actual particle draws
         // participate in the original mandatory resource order.
-        particleBatches = particlePipeline?.prepare(preparedParticleBatches) ?? []
+        let groupMembers = frameProjection.utilityExecution.memberRootsByLayerID
+        var hasOrthographicRootDepthWriter: Bool?
+        particleBatches = particlePipeline?.prepare(preparedParticleBatches) { id in
+            guard cameraFrame.defaultsToPerspective, let layer = frameLayersByID[id],
+                  groupMembers[id] == nil, cameraFrame.resolvesPerspective(for: layer) else { return false }
+            if let hasOrthographicRootDepthWriter { return !hasOrthographicRootDepthWriter }
+            let mixedProjection = !staticModelResources.isEmpty && frameVisibleLayerIDs.contains { modelID in
+                guard staticModelResources[modelID]?.contains(where: \.writesDepth) == true,
+                      let model = frameLayersByID[modelID], groupMembers[modelID] == nil,
+                      !cameraFrame.resolvesPerspective(for: model) else { return false }
+                return SceneDynamicLayerValues.alpha(layerID: modelID, authoredValue: model.alpha,
+                    snapshot: frameContext.dynamicValues) > 0
+            }
+            hasOrthographicRootDepthWriter = mixedProjection
+            return !mixedProjection
+        } ?? []
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.draw.layerID)
 #if DEBUG
         performanceTelemetry?.endStage("prepass-particles")

@@ -38,6 +38,7 @@ struct SceneParticlePreparedRenderer {
     let orientationAxis: SIMD3<Float>?
     let usesPerspective: Bool
     let usesSceneCamera: Bool
+    var ignoresNativeSceneDepthWrite = false
 #if DEBUG
     var debugRendererComponentIndex: Int? = nil
     var debugRendererKind: String? = nil
@@ -153,7 +154,7 @@ struct SceneParticlePreparedRenderer {
                 && orientation == .screen && !sizeIsWorldSpace && childTemplateIndex == nil,
             inheritsNativeSceneCamera: ropeTrail != nil,
             referenceWorldFrame: referenceWorldFrame, sizeIsWorldSpace: sizeIsWorldSpace,
-            spriteYScale: spriteYScale
+            spriteYScale: spriteYScale, ignoresNativeSceneDepthWrite: ignoresNativeSceneDepthWrite
         )
 #if DEBUG
         batch.debugRendererComponentIndex = debugRendererComponentIndex

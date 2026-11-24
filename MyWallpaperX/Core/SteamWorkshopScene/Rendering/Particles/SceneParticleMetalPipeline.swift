@@ -8,7 +8,7 @@ struct SceneParticleDrawBatch {
     let colorUVScale: SIMD2<Float>
     let colorSampling: SceneParticleTextureSampling
     let refraction: SceneParticleRefractionBinding?
-    let renderState: SceneParticlePipelineRenderState
+    var renderState: SceneParticlePipelineRenderState
     let childTemplateIndex: Int?
     let instances: [SceneParticleGPUInstance]
     let orientation: SceneParticleOrientation
@@ -22,6 +22,7 @@ struct SceneParticleDrawBatch {
     var referenceWorldFrame: simd_float4x4? = nil
     var sizeIsWorldSpace: Bool = false
     var spriteYScale: Float = 1
+    var ignoresNativeSceneDepthWrite = false
 
     var readsSceneDepth: Bool {
         childTemplateIndex == nil
@@ -106,7 +107,8 @@ final class SceneParticleMetalPipeline {
         }
         guard let library,
               let samplerStates = SceneParticleSamplerStateSet(device: device),
-              let depthStates = Self.makeDepthStates(device: device, sceneDepth: !sceneDepthVariants.isEmpty) else {
+              let depthStates = Self.makeDepthStates(device: device,
+                  sceneDepth: sceneDepthVariants.contains(where: \.usesDepthAttachment)) else {
             return nil
         }
         let vertex = library.makeFunction(name: "sceneParticleVert")
@@ -148,7 +150,9 @@ final class SceneParticleMetalPipeline {
         }
     }
 
-    func prepare(_ batches: [SceneParticleDrawBatch]) -> [PreparedBatch] {
+    func prepare(
+        _ batches: [SceneParticleDrawBatch], isNativeRoot: (Int) -> Bool = { _ in false }
+    ) -> [PreparedBatch] {
         batches.compactMap { batch in
             let key = InstanceBufferKey(layerID: batch.layerID,
                                         childTemplateIndex: batch.childTemplateIndex,
@@ -162,7 +166,13 @@ final class SceneParticleMetalPipeline {
             }
             guard buffer.update(device: device, instances: batch.instances),
                   buffer.currentDrawState() != nil else { return nil }
-            return PreparedBatch(draw: batch, instanceBuffer: buffer)
+            var draw = batch
+            if batch.ignoresNativeSceneDepthWrite,
+               pipelineStates[.init(blendMode: .translucent, usesDepthAttachment: false)] != nil,
+               isNativeRoot(batch.layerID) {
+                draw.renderState.depthWriteEnabled = false
+            }
+            return PreparedBatch(draw: draw, instanceBuffer: buffer)
         }
     }
 

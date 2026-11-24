@@ -21,7 +21,6 @@
 | 中性粒子遮罩的实际颜色 · 3823864170 | [原尾迹跟随已恢复](../capabilities/runtime-evidence-current.md#pointer-zero-angles-author)。隔离实际134后，近等灰底及同亮度下本机粉色更饱和。再以单一作者 tint 和中性/有色纹理反例区分实例覆盖、stock R8 和颜色/alpha 混合，保23独立有色纹理。没有同相位可观察颜色约定前不调作者 tint。 |
 | 固体效果末端取样与音频供值 · 3612940332 | [作者尺寸和原包红弧](../capabilities/runtime-evidence-current.md#solid-background-raster-361)已恢复工作纹理尺寸和随PCM跳动的红弧。官版末端沿放置栅格，现本机最后作者材质仍在局部 pair 求值。仅在实际同附件读取可保顺序、预算和无别名时评估原末端路径；先用同UV与尺寸的导数见证。独立的32档供值差沿[共享音频设计](../../architecture/system-audio-spectrum-design.md)验证，使用端点后混音与同帧标定，保显示谱响应。 |
 | 世界粒子的出生半径与内圈密度 · 3653620838 | [定向 CP 与原包终图](../capabilities/runtime-evidence-current.md#vortex-axis-world-365)已恢复259内圈及镜像作者的青色流动。官版密度仍偏高。保持同画布和CP时间，先用原球形发射范围200、速度128且单轴固定的出生和无力短轨，分别核真实径向采样及初速，再分开 Radius/CP2 后继作用。实际环形模式需独立证据，本例的三个遗留字段已证惰性。 |
-| 世界粒子的深度写入语义 · 3248220186 | [时钟与球体](../capabilities/runtime-evidence-current.md#author-clock-sphere-depth-324)的官版单关208实体写深度能恢复细粒和完整暗钟，只关文字 SoftLight 能恢复明字并保细粒遮挡。本机两个活动写深度粒子仍各读私有附件。先隔离实际前后粒子、晚普通物体与透明边缘，分别确定读实体和向后继写入，再判断是否共用同一深度。 |
 | 月雾的遮挡范围 · 3453730450 | [只读主深度与实机](../capabilities/runtime-evidence-current.md#moon-fog-main-depth)已恢复部分重叠遮挡。锁姿态后右月面变化方向相同，本机幅度偏小，中心仍随测试开关变化；两端共有灰纹也未归因。若继续，固定同相机与两批粒子的出生位置、朝向和尺度，沿实际交叠边缘比较几何覆盖与存活轨迹，再决定修正点。 |
 | 细丝纹理的覆盖峰值 · 3454689854 | [原生薄丝与单属性对照](../capabilities/runtime-evidence-current.md#author-silk-raster-345)确认两端均有丝线而本机偏暗。固定单条、相位和末端栅格，仅改变现有 sourceCapture 工作尺寸，比较原图alpha覆盖、缩采样后覆盖与主图局部对比，再区分重放或混合。全局纹理上限和作者透明度保留至取得该边界证据。 |
 | 默认隐藏图层的共享颜色生产者 · 3461057594 | 388有普通图片颜色消费者，作者 init 建立 `shared.miPrimaryColor`，媒体事件可开启图层。颜色候选按 authored false 提前淘汰388，408的 `mix` 因缺生产者首帧报错。默认媒体组隐藏。开启 `mediainfo`，用已知封面颜色核共享值、408回调及当前帧实际回绘。 |
@@ -170,7 +169,7 @@
 | 3768724269 /3287715210 | 前者的光束范围/根部/右上渐变仍需定位；后者旧眼周/横移细竖纹尚无同条件native差异。[328体积开关STOP](../capabilities/runtime-evidence-current.md#point-volume-328-stop)未给出明确可逆贡献，85不再列优先归因；不由旧反馈扩正交/阴影合同，不原样补跑，待新的明确ROI/贡献。 |
 | 3750813609 /3363252053 | 相机过强/纵向反转的同输入体验；375另核时钟颜色、雨量与雷电。 |
 | 3747492842 | 闪烁/光束位置/crop/文字构图。 |
-| 3248220186 /3337494481 | 前者运动、密度与亮度。后者[侧字透盒已恢复](../capabilities/runtime-evidence-current.md#author-box-text-occlusion-333)，扁盒、粉顶与solid亮度分别待画面对照。 |
+| 3248220186 /3337494481 | 前者[官版深度语义及文字叠加](../capabilities/runtime-evidence-current.md#author-clock-sprite-depth-324)已恢复，背景色、光晕强度和相位待同条件对照。后者[侧字透盒已恢复](../capabilities/runtime-evidence-current.md#author-box-text-occlusion-333)，扁盒、粉顶与solid亮度分别待画面对照。 |
 | 2938612768 /2775915974 | 293默认裁屏已沿[原文字与画幅](../capabilities/runtime-evidence-current.md#text-screen-anchor-viewport)定位，重启须点击/更晚相位的具体新差异，不重复默认移位对照或改anchor；277顶部灰边仍须实际画幅/图层与相位资格。 |
 | 3712499998 | 作者明确声明21→22、28→29、33→34三对文字，子层有独立近邻位置及压缩Y scale；原R0六层均有效visible，不能将副本文字直接判引擎重复draw或删child。样式反馈仍开，重启须具体glyph/geometry/样式差异及同viewport/phase消费者或官方参考，不重跑原默认短窗；薄事实在`.artifacts/scene-text-pairs-371-next-20261109/`。 |
 | 3477054430 | [本轮短窗](../capabilities/runtime-evidence-current.md#rescreen-recent-inputs)月亮、猫、耳机与楼体完整；紫月边对应默认moonlightcolor及同帧u_Color，不立配色缺陷。完整运动、低频响应与受光仍待明确同条件ROI，不重复默认整景。 |

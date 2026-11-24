@@ -121,8 +121,8 @@
       "bytes": 7411
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 341,
-      "bytes": 67961
+      "lines": 343,
+      "bytes": 68501
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 419,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 308947
+      "bytes": 309930
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 170,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 217,
-      "bytes": 67235
+      "lines": 216,
+      "bytes": 66914
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,10 +433,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "67c0423819e27f97b315cae8da80c183e2f83714b4c4992df2c253437823f3ec",
-      "after": "cf83d7776266fd4980b950bb70976bdf5dda3542e3ecaa7ae9f6cc52f768baeb",
-      "owner": "Scene particle raster and root scene depth",
-      "reason": "Defines the borrowed reverse-depth domain, original draw ordering, cold optional variant and independent depth writers.",
+      "before": "cf83d7776266fd4980b950bb70976bdf5dda3542e3ecaa7ae9f6cc52f768baeb",
+      "after": "e9824603644da9892e9db00a560aabdd20927d092bd64f640cca3d9b0593e6ba",
+      "owner": "Scene native Sprite depth and MainPass",
+      "reason": "Defines authored test and ineffective write for ordinary translucent sprites in the qualified native perspective root pass.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#native-particle-main-depth"
     },
     {
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2e1cb2cd49fc1287977f6a28edf0759c089633ccc9b727515d7d29dba5629374",
-      "after": "52bf47c72fe38fe304f9365ff913b6253ca53dc5be520c66751628cfb4b3b3bd",
-      "owner": "Scene captured attachment and material graph",
-      "reason": "Records measured raster ownership, identical LOD samples, author PCM visibility and actual MainPass terminal evidence.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-led-placement-tail-322"
+      "before": "52bf47c72fe38fe304f9365ff913b6253ca53dc5be520c66751628cfb4b3b3bd",
+      "after": "42c079e82fc0fac424ad17cad4a2f4ed5a84b68a6ede6c9a5d48075cee475e2f",
+      "owner": "Scene native Sprite depth and MainPass",
+      "reason": "Records official read/write and same-system controls, native GPU order and independent orthographic coverage.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-clock-sprite-depth-324"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "212f4afef8dbe3a7ff35482f3e91ecb37cb74d766e7cc157e175ed6f6ca8dae8",
-      "after": "c6a23070147a7e45607ae1461a70f624c4b867c9fb98b5bdd911c10154ad7a58",
-      "owner": "Scene captured attachment and material graph",
-      "reason": "Closes the verified stripe raster fault and names the identified existing submission fixture compile debt.",
+      "before": "c6a23070147a7e45607ae1461a70f624c4b867c9fb98b5bdd911c10154ad7a58",
+      "after": "6d5905e780e1aab1b98656856b0f55bf49c4504943c459bb25ca350a68c8788b",
+      "owner": "Scene native Sprite depth and MainPass",
+      "reason": "Retires the verified translucent depth entry while retaining the remaining clock background and halo differences.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {

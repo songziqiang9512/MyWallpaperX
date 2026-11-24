@@ -402,6 +402,7 @@ final class SceneParticleRuntime {
                 plans: renderers,
                 layer: layer,
                 path: path,
+                hasChildSystems: retainedChildRuntime != nil,
                 layerImageMap: layerImageMap,
                 worldSpaceFrame: worldSpaceFrame,
                 rootWorldTranslation: translation?.plan,
@@ -453,9 +454,18 @@ final class SceneParticleRuntime {
                     layerVariants.insert(.init(isRefraction: renderer.refraction != nil,
                         blendMode: renderer.renderState.blendMode,
                         usesDepthAttachment: renderer.renderState.depthWriteEnabled))
-                    if canUseSceneDepth, renderer.renderState.readsSceneDepth(
-                        usesSceneCamera: renderer.usesSceneCamera, isRefraction: renderer.refraction != nil
-                    ) {
+                    guard canUseSceneDepth else { continue }
+                    if renderer.ignoresNativeSceneDepthWrite {
+                        variants.sceneDepth.insert(.init(
+                            blendMode: renderer.renderState.blendMode, usesDepthAttachment: false
+                        ))
+                    }
+                    let readsSceneDepth = renderer.ignoresNativeSceneDepthWrite
+                        ? renderer.renderState.depthTestEnabled
+                        : renderer.renderState.readsSceneDepth(
+                            usesSceneCamera: renderer.usesSceneCamera, isRefraction: renderer.refraction != nil
+                        )
+                    if readsSceneDepth {
                         variants.sceneDepth.insert(.init(
                             blendMode: renderer.renderState.blendMode, usesDepthAttachment: true
                         ))
@@ -777,7 +787,7 @@ final class SceneParticleRuntime {
     // swiftlint:disable:next function_parameter_count
     private func makeRootRenderRuntime(
         asset: SceneParticleAsset, plans: [SceneParticleRendererPlan],
-        layer: SceneRenderDescriptor.Layer, path: String,
+        layer: SceneRenderDescriptor.Layer, path: String, hasChildSystems: Bool,
         layerImageMap: SceneParticleLayerImageEmissionMap?,
         worldSpaceFrame: SceneParticleWorldSpaceFrame?,
         rootWorldTranslation: SceneParticleRootWorldTranslationPlan?,
@@ -791,7 +801,7 @@ final class SceneParticleRuntime {
         shouldCancelPrewarm: (() -> Bool)?, textureLoader: SceneTextureLoader,
         builtInTextureRegistry: SceneParticleBuiltInTextureRegistry
     ) -> SceneParticleRootRenderRuntime? {
-        let prepared = SceneParticlePreparedRenderer.prepare(
+        var prepared = SceneParticlePreparedRenderer.prepare(
             plans: plans, asset: asset, textureLoader: textureLoader,
             builtInTextureRegistry: builtInTextureRegistry, device: device
         ) { _, reason in
@@ -805,6 +815,11 @@ final class SceneParticleRuntime {
 #endif
         }
         guard !prepared.isEmpty else { return nil }
+        if !hasChildSystems, layer.parentID == nil, let state = asset.pipelineState,
+           state.blendMode == .translucent, state.depthWriteEnabled,
+           prepared.allSatisfy(\.usesSceneCamera) {
+            for index in prepared.indices { prepared[index].ignoresNativeSceneDepthWrite = true }
+        }
         let initialInstanceOverride = SceneParticleInstanceOverride.resolving(
             authored: layer.particleInstanceOverride,
             dynamic: initialDynamicValues.particleInstanceValues(layerID: layer.id))
