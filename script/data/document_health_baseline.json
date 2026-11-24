@@ -77,8 +77,8 @@
       "bytes": 73409
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 144,
-      "bytes": 27014
+      "lines": 148,
+      "bytes": 28257
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,10 +378,10 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "35d97516b00b32eaa81e67610e25ec3a9ad71335994cc0352b949bd504860fd0",
-      "after": "2331f6e89bdb277170b4bfc85ffb05203671fb16daa6574aa4d756180a1f567d",
-      "owner": "Scene timing / Quality",
-      "reason": "记录高刷实呈、小数上限与当前固定和混屏实机范围。",
+      "before": "2331f6e89bdb277170b4bfc85ffb05203671fb16daa6574aa4d756180a1f567d",
+      "after": "87a6d50a681c6825ac85f53c76510b9def4be0fd16fc155f0351212dcd375d64",
+      "owner": "Video / Quality",
+      "reason": "记录可比短循环的真实解码、签名 helper 成本与派生门。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
