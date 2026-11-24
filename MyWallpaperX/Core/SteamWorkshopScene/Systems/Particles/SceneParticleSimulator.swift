@@ -29,6 +29,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     private(set) var simulationTime = 0.0
     let definition: SceneParticleDefinition
     let instanceOverride: SceneParticleInstanceOverride?
+    let usesStraightMaskTint: Bool
     var activeInstanceOverride: SceneParticleInstanceOverride?
     private let maximumEmissionDuration: Double?
     /// Read completion from the same emitter state that schedules births.
@@ -131,7 +132,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         collisionBoundsFrame: SceneParticleCollisionBoundsFrame? = nil,
         initialControlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil,
         stepSnapshotPolicies: [SceneParticleStepSnapshotPolicy] = [],
-        eventValueContext: SceneParticleEventValueContext = .unavailable
+        eventValueContext: SceneParticleEventValueContext = .unavailable,
+        usesStraightMaskTint: Bool = false
     ) {
         self.playback = initialPlayback
         self.playbackHasWork = definition.preparedPlaybackWork(
@@ -139,6 +141,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         )
         self.definition = definition
         self.instanceOverride = instanceOverride
+        self.usesStraightMaskTint = usesStraightMaskTint
         self.activeInstanceOverride = initialDynamicInstanceOverride ?? instanceOverride
         self.dynamicControlPoints = initialDynamicControlPoints
         self.dynamicControlPointAngles = initialDynamicControlPointAngles

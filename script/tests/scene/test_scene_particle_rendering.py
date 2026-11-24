@@ -525,6 +525,17 @@ class SceneParticleRenderingTests(unittest.TestCase):
                 for observed, value in zip(row["bgra"], expected):
                     self.assertAlmostEqual(observed, min(255, value), delta=2)
 
+    def test_neutral_mask_tint_clips_gain_before_particle_and_texture_coverage(self) -> None:
+        rows = self.result["colorContract"]["maskTint"]
+        expected = {"unit-black": [67, 62, 78, 80], "partial-black": [77, 71, 80, 80],
+                    "bright-black": [80, 80, 80, 80],
+                    "bright-gray": [203, 203, 203, 80], "ordinary-black": [89, 82, 104, 80]}
+        self.assertEqual(rows.keys(), expected.keys())
+        for name, pixel in rows.items():
+            with self.subTest(name=name):
+                for observed, wanted in zip(pixel, expected[name], strict=True):
+                    self.assertAlmostEqual(observed, wanted, delta=1)
+
     def test_in_flight_instance_slots_are_not_reused_until_completion(self) -> None:
         slots = self.result["instanceBufferSlots"]
         self.assertTrue(slots["available"])

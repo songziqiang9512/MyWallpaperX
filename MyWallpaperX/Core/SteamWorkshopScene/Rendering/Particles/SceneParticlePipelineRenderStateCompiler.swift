@@ -48,7 +48,7 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
         return scalar.isFinite && scalar >= 0 ? scalar : nil
     }
 
-    private static func supportsOrdinaryMaterialProfile(
+    static func supportsOrdinaryMaterialProfile(
         _ materialPass: SceneParticleMaterialPass?
     ) -> Bool {
         guard let materialPass,

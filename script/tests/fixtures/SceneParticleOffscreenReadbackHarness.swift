@@ -19,6 +19,8 @@ enum SceneParticleOffscreenReadbackHarness {
         blendMode: SceneParticlePipelineBlendMode = .translucent,
         background: Float = 0,
         overbright: Float = 1,
+        particleColor: SIMD3<Float> = .init(repeating: 1),
+        usesStraightMaskTint: Bool = false,
         uniforms: SceneParticleLayerUniforms? = nil,
         particleSize: Float = 2, outputSize: Int = 8, sampleY: Int? = nil
     ) -> [Int] {
@@ -36,7 +38,7 @@ enum SceneParticleOffscreenReadbackHarness {
         let instances = SceneParticleMetalInstanceBuffer()
         guard instances.update(device: device, instances: [SceneParticleGPUInstance(
             position: .zero, size: particleSize, rotation: .zero,
-            color: SIMD3(repeating: 1), alpha: particleAlpha,
+            color: particleColor, alpha: particleAlpha,
             currentFrame: currentFrame, nextFrame: nextFrame, frameMix: frameMix
         )]) else { return [] }
         let pass = MTLRenderPassDescriptor()
@@ -53,11 +55,13 @@ enum SceneParticleOffscreenReadbackHarness {
             drawUniforms.basisRight = -drawUniforms.basisRight
             drawUniforms.spriteRight = -drawUniforms.spriteRight
         }
+        var renderState = SceneParticlePipelineRenderState(blendMode: blendMode, cullMode: cullMode, overbright: overbright)
+        renderState.usesStraightMaskTint = usesStraightMaskTint
         guard pipeline.draw(
             texture: texture,
             instances: instances,
             uniforms: drawUniforms,
-            renderState: SceneParticlePipelineRenderState(blendMode: blendMode, cullMode: cullMode, overbright: overbright),
+            renderState: renderState,
             colorSampling: .directImageFallback,
             encoder: encoder
         ) else { return [] }

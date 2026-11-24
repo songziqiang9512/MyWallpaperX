@@ -709,8 +709,20 @@ extension Harness {
         guard let secondMipView = adaptedRG.makeTextureView(
             pixelFormat: adaptedRG.pixelFormat, textureType: .type2D,
             levels: 1..<2, slices: 0..<1, swizzle: adaptedRG.swizzle) else { return [:] }
+        let maskTint = SIMD3<Float>(0.98, 0.775, 0.833)
+        let maskCases: [(String, Float, Float, Bool)] = [
+            ("unit-black", 1, 0, true), ("partial-black", 1.15, 0, true),
+            ("bright-black", 1.33, 0, true),
+            ("bright-gray", 1.33, 0.7, true), ("ordinary-black", 1.33, 0, false),
+        ]
+        let maskPixels = Dictionary(uniqueKeysWithValues: maskCases.map { name, gain, background, clips in
+            (name, SceneParticleOffscreenReadbackHarness.centerPixel(texture: adaptedR8Texture,
+                particleAlpha: 0.4, background: background, overbright: gain,
+                particleColor: maskTint, usesStraightMaskTint: clips))
+        })
         return [
             "rawR8": rawR8, "adaptedR8": adaptedR8,
+            "maskTint": maskPixels,
             "rgMipCount": adaptedRG.mipmapLevelCount,
             "rgPixel": SceneParticleOffscreenReadbackHarness.centerPixel(texture: adaptedRG),
             "rgSecondMip": SceneParticleOffscreenReadbackHarness.centerPixel(texture: secondMipView),

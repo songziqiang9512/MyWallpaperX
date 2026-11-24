@@ -49,9 +49,9 @@ Turbulence、Turbulent Velocity、Remap 和 Position Offset 共用梯度噪声�
 <a id="instance-color"></a>
 ### 实例颜色覆盖
 
-General `instanceoverride.color`（0…255）与 `colorn`（0…1）是初始化后的颜色替换，不与 initializer 颜色相乘。原 Simulator 在新生粒子完成作者初始化后，按原优先级取一个覆盖值、沿原平方转换写入 RGB，再应用 brightness；禁用颜色覆盖的原 flags 仍保 initializer。没有覆盖时不改色，动态属性与 Timeline 只改变后续出生，既有粒子保出生颜色及后续 operator。不增加颜色状态、shader 分支或逐帧重着色，退役原错误乘色。
+General `instanceoverride.color`（0…255）和 `colorn`（0…1）在 initializer 后任选一项替换新生颜色，`color` 优先，brightness 后乘。禁用覆盖、无覆盖和已出生粒子仍沿原顺序；动态值只供之后的出生。默认沿原平方颜色转换。
 
-该替换及出生时机由 Mirage 的真实 initializer→override→birth/reset 链提供行为线索；不照搬其实现，也不由该参考授予官方全部语义或其尚未接通的颜色 Timeline。验收在原 Parser/Simulator 门核零通道被有效覆盖、legacy/normalized 等价、brightness、无覆盖、禁用 flag、动态新旧 cohort、改名与健康 peer；原作者同输入前后画面、独立作者及独审另核，不能从蓝分量恢复外推两道光的方向或无闪烁。
+<a id="neutral-mask-trail-color"></a>普通无光照、SDR 半透明 SpriteTrail 使用实际 R8 白色覆盖纹理时，具有效 `colorn` 的独立根在原准备阶段选择作者色。Simulator 出生直接使用该 RGB。原普通片元对已有 PMA RGB 限至 `alpha`，等价于先把增亮后的直色限制到1，再乘一次覆盖率。模式随已准备绘制状态传入原 uniform，保现有 blend、采样和 PSO。Legacy `color`、HDR、折射、有色纹理、后继颜色写入与子系统沿原路径。双背景、改名和独立纹理的[验收](runtime-evidence-current.md#neutral-mask-trail-382)。
 
 <a id="control-point-position"></a>
 ### 控制点位置的取值职责
@@ -153,7 +153,6 @@ Sphere沿原DefinitionParser一次准备显式local origin、radius及bouncefact
 - Remap 仍由原 `SceneParticleRemapValue` 准备 velocity/simplex 与 scalar-speed/FBM 两条有界计划；真实input selector/range、其他输出/操作及外层lifecycle blend尚缺完整消费者。独立静态范围、晚EventDeath实例与sine正控的当前资格见[运行证据](runtime-evidence-current.md)；场景对齐候选类不等于所有时钟/预热/rate行为已定，sine及作者缺省参数仍未资格。新实现沿[标量Remap合同](../architecture/runtime-architecture.md#particle-scalar-remap)替换两份平行可选计划，保原noise/RNG行为；不能用猜公式或新增字段组合白名单补第三路径。
 - Vortex classic 与 v2 有不同 flags/轴/CP/audio 资格。现有默认原点的 v2 固定半径及强度为项目有界响应。显式控制点的方案见[定向 Vortex](#oriented-vortex)。
 - Plane Collision消费原准备平面；静态Sphere由[球体合同](#sphere-collision)维护。壁纸画布边界的实现范围归[Bounds合同](#bounds-collision)。
-- Color/normalized color 的来源、writer 优先级及新生/存量作用不同，未与官方定标的算法保持明确限制；不能靠调 gain、速度或 RNG 拟合样本。
 - Position Around Count 是序列除数，支持大于等于 1 的有限作者数值，保留小数。整数可沿 ID 取余，小数沿原分段余数，超出 ID 范围的除数直接消费原 ID；计数只参与相位计算。准备时由同一 typed plan 汇合控制点和发射源约束，出生只消费该计划。未资格的轴、Mirror、periodic 与空间组合仍沿原边界。
 - Position Around 使用同一粒子空间中的实际出生位置与目标控制点之差。轴向投影保留出生所在的轴向平面，垂轴分量给出半径；绑定只决定实际出生位置。斜轴以局部负 Z 在垂轴平面的投影为零相位，正交切向按作者轴取向；正负 Z 两极均从正 Y 向正 X 起转。速度的 X/Y/Z 分量分别进入同相位的切向、径向和带符号轴向，保留原出生抽样与叠加顺序。以同一对正弦、余弦求位置和速度，退役独立的速度旋转。Mirror、极近轴数值边界及完整动态相位仍待资格。
 - Control Point Force 沿点与粒子的径向施力，正吸引、负排斥，强度随距离递减至零。General 世界根的指针力用当前完整世界基底量测距离，作为门限、衰减及单位化的依据；以原局部相对向量累加冲量，无第二次转换。局部、非指针与子系统各用原距离空间。保原点供货、缺省距离、约四分之三的加速度倍率、生命周期权重和 Movement 顺序。精确时步与其他模式分别判定。

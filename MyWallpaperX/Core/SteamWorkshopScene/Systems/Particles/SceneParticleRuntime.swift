@@ -823,6 +823,16 @@ final class SceneParticleRuntime {
         let initialInstanceOverride = SceneParticleInstanceOverride.resolving(
             authored: layer.particleInstanceOverride,
             dynamic: initialDynamicValues.particleInstanceValues(layerID: layer.id))
+        let usesStraightMaskTint = prepared[0].renderState.blendMode == .translucent
+            && !descriptor.hdrEnabled && !hasChildSystems && asset.refraction == nil
+            && layer.particleInstanceOverride?.normalizedColor?.value != nil
+            && layer.particleInstanceOverride?.color?.value == nil && !asset.definition.flags.disablesColorOverrides
+            && prepared.allSatisfy { $0.trail != nil && $0.texture.pixelFormat == .r8Unorm }
+            && SceneParticlePipelineRenderStateCompiler.supportsOrdinaryMaterialProfile(asset.materialPass)
+            && !asset.definition.operators.contains { $0.kind == .colorChange }
+        if usesStraightMaskTint {
+            for index in prepared.indices { prepared[index].renderState.usesStraightMaskTint = true }
+        }
         let simulator = SceneParticleSimulator(
             definition: asset.definition,
             instanceOverride: layer.particleInstanceOverride,
@@ -840,7 +850,8 @@ final class SceneParticleRuntime {
             controlPointForceEnvironment: forceEnvironment,
             controlPointFrame: controlPointFrame,
             collisionBoundsFrame: collisionBoundsFrame,
-            stepSnapshotPolicies: prepared.compactMap { $0.snapshotPolicy }
+            stepSnapshotPolicies: prepared.compactMap { $0.snapshotPolicy },
+            usesStraightMaskTint: usesStraightMaskTint
         )
 #if DEBUG
         simulator.observeSelectedRenderers(typedIndices: prepared.map(\.index))

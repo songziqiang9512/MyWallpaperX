@@ -18,7 +18,7 @@
 | 定位 | 当前事实与下一步 |
 |---|---|
 | Puppet 旧动画的辅助轨 · 3174321827 / 3139661653 | [组装姿态与实际画面](../capabilities/runtime-evidence-current.md#puppet-counted-reference-317)已恢复317胸前双臂。原317的 MDLA0005/171 和独立 MDLA0004/965、970仍未越过辅助轨准备。先对照真正活动轨的计数、字节跨度和官版关轨后的连续姿态，保本次静态reference及已有完整动画。不从初始 pose 推断 IK。 |
-| 中性粒子遮罩的实际颜色 · 3823864170 | [原尾迹跟随已恢复](../capabilities/runtime-evidence-current.md#pointer-zero-angles-author)。隔离实际134后，近等灰底及同亮度下本机粉色更饱和。再以单一作者 tint 和中性/有色纹理反例区分实例覆盖、stock R8 和颜色/alpha 混合，保23独立有色纹理。没有同相位可观察颜色约定前不调作者 tint。 |
+| 零半径的粒子初速 | [3823864170 首轮几何对照](../capabilities/runtime-evidence-current.md#neutral-mask-trail-382)同包半径0在官版有轴向尾迹，本机有draw但无像素；半径1两端可见。先核0时方向、符号与抽样，沿原出生入口保位置及非零半径，颜色已闭合。 |
 | 固体效果末端取样与音频供值 · 3612940332 | [作者尺寸和原包红弧](../capabilities/runtime-evidence-current.md#solid-background-raster-361)已恢复工作纹理尺寸和随PCM跳动的红弧。官版末端沿放置栅格，现本机最后作者材质仍在局部 pair 求值。仅在实际同附件读取可保顺序、预算和无别名时评估原末端路径；先用同UV与尺寸的导数见证。独立的32档供值差沿[共享音频设计](../../architecture/system-audio-spectrum-design.md)验证，使用端点后混音与同帧标定，保显示谱响应。 |
 | 世界粒子的内圈密度 · 3653620838 | [Radius及CP2](../capabilities/runtime-evidence-current.md#world-pointer-force-365)已完成隔离，原包密度仍不同。下次固定CP1相位和指针窗外，隔离 Vortex 长时径向约束、切向增益与生命周期；环形模式另证。 |
 | 月雾的遮挡范围 · 3453730450 | [只读主深度与实机](../capabilities/runtime-evidence-current.md#moon-fog-main-depth)已恢复部分重叠遮挡。锁姿态后右月面变化方向相同，本机幅度偏小，中心仍随测试开关变化；两端共有灰纹也未归因。若继续，固定同相机与两批粒子的出生位置、朝向和尺度，沿实际交叠边缘比较几何覆盖与存活轨迹，再决定修正点。 |

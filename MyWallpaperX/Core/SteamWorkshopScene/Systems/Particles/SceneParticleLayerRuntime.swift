@@ -31,7 +31,7 @@ struct SceneParticlePreparedRenderer {
     let colorUVScale: SIMD2<Float>
     let colorSampling: SceneParticleTextureSampling
     let refraction: SceneParticleRefractionBinding?
-    let renderState: SceneParticlePipelineRenderState
+    var renderState: SceneParticlePipelineRenderState
     let spriteAnimation: SceneSpriteAnimation?
     let staticSpriteAspect: Float
     let orientation: SceneParticleOrientation

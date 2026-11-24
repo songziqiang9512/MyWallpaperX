@@ -288,6 +288,10 @@ fragment float4 sceneParticleFrag(
     // in.tint already includes particle alpha. Apply texture coverage only
     // after filtering/interpolation, retaining authored RGB at zero alpha.
     result.rgb *= texel.a * parameters.z;
+    if (parameters.w > 0.5) {
+        // With a white mask, this saturates the straight gain without unpremultiplying.
+        result.rgb = min(result.rgb, float3(result.a));
+    }
     return result;
 }
 

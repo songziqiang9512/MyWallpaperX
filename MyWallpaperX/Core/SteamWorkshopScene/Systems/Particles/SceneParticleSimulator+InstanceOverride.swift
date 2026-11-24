@@ -27,7 +27,7 @@ extension SceneParticleSimulator {
                 let normalized = color / 255
                 particle.color = normalized * normalized
             } else if let color = overrideVector(value.normalizedColor) {
-                particle.color = color * color
+                particle.color = usesStraightMaskTint ? color : color * color
             }
         }
         particle.color *= overrideScalar(value.brightness)

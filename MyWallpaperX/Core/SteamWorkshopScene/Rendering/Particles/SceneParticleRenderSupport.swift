@@ -54,6 +54,7 @@ nonisolated struct SceneParticlePipelineRenderState: Equatable, Sendable {
     let depthTestEnabled: Bool
     var depthWriteEnabled: Bool
     let overbright: Float
+    var usesStraightMaskTint = false
 
     func readsSceneDepth(usesSceneCamera: Bool, isRefraction: Bool) -> Bool {
         usesSceneCamera && !isRefraction && blendMode != .alphaToCoverage

@@ -251,7 +251,7 @@ final class SceneParticleMetalPipeline {
             colorUVScale.x,
             colorUVScale.y,
             renderState.overbright,
-            0
+            renderState.usesStraightMaskTint ? 1 : 0
         )
         encoder.setFragmentBytes(
             &parameters,
