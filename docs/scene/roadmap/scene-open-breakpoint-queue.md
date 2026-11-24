@@ -18,7 +18,7 @@
 | 定位 | 当前事实与下一步 |
 |---|---|
 | Sphere 全零方向的出生可见性（待证） | [固定零半径初速](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)已恢复。显式全零 Directions 的隔离 Sprite 在官版窗内无像素，本机可见且静止。需分出生资格与可见条件，先找活动作者或单轴逐步归零的反例，保零速度和非零轴的正常出生。 |
-| 音频供值 · 3612940332 | 作者尺寸与[放置栅格同像素末材](../capabilities/runtime-evidence-current.md#solid-background-same-pixel-native)已恢复红弧高亮和细前缀取样。剩余为真实音频幅值及时间变化。[端点回录](../capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361)已有同帧32档取峰、64档相邻边界与精确短窗证据。沿[共享音频设计](../../architecture/system-audio-spectrum-design.md)区分跨声道快影响、局部恢复和端点，再验原包有声弧。 |
+| 音频供值 · 3612940332 | 红弧几何及合成已修。跨声道快影响与声道分组恢复已由[同PCM脉冲](../capabilities/runtime-evidence-current.md#author-spectrum-pulse-361)区分。待异幅能判更新律或取得运行中原值，再沿[共享设计](../../architecture/system-audio-spectrum-design.md)接分域并验原包有声弧。 |
 | 世界粒子的外围分布 · 3653620838 | [Project 光效栅格](../capabilities/runtime-evidence-current.md#project-framebuffer-resolution-365)已纠正，内圈更近。外圈在345之前已有差，先隔离259稀疏分布和时相，保内圈现验收。 |
 | 普通粒子材质增亮的裁幅 | 平面 RG88 同窗对照测得材质 gain1.4 的官版 `(0,144,144)`、本机新 `(0,163,202)`。先找实际作者消费，并用有色 texel、半透明底和双层加色区分 tint、采样与裁幅顺序。已验证的中性 R8 半透明 Trail 裁幅另有原证据。 [运行证据](../capabilities/runtime-evidence-current.md#particle-instance-tint-native) |
 | 月面灰纹 · 3453730450 | [深度与雾出生范围已修复](../capabilities/runtime-evidence-current.md#moon-fog-fractional-sign)。共有灰纹和中心小余差仍需固定相位与writer显隐。先记录灰纹是否跟随月面转动，依据实际颜色来源区分作者原貌和兼容缺口。 |

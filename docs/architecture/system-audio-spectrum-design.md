@@ -3,7 +3,7 @@
 
 # 共享音频分析与消费域设计
 
-> 状态：当前三类消费者仍共用显示响应。[粒子16档](../scene/capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)与[shader 32档](../scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361)分别已证从准备64档取组内峰值，端点对照把频带身份差定位在折叠前。固定x64默认分析窗与现有窗不同，尚未取得x86实机等同证据。48kHz相邻频轴与同档取峰已有实机资格，短矩形候选可复现邻谱；约85ms Hann 后的幅值无法恢复该窗口。同PCM已证共享快影响与局部慢状态，更新律未定。48kHz离线比较选择精确短窗变换，格式、增益及作者画面仍待验证。
+> 状态：现三类消费者共用显示响应。[粒子16档](../scene/capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)和[shader 32档](../scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361)已证从准备64档取组内峰值。48kHz相邻轴、局部取峰与精确短窗候选有证据，44.1kHz及x86精确物理窗待证。[同PCM脉冲](../scene/capabilities/runtime-evidence-current.md#author-spectrum-pulse-361)区分跨声道快影响和组内较慢恢复。取得可测更新律、相邻端点及作者画面后再切Scene域。
 
 ## 目标与职责
 
@@ -37,6 +37,6 @@ Video helper仍首次开启才建子层并采用已接纳高度；空数组表�
 1. 原真实Analyzer/Service门保Video/Web的同PCM数值、样式、30/60Hz捕获时间包络、mono/stereo、格式、静音与暂停/恢复；同scope、格式及有效capture epoch的端点/需求变化不额外改变native值/历史，真实边界仍验原重建/token规则；需求不存在不计算无人消费的域。不能复制DSP进测试。
 2. 同源核PCM、原始谱、准备64、折叠16与[发射器出生](../scene/capabilities/runtime-evidence-current.md#floor-beam-emitter-338211)。普通持续发射验中置同档平均后取峰、bounds内smoothstep后取幂，含指数100。算子和初始化器单验。保单峰、错位峰、边界、静音、等价变体与原包出生。显示域保原数值门。
 3. 六数组经真实decoder→Inbox→帧消费者核shape/顺序、generation、迟到、padding及>1不截顶，内部不重复验数据。Debug后固定作者版本、属性、声源、相位与viewport核主要图层、实际draw/附件贡献和目标ROI；补独立粒子、pulse眼部、32/64 shader/Script及Video/Web受影响样式。
-4. 独立审查冻结源与实际画面，原生Web保两帧motion。参考、官方、合成与实际作者结论分开；无可行动资格即转其他开放项，不继续加音量/时长矩阵。没有可比profile不声称CPU/能耗改善，原始音乐收尾删除。
+4. 独审冻结源与实际画面，原生Web保两帧motion。分开记录合成输入与作者画面。供值待取得能区分更新律的异幅预测或运行中原值，不重复当前脉冲矩阵。无可比profile不授性能收益，原曲收尾删除。
 
 实现入口：`SystemAudioSceneSpectrumAnalyzer.swift`、`SystemAudioOverlaySpectrumAnalyzer.swift`、`SystemAudioSpectrumService.swift`；测试入口：`test_audio_spectrum_response.py`、`test_system_audio_spectrum.py`、`test_scene_audio_spectrum_input.py`及采集恢复/scope/IPC门。
