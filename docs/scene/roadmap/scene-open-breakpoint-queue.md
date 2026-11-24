@@ -122,7 +122,6 @@
 | 条件 TEX · 附属消费者 | [3766299002 面具与独立3791967416袖标](../capabilities/runtime-evidence-current.md#author-conditional-mask-376)已沿作者基图与Puppet事务恢复。3747492842的附属材质同时带三路Combo；后续确认该消费者的选择、供货与实际画面，动态构造和图层发射源保各自的生命周期。重叠条件次序待作者正例。 |
 | 3187857248 | [原包单/双Surface拖动](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318)已恢复双Surface脚本拖动，作者命中范围与小幅变形保持。若物理单屏仍间歇失败，先取原生真实按下点/当前骨位置、持有与释放，再核命中、骨写与末端。官版按键传输未获资格。 |
 | 3781003282 | 中央白方[未重现](../capabilities/runtime-evidence-current.md#pointer-halo-378)。重启须可复现位置、画幅或桌面版本，再判888采样与独立395/e16。 |
-| 3306942838 · 图2 | [原包、官版同轨与关槽对照](../capabilities/runtime-evidence-current.md#puppet-body-slot-330)恢复身体槽1632及头肩向左同步。正向仍有少量相对偏移，等同相位与同取景的头肩对照再判其它槽、角度或绑定。 |
 | Puppet 后置标量轨 | [384与独立377的普通骨轨已恢复](../capabilities/runtime-evidence-current.md#puppet-post-bounds-trs)。同相位标量替换未证主要遮挡差。重启须有单骨/同位置的可见交叠对照，再分纯绘制顺序、骨权重或几何作用。 |
 | 3382111183 | [官版曲线及原曲实机](../capabilities/runtime-evidence-current.md#floor-beam-emitter-338211)已测同档左右均值取峰、smoothstep后取幂和越1供值。待共享准备值合格后接普通发射器，验原包出生和运动。 |
 | 3383210272 / 3463406101 | [原曲](../capabilities/runtime-evidence-current.md#beam-shared-pcm)官版成双束、本机各2颗。[同PCM前景](../capabilities/runtime-evidence-current.md#author-low-band-pulse-346)确认原Pulse执行、两组官版取峰及准备64档已分叉。低档也见跨声道快影响与同侧慢历史。继续须可配对的运行中原谱或能裁决更新律的新输入，沿[共享设计](../../architecture/system-audio-spectrum-design.md)验原曲宽束、前景及独立消费者。沿用已测阈值和原曲证据。 |
@@ -238,7 +237,7 @@
 | 3769761761 | 部分修复。斜光预热、缺省初速和相位已修复。[原包](../capabilities/runtime-evidence-current.md#ember-turbulent-birth-speed) · [持续湍流与覆盖](../capabilities/runtime-evidence-current.md#ember-continuous-field-and-coverage) |
 | 3842265910 | 已修复双瞳缺失及身体普通骨轨。后置标量仍开放。[双瞳](../capabilities/runtime-evidence-current.md#puppet-pupil-color-order-384) · [身体](../capabilities/runtime-evidence-current.md#puppet-post-bounds-trs) |
 | 3372715909 | 已定位。原包时间和日期被作者重建的全屏视频覆盖，测试副本调层序后恢复。官版原包此次无对照画面。[时钟与层序](../capabilities/runtime-evidence-current.md#author-clock-video-order-337) |
-| 3306942838 | 部分修复。头肩脱节的主要槽与同步运动已恢复，正向相对偏移另核。[头肩](../capabilities/runtime-evidence-current.md#puppet-body-slot-330) |
+| 3306942838 | 已修复头肩主要脱节。官版与本机同画幅同相位实绘，正向横移差≤1.1 px。[头肩](../capabilities/runtime-evidence-current.md#puppet-head-phase-330) |
 | 3455121165 | 已修复。默认排序下时钟下方的原作者音条已恢复。[钟下音条](../capabilities/runtime-evidence-current.md#native-composition-audio-prefix) |
 
 已核官版表现也可复用。3769688830 默认玩偶会持续自转并随父层摆动，属性可关闭自转。3351163962 在已测相同较窄画幅两端时钟均出圈。3617449489 的白色音频环在现行原包两端均未见。3781003282 的红尾两端均跟随，中央白块未复现。这些现象有新触发证据再查。[玩偶](../capabilities/runtime-evidence-current.md#orb-spin-parent-motion-376) · [时钟画幅](../capabilities/runtime-evidence-current.md#text-screen-anchor-viewport) · [白环](../capabilities/runtime-evidence-current.md#preview-ring-361744) · [鼠标拖尾](../capabilities/runtime-evidence-current.md#pointer-halo-378)
