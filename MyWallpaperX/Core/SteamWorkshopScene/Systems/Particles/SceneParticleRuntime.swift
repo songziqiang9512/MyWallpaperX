@@ -802,7 +802,8 @@ final class SceneParticleRuntime {
         builtInTextureRegistry: SceneParticleBuiltInTextureRegistry
     ) -> SceneParticleRootRenderRuntime? {
         var prepared = SceneParticlePreparedRenderer.prepare(
-            plans: plans, asset: asset, textureLoader: textureLoader,
+            plans: plans, asset: asset, rootUsesWorldSpace: asset.definition.flags.isWorldSpace,
+            textureLoader: textureLoader,
             builtInTextureRegistry: builtInTextureRegistry, device: device
         ) { _, reason in
 #if DEBUG

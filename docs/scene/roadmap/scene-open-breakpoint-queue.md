@@ -19,7 +19,7 @@
 |---|---|
 | Sphere 全零方向的出生可见性（待证） | [固定零半径初速](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)已恢复。显式全零 Directions 的隔离 Sprite 在官版窗内无像素，本机可见且静止。需分出生资格与可见条件，先找活动作者或单轴逐步归零的反例，保零速度和非零轴的正常出生。 |
 | 固体效果末端取样与音频供值 · 3612940332 | [作者尺寸和原包红弧](../capabilities/runtime-evidence-current.md#solid-background-raster-361)已恢复。末端同输入测得两端均读到同帧前缀，本机局部纹理二次采样降低亮线连续性。下一次改动须证源/目标无别名、前后顺序和实际GPU成本；暂保局部工作尺寸。同帧32档取峰及64档差异已有[端点回录](../capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361)；沿[共享音频设计](../../architecture/system-audio-spectrum-design.md)相邻边界、同档取峰和精确短窗已有候选。跨声道快影响与局部恢复时间已分开；归一合成和不同端点待定。 |
-| 世界粒子的内圈密度 · 3653620838 | [Radius及CP2](../capabilities/runtime-evidence-current.md#world-pointer-force-365)已完成隔离，原包密度仍不同。下次固定CP1相位和指针窗外，隔离 Vortex 长时径向约束、切向增益与生命周期；环形模式另证。 |
+| 世界粒子的内圈密度 · 3653620838 | [世界根 Sprite 朝向](../capabilities/runtime-evidence-current.md#root-world-sprite-alignment-native)已修复。[固定CP1与单粒轨道对照](../capabilities/runtime-evidence-current.md#fixed-vortex-density-365)仍有密集覆盖差异。先以等 mip 平面图隔离 AlphaFade，再以同 L0、有标记的低级 mip 隔离选级；仍有差异再拆线性加色与终端色调。倾轴及环形 Vortex 各自取证。 |
 | 月雾的遮挡范围 · 3453730450 | [只读主深度与实机](../capabilities/runtime-evidence-current.md#moon-fog-main-depth)已恢复部分重叠遮挡。锁姿态后右月面变化方向相同，本机幅度偏小，中心仍随测试开关变化；两端共有灰纹也未归因。若继续，固定同相机与两批粒子的出生位置、朝向和尺度，沿实际交叠边缘比较几何覆盖与存活轨迹，再决定修正点。 |
 | 细丝纹理的覆盖峰值 · 3454689854 | [原生薄丝与单属性对照](../capabilities/runtime-evidence-current.md#author-silk-raster-345)确认两端均有丝线而本机偏暗。固定单条、相位和末端栅格，仅改变现有 sourceCapture 工作尺寸，比较原图alpha覆盖、缩采样后覆盖与主图局部对比，再区分重放或混合。全局纹理上限和作者透明度保留至取得该边界证据。 |
 | Puppet 约束的剩余时序与组合 | [原317和313已恢复主要播放](../capabilities/runtime-evidence-current.md#puppet-planar-constraints-native)。固定根解析投影在317额外+96对照的肘误差约2.17px，313极近伸直时官版定槽后仍收敛。待有原包可见差异再核有效根位移与收敛。复杂链、挂点及同链脚本与物理后写按实际消费者验证。 |

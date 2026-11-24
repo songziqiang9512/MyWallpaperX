@@ -393,11 +393,20 @@ extension Harness {
         for (index, name) in names.enumerated() {
             let material = "materials/\(name).json"
             let isTrail = name.hasPrefix("trail")
+            let isWorldRoot = name == "raw" || name == "refract" || isTrail
             try writeParticle("particles/\(name).json", material: material,
+                flags: isWorldRoot ? 1 : 0,
                 renderer: isTrail ? "spritetrail" : "sprite",
                 rendererLength: isTrail ? 1 : nil,
                 rendererMinimumLength: isTrail ? 2 : nil,
                 rendererMaximumLength: isTrail ? 2 : nil,
+                additionalRenderers: name == "raw" ? [
+                    ["name": "sprite", "orientation": "screen"],
+                    ["name": "sprite", "orientation": "fixed"],
+                    ["name": "sprite", "orientation": "vertical"],
+                    ["name": "sprite", "orientation": "other"],
+                    ["name": "sprite", "flags": 1],
+                ] : [],
                 velocityX: isTrail ? 2 : nil,
                 instantaneous: 1, children: name == "raw" ? [[
                     "name": "particles/child.json", "type": "static"
@@ -410,7 +419,7 @@ extension Harness {
                 blending: "translucent", combos: name.hasSuffix("refract") ? ["REFRACT": 1] : [:]))
         }
         try writeParticle("particles/child.json", material: "materials/embedded.json",
-            instantaneous: 1, under: directory)
+            flags: 1, instantaneous: 1, under: directory)
         try writeParticle("particles/child-refract.json", material: "materials/refract.json",
             instantaneous: 1, under: directory)
         for name in ["trail", "trail-refract"] {
@@ -425,7 +434,9 @@ extension Harness {
             cacheDirectory: directory, device: device)
         let batches = runtime.advance(by: 1.0 / 60.0)
         var result: [String: Any] = [:]
-        for batch in batches {
+        result["worldRootOrientations"] = batches.filter { $0.particlePath == "particles/raw.json" }
+            .map { String(describing: $0.orientation) }
+        for batch in batches where batch.rendererIndex == 0 {
             guard let instance = batch.instances.first else { continue }
             let name = URL(fileURLWithPath: batch.particlePath).deletingPathExtension().lastPathComponent
             result[name] = [
@@ -433,6 +444,7 @@ extension Harness {
                 "stretch": instance.velocityAndTrail.w,
                 "uvScale": [batch.colorUVScale.x, batch.colorUVScale.y],
                 "textureSize": [batch.texture.width, batch.texture.height],
+                "orientation": String(describing: batch.orientation),
                 "pixels": spriteBatchBounds(batch, device: device)
             ]
         }

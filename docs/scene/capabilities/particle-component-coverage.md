@@ -237,6 +237,13 @@ Surface 采用新 topology 才退出死 root/child GPU key；重建构造前过�
 
 材质剔除由原 Metal raster 状态消费：`normal` 编译为 back-cull，`noCull` 保双面，共用已有三角绕序与 vertex。其资格不依赖 renderer 名称或 REFRACT 组合，不改变相机、basis、尺寸与变换、纹理 UV、snapshot 或输出 owner。镜像是否翻面按实际几何投影决定，不改 front-facing 补偿作者变换。
 
+<a id="root-world-sprite-alignment"></a>
+### General 世界根 Sprite 的屏幕朝向
+
+符合既有场景相机几何合同的 Sprite，screen 朝向在 General 世界根上使用现有世界屏幕轴。原 root 变换继续决定出生和中心，世界尺寸与粒子自身旋转照原输入。原 renderer 冷准备选择已有 `.worldScreen`，退出这类卡片轴对根层旋转的局部继承。折射、未识别的朝向、局部 Sprite、子系统、显式固定或竖直方向和拖尾沿各自原几何计划。
+
+实机正、零、负根旋转验证屏幕轴及真实出生位置，局部正角验证原几何。独立世界根作者与已显式世界 Sprite、Trail 作为邻例。沿现 CameraFrame/Metal 消费，无新增 shader、状态或逐粒运算。
+
 <a id="rope-trail-length"></a>
 ### RopeTrail 的缺省 length
 

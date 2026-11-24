@@ -121,8 +121,8 @@
       "bytes": 7411
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 344,
-      "bytes": 68237
+      "lines": 351,
+      "bytes": 69010
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 419,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 318391
+      "bytes": 320163
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 214,
-      "bytes": 65992
+      "bytes": 66169
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "f08cd9a00ae5d5465307a5a8f9eefd8c8fbaab37a6b25240bab1b7c4aab5349d",
-      "after": "d13e46ad78fb98e7eaa6f73278da2c5bc9867a09d6c71ff546df59f91b6e4248",
+      "before": "d13e46ad78fb98e7eaa6f73278da2c5bc9867a09d6c71ff546df59f91b6e4248",
+      "after": "23d375270130ae0b77475a185688c4cab1e71df9967949cbf3135aedb6bc125c",
       "owner": "Scene Sphere emitter birth",
-      "reason": "Documents the fixed-zero Sphere launch seed and cold axis weights in the existing emitter contract.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#emitter-speed"
+      "reason": "记录世界根屏幕 Sprite 的冷准备及相邻几何边界。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#root-world-sprite-alignment"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9c138187876ed4493b8dc14cce623277cc463453f1e04aeccf52404fbc1f6b56",
-      "after": "a8de7a1bf666ee59c26482cbd0f856fbabe3676aeca2968c50c3938bfe09cf76",
+      "before": "a8de7a1bf666ee59c26482cbd0f856fbabe3676aeca2968c50c3938bfe09cf76",
+      "after": "f7bd36d3ef78f8ce1669a2c8d5738fae7b7272a414783c4bdd67e2e41e481fb2",
       "owner": "Shared Scene author spectrum",
-      "reason": "Preserves the exact PCM history distinction, static boundary, and measured accuracy and work of the short transform candidate.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361"
+      "reason": "保留官版和签名本机的四臂栅格对照及独立作者实跑。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#root-world-sprite-alignment-native"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "199b4594e21525bc0c55db1d23b8cf442dab8093a6102054b06a6fd316d9a88c",
-      "after": "5012af0dfaf2c144d167245bd74d7908401bc928cd8d1dc6b09a54b415071e28",
+      "before": "5012af0dfaf2c144d167245bd74d7908401bc928cd8d1dc6b09a54b415071e28",
+      "after": "1c0fd2036266292fb90ffe682c68d20e19139a92bac387351f0b7dde84018bfa",
       "owner": "Shared Scene author spectrum",
-      "reason": "Preserves the exact PCM history distinction, static boundary, and measured accuracy and work of the short transform candidate.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361"
+      "reason": "按同画幅与单粒轨道证据重排密集覆盖的隔离顺序。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
       "section": "bodies",

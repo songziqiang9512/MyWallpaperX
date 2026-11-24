@@ -318,7 +318,7 @@ enum SceneParticleChildGraphExpansion {
         }
         var preparationFailures: [String] = []
         let renderers = SceneParticlePreparedRenderer.prepare(
-            plans: plans, asset: asset, textureLoader: textureLoader,
+            plans: plans, asset: asset, rootUsesWorldSpace: false, textureLoader: textureLoader,
             builtInTextureRegistry: builtInTextureRegistry, device: device,
             onFailure: { index, detail in
                 preparationFailures.append("\(path):renderer[\(index)]:\(detail)")

@@ -18,6 +18,7 @@ struct SceneRenderDescriptor: Codable {
     struct ColorTargetFormat {
         let metalPixelFormat: MTLPixelFormat = .bgra8Unorm
     }
+    var hdrEnabled: Bool = false
     var colorTargetFormat: ColorTargetFormat { .init() }
 
     struct Layer: Codable {

@@ -215,6 +215,11 @@ class SceneParticleRuntimeTests(
     def test_static_sprite_geometry_uses_mapped_color_extent_in_root_and_child(self) -> None:
         result = self.run_harness("sprite-geometry-synthetic")
         self.assertEqual(result["active"], [1, 2, 3, 4, 5, 6])
+        self.assertEqual(
+            result["worldRootOrientations"], ["worldScreen", "worldScreen", "fixed", "upright", "screen", "worldScreen"]
+        )
+        for name in ["embedded", "refract", "child", "trail"]:
+            self.assertEqual(result[name]["orientation"], "screen", name)
         for name in ["raw", "embedded", "atlas", "refract", "child", "child-refract"]:
             with self.subTest(name=name):
                 self.assertEqual(result[name]["aspect"], [0.25, 0.25])

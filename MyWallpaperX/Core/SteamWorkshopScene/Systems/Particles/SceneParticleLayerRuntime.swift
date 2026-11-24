@@ -56,6 +56,7 @@ struct SceneParticlePreparedRenderer {
     static func prepare(
         plans: [SceneParticleRendererPlan],
         asset: SceneParticleAsset,
+        rootUsesWorldSpace: Bool,
         textureLoader: SceneTextureLoader,
         builtInTextureRegistry: SceneParticleBuiltInTextureRegistry,
         device: MTLDevice,
@@ -106,6 +107,12 @@ struct SceneParticlePreparedRenderer {
                 onFailure(plan.index, plan.rope != nil ? "rope:animatedTexture" : "ropetrail:animatedTexture")
                 return nil
             }
+            let orientation = SceneParticleOrientation(
+                authoredValue: plan.renderer.orientation, isWorldSpace: plan.renderer.isWorldSpace
+            )
+            let usesSceneCamera = SceneParticlePipelineRenderStateCompiler.usesSceneCamera(
+                renderer: plan.renderer, materialPass: asset.materialPass
+            )
             var output = SceneParticlePreparedRenderer(
                 index: plan.index, trail: plan.trail, rope: plan.rope,
                 ropeTrail: plan.ropeTrail, snapshotPolicy: plan.snapshotPolicy,
@@ -113,17 +120,13 @@ struct SceneParticlePreparedRenderer {
                 colorSampling: view.sampling, refraction: view.refraction,
                 renderState: state, spriteAnimation: view.animation,
                 staticSpriteAspect: view.staticAspect,
-                orientation: SceneParticleOrientation(
-                    authoredValue: plan.renderer.orientation,
-                    isWorldSpace: plan.renderer.isWorldSpace
-                ),
+                orientation: rootUsesWorldSpace && usesSceneCamera && orientation == .screen
+                    ? .worldScreen : orientation,
                 orientationAxis: plan.renderer.axis.map {
                     SceneParticleSimulationMath.vector($0, fallback: SIMD3(0, 0, 1)).particleFloatValue
                 },
                 usesPerspective: asset.definition.flags.usesPerspective,
-                usesSceneCamera: SceneParticlePipelineRenderStateCompiler.usesSceneCamera(
-                    renderer: plan.renderer, materialPass: asset.materialPass
-                )
+                usesSceneCamera: usesSceneCamera
             )
 #if DEBUG
             if let sources = asset.definition.componentObservationSources {
