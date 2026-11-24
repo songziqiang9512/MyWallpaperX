@@ -503,11 +503,11 @@ ambient 接通与 L0 实测使用签名 Debug `82d701ba…191a154`，4396 构建
 
 3022080536 原 project/pkg/tree、固定 pointer(-.4,.1) from-launch 前后不变；两 capture154 的52层分别26/31实例，GPU完成且排空，红 blob 前后仍红，颜色问题未结案。新静态复核该唯一draw均为child0 red_fire Sprite，root/child1 Rope没有draw，固定pointer不能代移动拖尾。灰褐colorn已传child，后继作者ColorChange明写红→暗红；实际R8颜色view中性，未发现纹理解码自造红的首错。声明/旧输入与Mirage线索保于 `.artifacts/scene-smoke-color-next-20261108/`，目标ROI、运动phase/producer及当帧age/tint/真实texture path仍缺，不由红色外观改operator。
 
-独立1937925563 同三摘要前后 capture79，461/478各有1 Sprite与19 SpriteTrail进各自main/GPU；两图主体仍出图，但青紫斜区的宽度与发光有明显差异，未锁作者/粒子相位，既不称视觉等价、也不猜为纯时相变化。该作者只保有界观察，不授全场无回归。
+独立1937925563同输入capture79的461/478各1 Sprite、19 SpriteTrail完成GPU。青紫斜区宽度与发光有差异，相位未锁。
 
-3383210272 原作者 WAV 前16秒经原生产 PCM 链，未经增益或作者参数修改。粒子 peak/cubic/缺省bounds与粗档 peak 候选曾使323/124实例增多，但主要彩光仍缺；候选12路径已精确恢复、未提交。官方相对64→16 max不资格项目 display-height64 的绝对域。281 同 WAV 两静帧仅授16档消费与 pulse 执行，不判断眼部闪动或新增闪烁；不重跑旧早晚窗、调gain/bounds/pow或强制出生。
+3383210272 原WAV经生产PCM链。取峰/cubic/缺省bounds及粗档取峰候选曾增加323/124实例，彩光仍缺，候选已撤。281同WAV两静帧仅确认16档供值及pulse执行。
 
-源码、首轮独审限制、当前受控资格与实际作者原字节归 `.artifacts/scene-instance-color-20261108/`；被撤回候选、Mirage只读研究、原生/绘制输入和未闭绝对单位证据归 `.artifacts/scene-particle-audio-consumer-20261108/` 与 `.artifacts/scene-audio16-producer-20261108/`。338321的两束方向/闪烁、302红色来源、覆盖色 Timeline 端到端及性能仍开放。<a id="floor-beam-emitter-338211"></a>独立3382111183实际官版原曲下4/10张有13根近水平彩条，长度75–375像素；只隐藏115/178/335/173/167/170后10张均无，邻层斜条及粒子仍在。本机签名优化 `4bf3d344…1949a` 以同曲离线解码PCM走生产频谱，25张实际终帧均无这六层的draw，六层在预热和实播均报 `audio-response-plan-unavailable`。理由为作者exponent100超现计划16。现有频率映射上限.96经当前范围和指数最多约.000239，单移门限仍不足以产生可见出生。已定位条形owner和首断点，待同一时钟下的实际供值与逐粒运动。对照及独立作者结构复核归 `.artifacts/scene-floor-beam-emitters-20261124/evidence.zip`。
+原对照归 `.artifacts/scene-instance-color-20261108/`，撤回候选归 `.artifacts/scene-particle-audio-consumer-20261108/` 和 `.artifacts/scene-audio16-producer-20261108/`。<a id="floor-beam-emitter-338211"></a>3382111183 官版原曲有13根近水平彩条（4/10帧，75–375px），仅隐藏115/178/335/173/167/170后0/10，邻层斜条仍在。本机优化版 `4bf3d344…1949a` 同曲PCM的25张终帧六层均因指数100超限未绘制。签名Debug `fc09e1c0…945d` 静音下隔离115，仅关发射音频响应即在26张GPU完成帧中的16张见135–307px横条，原模式26张无绘制。<br>同官版2.8.0.42的三组960×623实机控制各18帧，48kHz双声道回录与每组输入1296000/1296000/1632000帧逐样相等。233Hz位于2档，指数100窄2档与宽1…10的实际中心逐图相等，范围均值.16–.28时仍生，出范围3581Hz仅见老粒。单声道2档.984–.999时对应侧发射。中置下界0.5停发，改为0.35…0.45即发射。左233与右1000Hz分别打2/8档，两侧峰平均.992–.999，逐档平均的峰.553–.556，0.65…0.8宽档无新生，0.35…0.45窄档与宽档持续出生。同频入8档时宽档与8档发射，2档不发。支持中置逐档平均后取所选频带峰，指数100可执行，准确曲线及原曲的准备域仍待核。本机显示域.96上限经当前Bounds和指数最多约.000239，单移门限或改取峰不够。原曲/显隐归 `.artifacts/scene-floor-beam-emitters-20261124/evidence.zip`，受控实帧、端点和独审归 `.artifacts/scene-floor-beam-range-20261124/evidence.zip`。
 
 <a id="beam-contribution"></a>
 ## 彩光自然出生的同帧贡献
