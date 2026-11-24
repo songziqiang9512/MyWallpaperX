@@ -22,7 +22,7 @@
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 42,
-      "bytes": 6603
+      "bytes": 6692
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 200,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 313523
+      "bytes": 314496
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 215,
-      "bytes": 66146
+      "bytes": 66270
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -361,11 +361,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "e3b2771a33afa68dd0fc4d6843b5699c0374f2a964654b4037a61e8aa6bf1ee9",
-      "after": "e466901bdb6c416ac81021e07435a2fdab21d669e77fe9aa674ccfa3bd29ec12",
-      "owner": "Scene audio input verification",
-      "reason": "Record the official prepared-band comparison and the bounded design decision before implementation.",
-      "decision": "docs/architecture/system-audio-spectrum-design.md#验收与边界"
+      "before": "e466901bdb6c416ac81021e07435a2fdab21d669e77fe9aa674ccfa3bd29ec12",
+      "after": "41ff1673ea3087d2d681e9d401e0d83c2f1797dc0ae4980da9087e08ac76f0ce",
+      "owner": "Shared Scene author spectrum",
+      "reason": "Records calibrated 32/64 readout with same endpoint stereo PCM and reflects the demonstrated group projections in the architecture and open queue.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9b626e320350463b058f7386cd8989298eb199f6ce79b5cbe774181f6d1544c3",
-      "after": "30fe8be589895a766239b68a600cfaf878e892658e398799d878e2510d5b92cb",
-      "owner": "Scene solid background terminal raster",
-      "reason": "Replaces the uninstructed follow-up with calibrated prefix, derivative and contour evidence from the same terminal submission.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#solid-background-raster-361"
+      "before": "30fe8be589895a766239b68a600cfaf878e892658e398799d878e2510d5b92cb",
+      "after": "4a3c38874af0e67d7a77ac9938af01cc0ad21f80a0d11c1e05a27234a13c0d3f",
+      "owner": "Shared Scene author spectrum",
+      "reason": "Records calibrated 32/64 readout with same endpoint stereo PCM and reflects the demonstrated group projections in the architecture and open queue.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "9b7158ec3a1b0757a51cb1d786e6ca2ea27296059bc562278f69196631036109",
-      "after": "a950f3a5cd006e70eeac73a10d4df059d0fb2b3c7990ef858380784a09b480b9",
-      "owner": "Scene Sphere emitter birth",
-      "reason": "Retires the loss of initial speed and preserves the separately observed all-zero-axis appearance difference.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+      "before": "a0e9deb51ac23561b3e46894ad91569fad304ddd893efe4b081406ae7062247e",
+      "after": "f2fba09c4accc5475a4e5113b1f0fac51b7c73b5eefc4d3f60ce35ae44eca3b8",
+      "owner": "Shared Scene author spectrum",
+      "reason": "Records calibrated 32/64 readout with same endpoint stereo PCM and reflects the demonstrated group projections in the architecture and open queue.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361"
     },
     {
       "section": "bodies",

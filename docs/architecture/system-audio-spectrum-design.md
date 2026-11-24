@@ -3,7 +3,7 @@
 
 # 共享音频分析与消费域设计
 
-> 状态：当前三类消费者仍共用显示响应。[同帧对照](../scene/capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)已定位到16档折叠前，并支持该折叠取四档峰值。固定x64默认分析窗与现有窗不同，不能假定共享现有FFT可得作者输入。先取得匹配运行端的原始频谱与准备值，再裁决分析窗及分域。
+> 状态：当前三类消费者仍共用显示响应。[粒子16档](../scene/capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)与[shader 32档](../scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361)分别已证从准备64档取组内峰值，端点对照把频带身份差定位在折叠前。固定x64默认分析窗与现有窗不同，尚未取得x86实机等同证据。先核频轴、同声道阶跃与同索引换位，依据实际准备64档裁决共同变换。
 
 ## 目标与职责
 
@@ -24,7 +24,7 @@ Video helper仍首次开启才建子层并采用已接纳高度；空数组表�
 | 消费域 | 合同与资格 |
 |---|---|
 | Video/Web现有显示响应 | 保原64带轴、固定频率tilt、-100…-10dB/0.96 smoothstep及30/140ms高度包络。Overlay先求立体声均值再投影并用静态style/sensitivity，Web拼接左右64。不将其提升为官方作者标定。 |
-| Scene作者输入 | 由已验证的物理格与准备历史形成。保留超过1的合法供值，不套显示gain、顶高或包络。已实证的64→16取峰范围及上游未决边界见[同帧对照](../scene/capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)。尚未证明所有Scene消费者同域时，六数组承载不等于完成。 |
+| Scene作者输入 | 由已验证的物理格与准备历史形成。保留超过1的合法供值，不套显示gain、顶高或包络。从同一准备64档以相邻四档峰值供16档、相邻两档峰值供32档；实证范围见本页状态。尚未证明所有Scene消费者同域时，六数组承载不等于完成。 |
 
 每个发布批次只生成实际需求的结果。不同域若确需历史，由原Analyzer持最少必要状态，共用捕获时间/elapsed和既有reset边界；不为未知算法预建自适应状态。六数组合计224个Float，既有IPC入口允许有限非负值超过1，无需扩数组、传PCM或新增native/raw并行字段。采集只交真实有符号声道；首有声Debug整流峰仍按需一次，不增加逐窗归并。
 
