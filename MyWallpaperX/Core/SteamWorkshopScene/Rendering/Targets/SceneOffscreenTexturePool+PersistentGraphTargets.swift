@@ -263,7 +263,7 @@ extension SceneOffscreenTexturePool {
         extentPolicy: SceneFullFrameExtentPolicy = .standard,
         requestedWidth: Int,
         requestedHeight: Int,
-        scaledFramebufferBase: SceneGraphRenderTargetPlan.PixelExtent? = nil,
+        scaledFramebufferBase: SceneGraphRenderTargetPlan.ScaledFramebufferBase? = nil,
         usesSharedFullFrameWorkingPair: Bool = false,
         orderingContext: SceneGraphCommandQueueOrderingContext? = nil,
         plansMemoIdentity: SceneOffscreenTexturePool.PersistentPlansMemoIdentity? = nil

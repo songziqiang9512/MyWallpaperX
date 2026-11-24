@@ -26,6 +26,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let supportsTerminalMaterialReplay: Bool
         let supportsPlacementSpaceTerminalReplay: Bool
         let supportsSourceSizedSolidEffects: Bool
+        let hasNonUnitFramebufferScale: Bool
         let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
 
         fileprivate init(
@@ -55,6 +56,12 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.supportsTerminalMaterialReplay = supportsTerminalMaterialReplay
             self.supportsPlacementSpaceTerminalReplay = supportsPlacementSpaceTerminalReplay
             self.supportsSourceSizedSolidEffects = supportsSourceSizedSolidEffects
+            self.hasNonUnitFramebufferScale = sourceRoute == .capturedMainTargetTexture
+                && admittedGraphs.contains { graph in
+                    graph.renderTargets.contains {
+                        $0.extent.kind == .scale && $0.extent.scale != 1
+                    }
+                }
             self.token = token
         }
     }

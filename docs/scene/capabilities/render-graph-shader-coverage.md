@@ -302,7 +302,7 @@ Geometry 的 primary named 输入表示 provider 自身的 authored-local 色图
 <a id="scaled-image-framebuffers"></a>
 ### 普通根图像的相对帧缓冲
 
-普通根图像的捕获与终图可用放置密度。声明省略尺寸或仅有 `scale` 的效果 FBO 从作者局部图像尺寸按比例取整，沿标准上限实际分配；省略等价1。基准与图层缩放、TEX padding 和 mask 像素无关。绝对、fit、复合、画布、子层、几何图集及配对纹理沿原基准。混合基准 copy 的整个效果保配对网格。预检供尺寸，原目标计划分配，Resolution 读真实资源。memo 尺寸改变替换同键，历史按实际描述复用。横纵栅格、Shine、原包、改名及 copy 反例以同帧实际输出验收。
+普通根图像的相对 FBO 取有界作者尺寸，独立于放置、TEX padding 和 mask。绝对、fit、子层、几何及 pair 保原规则。<br><a id="project-scaled-framebuffers"></a>正交场景无成员、无历史的根 Project 从主图取色时，非单位 scale 从作者层尺寸先缩再限长边，保捕获与 pair。省略和 scale=1 仍等价。原双档提交在容量不足时选原计划，两档 memo 不互相替换。Shader 读物理尺寸。验收预算、改名、真读写、365 内外圈及独立 SDR。官方上限与组合 Project 待证。
 
 <a id="placement-only-composition-tail"></a>
 ### 透明 Composition 的末材放置栅格

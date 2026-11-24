@@ -7,7 +7,7 @@ extension SceneMetalRenderer {
         let claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution
         let requestedWidth: Int
         let requestedHeight: Int
-        let scaledFramebufferBase: SceneGraphRenderTargetPlan.PixelExtent?
+        let scaledFramebufferBase: SceneGraphRenderTargetPlan.ScaledFramebufferBase?
         let extentPolicy: SceneFullFrameExtentPolicy
         let preferredExtent: SIMD2<Int>?
         let materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey:
@@ -149,7 +149,7 @@ extension SceneMetalRenderer {
             var utilityCaptureGeometry: SceneCaptureGeometry?
             var framebufferSourceMaterial: SceneResolvedMaterialRuntimeBridge.FramebufferSourceMaterial?
             var effectSourceExtent: SceneLayerEffectSourceExtent?
-            var scaledFramebufferBase: SceneGraphRenderTargetPlan.PixelExtent?
+            var scaledFramebufferBase: SceneGraphRenderTargetPlan.ScaledFramebufferBase?
             let preparedSourceMaterial = imageCompositor.resolvedMaterialRuntime?.sourceMaterials[layerID]
             if layer.utilityLayer?.framebufferSource != nil {
                 guard case .capturedMain? = preparedSourceMaterial?.outputDomain,
@@ -377,6 +377,24 @@ extension SceneMetalRenderer {
                 utilityCaptureGeometry = source.geometry
                 framebufferSourceMaterial = source.material
                 let publishesGraphOutput = dependencyRuntime.requiresGraphOutputCapture(for: layerID)
+                if utility.kind == .project, claim.hasNonUnitFramebufferScale, layer.parentID == nil,
+                   layer.childLayerIDs.isEmpty, memberLayerIDs?.isEmpty != false,
+                   selectedMainSource === mainTarget, source.material == nil,
+                   !publishesGraphOutput, !cameraFrame.defaultsToPerspective,
+                   !cameraFrame.resolvesPerspective(for: layer),
+                   let pool = offscreenTexturePool,
+                   let extent = SceneLayerEffectSourceExtent.resolve(
+                       publishedRenderSizeWH: nil, authoredRenderSizeWH: layer.renderSizeWH,
+                       candidateMappedSize: nil
+                   ), let width = Int(exactly: extent.pixelSize.width.rounded(.up)),
+                   let height = Int(exactly: extent.pixelSize.height.rounded(.up)) {
+                    scaledFramebufferBase = .init(
+                        width: width, height: height,
+                        maximumTargetDimension: SceneOffscreenResolutionPolicy.maximumDimension(
+                            hardLimit: pool.maxDimension, policy: .standard
+                        )
+                    )
+                }
                 let permitsPlacementTail = claim.supportsPlacementSpaceTerminalReplay
                     && memberLayerIDs?.isEmpty != false
                     && (compositionGroupRuntime.map {
@@ -792,7 +810,13 @@ SceneBaseMaterialLitCaptureMissLog.record(
                 return .rejected(reasonCode: "frame-target-pool-unavailable")
             }
             let usesSharedPair = !deferredCompositeLayerIDs.contains(layerID)
-            func allocatePlan(width: Int, height: Int, policy: SceneFullFrameExtentPolicy)
+            let framebufferBase = source.scaledFramebufferBase
+            let projectBase = framebufferBase?.maximumTargetDimension != nil ? framebufferBase : nil
+            let requiredFramebufferBase = projectBase == nil ? framebufferBase : nil
+            func allocatePlan(
+                width: Int, height: Int, policy: SceneFullFrameExtentPolicy,
+                framebufferBase: SceneGraphRenderTargetPlan.ScaledFramebufferBase?
+            )
                 -> Result<ScenePersistentGraphTargetFramePlan, ScenePersistentGraphTargetPlanningFailure>
             {
                 offscreenTexturePool.framePlanResultForPersistentGraphTargets(
@@ -802,7 +826,7 @@ SceneBaseMaterialLitCaptureMissLog.record(
                     extentPolicy: policy,
                     requestedWidth: width,
                     requestedHeight: height,
-                    scaledFramebufferBase: source.scaledFramebufferBase,
+                    scaledFramebufferBase: framebufferBase,
                     // Later graphs may overwrite shared scratch before this layer's authored draw.
                     usesSharedFullFrameWorkingPair: usesSharedPair,
                     orderingContext: orderingContext,
@@ -810,7 +834,10 @@ SceneBaseMaterialLitCaptureMissLog.record(
                 )
             }
             let allocation: ScenePersistentGraphTargetFramePlan
-            switch allocatePlan(width: requestedWidth, height: requestedHeight, policy: source.extentPolicy) {
+            switch allocatePlan(
+                width: requestedWidth, height: requestedHeight, policy: source.extentPolicy,
+                framebufferBase: requiredFramebufferBase
+            ) {
             case let .success(value): allocation = value
             case let .failure(failure):
                 graphTargetFallbacks[claim.layerID] =
@@ -845,10 +872,21 @@ SceneBaseMaterialLitCaptureMissLog.record(
                    return false
                }),
                case let .success(preferred) = allocatePlan(
-                   width: extent.x, height: extent.y, policy: .exactInputExtent)
+                   width: extent.x, height: extent.y, policy: .exactInputExtent,
+                   framebufferBase: requiredFramebufferBase
+               )
             {
                 preferredSharedExtent = extent
                 preferredPlans[layerID] = .init(token: claim.token, allocation: preferred)
+            } else if let projectBase, usesSharedPair, allocation.graphPlan.historyByteCost == 0,
+                      case let .success(preferred) = allocatePlan(
+                          width: requestedWidth, height: requestedHeight, policy: source.extentPolicy,
+                          framebufferBase: projectBase
+                      ) {
+                preferredPlans[layerID] = .init(
+                    token: claim.token, allocation: preferred,
+                    consumesExternalPrimaryDependency: consumesExternalPrimaryDependency
+                )
             }
             if dependencyRuntime.isStaticModelSourceProvider(layerID),
                dependencyRuntime.requiresGraphOutputCapture(for: layerID) {

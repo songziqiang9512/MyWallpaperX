@@ -56,7 +56,7 @@ extension Harness {
         let pool = SceneOffscreenTexturePool(device: device, residentByteBudget: 1_048_576)
         func plan(_ targetPool: SceneOffscreenTexturePool, width: Int = 8,
                   shared: Bool = true, targets: Set<Graph.TextureIdentity> = [],
-                  framebufferBase: SceneGraphRenderTargetPlan.PixelExtent? = nil,
+                  framebufferBase: SceneGraphRenderTargetPlan.ScaledFramebufferBase? = nil,
                   capabilityToken: SceneResolvedMaterialExecutionCapabilityCatalog.Token? = nil)
             -> SceneLayerGraphTargetPlan {
             guard case let .success(frame) = targetPool.framePlanResultForPersistentGraphTargets(
@@ -74,24 +74,61 @@ extension Harness {
         let owned = plan(pool, shared: false)
         let functions = plan(pool, targets: Set(fixture.framebufferIdentities))
         let changedCapability = plan(pool, capabilityToken: .init())
-        let extent = SceneGraphRenderTargetPlan.PixelExtent(width: 6, height: 4)
+        let extent = SceneGraphRenderTargetPlan.ScaledFramebufferBase(width: 6, height: 4)
         let scaled = plan(pool, framebufferBase: extent)
         let changedBase = plan(pool, framebufferBase: .init(width: 5, height: 3))
         let rebuilt = plan(pool, framebufferBase: extent)
         let repeated = plan(pool, framebufferBase: extent)
-        func copyExtents(_ a: Graph.TargetExtent, _ b: Graph.TargetExtent)
+        func copyExtents(_ a: Graph.TargetExtent, _ b: Graph.TargetExtent,
+                         base: SceneGraphRenderTargetPlan.ScaledFramebufferBase? = nil)
             -> [SceneGraphRenderTargetPlan.PixelExtent] {
             let copy = copyExtentFixture(layerID: 936, firstExtent: a, secondExtent: b)
             guard case let .success(value) = pool.persistentTargetPlansResult(
                 admittedGraphs: admittedGraphs([copy]), pairPlan: pairPlan([copy]),
-                requestedWidth: 8, requestedHeight: 8, scaledFramebufferBase: extent
+                requestedWidth: 8, requestedHeight: 8, scaledFramebufferBase: base ?? extent
             ), value.plans.first?.commands.map(\.kind) == [.copy] else { return [] }
             return value.plans.flatMap(\.logicalTargets).map(\.extent)
         }
         let inherited = Graph.TargetExtent(width: nil, height: nil, fit: nil, scale: nil)
         let unit = Graph.TargetExtent(width: nil, height: nil, fit: nil, scale: 1)
+        let half = Graph.TargetExtent(width: nil, height: nil, fit: nil, scale: 2)
         let absolute = Graph.TargetExtent(width: 8, height: 8, fit: nil, scale: nil)
         let pairExtent = SceneGraphRenderTargetPlan.PixelExtent(width: 8, height: 8)
+        let localImage = SceneGraphRenderTargetPlan.PixelExtent(width: 6, height: 4)
+        let project = SceneGraphRenderTargetPlan.ScaledFramebufferBase(
+            width: 3840, height: 2160, maximumTargetDimension: 2048
+        )
+        let wideProject = SceneGraphRenderTargetPlan.ScaledFramebufferBase(
+            width: 5160, height: 2160, maximumTargetDimension: 2048
+        )
+        let pressurePool = SceneOffscreenTexturePool(
+            device: device, maxDimension: 64, residentByteBudget: 3_000
+        )
+        let pressureBase = SceneGraphRenderTargetPlan.ScaledFramebufferBase(
+            width: 32, height: 32, maximumTargetDimension: 64
+        )
+        func pressurePlan(_ layerID: Int, base: SceneGraphRenderTargetPlan.ScaledFramebufferBase?)
+            -> ScenePersistentGraphTargetFramePlan {
+            let fixture = copyExtentFixture(layerID: layerID, firstExtent: half, secondExtent: half)
+            guard case let .success(plan) = pressurePool.framePlanResultForPersistentGraphTargets(
+                admittedGraphs: admittedGraphs([fixture]), pairPlan: pairPlan([fixture]),
+                requestedWidth: 8, requestedHeight: 8, scaledFramebufferBase: base,
+                usesSharedFullFrameWorkingPair: true,
+                plansMemoIdentity: .init(capabilityToken: token, layerID: layerID)
+            ) else { fatalError("expected individual project plan to fit") }
+            return plan
+        }
+        let required = [937, 938].map { pressurePlan($0, base: nil) }
+        let preferred = [937, 938].map { pressurePlan($0, base: pressureBase) }
+        let requiredAgain = pressurePlan(937, base: nil)
+        let preferredAgain = pressurePlan(937, base: pressureBase)
+        let projectFallbackFits = pressurePool.preflightPersistentGraphTargets(preferred)
+            == .rejected(reasonCode: "frame-target-byte-budget-exceeded")
+            && pressurePool.preparePersistentGraphTargets(framePlans: required) != nil
+        let bothProjectSizesKeepMemo = requiredAgain.graphPlan.stages[0].preparedExecution
+            === required[0].graphPlan.stages[0].preparedExecution
+            && preferredAgain.graphPlan.stages[0].preparedExecution
+            === preferred[0].graphPlan.stages[0].preparedExecution
         guard let firstExecution = first.stages[0].preparedExecution,
               let againExecution = again.stages[0].preparedExecution,
               let resizedExecution = resized.stages[0].preparedExecution,
@@ -129,10 +166,18 @@ extension Harness {
             "framebuffer-base-replaces-memo-for-the-same-pair": scaledExecution !== rebuiltExecution
                 && rebuiltExecution === repeated.stages[0].preparedExecution
                 && scaledExecution.plan.inputExtent == changedBaseExecution.plan.inputExtent
-                && rebuiltExecution.plan.logicalTargets.map(\.extent) == [extent]
+                && rebuiltExecution.plan.logicalTargets.map(\.extent) == [localImage]
                 && changedBaseExecution.plan.logicalTargets.map(\.extent) == [.init(width: 5, height: 3)],
-            "equivalent-inherited-copy-extents": copyExtents(inherited, unit) == [extent, extent],
+            "equivalent-inherited-copy-extents": copyExtents(inherited, unit) == [localImage, localImage],
             "mixed-copy-preserves-compatible-pair-grid": copyExtents(inherited, absolute) == [pairExtent, pairExtent],
+            "project-scale-before-cap": copyExtents(half, half, base: project)
+                == Array(repeating: .init(width: 1920, height: 1080), count: 2)
+                && copyExtents(half, half, base: wideProject)
+                == Array(repeating: .init(width: 2048, height: 857), count: 2),
+            "project-unscaled-copy-keeps-pair-grid": copyExtents(inherited, unit, base: project)
+                == [pairExtent, pairExtent]
+                && copyExtents(absolute, absolute, base: project) == [pairExtent, pairExtent],
+            "preferred-project-budget-falls-back-without-replanning": projectFallbackFits && bothProjectSizesKeepMemo,
             "reset-drops-static-memo": firstExecution !== afterReset.stages[0].preparedExecution,
             "memo-holds-no-residency": noResidency && pool.residentByteCost == 0,
             "other-budget-remains-effective": rejectedBudget,

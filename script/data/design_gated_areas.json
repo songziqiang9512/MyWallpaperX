@@ -337,7 +337,7 @@
       "owner": "scene-target-residency-and-submission",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "design_notes": " Shadow density allocation: docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-density. Generalize the existing frame-texture transaction to mixed shadow slots/keyed results without another budget or lifetime owner. Atomic desired cohort precedes original per-light1024 partial fallback; preserve real warm fallback keys only during failed-allocation reclamation, while successful staging may evict idle lower maps.",
+      "design_notes": " Shadow density allocation: docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-density. Generalize the existing frame-texture transaction to mixed shadow slots/keyed results without another budget or lifetime owner. Atomic desired cohort precedes original per-light1024 partial fallback; preserve real warm fallback keys only during failed-allocation reclamation, while successful staging may evict idle lower maps. DesignDoc#project-scaled-framebuffers preserves authored relative-size Project FBOs by resolving explicit non-unit scale against the root local canvas before the physical limit. Keep history and existing pair/capture grids. Reuse preferred-plan budget fallback and memo. Require measured optical and allocation cost and independent SDR author.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/**/SceneResolvedMaterialSubmissionCoordinator+SceneColor.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDisplayMappingPostProcess.swift",

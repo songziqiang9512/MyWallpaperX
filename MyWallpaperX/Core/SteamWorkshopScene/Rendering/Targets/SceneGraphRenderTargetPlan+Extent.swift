@@ -17,14 +17,19 @@ nonisolated extension SceneGraphRenderTargetPlan {
         _ target: Graph.RenderTarget,
         inputWidth: Int,
         inputHeight: Int,
-        scaledFramebufferBase: PixelExtent? = nil,
+        scaledFramebufferBase: ScaledFramebufferBase? = nil,
         backbufferFormat: TextureFormat = .rgbaBackbuffer
     ) -> TargetDescriptor? {
-        let scaleBase = usesLayerLocalFramebufferGrid(target.extent) ? scaledFramebufferBase : nil
+        let usesLocalBase = usesLayerLocalFramebufferGrid(
+            target.extent,
+            nonUnitScaleOnly: scaledFramebufferBase?.maximumTargetDimension != nil
+        )
+        let scaleBase = usesLocalBase ? scaledFramebufferBase : nil
         guard let extent = pixelExtent(
             target.extent,
             inputWidth: scaleBase?.width ?? inputWidth,
-            inputHeight: scaleBase?.height ?? inputHeight
+            inputHeight: scaleBase?.height ?? inputHeight,
+            maximumTargetDimension: scaleBase?.maximumTargetDimension
         ), let authoredFormat = textureFormat(target.format),
               let addressMode = uvAddressMode(target.uvs),
               target.conditions == nil else {
@@ -46,8 +51,11 @@ nonisolated extension SceneGraphRenderTargetPlan {
         )
     }
 
-    static func usesLayerLocalFramebufferGrid(_ extent: Graph.TargetExtent) -> Bool {
-        extent.kind == .input || extent.kind == .scale
+    static func usesLayerLocalFramebufferGrid(
+        _ extent: Graph.TargetExtent, nonUnitScaleOnly: Bool
+    ) -> Bool {
+        if nonUnitScaleOnly { return extent.kind == .scale && extent.scale != 1 }
+        return extent.kind == .scale || extent.kind == .input
     }
 
     /// Command compatibility must not depend on a probe extent. In particular,
@@ -214,7 +222,8 @@ nonisolated extension SceneGraphRenderTargetPlan {
     nonisolated static func pixelExtent(
         _ authored: Graph.TargetExtent,
         inputWidth: Int,
-        inputHeight: Int
+        inputHeight: Int,
+        maximumTargetDimension: Int? = nil
     ) -> PixelExtent? {
         guard inputWidth > 0, inputHeight > 0 else { return nil }
         let normalized = Graph.TargetExtent(
@@ -238,8 +247,11 @@ nonisolated extension SceneGraphRenderTargetPlan {
             height /= fitDivisor
         }
         if let scale = authored.scale {
-            width /= scale
-            height /= scale
+            let divisor = maximumTargetDimension.map {
+                max(scale, Double(max(inputWidth, inputHeight)) / Double($0))
+            } ?? scale
+            width /= divisor
+            height /= divisor
         }
 
         let maximumInteger = Double(Int.max)

@@ -469,6 +469,7 @@ final class SceneOffscreenTexturePool {
         let extentPolicy: SceneFullFrameExtentPolicy
         let width: Int
         let height: Int
+        let usesProjectFramebufferScale: Bool
         let materialFunctionTargets: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>]
     }
 
@@ -477,7 +478,7 @@ final class SceneOffscreenTexturePool {
         let makeInputsDigests: [Int]
         let width: Int
         let height: Int
-        let scaledFramebufferBase: SceneGraphRenderTargetPlan.PixelExtent?
+        let scaledFramebufferBase: SceneGraphRenderTargetPlan.ScaledFramebufferBase?
         // Requested pair storage is part of this original memo. A shared
         // request may retain its successful owned fallback, as before.
         var layerPlans: [SceneLayerGraphTargetPlan.FullFramePairStorage: SceneLayerGraphTargetPlan] = [:]
@@ -492,7 +493,7 @@ final class SceneOffscreenTexturePool {
         extentPolicy: SceneFullFrameExtentPolicy = .standard,
         requestedWidth: Int,
         requestedHeight: Int,
-        scaledFramebufferBase: SceneGraphRenderTargetPlan.PixelExtent? = nil,
+        scaledFramebufferBase: SceneGraphRenderTargetPlan.ScaledFramebufferBase? = nil,
         plansMemoIdentity: PersistentPlansMemoIdentity? = nil
     ) -> Result<(
         plans: [SceneGraphRenderTargetPlan],
@@ -523,6 +524,7 @@ final class SceneOffscreenTexturePool {
                 extentPolicy: extentPolicy,
                 width: size.0,
                 height: size.1,
+                usesProjectFramebufferScale: scaledFramebufferBase?.maximumTargetDimension != nil,
                 materialFunctionTargets: materialFunctionTargetsByEffect
             )
             if let cached = persistentPlansMemo[memoKey],
@@ -569,7 +571,7 @@ final class SceneOffscreenTexturePool {
         pairPlan: SceneLayerFullFramePairPlan,
         extentPolicy: SceneFullFrameExtentPolicy,
         requestedWidth: Int, requestedHeight: Int,
-        scaledFramebufferBase: SceneGraphRenderTargetPlan.PixelExtent? = nil,
+        scaledFramebufferBase: SceneGraphRenderTargetPlan.ScaledFramebufferBase? = nil,
         usesSharedFullFrameWorkingPair: Bool,
         plansMemoIdentity: PersistentPlansMemoIdentity?
     ) -> Result<SceneLayerGraphTargetPlan, ScenePersistentGraphTargetPlanningFailure> {
@@ -590,6 +592,7 @@ final class SceneOffscreenTexturePool {
         let memoKey = plansMemoIdentity.map {
             PersistentPlansMemoKey(identity: $0, extentPolicy: extentPolicy,
                 width: prepared.width, height: prepared.height,
+                usesProjectFramebufferScale: scaledFramebufferBase?.maximumTargetDimension != nil,
                 materialFunctionTargets: materialFunctionTargetsByEffect)
         }
         if let memoKey, let cached = persistentPlansMemo[memoKey]?.layerPlans[requestedStorage] {
@@ -624,14 +627,15 @@ final class SceneOffscreenTexturePool {
         materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>],
         pairPlan: SceneLayerFullFramePairPlan,
         size: (width: Int, height: Int),
-        scaledFramebufferBase: SceneGraphRenderTargetPlan.PixelExtent?
+        scaledFramebufferBase: SceneGraphRenderTargetPlan.ScaledFramebufferBase?
     ) -> Result<(
         plans: [SceneGraphRenderTargetPlan],
         makeInputsDigests: [Int],
         width: Int,
         height: Int
     ), ScenePersistentGraphTargetPlanningFailure> {
-        let boundedFramebufferBase = scaledFramebufferBase.flatMap { base -> SceneGraphRenderTargetPlan.PixelExtent? in
+        let boundedFramebufferBase = scaledFramebufferBase.flatMap { base -> SceneGraphRenderTargetPlan.ScaledFramebufferBase? in
+            if base.maximumTargetDimension != nil { return base }
             let (width, height) = SceneOffscreenResolutionPolicy.limitedDimensions(
                 width: base.width, height: base.height,
                 maximumDimension: SceneOffscreenResolutionPolicy.maximumDimension(

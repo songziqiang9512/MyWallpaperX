@@ -19,7 +19,7 @@
 |---|---|
 | Sphere 全零方向的出生可见性（待证） | [固定零半径初速](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)已恢复。显式全零 Directions 的隔离 Sprite 在官版窗内无像素，本机可见且静止。需分出生资格与可见条件，先找活动作者或单轴逐步归零的反例，保零速度和非零轴的正常出生。 |
 | 音频供值 · 3612940332 | 作者尺寸与[放置栅格同像素末材](../capabilities/runtime-evidence-current.md#solid-background-same-pixel-native)已恢复红弧高亮和细前缀取样。剩余为真实音频幅值及时间变化。[端点回录](../capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361)已有同帧32档取峰、64档相邻边界与精确短窗证据。沿[共享音频设计](../../architecture/system-audio-spectrum-design.md)区分跨声道快影响、局部恢复和端点，再验原包有声弧。 |
-| 末层合成的内圈亮度 · 3653620838 | [HDR出生亮度](../capabilities/runtime-evidence-current.md#hdr-particle-instance-brightness)已纠正259，固定首键直接层3.67/官3.41万。全效果14.29/20.96万。后续查345的Spin、Shine、Godrays，保原相位和圈外。 |
+| 世界粒子的外围分布 · 3653620838 | [Project 光效栅格](../capabilities/runtime-evidence-current.md#project-framebuffer-resolution-365)已纠正，内圈更近。外圈在345之前已有差，先隔离259稀疏分布和时相，保内圈现验收。 |
 | 普通粒子材质增亮的裁幅 | 平面 RG88 同窗对照测得材质 gain1.4 的官版 `(0,144,144)`、本机新 `(0,163,202)`。先找实际作者消费，并用有色 texel、半透明底和双层加色区分 tint、采样与裁幅顺序。已验证的中性 R8 半透明 Trail 裁幅另有原证据。 [运行证据](../capabilities/runtime-evidence-current.md#particle-instance-tint-native) |
 | 月面灰纹 · 3453730450 | [深度与雾出生范围已修复](../capabilities/runtime-evidence-current.md#moon-fog-fractional-sign)。共有灰纹和中心小余差仍需固定相位与writer显隐。先记录灰纹是否跟随月面转动，依据实际颜色来源区分作者原貌和兼容缺口。 |
 | 3454689854 的相邻丝层 | [同画幅单丝、原包和实际预算](../capabilities/runtime-evidence-current.md#silk-capture-density-345)已闭两条SDR根丝密度。子层及多阶段保持原工作域，只有取得可归属的同相位残差再重启。原默认绕身文字两端均隐藏，条件另见[原包对照](../capabilities/runtime-evidence-current.md#author-silk-raster-345)。 |
@@ -219,7 +219,7 @@
 
 | 样本 | 状态与已验证范围 |
 |---|---|
-| 3653620838 | 部分修复。内圈运动、轴向/半径、初速、尾迹长度和HDR出生亮度已修复。末层合成残差待查。[运动](../capabilities/runtime-evidence-current.md#vortex-axis-world-365) · [亮度](../capabilities/runtime-evidence-current.md#hdr-particle-instance-brightness) |
+| 3653620838 | 已修复内圈运动、轴向/半径、初速、尾迹、HDR出生亮度及 Project 光效栅格。外围和时相仍开。[运动](../capabilities/runtime-evidence-current.md#vortex-axis-world-365) · [合成](../capabilities/runtime-evidence-current.md#project-framebuffer-resolution-365) |
 | 3612940332 | 部分修复。人物后红弧的宽度、断线和背景采样已修复，音乐驱动的幅值和时变仍开放。[红弧](../capabilities/runtime-evidence-current.md#solid-background-same-pixel-native) |
 | 3822067395 | 已修复。原包可启动，首帧及相关效果已实绘。[首帧](../capabilities/runtime-evidence-current.md#tex-alpha-channel-priority-author) |
 | 3174321827 | 已修复。部件回到正确组装姿态，双臂和武器在胸前，细微姿态残差有独立证据。[组装](../capabilities/runtime-evidence-current.md#puppet-counted-reference-317) |

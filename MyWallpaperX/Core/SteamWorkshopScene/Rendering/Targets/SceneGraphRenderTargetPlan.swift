@@ -23,6 +23,12 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         let height: Int
     }
 
+    struct ScaledFramebufferBase: Hashable {
+        let width: Int
+        let height: Int
+        var maximumTargetDimension: Int? = nil
+    }
+
     struct ClearColor: Equatable {
         let red: Double
         let green: Double
@@ -83,7 +89,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
     let output: Graph.TextureIdentity
     let inputRole: SceneAuthoredEffectInputRole
     let inputExtent: PixelExtent
-    let scaledFramebufferBase: PixelExtent?
+    let scaledFramebufferBase: ScaledFramebufferBase?
     let backbufferFormat: TextureFormat
     let logicalTargets: [LogicalTarget]
     let commands: [Command]
@@ -94,7 +100,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         output: Graph.TextureIdentity,
         inputRole: SceneAuthoredEffectInputRole = .layerSource,
         inputExtent: PixelExtent,
-        scaledFramebufferBase: PixelExtent? = nil,
+        scaledFramebufferBase: ScaledFramebufferBase? = nil,
         backbufferFormat: TextureFormat = .rgbaBackbuffer,
         logicalTargets: [LogicalTarget],
         commands: [Command] = []
@@ -144,7 +150,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         inputRole: SceneAuthoredEffectInputRole,
         inputWidth: Int,
         inputHeight: Int,
-        scaledFramebufferBase: PixelExtent? = nil,
+        scaledFramebufferBase: ScaledFramebufferBase? = nil,
         materialFunctionTargets: Set<Graph.TextureIdentity>,
         backbufferFormat: TextureFormat = .rgbaBackbuffer
     ) -> Int {
@@ -153,8 +159,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         hasher.combine(backbufferFormat)
         hasher.combine(inputWidth)
         hasher.combine(inputHeight)
-        hasher.combine(scaledFramebufferBase?.width)
-        hasher.combine(scaledFramebufferBase?.height)
+        hasher.combine(scaledFramebufferBase)
         var elementXor = 0
         for target in materialFunctionTargets {
             elementXor ^= target.hashValue
@@ -168,7 +173,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         inputRole: SceneAuthoredEffectInputRole,
         inputWidth: Int,
         inputHeight: Int,
-        scaledFramebufferBase: PixelExtent? = nil,
+        scaledFramebufferBase: ScaledFramebufferBase? = nil,
         materialFunctionTargets: Set<Graph.TextureIdentity> = [],
         backbufferFormat: TextureFormat = .rgbaBackbuffer
     ) -> Result<Self, Failure> {
@@ -188,7 +193,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         inputRole: SceneAuthoredEffectInputRole,
         inputWidth: Int,
         inputHeight: Int,
-        scaledFramebufferBase: PixelExtent?,
+        scaledFramebufferBase: ScaledFramebufferBase?,
         materialFunctionTargets: Set<Graph.TextureIdentity>,
         backbufferFormat: TextureFormat
     ) -> Result<Self, Failure> {
@@ -236,8 +241,9 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             guard node.kind == .copy,
                   let source = node.commandSource.flatMap({ declarations[$0] }),
                   let target = node.commandTarget.flatMap({ declarations[$0] }) else { return false }
-            return usesLayerLocalFramebufferGrid(source.extent)
-                != usesLayerLocalFramebufferGrid(target.extent)
+            let nonUnitScaleOnly = scaledFramebufferBase?.maximumTargetDimension != nil
+            return usesLayerLocalFramebufferGrid(source.extent, nonUnitScaleOnly: nonUnitScaleOnly)
+                != usesLayerLocalFramebufferGrid(target.extent, nonUnitScaleOnly: nonUnitScaleOnly)
         }
         let declaredFramebufferBase = usesMixedCopyGrids ? nil : scaledFramebufferBase
         for target in graph.renderTargets {
