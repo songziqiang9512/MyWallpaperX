@@ -69,6 +69,7 @@ enum Harness {
             "duration": Double(animation.durationSeconds),
             "trackCount": animation.transformsByBone.count,
             "trackStates": animation.transformTrackStates.map(\.rawValue),
+            "usesDenseBindReference": animation.referenceTrackPolicy == .denseBindReference,
             "sampleCounts": animation.transformsByBone.map(\.count),
             "bounds": animation.bounds.map {
                 [$0.minimum.x, $0.minimum.y, $0.minimum.z,
@@ -592,7 +593,7 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
             changed = list(held)
             changed[component] += 0.00001
             cls.fixtures[f"dense-vary-{component}.mdl"] = build_mdl([
-                animation_record(1301, "Not constant", 2, 2,
+                animation_record(1301 + component, f"Variable track {component}", 2, 2,
                     track_states=[1, 0], track_samples={0: [held, held, tuple(changed)]})])
         for label, options in (("state2", dict(track_states=[2, 0])),
                                ("length", dict(bad_track_bytes=True)),
@@ -679,6 +680,7 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
                 self.assertTrue(entry["ok"], entry)
                 first, following = entry["animations"]
                 self.assertEqual(first["trackStates"], [1, 0])
+                self.assertEqual(first["usesDenseBindReference"], name == "dense-reference.mdl")
                 self.assertEqual(following["trackStates"], [0, 0])
                 self.assertEqual(first["sampleCounts"], [3, 3])
                 self.assertEqual(first["firstTransform"], first["lastTransform"])
@@ -687,6 +689,7 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
                     self.assertAlmostEqual(actual, expected, places=6)
                 self.assertEqual(first["alphaByBone"], [[1, .5, 0], [0, .25, 1]])
         self.assertEqual(self.results["valid-legacy.mdl"]["animations"][0]["trackStates"], [0, 0])
+        self.assertFalse(self.results["valid-legacy.mdl"]["animations"][0]["usesDenseBindReference"])
 
     def test_reference_track_does_not_relax_version_shape_numeric_or_exact_end(self):
         cases = {name: result for name, result in self.results.items() if name.startswith("bad-dense-")}
@@ -701,6 +704,7 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
             self.assertTrue(entry["ok"], entry)
             clip = entry["animations"][0]
             self.assertEqual(clip["trackStates"], [1, 0])
+            self.assertTrue(clip["usesDenseBindReference"])
             self.assertNotEqual(clip["firstTransform"][component], clip["lastTransform"][component])
 
     def test_post_bounds_scalar_is_classified_without_losing_following_clip(self):

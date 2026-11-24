@@ -384,6 +384,15 @@ Surface 退休已销毁成员的 CPU/GPU/clock 引用，重建不复活；准备
 
 源码：[Selection](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationSelection.swift)、[Evaluator](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator.swift)、[Surface 装配](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppets.swift)。
 
+<a id="puppet-dense-bind-reference-tracks"></a>
+### MDLA0006 的逐骨参考轨
+
+`MDLV0023/MDLS0004/MDLA0006` 的 bounds 布局在 `rawFlags=0` 且没有独立组装姿态或未知参考段时，state1 的密集记录仍按原长度与数值读取，姿态准备把该轨投成 bind 参考。官版固定作者同一槽和相邻帧，只扰动 state1 的 F125 旋转不改变目标骨；只把该轨改为 state0 后同一扰动显现在实际骨轴，独立 state0 骨保持原运动。逐骨处理可保同一作者 clip 中的正常运动。
+
+Reader 由布局和 flags 传已确认角色，Evaluator 沿原 prepared clip：state0 提供普通 TRS，state1 在绝对采样保 bind、在叠加中无贡献。退出要求所有 state1 样本逐值等于 bind 才能准备整槽的旧判据，准备结果无需存放或插值被忽略的样本。其他布局与派生 flags 保既有 bind 等价规则；独立组装姿态、后置曲线、坏 framing 及复杂 opaque 组合仍沿各自边界。
+
+验收锁同槽的正常骨、参考骨、帧和关联实际 skin/画面。近门覆盖改名、可变参考采样、state0 阳性、旧布局与独立 reference 反例；原包验证头肩，另核独立动力样本和已知后置 track 的局部退化。 [实际骨与画面](runtime-evidence-current.md#puppet-body-slot-330)。
+
 <a id="puppet-counted-reference-envelope"></a>
 ### MDLS0002 的约束记录与组装姿态
 

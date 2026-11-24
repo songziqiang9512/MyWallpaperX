@@ -537,6 +537,7 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
     private static func sameAnimation(_ lhs: SceneMdlPuppetAnimation, _ rhs: SceneMdlPuppetAnimation) -> Bool {
         lhs.id == rhs.id && lhs.name == rhs.name && lhs.mode == rhs.mode
             && lhs.framesPerSecond == rhs.framesPerSecond && lhs.frameCount == rhs.frameCount
+            && lhs.referenceTrackPolicy == rhs.referenceTrackPolicy
             && lhs.transformsByBone == rhs.transformsByBone && lhs.transformTrackStates == rhs.transformTrackStates
             && lhs.alphaByBone == rhs.alphaByBone && lhs.events == rhs.events
     }

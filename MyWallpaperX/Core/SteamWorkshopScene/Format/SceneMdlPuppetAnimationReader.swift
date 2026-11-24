@@ -494,7 +494,9 @@ nonisolated enum SceneMdlPuppetAnimationReader {
                 hasAuxiliaryScalarTrack: trailer.hasAuxiliaryScalarTrack,
                 hasPostBoundsScalarTrack: trailer.hasPostBoundsScalarTrack,
                 recordOrdinal: index, rawMode: rawMode, rawFlags: rawFlags,
-                derivedSource: trailer.derivedSource, morphTargets: trailer.morphTargets
+                derivedSource: trailer.derivedSource, morphTargets: trailer.morphTargets,
+                referenceTrackPolicy: trailerContract == .modernBoundsAuxiliary && rawFlags == 0
+                    ? .denseBindReference : .bindEquivalentOnly
             ))
         }
         guard cursor == endOffset else {

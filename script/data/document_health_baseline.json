@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 523,
-      "bytes": 120352
+      "lines": 532,
+      "bytes": 121682
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 101,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 301911
+      "bytes": 302572
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 170,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 218,
-      "bytes": 67765
+      "bytes": 67715
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -496,11 +496,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "3e316ed30c776a0585d30fd70cc39f18b1d792cd90580a20c40039f1b1823bc5",
-      "after": "313bc78f07b83e3cf9162d1df802baa3bf81237cc946be48359ed1ef17c635ed",
-      "owner": "Scene static model projection",
-      "reason": "Define inherited perspective parallax at the shared model camera projection.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-perspective-parallax"
+      "before": "313bc78f07b83e3cf9162d1df802baa3bf81237cc946be48359ed1ef17c635ed",
+      "after": "c217ca108cb2c0f08d2bb4efe5cf41f42f2f38f5d333788e9f43f2509771e9f7",
+      "owner": "Scene Puppet animation preparation",
+      "reason": "Define dense reference masking with format bounds and original supported reference guards.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-dense-bind-reference-tracks"
     },
     {
       "section": "bodies",
@@ -577,10 +577,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "bd8ea638337dbccbb671bb54b74201fcbe11449457181db44b059a67fc85a543",
-      "after": "3d7b0513cbc93441eb1d855cecc3506461c0cfeb0c6061c3f9d90519773058fe",
-      "owner": "Scene compatibility evidence",
-      "reason": "Record causal body clip removal and root trail footprint with separate failure bounds.",
+      "before": "3d7b0513cbc93441eb1d855cecc3506461c0cfeb0c6061c3f9d90519773058fe",
+      "after": "1201ac0af2095ba8e8e5b8634a2b5b2e9ea357de9d41445c936a124bfb52372c",
+      "owner": "Scene Puppet runtime evidence",
+      "reason": "Record the frozen official probe and actual restored same-slot pose and output.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-body-slot-330"
     },
     {
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "242bbd595473496e30ca9651875df01f6c45b4c6045502ebffc35f476af67d01",
-      "after": "57d7ef560d8d0dcbd3e58709fcd1474105a604d619e235e334fddf21b880da05",
+      "before": "57d7ef560d8d0dcbd3e58709fcd1474105a604d619e235e334fddf21b880da05",
+      "after": "ca003612f6a408bc2a7c0d263af64e3ab8ca636d8bd70359c0c040cd6e996dc1",
       "owner": "Scene open breakpoint queue",
-      "reason": "Track the remaining measured artwork margin after model and cover co-motion.",
+      "reason": "Remove the resolved missing torso slot from the open issue and keep a measurable residual.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     },
     {

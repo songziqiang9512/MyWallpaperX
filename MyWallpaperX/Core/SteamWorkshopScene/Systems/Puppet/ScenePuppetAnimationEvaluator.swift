@@ -23,10 +23,12 @@ nonisolated struct ScenePuppetAnimationEvaluator {
     }
 
     private struct PreparedAnimation {
+        // Empty prepared tracks are exact references, never sampled poses.
         let posesByBone: [[Pose]]
+        let lastFrame: Int
         let drivenBones: Set<Int>
         let authoredBones: Set<Int>
-        let referenceBones: Set<Int>
+        let referenceBoneCount: Int
         let alphaVaries: Bool
         let hasAlphaContribution: Bool
         let alphaByBone: [[Float]]?
@@ -303,21 +305,14 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         animation: SceneMdlPuppetAnimation,
         frameSample: FrameSample
     ) throws -> [SIMD2<Float>] {
-        if let prepared = try? preparedAnimationsByID[animation.id]?.get() {
-            return try deformedPositions(
-                localMatrices: try prepared.posesByBone.indices.map { boneIndex in
-                    let pose = try Self.sample(
-                        prepared.posesByBone[boneIndex], frameSample: frameSample
-                    )
-                    return prepared.referenceBones.contains(boneIndex)
-                        ? referenceLocalMatrices[boneIndex] : Self.matrix(from: pose)
-                }
-            )
+        let prepared = try (try? preparedAnimationsByID[animation.id]?.get())
+            ?? Self.prepare(animation: animation, rig: rig)
+        try Self.validate(frameSample, lastFrame: prepared.lastFrame)
+        let matrices = try prepared.posesByBone.enumerated().map { boneIndex, track in
+            if track.isEmpty { return referenceLocalMatrices[boneIndex] }
+            return Self.matrix(from: try Self.interpolate(track, frameSample: frameSample))
         }
-        return try deformedPositions(localMatrices: localMatrices(
-            animation: animation,
-            frameSample: frameSample
-        ))
+        return try deformedPositions(localMatrices: matrices)
     }
 
     func deformedPositions(
@@ -593,7 +588,7 @@ nonisolated struct ScenePuppetAnimationEvaluator {
             preparedAnimations[clip.animation.id] = .success(try Self.prepare(animation: clip.animation, rig: rig))
         }
         if selection.clips.contains(where: {
-            (try? preparedAnimations[$0.animation.id]?.get().referenceBones.isEmpty) == false
+            ((try? preparedAnimations[$0.animation.id]?.get().referenceBoneCount) ?? 0) > 0
         }), selection.clips.reduce(0, { $0 + ($1.layer.additive == false ? 1 : 0) }) > 1 {
             throw ScenePuppetAnimationEvaluationFailure.unsupportedReferenceComposition
         }
@@ -613,19 +608,21 @@ nonisolated struct ScenePuppetAnimationEvaluator {
             guard let prepared = try? preparedAnimations[animation.id]?.get() else {
                 throw ScenePuppetAnimationEvaluationFailure.invalidFrame(frameSample.frameA)
             }
+            try Self.validate(frameSample, lastFrame: prepared.lastFrame)
+            let weight = blends?[clipIndex] ?? selection.clips[clipIndex].layer.blend ?? 1
+            if prepared.referenceBoneCount == rig.bones.count,
+               !weight.isFinite || weight < 0 || !Float(weight).isFinite {
+                throw ScenePuppetAnimationEvaluationFailure.invalidBlend
+            }
             for boneIndex in rig.bones.indices {
-                let sampled = try Self.sample(
-                    prepared.posesByBone[boneIndex], frameSample: frameSample)
-                let weight = blends?[clipIndex] ?? selection.clips[clipIndex].layer.blend ?? 1
-                if prepared.referenceBones.contains(boneIndex) {
-                    guard weight.isFinite, weight >= 0, Float(weight).isFinite else {
-                        throw ScenePuppetAnimationEvaluationFailure.invalidBlend
-                    }
+                let track = prepared.posesByBone[boneIndex]
+                if track.isEmpty {
                     output[boneIndex] = referenceLocalMatrices[boneIndex]
                     continue
                 }
                 output[boneIndex] = Self.matrix(from: try Self.applying(
-                    sampled, relativeTo: referencePoses[boneIndex], to: referencePoses[boneIndex],
+                    Self.interpolate(track, frameSample: frameSample),
+                    relativeTo: referencePoses[boneIndex], to: referencePoses[boneIndex],
                     weight: weight
                 ))
             }
@@ -707,20 +704,27 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         posesByBone.reserveCapacity(boneCount)
         var drivenBones: Set<Int> = []
         var authoredBones: Set<Int> = []
-        var referenceBones: Set<Int> = []
+        var referenceBoneCount = 0
+        let usesDenseBindReference = animation.referenceTrackPolicy == .denseBindReference
+            && rig.referenceLocalMatricesColumnMajor == nil && rig.referencePoseDiagnostic == nil
         for (boneIndex, track) in animation.transformsByBone.enumerated() {
             guard animation.frameCount >= 0, animation.frameCount < Int.max,
                   track.isEmpty == false,
                   track.count == animation.frameCount + 1 else {
                 throw ScenePuppetAnimationEvaluationFailure.invalidFrame(0)
             }
+            let isReference = animation.transformTrackStates[boneIndex] == .referenceCandidate
+            if isReference && usesDenseBindReference {
+                referenceBoneCount += 1
+                posesByBone.append([])
+                continue
+            }
             let poses = track.map(Self.pose(from:))
             guard poses.allSatisfy({ $0 != nil }) else {
                 throw ScenePuppetAnimationEvaluationFailure.invalidFrame(0)
             }
             let unwrapped = poses.compactMap { $0 }
-            let reference = unwrapped[0]
-            if animation.transformTrackStates[boneIndex] == .referenceCandidate {
+            if isReference {
                 let bind = Self.matrix(fromColumnMajor: rig.bones[boneIndex].bindLocalMatrixColumnMajor)
                 guard rig.referenceLocalMatricesColumnMajor == nil,
                       unwrapped.allSatisfy({ pose in
@@ -729,8 +733,10 @@ nonisolated struct ScenePuppetAnimationEvaluator {
                       }) else {
                     throw ScenePuppetAnimationEvaluationFailure.invalidReferenceTrack(boneIndex)
                 }
-                referenceBones.insert(boneIndex)
+                referenceBoneCount += 1
+                posesByBone.append([])
             } else {
+                let reference = unwrapped[0]
                 if unwrapped.contains(where: Self.isAuthoredPose) {
                     authoredBones.insert(boneIndex)
                 }
@@ -739,8 +745,8 @@ nonisolated struct ScenePuppetAnimationEvaluator {
                 }) {
                     drivenBones.insert(boneIndex)
                 }
+                posesByBone.append(unwrapped)
             }
-            posesByBone.append(unwrapped)
         }
         var alphaVaries = false
         if let tracks = animation.alphaByBone {
@@ -757,9 +763,10 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         }
         return PreparedAnimation(
             posesByBone: posesByBone,
+            lastFrame: animation.frameCount,
             drivenBones: drivenBones,
             authoredBones: authoredBones,
-            referenceBones: referenceBones,
+            referenceBoneCount: referenceBoneCount,
             alphaVaries: alphaVaries,
             hasAlphaContribution: animation.hasAlphaContribution,
             alphaByBone: animation.alphaByBone,
@@ -769,29 +776,22 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         )
     }
 
-    private func localMatrices(
-        animation: SceneMdlPuppetAnimation,
-        frameSample: FrameSample
-    ) throws -> [simd_float4x4] {
-        let prepared = try Self.prepare(animation: animation, rig: rig)
-        return try prepared.posesByBone.enumerated().map { boneIndex, track in
-            let sampled = try Self.sample(track, frameSample: frameSample)
-            return prepared.referenceBones.contains(boneIndex)
-                ? referenceLocalMatrices[boneIndex] : Self.matrix(from: sampled)
-        }
-    }
-
-    private static func sample(
-        _ poses: [Pose],
-        frameSample: FrameSample
-    ) throws -> Pose {
-        guard poses.indices.contains(frameSample.frameA),
-              poses.indices.contains(frameSample.frameB),
+    private static func validate(_ frameSample: FrameSample, lastFrame: Int) throws {
+        guard frameSample.frameA >= 0, frameSample.frameA <= lastFrame,
+              frameSample.frameB >= 0, frameSample.frameB <= lastFrame,
               frameSample.fraction.isFinite,
               frameSample.fraction >= 0,
               frameSample.fraction <= 1 else {
             throw ScenePuppetAnimationEvaluationFailure.invalidFrame(frameSample.frameA)
         }
+    }
+
+    private static func sample(_ poses: [Pose], frameSample: FrameSample) throws -> Pose {
+        try validate(frameSample, lastFrame: poses.count - 1)
+        return try interpolate(poses, frameSample: frameSample)
+    }
+
+    private static func interpolate(_ poses: [Pose], frameSample: FrameSample) throws -> Pose {
         let a = poses[frameSample.frameA]
         let b = poses[frameSample.frameB]
         let t = frameSample.fraction

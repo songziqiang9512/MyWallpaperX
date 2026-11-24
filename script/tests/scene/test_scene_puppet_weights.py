@@ -142,10 +142,13 @@ func referenceEvaluation(mesh: SceneMdlPuppetMesh, rig: SceneMdlPuppetRig,
 }
 func denseClip(_ id: Int = 1701, root: [SceneMdlPuppetAnimation.Transform]? = nil,
                states: [SceneMdlPuppetAnimation.TransformTrackState] = [.referenceCandidate, .sampled],
-               alpha: Bool = false, tag: String = "neutral") -> SceneMdlPuppetAnimation {
+               alpha: Bool = false, tag: String = "neutral",
+               child: [SceneMdlPuppetAnimation.Transform] = [pose(2), pose(2)],
+               policy: SceneMdlPuppetAnimation.ReferenceTrackPolicy = .bindEquivalentOnly) -> SceneMdlPuppetAnimation {
     .init(id: id, name: tag, mode: "single", framesPerSecond: 1, frameCount: 1,
-        transformsByBone: [root ?? [pose(4), pose(4)], [pose(2), pose(2)]],
-        transformTrackStates: states, alphaByBone: alpha ? [[1,1], [1,0.25]] : nil)
+        transformsByBone: [root ?? [pose(4), pose(4)], child],
+        transformTrackStates: states, alphaByBone: alpha ? [[1,1], [1,0.25]] : nil,
+        referenceTrackPolicy: policy)
 }
 func denseEvaluation(_ clips: [ScenePuppetAnimationSelection.Clip],
                      rig override: SceneMdlPuppetRig? = nil, hidden: Bool = false) throws -> [String: Any] {
@@ -213,7 +216,7 @@ func denseReferenceCases() throws -> [String: Any] {
     for (label, candidate) in [
         ("nonbind", denseClip(root: [pose(9), pose(9)])),
         ("above-tolerance", denseClip(root: [pose(4.0002), pose(4.0002)])),
-        ("varying", denseClip(root: [pose(4), pose(4.00001)])),
+        ("varying", denseClip(root: [pose(4), pose(4.02)])),
         ("state-count", denseClip(states: [.referenceCandidate]))
     ] {
         do {
@@ -231,6 +234,33 @@ func denseReferenceCases() throws -> [String: Any] {
     let close = denseClip(root: [pose(4.00005), pose(4.00005)])
     output["within-tolerance"] = try denseEvaluation([
         .init(layer: layer(1, additive: false, id: close.id), animation: close)])
+    for (label, states) in [
+        ("masked", [SceneMdlPuppetAnimation.TransformTrackState.referenceCandidate, .sampled]),
+        ("unmasked", [.sampled, .sampled])
+    ] {
+        let clip = denseClip(root: [pose(9), pose(25)], states: states, tag: "variable reference",
+            child: [pose(2), pose(8)], policy: .denseBindReference)
+        for additive in [false, true] {
+            let selected = ScenePuppetAnimationSelection.Clip(
+                layer: layer(1, additive: additive, id: clip.id), animation: clip)
+            output["\(label)-\(additive)"] = try denseEvaluation([selected])
+        }
+    }
+    let masked = denseClip(root: [pose(9), pose(25)], states: [.referenceCandidate, .referenceCandidate],
+        child: [pose(2), pose(8)], policy: .denseBindReference)
+    let frame = ScenePuppetAnimationEvaluator.FrameSample(frameA: 1, frameB: 2)
+    let evaluator = try ScenePuppetAnimationEvaluator(mesh: mesh, rig: bind, additiveAnimations: [masked])
+    output["all-masked-invalid-frame"] = rejected {
+        _ = try evaluator.deformedPositions(animation: masked, frameSample: frame)
+        return [:]
+    }
+    let unknownReference = SceneMdlPuppetRig(bones: bind.bones, vertexWeights: bind.vertexWeights,
+        referencePoseDiagnostic: "unknown reference prefix")
+    for (name, rig) in [("assembled", assembled), ("unknown", unknownReference)] {
+        output["dense-policy-\(name)-rejected"] = rejected {
+            try denseEvaluation([.init(layer: layer(1, id: masked.id), animation: masked)], rig: rig)
+        }
+    }
     return output
 }
 
@@ -552,6 +582,21 @@ class PuppetWeightTests(unittest.TestCase):
         self.assertNotEqual(result["state-count"], "accepted")
         self.assertTrue(result["assembled-rejected"])
         self.assertTrue(result["multiple-opaque-rejected"])
+
+    def test_dense_bind_reference_preserves_sampled_motion_in_the_same_clip(self):
+        result = self.result["denseReference"]
+        for additive in ("false", "true"):
+            with self.subTest(additive=additive):
+                masked = result[f"masked-{additive}"]
+                unmasked = result[f"unmasked-{additive}"]
+                self.assertEqual((masked["root"], unmasked["root"]), (4, 25))
+                self.assertEqual((masked["child"], unmasked["child"]), (8, 8))
+                self.assertEqual(masked["point"], masked["written"])
+                self.assertNotEqual(masked["point"], unmasked["point"])
+                self.assertFalse(masked["invariant"])
+        self.assertTrue(result["all-masked-invalid-frame"])
+        for label in ("assembled", "unknown"):
+            self.assertTrue(result[f"dense-policy-{label}-rejected"])
 
 
 if __name__ == "__main__":
