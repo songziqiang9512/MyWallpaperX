@@ -22,7 +22,7 @@
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 44,
-      "bytes": 7353
+      "bytes": 7433
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 200,
@@ -129,8 +129,8 @@
       "bytes": 91450
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 596,
-      "bytes": 328401
+      "lines": 600,
+      "bytes": 330050
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 245,
-      "bytes": 69529
+      "bytes": 69483
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -361,10 +361,10 @@
     {
       "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "ac6515e455ceb1b2a747d357d81333086fb427e64f654c7145e27ac82c4ece56",
-      "after": "eee31f7aa6e204b0b3b405a8a382730351369b0b6b46f9d2ba1e65d4da9a4351",
+      "before": "eee31f7aa6e204b0b3b405a8a382730351369b0b6b46f9d2ba1e65d4da9a4351",
+      "after": "41998c3961708531d0338131940529bf561a695bfa16ee189943bf2274772834",
       "owner": "Shared Scene author spectrum",
-      "reason": "Bind current candidate scope, competing denominators and cross-author acceptance.",
+      "reason": "Keep decision boundaries for finite-window response, effective onset and capture publication.",
       "decision": "docs/architecture/system-audio-spectrum-design.md"
     },
     {
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f070da2962fe56e1e99fed73962bcee5b6c0537b4bad7355a02d5893896054eb",
-      "after": "0f79fca084785add84974c59a1ed9aa8aefd302853ec7e72d87f316e6b78562d",
+      "before": "0f79fca084785add84974c59a1ed9aa8aefd302853ec7e72d87f316e6b78562d",
+      "after": "8c5910eb498d7723003ce2d4d3a0695b1944ea9195ff74fa3ec4bbe520af24b6",
       "owner": "Scene author spectrum",
-      "reason": "Preserve measured pressure, physical ring shape and the independently reproduced author cue counterexample.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-ring-offline-spectrum-replay-361"
+      "reason": "Record the four endpoint controls and the independently reviewed native foreground replay.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-silence-onset-361"
     },
     {
       "section": "bodies",

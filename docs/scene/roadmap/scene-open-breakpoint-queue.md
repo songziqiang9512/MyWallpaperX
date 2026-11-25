@@ -18,7 +18,7 @@
 | 定位 | 当前事实与下一步 |
 |---|---|
 | Sphere 全零方向的出生可见性（待证） | [固定零半径初速](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)已恢复。显式全零 Directions 的隔离 Sprite 在官版窗内无像素，本机可见且静止。需分出生资格与可见条件，先找活动作者或单轴逐步归零的反例，保零速度和非零轴的正常出生。 |
-| 音频供值 · 3612940332 | [同1538×998、交换32档](../capabilities/runtime-evidence-current.md#author-ring-shape-same-spectrum-361)复现有声红环变细及形状偏差，首个已证差异在供值。[异幅及异频脉冲](../capabilities/runtime-evidence-current.md#author-spectrum-strength-groups-361)约束快慢恢复和分组倍率。[离线供值实绘](../capabilities/runtime-evidence-current.md#author-ring-offline-spectrum-replay-361)已恢复单帧轮廓及线宽，独立346低多音会误亮。先沿[共享设计](../../architecture/system-audio-spectrum-design.md)核低多音准备档与攻击态，再验原包有声与Bloom。 |
+| 音频供值 · 3612940332 | [同画幅交换32档](../capabilities/runtime-evidence-current.md#author-ring-shape-same-spectrum-361)把有声红环变细及形状偏差定位到供值。[离线实绘](../capabilities/runtime-evidence-current.md#author-ring-offline-spectrum-replay-361)恢复单帧轮廓与线宽，[矩形窗及起音候选](../capabilities/runtime-evidence-current.md#author-spectrum-silence-onset-361)在独立346实绘消除已测弱段误亮。沿[共享设计](../../architecture/system-audio-spectrum-design.md)裁决静音重入、攻击及发布时钟，再接实时供值并验原包有声与Bloom。 |
 | 粒子外圈 · 3653620838 | [近轴与像素相位](../capabilities/runtime-evidence-current.md#vortex-outer-pixel-phase-365)的静卡一致。继续须运动同亚像素或重复成熟群组，区分出光与覆盖。 |
 | 普通粒子材质增亮的裁幅 | 平面 RG88 同窗对照测得材质 gain1.4 的官版 `(0,144,144)`、本机新 `(0,163,202)`。先找实际作者消费，并用有色 texel、半透明底和双层加色区分 tint、采样与裁幅顺序。已验证的中性 R8 半透明 Trail 裁幅另有原证据。 [运行证据](../capabilities/runtime-evidence-current.md#particle-instance-tint-native) |
 | 3454689854 的相邻丝层 | [同画幅单丝、原包和实际预算](../capabilities/runtime-evidence-current.md#silk-capture-density-345)已闭两条SDR根丝密度。子层及多阶段保持原工作域，只有取得可归属的同相位残差再重启。原默认绕身文字两端均隐藏，条件另见[原包对照](../capabilities/runtime-evidence-current.md#author-silk-raster-345)。 |
@@ -126,7 +126,7 @@
 | 3781003282 | 中央白方[未重现](../capabilities/runtime-evidence-current.md#pointer-halo-378)。重启须可复现位置、画幅或桌面版本，再判888采样与独立395/e16。 |
 | Puppet 后置标量轨 | [384与独立377的普通骨轨已恢复](../capabilities/runtime-evidence-current.md#puppet-post-bounds-trs)。同相位标量替换未证主要遮挡差。重启须有单骨/同位置的可见交叠对照，再分纯绘制顺序、骨权重或几何作用。 |
 | 3382111183 | [官版曲线及原曲实机](../capabilities/runtime-evidence-current.md#floor-beam-emitter-338211)已测同档左右均值取峰、smoothstep后取幂和越1供值。待共享准备值合格后接普通发射器，验原包出生和运动。 |
-| 3383210272 / 3463406101 | [原曲](../capabilities/runtime-evidence-current.md#beam-shared-pcm)官版成双束、本机各2颗。[同PCM前景](../capabilities/runtime-evidence-current.md#author-low-band-pulse-346)确认原Pulse执行、两组官版取峰及准备64档已分叉。低档也见跨声道快影响与同侧慢历史。继续须可配对的运行中原谱或能裁决更新律的新输入，沿[共享设计](../../architecture/system-audio-spectrum-design.md)验原曲宽束、前景及独立消费者。沿用已测阈值和原曲证据。 |
+| 3383210272 / 3463406101 | [原曲](../capabilities/runtime-evidence-current.md#beam-shared-pcm)官版成双束、本机各2颗。[同PCM前景](../capabilities/runtime-evidence-current.md#author-low-band-pulse-346)定位准备64档分叉。[起音与慢尾实绘](../capabilities/runtime-evidence-current.md#author-spectrum-silence-onset-361)已有弱段及慢尾候选，强段仍有相位残差。沿[共享设计](../../architecture/system-audio-spectrum-design.md)核实时输出、强段及原曲宽束，复用已测作者阈值。 |
 | 2814167871 /2835398595 | 眼部为132/e1与98/e0的pulse RGB增亮，16档band0/1均值跨.5才响应；281强度属性默认1、283常量.51。[默认PCM前5秒](../capabilities/runtime-evidence-current.md#eye-audio-input)无跨线正控；后续同作者WAV的281两App静帧已有真实16档消费，但不能判眼部闪动或闪烁。粗档候选已撤回，283不追加矩阵。重启须可裁决实际供值/首错，再核同帧pulse→tail→眼RGB；不调gain/作者参数、不强注入1，不由bus非零关闭。 |
 | 3708363772 · 配色 | [共享次色](../capabilities/runtime-evidence-current.md#media-palette-official-370)仍有差异，续核排序与暗色过滤。 |
 | 3603711180 | [播放媒体的原包与两端实帧](../capabilities/runtime-evidence-current.md#author-player-text-current-360)恢复标题、艺人、剩余时间和实际封面。已测画幅首行同在左框外，观察其他比例/第二行与字体差异须用同视口同媒体复取；按原屏幕锚与字形范围核对。 |

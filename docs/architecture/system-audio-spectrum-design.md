@@ -3,7 +3,7 @@
 
 # 共享音频分析与消费域设计
 
-> 状态：仍共用显示响应。[粒子16档](../scene/capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)、[前景16档](../scene/capabilities/runtime-evidence-current.md#author-low-band-pulse-346)和[shader 32档](../scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361)在已测档取准备64档组峰。[同PCM脉冲](../scene/capabilities/runtime-evidence-current.md#author-spectrum-pulse-361)及前景区分快影响与慢恢复。48kHz有短窗及[近似绝对线性衰减](../scene/capabilities/runtime-evidence-current.md#author-spectrum-physical-release-361)候选。压力合成、攻击、绝对校准、44.1kHz及运行原谱待证。再验作者画面。
+> 状态：Scene 仍共用显示响应。[粒子16档](../scene/capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)、[前景16档](../scene/capabilities/runtime-evidence-current.md#author-low-band-pulse-346)和[shader 32档](../scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361)在已测档取准备64档组峰。48kHz 已有[矩形短窗、起音与前景实绘](../scene/capabilities/runtime-evidence-current.md#author-spectrum-silence-onset-361)证据。攻击、静音重入边界、全带权重、发布时钟及44.1kHz待证；实时原包有声与Bloom待验。
 
 ## 目标与职责
 
@@ -26,7 +26,7 @@ Video helper仍首次开启才建子层并采用已接纳高度；空数组表�
 | Video/Web现有显示响应 | 保原64带轴、固定频率tilt、-100…-10dB/0.96 smoothstep及30/140ms高度包络。Overlay先求立体声均值再投影并用静态style/sensitivity，Web拼接左右64。不将其提升为官方作者标定。 |
 | Scene作者输入 | 由已验证的物理格与准备历史形成。保留超过1的合法供值，不套显示gain、顶高或包络。从同一准备64档以相邻四档峰值供16档、相邻两档峰值供32档；实证范围见本页状态。尚未证明所有Scene消费者同域时，六数组承载不等于完成。 |
 
-[压力及红环实绘](../scene/capabilities/runtime-evidence-current.md#author-ring-offline-spectrum-replay-361)支持48kHz候选在非直流格按已测上界取峰，双声道共用快峰且逐声道每八档有本地慢峰。实证稳态分母候选取本地峰与共享峰三分之一的较大值。权重目前只有测点，候选在独立低多音输入会误亮。进入原服务须先复现实测准备64档的低频组峰和边界两侧，控制攻击及慢尾，保持已复核的原红环轮廓与官方阈值。
+[压力及红环实绘](../scene/capabilities/runtime-evidence-current.md#author-ring-offline-spectrum-replay-361)支持48kHz候选对连续PCM尾段取矩形窗，保留基线对非DC格的贡献，再按已测格上界取峰。稳态分母候选取逐声道每八档本地峰与双侧共享峰三分之一的较大值。已证较长全零后重入会从共同有效分母近似线性释放，成熟弱音分母低于旧候选固定下限；共同抬升可由共享峰承担，现有证据尚不能裁决本地慢峰是否也需要重置。接线前以短静音、弱非零过渡与受压强弱双脉冲区分状态和攻击，并验捕获时间及格式。保持独立低多音阈值和原红环实绘。
 
 每个发布批次只生成实际需求的结果。不同域若确需历史，由原Analyzer持最少必要状态，共用捕获时间/elapsed和既有reset边界；不为未知算法预建自适应状态。六数组合计224个Float，既有IPC入口允许有限非负值超过1，无需扩数组、传PCM或新增native/raw并行字段。采集只交真实有符号声道；首有声Debug整流峰仍按需一次，不增加逐窗归并。
 
