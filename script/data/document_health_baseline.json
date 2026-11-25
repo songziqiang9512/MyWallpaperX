@@ -73,8 +73,8 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 333,
-      "bytes": 78125
+      "lines": 337,
+      "bytes": 78788
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 355,
@@ -684,11 +684,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "ebc20715c169740dac1e6f50f8e9a2bdc51b1a52797d4de62208a999fd254abe",
-      "after": "a813c85bbbc414c0083959992d15a553c0e9b833b16915ea71a95d8a2d58099d",
+      "before": "a813c85bbbc414c0083959992d15a553c0e9b833b16915ea71a95d8a2d58099d",
+      "after": "56896768e817712aad31bb9178f66d0ec814ca6939ac106c58cecdfe4bfc4a10",
       "owner": "跨引擎画质设计",
-      "reason": "校正 Bloom 暖工作集随冷候选退役的有效事实",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-post-processing"
+      "reason": "闭合固定官方体积档冷启动字段运输和 D3D11 实际目标尺寸",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-volume-shader"
     }
   ]
 }

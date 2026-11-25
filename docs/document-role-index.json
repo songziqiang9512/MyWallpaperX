@@ -347,10 +347,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7b167706bc0b6d3a8bbc861c46345249e083a54c37cd39cb069242a68c20f10e",
+        "sourceSHA256": "89b72fb63e5cf77f91f7eb8cebfe216f95528f38f07ac2a380e4a96078283d38",
         "method": "document_registry --audit + document_health --check",
-        "scope": "校正 Bloom 暖工作集随冷候选退役的有效事实",
-        "limitations": "冷交接的配额再取得仍单独验证"
+        "scope": "32 位固定官版体积档冷路线、D3D 尺寸、shader 步数和设备门",
+        "limitations": "仍未动态核 DPI、热切、创建成功与最终画面"
       }
     },
     {
