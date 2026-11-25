@@ -263,6 +263,7 @@ enum Harness {
             "silent": arrays(silent).joined().allSatisfy { $0 == 0 },
             "nearSilentPeak": nearSilent.left64.max() ?? 0,
             "reentry": reentryChecks(active: dcFrame, quiet: nearSilentFrame),
+            "sharedAttack": sharedAttackChecks(),
             "usesTail": arrays(freshAuthor(sameTail, sampleRate: sampleRate)) == arrays(center),
             "incompleteTailSilent": arrays(freshAuthor(incompleteTail, sampleRate: sampleRate))
                 .joined().allSatisfy { $0 == 0 },
@@ -307,6 +308,25 @@ enum Harness {
             "long60": restart(quietSeconds: 0.7, cadence: 60),
             "fresh": freshAuthor(active, sampleRate: sampleRate).left64[0],
         ]
+    }
+
+    static func sharedAttackChecks() -> [[Float]] {
+        let right = zip(
+            tone(758.257539, amplitude: 0.03964522),
+            tone(9_604.595500, amplitude: 0.00114217)
+        ).map { reference, witness in reference + witness }
+        let quiet = captured([tone(1_102.920057, amplitude: 0.03426054), right])
+        let pressure = captured([tone(1_493.537578, amplitude: 0.36), right])
+        let analyzer = SystemAudioSceneSpectrumAnalyzer()!
+        func at(_ frame: SystemAudioCapturedFrame, tick: Int) -> [Float] {
+            let bands = analyzer.analyzeAuthor(frame, sampleRate: sampleRate, timestamp: Double(tick) / 30)
+            return [bands.right64[30], bands.right64[57]]
+        }
+        for tick in 0..<90 { _ = at(quiet, tick: tick) }
+        let before = at(quiet, tick: 90)
+        let attack = at(pressure, tick: 91)
+        for tick in 92..<180 { _ = at(pressure, tick: tick) }
+        return [before, attack, at(pressure, tick: 180)]
     }
 
     static func tone(_ frequency: Double, amplitude: Float, at sourceSampleRate: Float = sampleRate) -> [Float] {

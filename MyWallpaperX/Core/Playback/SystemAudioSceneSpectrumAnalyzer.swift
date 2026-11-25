@@ -285,7 +285,7 @@ nonisolated final class SystemAudioSceneSpectrumAnalyzer {
 
 private extension SystemAudioSceneSpectrumAnalyzer {
     struct AuthorAnalysis {
-        private static let onsetPeak: Float = 0.3432
+        private static let onsetDenominator: Float = 0.1144
         private static let quietPeak: Float = 0.00002
         private static let minimumDenominator: Float = 0.000113
         private static let reentryDelay = 0.5
@@ -295,8 +295,7 @@ private extension SystemAudioSceneSpectrumAnalyzer {
         private var channelCount = 0
         private var lastTimestamp: TimeInterval?
         private var quietDuration: TimeInterval = 0
-        private var sharedPeak = onsetPeak
-        private var denominators = Array(repeating: Float(0), count: 2 * groupCount)
+        private var denominators = Array(repeating: onsetDenominator, count: 2 * groupCount)
         private var lastLevels = AuthorLevels.silence
 
         mutating func reset() {
@@ -341,16 +340,15 @@ private extension SystemAudioSceneSpectrumAnalyzer {
                 return lastLevels
             }
             let dt = Float(elapsed)
-            let localFall = 0.05634 * dt
+            let fall = 0.05634 * dt
             if peak < Self.quietPeak {
                 if quietDuration < Self.reentryDelay {
                     quietDuration += elapsed
                     if quietDuration >= Self.reentryDelay {
                         seedOnset()
                     } else {
-                        sharedPeak = max(0, sharedPeak - 0.17 * dt)
                         for index in denominators.indices {
-                            denominators[index] = max(0, denominators[index] - localFall)
+                            denominators[index] = max(0, denominators[index] - fall)
                         }
                     }
                 }
@@ -359,34 +357,33 @@ private extension SystemAudioSceneSpectrumAnalyzer {
             }
 
             quietDuration = 0
-            sharedPeak += min(0.36 * dt, max(-0.17 * dt, peak - sharedPeak))
-            let floor = max(sharedPeak / 3, Self.minimumDenominator)
-            normalize(&left, channelOffset: 0, floor: floor, rise: 0.12 * dt, fall: localFall)
+            let sharedTarget = max(peak / 3, Self.minimumDenominator)
+            let rise = 0.12 * dt
+            normalize(&left, channelOffset: 0, sharedTarget: sharedTarget, rise: rise, fall: fall)
             if right != nil {
-                normalize(&right!, channelOffset: Self.groupCount, floor: floor, rise: 0.12 * dt, fall: localFall)
+                normalize(&right!, channelOffset: Self.groupCount, sharedTarget: sharedTarget, rise: rise, fall: fall)
             }
             lastLevels = AuthorLevels(left64: left, right64: right)
             return lastLevels
         }
 
         private mutating func seedOnset() {
-            sharedPeak = Self.onsetPeak
-            for index in denominators.indices { denominators[index] = 0 }
+            for index in denominators.indices { denominators[index] = Self.onsetDenominator }
         }
 
         private mutating func normalize(
             _ bands: inout [Float],
             channelOffset: Int,
-            floor: Float,
+            sharedTarget: Float,
             rise: Float,
             fall: Float
         ) {
             for group in 0..<Self.groupCount {
                 let samples = (group * 8)..<((group + 1) * 8)
-                let peak = bands[samples].max()!
+                let target = max(sharedTarget, bands[samples].max()!)
                 let index = channelOffset + group
                 let previous = denominators[index]
-                let next = max(floor, previous + min(rise, max(-fall, peak - previous)))
+                let next = max(Self.minimumDenominator, previous + min(rise, max(-fall, target - previous)))
                 denominators[index] = next
                 for band in samples { bands[band] /= next }
             }

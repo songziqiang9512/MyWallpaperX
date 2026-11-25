@@ -241,6 +241,15 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
         for capture in ("long30", "long60"):
             self.assertAlmostEqual(reentry[capture], reentry["fresh"], delta=0.000_1)
 
+    def test_author_shared_peak_moves_each_group_from_its_own_history(self) -> None:
+        before, attack, held = self.result["analyzer"]["sharedAttack"]
+        self.assertGreater(before[0], .98)
+        self.assertGreater(before[1], .6)
+        self.assertLess(attack[0], before[0] * .9)
+        self.assertLess(attack[1] / before[1], attack[0] / before[0])
+        self.assertAlmostEqual(held[0], .183, delta=.01)
+        self.assertAlmostEqual(held[1], .05, delta=.01)
+
 
 class SceneAudioSpectrumWiringTests(unittest.TestCase):
     """静态接线断言：确保采集服务与播放引擎按 A0 合同接线。"""

@@ -22,7 +22,7 @@
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 46,
-      "bytes": 7513
+      "bytes": 7559
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 200,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 335379
+      "bytes": 336674
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 245,
-      "bytes": 69157
+      "bytes": 69217
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -361,10 +361,10 @@
     {
       "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "baa291f0f937d126b0c52bb172780c28d0b1201286336009d1e6979740ea6ad2",
-      "after": "9ed71bdec1a4eaade739d64f31e3209851a5a132332b1fe300df868f2852d866",
-      "owner": "Shared capture and Scene author spectrum",
-      "reason": "Bind the live single-worker author PCM integration, display-domain lifetime and observed qualification.",
+      "before": "9ed71bdec1a4eaade739d64f31e3209851a5a132332b1fe300df868f2852d866",
+      "after": "6b0269f4f69e7ec8d381e1ade36803228a18ff2ba98c6d6b399155024d8079b6",
+      "owner": "Scene audio normalization",
+      "reason": "Replace the separate common peak state with per-group target tracking.",
       "decision": "docs/architecture/system-audio-spectrum-design.md"
     },
     {
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ec4bcefa4e8043893255c169fdb2d4f492b9e8662e420b7a58e72ecdf8416a14",
-      "after": "f149d0b1a5209551db55d8a962e4cf8655588174712219d76b4628ddcf2081bb",
-      "owner": "Scene author ring",
-      "reason": "Record comparable original audio ring contours, exact PCM and the nearby prepared-spectrum corroboration.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-ring-live-contour-361"
+      "before": "f149d0b1a5209551db55d8a962e4cf8655588174712219d76b4628ddcf2081bb",
+      "after": "788473acc361e66f546d3ed9ca46c8102e70f6276368b0ffc820b3ef14206ad6",
+      "owner": "Scene audio normalization",
+      "reason": "Record qualified official and native group attacks, exact matched tails, original ring residual, and independent authored output.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-group-shared-target"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "cea991a8f221148a01e61675eaa0d6850c8d798af2490913d4a86b4991bbe5bc",
-      "after": "7eb645af840592c6fcd389da8490e9d6110d6873f55b3f27312d459a3cf7ef6a",
+      "before": "3978267e3ac52a4e5eab6646a2cca2a12a2692c44503894f7071f50a6e8a2690",
+      "after": "b016bd1d5d030320828b7692fb57afc2f87a7ccc9649cd7be23517a06201516a",
       "owner": "Scene author ring",
-      "reason": "Route the recovered original background and preserve open timing and format validation.",
+      "reason": "Route the corrected group pressure rise and the measured strong-band residual.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
