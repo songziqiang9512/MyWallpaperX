@@ -8,7 +8,7 @@
 
 从主工作树 `codex/engine-refactor-program` 的 `b2b80f892` 建 `Fluxo/wallpaper-quality-settings`。评估方案给技术取舍与失败判据，本卡维护唯一执行顺序与当前批。开工核对分支、实际 diff 和上批证据，从原设置行为追到真实运行消费者。 [算法与技术设计](wallpaper-quality-settings-plan.md#decision) · [源码地图](../architecture/repository-map.md#wallpaper-quality) · [验证工作流](repository-workflow.md#设计判定与记录)
 
-**当前核对便携画质导入的持续播放**。原生设置、四档预设、10–120 FPS、Scene MSAA 最高已验 4×、泛光与超高输出、三种纹理策略、阴影五档及反射开关已接通。体积禁用覆盖点光和聚光，现役高／超高分别用四点／六点点光积分。低分辨率候选已由独立复核退出，低／中待有新办法保护细光与遮挡时再推进。M4 的三引擎交接及正常冷恢复已通过。后续按设备核混合显示拓扑、8× 实际支持与长稳功耗。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
+**当前验证暂停窗口的 HDR 实际热切**。原生设置、四档预设、10–120 FPS、Scene MSAA 最高已验 4×、泛光与超高输出、三种纹理策略、阴影五档及反射开关已接通。体积禁用覆盖点光和聚光，现役高／超高分别用四点／六点点光积分。低分辨率候选已由独立复核退出，低／中待有新办法保护细光与遮挡时再推进。M4 的三引擎交接及正常冷恢复已通过。后续按设备核混合显示拓扑、8× 实际支持与长稳功耗。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
 
 Q0 已取得 M4 上基线源码的独立 Metal 泛光和映射结果。Q1 从 App 偏好写入入口把帧率与 Web 模式投影到实际端点，Scene 保原缓存档，Video 保原片。已验签名隔离 Debug 的 30／60 真实呈现、实际 WKWebView 投递、候选端点、导入复位和独立复核。复杂作品的 60 FPS 与长稳功耗仍按 [实测门槛](wallpaper-quality-settings-plan.md#quality-release-gates)验证。每批冻结源码后跑最近门和独立审查，只提交本批文档、源码与测试。
 
@@ -38,7 +38,20 @@ Q2 先在原准备入口引入有效后处理投影。普通档和禁用档沿�
 
 首片先落实两种超高档。新增值加入现有画质记录，旧 bool 只读迁移，便携载荷优先新字段，缺省新字段才采合法的旧 bool。App 仅在请求变更发一次 Scene 命令，启动与恢复采用原 Scene wire。原 Host 保最新意图，候选、恢复会话及换屏交给原 Surface。切档只更新每屏 EDR 申请和必要的冻结帧，复用既有颜色映射、GPU 资源和时钟。受控夹具要求验证旧／新导入、正常／暂停切换、SDR 反例和取消候选。 [Scene 质量策略](../scene/architecture/runtime-architecture.md#effective-quality-policy)
 
-在单内屏 M4 Liquid Retina XDR（3024×1964）用同一团队签名 Debug 和同包做普通超高／显示 HDR 冷启动。ScreenCaptureKit 锁定实际 Scene 窗口 ID 和进程，取本地显示 RGhA，转扩展线性 sRGB 浮点。带超白源的两个普通超高窗峰值均为 1，两个显示 HDR 窗均为 13.5703，高于 1.02 的像素为 0／166,698。独立白、灰探针分别保持 1、0.21404，显示 HDR 捕获时系统当前余量为 13.5799。真作者 HDR 3219398263 的两窗峰值约 1.0008／13.5703，采到超过 1.02 的像素 0／704,642，动画相位未锁到同帧。作者 SDR 邻例 3477054430 根 `hdr=false`，两档峰值均约 1.0007，无扩展高亮。八窗均实际提交并排空。收据归 `.artifacts/wallpaper-quality-xdr/windowserver-edr.json`；此门验证 WindowServer 的实际窗口输出和单屏能力，面板光度、真实多屏和物理热切仍未测。 [Apple 屏幕余量接口](https://developer.apple.com/documentation/metal/determining-support-for-edr-values)
+在单内屏 M4 Liquid Retina XDR（3024×1964）用同一团队签名 Debug 和同包做普通超高／显示 HDR 冷启动。ScreenCaptureKit 锁定实际 Scene 窗口 ID 和进程，取本地显示 RGhA，转扩展线性 sRGB 浮点。带超白源的两个普通超高窗峰值均为 1，两个显示 HDR 窗均为 13.5703，高于 1.02 的像素为 0／166,698。独立白、灰探针分别保持 1、0.21404，显示 HDR 捕获时系统当前余量为 13.5799。真作者 HDR 3219398263 的两窗峰值约 1.0008／13.5703，采到超过 1.02 的像素 0／704,642，动画相位未锁到同帧。作者 SDR 邻例 3477054430 根 `hdr=false`，两档峰值均约 1.0007，无扩展高亮。八窗均实际提交并排空。收据归 `.artifacts/wallpaper-quality-xdr/windowserver-edr.json`；此门验证 WindowServer 的实际窗口输出和单屏能力，面板光度和真实混合多屏仍待测。 [Apple 屏幕余量接口](https://developer.apple.com/documentation/metal/determining-support-for-edr-values)
+
+<a id="scene-paused-display-hdr-live"></a>
+### 单内屏暂停窗口的显示 HDR 热切
+
+只改应用的普通超高／超高显示 HDR 意图，固定当前物理 XDR、显示配置、同一素材、同一暂停请求和开发签名。先在现役进程查实际 Ultra→显示 HDR→Ultra 的窗口像素。当前帧 EDR 余量可从 1 异步变化，系统此时发送屏幕参数通知，原 Surface 订阅并请求必要的冻结帧。先量真实通知是否足以完成终端回绘。 [Apple 当前 EDR 余量](https://developer.apple.com/documentation/appkit/nsscreen/maximumextendeddynamicrangecolorcomponentvalue)
+
+沿现有真 daemon 的 quality wire 反复切档；窗口像素只由外部 ScreenCaptureKit 本地显示模式取样，测量区间内避免会请求输出的内部截图、变屏、提升窗口或唤醒播放。查同 PID、原 Surface／请求、冻结时钟、短窗口的 EDR 余量和颜色。受控画面包括超白、白和灰色独立探针；同一窗口须出现峰值 ≤1.02→>1.02→≤1.02，白灰控制值保持稳定。用独立作者 HDR 核实际作品，用 SDR 作品作超高输出反例。退场仍等待正常 GPU 完成。
+
+若现役通过则记录范围，保留原通知、原生命周期。若发现明确接管失败，以原 Surface 及暂停输出所有者修复，先排除测量唤帧和外部屏幕状态；不先加入常驻定时器、分支设置或新显示 owner。旧 cold 证据不重复，混合物理显示与官版运行另行取证。
+
+同一确切签名 Debug 的 Scene daemon 在 M4 单内屏实际收取两个质量命令，中间仅由另一进程按 PID 和窗口号采集。各阶段两至三份 16 位／64 bpp ScreenCaptureKit 捕获转扩展线性 sRGB。受控牌的峰值 1.00000→1.19934→1.00000，超白像素数 0→166,698→0，白 1.00000、灰 0.21404。真实 HDR 3219398263 冷暂停和先播放再暂停两轮峰值 1.00076→1.20072→1.00076，超白分别 639,744／657,024。先播放变体在 1.195318 s 冻结，回切后仍为该时刻。独立 SDR 作者 3477054430 全程峰值 1.00071、超白为零。
+
+四轮的 PID、窗口、request 和 session 各轮内不变，前后暂停且 driver 已停止，四轮均正常退出并排空 GPU。外部采样的系统 current 恒约 1.2，峰值匹配该余量；未实测从 1.0 延迟升高的系统通知、AppKit 选档、官方 Windows 活窗和系统物理切屏。最近原生暂停门保受控延迟余量、SDR、活动及候选处理，补齐前置已提取回调缺少的纹理 collaborator 边界后 25 项通过。现役渲染实现保留。受控变体和实物窗口证据归 `.artifacts/wallpaper-quality-paused-hdr`。
 
 ### 禁用与普通泛光的实施片
 

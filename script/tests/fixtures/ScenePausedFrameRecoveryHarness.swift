@@ -280,6 +280,8 @@ final class SceneDesktopWallpaperSession {
     func removePointerEventMonitors() {}
     func releaseUserShortcutScopes() {}
     func retireSurface(_ surface: Surface) { retiredSurfaces += 1 }
+    // No prepared textures enter this frame scheduling fixture.
+    func promoteAutomaticTextures(for _: Surface) {}
     func publishText(_ generation: Int) {
         dynamicTextTextures!.generation = generation
         textTexturePublicationDidChange(dynamicTextTextures!)

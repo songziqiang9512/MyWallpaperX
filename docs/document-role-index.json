@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2829883d44da03d9a785a7bd365c24844360fc92c250d647d3856e31d7797186",
+        "sourceSHA256": "ef4dfcfbcaa971445ae2c50a264ab4faac8bbb851a817ce34fdaf3db18dcd367",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对三引擎验证入口、导入装配和播放持久化的导航",
-        "limitations": "地图保导航，实测口径归工作卡。"
+        "scope": "核对 Scene 后处理、映射和暂停 HDR 验证导航",
+        "limitations": "源逻辑与验证边界分别归现役合同。"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1cccf795d738d7eea3bfdc09aa9ec396beca3f0d57ed797286c7ff055ea47445",
+        "sourceSHA256": "b22c1c8ed2f5ff1dafc944b5c35a8b21fc2b04ba7fe3020ef9aa197627b74f9b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对导入 live window、日志和恢复验证入口",
-        "limitations": "范围为隔离签名 Debug 同一单屏；AppKit 文件对话和真实登录注册未作自动化。"
+        "scope": "核对签名外部浮点捕获、现役冻结时钟及原生门",
+        "limitations": "真机系统余量已在 1.2，延迟 1.0 向上变化由近门覆盖而非现场。"
       }
     },
     {
@@ -855,10 +855,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "685b69db22f3c080d84b9a7195896f36ab43584a8dc99850a5bd6cdada5e8b86",
+        "sourceSHA256": "999329cac94d3b854a09380c60c09556405e25ef9af49d4bf123335c6279fd11",
         "method": "document_registry --audit + document_health --check",
-        "scope": "稳定 Scene 画质合同与冷准备适用边界",
-        "limitations": "允许初始隐藏投影者；真实验证限 M4，保帧时／功耗口径"
+        "scope": "核对显示映射的所有者和已有冻结输出失效",
+        "limitations": "仅新增现场证据路由与原系统通知语义。"
       }
     },
     {

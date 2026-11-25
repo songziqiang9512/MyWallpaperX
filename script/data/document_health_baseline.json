@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 62,
-      "bytes": 15758
+      "bytes": 15851
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -77,8 +77,8 @@
       "bytes": 79716
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 460,
-      "bytes": 97373
+      "lines": 473,
+      "bytes": 100052
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -94,7 +94,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 288,
-      "bytes": 57077
+      "bytes": 57211
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,29 +369,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "2180a33dc388573d95cb71709e65d2e5335f2530a0f4d338899ff4630b60b871",
-      "after": "29fa86556ddbc64b5564bbe1a96737ec22f249e11e76f157196a5da1f9cfbb38",
+      "before": "29fa86556ddbc64b5564bbe1a96737ec22f249e11e76f157196a5da1f9cfbb38",
+      "after": "4c5aa8660c85e03dcd8faa39d0c130f228535d0ecc2663d9457b5ae825c0a6e5",
       "owner": "scene-runtime",
-      "reason": "固定冷准备跳过未使用阴影管线的范围以及原表示与新发布资格",
-      "decision": "docs/scene/architecture/runtime-architecture.md#effective-quality-policy"
+      "reason": "为现役 EDR 余量刷新关联可复原的暂停实证",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-paused-display-hdr-live"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "c066994aefea13a8efb210097f2b73d133057f20a57bd4e2a0d605f55dfa6384",
-      "after": "e0058b6c1538ca377896a4af0c862a67018bd30907385a8a5330ae148e13052c",
+      "before": "e0058b6c1538ca377896a4af0c862a67018bd30907385a8a5330ae148e13052c",
+      "after": "9a2f01611424d2286d9e86a038b0e8c7dde63a7296ed7815d71793aba3faf73d",
       "owner": "wallpaper-quality",
-      "reason": "登记真实画质导入连续性、旧版故障、登录项与恢复边界",
-      "decision": "docs/development/wallpaper-quality-work-card.md#quality-only-import-playback"
+      "reason": "登记暂停窗口的正反照、源身份和当前设备限制",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-paused-display-hdr-live"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "831e6c76ee96f8fa4c75a9dadc465f5a9a047b8bde466e500ebebc6409664deb",
-      "after": "017ea358808196dd07dede6b9d80082bbca35ddd0e3b1f8b8014709593792211",
+      "before": "017ea358808196dd07dede6b9d80082bbca35ddd0e3b1f8b8014709593792211",
+      "after": "c3b0f9e49c5c8faff7665445be3c53689a3f23688b39caf8dab13a1f93de0316",
       "owner": "repository-map",
-      "reason": "补签名实际画质导入验收入口",
-      "decision": "docs/development/wallpaper-quality-work-card.md#quality-only-import-playback"
+      "reason": "补暂停真机显示 HDR 到原输出职责路由",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-paused-display-hdr-live"
     },
     {
       "section": "bodies",
