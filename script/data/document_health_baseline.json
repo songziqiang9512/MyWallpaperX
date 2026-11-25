@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 367,
-      "bytes": 86336
+      "lines": 381,
+      "bytes": 89341
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 128812
+      "bytes": 128969
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "7af63b4bc09275d15276743c99330437da7bc825a3929d703b2846be3c54c5a1",
-      "after": "db7ca8be0e0fc80864493335d4af487b9b3eb5f5b7915a98f9414a4ac60615f5",
+      "before": "db7ca8be0e0fc80864493335d4af487b9b3eb5f5b7915a98f9414a4ac60615f5",
+      "after": "ee463fcb8af2ab34f76aa58f0bbf5e1a49c09f3f10f27c3fda7db574fd2bb56a",
       "owner": "壁纸质量改造",
-      "reason": "登记已完成原片恢复和下一批采用时机",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+      "reason": "将阅读到的官版自动刷新路由同步到现役批次",
+      "decision": "docs/development/wallpaper-quality-work-card.md#quality-reapply-current-scene"
     },
     {
       "section": "bodies",
@@ -684,11 +684,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "8dd1fbc850238b6f92d705586abbbcd0f9d74f8aa9b2590f3c99a68873c8e739",
-      "after": "e5646735754060f200287501cc7259d0a07c508a211d73d3cf43870f9c7ed802",
-      "owner": "壁纸质量改造",
-      "reason": "记录本地 Video Inspector 同路径源恢复的单任务设计与实际轨道验收",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-inspector-source-recovery"
+      "before": "e5646735754060f200287501cc7259d0a07c508a211d73d3cf43870f9c7ed802",
+      "after": "c57fbac92fb0bcfacd55d85be25d3c943234f43edec336db6626f9d28ae2e495",
+      "owner": "Scene 画质与接管",
+      "reason": "登记固定官版冷档触发证据、现役差异与自动采纳的窗口、取消和退役门",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-cold-auto-adoption"
     },
     {
       "section": "bodies",

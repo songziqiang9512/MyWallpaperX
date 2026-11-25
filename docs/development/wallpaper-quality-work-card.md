@@ -454,7 +454,7 @@ AppKit 动作接入 WallpaperManager 的现有 settingsReload。只有已提交�
 
 重载采用正常候选和可见接管。成功后新 Scene 会话从新作者时钟起步并继承暂停意图。候选失败继续原画面和原播放。打开 Settings、后处理在同域 HDR 热切以及 Web 和 Video 的状态变化沿原实现。
 
-官方 2.8.0.42 的界面在编辑时把 MSAA、后处理和纹理请求送入原生端，三项不在重启程序的确认条件内。已保留资料覆盖设置投递，当前 Scene 采用新档的时间仍待同一作者逐项取证。
+[官版静态路径](wallpaper-quality-settings-plan.md#official-live-quality-refresh)显示 MSAA、后处理和纹理差分进入当前桌面刷新分支，按已选配置恢复。现役 AppKit 仍为手动应用；下一片先核同 daemon 原窗口和新首帧之间的实际呈现，再按[自动采纳设计](wallpaper-quality-settings-plan.md#scene-cold-auto-adoption)接入现有候选。
 
 沿现有签名产品入口从有至少两个条目的原页面开始 Scene，用实际 AppKit 后处理选单关闭普通泛光。点击重新应用前核同一会话及旧泛光。点击后核原作品及页面快照、已呈现新会话、真实画面及已采纳的冷档。覆盖独立作者、暂停保持并可恢复、候选失败或在途反例、Web 和 Video。补已删除列表在同源重载后的状态，并更新五语帮助及源码地图。
 
