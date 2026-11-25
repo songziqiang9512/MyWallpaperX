@@ -35,7 +35,7 @@ Scene MSAA 请求经 [主域准入](../../MyWallpaperX/Core/SteamWorkshopScene/R
 
 Scene 阴影档经冷准备进入 [光空间贴图与受光绘制](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift)。 [尺寸与回退合同](../scene/capabilities/advanced-object-coverage.md#model-directional-shadow-density)
 
-Scene 体积开关从同一准备请求进入 [根域点光与有序聚光绘制](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift)。 [生效合同](../scene/architecture/runtime-architecture.md#scene-volume-lighting-policy)
+Scene 体积开关从同一准备请求进入 [根域点光与有序聚光绘制](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift)。 [点光管线](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/ScenePointVolumePipeline.swift) 负责实际光球覆盖与同一积分编码。 [生效合同](../scene/architecture/runtime-architecture.md#scene-volume-lighting-policy)
 
 本地 Video 和已就绪 Steam Video 详情共用[原片轨道读取](../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift)。标称帧率来自实际播放文件；[Steam 获取合同](steam-workshop-acquisition-contract.md#source-video-facts)约定适用范围。
 

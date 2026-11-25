@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fa03d0cbfab5a9045ed04e5bf30c85a3364960a310b438a33827c8bb4a091e64",
+        "sourceSHA256": "dee3b9d1f2b26066c3244dad51c5b07b2564b340f3b3dbf516b2123dfcfdaa19",
         "method": "document_registry --audit + document_health --check",
-        "scope": "基础资源准备和实际 Surface 缩放入口",
-        "limitations": "源码导航"
+        "scope": "点光准备和主编码源码路由",
+        "limitations": "导航校验"
       }
     },
     {
@@ -347,10 +347,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e1df25a802236ea14ab9fff2c1ccaa5a24e06920c513116b304dbd10bb5f3287",
+        "sourceSHA256": "0ac914399be02f4dee2bf67e079c2b0f8f4365af444cfdcf4030485b1e57336a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "自动纹理冷选择及扩窗条件",
-        "limitations": "其它格式和显示组合需独立验证"
+        "scope": "已验证的积分和未验细分候选",
+        "limitations": "更高积分档和半分辨率待评估"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2e69192575ab0ce6a52c0341821d135472fd1eb2a3aaefb17cf04779088cdcf0",
+        "sourceSHA256": "11718380ceca7f6c43930da785bba4d7b7d06bca66b9f9e4557f37b078c29976",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原生 GPU、两位实际作者、暂停上调和释放",
-        "limitations": "物理多屏及常态功耗未验"
+        "scope": "真机覆盖成本、光学正反例和产品默认",
+        "limitations": "仅本机单屏和指定输入，暂无整机功耗"
       }
     },
     {
@@ -855,10 +855,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e91127394ad2832d2644ab6f4fa7e6fabeaabddbdcf689fb97bcca621fb04c84",
+        "sourceSHA256": "0b49cf147eff7415f404a2a423d8d5d0ec66cbeef545e64297f732772c4ddbd3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Auto 投影、准备、精确用途及退役",
-        "limitations": "具体性能在对应工作卡"
+        "scope": "原点光和聚光的实际准备与编码合同",
+        "limitations": "具体样本在工作卡"
       }
     },
     {

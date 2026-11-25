@@ -75,6 +75,33 @@ class ScenePointVolumeTests(unittest.TestCase):
         # depth's world distance cannot change its on-axis contribution.
         self.assertAlmostEqual(far["center"][0], pixels["red"]["center"][0], delta=1 / 255)
 
+    def test_conservative_scissor_preserves_every_resolved_rgba_component(self):
+        # Pixel rectangles from the axis tangents of each sphere, outward-rounded
+        # into their viewports with the one-pixel guard.
+        expected = {
+            "occluded": [19, 19, 27, 27],
+            "through": [19, 19, 27, 27],
+            "partial-far": [30, 28, 8, 9],
+            "off-axis": [41, 18, 15, 13],
+            "viewport-edge": [55, 20, 10, 15],
+            "inside": [0, 0, 65, 65],
+            "cross-near": [0, 0, 65, 65],
+            "before-near": [],
+            "behind-far": [],
+            "axis-miss": [],
+            "overlap": [19, 18, 31, 28],
+            "disjoint": [14, 22, 37, 21],
+            "rotated-nonsquare": [52, 29, 13, 11],
+        }
+        for name, rect in expected.items():
+            with self.subTest(name=name):
+                row = self.pixels[f"bounds-{name}"]
+                self.assertTrue(row["fullEncoded"], row)
+                self.assertTrue(row["sameRGBA"], row)
+                self.assertEqual(row["visible"], bool(rect), row)
+                self.assertEqual(row["encoded"], bool(rect), row)
+                self.assertEqual(row["rect"], rect, row)
+
     def test_high_exponent_center_crossing_matches_analytic_integral(self):
         uniform = self.pixels["hdrUniformDensity"]
         peaked = self.pixels["hdrHighExponent"]

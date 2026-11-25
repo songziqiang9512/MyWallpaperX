@@ -139,7 +139,7 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 质量请求在 [Scene 冷准备](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift)将阴影档投影给原静态模型和光空间深度图。全部作者灯仍由现有状态供直接灯、体积及几何消费者读取，「禁用」只撤可选阴影绘制和实际贴图采样。定向阴影的低／中／高／超高实际封顶分别为 512／1024／2048／4096。低档点光和聚光用 512 单面，其余档用 1024 单面。沿原 PCF、受光域拟合和预算回退，每次新准备在候选中固定阴影档，旧会话持续用已准备资源。重新应用、属性重载和 daemon 恢复会采用新意图。 [阴影密度合同](../capabilities/advanced-object-coverage.md#model-directional-shadow-density)
 
 <a id="scene-volume-lighting-policy"></a>
-体积照明在同一 Scene 准备请求生效。禁用时撤点光体积及专用遮挡深度，并跳过聚光锥的 Plan、PSO 和主域／组域绘制。共享体积偏好沿旧字段保存和交付，已显示会话保本代资源直到重载。点光的清屏透视、作者无阴影准入和聚光锥的作者几何继续归原 owner。主相机深度、表面光、作者阴影、父组仍需的程式与具名输出走原链。 [点光合同](../capabilities/advanced-object-coverage.md#point-light-volume) · [聚光合同](../capabilities/advanced-object-coverage.md#spot-light-frame)
+体积照明在同一 Scene 准备请求生效。禁用时撤点光体积及专用遮挡深度，并跳过聚光锥的 Plan、PSO 和主域／组域绘制。共享体积偏好沿旧字段保存和交付，已显示会话保本代资源直到重载。点光的清屏透视、作者无阴影准入和聚光锥的作者几何继续归原 owner。 点光在终端用实际相机射线基和目标像素尺寸求保守光球投影并集，空范围退出独立遮挡重放，有界时只对原一次四点积分编码设置 scissor。眼内与跨近面走全屏。主相机深度、表面光、作者阴影、父组仍需的程式与具名输出走原链。 [点光合同](../capabilities/advanced-object-coverage.md#point-light-volume) · [聚光合同](../capabilities/advanced-object-coverage.md#spot-light-frame)
 
 场景反射档在冷准备选择可选模型反射管线和普通图像的默认屏幕反射。关闭时保模型材质声明与原 HDR 发光、颜色和深度。普通图像的原 [光照 profile](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialLightingProfile.swift) 供直绘与基础图像捕获，共用作者 alpha、直接光及剩余有效纹理需求。作者 Program 的显式环境输入沿原资格供货。Shader 声明默认环境槽的基础材质随实际消费者准备，复用原前后帧颜色。具名模型源晚到时，独立环境消费者可用原根深度预约，无需可选反射模型作为许可。无其它环境需求时，模型关档退出原可选快照和 mip 工作，持久 raw、终端完成及具名输出继续由原提交 owner 管理。 [反射合同](../capabilities/advanced-object-coverage.md#static-model-screen-reflection)
 
