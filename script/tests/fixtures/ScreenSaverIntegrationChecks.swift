@@ -106,7 +106,7 @@ private nonisolated final class CopyController: @unchecked Sendable {
         guard let content = value.content else { throw CheckFailure(description: "missing published content") }
         return try ScreenSaverPaths.mediaRoot(in: root, generation: content.mediaGeneration)
     }
-    private nonisolated static func makeVideo(_ url: URL) throws {
+    private nonisolated static func makeVideo(_ url: URL, level: Int32 = 0x55) throws {
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
             AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: 32, AVVideoHeightKey: 32])
@@ -125,7 +125,7 @@ private nonisolated final class CopyController: @unchecked Sendable {
                         "fixture video pixel buffer")
             guard let buffer else { throw CheckFailure(description: "fixture buffer missing") }
             CVPixelBufferLockBaseAddress(buffer, [])
-            memset(CVPixelBufferGetBaseAddress(buffer)!, 0x55, CVPixelBufferGetDataSize(buffer))
+            memset(CVPixelBufferGetBaseAddress(buffer)!, level, CVPixelBufferGetDataSize(buffer))
             CVPixelBufferUnlockBaseAddress(buffer, [])
             try require(adaptor.append(buffer, withPresentationTime: CMTime(value: Int64(index), timescale: 30)), "fixture video frame")
         }
@@ -206,12 +206,22 @@ private nonisolated final class CopyController: @unchecked Sendable {
         checks["MatchingInputAfterCorruptCurrentRedeploysValidConfiguration"] = try revisionRecovered.content?.mediaGeneration != inputChanged.content?.mediaGeneration
             && JSONDecoder().decode(ScreenSaverConfiguration.self, from: currentData(revisionRoot)) == revisionRecovered
         phase = "nil revision always requests a fresh snapshot"
-        let unversioned = ScreenSaverIntegration.PublicationInput(videoURL: second, title: changedInput.title,
+        let mutableVideo = cases.appendingPathComponent("mutable.mov")
+        let stagedVideo = cases.appendingPathComponent("staged.mov")
+        try FileManager.default.copyItem(at: video, to: mutableVideo)
+        let unversioned = ScreenSaverIntegration.PublicationInput(videoURL: mutableVideo, title: changedInput.title,
             sourceIdentity: changedInput.sourceIdentity)
         let unversionedFirst = try await begin(revisionOwner, unversioned).value().get()
+        try await Task.detached(priority: .utility) { try makeVideo(stagedVideo, level: 0xaa) }.value
+        let replacementBytes = try Data(contentsOf: stagedVideo)
+        try require(rename(stagedVideo.path, mutableVideo.path) == 0, "replace the still-readable mutable input")
         let unversionedSecond = try await begin(revisionOwner, unversioned).value().get()
-        checks["NilRevisionNeverReusesThePreviousGeneration"] = unversionedFirst.content?.mediaGeneration != revisionRecovered.content?.mediaGeneration
+        let mutableMedia = try media(unversionedSecond, root: revisionRoot)
+        let mutableClip = try ScreenSaverPaths.resource(unversionedSecond.content!.entryRelativePath, in: mutableMedia)
+        checks["NilRevisionDeploysNewBytesFromTheSamePath"] = try
+            unversionedFirst.content?.mediaGeneration != revisionRecovered.content?.mediaGeneration
             && unversionedSecond.content?.mediaGeneration != unversionedFirst.content?.mediaGeneration
+            && Data(contentsOf: mutableClip) == replacementBytes && Data(contentsOf: video) != replacementBytes
         revisionOwner.cancelForExit()
 
         phase = "first video publication"

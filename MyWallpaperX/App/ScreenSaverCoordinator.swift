@@ -219,8 +219,10 @@ public final class ScreenSaverCoordinator: ObservableObject {
             lifetime = nil
         }
         let scopes = url.startAccessingSecurityScopedResource() ? [url] : []
+        // A background catalog observation does not pin the file for publication.
+        let revision = owner.provider == .videoLibrary ? nil : content.metadata.resourceRevision
         return .init(input: .init(videoURL: url, title: content.title,
-                                 revision: content.metadata.resourceRevision, sourceIdentity: content.reference.storageKey),
+                                 revision: revision, sourceIdentity: content.reference.storageKey),
                      resourceLifetime: lifetime, scopedURLs: scopes)
     }
 

@@ -74,6 +74,7 @@
                     try replace(sourceReplacement ? [("B", b), ("A", replacement)] : [("A", replacement), ("B", b)])
                 }
                 mutationPublished = await wait { items().first { $0.reference == aRef }?.locator.path == replacement.path }
+                if provider == .videoLibrary, mutationPublished { await controller.videoTask?.value }
             case "delete":
                 try replace([("B", b)])
                 mutationPublished = await wait { items().map(\.reference) == [bRef] }
@@ -124,10 +125,64 @@
         return checks
     }
 
+    @MainActor static func atomicVideoReplacement(root: URL) async throws -> [String: Bool] {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let source = root.appendingPathComponent("video.mp4")
+        let replacement = root.appendingPathComponent("replacement.mp4")
+        let date = Date(timeIntervalSince1970: 1_000_000)
+        for url in [source, replacement] {
+            try Data([8]).write(to: url)
+            try FileManager.default.setAttributes([.modificationDate: date], ofItemAtPath: url.path)
+        }
+        let oldFile = try FileManager.default.attributesOfItem(atPath: source.path)
+        let newFile = try FileManager.default.attributesOfItem(atPath: replacement.path)
+        precondition(oldFile[.size] as? Int == newFile[.size] as? Int
+                     && oldFile[.modificationDate] as? Date == newFile[.modificationDate] as? Date
+                     && oldFile[.systemFileNumber] as? UInt64 != newFile[.systemFileNumber] as? UInt64)
+
+        let manager = WallpaperManager()
+        manager.didFinishInitialIndexLoad = true
+        manager.wallpapers = [.init(id: "movie", title: "Original", path: source.path)]
+        let controller = WallpaperLibraryCatalogController(manager: manager, images: SILService(),
+                                                           steam: SteamWorkshopService(), pixabay: PixabayService())
+        await controller.videoTask?.value
+        let before = controller.catalog.videos[0]
+        precondition(rename(replacement.path, source.path) == 0)
+        let token = UUID()
+        controller.setVisibleReferences([before.providerReference], sourceToken: token)
+        let observed = await wait { controller.catalog.videos[0].metadata.resourceRevision != before.metadata.resourceRevision }
+        let after = controller.catalog.videos[0]
+        controller.setVisibleReferences([], sourceToken: token)
+        _ = await wait { controller.visibleAvailabilityTask == nil }
+
+        let pending = CatalogFileProbe.shared.holdNext()
+        defer { pending.signal(); CatalogFileProbe.shared.stop() }
+        try FileManager.default.moveItem(at: source, to: replacement)
+        manager.wallpapers[0].lastUsed = date
+        let published = await wait {
+            controller.catalog.videos[0].metadata.lastUsedAt == date && CatalogFileProbe.shared.snapshot.active == 1
+        }
+        let initial = controller.catalog.videos[0]
+        pending.signal()
+        await controller.videoTask?.value
+        let settled = controller.catalog.videos[0]
+
+        return [
+            "visible-atomic-replacement-updates-video-revision-with-same-size-and-mtime": observed
+                && before.providerReference == after.providerReference && before.metadata.resourceRevision != nil
+                && after.metadata.resourceRevision != nil && before.publishedAvailability == .available
+                && after.publishedAvailability == .available,
+            "same-path-model-publication-retains-checked-video-revision": published
+                && initial.metadata.resourceRevision != nil && after.metadata.resourceRevision == initial.metadata.resourceRevision
+                && settled.metadata.resourceRevision == initial.metadata.resourceRevision && settled.publishedAvailability == .available,
+        ]
+    }
+
     @MainActor static func main() async throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1])
         var checks = try await audit(.videoLibrary, root: root)
         checks.merge(try await audit(.staticImageLibrary, root: root)) { _, next in next }
+        checks.merge(try await atomicVideoReplacement(root: root.appendingPathComponent("atomic"))) { _, next in next }
         print(String(decoding: try JSONEncoder().encode(checks), as: UTF8.self))
     }
 }

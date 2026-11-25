@@ -142,7 +142,7 @@
 
 **数据流与职责。** 原source持久模型 → 原source内存记录 → 无文件I/O的首份Catalog/PageSnapshot → 原卡片；原source后台扫描/校验 → 按原revision/generation提交差异 → 原查询增删/排序/更新。关系仍只归UserCollectionsStore，来源仍各自拥有索引/文件和命令，Catalog不新增持久副本，Grid不伪造媒体模型。后台结果不得覆盖启动后已提交的导入、删除或重新定位。
 
-- Video复用现有在途SQLite初载、失败完整fallback与startup journal合并；首份内容只等待索引读取，不再等待媒体stat/metadata。不把当前索引塞入旧迁移冻结结果，不重复读取SQLite，不新增全局ready状态。
+- Video复用现有在途SQLite初载、失败完整fallback与startup journal合并；首份内容只等待索引读取，不再等待媒体stat/metadata。不把当前索引塞入旧迁移冻结结果，不重复读取SQLite，不新增全局ready状态。同路径先沿前次已确定版本发布，换版用后续现有后台探测交付。 [Video 详情源更新](wallpaper-quality-settings-plan.md#video-inspector-source-recovery)
 - SIL直接使用已读JSON行，缺失文件对账移到原服务后台；只在当前记录仍匹配时提交，保现用户操作/关系和源文件。未完成检查不等于文件丢失。
 - 本地持久关系的缺行只有在相关来源完成初载后才可成为缺失卡；已有内容保持，初始交付沿现loadedProviders/索引回调，不以固定延迟掩盖。后台确认不可用时沿原能力/提示更新，不向播放路径授予缓存许可。
 - Steam当前没有完整安装记录快照：由原installed-library owner持久/恢复成功的本地records作为可重建展示基线，限定当前library root；不存登录、临时任务或另建Catalog缓存。原single-flight scan/generation继续对账，扫描失败保留旧基线并显式失败，不能把读取失败当成功空库。warm展示不提前宣告完整扫描成功或触发自动恢复；其他已有本地索引继续复用原owner。

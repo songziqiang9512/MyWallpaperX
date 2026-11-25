@@ -41,11 +41,13 @@ class RecordingInspectorView: NSView {
 }
 final class VideoLibraryInspectorView: RecordingInspectorView {
     private(set) var sourceAvailability: [Bool] = []
+    private(set) var sourceReplacements = 0
     init(wallpaper: VideoWallpaper, wallpaperManager: WallpaperManager, libraryActions: WallpaperInspectorActions) { super.init(libraryActions) }
     required init?(coder: NSCoder) { nil }
-    func updateLibraryActions(_ actions: WallpaperInspectorActions, sourceAvailable: Bool?) {
+    func updateLibraryActions(_ actions: WallpaperInspectorActions, sourceAvailable: Bool?, sourceReplaced: Bool) {
         super.updateLibraryActions(actions)
         if let sourceAvailable { sourceAvailability.append(sourceAvailable) }
+        if sourceReplaced { sourceReplacements += 1 }
     }
 }
 final class SILInspectorView: RecordingInspectorView {

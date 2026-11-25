@@ -262,12 +262,13 @@ import Foundation
         let old = Dictionary(previous.map { ($0.providerReference, $0) }, uniquingKeysWith: { first, _ in first })
         let initial = values.map { value in
             let reference = WallpaperReference(provider: .videoLibrary, sourceID: value.id)
-            let available = old[reference].flatMap { item in
-                item.locator.path?.utf8.elementsEqual(value.path.utf8) == true ? item.publishedAvailability.isAvailable : nil
-            } ?? true
+            let previous = old[reference].flatMap { item in
+                item.locator.path?.utf8.elementsEqual(value.path.utf8) == true ? item : nil
+            }
+            let available = previous?.publishedAvailability.isAvailable ?? true
             return VideoLibraryContentProjection.project(value, facts: .init(isPublishedLocally: true,
                 isAvailable: available, canPlay: available, canDelete: true, canQuickLook: true,
-                localURL: URL(fileURLWithPath: value.path)))
+                localURL: URL(fileURLWithPath: value.path), resourceRevision: previous?.metadata.resourceRevision))
         }
         publish(initial, provider: .videoLibrary, revision: revision, loaded: catalog.loadedProviders.contains(.videoLibrary), availabilityChecked: false)
         videoTask = Task { [weak self, manager] in

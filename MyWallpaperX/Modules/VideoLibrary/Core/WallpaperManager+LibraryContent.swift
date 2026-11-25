@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 extension WallpaperManager {
@@ -8,10 +9,10 @@ extension WallpaperManager {
         let old = Dictionary(previous.map { ($0.providerReference, $0) }, uniquingKeysWith: { first, _ in first })
         let inputs = values.map { value in
             let reference = WallpaperReference(provider: .videoLibrary, sourceID: value.id)
-            let reuse = old[reference].flatMap { item -> Bool? in
+            let reuse = old[reference].flatMap { item -> (available: Bool, revision: String?)? in
                 guard !refreshAvailability,
                       item.locator.path?.utf8.elementsEqual(value.path.utf8) == true else { return nil }
-                return item.publishedAvailability.isAvailable
+                return (item.publishedAvailability.isAvailable, item.metadata.resourceRevision)
             }
             return (reference, value.path, reuse)
         }
@@ -20,15 +21,20 @@ extension WallpaperManager {
             for (reference, path, reuse) in inputs {
                 guard !Task.isCancelled else { return facts }
                 let available: Bool
-                if let reuse { available = reuse }
-                else {
-                    var directory: ObjCBool = false
-                    available = FileManager.default.fileExists(atPath: path, isDirectory: &directory)
-                        && !directory.boolValue && FileManager.default.isReadableFile(atPath: path)
+                let revision: String?
+                if let reuse {
+                    (available, revision) = reuse
+                } else {
+                    var file = stat()
+                    available = stat(path, &file) == 0 && file.st_mode & S_IFMT != S_IFDIR
+                        && FileManager.default.isReadableFile(atPath: path)
+                    revision = available
+                        ? "\(file.st_dev):\(file.st_ino):\(file.st_size):\(file.st_mtimespec.tv_sec):\(file.st_mtimespec.tv_nsec)"
+                        : nil
                 }
                 facts[reference] = WallpaperContentLocalFacts(isPublishedLocally: true,
                     isAvailable: available, canPlay: available, canDelete: true, canQuickLook: true,
-                    localURL: URL(fileURLWithPath: path))
+                    localURL: URL(fileURLWithPath: path), resourceRevision: revision)
             }
             return facts
         }

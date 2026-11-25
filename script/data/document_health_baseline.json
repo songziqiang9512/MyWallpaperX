@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 18286
+      "bytes": 18428
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -38,11 +38,11 @@
     },
     "docs/development/local-library-loading-design.md": {
       "lines": 173,
-      "bytes": 38760
+      "bytes": 38939
     },
     "docs/development/lock-screen-screensaver-design.md": {
       "lines": 118,
-      "bytes": 22539
+      "bytes": 22648
     },
     "docs/development/main-window-playlists-redesign.md": {
       "lines": 556,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 410,
-      "bytes": 99889
+      "bytes": 100654
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 134328
+      "bytes": 134917
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "db342e3e0d9087579b3d9b46be82eb6fd32fe784b055c1e96be4e7acb39112ab",
-      "after": "35562c748c1b5032bf95e90508f132d67d5c7cfb1cbcffa6696c92a2ef90cde3",
+      "before": "35562c748c1b5032bf95e90508f132d67d5c7cfb1cbcffa6696c92a2ef90cde3",
+      "after": "4a239edc8017eddda2a31bfdf155c6b950b4b3024bd58660076fd4f95e42f920",
       "owner": "仓库源码导航",
-      "reason": "补 Web 质量首投及回放挂载入口",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
+      "reason": "定位后台目录源版本到原视图的交付",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-inspector-source-recovery"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "89b0ed28007203f92a4eed71b1fe5333c84862b11b741d8f875378da00a5b39b",
-      "after": "d0f87189f573b185c05d38dfc585242e1da685894bd30b8038aed0112b560b8c",
+      "before": "d0f87189f573b185c05d38dfc585242e1da685894bd30b8038aed0112b560b8c",
+      "after": "68ec466f23522b088564ef91e950059e50e82e5b19819c637c89215f0e98e08b",
       "owner": "壁纸质量评估",
-      "reason": "规定 Web 首次环境包及晚注册回放，以及可复现验收顺序",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
+      "reason": "规定本地 Video 观察版本、同视图换版与发布边界",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-inspector-source-recovery"
     },
     {
       "section": "bodies",
@@ -702,11 +702,29 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "9ea24c3ec54e0c504acb329b2b6493e3e91b27312c30b4364f215f258d2d1348",
-      "after": "c1c703e3bd914db7cb305630a05f5ed4f979e4d28a50e1b99ee7add0d9944f4e",
+      "before": "c1c703e3bd914db7cb305630a05f5ed4f979e4d28a50e1b99ee7add0d9944f4e",
+      "after": "5e80d7e45cb2f90724c9fced78806253595018041c287c9d369070ca85042f9f",
       "owner": "壁纸质量专项",
-      "reason": "录入 Web 基线重复绘制、回归反例和签名作品结果",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
+      "reason": "记录真实可读替换、原片和相邻屏保验收",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-inspector-source-recovery"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/lock-screen-screensaver-design.md",
+      "before": "35afd09387393a02cfefd7dad02a2dc54f1f94ac28fdd814e5e9f44de124ebf9",
+      "after": "fc31cecadb00e14d898d8259025c845a06b08a73f09e843fbd49aa756ed9472b",
+      "owner": "屏保发布",
+      "reason": "明确可变文件的当前取证与纯选项复用",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-inspector-source-recovery"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/local-library-loading-design.md",
+      "before": "5cb4c9ebb29ae5864071b95ee6d4d0cd9e0aae543a6231481b39294e615d7848",
+      "after": "13739cb6f26e99565e6984148f7ac0181b529b78aceb4e8ef19b29688620c865",
+      "owner": "本地目录",
+      "reason": "连接索引优先发布与后台已有文件观察",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-inspector-source-recovery"
     }
   ]
 }

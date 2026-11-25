@@ -133,7 +133,7 @@ import QuickLookUI
            matchesSourceView(previous.view, content: current) {
             inspection?.content = current
             updateActions(on: previous.view, content: current, token: previous.token,
-                previousAvailability: previous.content.publishedAvailability, pixabayItem: pixabayItem)
+                previousContent: previous.content, pixabayItem: pixabayItem)
             if presentsCurrent { present(content: current, token: previous.token) }
             return
         }
@@ -271,12 +271,18 @@ import QuickLookUI
     }
 
     private func updateActions(on view: NSView, content: WallpaperContentItem, token: InspectorCardToken,
-                               previousAvailability: WallpaperPublishedAvailability, pixabayItem: PixabayVideoItem?) {
+                               previousContent: WallpaperContentItem, pixabayItem: PixabayVideoItem?) {
         let actions = actions(for: content, token: token)
         switch view {
         case let view as VideoLibraryInspectorView:
             let available = content.publishedAvailability.isAvailable
-            view.updateLibraryActions(actions, sourceAvailable: available == previousAvailability.isAvailable ? nil : available)
+            let previousRevision = previousContent.metadata.resourceRevision
+            let revision = content.metadata.resourceRevision
+            let sourceReplaced = previousRevision != nil && revision != nil && previousRevision != revision
+                && content.locator.path?.utf8.elementsEqual(previousContent.locator.path?.utf8 ?? "".utf8) == true
+            let availabilityChanged = available != previousContent.publishedAvailability.isAvailable
+            view.updateLibraryActions(actions, sourceAvailable: availabilityChanged || sourceReplaced ? available : nil,
+                                      sourceReplaced: sourceReplaced)
         case let view as SILInspectorView: view.updateLibraryActions(actions)
         case let view as PixabayDownloadsInspectorView: view.updateLibraryActions(actions, remoteItem: pixabayItem)
         case let view as AppKitSteamWorkshopItemDetailView: view.updateLibraryActions(actions)

@@ -3,6 +3,7 @@
 // 5000 个模型与一张 JPEG 不代表完整网格高压。
 
 import AppKit
+import Darwin
 import AVFoundation
 import QuartzCore
 import Combine
@@ -861,6 +862,10 @@ enum Harness {
                 fixturesReady = true
             }
             precondition(waitFor(timeout: 15) { fixturesReady })
+            let independentClip = ProcessInfo.processInfo.environment["MWX_VIDEO_INSPECTOR_REPLACEMENT_CLIP"]
+            let atomicReplacement = root.appendingPathComponent("staged-original.mov")
+            try! FileManager.default.copyItem(at: independentClip.map { URL(fileURLWithPath: $0) } ?? source,
+                                              to: atomicReplacement)
             let sourceManager = WallpaperManager()
             let movie = VideoWallpaper(id: "original-video", title: "Original Video", path: source.path)
             InspectorMetadataProbe.actualPaths.insert(source.path)
@@ -914,6 +919,47 @@ enum Harness {
                 firstSubview(of: recoveredDuringRead) { ($0 as? NSTextField)?.stringValue == missingSourceText && !$0.isHiddenOrHasHiddenAncestor } == nil
             }, "s19-read-in-progress-observes-restored-source-before-next-publication")
             recoveredDuringRead.removeFromSuperview()
+
+            let atomicSource = root.appendingPathComponent("same-readable-path.mov")
+            try! FileManager.default.copyItem(at: source, to: atomicSource)
+            let atomicMovie = VideoWallpaper(id: "same-readable-source", title: "Same Readable Source", path: atomicSource.path)
+            InspectorMetadataProbe.actualPaths.insert(atomicSource.path)
+            sourceManager.wallpapers = [atomicMovie]
+            let atomicView = VideoLibraryInspectorView(wallpaper: atomicMovie, wallpaperManager: sourceManager,
+                                                       libraryActions: previewActions)
+            container.addSubview(atomicView)
+            atomicView.layoutSubtreeIfNeeded()
+            func atomicShows(_ values: [String]) -> Bool {
+                values.allSatisfy { text in
+                    firstSubview(of: atomicView) {
+                        ($0 as? NSTextField)?.stringValue == text && !$0.isHiddenOrHasHiddenAncestor
+                    } != nil
+                }
+            }
+            check(waitFor(timeout: 5) { atomicShows(["192 × 108", "60 FPS"]) }, "s20-atomic-baseline-real-track")
+            precondition(rename(atomicReplacement.path, atomicSource.path) == 0)
+            let newResolution = independentClip == nil ? "320 × 180" : "1920 × 1080"
+            atomicView.updateLibraryActions(previewActions, sourceAvailable: true, sourceReplaced: true)
+            check(waitFor(timeout: 5) { atomicShows([newResolution, "24 FPS", "H.264"]) }
+                && !atomicShows([missingSourceText]) && !atomicShows(["60 FPS"]),
+                "s20-same-readable-path-replaces-native-size-and-nominal-fps")
+            atomicView.updateLibraryActions(previewActions)
+            sourceManager.wallpapers = [atomicMovie]
+            drain(0.05)
+            check(InspectorMetadataProbe.starts[atomicSource.path] == 2 && atomicShows([newResolution, "24 FPS"])
+                && InspectorContentBuildProbe.bodiesByView[ObjectIdentifier(atomicView)] == 1,
+                "s20-duplicate-publication-reuses-the-same-body-and-metadata")
+            atomicView.removeFromSuperview()
+            try! FileManager.default.copyItem(at: source, to: atomicReplacement)
+            precondition(rename(atomicReplacement.path, atomicSource.path) == 0)
+            atomicView.updateLibraryActions(previewActions, sourceAvailable: true, sourceReplaced: true)
+            check(InspectorMetadataProbe.starts[atomicSource.path] == 2,
+                "s20-detached-view-defers-track-read-until-remount")
+            container.addSubview(atomicView)
+            check(waitFor(timeout: 5) { atomicShows(["192 × 108", "60 FPS"])
+                && InspectorMetadataProbe.terminals[atomicSource.path] == 3 },
+                "s20-remount-adopts-replacement-observed-while-detached")
+            atomicView.removeFromSuperview()
         }
 
         let contentBuilds = ["initial": initialContentBuilds, "firstFinal": InspectorContentBuildProbe.finalBodies[videoA]?.first ?? -1]

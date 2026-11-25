@@ -111,7 +111,8 @@ private final class InspectorCardRouteProbe {
     let workspace = WallpaperLibraryWorkspace(), manager = WallpaperManager()
     let reference = WallpaperReference(provider: .videoLibrary, sourceID: "refresh-input")
     let value = WallpaperContentItem(reference: reference, providerReference: reference,
-        locator: .init(titleHint: "Refresh", mediaKind: .video), title: "Refresh", kind: .video,
+        locator: .init(path: "/isolated/refresh.mov", titleHint: "Refresh", mediaKind: .video),
+        title: "Refresh", kind: .video,
         publishedAvailability: .available, capabilities: [.play, .inspect, .organize], metadata: .init(),
         acquisition: .idle, update: .idle, aliases: [])
     workspace.catalog.catalog.videos = [value]; manager.wallpapers = [.init(id: reference.sourceID)]
@@ -184,6 +185,26 @@ private final class InspectorCardRouteProbe {
     checks["same-video-view-receives-source-recovery-once-with-equal-actions"] = preparations == prepared + 10
         && coordinator.inspectorToken == token && localView?.actions.state == heldActions
         && localView?.sourceAvailability == [false, true]
+    func publishRevision(_ revision: String, path: String? = nil) {
+        var metadata = value.metadata
+        metadata.resourceRevision = revision
+        let locator = path.map { WallpaperLocator(path: $0, titleHint: value.title, mediaKind: .video) } ?? value.locator
+        workspace.catalog.catalog.videos = [.init(reference: value.reference, providerReference: value.providerReference,
+            locator: locator, title: value.title, kind: value.kind, publishedAvailability: .available,
+            capabilities: value.capabilities, metadata: metadata, acquisition: value.acquisition,
+            update: value.update, aliases: value.aliases)]
+        availability.send()
+    }
+    publishRevision("first-checked-file")
+    checks["first-video-revision-does-not-restart-the-initial-detail-read"] = localView?.sourceReplacements == 0
+        && localView?.sourceAvailability == [false, true]
+    publishRevision("replaced-file")
+    publishRevision("replaced-file")
+    checks["same-readable-path-delivers-one-video-replacement-to-the-mounted-view"] = coordinator.inspectorToken == token
+        && localView?.actions.state == heldActions && localView?.sourceReplacements == 1
+        && localView?.sourceAvailability == [false, true, true]
+    publishRevision("different-path", path: "/isolated/other.mov")
+    checks["different-video-path-does-not-deliver-a-same-path-replacement"] = localView?.sourceReplacements == 1
     coordinator.closeInspector()
     let library = OnlineImageLibrary.shared, previousSnapshot = library.snapshot
     defer { library.snapshot = previousSnapshot }

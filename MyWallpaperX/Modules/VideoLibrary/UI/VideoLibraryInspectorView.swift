@@ -460,10 +460,12 @@ final class VideoLibraryInspectorView: NSView {
         return stack
     }
 
-    func updateLibraryActions(_ actions: WallpaperInspectorActions, sourceAvailable: Bool? = nil) {
+    func updateLibraryActions(_ actions: WallpaperInspectorActions, sourceAvailable: Bool? = nil,
+                              sourceReplaced: Bool = false) {
         let playlistsChanged = libraryActions.state.playlistNames != actions.state.playlistNames
         libraryActions = actions
         if playlistsChanged { refreshPlaylistContent() }
+        if sourceReplaced { loadedDetailsPath = nil }
         if let sourceAvailable { refreshDetails(for: currentWallpaper, sourceAvailable: sourceAvailable) }
         refreshFooterActions()
     }

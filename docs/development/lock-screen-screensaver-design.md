@@ -22,7 +22,7 @@
 
 ## 3. 职责和最小数据流
 
-1. ScreenSaverCoordinator从现有资料库解析可用视频；Steam版本租约和文件安全scope只在复制事务持有，不改来源下载/播放逻辑。
+1. ScreenSaverCoordinator 从现有资料库解析可用视频。Steam 版本租约和文件安全 scope 只在复制事务持有。本地 Video 的目录版本用于比较后台观测结果。新发布仍取当时原文件，纯选项更新继续复用已发布版本。
 2. ScreenSaverIntegration沿一个utility串行队列复制实际视频到私有不可变Media/UUID，调用原VideoStillFrame从该副本生成poster.jpg；二者就绪后原子发布current.json。取消/清除/导入/重置/退出沿原代次撤销，不新增owner。
 3. ScreenSaverConfiguration只含schema/publication、视频generation、标题、opaque来源关联、视频/静帧相对路径、布局和电池策略。保留kind=video作为格式判别，拒绝把旧Web/Scene入口当视频；不再依赖它们的属性或资源类型。
 4. 系统原生扩展向macOS提供远程CAContext，内部用AVQueuePlayer/AVPlayerLooper和AVPlayerLayer播放，AVFoundation持有唯一视频时钟。App不编入Native源码，不创建额外预览播放器、桌面窗口、渲染服务或每帧IPC。
