@@ -77,8 +77,8 @@
       "bytes": 79716
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 499,
-      "bytes": 106046
+      "lines": 514,
+      "bytes": 109356
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "9a2f01611424d2286d9e86a038b0e8c7dde63a7296ed7815d71793aba3faf73d",
-      "after": "d33211b52faff548c0076178550a8aa55ef38da55ea912e343155f7cdf74a38f",
+      "before": "d33211b52faff548c0076178550a8aa55ef38da55ea912e343155f7cdf74a38f",
+      "after": "b828397f10f67419982441ccfdc245ed0ddbbde5cb15dc809bf0d93d47c29675",
       "owner": "wallpaper-quality",
-      "reason": "登记真实选级解码计费、Metal 读回、签名作者及 Auto 效果",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-embedded-selected-mip-decode"
+      "reason": "记录全尺寸密度算术四候选的原生停止依据",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-volume-density-arithmetic"
     },
     {
       "section": "bodies",

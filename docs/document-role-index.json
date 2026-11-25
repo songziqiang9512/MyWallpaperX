@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "dd41374fd19caa6ab164dc255d0b0efd109285f5208940053e35c584d778de4e",
+        "sourceSHA256": "29f8e14e24a3d96f46720207da307ca58e4642860f2fffb65d36726ef91a8b13",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对同源尾链解码与有效实呈，原生压缩候选暂退出",
-        "limitations": "原生阶段与应用画面单列；无首帧、物理峰值或能耗结论。"
+        "scope": "核对原始读回、原生 GPU 计时及未进入签名的裁决",
+        "limitations": "原生四点孤立阶段，低／中档保持待验证。"
       }
     },
     {
