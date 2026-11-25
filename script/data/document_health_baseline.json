@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 462,
-      "bytes": 114082
+      "lines": 469,
+      "bytes": 116746
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 136067
+      "bytes": 136187
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "7203229c31d261950917d5cab2262a840c367c2eb157ca8008e0c2630c4d0069",
-      "after": "7dc9216164fb025312c825ac31df161b8613dad3bb6638275047f5f94189ad8a",
-      "owner": "Pixabay playback sources",
-      "reason": "登记等长等时原子替换、可用性和原生媒体实证",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#pixabay-same-path-source-revision"
+      "before": "7dc9216164fb025312c825ac31df161b8613dad3bb6638275047f5f94189ad8a",
+      "after": "e622068e865bc77cea4dfe12152efadc6d21887350121060fe3a1ab5fab24dfa",
+      "owner": "开发",
+      "reason": "保留固定版官版 Scene 预览的单变量运行收据与适用边界",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-scene-preview-bloom-clock"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "d656136623cdd80d665ad27e72bfeb04b06058fc2e14c2b07cf2307731e51239",
-      "after": "8e1bbd2858fb19e1200922fa031013faf5fb1c4bbfacea6d1bc6f9af3c02ee1c",
-      "owner": "声画质量执行路线",
-      "reason": "替换旧 path 版本说明并接入实际文件身份",
-      "decision": "docs/development/wallpaper-quality-work-card.md#pixabay-downloaded-track"
+      "before": "8e1bbd2858fb19e1200922fa031013faf5fb1c4bbfacea6d1bc6f9af3c02ee1c",
+      "after": "9bfcfb87595bb5b543ca4c1573386ac45a0f0d90b5249e1ad6ca4050a1659c5b",
+      "owner": "开发",
+      "reason": "把具名 Scene 实测链接到现役验证路径",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-scene-preview-bloom-clock"
     },
     {
       "section": "bodies",

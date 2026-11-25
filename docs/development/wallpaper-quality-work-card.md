@@ -30,7 +30,7 @@ M4 单内屏已验证四档预设、10–120 FPS、Scene MSAA 至 4×、泛光�
 
 ## 官方对照和 HDR 决策
 
-逐项记录实际官版 build、窗口模式、作者输入、用户档、显示与可见结果。先查官方文档和已有证据，再用合法已安装的固定客户端做单项 A/B。需要静态材料时只跟踪能区分行为的具体设置到消费者，以独立运行验证。Windows VM 说明行为，Mac 真机说明像素格式、呈现和功耗。 [官方研究工作流](../scene/development/official-client-behavior-research-workflow.md) · [固定版本证据与待验矩阵](wallpaper-quality-settings-plan.md#official-quality-evidence)
+逐项记录实际官版 build、窗口模式、作者输入、用户档、显示与可见结果。先查官方文档和已有证据，再用合法已安装的固定客户端做单项 A/B。需要静态材料时只跟踪能区分行为的具体设置到消费者，以独立运行验证。Windows VM 说明行为，Mac 真机说明像素格式、呈现和功耗。 [官方研究工作流](../scene/development/official-client-behavior-research-workflow.md) · [固定版本证据与待验矩阵](wallpaper-quality-settings-plan.md#official-quality-evidence) · [具名 Scene 实绘、时钟与普通 Bloom](wallpaper-quality-settings-plan.md#official-scene-preview-bloom-clock)
 
 官版「启用／超高」控制作者普通泛光与 HDR 过亮，编辑器预览自有规则。2.8.0.42 确认物理 HDR 由「超高（显示 HDR）」选择，无支持时界面回落为普通超高。MyWallpaperX 把旧开关迁入该后处理档，显式旧开映射到显示 HDR，显式旧关和未保存选择映射到普通超高。后一种保作者 HDR 画面，物理显示 HDR 改为主动选择。保留显式请求，按屏能力和当前 headroom 映射，非适用屏沿普通超高输出。配对验收真实 HDR、HDR 主屏加 SDR 屏、关闭／重开、`clear=false`、旧导入恢复和缺省复位。接管后退出旧开关、通知、跨进程同步和它的无消费者测试。 [官方 Bloom](https://docs.wallpaperengine.io/en/scene/effects/bloom.html) · [官方显示 HDR 公告](https://steamcommunity.com/games/431960/announcements/detail/3133943554973045545) · [Scene 渲染合同](../scene/architecture/runtime-architecture.md#effective-quality-policy)
 

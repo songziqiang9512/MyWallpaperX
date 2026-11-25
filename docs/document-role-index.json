@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ab2c8e2b0a5eb2e31f6b6fd1c129748e5af2d232180d65850c52b1b92122c367",
+        "sourceSHA256": "95577e4de0f583cddb3423bb95bdb8934a8549a427dcf355003225c7a9b0d8ff",
         "method": "document_registry --audit + document_health --check",
-        "scope": "三引擎质量评估与 Pixabay 本地原片换版",
-        "limitations": "实片原生 AV、下载条目与缩略图，非完整网络推荐或功耗实测"
+        "scope": "固定版官版 Scene 具名预览的单变量实绘、作者节律和恢复结果",
+        "limitations": "单一保存档。控制台为定性转录，不覆盖普通桌面、物理呈现或 HDR"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f5963d7f680a07ed427ce7e73ef67d15293d69a9aae77569738763995e7c9605",
+        "sourceSHA256": "a914826ceb2937634aced1186884e13f363baf497b6ec6ef154873952475d898",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役质量路线，接入本地下载同路径等时更换",
-        "limitations": "其余硬件与官版继续按工作卡"
+        "scope": "工作卡官版验证入口指向具名 Scene 运行证据",
+        "limitations": "实验结果仍由技术评估唯一登记"
       }
     },
     {

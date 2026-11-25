@@ -427,6 +427,13 @@ M4 内屏用同一团队签名的现役 Video helper 走真实可见接管。在
 
 固定 2.8.0.42 的 Win32 同次运行以公开命令装载摘要相同的 `index.html`，前景具名窗实绘完整码板和橙、蓝标记。数值 25 在文档完成、第四次 rAF 后到达一次，两段 3.009／3.000 秒各有 356 次 rAF 和 75 次按建议绘制，约 118.31／118.67 与 24.93／25.00 次每秒。保存值与两端的启动回调一致，浏览器调度和作者绘制各自独立。CLI 可用但具名 `getWallpaper` 未返回路径，Parallels CLI 在弹窗播放时截图全黑。本次官版读数来自无遮挡的原生控制台图像转录，未取得可逐像素重放的官版 PNG。关闭具名窗后原 receiver、配置文件摘要、选中壁纸摘要和被覆盖的桌面区域像素一致，客体副本已清理。全局热改、普通桌面继承和物理呈现继续独立验。Windows 实测收据归 `.artifacts/wallpaper-quality-official-web-fps-live`。
 
+<a id="official-scene-preview-bloom-clock"></a>
+#### 具名 Scene 预览的帧时钟与普通 Bloom
+
+以固定 2.8.0.42 同一 receiver 和保存档打开自有 Scene。两臂使用同一 960×540 作者画布及 CLI 尺寸请求，保全局配置，在两个具名臂中只改作者普通 Bloom。静态白块、远离光晕的独立色块及清除背景作画面控制。预登记观察白块边缘外同轨 4–12 个像素范围内的可见光晕，关闭臂背景应为黑。开启臂若光晕未区分，先核真实作者资源和当前窗口，再停于鉴别失败。同时绑定一个 SceneScript 文本探针，以墙钟时长、`engine.runtime` 差值和实际 `update()` 调用数作证。预热至少 1.5 秒，连续两个至少 3 秒的同文档窗口，两臂应有可见字样和递增时钟。25 FPS 的可比作者节奏门先取 24–26 次更新每秒，若实际超过则记录预览路径差异。脚本节律、可截图画面和物理呈现分别计。只清本轮的两个具名窗和临时输入。 [官方 SceneScript 更新](https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/update.html) · [官方泛光](https://docs.wallpaperengine.io/en/scene/effects/bloom.html)
+
+固定 2.8.0.42 的 Win32 同一接收进程以公开 CLI 开启两份自有 960×540 Scene。两份输入的有效场景声明只差普通 Bloom，作者 HDR 均为关。保存值为 25 FPS、普通后处理；未写全局档。关闭臂两段各 75 次更新，墙钟为 3008／3011 ms，约 24.93／24.91 次每秒。开启臂各 75 次，墙钟为 3013／3014 ms，约 24.89／24.88 次每秒。四段分别显示与墙钟等长的 `engine.runtime` 差值和累计 `engine.frametime`（毫秒舍入）。开启臂原生控制台中，白块轮廓外出现可辨光晕，蓝块中心仍可辨且周围有蓝光，远处背景保持黑。两次查看间作者时钟显示从 `CLOCK 8` 到 `CLOCK 13`，绿块位置随之改变。关闭臂同一白块轮廓外未见光晕。单次保存值只可证明此具名预览的实际作者节律与 25 一致。观察来自原生控制台图像转录，未取得可逐像素重放的预览图，也未量测光晕宽度、亮度或逐帧呈现。全局热改、普通桌面继承、后处理禁用／超高、HDR 和物理呈现须另测。原接收进程、配置和原壁纸摘要一致，预览覆盖区与原安全启动窗的两个固定矩形恢复到相同像素。具名窗关闭，客体两套输入和生成的 shader 缓存已清理。本机薄收据归 `.artifacts/wallpaper-quality-official-scene-preview`。 [具名预览命令](https://help.wallpaperengine.io/en/functionality/cli.html)
+
 <a id="official-texture-resolution"></a>
 #### 官版纹理基级与合成范围
 
