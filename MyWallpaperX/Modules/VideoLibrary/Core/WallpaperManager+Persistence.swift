@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import ServiceManagement
 
 extension WallpaperManager {
     var defaults: UserDefaults { .standard }
@@ -318,7 +319,9 @@ extension WallpaperManager {
         loadSampleData()
         libraryPlaybackResetRequested?()
         applyEngineSettings(reloadWallpaper: false)
-        updateLoginItemStatus()
+        if SMAppService.mainApp.status != .notRegistered {
+            updateLoginItemStatus()
+        }
         flushPersistentState()
         NotificationCenter.default.post(name: .wallpaperManagerDidResetToFreshInstallState, object: self)
     }

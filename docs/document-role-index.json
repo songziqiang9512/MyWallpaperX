@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "350e2c9655568d2e1eb7cb8354abd0d8dc54a423a6a5767d0ecf92b22e3c1ace",
+        "sourceSHA256": "0f2427d41df3d429f4088a35f8f984c785985f46b19bd9538d77097df6d1a09b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "从 Video 原片链定位原生 HDR 实窗证据",
-        "limitations": "捕获扩展内容限本机同屏，不代替物理输出或 Windows。"
+        "scope": "标明完整重置的登录项所有者",
+        "limitations": "仅完整重置读取系统状态。原服务错误继续上报。"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "57734f87166201708d942f73d551dc843504de7fee93f7c57805ab64598cb745",
+        "sourceSHA256": "486687adaa8e9a6cb70ee0c41b4c9faf84c918a0a52436bd083fd81c742f054c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "更新现役入口与五语填充说明",
-        "limitations": "填充保两种原模式。实际 HDR 捕获边界见 Video 的实窗记录。"
+        "scope": "登记完整重置的登录项语义与原生验证",
+        "limitations": "仅完整重置读取系统状态。原服务错误继续上报。"
       }
     },
     {

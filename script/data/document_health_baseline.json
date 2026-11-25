@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 17199
+      "bytes": 17335
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -78,7 +78,7 @@
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 127977
+      "bytes": 128465
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,20 +378,20 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "3a3d34413ed8a0352b7c15ba5b49c50aaa100ba15c26453885a52c5270aa1b6c",
-      "after": "290c01eb96b87be7529558c89f24ad02e61cdde2edd2ee5633160e88a2708cf8",
+      "before": "290c01eb96b87be7529558c89f24ad02e61cdde2edd2ee5633160e88a2708cf8",
+      "after": "e51eca615e222947e72f00a3e0fdcb1531a48e15b283233aafef3cfd4620d168",
       "owner": "wallpaper-quality",
-      "reason": "更新现役入口与五语填充说明",
-      "decision": "docs/development/wallpaper-quality-work-card.md#quality-user-help"
+      "reason": "登记完整重置的登录项语义与原生验证",
+      "decision": "docs/development/wallpaper-quality-work-card.md#quality-only-import-playback"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "6dc69ea2ab1ba6bd34764e1231b2d80421af1b1d27423db98c51a05fc26a9b4c",
-      "after": "6decfc73502710171e8549bd64eb7d509172e0a1403b2f4064ee474d1f9a88ab",
+      "before": "6decfc73502710171e8549bd64eb7d509172e0a1403b2f4064ee474d1f9a88ab",
+      "after": "79fc267a2b9a809159866d367fc6e5ac00611842ceed6473d96afa7ba6c1eff1",
       "owner": "repository-map",
-      "reason": "从 Video 原片链定位原生 HDR 实窗证据",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-hdr-output-proof"
+      "reason": "标明完整重置的登录项所有者",
+      "decision": "docs/development/wallpaper-quality-work-card.md#quality-only-import-playback"
     },
     {
       "section": "bodies",

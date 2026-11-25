@@ -82,7 +82,10 @@ class SettingsCacheActionsTests(unittest.TestCase):
         settings = ROOT / "MyWallpaperX/Shared/Settings/AppKitSettingsView.swift"
         dependency = ROOT / "MyWallpaperX/Shared/Settings/AppSettingsPanelDependency.swift"
         fixture = ROOT / "script/tests/fixtures/SettingsCacheActionsHarness.swift"
-        paths = [controller, settings, dependency, fixture, Path(__file__).resolve()]
+        manager = ROOT / "MyWallpaperX/Modules/VideoLibrary/Core"
+        playback = manager / "WallpaperManager+PlaybackSettings.swift"
+        persistence = manager / "WallpaperManager+Persistence.swift"
+        paths = [controller, settings, dependency, fixture, playback, persistence, Path(__file__).resolve()]
         hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
         source = fixture.read_text().replace("// ACTUAL_ACTION_FACTORY", declaration(
             controller.read_text(), "    private lazy var settingsActions:") + "()")
@@ -96,6 +99,13 @@ class SettingsCacheActionsTests(unittest.TestCase):
             if line.strip().startswith("let resetSettingsButton = ")))
         source = source.replace("// ACTUAL_RESET_HANDLER", declaration(
             settings.read_text(), "    @objc private func handleResetSettings("))
+        source = source.replace("// ACTUAL_LOGIN_ITEM_SYNC", declaration(
+            playback.read_text(), "    func updateLoginItemStatus("))
+        reset = declaration(persistence.read_text(), "    func resetToFreshInstallState(")
+        default = next(line for line in reset.splitlines() if line.strip() == "settings = defaultSettings")
+        settlement = reset[reset.index("        applyEngineSettings(reloadWallpaper: false)"):]
+        source = source.replace("// ACTUAL_RESET_LOGIN_SETTLEMENT",
+            "func finishFreshInstallReset() {\n" + default + "\n" + settlement)
         with tempfile.TemporaryDirectory(prefix="mwx-settings-cache-", dir="/private/tmp") as temporary:
             work = Path(temporary)
             actual = work / "Checks.swift"

@@ -1,8 +1,13 @@
 import AppKit
 import Foundation
+import ServiceManagement
 import UniformTypeIdentifiers
 
-struct WallpaperSettings {}
+struct WallpaperSettings { var startOnBoot = false }
+extension Notification.Name {
+    static let wallpaperManagerDidResetToFreshInstallState = Self("fixture.reset.finished")
+    static let wallpaperManagerLoginItemSyncFailed = Self("fixture.login.failed")
+}
 struct PersonalSettingsExportSummary { var wallpaperCount = 3, tagCount = 2 }
 struct PersonalSettingsImportSummary { var mergedWallpaperCount = 1, createdWallpaperCount = 2, tagCount = 3, missingPathCount = 4 }
 enum PersonalSettingsError: Error { case recoveryRequired(String) }
@@ -74,6 +79,8 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
 }
 @MainActor final class WallpaperManager {
     static let shared = WallpaperManager()
+    let defaultSettings = WallpaperSettings()
+    var settings = WallpaperSettings()
     func clearAllCaches(completion: (@Sendable () -> Void)? = nil) { Trace.events.append("manager"); completion?() }
     func applyEngineSettings(reloadWallpaper: Bool) {}
     func reapplySceneQuality() { preconditionFailure("Cache and profile actions do not reapply a Scene") }
@@ -84,8 +91,30 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
     func setSyncSystemWallpaperEnabled(_: Bool) {}
     func startAutoSwitchTimer() {}
     func stopAutoSwitchTimer() {}
-    func updateLoginItemStatus() {}
+    // ACTUAL_LOGIN_ITEM_SYNC
+    // ACTUAL_RESET_LOGIN_SETTLEMENT
+    func flushPersistentState() { Trace.events.append("fresh-install.flush") }
     func updateVolume(_: Double) {}
+}
+
+@MainActor final class SMAppService {
+    typealias Status = ServiceManagement.SMAppService.Status
+    static let mainApp = SMAppService()
+    var observed: Status = .notRegistered
+    var failure: NSError?
+    var status: Status {
+        Trace.events.append("login.status")
+        return observed
+    }
+    func register() throws { preconditionFailure("A fresh reset never registers its main app") }
+    func unregister() throws {
+        Trace.events.append("login.unregister")
+        if observed == .notRegistered {
+            throw NSError(domain: SMAppServiceErrorDomain, code: kSMErrorJobNotFound)
+        }
+        if let failure { throw failure }
+        observed = .notRegistered
+    }
 }
 
 @MainActor final class ScreenSaverCoordinator {
@@ -207,6 +236,53 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
         Trace.reset(); Trace.response = .alertSecondButtonReturn
         view.resetSettingsButton.performClick(nil)
         check("only-explicit-reset-runs-the-existing-fresh-install-owner-once", Trace.events == ["fresh-install.reset"])
+
+        let manager = WallpaperManager.shared
+        let service = SMAppService.mainApp
+        let loginFailure = NotificationCenter.default.addObserver(
+            forName: .wallpaperManagerLoginItemSyncFailed, object: nil, queue: nil
+        ) { note in
+            MainActor.assumeIsolated {
+                guard note.object as? WallpaperManager === manager,
+                      note.userInfo?["operation"] as? String == "unregister",
+                      let error = note.userInfo?["error"] as? NSError else { return }
+                Trace.events.append("login.failure.\(error.code)")
+            }
+        }
+        let resetFinished = NotificationCenter.default.addObserver(
+            forName: .wallpaperManagerDidResetToFreshInstallState, object: nil, queue: nil
+        ) { note in
+            MainActor.assumeIsolated {
+                if note.object as? WallpaperManager === manager { Trace.events.append("fresh-install.finished") }
+            }
+        }
+        controller.resetAction = { manager.finishFreshInstallReset() }
+        Trace.reset()
+        view.resetSettingsButton.performClick(nil)
+        check("fresh-reset-skips-unregistration-when-system-already-not-registered",
+              Trace.events == ["login.status", "fresh-install.flush", "fresh-install.finished"] && !manager.settings.startOnBoot)
+
+        let registeredStates: [(SMAppService.Status, String)] = [(.enabled, "enabled"), (.requiresApproval, "pending")]
+        for (status, name) in registeredStates {
+            service.observed = status
+            Trace.reset()
+            view.resetSettingsButton.performClick(nil)
+            check("fresh-reset-unregisters-\(name)-system-item-even-with-saved-off",
+                  Trace.events == ["login.status", "login.unregister", "fresh-install.flush", "fresh-install.finished"]
+                  && service.observed == .notRegistered && !manager.settings.startOnBoot)
+        }
+        service.failure = NSError(domain: SMAppServiceErrorDomain, code: 1)
+        for (status, name) in [(SMAppService.Status.notFound, "lookup-failure"), (.enabled, "active-failure")] {
+            service.observed = status
+            Trace.reset()
+            view.resetSettingsButton.performClick(nil)
+            check("fresh-reset-keeps-original-reporting-for-\(name)",
+                  Trace.events == ["login.status", "login.unregister", "login.status", "login.failure.1",
+                                   "fresh-install.flush", "fresh-install.finished"]
+                  && manager.settings.startOnBoot == (status == .enabled))
+        }
+        NotificationCenter.default.removeObserver(loginFailure)
+        NotificationCenter.default.removeObserver(resetFinished)
         Trace.reset()
         Trace.response = .alertSecondButtonReturn
         view.clearCacheButton.performClick(nil)
