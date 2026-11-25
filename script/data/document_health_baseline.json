@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 16675
+      "bytes": 16809
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 338,
-      "bytes": 79971
+      "lines": 340,
+      "bytes": 80310
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 553,
-      "bytes": 117716
+      "lines": 562,
+      "bytes": 119401
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,20 +378,20 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "d16551653d04417445d5df631826811384ef894ca369baaa6456276cbc38bf3a",
-      "after": "123e960b3e3afd57192b5387c87972f6649bee3c52ecdef2949bc714f657b7cd",
+      "before": "123e960b3e3afd57192b5387c87972f6649bee3c52ecdef2949bc714f657b7cd",
+      "after": "72d462ade81bd024cee826b0ed50a3151f13636e1c23025b3459cb2a12454df7",
       "owner": "画质执行路线",
-      "reason": "同源冷档重载设计及真实呈现",
-      "decision": "docs/development/wallpaper-quality-work-card.md#quality-reapply-current-scene"
+      "reason": "已保存显示 HDR 的原生可用状态",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-hdr-saved-selection"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "a4e5028e5d50ac017fa81d7f9d0e44290e8f2f431a9218a2090d221f508340fd",
-      "after": "4e81fe13b53a1a3f3ce0a93e669e766b775d4366cc43f0313d19646c3d88d38c",
+      "before": "4e81fe13b53a1a3f3ce0a93e669e766b775d4366cc43f0313d19646c3d88d38c",
+      "after": "e36aa2aff9b62485c225fa4ff85db9b7f8c9ca22deaa5d515aa0fd9aa27e9a83",
       "owner": "仓库源码地图",
-      "reason": "标记原生入口与原同源重载 owner",
-      "decision": "docs/development/wallpaper-quality-work-card.md#quality-reapply-current-scene"
+      "reason": "指向设置的显示 HDR 原菜单",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-hdr-saved-selection"
     },
     {
       "section": "bodies",
@@ -684,11 +684,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "fbd81ed6a35edce77c019cfc1143e8bfd149b456597d740c61056015067b2539",
-      "after": "f2a83949ff59299e5f9e9909901335e0a215851c18249133d18244d39abd3c72",
+      "before": "f2a83949ff59299e5f9e9909901335e0a215851c18249133d18244d39abd3c72",
+      "after": "9a96f495e3f8a1b5d06229bf55108b02723a239538e5572d59b80a2d86c1be6a",
       "owner": "三引擎画质评估",
-      "reason": "当前场景重载入口及生效读数",
-      "decision": "docs/development/wallpaper-quality-work-card.md#quality-reapply-current-scene"
+      "reason": "保存的显示 HDR 在无资格下的投影",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-hdr-saved-selection"
     }
   ]
 }

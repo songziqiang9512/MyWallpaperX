@@ -76,6 +76,7 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
     static let shared = WallpaperManager()
     func clearAllCaches(completion: (@Sendable () -> Void)? = nil) { Trace.events.append("manager"); completion?() }
     func applyEngineSettings(reloadWallpaper: Bool) {}
+    func reapplySceneQuality() { preconditionFailure("Cache and profile actions do not reapply a Scene") }
     func refreshAutoSwitchTimerIfNeeded() {}
     func setLoopPlaybackEnabled(_: Bool) {}
     func setRandomPlaybackEnabled(_: Bool) {}

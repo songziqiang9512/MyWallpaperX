@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7d7af61a85cbf2f3727f88ef3e245f0b4c7a634b6c27e8d89efa270909b0b24d",
+        "sourceSHA256": "521f5ea91ee194a7e02223c3f4fb7f48a1e832ef373a5090adb01e55ceaa3fec",
         "method": "document_registry --audit + document_health --check",
-        "scope": "标记原生入口与原同源重载 owner",
-        "limitations": "导航到原主 App 和 Scene 可见候选。"
+        "scope": "指向设置的显示 HDR 原菜单",
+        "limitations": "显示能力与保存档回显由原 AppKit 布局维护。"
       }
     },
     {
@@ -347,10 +347,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3a9a7d949dc5d2eb8f20bd55ab5871d16b7636e55e8bd0f2e6c765f91590836f",
+        "sourceSHA256": "95329ebf5ae82ab5ee226ca95cf7413802978639815681aeb4db802b75680883",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前场景重载入口及生效读数",
-        "limitations": "质量面板保原保存和热更，冷档由用户显式重载。"
+        "scope": "保存的显示 HDR 在无资格下的投影",
+        "limitations": "按原显示能力恢复新选择，保存意愿通过原菜单表示。"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1f3de974eb7f7b642502c75b87c73f15886ab4d0de012f94d9e9cb53bbc183f6",
+        "sourceSHA256": "220eeb44a5875bf007c20888e4d5c3a693bc9e5334ef803887daaff67e63230c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同源冷档重载设计及真实呈现",
-        "limitations": "德俄签名两作者、原生序列及临近真实播放，区分快照、暂停与场景时钟。"
+        "scope": "已保存显示 HDR 的原生可用状态",
+        "limitations": "真实原生控件受控能力，两真实作者验证支持侧相邻普通档。"
       }
     },
     {

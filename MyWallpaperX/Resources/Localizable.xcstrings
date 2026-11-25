@@ -48919,6 +48919,40 @@
         }
       }
     },
+    "Ultra (Display HDR Unavailable)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ultra (Display HDR Unavailable)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "超高（显示 HDR 不可用）"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ультра (HDR-дисплей недоступен)"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ultra (HDR-Ausgabe nicht verfügbar)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ultra (affichage HDR indisponible)"
+          }
+        }
+      }
+    },
     "Ultra (Display HDR)": {
       "localizations": {
         "en": {

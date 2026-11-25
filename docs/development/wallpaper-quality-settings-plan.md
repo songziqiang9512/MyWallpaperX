@@ -118,6 +118,8 @@ Scene FPS 在下一排帧边界采纳，Web 在当前文档回调，能原位采
 
 **档位和生效**「禁用」沿原终端让预约和编码使用同一有效配置，跳过全景泛光，保原颜色、alpha、局部效果与 raw history。作者 General 开关仍供作者逻辑。普通与禁用档须在原准备入口确定有效 HDR 工作域和亮度，终端再分别走普通泛光或跳过。当前 HDR 初始化选择 HDR PSO，普通档使用原普通准备入口。「超高」采用作者 HDR 金字塔，普通作品仍可用基础路径。作者禁用、零贡献或可选分配失败沿原局部结果。两个超高档共用作者工作域，只有「超高（显示 HDR）」向可用屏申请 EDR。 [作者场景和粒子](../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift) · [合成与终端](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ClearColor.swift) · [Apple EDR 映射](https://developer.apple.com/documentation/metal/performing-your-own-tone-mapping)
 
+只在有支持显示器时开放显示 HDR 的新选择。无支持屏时，设置将已保存的显示 HDR 请求标记为暂不可用，实际窗口沿 SDR 输出。用户仍能明确选择普通超高，原屏幕通知会在能力恢复后更新菜单。 [设置回显验收](wallpaper-quality-work-card.md#scene-hdr-saved-selection)
+
 普通参数缺省在 General 已补为 1／0.65／白色。先用固定官版对照仅配置 HDR、显式普通参数等于默认、以及有动态普通绑定的场景。「启用」如适用普通缺省就直接用现有值。如果仅显式配置时才生效，在现有 General 解码保留消费所需的最少声明或绑定信息，沿当前 descriptor 投影。该语义通过黑盒与原 App 夹具后再开放「启用／禁用」。 [General 解码](../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument+General.swift) · [摄像机配置](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift)
 
 禁用／启用改变工作域或 Bloom 资格，在下次应用的原候选准备时采用。禁用的候选没有 Bloom owner，其旧工作集随已呈现候选接管、旧会话排空和原 Surface 退役释放。两个超高档只热更显示 EDR，复用同一 Bloom 链。作者强度短暂为零时跳过当帧，保同一 owner 的有界暖复用。真实新旧会话交接的配额重新取得仍需同进程取证。

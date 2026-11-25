@@ -402,6 +402,7 @@ extension AppKitSettingsContainerView {
             (.ultra, String(localized: "Ultra")),
             (.ultraDisplayHDR, String(localized: "Ultra (Display HDR)")),
         ]
+        scenePostProcessingPopup.autoenablesItems = false
         for (mode, title) in modes {
             scenePostProcessingPopup.addItem(withTitle: title)
             scenePostProcessingPopup.lastItem?.representedObject = mode.rawValue
@@ -569,6 +570,7 @@ extension AppKitSettingsContainerView {
                 quality.scene.volumeLighting = selected
             } else if sender === scenePostProcessingPopup, let selected = ScenePostProcessingMode(rawValue: mode) {
                 quality.scene.postProcessing = selected
+                refreshScenePostProcessingMenu(selected)
             }
         }
         PlaybackCommandMultiplexer.shared.applyQualityPreference(quality)
@@ -588,9 +590,12 @@ extension AppKitSettingsContainerView {
     func refreshScenePostProcessingMenu(_ mode: ScenePostProcessingMode) {
         let displayHDRAvailable = NSScreen.screens.contains { $0.maximumPotentialExtendedDynamicRangeColorComponentValue > 1 }
         let displayHDR = scenePostProcessingPopup.indexOfItem(withRepresentedObject: ScenePostProcessingMode.ultraDisplayHDR.rawValue)
-        scenePostProcessingPopup.item(at: displayHDR)?.isHidden = !displayHDRAvailable
-        let effective: ScenePostProcessingMode = !displayHDRAvailable && mode.requestsDisplayHDR ? .ultra : mode
-        scenePostProcessingPopup.selectItem(at: scenePostProcessingPopup.indexOfItem(withRepresentedObject: effective.rawValue))
+        let item = scenePostProcessingPopup.item(at: displayHDR)
+        item?.isHidden = !displayHDRAvailable && !mode.requestsDisplayHDR
+        item?.isEnabled = displayHDRAvailable
+        item?.title = displayHDRAvailable ? String(localized: "Ultra (Display HDR)")
+                                         : String(localized: "Ultra (Display HDR Unavailable)")
+        scenePostProcessingPopup.selectItem(at: scenePostProcessingPopup.indexOfItem(withRepresentedObject: mode.rawValue))
     }
 
     func applyNativeControlSizes() {

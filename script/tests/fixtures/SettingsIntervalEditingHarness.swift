@@ -11,6 +11,10 @@ struct PersonalSettingsExportSummary {}
 struct PersonalSettingsImportSummary {}
 enum PersonalSettingsError: Error { case recoveryRequired(String) }
 enum SceneMediaSourcePreference { static let isEnabled = false }
+@MainActor private struct NSScreen {
+    static var screens: [Self] = []
+    let maximumPotentialExtendedDynamicRangeColorComponentValue: Double
+}
 extension Notification.Name {
     static let playbackMuteStateDidChange = Self("fixture.mute")
     static let wallpaperManagerLoginItemSyncFailed = Self("fixture.login-item")
@@ -69,6 +73,7 @@ extension Notification.Name {
         addSubview(intervalField); addSubview(nextField)
         addSubview(sceneFPSField); addSubview(sceneFPSControl)
         commitSceneFrameRate(nil)
+        scenePostProcessingPopup.autoenablesItems = false
         for mode in [ScenePostProcessingMode.disabled, .enabled, .ultra, .ultraDisplayHDR] {
             scenePostProcessingPopup.addItem(withTitle: mode.rawValue)
             scenePostProcessingPopup.lastItem?.representedObject = mode.rawValue
@@ -97,7 +102,8 @@ extension Notification.Name {
             sceneShadowsPopup.addItem(withTitle: shadow.rawValue)
             sceneShadowsPopup.lastItem?.representedObject = shadow.rawValue
         }
-        for control in [sceneQualityPresetPopup, sceneAntiAliasingPopup, sceneTextureQualityPopup, sceneVolumeLightingPopup] {
+        for control in [sceneQualityPresetPopup, sceneAntiAliasingPopup, sceneTextureQualityPopup,
+                        sceneVolumeLightingPopup, scenePostProcessingPopup] {
             control.target = self
             control.action = #selector(handleQualityChange(_:))
         }
@@ -305,6 +311,43 @@ extension Notification.Name {
         checks["native-ultra-volume-restores-derived-ultra-preset"] = requests.requests.count == 10
             && PlaybackQualityPreference.current.scene.volumeLighting == .ultra
             && view.sceneQualityPresetPopup.selectedItem?.representedObject as? String == "ultra"
+        let post = view.scenePostProcessingPopup
+        let hdrIndex = post.indexOfItem(withRepresentedObject: ScenePostProcessingMode.ultraDisplayHDR.rawValue)
+        let hdrItem = post.item(at: hdrIndex)!
+        let ordinaryUltraIndex = post.indexOfItem(withRepresentedObject: ScenePostProcessingMode.ultra.rawValue)
+        var hdr = PlaybackQualityPreference.current
+        hdr.scene.postProcessing = .ultraDisplayHDR
+        hdr.write(to: .standard)
+        NSScreen.screens = [.init(maximumPotentialExtendedDynamicRangeColorComponentValue: 1)]
+        view.refreshQualityControls()
+        checks["native-sdr-menu-keeps-the-saved-hdr-item-selected-but-disabled"] = post.selectedItem == hdrItem
+            && !hdrItem.isHidden && !hdrItem.isEnabled && hdrItem.title.contains("Unavailable")
+            && view.sceneQualityPresetPopup.indexOfSelectedItem == 0
+            && PlaybackQualityPreference.current == hdr && requests.requests.count == 10
+
+        NSScreen.screens.append(.init(maximumPotentialExtendedDynamicRangeColorComponentValue: 3))
+        NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: NSApp)
+        pump()
+        checks["native-screen-notification-restores-the-same-selectable-hdr-item"] = post.selectedItem == hdrItem
+            && !hdrItem.isHidden && hdrItem.isEnabled && hdrItem.title == "Ultra (Display HDR)"
+            && PlaybackQualityPreference.current == hdr && requests.requests.count == 10
+
+        NSScreen.screens.removeLast()
+        NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: NSApp)
+        pump()
+        post.selectItem(at: ordinaryUltraIndex)
+        _ = post.sendAction(post.action, to: view)
+        checks["native-explicit-ordinary-ultra-clears-display-hdr-and-hides-the-unavailable-item"] =
+            post.indexOfSelectedItem == ordinaryUltraIndex && hdrItem.isHidden && !hdrItem.isEnabled
+            && PlaybackQualityPreference.current.scene.postProcessing == .ultra
+            && view.sceneQualityPresetPopup.selectedItem?.representedObject as? String == "ultra"
+            && requests.requests.count == 11
+        hdr.write(to: .standard)
+        view.refreshQualityControls()
+        _ = NSApp.sendAction(NSSelectorFromString("restoreDefaultQuality"), to: view, from: nil)
+        checks["native-default-reset-clears-saved-hdr-under-sdr-capability"] =
+            PlaybackQualityPreference.current == .defaults && post.indexOfSelectedItem == ordinaryUltraIndex
+            && hdrItem.isHidden && !hdrItem.isEnabled && requests.requests.count == 12
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

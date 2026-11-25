@@ -29,7 +29,7 @@
 
 发给用户的设置说明写在五语 [内置帮助](../../MyWallpaperXHelp/zh-Hans.lproj/index.html)，按正文的 Video、Web、Scene 章节随适用范围变动更新。 [帮助书检查](../../script/governance/check_help_bundle.py)
 
-设置里显式重新应用当前 Scene 由 [AppKit 动作装配](../../MyWallpaperX/App/SettingsWindowController.swift) 进入 [管理器的同源重载](../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift)，在原候选采用已保存的冷档。 [Scene 质量合同](../scene/architecture/runtime-architecture.md#effective-quality-policy)
+设置里显式重新应用当前 Scene 由 [AppKit 动作装配](../../MyWallpaperX/App/SettingsWindowController.swift) 进入 [管理器的同源重载](../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift)，在原候选采用已保存的冷档。Scene 后处理的显示资格及保存档回显归 [原菜单](../../MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift)。 [Scene 质量合同](../scene/architecture/runtime-architecture.md#effective-quality-policy)
 
 三引擎交接、冷恢复和便携画质导入用同一 [签名产品验收](../../script/web/playback_quality_coexistence.py) 核实原库选择、活动窗口及实际消费。便携视频库排序接入 [视图会话](../../MyWallpaperX/Shell/WallpaperLibraryPresentation.swift)，播放沿 [原序列快照](../../MyWallpaperX/Core/PlaybackControl/WallpaperPlaybackSequence.swift)。 [交接](../development/wallpaper-quality-work-card.md#quality-engine-coexistence) · [导入](../development/wallpaper-quality-work-card.md#quality-only-import-playback) · [排序](../development/wallpaper-quality-work-card.md#quality-import-video-sort)
 
