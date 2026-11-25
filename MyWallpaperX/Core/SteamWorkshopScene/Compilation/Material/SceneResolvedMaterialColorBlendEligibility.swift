@@ -70,7 +70,6 @@ nonisolated enum SceneResolvedMaterialColorBlendEligibility {
                 fact.sourceSlot,
                 inputIdentity: inputIdentity,
                 inputRole: inputRole,
-                samplers: samplers,
                 template: template,
                 graphInputSourceSlotFacts: graphFacts
               ) else { return false }
@@ -98,11 +97,10 @@ nonisolated enum SceneResolvedMaterialColorBlendEligibility {
         }
     }
 
-    private static func sourceSlotSelectsExactInput(
+    static func sourceSlotSelectsExactInput(
         _ slot: Int,
         inputIdentity: Graph.TextureIdentity,
         inputRole: Template.GraphTextureRole,
-        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         template: Template,
         graphInputSourceSlotFacts: [
             Int: SceneResolvedMaterialGraphInputSourceSlotFact

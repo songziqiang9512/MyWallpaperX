@@ -102,6 +102,15 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
                 if not row["name"].startswith(("giant-", "large-")):
                     self.assertTrue(row["changed"], row)
 
+    def test_zero_opacity_keeps_hdr_background_with_nonfinite_straight_color(self):
+        rows = self.result["transparentHDR"]
+        self.assertEqual({(row["mode"], row["full"]) for row in rows},
+                         {(15, False), (15, True), (31, False), (31, True)})
+        for row in rows:
+            self.assertTrue(row["backgroundPreserved"], row)
+            if row["full"]:
+                self.assertEqual(row["copies"], 1)
+
     def test_large_finite_unit_quad_bounds_keep_the_entire_viewport_strip(self):
         for row in self.result["rows"]:
             if row["name"].startswith("giant-"):

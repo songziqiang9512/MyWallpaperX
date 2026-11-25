@@ -125,12 +125,12 @@
       "bytes": 72468
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 461,
-      "bytes": 92392
+      "lines": 463,
+      "bytes": 92391
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 343356
+      "bytes": 344575
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 243,
-      "bytes": 69211
+      "bytes": 69217
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -460,11 +460,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "9d8d0007ae697cf2231b5d662fe424394a986bae6ae22de7eed076cf2b951472",
-      "after": "feb74fd563a26e329e0553f977b90ef053e243072ca1936ef39db41c9b36c70b",
-      "owner": "Utility layer color compositor",
-      "reason": "Define the existing author-cut capture and color blend for a project layer without effects.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#plain-project-color-blend"
+      "before": "feb74fd563a26e329e0553f977b90ef053e243072ca1936ef39db41c9b36c70b",
+      "after": "9155de844af11689d0a57c5255866c754ccc5642fa63b9039d20c3f1bbd47425",
+      "owner": "Scene material coverage and compositing",
+      "reason": "记录透明图链终端合同、HDR覆盖反例及两场同条件实测。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#zero-alpha-private-graph"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "589169c1fc07d993db7c6aca4b2b16fa040ebd152821a66aae77bb2f6326c9de",
-      "after": "c88595e7aada8711ab2da4c32a01ce74bd7e79c7868b3a4d089580abfe9377e6",
-      "owner": "Scene playback evidence",
-      "reason": "记录独立复核的首次已呈现视频和未命中全零方向边界。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#initial-material-video-ready-298"
+      "before": "c88595e7aada8711ab2da4c32a01ce74bd7e79c7868b3a4d089580abfe9377e6",
+      "after": "9b4860d6303ca51b2de5aa5e980da2f469d7777d7aa5ee8377ecafc8b29b6c0b",
+      "owner": "Scene material coverage and compositing",
+      "reason": "记录透明图链终端合同、HDR覆盖反例及两场同条件实测。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#zero-alpha-private-graph"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "bdecc58ce38342c07be4ba43b594b71b8da0c12fec0a5e57f27c1ffc736d0c24",
-      "after": "400a66ef7250e0a6e97fd743d0078c81e7ce6ea52327a32d5fe0244b52d560a0",
-      "owner": "Scene particle simulation",
-      "reason": "保留用户斜光反馈的已验收范围、四块可复现出生对照和未解决证据边界。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ember-birth-clock-and-position"
+      "before": "e65d2c85f9b6b537fbf9cd5455669169dca1c1aa5ed62b8efd4cd9a45dc710e5",
+      "after": "a78a856807911196e1cd7ca384c17c3acbc5dbc4ab050d2299620970e1be3763",
+      "owner": "Scene material coverage and compositing",
+      "reason": "记录透明图链终端合同、HDR覆盖反例及两场同条件实测。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#zero-alpha-private-graph"
     },
     {
       "section": "bodies",

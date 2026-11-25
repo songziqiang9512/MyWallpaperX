@@ -278,8 +278,9 @@ extension SceneMetalRenderer {
         let omittedPrivateLayerIDs = (resolvedRuntime?.privateLayerAlphaPreservingIDs ?? []).filter { id in
             guard frameVisibleLayerIDs.contains(id), let layer = frameLayersByID[id],
                   layer.utilityLayer == nil,
-                  SceneLayerColorBlendRenderer.keepsBackdropAtZeroOpacity(layer.colorBlendMode ?? 0),
-                  imageTextures.geometryProducts[id] != nil,
+                  SceneBlendModeShaderSource.keepsBackdropAtZeroOpacity(layer.colorBlendMode ?? 0),
+                  imageTextures.geometryProducts[id] != nil || layer.contentKind == "image",
+                  !ordinaryDepthLayerIDs.contains(id),
                   utilityExecution.memberRootsByLayerID[id] == nil,
                   frameLightSnapshot.distanceFogColor.w == 0,
                   !dependencyRuntime.requiresCapture(for: id) else { return false }

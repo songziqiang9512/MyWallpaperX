@@ -214,6 +214,15 @@ private enum Harness {
             of: "carrier.rgb = mix(carrier.rgb, filtered, u_strength);",
             with: "carrier.rgb = mix(carrier.rgb, filtered, u_strength);\n    carrier.a *= u_strength;"
         )
+        let escapedCoverage = [
+            "carrier[3] = .65; gl_FragColor = carrier;",
+            "carrier.a++; gl_FragColor = carrier;",
+            "carrier.a = .65; vec4 alias = carrier; gl_FragColor = alias;",
+            "rewriteAlpha(carrier); gl_FragColor = carrier;",
+        ].map { output in
+            ("void rewriteAlpha(inout vec4 color) { color.a = .65; }\n" + preservedCarrier)
+                .replacingOccurrences(of: "gl_FragColor = carrier;", with: output)
+        }
         let secondSource = separated.replacingOccurrences(
             of: "uniform sampler2D g_Texture0;",
             with: "uniform sampler2D g_Texture0;\nuniform sampler2D g_Texture1;"
@@ -305,6 +314,10 @@ private enum Harness {
                 .analyzeSourceCarried(fragmentSource: premultiplied) == nil,
             "carrierAlphaWriteRejected": SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
                 .analyzeSourceCarried(fragmentSource: carrierAlphaWrite) == nil,
+            "escapedCoverageRejected": escapedCoverage.map {
+                SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
+                    .analyzeSourceCarried(fragmentSource: $0) == nil
+            },
             "secondSourceRejected": SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
                 .analyzeSourceCarried(fragmentSource: secondSource) == nil,
             "scalarDistanceLowered": distanceMSL.contains("abs((0.0) - (l))"),
@@ -401,6 +414,7 @@ class SceneSourceCarriedStraightRGBATests(unittest.TestCase):
         self.assertTrue(self.result["premultipliedRejected"])
         self.assertTrue(self.result["carrierAlphaWriteRejected"])
         self.assertTrue(self.result["secondSourceRejected"])
+        self.assertEqual(self.result["escapedCoverageRejected"], [True] * 4)
 
     def test_uniform_seeded_rgb_reuses_validated_additive_helper(self) -> None:
         self.assertEqual(self.result["additiveTransfer"], "straight-alpha-0")
