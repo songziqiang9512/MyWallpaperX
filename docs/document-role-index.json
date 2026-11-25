@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8eb0223121c2dc12aa3ed5cb930daa82e688f75012cb73de24ae663a86c32036",
+        "sourceSHA256": "1e64020bc9d49ed8e1482ffc4dcd25c1bd96a79dd4a53af1e490a57f3e7adff3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "签名普通 Scene 选片过程中冷档及相邻行为",
-        "limitations": "单屏及准备端点登记前，无物理逐刷新声明"
+        "scope": "固定版官方反射附件、材质默认与作者独立效果来源取证",
+        "limitations": "静态路径及已有模型局部运行，保留同版全局材质 A/B 缺口"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2622c2ccc6e1b70206d5c13d64af40fd1ba4f361594f0a27843bf5b976aaf5a0",
+        "sourceSHA256": "45e1c5de72b3446a3c2b7d892340604eb056c3192c256a49494cd07693e15770",
         "method": "document_registry --audit + document_health --check",
-        "scope": "工作卡链接普通选片冷档实测",
-        "limitations": "画面和实际验收数字仍归评估方案"
+        "scope": "画质工作卡链接反射来源和独占对照",
+        "limitations": "源位置和实测边界归技术评估"
       }
     },
     {

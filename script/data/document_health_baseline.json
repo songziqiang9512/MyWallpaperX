@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 489,
-      "bytes": 121804
+      "lines": 501,
+      "bytes": 125899
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 136407
+      "bytes": 136504
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "a56063b4f285fb761fe7b83fe76dda2598f7405b9c1fe27449d242720d5fbf26",
-      "after": "a1694f4c2857661944b5fe39b07342bd4dca148a5a5a4016b41ade661faffb17",
+      "before": "a1694f4c2857661944b5fe39b07342bd4dca148a5a5a4016b41ade661faffb17",
+      "after": "8bbba713e5dcfcc1cd1ea1439844df53024e1cdedebd2c41f173c5e3522fe7e6",
       "owner": "开发",
-      "reason": "记录普通 Scene 选片冷档修改、原生画面和相邻行为证据",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-cold-ordinary-preparation"
+      "reason": "固定版官版反射目标和作者输入的证据边界与全局试验条件",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-reflection-targets"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "fe4c081a259feddaa0cd0c596f54d82427bc4b1ccc99ab02eb6c1d377fa056bc",
-      "after": "cd2d8866cd794576b80ff29b241c6d213596e9d9383abb7577111684cb5d3cb3",
+      "before": "cd2d8866cd794576b80ff29b241c6d213596e9d9383abb7577111684cb5d3cb3",
+      "after": "4b68421c7e60db05bb6440e94a80631c5063e6ae111aff2f79dd08cf990f22a2",
       "owner": "开发",
-      "reason": "链接唯一的普通选片准备实测",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-cold-ordinary-preparation"
+      "reason": "链接反射目标静态定位和独占官版验收入口",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-reflection-targets"
     },
     {
       "section": "bodies",

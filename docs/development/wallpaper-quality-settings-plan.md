@@ -479,6 +479,18 @@ Win32 2.8.0.42 从 `0x4d9280` 读取 `shadows`，禁用／低／中／高／超�
 
 首次准备为非零档时，低／中把主光、限深和第二光缓冲的每轴除以 8，并准备横纵滤波。高／超高把主光和限深的每轴除以 4。后界除数均为 1。工厂 `0x54b240` 经实际 vtable 到 `0x477740→0x4a9830`，将初始渲染 client 宽高逐轴整除、下限 2，再把结果填入 `CreateTexture2D` 描述。以 1920×1080 渲染窗口为算例，主光与限深在低／中为 240×135、高／超高为 480×270。限深目标另外传 0x17／0x19，含义未取证。证据限定此 Win32 冷路径。窗口 DPI 与实尺、实际选中的灯型变体、目标创建成功、热切换和最终画面仍需要单变量运行取证。薄收据归 `.artifacts/wallpaper-quality-official-volume`。 [D3D11 纹理描述](https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ns-d3d11-d3d11_texture2d_desc)
 
+<a id="official-reflection-targets"></a>
+#### 官版反射开关下的三个取样来源
+
+固定 Windows Win32 2.8.0.42。随包界面投影为单数 `generalSettings.reflection`。同版原生 `0x4de3c7–0x4de3f5` 解析 `reflection`，`0x4de91a` 写渲染状态 `+0xfc` 的 0x80 位。`_rt_Reflection` 和 `_rt_MipMappedFrameBuffer` 是两个附件，建立条件分别读取同一作者准备状态的 bit 0 和 bit 11。前者由 `0x52e92a–0x52e97d` 管理，在 `0x52dc80–0x52dc8f` 另读全局档选择反射视角绘制或清除分支。后者在 `0x52e97d–0x52ea89` 管理，关闭档传零 RGB、alpha 1 给清除路径，已有附件在 `0x4de874–0x4de906` 同样处理。帧端 `0x52e10a–0x52e128` 和 `0x52e237–0x52e255` 另要求开档。已核 D3D11 后端虚表 `0x7d644c` 的 +0x04 在适用源上调用全资源复制或 MSAA resolve，+0x10 调用 mip 生成。 初始清除或关档刷新成黑时，也可调用同一 mip 生成入口传播清除值。材质实际选中的 texture slot 入口 `0x50f610` 把标准目标表的位合并到材质 `+0x170`。`0x595fc9–0x595fe5` 以其中 bit 3（MipMapped）写入该材质路径的 `REFLECTION` 编译组合。全局设置另在 Scene 端控制附件生产。该观察限此固定二进制的已追踪 D3D11 渲染路径。 [D3D11 复制](https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-copyresource) · [MSAA resolve](https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-resolvesubresource) · [mip 生成](https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-generatemips)
+
+随包 `generic2` 默认反射读 `_rt_Reflection`，`generic3/4` 及 `genericimage2/3/4` 默认反射读 `_rt_MipMappedFrameBuffer`。后面三种图像 shader 的部分组合还单独读 `_rt_FullFrameBuffer` 作合成，保留该身份以区分两条消费。作者的独立 Reflection 特效沿标准 pass 的颜色输入和 mask 按轴取像素，随包默认无上述两种反射附件绑定。独立场内显式绑定仍按实际资源核对。此前 3470948192 在原官版的开／关／开改变模型轮廓，参数相位和尖端的像素还未配对。 [官版 2D 材质](https://docs.wallpaperengine.io/en/scene/lighting/introduction.html) · [作者 Reflection 效果](https://docs.wallpaperengine.io/en/scene/effects/effect/reflection.html) · [已有作者对照](../scene/capabilities/model-runtime-evidence.md#model-screen-reflection)
+
+本机现役保作品显式或 Shader 缺省读取的环境供货。若要让反射关档覆盖官版私有历史目标，先做同版全局单变量 A/B。分别隔离普通材质、显式读取 `_rt_MipMappedFrameBuffer`、作者独立 Reflection 效果、`_rt_FullFrameBuffer` 及作者自带的有色环境贴图。固定视口、帧相位、发光、alpha 和探针。记录保留的尺寸、mip 与显式像素访问，避免以单个黑像素推断可缩减纹理规格。证实差异后再裁决仅此保留名的供货策略，同时保持作者持久色、具名资源及原材质流程。本机静态薄收据归 `.artifacts/wallpaper-quality-official-reflections`。
+
+<a id="official-global-ab-isolation"></a>
+独占 Windows 执行环境可使用同版已购客户端目录和本地壁纸走官版正常性能面板。先核二进制摘要、选档可正常保存并重启、同一素材在桌面与具名窗均真实出图。桌面及具名窗的冷继承和同接收进程热改分别做 A/B/A。共享 Parallels 只有一台运行中的客体，完整克隆要求源客体关机。物理 HDR 另要求 Windows HDR 模式、实际出现显示 HDR 档及保留高动态的 FP16 采集，以参考白、灰和超白作对照。独占接收或有效采集无法成立时，继续采用已取得的单档和静态证据。 [官版离线运行 FAQ](https://www.wallpaperengine.io/en) · [Parallels 完整克隆条件](https://kb.parallels.com/en/123907) · [Windows HDR 采集](https://learn.microsoft.com/en-us/windows/win32/direct3darticles/high-dynamic-range)
+
 锁定合法安装的 Windows 版 Wallpaper Engine build、位数／版本、系统／GPU／显示、全量设置和自有输入，先记录四预设逐字段向量，再测单项改变、选择另一作品、重启、按屏及运行中的生效时机。帧率记录 10／25／60／120 及输入步进、上限与显示节律，MSAA 在设备允许时用几何斜边、遮挡和纯 2D 反例逐档对照。后处理用作者普通／HDR 开关组合和实测三档相互验证，纹理以含 mip／无 mip／图集、阴影以三类灯、体积以点光／聚光、反射以实时接收与静态对照验证各档。另让相同 Web／Video 输入读取或播放，核影响面。每次只改一项，固定可见 ROI、捕获身份、色域、DPI、动画相位与 pause；预览如未采用桌面质量配置，验证其会话或改用有界桌面窗口。VM 采行为，Mac 功耗真机另测。
 
 如固定版本的公开/可见实验无法区分「候选设置确实被该 consumer 读到」等问题，先用现有 locale/changelog 结构提取，再按官方研究工作流选择 REA 对单一设置写入→读取关系作有界静态研究。保留版本、证据位置和可观测预测，随后用单变量运行反证；解析结果只作线索，最终行为仍取实际画面与事件。此轮补固定版本随包资源及 REA 静态定位。共享 VM 正由并行任务使用，未改其设置或会话。目标档的行为和 macOS 整机功耗仍各自取证。 [官方研究与保留规则](../scene/development/official-client-behavior-research-workflow.md) · [结构提取工具](../../script/evidence/extract_wallpaper_engine_client_evidence.py)
