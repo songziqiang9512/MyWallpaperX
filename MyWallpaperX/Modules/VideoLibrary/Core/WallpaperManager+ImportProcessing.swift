@@ -182,12 +182,9 @@ extension WallpaperManager {
             let duration = durationSec.map { Int($0.rounded()) }
 
             var resolution: String?
-            if let tracks = try? await asset.loadTracks(withMediaType: .video),
-               let track = tracks.first,
-               let size = try? await track.load(.naturalSize),
-               let transform = try? await track.load(.preferredTransform) {
-                let transformedSize = size.applying(transform)
-                resolution = "\(Int(abs(transformedSize.width))) × \(Int(abs(transformedSize.height)))"
+            if let track = try? await asset.loadTracks(withMediaType: .video).first,
+               let displaySize = await WallpaperVideoTrackDetails.displaySize(for: track) {
+                resolution = WallpaperVideoTrackDetails.resolutionText(for: displaySize)
             }
 
             if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),

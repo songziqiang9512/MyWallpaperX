@@ -6,7 +6,11 @@ nonisolated struct WallpaperVideoTrackDetails: Sendable {
     let nominalFrameRateText: String?
 
     var resolutionText: String? {
-        displaySize.map { "\(Int($0.width)) × \(Int($0.height))" }
+        displaySize.map(Self.resolutionText(for:))
+    }
+
+    static func resolutionText(for displaySize: CGSize) -> String {
+        "\(Int(displaySize.width)) × \(Int(displaySize.height))"
     }
 
     static func load(from asset: AVAsset, includesCodec: Bool = true) async -> Self? {

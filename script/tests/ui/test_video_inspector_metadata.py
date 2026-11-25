@@ -7,8 +7,8 @@ file facts and AV fallback. Test-copy entries record the original attributes,
 DateFormatter and AV initialization threads under one lock. A MainActor probe
 holds only final delivery; no file/AV result, cancellation or executor is replaced.
 Checks cover call placement, output and this H264 sample's duration, rotated
-size, codec and nominal frame rate. They do not establish accuracy for arbitrary media, I/O latency,
-native Inspector animation or full-App behavior.
+size, codec and nominal frame rate. The real import collector checks positive
+and negative rotations and an audio-only input. This gate covers media facts.
 """
 import hashlib
 import json
@@ -19,12 +19,18 @@ import subprocess
 import tempfile
 import unittest
 
+if __package__:
+    from .test_ui_library_algorithms import declaration
+else:
+    from test_ui_library_algorithms import declaration
+
 ROOT = Path(__file__).resolve().parents[3]
 SUPPORT = Path(os.environ.get("MWX_VIDEO_METADATA_SUPPORT_SOURCE", ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift"))
 TRACK_DETAILS = ROOT / "MyWallpaperX/Shared/WallpaperVideoTrackDetails.swift"
 MODEL = ROOT / "MyWallpaperX/Models/VideoWallpaper.swift"
 FIXTURE = ROOT / "script/tests/fixtures/VideoInspectorMetadataHarness.swift"
 MEDIA_FIXTURE = FIXTURE.with_name("VideoTrackMetadataFixtures.swift")
+IMPORT_PROCESSING = ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+ImportProcessing.swift"
 
 
 def observe_production(source):
@@ -61,15 +67,27 @@ class VideoInspectorMetadataTests(unittest.TestCase):
         support = SUPPORT.read_text()
         track_sources = [] if "nonisolated struct WallpaperVideoTrackDetails" in support else [TRACK_DETAILS]
         production, delivery = observe_production("\n".join([support, *(p.read_text() for p in track_sources)]))
+        fixture = FIXTURE.read_text()
         paths = [SUPPORT, *track_sources, MODEL, FIXTURE, MEDIA_FIXTURE, Path(__file__).resolve()]
+        import_flags = []
+        if track_sources:
+            imports = IMPORT_PROCESSING.read_text()
+            import_reader = "\n".join(declaration(imports, signature) for signature in (
+                "    nonisolated private struct ImportedAssetMetadataUpdate",
+                "    nonisolated private static func collectImportedAssetMetadata(",
+            ))
+            fixture = fixture.replace("    // ACTUAL_IMPORT_METADATA", import_reader)
+            paths.append(IMPORT_PROCESSING)
+            import_flags = ["-D", "CURRENT_IMPORT_METADATA"]
         inputs = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
         with tempfile.TemporaryDirectory(prefix="mwx-inspector-metadata-", dir="/private/tmp") as folder:
             work = Path(folder)
             helper = work / "Production.swift"; helper.write_text(production)
+            harness = work / FIXTURE.name; harness.write_text(fixture)
             home = work / "home"; home.mkdir()
             env = dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home))
             command = ["xcrun", "swiftc", "-parse-as-library", "-swift-version", "5", "-default-isolation", "MainActor",
-                "-warnings-as-errors", str(MODEL), str(helper), str(FIXTURE), str(MEDIA_FIXTURE),
+                "-warnings-as-errors", *import_flags, str(MODEL), str(helper), str(harness), str(MEDIA_FIXTURE),
                 "-module-cache-path", str(work / "modules"), "-o", str(work / "checks")]
             build = subprocess.run(command, capture_output=True, text=True, env=env, timeout=120)
             proof = None
@@ -77,7 +95,8 @@ class VideoInspectorMetadataTests(unittest.TestCase):
                 Path(destination).mkdir(parents=True, exist_ok=True)
                 proof = Path(tempfile.mkdtemp(prefix="metadata-", dir=destination))
                 (proof / "inputs.json").write_text(json.dumps({"inputs": inputs, "command": command, "scope": __doc__,
-                    "transforms": ["compile complete production Support; retain all isolation annotations", "record actual attributes/DateFormatter/AV initialization threads under a lock", "await scheduling probe " + delivery + "; original cancellation check and all results retained"]}, indent=2))
+                    "transforms": ["compile complete production Support; retain all isolation annotations", "record actual attributes/DateFormatter/AV initialization threads under a lock", "await scheduling probe " + delivery + "; original cancellation check and all results retained"],
+                    "currentImportMetadata": bool(import_flags)}, indent=2))
                 (proof / "compile.log").write_text(build.stdout + build.stderr)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             run = subprocess.run([str(work / "checks"), str(work)], capture_output=True, text=True, env=env, timeout=45)

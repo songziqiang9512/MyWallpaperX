@@ -303,6 +303,15 @@ M4 单光阶段眼内指数 10 的五轮为 0.513／0.480／0.345／0.346／0.48
 
 原 M4 WindowServer 窗口在候选尚未就绪时，两侧黑边实测变成 RGB 234／51／35，中央旧视频保持 RGB 130／130／130，共 2,081,840 个窗内像素变化。修复后的 Debug 和 Release 原生 helper 在准备前、准备中和损坏候选失败后，整窗 3024×1964 捕获像素一致。独立 Workshop 3821981384 的 3840×2160 H.264 原片带上下留黑，同样在两个构建的同窗前后逐像素一致。空窗口正常读到红色首帧，原生门核就绪和取消都清空海报图像。Debug 构建通过。本轮用原生 helper 窗口做画面和边界验收，未计音频或物理显示时序。收据归 `.artifacts/wallpaper-quality-video-warm-poster`。
 
+<a id="video-import-display-size"></a>
+#### 本地导入的轨道显示尺寸
+
+本地 Video 的导入索引目前对宽高向量直接应用轨道矩阵，斜向矩阵会在一个轴上抵消两项，卡片与右侧详情显示的规格不同。导入复用 Shared 已有的轨道显示包围盒及整数格式，先沿一次视频轨道查询，只读尺寸和矩阵。保原时长、文件大小、索引阶段和缩略图准备。导入不额外读 codec 或标称 FPS，不增加缓存、全库迁移或播放路径。没有视频尺寸时仍留空。 [Apple 仿射包围盒](https://developer.apple.com/documentation/coregraphics/cgrectapplyaffinetransform%28_%3A_%3A%29) · [原片轨道事实](../../MyWallpaperX/Shared/WallpaperVideoTrackDetails.swift)
+
+以原导入读取与真实 AVFoundation 详情互验。64×32、正负 45° 轨道应同为 68×68，90° 应为 32×64，未旋转保持 64×32。另验无视频轨与真实 Workshop 原片。保文件大小与时长，同样的原片 URL 继续由播放器使用。由此读取器写入的导入索引使用正确规格。已有完整索引行沿原刷新规则。若仅能修详情或需要新读取链，不接入卡片。
+
+真实轨道对照中，+45° MOV 的导入规格由 22 × 67 更正为 68 × 68，与详情一致。−45° 同为 68 × 68，90° 为 32 × 64，正常横向为 64 × 32，纯音轨的宽高仍为空。独立 Workshop 3834029472 的原片两侧均为 1920 × 1080，同一文件大小、时长和原生提取帧保持一致。斜向素材的 68 × 68 是显示轨道的几何包围盒，原生静帧入口对该素材返回 64 × 32。通过真实导入读取与详情行为门、Debug 构建。读回在原生轨道与索引层，未另测卡片合成或播放器输出。薄收据归 `.artifacts/wallpaper-quality-video-import-size`。 [Apple 原生静帧的方向支持](https://developer.apple.com/documentation/avfoundation/avassetimagegenerator/appliespreferredtracktransform)
+
 <a id="pixabay-same-path-source-revision"></a>
 #### Pixabay 下载原片换版
 

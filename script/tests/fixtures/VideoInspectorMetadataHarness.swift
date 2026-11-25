@@ -36,6 +36,8 @@ nonisolated final class InspectorMetadataWorkProbe: @unchecked Sendable {
 }
 
 @main struct VideoInspectorMetadataHarness {
+    // ACTUAL_IMPORT_METADATA
+
     static func writePNG(_ url: URL) {
         let context = CGContext(data: nil, width: 32, height: 16, bitsPerComponent: 8, bytesPerRow: 0,
             space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
@@ -71,6 +73,29 @@ nonisolated final class InspectorMetadataWorkProbe: @unchecked Sendable {
             let track = await WallpaperVideoTrackDetails.load(from: AVURLAsset(url: diagonal))
             checks["non-right-angle-track-matrix-uses-the-transformed-frame-bounds"] = track?.resolutionText == "68 × 68"
             try await VideoTrackMetadataFixtures.writeH264(h264)
+#if CURRENT_IMPORT_METADATA
+            let opposite = root.appendingPathComponent("diagonal-opposite.mov")
+            try await VideoTrackMetadataFixtures.writeH264(opposite, rotationAngle: -.pi / 4)
+            let original = root.appendingPathComponent("landscape.mov")
+            try await VideoTrackMetadataFixtures.writeH264(original, rotationAngle: 0)
+            let audioOnly = root.appendingPathComponent("audio-only.caf")
+            let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+            let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 48_000)!
+            buffer.frameLength = buffer.frameCapacity
+            buffer.floatChannelData?[0].update(repeating: 0, count: Int(buffer.frameLength))
+            do {
+                let audio = try AVAudioFile(forWriting: audioOnly, settings: format.settings)
+                try audio.write(from: buffer)
+            }
+            let sources = [diagonal, opposite, h264, original, audioOnly]
+            let imported = await collectImportedAssetMetadata(for: sources)
+            checks["import-index-reports-display-bounds-for-real-track-matrix-variants"] =
+                imported.map(\.resolution) == ["68 × 68", "68 × 68", "32 × 64", "64 × 32", nil]
+            checks["import-index-keeps-source-identity-length-and-duration"] = imported.map(\.path) == sources.map(\.path) && imported.allSatisfy {
+                let attributes = try? FileManager.default.attributesOfItem(atPath: $0.path)
+                return $0.size == attributes?[.size] as? Int64 && $0.duration == 1
+            }
+#endif
             cases.append(("real-h264", h264, Optional(65), Optional("320×180"), Optional<Int64>(3 * 1024 * 1024), "3.00 MB", "1:05", "0:01", "32 × 64", "H.264"))
         } else {
             FileHandle.standardError.write(Data("H264 positive skipped: pixel-buffer receiver requires macOS 26; original 38 facts still run.\n".utf8))

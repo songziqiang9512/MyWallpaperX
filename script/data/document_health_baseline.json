@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 18856
+      "bytes": 19021
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 469,
-      "bytes": 116746
+      "lines": 478,
+      "bytes": 118723
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 136187
+      "bytes": 136300
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "af2403be6059a1a9d38bae01d24492be1547d327bd50fb9367b393189b733d3e",
-      "after": "5ba52b1fbb3bceb122ee0e6b415ffe41f52367ed19fc298928237b98b207d17c",
-      "owner": "Architecture source map",
-      "reason": "同步已下载原片的当前身份、规格和各自消费者",
-      "decision": "docs/architecture/repository-map.md#wallpaper-quality"
+      "before": "5ba52b1fbb3bceb122ee0e6b415ffe41f52367ed19fc298928237b98b207d17c",
+      "after": "a4d1f36834c51645b34c81d52e741e9043664e5b60b37150fb927c1add4ccb4a",
+      "owner": "架构",
+      "reason": "定位本地 Video 导入规格的原轨道读取和索引写入",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-import-display-size"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "7dc9216164fb025312c825ac31df161b8613dad3bb6638275047f5f94189ad8a",
-      "after": "e622068e865bc77cea4dfe12152efadc6d21887350121060fe3a1ab5fab24dfa",
+      "before": "e622068e865bc77cea4dfe12152efadc6d21887350121060fe3a1ab5fab24dfa",
+      "after": "a56063b4f285fb761fe7b83fe76dda2598f7405b9c1fe27449d242720d5fbf26",
       "owner": "开发",
-      "reason": "保留固定版官版 Scene 预览的单变量运行收据与适用边界",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-scene-preview-bloom-clock"
+      "reason": "记录本地导入和详情共用轨道显示包围盒的设计与实际输入",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-import-display-size"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "8e1bbd2858fb19e1200922fa031013faf5fb1c4bbfacea6d1bc6f9af3c02ee1c",
-      "after": "9bfcfb87595bb5b543ca4c1573386ac45a0f0d90b5249e1ad6ca4050a1659c5b",
+      "before": "9bfcfb87595bb5b543ca4c1573386ac45a0f0d90b5249e1ad6ca4050a1659c5b",
+      "after": "fe4c081a259feddaa0cd0c596f54d82427bc4b1ccc99ab02eb6c1d377fa056bc",
       "owner": "开发",
-      "reason": "把具名 Scene 实测链接到现役验证路径",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-scene-preview-bloom-clock"
+      "reason": "路由本地 Video 源规格的现役验证",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-import-display-size"
     },
     {
       "section": "bodies",

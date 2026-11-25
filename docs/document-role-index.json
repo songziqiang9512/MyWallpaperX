@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f5f1fed883004d88ee7822c095b1eaa9576867545d30b1776ba11b73ca0c7f7d",
+        "sourceSHA256": "27ac5ca064dce705dd41a983fd73b5916d688f242cbd244b108bc8fe47f08d08",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Pixabay 下载原片规格、文件身份和消费点",
-        "limitations": "导航审计，不重测无关模块"
+        "scope": "本地 Video 轨道显示尺寸的读取与导入职责",
+        "limitations": "源码路径与原始调用链"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "95577e4de0f583cddb3423bb95bdb8934a8549a427dcf355003225c7a9b0d8ff",
+        "sourceSHA256": "909a9006b8455250506be0ac0f6ad3a95d852de76154ae48e6b0c16dab08fab4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "固定版官版 Scene 具名预览的单变量实绘、作者节律和恢复结果",
-        "limitations": "单一保存档。控制台为定性转录，不覆盖普通桌面、物理呈现或 HDR"
+        "scope": "本地 Video 导入与详情的轨道显示尺寸设计和受控／独立样本",
+        "limitations": "索引和轨道行为，无播放器输出声明"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a914826ceb2937634aced1186884e13f363baf497b6ec6ef154873952475d898",
+        "sourceSHA256": "e32ee0791a823268a47a78a25bf188f01ad6cd7667c4e83f3af03235eaaded80",
         "method": "document_registry --audit + document_health --check",
-        "scope": "工作卡官版验证入口指向具名 Scene 运行证据",
-        "limitations": "实验结果仍由技术评估唯一登记"
+        "scope": "Video 质量工作卡链接导入规格职责与证据",
+        "limitations": "实测数字以评估方案为准"
       }
     },
     {

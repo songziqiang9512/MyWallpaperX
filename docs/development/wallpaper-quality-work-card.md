@@ -532,7 +532,7 @@ Pixabay 以空 URL 和零字节表示缺失 Large。浏览卡、远程详情和�
 
 ### Video 派生验证与本地播放设置
 
-本地 Video 继续提交原文件给 AVFoundation，移除只影响 HLS 的分辨率偏好赋值，保原缓冲和播放器层。先由同一已签名运行链及真实媒体验证实际尺寸、就绪和循环。
+本地 Video 继续提交原文件给 AVFoundation，移除只影响 HLS 的分辨率偏好赋值，保原缓冲和播放器层。 导入卡片与详情共用[轨道显示尺寸](wallpaper-quality-settings-plan.md#video-import-display-size)。先由同一已签名运行链及真实媒体验证实际尺寸、就绪和循环。
 
 真实 Workshop 3821417083 的 UHD 60 FPS 原片在隔离签名 Xcode helper 通过实际屏确认。同一窗口两个阶段的非黑覆盖均约 99.9%，平均 RGB 差为 28.66／255。进程正常退出，原片摘要一致。原生 AVPlayer 探针另确认同源 MP4 短片的两次媒体时钟回绕，生成 MOV 另验回滚。Apple 将该分辨率偏好限定于 HLS，所有产品入口当前交给 helper 的是本地常规文件。 [Apple 播放项接口](https://developer.apple.com/documentation/avfoundation/avplayeritem/preferredmaximumresolution)
 
