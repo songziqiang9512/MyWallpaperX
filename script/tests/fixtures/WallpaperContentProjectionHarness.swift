@@ -134,9 +134,11 @@ struct WallpaperContentProjectionHarness {
         let pixabay = PixabayVideoItem(id: 42, pageURL: "https://pixabay.com/videos/id-42/", tags: " forest, sky ",
                                             duration: 9, user: "Pixabay Author",
                                             videos: PixabayVideoFiles(large: PixabayVideoFile(
+                                                url: "", width: 3840, height: 2160, size: 0, thumbnail: ""),
+                                                medium: PixabayVideoFile(
                                                 url: "https://example.test/movie.mp4", width: 1920, height: 1080,
                                                 size: 9999, thumbnail: "https://example.test/preview.jpg"),
-                                                medium: nil, small: nil, tiny: nil))
+                                                small: nil, tiny: nil))
         let pixabayReference = WallpaperReference(provider: .pixabay, sourceID: "42")
         let pixabayReceipt = WallpaperContentBackingPublication(backingVideoID: "42", publishedReference: pixabayReference,
                                                                 proof: .publishedDownload)
@@ -144,6 +146,8 @@ struct WallpaperContentProjectionHarness {
         checks["remote Pixabay remains unorganized despite matching number or title"] = remotePixabay.reference == pixabayReference
             && remotePixabay.capabilities.contains(.download) && !remotePixabay.capabilities.contains(.organize)
             && !remotePixabay.capabilities.contains(.play) && remotePixabay.aliases.isEmpty
+        checks["remote Pixabay projects the same resolution and bytes as its first selectable file"] =
+            remotePixabay.metadata.resolutionText == "1920×1080" && remotePixabay.metadata.fileSizeBytes == 9999
         let download = PixabayPublishedDownload(id: 42, localURL: URL(fileURLWithPath: "/never-opened/42-Shared title.mp4"),
                                                 fileSize: 5000, duration: 15, displaySize: CGSize(width: 1280, height: 720),
                                                 thumbnailSourceKey: "original-thumbnail-owner-key")
@@ -153,6 +157,10 @@ struct WallpaperContentProjectionHarness {
             && localPixabay.metadata.fileSizeBytes == 5000 && localPixabay.metadata.resolutionText == "1280×720"
             && localPixabay.metadata.author == "Pixabay Author" && localPixabay.metadata.sourceTags == ["forest", "sky"]
             && localPixabay.capabilities.contains([.organize, .play, .delete])
+        let unmeasured = PixabayPublishedDownload(id: 42, localURL: download.localURL, fileSize: 5001)
+        let unmeasuredPixabay = PixabayLibraryContentProjection.project(item: pixabay, download: unmeasured, facts: local)
+        checks["Pixabay leaves unknown local resolution empty while keeping the actual file size"] =
+            unmeasuredPixabay?.metadata.resolutionText == nil && unmeasuredPixabay?.metadata.fileSizeBytes == 5001
         checks["only explicit matching published provenance emits alias"] = localPixabay.aliases.first?.canonical == pixabayReference
             && PixabayLibraryContentProjection.project(download: download, facts: local)?.aliases.isEmpty == true
         let otherNamespaceReceipt = WallpaperContentBackingPublication(

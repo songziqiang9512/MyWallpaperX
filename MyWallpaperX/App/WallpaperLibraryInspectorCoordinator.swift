@@ -109,11 +109,13 @@ import QuickLookUI
 
     private func pixabayContent(for item: PixabayVideoItem) -> WallpaperContentItem {
         let reference = WallpaperReference(provider: .pixabay, sourceID: String(item.id))
+        let preferred = item.preferredVideoDownload
         return WallpaperContentItem(reference: reference, providerReference: reference,
             locator: .init(titleHint: item.displayTitle, mediaKind: .video, provenance: item.pageURL),
             title: item.displayTitle, kind: .video, publishedAvailability: .remote,
             capabilities: [.inspect, .download, .openSource],
-            metadata: .init(author: item.user, durationSeconds: Double(item.duration), resolutionText: item.resolutionString,
+            metadata: .init(author: item.user, fileSizeBytes: preferred?.expectedBytes,
+                durationSeconds: Double(item.duration), resolutionText: preferred?.resolutionString,
                 sourceURL: URL(string: item.pageURL), previewURL: item.previewThumbnailURL),
             acquisition: .idle, update: .idle, aliases: [])
     }

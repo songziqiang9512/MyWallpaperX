@@ -418,9 +418,11 @@ extension Notification.Name { static let pixabayVideoReadyToPlay = Notification.
         let medium = PixabayVideoFile(url: base + "/quality-only-medium", width: 320, height: 180,
             size: largeBytes.count, thumbnail: "")
         let soleMedium = PixabayVideoItem(id: 54, pageURL: "", tags: "One usable file", duration: 2, user: "",
-            videos: .init(large: file("http://[", size: 12), medium: medium, small: nil, tiny: nil))
-        precondition(soleMedium.videoDownload() == nil && soleMedium.videoDownloadOptions.map(\.tier) == [.medium])
-        service.download(item: soleMedium, tier: .medium)
+            videos: .init(large: file("", size: 0), medium: medium, small: nil, tiny: nil))
+        let preferred = soleMedium.preferredVideoDownload!
+        precondition(preferred.tier == .medium && soleMedium.videoDownloadOptions.map(\.tier) == [.medium]
+            && preferred.resolutionString == "320×180" && preferred.expectedBytes == Int64(largeBytes.count))
+        service.download(item: soleMedium, tier: preferred.tier)
         try await until { service.downloadActivity(for: 54) == nil }
         let mediumBytes = try Data(contentsOf: destination.appendingPathComponent("online_54.mp4"))
         precondition(mediumBytes == largeBytes && terminals.last?.outcome == .completed && terminals.last?.pixabayTier == "medium")

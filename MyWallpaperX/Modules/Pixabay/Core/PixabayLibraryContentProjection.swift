@@ -25,9 +25,9 @@ enum PixabayLibraryContentProjection {
             $0.trimmingCharacters(in: .whitespacesAndNewlines)
         } ?? []
         metadata.durationSeconds = download?.duration.map(Double.init) ?? item.map { Double($0.duration) }
-        let preferredFile = item.map { $0.videos.large ?? $0.videos.medium ?? $0.videos.small ?? $0.videos.tiny }
-        metadata.fileSizeBytes = download.map { Int64($0.fileSize) } ?? preferredFile.flatMap { $0 }.map { Int64($0.size) }
-        metadata.resolutionText = download?.resolutionString ?? item?.resolutionString
+        let preferred = download == nil ? item?.preferredVideoDownload : nil
+        metadata.fileSizeBytes = download.map { Int64($0.fileSize) } ?? preferred?.expectedBytes
+        metadata.resolutionText = download?.resolutionString ?? preferred?.resolutionString
         metadata.createdAt = download?.creationDate
         metadata.modifiedAt = download?.modificationDate
         metadata.sourceURL = item.flatMap { URL(string: $0.pageURL) }

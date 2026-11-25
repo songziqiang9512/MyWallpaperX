@@ -86,12 +86,20 @@ import QuartzCore
     facts.expect("real-browser-source-publisher-mounts-a-native-card", card.presentedItem == original
         && grid.dataSource.snapshot().itemIdentifiers == [601, 602] && card.view.window === window)
     let neighborConfigurations = configurations[602, default: 0]
-    let updated = browserModel(601, tags: "new visible title", duration: 85, thumbnail: "new-source", bytes: 5_242_880)
+    let refreshed = browserModel(601, tags: "new visible title", duration: 85, thumbnail: "new-source",
+                                 bytes: 5_242_880, width: 1728)
+    let emptyLarge = PixabayVideoFile(url: "", width: 3840, height: 2160, size: 0, thumbnail: "")
+    let updated = PixabayVideoItem(id: refreshed.id, pageURL: refreshed.pageURL, tags: refreshed.tags,
+        duration: refreshed.duration, user: refreshed.user,
+        videos: .init(large: emptyLarge, medium: refreshed.videos.medium, small: nil, tiny: nil))
     service.items = [updated, neighbor]
     _ = waitUntil { card.presentedItem == updated }
     facts.expect("same-ID-source-publication-updates-the-existing-native-card-metadata", grid.itemsByID[601] == updated
         && grid.collectionView.item(at: path) === card && card.presentedItem == updated
         && card.currentTitle == updated.displayTitle && card.currentThumbnailURL == updated.previewThumbnailURL)
+    facts.expect("mounted-native-card-shows-the-size-and-resolution-of-the-first-download-option",
+        card.currentMetadata == "5.00MB  1m25s  1728×1080"
+            && card.controlBar.titleView.accessibilityHelp() == card.currentMetadata, card.currentMetadata)
     card.controlBar.detailButton.performClick(nil)
     facts.expect("real-container-detail-action-carries-the-updated-fixed-source-item", inspections == [updated])
     facts.expect("retained-neighbor-is-not-reconfigured-for-unrelated-metadata", configurations[602, default: 0] == neighborConfigurations)

@@ -130,6 +130,13 @@ struct PixabayVideoItem: Decodable, Identifiable, Equatable {
             .filter { seen.insert($0.url).inserted }
     }
 
+    var preferredVideoDownload: PixabayVideoDownload? {
+        for tier in PixabayDownloadTier.allCases {
+            if let option = videoDownload(tier: tier) { return option }
+        }
+        return nil
+    }
+
     var previewThumbnailURL: URL? {
         if let u = videos.medium?.thumbnail, !u.isEmpty { return URL(string: u) }
         if let u = videos.small?.thumbnail,  !u.isEmpty { return URL(string: u) }
@@ -156,28 +163,6 @@ struct PixabayVideoItem: Decodable, Identifiable, Equatable {
         if m > 0, s > 0 { return "\(m)m\(s)s" }
         if m > 0 { return "\(m)m" }
         return "\(s)s"
-    }
-
-    var resolutionString: String? {
-        let f = videos.large ?? videos.medium ?? videos.small ?? videos.tiny
-        guard let f, f.width > 0, f.height > 0 else { return nil }
-        return "\(f.width)×\(f.height)"
-    }
-
-    var fileSizeString: String? {
-        let f = videos.large ?? videos.medium ?? videos.small ?? videos.tiny
-        guard let bytes = f?.size, bytes > 0 else { return nil }
-        let mb = Double(bytes) / (1024 * 1024)
-        if mb >= 1024 {
-            return String(format: "%.1fGB", mb / 1024)
-        }
-        if mb >= 100 {
-            return String(format: "%.0fMB", mb)
-        }
-        if mb >= 10 {
-            return String(format: "%.1fMB", mb)
-        }
-        return String(format: "%.2fMB", mb)
     }
 }
 
@@ -215,4 +200,24 @@ struct PixabayVideoDownload {
     let width: Int
     let height: Int
     let expectedBytes: Int64?
+
+    var resolutionString: String? {
+        guard width > 0, height > 0 else { return nil }
+        return "\(width)×\(height)"
+    }
+
+    var fileSizeString: String? {
+        guard let expectedBytes else { return nil }
+        let mb = Double(expectedBytes) / (1024 * 1024)
+        if mb >= 1024 {
+            return String(format: "%.1fGB", mb / 1024)
+        }
+        if mb >= 100 {
+            return String(format: "%.0fMB", mb)
+        }
+        if mb >= 10 {
+            return String(format: "%.1fMB", mb)
+        }
+        return String(format: "%.2fMB", mb)
+    }
 }

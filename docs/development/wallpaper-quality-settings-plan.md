@@ -241,7 +241,7 @@ Scene FPS 在下一排帧边界采纳，Web 在当前文档回调，能原位采
 
 | 候选 | 选择与边界 |
 |---|---|
-| 在线源已有规格 | 优先评估 Pixabay 新下载，服务已有 large／medium／small／tiny 的实际 URL、尺寸和体积。下载弹层用实际可用规格，沿现有 attempt 将选中 URL、预期字节和元数据成套提交，取消/重复任务、重试、磁盘替换和原子发布沿原 owner。默认维持现有最高可用，缺候选明确重选或继续原流程。已有下载、Steam/本地单文件不自动换源或重下；继续只下载、不抢播。 [Pixabay 规格](../../MyWallpaperX/Modules/Pixabay/Core/PixabayModels.swift) · [下载 owner](../../MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift) |
+| 在线源已有规格 | 优先评估 Pixabay 新下载，服务已有 large／medium／small／tiny 的实际 URL、尺寸和体积。下载弹层用实际可用规格，沿现有 attempt 将选中 URL、预期字节和元数据成套提交，取消/重复任务、重试、磁盘替换和原子发布沿原 owner。浏览卡及详情用默认可选档的尺寸与近似字节。默认维持现有最高可用，缺候选明确重选或继续原流程。已有下载、Steam/本地单文件不自动换源或重下；继续只下载、不抢播。 [Pixabay 规格](../../MyWallpaperX/Modules/Pixabay/Core/PixabayModels.swift) · [下载 owner](../../MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift) |
 | 显式派生节能版 | 用同一个 SDR 输入先做原片、仅降像素、仅降 FPS、同时降两者的离线 A/B，全部走原播放器。通过后才提供单个可取消、可清理的可选节能版。尺寸预设优先 `AVAssetExportSession`（用实际输出证明），精确 PTS／尺寸／codec／色彩才用 `AVAssetReader/Writer`，编码沿平台支持。首候选为最多 1920×1080 横向或 1080×1920 竖向的等比例包围盒，按源 PTS 向至多 30 fps 选帧，低帧源保原频率，保持画面完整与比例。保 transform、色彩标记、音轨、时间原点、时长及首尾循环，验证偏差后再选择固定 FPS 或保时基。先覆盖普通 SDR 单视频、零或一条可保留的音轨；HDR10、HLG、Dolby Vision、alpha、复杂 VFR、多音轨留原片并各自取得资格再开放。 [Apple 导出预设](https://developer.apple.com/documentation/avfoundation/export-presets) · [原生 HDR 播放与逐帧处理](https://developer.apple.com/videos/play/wwdc2022/110565/) |
 | 解码或呈现重写 | `AVVideoComposition` 可留在 AVPlayerLayer 呈现，`AVPlayerItemVideoOutput` 的自呈现路线另需管理窗口内逐帧交付。两者增加解后处理，较少输出帧无法证明较少压缩帧解码。VideoToolbox 的 reduced-resolution decode 是可选底层能力，需要自行承担解码时序、音频同步、HDR、原生轮换和输出。现阶段采用真实素材文件，保既有 AV 时钟和桌面输出。流媒体将来如有自适应档沿对应 HLS 能力独立处理。 [VideoToolbox 降分辨率解码](https://developer.apple.com/documentation/videotoolbox/kvtdecompressionpropertykey_reducedresolutiondecode) |
 

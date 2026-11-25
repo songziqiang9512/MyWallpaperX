@@ -106,9 +106,9 @@ final class PixabayDownloadsInspectorView: NSView {
         }
     }
 
-    private var secondaryFactText: String? {
+    private func secondaryFactText(remoteFileSize: String?) -> String? {
         guard let snapshot else {
-            return remoteItem.map { [$0.fileSizeString, $0.durationString].compactMap { $0 }.joined(separator: "  ·  ") }
+            return remoteItem.map { [remoteFileSize, $0.durationString].compactMap { $0 }.joined(separator: "  ·  ") }
         }
         let parts: [String?] = [snapshot.fileSizeText, snapshot.durationText, snapshot.fileExtension]
         return parts.compactMap { $0 }.filter { !$0.isEmpty }
@@ -116,10 +116,10 @@ final class PixabayDownloadsInspectorView: NSView {
             .nilIfEmpty
     }
 
-    private var metadataFacts: [(String, String)] {
+    private func metadataFacts(remoteResolution: String?) -> [(String, String)] {
         guard let snapshot else {
             guard let remoteItem else { return [] }
-            return [(String(localized: "Resolution"), remoteItem.resolutionString ?? ""), (String(localized: "Artist"), remoteItem.user), (String(localized: "Source Platform"), "Pixabay")]
+            return [(String(localized: "Resolution"), remoteResolution ?? ""), (String(localized: "Artist"), remoteItem.user), (String(localized: "Source Platform"), "Pixabay")]
                 .filter { !$0.1.isEmpty }
         }
         let facts: [(String, String?)] = [
@@ -209,7 +209,8 @@ final class PixabayDownloadsInspectorView: NSView {
     }
 
     private func buildContent(in stack: NSStackView) {
-        addContentSection(makePreviewSection(), to: stack)
+        let preferred = snapshot == nil ? remoteItem?.preferredVideoDownload : nil
+        addContentSection(makePreviewSection(remoteFileSize: preferred?.fileSizeString), to: stack)
 
         if !heroBadges.isEmpty {
             addContentSection(makeMetaSection(), to: stack)
@@ -217,8 +218,9 @@ final class PixabayDownloadsInspectorView: NSView {
 
         if snapshot != nil || remoteItem != nil {
             addContentSection(WallpaperLibraryControlStyle.sectionDivider(), to: stack)
-            if !metadataFacts.isEmpty {
-                addContentSection(WallpaperLibraryControlStyle.inspectorFacts(metadataFacts), to: stack)
+            let facts = metadataFacts(remoteResolution: preferred?.resolutionString)
+            if !facts.isEmpty {
+                addContentSection(WallpaperLibraryControlStyle.inspectorFacts(facts), to: stack)
                 addContentSection(WallpaperLibraryControlStyle.sectionDivider(), to: stack)
             }
             if let snapshot { addContentSection(makeFileLocationSection(snapshot: snapshot), to: stack) }
@@ -233,7 +235,7 @@ final class PixabayDownloadsInspectorView: NSView {
         section.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
     }
 
-    private func makePreviewSection() -> NSView {
+    private func makePreviewSection(remoteFileSize: String?) -> NSView {
         let stack = NSStackView()
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -255,7 +257,7 @@ final class PixabayDownloadsInspectorView: NSView {
         title.maximumNumberOfLines = 2
         stack.addArrangedSubview(title)
 
-        if let secondaryFactText {
+        if let secondaryFactText = secondaryFactText(remoteFileSize: remoteFileSize) {
             let facts = PixabayDownloadsInspectorViews.makeLabel(
                 secondaryFactText,
                 font: .systemFont(ofSize: 11, weight: .medium),

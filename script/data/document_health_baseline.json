@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 16958
+      "bytes": 17099
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 340,
-      "bytes": 80337
+      "bytes": 80400
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 582,
-      "bytes": 122837
+      "lines": 595,
+      "bytes": 125007
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,20 +378,20 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "2fa8f78300985531b9a104c3dfe83f678094bdff2bbf310592a1221087991e14",
-      "after": "e2d61499953547cdc93b17762b8c08866cf22fe1dfd4a0c1d96e8680522f38ee",
+      "before": "e2d61499953547cdc93b17762b8c08866cf22fe1dfd4a0c1d96e8680522f38ee",
+      "after": "557cbefa80c293ea50437af2632bfd29eae97d90488c367fb4b24af6531a0540",
       "owner": "wallpaper-quality",
-      "reason": "记录倍速显示精度和实测",
-      "decision": "docs/development/wallpaper-quality-work-card.md#playback-rate-readout"
+      "reason": "记录 Pixabay 默认可选档的显示和实测",
+      "decision": "docs/development/wallpaper-quality-work-card.md#pixabay-default-download-facts"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "e36aa2aff9b62485c225fa4ff85db9b7f8c9ca22deaa5d515aa0fd9aa27e9a83",
-      "after": "72be8f6e40639a45f01d9d417d5b1bda63125c9b877d5be116e57d4a4269dbff",
+      "before": "72be8f6e40639a45f01d9d417d5b1bda63125c9b877d5be116e57d4a4269dbff",
+      "after": "6dc69ea2ab1ba6bd34764e1231b2d80421af1b1d27423db98c51a05fc26a9b4c",
       "owner": "repository-map",
-      "reason": "在画质所有权地图定位冻结回执及实际接管",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-cold-quality-receipt"
+      "reason": "定位下载前规格的模型所有权",
+      "decision": "docs/development/wallpaper-quality-work-card.md#pixabay-default-download-facts"
     },
     {
       "section": "bodies",
@@ -684,11 +684,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "9a96f495e3f8a1b5d06229bf55108b02723a239538e5572d59b80a2d86c1be6a",
-      "after": "b8d8d32adf5819537b991000aeb7452a58b39016def00d36e9a1f845171a2e12",
+      "before": "b8d8d32adf5819537b991000aeb7452a58b39016def00d36e9a1f845171a2e12",
+      "after": "ae38a6593a84b47cc0a0082168e028166d64be445597eeb69162e7b5471ea9c0",
       "owner": "wallpaper-quality",
-      "reason": "同步冷档待应用状态的采纳边界",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-cold-quality-receipt"
+      "reason": "规定下载前远程规格随默认可选档",
+      "decision": "docs/development/wallpaper-quality-work-card.md#pixabay-default-download-facts"
     }
   ]
 }

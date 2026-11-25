@@ -497,6 +497,19 @@ Pixabay 原始记录已有多档 URL。浏览、键盘、浏览右键和远程�
 
 QV1 已验原生详情选择、重复 URL、单个有效规格、取消、原档重试及真实 HTTP 发布，所选 MP4 在现有 Video daemon 原生窗口里连续播放两个循环。更宽的产品交接和能耗仍由后续片取证。 [源码地图](../architecture/repository-map.md#wallpaper-quality)
 
+<a id="pixabay-default-download-facts"></a>
+### Pixabay 下载前默认规格
+
+Pixabay 会为缺失 Large 保留对象，返回空 URL 和零字节。当前弹层会用第一个真正可选文件，浏览卡与详情还在取首个非空档对象的尺寸和字节。缺失大型档或最高档 URL 畸形时，用户看到的就可能是另一份文件。 [Pixabay 视频接口](https://pixabay.com/api/docs/#api_search_videos)
+
+在现有 Pixabay 视频模型沿弹层的档次顺序与显式档解析取首个可选文件。浏览卡、远程详情及内容投影各在构造可见数据时取一次，从同一档使用尺寸和近似字节。尺寸与字节非正值时省略对应项。搜索预览、选择其他档、同 URL 去重、已发布文件和无档旧重试都沿原职责。只过滤空字符串不能覆盖现有弹层跳过的畸形值；展示也无需生成全档弹层或加缓存。
+
+沿原生 AppKit 详情按钮核官方形态的空 Large、有值 Medium 与更低可选档，默认显示与选择同一档，畸形最高档邻例也成立。缺尺寸或缺字节只影响该行；已有下载按实轨。复用公开示例的媒体和原 HTTP 实收门核落盘文件。
+
+原生详情在空或畸形 Large 反例显示 Medium 的 1280×720／30.0 MB，接受默认项发出 Medium，取消和选择 Small 仍通过。缺字节或缺尺寸只影响各自一项，已发布轨道未知时保持空。挂载中的真实 AppKit 浏览卡同条目换版后显示 `5.00MB  1m25s  1728×1080`，无障碍读数相同。修正原浏览卡门误将临时目录传给 LaunchServices 的入口，现运行实际夹具 App。
+
+实际 URLSession 在可控 HTTP 门只取选定 Medium，落盘 3239 字节逐字节相同，低档与重试邻例通过。公开作品 125 的 Medium 由 CDN 实收 3562083 字节，现役 AVFoundation 与 ffprobe 同为 1280×720、H.264、25 FPS。把该作品的 Medium 和 Small 规格放入官方空 Large 形态验证回退，真实条目自身的 Large 可用。原生、HTTP 与 Debug 收据归 `.artifacts/wallpaper-quality-pixabay-default`。 [Pixabay 公开示例](https://pixabay.com/api/docs/#api_search_videos)
+
 ### Video 原片规格的实施片
 
 原视频异步详情入口只加载一次视频轨道，复用这一轨读方向变换、实际分辨率、编码和标称帧率。帧率为零、不可读或没有视频轨道时省略，VFR 采用标称口径。Steam 的就绪 Video 详情复用该读取，取与播放器相同的 `record.videoURL`，厂商标签保持原口径。复用预览已取得的同文件身份，轨道读取不随无关重建或库刷新重复，换条目时晚完成不能回填别处。验证非直角旋转、缺轨、导出回退、同路径替换和旧启动缓存，不增加预扫描、库索引字段或播放器重写。 [原媒体详情入口](../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift)

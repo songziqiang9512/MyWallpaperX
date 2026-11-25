@@ -124,7 +124,8 @@ class GridCardLifecycleTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory(prefix="mwx-grid-cards-", dir="/private/tmp")
         cls.addClassCleanup(temporary.cleanup)
         cls.work = Path(temporary.name)
-        contents = cls.work / "GridCardChecks.app/Contents"
+        cls.bundle = cls.work / "GridCardChecks.app"
+        contents = cls.bundle / "Contents"
         (contents / "MacOS").mkdir(parents=True)
         cls.binary = contents / "MacOS/GridCardChecks"
         (contents / "Info.plist").write_bytes(plistlib.dumps({
@@ -202,7 +203,7 @@ class GridCardLifecycleTests(unittest.TestCase):
         for key in ("HOME", "CFFIXED_USER_HOME", "TMPDIR", "CLANG_MODULE_CACHE_PATH", "SWIFT_MODULECACHE_PATH"):
             command += ["--env", key + "=" + self.environment[key]]
         command += ["--env", "MWX_GRID_NATIVE_PID_PATH=" + str(pid_file),
-                    str(self.binary.parents[3]), "--args", name]
+                    str(self.bundle), "--args", name]
         with native_app_session():
             try:
                 run = subprocess.run(command, capture_output=True, text=True,

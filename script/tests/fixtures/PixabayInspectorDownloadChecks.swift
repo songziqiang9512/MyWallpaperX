@@ -56,6 +56,17 @@ func appModalHostWindow() -> NSWindow? { nil }
         window.isReleasedWhenClosed = false
         defer { window.close(); observeInspectorAlert = nil }
         let pixabay = PixabayService()
+        let resolutionLabel = String(localized: "Resolution")
+        var mismatches: [String] = []
+        func checkRemoteFacts(_ view: NSView, item: PixabayVideoItem, resolution: String?, size: String?) {
+            let fields = labels(in: view)
+            let secondary = [size, item.durationString].compactMap { $0 }.joined(separator: "  ·  ")
+            let resolutionMatches = fields.contains(resolutionLabel) == (resolution != nil)
+                && (resolution.map(fields.contains) ?? true)
+            if !resolutionMatches || !fields.contains(secondary) {
+                mismatches.append("\(item.displayTitle): expected resolution \(resolution ?? "omitted") and \(secondary), saw \(fields)")
+            }
+        }
         let large = PixabayVideoFile(url: "https://cdn.pixabay.com/large.mp4", width: 1920, height: 1080,
             size: 4096, thumbnail: "")
         let small = PixabayVideoFile(url: "https://cdn.pixabay.com/small.mp4", width: 640, height: 360,
@@ -87,25 +98,63 @@ func appModalHostWindow() -> NSWindow? { nil }
         }
         precondition(pixabay.downloadRequests == [67] && pixabay.selectedDownloadTiers == [.small] && !qualityFooter.isEnabled)
 
+        let medium = PixabayVideoFile(url: "https://cdn.pixabay.com/medium.mp4", width: 1280, height: 720,
+            size: 31_457_280, thumbnail: "")
         let malformed = PixabayVideoFile(url: "http://[", width: 3840, height: 2160, size: 8192, thumbnail: "")
         let singleItem = PixabayVideoItem(id: 68, pageURL: "", tags: "One file", duration: 21, user: "",
-            videos: .init(large: malformed, medium: large, small: nil, tiny: nil))
+            videos: .init(large: malformed, medium: medium, small: nil, tiny: nil))
         precondition(singleItem.videoDownload() == nil && singleItem.videoDownloadOptions.map(\.tier) == [.medium])
         let singleView = PixabayDownloadsInspectorView(itemID: 68, service: pixabay, remoteItem: singleItem)
         window.contentView = singleView
+        checkRemoteFacts(singleView, item: singleItem, resolution: "1280×720", size: "30.0MB")
         observeInspectorAlert = { _, _, _ in preconditionFailure("one actual file must download without a prompt") }
         precondition(downloadButton(in: singleView)!.accessibilityPerformPress())
         precondition(pixabay.downloadRequests == [67, 68] && pixabay.selectedDownloadTiers == [.small, .medium])
 
+        let emptyLarge = PixabayVideoFile(url: "", width: 1920, height: 1080, size: 0, thumbnail: "")
+        let defaultItem = PixabayVideoItem(id: 71, pageURL: "", tags: "Empty Large", duration: 21, user: "",
+            videos: .init(large: emptyLarge, medium: medium, small: small, tiny: nil))
+        let defaultView = PixabayDownloadsInspectorView(itemID: 71, service: pixabay, remoteItem: defaultItem)
+        window.contentView = defaultView
+        checkRemoteFacts(defaultView, item: defaultItem, resolution: "1280×720", size: "30.0MB")
+        var observedDefault = false
+        observeInspectorAlert = { alert, hostWindow, respond in
+            let popup = alert.accessoryView as? NSPopUpButton
+            observedDefault = hostWindow === window && popup?.numberOfItems == 2 && popup?.indexOfSelectedItem == 0
+                && popup?.itemTitle(at: 0).contains("1280 × 720") == true
+                && popup?.itemTitle(at: 1).contains("640 × 360") == true
+            respond(.alertFirstButtonReturn)
+        }
+        precondition(downloadButton(in: defaultView)!.accessibilityPerformPress())
+        precondition(observedDefault && pixabay.downloadRequests == [67, 68, 71]
+            && pixabay.selectedDownloadTiers == [.small, .medium, .medium], "the unmodified popup requests Medium")
+
+        let unmeasuredMedium = PixabayVideoFile(url: medium.url, width: medium.width, height: medium.height,
+            size: 0, thumbnail: "")
+        let noBytes = PixabayVideoItem(id: 72, pageURL: "", tags: "Medium without bytes", duration: 21, user: "",
+            videos: .init(large: emptyLarge, medium: unmeasuredMedium, small: small, tiny: nil))
+        let noBytesView = PixabayDownloadsInspectorView(itemID: 72, service: pixabay, remoteItem: noBytes)
+        checkRemoteFacts(noBytesView, item: noBytes, resolution: "1280×720", size: nil)
+
+        let unknownDimensions = PixabayVideoFile(url: medium.url, width: 0, height: 0, size: medium.size, thumbnail: "")
+        let noDimensions = PixabayVideoItem(id: 73, pageURL: "", tags: "Medium without dimensions", duration: 21, user: "",
+            videos: .init(large: emptyLarge, medium: unknownDimensions, small: small, tiny: nil))
+        let noDimensionsView = PixabayDownloadsInspectorView(itemID: 73, service: pixabay, remoteItem: noDimensions)
+        checkRemoteFacts(noDimensionsView, item: noDimensions, resolution: nil, size: "30.0MB")
+
         pixabay.downloadedContent.entries = [
-            .init(id: 69, localURL: URL(fileURLWithPath: "/fixture/online_69.mp4"), nominalFrameRateText: "24 FPS"),
+            .init(id: 71, localURL: URL(fileURLWithPath: "/fixture/online_71.mp4"), nominalFrameRateText: "24 FPS"),
             .init(id: 70, localURL: URL(fileURLWithPath: "/fixture/online_70.mp4")),
         ]
-        let known = PixabayDownloadsInspectorView(itemID: 69, service: pixabay, remoteItem: nil)
+        let known = PixabayDownloadsInspectorView(itemID: 71, service: pixabay, remoteItem: defaultItem)
         let unknown = PixabayDownloadsInspectorView(itemID: 70, service: pixabay, remoteItem: nil)
         let label = String(localized: "Nominal Frame Rate")
-        precondition(labels(in: known).contains(label) && labels(in: known).contains("24 FPS"))
+        let knownFields = labels(in: known)
+        let localSize = ByteCountFormatter.string(fromByteCount: 12, countStyle: .file)
+        precondition(knownFields.contains(label) && knownFields.contains("24 FPS") && knownFields.contains("8×8")
+            && knownFields.contains("\(localSize)  ·  2s  ·  MP4") && !knownFields.contains("1280×720"))
         precondition(!labels(in: unknown).contains(label))
+        precondition(mismatches.isEmpty, mismatches.joined(separator: "\n"))
         print("pixabay-remote-download-quality-pass")
     }
 

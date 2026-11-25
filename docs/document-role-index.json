@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "738989a2a9765f8a16a8a883c69416e7b9c98c4768758f7be03358d21f875991",
+        "sourceSHA256": "f4873ccdf9094cd1cfad1aa2558f6b620a5b99da700f0c40f3e212eb40b31857",
         "method": "document_registry --audit + document_health --check",
-        "scope": "在画质所有权地图定位冻结回执及实际接管",
-        "limitations": "本批验证冷准备回执与当前请求；Surface 逐帧实际 MSAA 保持原诊断。"
+        "scope": "定位下载前规格的模型所有权",
+        "limitations": "近似字节只用于下载前；实际文件继续供播放和本地详情。"
       }
     },
     {
@@ -347,10 +347,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4b25b581fa997c9729e5958e1a6f8505f08bffb33448fccb2fb07a6fc8909da1",
+        "sourceSHA256": "942422025f6d40827915bf3d8fe72b3ea806c37d541c7d4d5ecd34b324ba467a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步冷档待应用状态的采纳边界",
-        "limitations": "本批验证冷准备回执与当前请求；Surface 逐帧实际 MSAA 保持原诊断。"
+        "scope": "规定下载前远程规格随默认可选档",
+        "limitations": "近似字节只用于下载前；实际文件继续供播放和本地详情。"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "86eb49400980c56dc80888b1a315c0273e7ea9ecd913eba5c6c3590801e14e21",
+        "sourceSHA256": "04c7ce6431928d82cb3f366e01bc2b2e3b5176e5686c9429cfaa332eb4775aec",
         "method": "document_registry --audit + document_health --check",
-        "scope": "设置倍速回填与滑杆动作",
-        "limitations": "引擎投影与作者 FPS 各沿原职责。"
+        "scope": "记录 Pixabay 默认可选档的显示和实测",
+        "limitations": "近似字节只用于下载前；实际文件继续供播放和本地详情。"
       }
     },
     {

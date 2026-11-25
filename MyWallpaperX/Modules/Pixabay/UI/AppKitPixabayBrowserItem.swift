@@ -122,12 +122,13 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
             currentTitle = item.displayTitle
             let durationText = Self.formatDuration(item.duration)
             durationBadgeTextLayer.string = durationText
+            let preferred = item.preferredVideoDownload
             var metaParts: [String] = []
-            if let size = item.fileSizeString {
+            if let size = preferred?.fileSizeString {
                 metaParts.append(size)
             }
             metaParts.append(durationText)
-            if let res = item.resolutionString {
+            if let res = preferred?.resolutionString {
                 metaParts.append(res)
             }
             currentMetadata = metaParts.joined(separator: "  ")
