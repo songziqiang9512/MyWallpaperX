@@ -201,7 +201,7 @@ public enum VideoFillMode: String, Codable, CaseIterable, Identifiable {
     }
 
     /// 用于主进程 ↔ daemon IPC 传输的稳定 ASCII 标识符。
-    /// rawValue 是中文 UI 显示值，不应跨进程传输；此属性提供语言无关的协议值。
+    /// rawValue 保留历史持久化值。IPC 使用此属性提供的语言无关标识。
     public var ipcValue: String {
         switch self {
         case .aspectFit:  return "aspectFit"

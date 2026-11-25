@@ -8,9 +8,9 @@
 
 从主工作树 `codex/engine-refactor-program` 的 `b2b80f892` 建 `Fluxo/wallpaper-quality-settings`。评估方案给技术取舍与失败判据，本卡维护唯一执行顺序与当前批。开工核对分支、实际 diff 和上批证据，从原设置行为追到真实运行消费者。 [算法与技术设计](wallpaper-quality-settings-plan.md#decision) · [源码地图](../architecture/repository-map.md#wallpaper-quality) · [验证工作流](repository-workflow.md#设计判定与记录)
 
-**已验 Scene 待应用画质回执**。原生设置、四档预设、10–120 FPS、Scene MSAA 最高已验 4×、泛光与超高输出、三种纹理策略、阴影五档及反射开关已接通。体积禁用覆盖点光和聚光，现役高／超高分别用四点／六点点光积分。低分辨率及四点减负候选已由独立复核退出，低／中待有新办法保护细光与遮挡时再推进。M4 三引擎交接、冷恢复、导入保活、重新应用和 HDR 保存档回显已通过。Video 短窗结果继续保留原片。后续按设备核混合显示拓扑、8× 实际支持与长稳功耗。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
+M4 单内屏已验证四档预设、10–120 FPS、Scene MSAA 至 4×、泛光和显示 HDR、三种纹理策略、阴影五档、反射启停及真实桌面接管。Scene 冷档可手动重新应用，提示跟随实际准备回执。导入同类画质可连续播放。真实 Web 作者验证 FPS 建议与绘制，Video 保原片并已实测 PQ／HLG／HDR10+ 实窗。体积保禁用、高／超高，低／中仍待有新办法保护细光和遮挡。待硬件复验包括混合显示拓扑、8× 和长稳功耗，Windows 核窗口运行中采纳时机。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
 
-Q0 已取得 M4 上基线源码的独立 Metal 泛光和映射结果。Q1 从 App 偏好写入入口把帧率与 Web 模式投影到实际端点，Scene 保原缓存档，Video 保原片。已验签名隔离 Debug 的 30／60 真实呈现、实际 WKWebView 投递、候选端点、导入复位和独立复核。复杂作品的 60 FPS 与长稳功耗仍按 [实测门槛](wallpaper-quality-settings-plan.md#quality-release-gates)验证。每批冻结源码后跑最近门和独立审查，只提交本批文档、源码与测试。
+每批先冻结输入、画面口径及同机噪声，再改现有职责并走最近门、独立审查和窄提交。轮次完成后保必要证据，退出诊断和已失效的边界。未越过收益门的候选停止推进。 [实测门槛](wallpaper-quality-settings-plan.md#quality-release-gates)
 
 1. 以原设置窗、Scene 30／60 IPC、Web 投递和 Video 原片作为基线，用现有 Debug 构建及最近行为门。涉及真实输出的批次再用隔离 App、HOME、素材和输出目录，对照首帧、改档、暂停、恢复与换屏。
 2. 先落 typed 偏好、旧键读取、v8 字段导入和显式复位，再接原 AppKit 控件和实际消费者。现有缓存行为持续到 Q3 实测解耦，兼容性断言覆盖没有新字段的文件和未完成的恢复票据。
@@ -560,7 +560,7 @@ Pixabay 以空 URL 和零字节表示缺失 Large。浏览卡、远程详情和�
 
 用已有帮助门验证五语注册标识、原导航、样式和脚本；核成品 Help Book 中每页的内容，用现有 help-book 路径组选跑真实 WKWebView 回归，覆盖五语实际搜索、章节过滤和链接回到正文。Scene 的帧率请求与实呈、MSAA 和其回退、HDR 的作者及显示条件，Web 建议和 Video 原片及 Pixabay 来源分别核真实拥有者。翻译独立复核，改动集中在帮助内容、搜索及其验证。质量偏好已归原播放分发测试，验证映射负控只保真正没有映射的相邻路径。
 
-真 WKWebView 的回归在旧内联文件上报搜索未初始化。修正后五语实际搜索 MSAA、过滤章节、跟随场景锚点并恢复所有章节均通过。Debug 成品中五页字节与发布源相同，重复实际交互全部通过。此处验证的是本地帮助页本身；系统 Help Viewer 未启动。
+真 WKWebView 的回归在旧内联文件上报搜索未初始化。修正后五语实际搜索 MSAA、过滤章节、跟随场景锚点并恢复所有章节均通过。Debug 成品中五页字节与发布源相同，重复实际交互全部通过。此处验证的是本地帮助页本身；系统 Help Viewer 未启动。Video 显示区和五语帮助的填充模式只列「完整显示」及「填充屏幕」。控件用现有翻译键，两个原持久化值继续服务原设置和播放。用成品语言资源及实际原生按钮构造对照五语称呼，帮助同步删除无实际选项的拉伸说明。证据归 `.artifacts/wallpaper-quality-video-fill-help`。
 
 <a id="quality-engine-coexistence"></a>
 <a id="quality-only-import-playback"></a>

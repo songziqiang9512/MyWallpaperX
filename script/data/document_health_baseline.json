@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 349,
-      "bytes": 82782
+      "bytes": 82814
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 127913
+      "bytes": 127977
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "ff763ca337a2b1e5830e6eb0291557d1c2f5f5dd5f4fae56710027d64cbc3137",
-      "after": "3a3d34413ed8a0352b7c15ba5b49c50aaa100ba15c26453885a52c5270aa1b6c",
+      "before": "3a3d34413ed8a0352b7c15ba5b49c50aaa100ba15c26453885a52c5270aa1b6c",
+      "after": "290c01eb96b87be7529558c89f24ad02e61cdde2edd2ee5633160e88a2708cf8",
       "owner": "wallpaper-quality",
-      "reason": "记录原片 HDR 实窗通过现役路径",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-hdr-output-proof"
+      "reason": "更新现役入口与五语填充说明",
+      "decision": "docs/development/wallpaper-quality-work-card.md#quality-user-help"
     },
     {
       "section": "bodies",
@@ -684,11 +684,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "ae38a6593a84b47cc0a0082168e028166d64be445597eeb69162e7b5471ea9c0",
-      "after": "e84a6996abfad7b80f7b0deb6a9506dcd0b496bd53f5b0d77c84eccd4a006dc1",
+      "before": "e84a6996abfad7b80f7b0deb6a9506dcd0b496bd53f5b0d77c84eccd4a006dc1",
+      "after": "3e8ba781ef18a69b38874d7c10e6aa39c72d460a1efda1b3157c0c85cd80d4bc",
       "owner": "wallpaper-quality",
-      "reason": "记录 Video 原生 HDR 的验证、控制和交付边界",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-hdr-output-proof"
+      "reason": "区分 Video 播放捕获和片源封装的 HDR 证据",
+      "decision": "docs/development/wallpaper-quality-work-card.md#quality-user-help"
     }
   ]
 }

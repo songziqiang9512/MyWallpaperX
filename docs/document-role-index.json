@@ -347,10 +347,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cabc6dd36785a634c9fa1fac1e3ab4c8ac0102d945c7abdb0a0efbe24afc9b98",
+        "sourceSHA256": "13b035703d767dc33100b773452eca0cafe5d38c62ae83e5ad0045f4af60e5a8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "记录 Video 原生 HDR 的验证、控制和交付边界",
-        "limitations": "捕获扩展内容限本机同屏，不代替物理输出或 Windows。"
+        "scope": "区分 Video 播放捕获和片源封装的 HDR 证据",
+        "limitations": "填充保两种原模式。实际 HDR 捕获边界见 Video 的实窗记录。"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5802cf9e90c597a084bbd0971664a5df945d46128bda079761fac684a99fa533",
+        "sourceSHA256": "57734f87166201708d942f73d551dc843504de7fee93f7c57805ab64598cb745",
         "method": "document_registry --audit + document_health --check",
-        "scope": "记录原片 HDR 实窗通过现役路径",
-        "limitations": "捕获扩展内容限本机同屏，不代替物理输出或 Windows。"
+        "scope": "更新现役入口与五语填充说明",
+        "limitations": "填充保两种原模式。实际 HDR 捕获边界见 Video 的实窗记录。"
       }
     },
     {

@@ -144,8 +144,8 @@ final class AppKitSettingsContainerView: NSView {
     let multiDisplaySwitch = NSSwitch()
     let libraryBackgroundPopup = NSPopUpButton()
     let libraryCardClickPopup = NSPopUpButton()
-    let fillModeFitButton = NSButton(radioButtonWithTitle: VideoFillMode.aspectFit.rawValue, target: nil, action: nil)
-    let fillModeFillButton = NSButton(radioButtonWithTitle: VideoFillMode.aspectFill.rawValue, target: nil, action: nil)
+    let fillModeFitButton = NSButton(radioButtonWithTitle: String(localized: "Fit"), target: nil, action: nil)
+    let fillModeFillButton = NSButton(radioButtonWithTitle: String(localized: "Fill Screen"), target: nil, action: nil)
 
     let clearCacheButton = NSButton(title: String(localized: "Clear Cache"), target: nil, action: nil)
     let resetSettingsButton = NSButton(title: String(localized: "Reset App"), target: nil, action: nil)

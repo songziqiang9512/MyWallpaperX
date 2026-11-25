@@ -257,7 +257,7 @@ Scene 的作者工作域和桌面显示权限独立于 Video。Windows 2.8 的 S
 
 在 M4 XDR 以同一签名 Video helper、相同可见桌面窗口口径分别播放 SDR、已知范围的 10 位 PQ／HLG 测试片及有可信色彩标记的独立外部 HDR 素材。输入按原格式、原轨和内容摘要核对；若外部来自公开分片，只作有界无重编码封装。复用现有 play→prepared→commit→ready→finalize 和暂停恢复。读 ScreenCaptureKit HDR 窗口的线性亮度、超过 SDR 的像素和宿主 PID。正例须见稳定高于 SDR 白点的区域，SDR 须保在基准范围；至少跨一次真实动态更新。先在异档同屏重复排除捕获变动，再看有无可复现的呈现问题。显示实测授权只限本机这一屏、该格式和可见捕获路径。 [Apple 样片](https://developer.apple.com/streaming/examples/advanced-stream-dv-atmos.html)
 
-M4 内屏用同一团队签名的现役 Video helper 走真实可见接管。在同一 PID／窗口依次播放 SDR、10 位 PQ、10 位 HLG、Apple 公开的 1920×1080 Main10 PQ 片，再切回 SDR。ScreenCaptureKit 16 位图在扩展线性 Rec.2020 算亮度 Y。PQ 灰阶为 0.591／1.500／6.552，HLG 为 0.110／0.848／9.852，前后 SDR 为 0.047／0.264／0.805，均无超白。公开素材的 406 个视频包封装前后内容摘要逐个一致，保 HDR10+ 动态元数据；1× 播放有实窗运动，首捕 Y 峰 3.492、3406 像素超白。用 .25× 拉开同素材的亮段复测，首捕 Y 峰 3.694、近中性超白像素 52351，后续采样也有较暗画面。屏幕当前扩展余量 1.2，窗口的扩展内容值不用于推算物理发光。当前证据支持沿原 AVFoundation 路径播放；屏保、混接屏、Dolby Vision 及 Windows 物理输出仍未实测。收据归 `.artifacts/wallpaper-quality-video-hdr`。
+M4 内屏用同一团队签名的现役 Video helper 走真实可见接管。在同一 PID／窗口依次播放 SDR、10 位 PQ、10 位 HLG、Apple 公开的 1920×1080 Main10 PQ 片，再切回 SDR。ScreenCaptureKit 16 位图在扩展线性 Rec.2020 算亮度 Y。PQ 灰阶为 0.591／1.500／6.552，HLG 为 0.110／0.848／9.852，前后两次 SDR 为 0.047／0.264／0.805，都没有 Y>1.02 的像素。公开素材的 406 个视频包重封装前后内容摘要逐个一致，封装保留 HDR10+ 动态元数据；1× 播放有实窗运动，首捕 Y 峰 3.492、3406 像素超白。用 .25× 拉开同素材的亮段复测，首捕 Y 峰 3.694、近中性超白像素 52351，后续采样也有较暗画面。屏幕当前扩展余量 1.2，窗口的扩展内容值不用于推算物理发光。当前证据支持沿原 AVFoundation 路径播放；屏保、混接屏、Dolby Vision 及 Windows 物理输出仍未实测。收据归 `.artifacts/wallpaper-quality-video-hdr`。
 
 ## 超出截图的选项与决策
 
