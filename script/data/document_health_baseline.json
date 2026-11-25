@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 18107
+      "bytes": 18152
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 410,
-      "bytes": 99015
+      "bytes": 99336
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 133802
+      "bytes": 133648
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -94,7 +94,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 292,
-      "bytes": 58712
+      "bytes": 58853
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,20 +369,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "3388135745d3337fcd42d34cc39c8a055d8b3b398143087b2e6e1079858640f0",
-      "after": "26b81bfc6174b756d7d3617556386cb8c806f962be232e52c09efc877a79aac9",
-      "owner": "Scene 冷准备",
-      "reason": "同步直接调节和手动重试的采用边界",
-      "decision": "docs/scene/architecture/runtime-architecture.md#effective-quality-policy"
+      "before": "26b81bfc6174b756d7d3617556386cb8c806f962be232e52c09efc877a79aac9",
+      "after": "abfa10caccdfbb497b2a94b465185a1f77ece6c39c655194a84fa3096a576138",
+      "owner": "Scene 运行架构",
+      "reason": "补共享质量候选及在途编辑归属",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-cold-auto-adoption"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "f96eabf512f56bfed529f0982d155174dcf2482c6bd8644e0003629df6ea2bfa",
-      "after": "5a0af76f3b1a5bb78d438daa25cd7c64d2e9c1c29ea1932470969e8150171fc2",
-      "owner": "repository",
-      "reason": "TEX 解压 owner 路由",
-      "decision": "docs/scene/architecture/scene-resource-admission.md#source-readiness"
+      "before": "5a0af76f3b1a5bb78d438daa25cd7c64d2e9c1c29ea1932470969e8150171fc2",
+      "after": "db342e3e0d9087579b3d9b46be82eb6fd32fe784b055c1e96be4e7acb39112ab",
+      "owner": "仓库源码导航",
+      "reason": "定位显式按钮与直接编辑共享的候选入口",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-cold-auto-adoption"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "3d507aa8172fa375c5409db93ee583ed69986d714de91d076c0b8e7bbbe416ea",
-      "after": "1f8ca48b9b2976784c3d53113c44b1965bd1ca62c67893da38ba8de930b5e951",
-      "owner": "wallpaper-quality",
-      "reason": "只跳一级的作者对照及退出",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-one-level-texture-trial"
+      "before": "1f8ca48b9b2976784c3d53113c44b1965bd1ca62c67893da38ba8de930b5e951",
+      "after": "89b0ed28007203f92a4eed71b1fe5333c84862b11b741d8f875378da00a5b39b",
+      "owner": "壁纸质量评估",
+      "reason": "补导入后显式重试的同源撤单及验收规则",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-cold-auto-adoption"
     },
     {
       "section": "bodies",

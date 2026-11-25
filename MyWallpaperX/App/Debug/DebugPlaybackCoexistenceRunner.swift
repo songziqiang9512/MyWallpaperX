@@ -310,9 +310,31 @@ enum DebugPlaybackCoexistenceRunner {
             }
         }
 
-        guard choose(ScenePostProcessingMode.disabled.rawValue, in: post),
-              PlaybackQualityPreference.current.scene.preparationQuality == intermediateQuality else {
-            throw Failure("native post-processing action did not save the cold change")
+        let manualRetry = ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-reapply-manual")
+        if manualRetry {
+            try await importQuality(["scenePostProcessingMode": ScenePostProcessingMode.disabled.rawValue],
+                                    to: directory.appendingPathComponent("scene-reapply-import.json"))
+            // The Settings sheet refreshes its controls when the import finishes.
+            settings.refreshFromState()
+            let button = settings.reapplySceneQualityButton
+            _ = try await wait("pending Scene quality button after portable import") {
+                !button.isHiddenOrHasHiddenAncestor && button.isEnabled ? true : nil
+            }
+            button.scrollToVisible(button.bounds)
+            root.layoutSubtreeIfNeeded()
+            try await captureWindow("settings-reapply-pending", id: window.windowNumber, directory: directory)
+            guard PlaybackQualityPreference.current.scene.preparationQuality == intermediateQuality,
+                  daemon.activePreparedRenderQuality == originalQuality, loads.isEmpty,
+                  manager.playbackSwitch.committed == initial.selection, manager.playbackSwitch.pending == nil,
+                  windowsStillOwnOutput(initial), mux.isUserPaused else {
+                throw Failure("portable cold quality did not preserve the original Scene before manual retry")
+            }
+            button.performClick(nil)
+        } else {
+            guard choose(ScenePostProcessingMode.disabled.rawValue, in: post),
+                  PlaybackQualityPreference.current.scene.preparationQuality == intermediateQuality else {
+                throw Failure("native post-processing action did not save the cold change")
+            }
         }
         let latest = try await receipt(for: scene, runtime: .scene, after: initial)
         guard let superseded = prepared.first, prepared.count == 2, supersedingEditSaved,
@@ -324,7 +346,10 @@ enum DebugPlaybackCoexistenceRunner {
               presented == [latestRequest], finalized == [latestRequest],
               loads == prepared.map({ $0.requestID.uuidString }),
               daemon.activePreparedRenderQuality == finalQuality else {
-            throw Failure("superseded Scene quality presented or the latest prepared quality did not commit")
+            let committedSuperseded = daemon.activePreparedRenderQuality == intermediateQuality
+            throw Failure("latest Scene quality did not commit: loaded \(loads.count), presented \(presented.count), "
+                          + "finalized \(finalized.count), newer saved \(supersedingEditSaved), "
+                          + "superseded quality committed \(committedSuperseded)")
         }
         let oldSamplesBeforePresent = oldWindowSamples.filter {
             guard let phase = $0["phase"] as? String, phase.hasSuffix("-prepared") else { return false }
@@ -405,6 +430,7 @@ enum DebugPlaybackCoexistenceRunner {
         }
         return ["before": before, "after": after, "still": still, "reverted": reverted, "resumed": resumed,
                 "original": initial.evidence, "latest": latest.evidence, "entryCount": original.entries.count,
+                "manualRetryAfterImport": manualRetry,
                 "preparedRequests": loads, "presentedRequests": presented, "finalizedRequests": finalized,
                 "oldWindowSamples": oldSamplesBeforePresent, "latestPresentationUptimeMs": expectedPresentation,
                 "previousCommittedAtPresentation": originalCommittedAtPresentation,
@@ -415,11 +441,19 @@ enum DebugPlaybackCoexistenceRunner {
                             "intrinsicWidth": Double(post.intrinsicContentSize.width)]]
     }
 
-    private static func qualityImport(_ runtime: WallpaperRuntimeKind, receipt: Receipt,
-                                      presentation: WallpaperLibraryPresentation, directory: URL) async throws -> [String: Any] {
+    private static func importQuality(_ fields: [String: Any], to file: URL) async throws {
         guard let coordinator = MyWallpaperXApplication.personalSettings, coordinator.allowsEditing else {
             throw Failure("product import owner unavailable")
         }
+        try JSONSerialization.data(withJSONObject: [
+            "schemaVersion": 8, "exportedAt": "2026-01-01T00:00:00Z",
+            "preferences": fields, "sources": [], "collections": ["libraryExclusionStates": []]
+        ]).write(to: file)
+        _ = try await coordinator.importPersonalSettings(from: file)
+    }
+
+    private static func qualityImport(_ runtime: WallpaperRuntimeKind, receipt: Receipt,
+                                      presentation: WallpaperLibraryPresentation, directory: URL) async throws -> [String: Any] {
         let mux = PlaybackCommandMultiplexer.shared
         let scene = SceneDaemonClient.shared
         let isScene = runtime == .scene
@@ -456,11 +490,7 @@ enum DebugPlaybackCoexistenceRunner {
         var fields: [String: Any] = [isWeb ? "playbackPerformanceProfile" : "animationFramesPerSecond": fps]
         if isScene { fields["sceneTextureQuality"] = SceneTextureQuality.performance.rawValue }
         if isVideo { fields["videoLibrarySort"] = ["mode": "name", "ascending": false] }
-        try JSONSerialization.data(withJSONObject: [
-            "schemaVersion": 8, "exportedAt": "2026-01-01T00:00:00Z",
-            "preferences": fields, "sources": [], "collections": ["libraryExclusionStates": []]
-        ]).write(to: file)
-        _ = try await coordinator.importPersonalSettings(from: file)
+        try await importQuality(fields, to: file)
         let applied = PlaybackQualityPreference.current
         guard applied.animationFrameRate.rawValue == fps,
               !isScene || applied.scene.textures == .performance else { throw Failure("portable quality was not saved") }

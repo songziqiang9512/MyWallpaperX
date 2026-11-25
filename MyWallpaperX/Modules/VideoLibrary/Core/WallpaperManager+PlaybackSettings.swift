@@ -81,8 +81,7 @@ extension WallpaperManager {
     }
 
     func reapplySceneQuality() {
-        guard let session = sceneQualityReloadSession else { return }
-        reloadLibrarySession(session)
+        startSceneQualityReload(PlaybackQualityPreference.current.scene.preparationQuality)
     }
 
     func reapplyEditedSceneQuality() {

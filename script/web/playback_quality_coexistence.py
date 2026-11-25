@@ -65,7 +65,7 @@ def run_phase(command, environment, directory, phase, timeout):
                     value = json.loads(request.read_text())
                     name, window = value["name"], value["window"]
                     if phase == "scene-reapply":
-                        names = ("settings-reapply", "settings-reapply-applied")
+                        names = ("settings-reapply", "settings-reapply-pending", "settings-reapply-applied")
                     elif phase == "quality-import":
                         names = ("video-import-before", "video-import-after")
                     else:
@@ -191,7 +191,10 @@ def main():
     parser.add_argument("--timeout", type=float, default=120, help="per native phase")
     phase = parser.add_mutually_exclusive_group()
     phase.add_argument("--quality-import", action="store_true", help="run the portable quality-only live import")
-    phase.add_argument("--scene-reapply", action="store_true", help="automatically reapply the current Scene through native Settings")
+    phase.add_argument("--scene-reapply", dest="scene_reapply", action="store_const", const="auto",
+                       help="automatically reapply the current Scene through native Settings")
+    phase.add_argument("--scene-reapply-manual", dest="scene_reapply", action="store_const", const="manual",
+                       help="supersede a manual Scene retry started after portable quality import")
     parser.add_argument("--ui-language", choices=("en", "zh-Hans", "ru", "de", "fr"),
                         help="language of the isolated Settings window")
     args = parser.parse_args()
@@ -241,6 +244,8 @@ def main():
         common = [str(binary), "--mwx-debug-user-defaults-suite", suite, "--mwx-debug-suppress-main-window",
                   "--mwx-debug-workshop-root", str(workshop), "--mwx-debug-coexistence-scene", scene.name,
                   "--mwx-debug-coexistence-web", WEB_ID]
+        if args.scene_reapply == "manual":
+            common.append("--mwx-debug-scene-reapply-manual")
         if args.ui_language:
             common += ["-AppleLanguages", f"({args.ui_language})"]
         negative_report = output / "rejected.json"
@@ -261,8 +266,11 @@ def main():
             phases[name] = run_phase([*common, "--mwx-debug-startup-defaults-token", token],
                                      environment, directory, name, args.timeout)
         if args.scene_reapply:
+            observation = phases["scene-reapply"]["sceneReapply"]
+            if observation.get("manualRetryAfterImport") is not (args.scene_reapply == "manual"):
+                raise RuntimeError("native Scene reapply mode did not match the requested gate")
             metadata["pixels"] = verify_reapply_pixels(output / "scene-reapply")
-            control = phases["scene-reapply"]["sceneReapply"]["control"]
+            control = observation["control"]
             if args.ui_language and control["language"] != args.ui_language:
                 raise RuntimeError(f"Settings did not use the requested language: {control}")
         elif args.quality_import:

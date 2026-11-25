@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "db2b273f2493e55747355e3f4fad44d73aadcf528814fcdbac008a0634735cd7",
+        "sourceSHA256": "473bfd6c7d79904af57200d026ac337a84404e1db0a4421997cf4cc366ded8a0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "纹理 loader、静态布局及 mip reader 入口",
-        "limitations": "按原资源职责"
+        "scope": "Scene 质量重载与待应用提示入口",
+        "limitations": "按原切换与回执职责"
       }
     },
     {
@@ -355,10 +355,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "73e1dca4a235b9003748b018b3d36b1f0e61a680fa66ca69eadd3f1588a9328a",
+        "sourceSHA256": "82a16e65a3a2ece90f524b0120275d8503981570c249d254ac83d7c7243097be",
         "method": "document_registry --audit + document_health --check",
-        "scope": "L1 真作者对照、失败预算边界和停止",
-        "limitations": "保持现役；未进 GPU 时延与预算压力"
+        "scope": "Scene 显式冷档重试接管规则与直接编辑交互",
+        "limitations": "沿原候选事务；混合显示边界未重测"
       }
     },
     {
@@ -369,10 +369,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "428148d5087c498427ba7f7368162e02b71bbcc9c8cafee8bad8db8034a29221",
+        "sourceSHA256": "7991d6d1cd4c6aeb01a574f2469dec47f992f49dcb43f4e5296e032c24ad9cf9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "连接一级试验与保留决定",
-        "limitations": "仍为现役 2048 cap"
+        "scope": "原生按钮、真实导入与两作者单内屏撤销实测",
+        "limitations": "阶段窗口及截图证据"
       }
     },
     {
@@ -863,10 +863,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "54ec9f7709c952088c3910dda9d97b7c7e41191cd4ca5f4de1676878985d0b55",
+        "sourceSHA256": "945520c70674ab8c7729451067afde88cd2847d8565ed65fd59614161638196f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene 冷档直接提交与准备回执",
-        "limitations": "两位作者单内屏；混合拓扑及其他硬件待证"
+        "scope": "显式重试与直接编辑共用现役质量候选",
+        "limitations": "两位作者单内屏"
       }
     },
     {

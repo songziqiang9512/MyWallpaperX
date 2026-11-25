@@ -878,11 +878,12 @@
       "owner": "现有播放偏好及各引擎质量消费者",
       "status": "approved",
       "designDoc": "docs/development/wallpaper-quality-settings-plan.md",
-      "design_notes": "现役顺序见 docs/development/wallpaper-quality-work-card.md#execution。Scene 质量从原 App/IPC 接入后处理和阴影冷准备，两个超高后处理共享工作域。Scene FPS 为 10–120，Web 用作者建议。Video 保原片，规格选择和详情只沿现有下载与真实源轨道。同源恢复只涉及 Inspector Coordinator 的目录投递和原视图读取，见 designDoc#video-inspector-source-recovery。其它档按技术评估的验收裁决。",
+      "design_notes": "现役顺序见 docs/development/wallpaper-quality-work-card.md#execution。Scene 质量从原 App/IPC 接入后处理和阴影冷准备，两个超高后处理共享工作域。Scene 冷档直接编辑与显式重试共用同源重载，见 designDoc#scene-cold-auto-adoption。Scene FPS 为 10–120，Web 用作者建议。Video 保原片，规格选择和详情只沿现有下载与真实源轨道。同源恢复只涉及 Inspector Coordinator 的目录投递和原视图读取，见 designDoc#video-inspector-source-recovery。其它档按技术评估的验收裁决。",
       "matchPatterns": [
         "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift",
         "MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift",
         "MyWallpaperX/App/SettingsWindowController.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift",
         "MyWallpaperX/App/PersonalSettingsImportCoordinator.swift",
         "MyWallpaperX/App/WallpaperLibraryInspectorCoordinator.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonProtocol.swift",
