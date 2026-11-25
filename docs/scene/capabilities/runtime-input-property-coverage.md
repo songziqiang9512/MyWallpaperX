@@ -27,7 +27,7 @@ property key、原始 value、Combo value 和 condition 始终使用作者数据
 
 原 Effect visibility 准备入口统一普通层的 DirectBool 与 SceneScript 候选：合法 Bool 初值为 false 时，普通层存在 named 读取或依赖声明不再整层取消其 effect 准备。原 Planner 仍证明实际 graph 与停用时的 previous-current 拓扑，Catalog 仍编译真实 Program、匹配 activation owner 和有序 named Binding；保留候选不等于创建当前帧需求，也不以 Bool 字段代替可执行 consumer。
 
-Utility 冷准备的完整 effect target 先取得原层级准备与 SourceRoute 的实际输入，再交原 Planner/Capability 准备 Program；root 的 viewport/group 与成员闭包仍归现有消费者。Effect 入口只消费已有层级准备结果，不保留 fullscreen/composition/project 的独立提名或重复 source resolve。普通非 utility、依赖 consumer/provider 和实际 Program/资源边界保持，不新增 stage owner、持久显隐、资源表或帧内补准备。未覆盖的来源与拓扑边界由[问题队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)维护。
+Utility 冷准备沿层级与 SourceRoute 取得原输入，再由 Planner/Capability 准备 Program。指向自身的 primary pair 是待验证的图内读取，不构成外部依赖，不能让某个活动效果挡掉同组关闭效果的准备。外部引用、具名供货、显式依赖仍按原归属筛选，图内读取仍由实际 Program 证明。沿原 viewport/group 与成员闭包，无新资源表或帧内补准备。其余边界见[问题队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)。
 
 热更沿同一已准备 stage 和原事务接纳。当前 DynamicSnapshot 的一次 activation Decision 决定本帧实际 slot 与来源截点；关闭的 effect 不读取自己的 named 输入，同 provider 的其他活动 slot 继续消费。开启后使用原 Program，不运行时补编译、不新增状态、token 或缓存。坏层级、缺 source/Program、错误 carrier 或真实依赖冲突只使原消费者不可用；热开启仍由原整键事务拒绝并保 current，不能用源图复制冒充效果输出。
 

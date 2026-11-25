@@ -52,12 +52,12 @@ struct SceneRenderDescriptor {
     var renderOrderLayerIDs: [Int] { layers.map(\.id) }
 }
 typealias SceneUtilityLayer = SceneRenderDescriptor.Utility
-// Stored prepared-plan carriers only. The production DirectBool admission
-// and utility source-route implementation consume these explicit sets.
 struct SceneDependencyRenderPlan {
-    struct Reference { let consumerLayerID: Int }
+    struct Reference {
+        let consumerLayerID: Int, providerLayerID: Int
+        var variant: SceneNamedTextureReference.Variant = .primary
+    }
     var references: [Reference] = []
-    var namedReferenceConsumerLayerIDs: Set<Int> = []
     var requiredEffectConsumerLayerIDs: Set<Int> = []
     var bindingsByConsumerLayerID: [Int: Int] = [:]
     var requiredProviderLayerIDs: Set<Int> = []
@@ -380,9 +380,10 @@ struct SceneDependencyRenderPlan {
             case "provider": plan.requiredProviderLayerIDs = [id]
             case "graph-output-provider": plan.requiredGraphOutputProviderLayerIDs = [id]
             case "effect-consumer": plan.requiredEffectConsumerLayerIDs = [id]
-            case "named-consumer": plan.namedReferenceConsumerLayerIDs = [id]
+            case "self-primary": plan.references = [.init(consumerLayerID: id, providerLayerID: id)]
+            case "self-secondary": plan.references = [.init(consumerLayerID: id, providerLayerID: id, variant: .secondary)]
             case "binding-consumer": plan.bindingsByConsumerLayerID = [id: peer]
-            case "reference-consumer": plan.references = [.init(consumerLayerID: id)]
+            case "reference-consumer": plan.references = [.init(consumerLayerID: id, providerLayerID: peer)]
             case "blocked-source": plan.staticLayerSourcePassthroughBlockedLayerIDs = [id]
             case "dependency": root.dependencyLayerIDs = [peer]
             case "authored-dependency": root.authoredDependencies = [peer]
@@ -410,10 +411,11 @@ struct SceneDependencyRenderPlan {
             return facts
         }
         let invalidCompositionCases = ["provider", "graph-output-provider", "effect-consumer",
-            "named-consumer", "binding-consumer", "reference-consumer", "blocked-source",
+            "self-secondary", "binding-consumer", "reference-consumer", "blocked-source",
             "dependency", "authored-dependency", "parent",
             "unlisted-child", "wrong-utility-kind", "missing-utility"]
         let utilityCases: [(String, String?, Bool)] = [("main", nil, true), ("copy-off", nil, false),
+            ("self-primary", "self-primary", true),
             ("child", "child", true), ("passthrough", "passthrough", true), ("passthrough-copy-off", "passthrough", false)]
         var inactiveUtilities: [String: [String: Bool]] = [:]
         for (kind, id) in [(SceneRenderDescriptor.Utility.Kind.composition, 700), (.composition, 9107),
@@ -463,9 +465,8 @@ struct SceneDependencyRenderPlan {
             case "provider": plan.requiredProviderLayerIDs = [owner]
             case "graph-provider": plan.requiredGraphOutputProviderLayerIDs = [owner]
             case "effect-consumer": plan.requiredEffectConsumerLayerIDs = [owner]
-            case "named-consumer": plan.namedReferenceConsumerLayerIDs = [owner]
             case "binding-consumer": plan.bindingsByConsumerLayerID = [owner: peer]
-            case "reference-consumer": plan.references = [.init(consumerLayerID: owner)]
+            case "reference-consumer": plan.references = [.init(consumerLayerID: owner, providerLayerID: peer)]
             case "blocked-source": plan.staticLayerSourcePassthroughBlockedLayerIDs = [owner]
             case "transparent-nonpassthrough":
                 root.utilityLayer?.passthrough = false; root.utilityLayer?.copyBackground = false
@@ -507,7 +508,7 @@ struct SceneDependencyRenderPlan {
         output["modelNonpassthrough"] = populatedInactiveComposition("model-member", passthrough: false)
         let commonInactiveNeighbors = ["nested", "missing-child", "unlisted-child",
             "wrong-parent", "cycle", "particle-effect", "dependency", "authored-dependency", "provider",
-            "graph-provider", "effect-consumer", "named-consumer", "binding-consumer", "reference-consumer", "blocked-source"]
+            "graph-provider", "effect-consumer", "binding-consumer", "reference-consumer", "blocked-source"]
         output["populatedInactiveNeighbors"] = Dictionary(uniqueKeysWithValues:
             [true, false].flatMap { passthrough in
                 (commonInactiveNeighbors + (passthrough ? ["not-orthographic", "root-perspective", "child-perspective",
@@ -750,8 +751,6 @@ class ScriptVisibleRootTests(unittest.TestCase):
             admission.write_text('import Foundation\n' + source[start:end])
             direct = root / 'DirectBool.swift'
             direct_source = (SCENE / 'Compilation/Material/SceneDirectBoolEffectVisibilityRouteAdmission.swift').read_text()
-            # Link the actual prepared-plan overload and private implementation.
-            # Its launch-plan builder is covered by the graph owner gates.
             first = direct_source.index('    static func startupInactiveTargets(')
             second = direct_source.index('    static func startupInactiveTargets(', first + 1)
             direct.write_text('import Foundation\nnonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {\n'
@@ -759,13 +758,12 @@ class ScriptVisibleRootTests(unittest.TestCase):
             harness = root / 'Harness.swift'
             harness.write_text(HARNESS)
             cls.binary = root / 'run'
-            # The explicit baseline mode links the old API and runs the same
-            # target inputs. Only the added preparation API is excluded.
             flags = [] if os.environ.get('MWX_SCENE_VISIBILITY_PREPARATION_API') == '0' else ['-D', 'PREPARATION_API']
             extra_sources = [str(direct)] if flags else []
             if 'static func particleRequirements(' in source[start:end]:
                 flags += ['-D', 'PARTICLE_REQUIREMENTS_API']
             built = subprocess.run(['swiftc', *flags, str(SCENE / 'Systems/Properties/SceneDynamicSnapshot.swift'),
+                str(SCENE / 'Resources/Textures/SceneNamedTextureReference.swift'),
                 str(SCENE / 'Rendering/Geometry/SceneLayerVisibility.swift'),
                 str(SCENE / 'Rendering/Composition/SceneUtilityLayerSourceRoute.swift'),
                 str(admission), *extra_sources, str(harness), '-module-cache-path',
@@ -854,7 +852,7 @@ class ScriptVisibleRootTests(unittest.TestCase):
             self.assertTrue(self.result[key], key)
 
     def test_startup_inactive_utilities_keep_source_and_script_dependency_boundaries(self):
-        sources = {'main': (False, False), 'copy-off': (True, False), 'child': (True, True),
+        sources = {'main': (False, False), 'self-primary': (False, False), 'copy-off': (True, False), 'child': (True, True),
                    'passthrough': (False, False), 'passthrough-copy-off': (True, False)}
         for name, facts in self.result['inactiveUtilities'].items():
             kind, identity, case = name.split(':')
