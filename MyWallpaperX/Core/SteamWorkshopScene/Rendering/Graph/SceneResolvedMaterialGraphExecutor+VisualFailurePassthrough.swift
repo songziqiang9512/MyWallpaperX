@@ -17,6 +17,7 @@ extension SceneResolvedMaterialGraphExecutor {
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command],
         sourceCommand: inout Command,
+        pairContentsMatch: inout Bool,
         captureCanWriteOutput: Bool,
         effectLocalFailureReasonCode: inout String?,
         effectLocalActivationBypassReasonCode: inout String?
@@ -46,6 +47,7 @@ extension SceneResolvedMaterialGraphExecutor {
         commands.removeSubrange(snapshot.commandCount ..< commands.count)
         publications = snapshot.publications
         pair = snapshot.pair
+        pairContentsMatch = isActivation && pairContentsMatch
 
         let publication: SceneFrameTextureResource
         if pairStep.inputMember == pairStep.outputMember {
@@ -59,11 +61,12 @@ extension SceneResolvedMaterialGraphExecutor {
             if isActivation, captureCanWriteOutput, case let .resource(capture) = sourceCommand,
                let redirected = capture.retargetingPlainSourceCapture(toEquivalentTarget: target) {
                 sourceCommand = .resource(redirected)
-            } else {
+            } else if !pairContentsMatch {
                 guard let copy = resourceEncoder?.prepareCopy(
                     source: pair.resource.publication.texture, target: target
                 ) else { return rejection }
                 commands.append(.resource(copy))
+                pairContentsMatch = isActivation
             }
             guard let generation = nextPairGeneration(),
                   let value = pairResource(

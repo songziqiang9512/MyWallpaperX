@@ -436,11 +436,11 @@ Surface 采用已提交销毁成员时，原 Coordinator 过滤该层 committed 
 当前简单 color/placement、部分文字及 captured-main 路径有各自准备资格。复杂 FBO/history/function/geometry 等未取得优化资格时继续原 graph 路线；不能把优化条件升级为所有合法内容的永久门。写入主 pass 后的失败拒绝不安全提交，不能再次合成 graph-final。
 
 <a id="inactive-terminal-source-capture"></a>
-### 停用单阶段的末端捕获
+### 停用阶段的双缓冲
 
-普通 layer texture 的唯一 graph 阶段已由原 activation 判为旁路且没有显式目标时，原源捕获可直接写同规格的固定末端 pair member。源采样、色彩表示、末端 publication、提交与 main 保留，省去该帧的中间写入和同规格复制。判定在原 Executor 接受旁路处完成，沿原 ResourcePassEncoder 替换尚未编码的捕获目标。原计划仍为热启用提供完整 pair。实际源与目的相撞、带前缀或依赖附件的捕获、多阶段、显式目标以及错误旁路保原路由；独立的 named 发布继续使用实际末端。无需新 owner、状态或缓存。
+唯一停用阶段无显式目标时，原源捕获可直写固定末端，保色彩、发布与提交。带前缀、依赖附件、读写冲突和错误旁路沿原入口。连续停用阶段的首个整图 blit 令事务内两成员等价，随后沿用实际目的成员及发布。活动写入与视觉失败撤掉证明；捕获重定向或同成员旁路不建立等价。FBO/history 仍用原独立纹理。
 
-验收核普通视频原 PTS、source capture→固定末端→主合成、复制计数与 GPU 排空，保热启用实际材质和显式 FBO/history 反例。数值/画面先核等价，只用同范围计数说明省掉的 GPU 指令，不从计数估算能耗。
+验收核活动写入或失败后的首次复制、固定末端像素、replay 与具名供货。[真实宽幅与独立作者](runtime-evidence-current.md#composition-passthrough-reuse-evidence)核画面、实际复制和 GPU 时间。
 
 <a id="limits"></a>
 ## 当前边界与回归

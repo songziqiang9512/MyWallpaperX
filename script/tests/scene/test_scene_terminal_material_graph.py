@@ -327,6 +327,7 @@ private func overflowCase(
 private func terminalCase(
     device: MTLDevice, queue: MTLCommandQueue, count: Int,
     inactive: Set<Int> = [], failed: Set<Int> = [], budget: Int = 4096,
+    expectedBypassCopies: Int? = nil,
     named: Bool = false, optionalReplayFailure: Bool = false,
     preparationFailure: SceneResolvedMaterialPassEncoder.PreparationFailure =
         .libraryCompilationRejected(diagnostic: "terminal tail regression")
@@ -470,10 +471,7 @@ private func terminalCase(
     let transitions = zip(red, red.dropFirst()).filter { ($0 > threshold) != ($1 > threshold) }.count
     let bypassCount = inactive.union(failed).count
     let expectedPins = lastActive != nil && bypassCount > 0 && budget > 0 ? 1 : 0
-    // 1fb165dc0 captures an inactive material output directly into its
-    // terminal target, so an all-inactive, non-replay chain performs no
-    // intermediate copies; every other bypass pattern keeps one per bypass.
-    let bypassCopies = lastActive == nil && !hasReplay ? 0 : bypassCount
+    let bypassCopies = expectedBypassCopies ?? (lastActive == nil && !hasReplay ? 0 : bypassCount)
     let highDensity = lastActive == 0 && hasReplay
     let snapshotMatches = expectedPins == 0 || (snapshotReadback != nil && originalReadback != nil
         && snapshotReadback!.allPixels == originalReadback!.allPixels)
@@ -825,7 +823,10 @@ private func densityCase(
         "failed": try terminalCase(device: device, queue: queue, count: 2, failed: [1]),
         "missingPipeline": try terminalCase(device: device, queue: queue, count: 2,
             failed: [1], preparationFailure: .pipelineNotPrepared),
-        "twoInactive": try terminalCase(device: device, queue: queue, count: 3, inactive: [1,2]),
+        "twoInactive": try terminalCase(device: device, queue: queue, count: 3, inactive: [1,2],
+            expectedBypassCopies: 1),
+        "interruptedByFailure": try terminalCase(device: device, queue: queue, count: 3,
+            inactive: [0,2], failed: [1], expectedBypassCopies: 3),
         "identityThenInactive": try terminalCase(device: device, queue: queue, count: 3, inactive: [2]),
         "snapshotBudgetRejected": try terminalCase(device: device, queue: queue, count: 2,
             inactive: [1], budget: 0),
@@ -928,7 +929,8 @@ class TerminalMaterialGraphTests(unittest.TestCase):
         self.check_cases(['single', 'active'])
 
     def test_inactive_and_failed_suffix_retain_last_active_input(self):
-        self.check_cases(['inactive', 'failed', 'twoInactive', 'identityThenInactive', 'missingPipeline'])
+        self.check_cases(['inactive', 'failed', 'twoInactive', 'identityThenInactive',
+                          'missingPipeline', 'interruptedByFailure'])
         self.assertEqual(self.result['rows']['missingPipeline']['failureReasons'][-1],
                          'material-pass-preparation-pipeline-not-prepared')
 
