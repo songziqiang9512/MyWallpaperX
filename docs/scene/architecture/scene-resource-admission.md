@@ -54,7 +54,7 @@ GPU 入口以 Metal size/alignment 需求先预留，分配失败返还。租约
 <a id="raw-channel-texture-storage"></a>
 ### 原通道 TEX 的物理存储
 
-同一 `SceneTextureLoader` 按实际来源 revision、Metal 设备和上传表示复用已完成的实物。原格式 R8／RG8 的完整 2D mip 链同步直传，成功后只登记一个事务内存储键。各消费者单独准备原用途、采样及布局，继续按原身份发布。源 revision 改变进入新实物，原引用和 GPU 在途持有旧实物至释放。实际走用途转换、压缩、体积或尾链时保原用途和级别。物理租约沿原 GPU 总账。CPU cache 的准备边界不变，有现成物理纹理时纯纹理请求可直接命中，需要容器元数据的消费者仍走原读取。 [真实作者、原生字节与压力](../../development/wallpaper-quality-work-card.md#scene-raw-texture-reuse)
+同一 `SceneTextureLoader` 按实际来源 revision、Metal 设备和上传表示复用已完成的实物。原格式 R8／RG8 的完整 2D mip 链同步直传，成功后只登记一个事务内存储键。各消费者单独准备原用途、采样及布局，继续按原身份发布。源 revision 改变进入新实物，原引用和 GPU 在途持有旧实物至释放。实际走用途转换、压缩、体积或尾链时保原用途和级别。物理租约沿原 GPU 总账。CPU cache 的准备边界不变。静态原通道 Candidate 通过几何与作者布局准入后，在同一 GPU 条目保留映射宽高、原采样位与格式。当前来源 revision 和设备命中后，第二用途从这四项及原纹理重建自己的 Candidate。条件、动画与需要容器载荷的请求走原入口，缺项时按当前捕获身份读取并解析。 [真实作者、原生字节与压力](../../development/wallpaper-quality-work-card.md#scene-raw-texture-reuse)
 
 <a id="conditional-tex-atlas"></a>
 ### 条件 TEX 图集

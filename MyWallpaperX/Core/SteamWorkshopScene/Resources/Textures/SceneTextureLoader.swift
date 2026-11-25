@@ -143,6 +143,18 @@ nonisolated final class SceneTextureLoader {
         let representation: Representation
     }
 
+    struct RawCandidateLayout {
+        let mappedWidth: UInt32
+        let mappedHeight: UInt32
+        let flags: UInt32
+        let format: UInt32
+    }
+
+    private struct CachedTexture {
+        let texture: MTLTexture
+        var rawLayout: RawCandidateLayout?
+    }
+
     struct TexResource {
         let container: SceneTexContainer?
         let parseError: String?
@@ -251,7 +263,7 @@ nonisolated final class SceneTextureLoader {
 
     private static let directImageExtensions: Set<String> = ["png", "jpg", "jpeg"]
     private static let texExtension = "tex"
-    private var textures: [TextureKey: MTLTexture] = [:]
+    private var textures: [TextureKey: CachedTexture] = [:]
     private var texResources: [SourceKey: TexResource] = [:]
     private var directImageResources: [SourceKey: DirectImageResource] = [:]
     private var directImageNaturalSizes: [SourceKey: CGSize] = [:]
@@ -332,7 +344,7 @@ nonisolated final class SceneTextureLoader {
         let deviceRegistryID = device.registryID
         let key = TextureKey(source: source, deviceRegistryID: deviceRegistryID,
             representation: .purpose(purpose, baseMip: embeddedBaseMip))
-        if let cached = textures[key] { return .loaded(cached) }
+        if let cached = textures[key] { return .loaded(cached.texture) }
         let ext = input.pathExtension.lowercased()
         let outcome: SceneTextureLoadOutcome
         var storageKey = key
@@ -342,7 +354,7 @@ nonisolated final class SceneTextureLoader {
         } else if ext == Self.texExtension {
             let rawKey = embeddedBaseMip == 0 ? TextureKey(source: source, deviceRegistryID: deviceRegistryID,
                 representation: .rawChannels2D) : nil
-            if let rawKey, let cached = textures[rawKey] { return .loaded(cached) }
+            if let rawKey, let cached = textures[rawKey] { return .loaded(cached.texture) }
             let loaded = try loadWallpaperEngineTex(input: input, source: source, purpose: purpose,
                 device: device, preparedResource: preparedTexSource?.resource,
                 embeddedBaseMip: embeddedBaseMip,
@@ -354,8 +366,19 @@ nonisolated final class SceneTextureLoader {
         }
         try checkCancellation?()
         // A failed upload is an attempt, never a successful cache entry.
-        if case let .loaded(texture) = outcome { textures[storageKey] = texture }
+        if case let .loaded(texture) = outcome { textures[storageKey] = .init(texture: texture) }
         return outcome
+    }
+
+    func cachedRawCandidateLayout(source: SourceKey, device: MTLDevice) -> (MTLTexture, RawCandidateLayout)? {
+        let key = TextureKey(source: source, deviceRegistryID: device.registryID, representation: .rawChannels2D)
+        guard let cached = textures[key], let layout = cached.rawLayout else { return nil }
+        return (cached.texture, layout)
+    }
+
+    func storeRawCandidateLayout(_ layout: RawCandidateLayout, source: SourceKey, device: MTLDevice) {
+        let key = TextureKey(source: source, deviceRegistryID: device.registryID, representation: .rawChannels2D)
+        textures[key]?.rawLayout = layout
     }
 
     // External URL conveniences preserve the independent-file domain. Author
@@ -411,7 +434,7 @@ nonisolated final class SceneTextureLoader {
     func evictTextures(containedIn failedTextures: [MTLTexture]) -> Int {
         guard !failedTextures.isEmpty else { return 0 }
         let evictedKeys = textures.keys.filter { key in
-            guard let texture = textures[key] else { return false }
+            guard let texture = textures[key]?.texture else { return false }
             return failedTextures.contains { $0 === texture }
         }
         guard !evictedKeys.isEmpty else { return 0 }
@@ -448,6 +471,11 @@ nonisolated final class SceneTextureLoader {
         guard input.pathExtension.lowercased() == Self.texExtension,
               let source = try sourceKey(for: input, checkCancellation: checkCancellation) else { return nil }
         if let expectedSource, expectedSource != source { throw SceneResourceView.ReadError.sourceChanged }
+        return try prepareTexSource(from: input, capturedSource: source, checkCancellation: checkCancellation)
+    }
+
+    func prepareTexSource(from input: Input, capturedSource source: SourceKey,
+                          checkCancellation: (() throws -> Void)?) throws -> PreparedTexSource? {
         guard let resource = try texResource(from: input, source: source, checkCancellation: checkCancellation)
         else { return nil }
         return .init(input: input, source: source, resource: resource)

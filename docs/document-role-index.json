@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3165e8a9d5dfac42c941e4b3626871ea9214939c65e1853fa4442187cbb60e53",
+        "sourceSHA256": "8342f53a4737af569fe08330c5ef30d8f64f163f85ca6802621ad0a583934588",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役纹理 loader 与物理存储合同入口",
-        "limitations": "不同表示继续读取原专门合同"
+        "scope": "纹理 loader、已验布局与用途各自入口",
+        "limitations": "按原表示和来源 revision"
       }
     },
     {
@@ -355,10 +355,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "99109502e38fccb2618b10c0447c507807988c1de214245fa930223f2a59bb4e",
+        "sourceSHA256": "92f1499831ab586cf01223a1015f5673639e72236cc2ff84e20aa14a0afabe06",
         "method": "document_registry --audit + document_health --check",
-        "scope": "纹理表示、原通道物理复用路由",
-        "limitations": "复用实施由工作卡约束"
+        "scope": "原通道布局复用评估、约束与验收",
+        "limitations": "仅候选静态布局适用"
       }
     },
     {
@@ -369,10 +369,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6f18511f939646803bb28c2b873d7470998f8df1c5725b04b63292635018d252",
+        "sourceSHA256": "413b2c93219d98258766f91663a83c8d82f248d2f7482358dcb20842b36317d1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "真实原通道重复、GPU 权威计费及签名实绘",
-        "limitations": "紧预算仅原生加载器，作者正常额度"
+        "scope": "原通道 GPU 计费、原生准备与签名实绘",
+        "limitations": "准备时延限原生单操作"
       }
     },
     {
@@ -908,10 +908,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "eb54278b8361090a4e1d46852b9b21d1f1d7bbc3d322a894b10bc8d6663300b4",
+        "sourceSHA256": "2772aa4de5cbbf05783873a57cf7b704d794f36d8cbe0efd70ad45ba8f998398",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原通道存储、逻辑元数据、引用和租约职责",
-        "limitations": "限实际原通道 2D 完整 mip"
+        "scope": "原通道已验布局和实物租约职责",
+        "limitations": "限静态原通道 2D 完整 mip"
       }
     },
     {

@@ -152,6 +152,11 @@ M4 单内屏用同一签名产品的真实作品 3477054430 与 3746066933，沿
 
 首批只接通无 padding、已知全域归一 UV 的静态色图。候选几何记录实际 GPU extent 和用于取样的 mapped extent，降档后两者都来自所选输出，保持 UV 比例为 1。作者原逻辑尺寸由现有布局元数据供应实际消费者。`candidateOutputGeometry` 当前只接受原物理尺寸或现有规范化尺寸，须在这个入口识别已授权的 base mip／缩尺寸输出。ImageIO 现把解码结果与原 `displaySize` 比较，在原 uploader 验证所选输出尺寸并复用其方向结果。精确和带 padding 的角色保既有尺寸校验。 [候选 UV 几何](../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader+Candidate.swift) · [ImageIO 尺寸及方向](../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift)
 
+<a id="scene-raw-candidate-layout"></a>
+静态原通道纹理的第二个消费者仍需作者布局。已核的 3453730450 同一 22,105,819 B TEX 在基础图清理解码缓存后再次读取，依原 parser 展开五级 22,347,776 B。比较延后完整解码缓存清退、对 TEX 开短读分支、复用已验布局。延后清退会延长大数据与 GPU 的双驻留，短读需新入口及同等坏块判定。选用现有 GPU 项附带首个正常静态 Candidate 已结算的 mapped 尺寸、原采样位与格式。实际纹理提供 physical 尺寸。只在该源 revision 的同一原通道对象和已认可的静态布局同时存在时复用。原各用途 Content、几何和发布沿同一 Candidate 构造，不能复用别的用途的 Candidate。条件图集、sprite、压缩和需要原 payload 的消费者仍走现有准备。普通静态命中读一次当前来源，miss 沿该次已取 identity 进入原 parse。没有第二缓存、也不改变缓存清理和对象驱逐时点。
+
+用实际作者输入在清退 CPU 缓存后对比同一 revision 的 normal，必须消除一次完整读取／LZ4，不能为确认命中重新读载荷。验证 padded R8／RG8、改名与同名新 revision、坏尺寸按原失败、动画／BC 邻例和颜色／法线用途元数据。宽裕与原容量下保持五级纹理、现有实绘及终端画面。量原准备操作同机重复时间、实际解析和解码字节，签名作者只核受影响真实阶段。若需要常驻 payload、重复布局逻辑或普通冷请求多一次来源核验，退回现役。 [现有 GPU 复用](wallpaper-quality-work-card.md#scene-raw-texture-reuse)
+
 **实测验收**用真实 4K 静态 TEX、普通图片分别量源读取、解析／LZ4、ImageIO 解码、Metal 上传及 `allocatedSize`／池计费／进程峰，按冷、暖、切档与新旧 Surface 共存取样。用条纹斜移和实际 1×／2× 显示验证摩尔纹、锐度、UV 与颜色。检查候选物理 mip 尺寸、边界采样和作者布局尺寸，加入定向不对称 JPEG、ICC、透明边、奇数长宽、颜色和数据共享消费者、资源改名、等价表达及带 padding 的 atlas/cutout、动态媒体、绝对取样、无 mip 反例。验 Auto 的尺寸决策、换屏／放大、源 revision 与坏缓存重建。实际减少内存／解码成本且可见精度在预登记范围内时，才公开对应档。
 
 <a id="scene-shadow-quality"></a>

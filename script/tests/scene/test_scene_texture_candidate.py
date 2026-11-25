@@ -240,6 +240,8 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "normalizedColorScale": [1, 1],
                 "oversizedMappedRejected": True,
                 "rawStorageSharedWithDistinctPurposes": True,
+                "rawCandidateLayoutSurvivesDecodedEviction": True,
+                "animatedRawKeepsAdmissionAfterAtlasLoad": True,
                 "refreshedGenerationMatchesFileSize": True,
                 "refreshedPhysical": [8, 8],
                 "rotatedRejected": True,

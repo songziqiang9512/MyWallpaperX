@@ -41,6 +41,38 @@ extension Harness {
             purpose: .flow,
             device: device
         )))
+        let noDecodeRetention = SceneTextureDecodeCacheBudget(maximumBytes: 0)
+        let separateLoader = SceneTextureLoader(decodeCacheBudget: noDecodeRetention)
+        let beforeEviction = try candidate(try separateLoader.loadCandidate(
+            from: url, purpose: .mask, device: device))
+        separateLoader.evictDecodedCaches()
+        let originalRejections = noDecodeRetention.rejectionCount
+        let afterEviction = try candidate(try separateLoader.loadCandidate(
+            from: url, purpose: .normal, device: device))
+        var animatedRawKeepsAdmission = true
+        for frameCount in [1, 2] {
+            let animatedURL = url.deletingLastPathComponent().appendingPathComponent("raw-frames-\(frameCount).tex")
+            var atlas = rawR8Tex(textureWidth: 8, textureHeight: 4, imageWidth: 8, imageHeight: 4, flags: 4)
+            atlas.append(Data("TEXS0002\0".utf8))
+            append(UInt32(frameCount), to: &atlas)
+            for index in 0..<frameCount {
+                appendSpriteFrame(imageIndex: 0, duration: 0.25,
+                    coordinates: [Float(index * 4), 0, 4, 0, 0, 4], to: &atlas)
+            }
+            try atlas.write(to: animatedURL)
+            guard case let .loaded(animated) = try loader.loadAnimatedMaterialCandidate(
+                from: animatedURL, purpose: .mask, device: device), animated.frames.count == frameCount else {
+                throw HarnessError.loadFailed
+            }
+            switch try loader.loadCandidate(from: animatedURL, purpose: .normal, device: device) {
+            case let .loaded(staticCandidate) where frameCount == 1:
+                animatedRawKeepsAdmission = animatedRawKeepsAdmission && staticCandidate.isSpriteSheet
+                    && staticCandidate.texture === animated.candidate.texture
+                    && staticCandidate.uvTransform.xAxis == SIMD2(0.5, 0)
+            case .failed(.decodeFailed) where frameCount == 2: break
+            default: animatedRawKeepsAdmission = false
+            }
+        }
         let spriteRejected: Bool
         switch (try loader.loadCandidate(
             from: spriteURL,
@@ -126,6 +158,15 @@ extension Harness {
             "sameGenerationAcrossPurpose": first.generation == flow.generation,
             "rawStorageSharedWithDistinctPurposes": first.texture === flow.texture
                 && first.purpose == .mask && flow.purpose == .flow,
+            "rawCandidateLayoutSurvivesDecodedEviction": originalRejections == 1
+                && noDecodeRetention.rejectionCount == originalRejections
+                && afterEviction.texture === beforeEviction.texture && afterEviction.purpose == .normal
+                && afterEviction.physicalSize == beforeEviction.physicalSize
+                && afterEviction.mappedSize == beforeEviction.mappedSize
+                && afterEviction.uvTransform == beforeEviction.uvTransform
+                && afterEviction.sampling == beforeEviction.sampling
+                && afterEviction.authoredFormat == beforeEviction.authoredFormat,
+            "animatedRawKeepsAdmissionAfterAtlasLoad": animatedRawKeepsAdmission,
             "slotBindingRangeRejected":
                 SceneTextureSlotBinding(slotIndex: -1, candidate: first) == nil
                     && SceneTextureSlotBinding(

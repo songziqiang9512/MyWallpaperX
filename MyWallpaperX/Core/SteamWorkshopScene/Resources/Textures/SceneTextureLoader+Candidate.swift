@@ -83,7 +83,15 @@ nonisolated extension SceneTextureLoader {
     ) throws -> SceneTextureCandidateLoadOutcome {
         let isTex = input.pathExtension.lowercased() == "tex"
         if isTex {
-            guard let prepared = try prepareTexSource(from: input, checkCancellation: checkCancellation) else {
+            guard let source = try sourceKey(for: input, checkCancellation: checkCancellation) else {
+                return .failed(.decodeFailed("TEX source unavailable: \(input.lastPathComponent)"))
+            }
+            if let (texture, layout) = cachedRawCandidateLayout(source: source, device: device) {
+                return try makeCandidate(texture: texture, resource: nil, source: source, purpose: purpose,
+                    rawLayout: layout, checkCancellation: checkCancellation)
+            }
+            guard let prepared = try prepareTexSource(from: input, capturedSource: source,
+                                                      checkCancellation: checkCancellation) else {
                 return .failed(.decodeFailed("TEX source unavailable: \(input.lastPathComponent)"))
             }
             return try loadCandidate(from: prepared, purpose: purpose, device: device,
@@ -175,9 +183,15 @@ nonisolated extension SceneTextureLoader {
             }
         }
         guard case .loaded(let texture) = outcome else { return .failed(outcome) }
-        return try makeCandidate(texture: texture, resource: prepared?.resource, source: source,
+        let candidate = try makeCandidate(texture: texture, resource: prepared?.resource, source: source,
             purpose: purpose, spriteFrame: spriteFrame, embeddedBaseMip: embeddedBaseMip,
             checkCancellation: checkCancellation)
+        if case .loaded = candidate, spriteFrame == nil, let container, container.rawMetalPixelFormat != nil {
+            storeRawCandidateLayout(.init(mappedWidth: UInt32(container.imageWidth),
+                mappedHeight: UInt32(container.imageHeight), flags: container.flags, format: container.format),
+                source: source, device: texture.device)
+        }
+        return candidate
     }
 
     /// Catalog-only admission shares the exact source/device cache and typed
@@ -229,6 +243,7 @@ nonisolated extension SceneTextureLoader {
         resource: TexResource?,
         source: SourceKey,
         purpose: SceneTextureLoadPurpose,
+        rawLayout: RawCandidateLayout? = nil,
         decodedSourceImage: CGImage? = nil,
         spriteFrame: SceneTexContainer.SpriteFrame? = nil,
         embeddedBaseMip: Int = 0,
@@ -242,7 +257,10 @@ nonisolated extension SceneTextureLoader {
         let container = resource?.container
         let physicalSize: CGSize
         let mappedSize: CGSize
-        if let resource, let container {
+        if let rawLayout {
+            physicalSize = CGSize(width: texture.width, height: texture.height)
+            mappedSize = CGSize(width: Int(rawLayout.mappedWidth), height: Int(rawLayout.mappedHeight))
+        } else if let resource, let container {
             guard let firstMip = container.mips.first,
                   container.textureWidth > 0,
                   container.textureHeight > 0,
@@ -276,7 +294,7 @@ nonisolated extension SceneTextureLoader {
         switch purpose {
         case .premultipliedColor:
             content = .color(.resolved(
-                sourceIsProvenOpaque(
+                rawLayout == nil && sourceIsProvenOpaque(
                     source: source,
                     resource: resource,
                     physicalSize: physicalSize,
@@ -324,11 +342,9 @@ nonisolated extension SceneTextureLoader {
                 yAxis: SIMD2(0, Float(mappedSize.height / physicalSize.height))
             ),
             isSpriteSheet: spriteFrame != nil,
-            sampling: container.map { SceneTextureSampling(texFlags: $0.flags) }
+            sampling: (rawLayout?.flags ?? container?.flags).map { SceneTextureSampling(texFlags: $0) }
                 ?? .directImageFallback,
-            authoredFormat: container.flatMap {
-                SceneShaderTextureFormat(rawValue: $0.format)
-            },
+            authoredFormat: (rawLayout?.format ?? container?.format).flatMap(SceneShaderTextureFormat.init(rawValue:)),
             embeddedBaseMip: embeddedBaseMip
         ))
     }
