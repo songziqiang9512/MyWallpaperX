@@ -77,8 +77,8 @@
       "bytes": 80400
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 595,
-      "bytes": 125007
+      "lines": 598,
+      "bytes": 126549
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -186,7 +186,7 @@
     },
     "docs/web/current-state.md": {
       "lines": 141,
-      "bytes": 52855
+      "bytes": 52949
     },
     "docs/web/dedicated-host-process-design.md": {
       "lines": 92,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "e2d61499953547cdc93b17762b8c08866cf22fe1dfd4a0c1d96e8680522f38ee",
-      "after": "557cbefa80c293ea50437af2632bfd29eae97d90488c367fb4b24af6531a0540",
+      "before": "557cbefa80c293ea50437af2632bfd29eae97d90488c367fb4b24af6531a0540",
+      "after": "34c2fe221fd368299eda143416617fa6fac15117c481f5be37ef0ed8f0a6c24c",
       "owner": "wallpaper-quality",
-      "reason": "记录 Pixabay 默认可选档的显示和实测",
-      "decision": "docs/development/wallpaper-quality-work-card.md#pixabay-default-download-facts"
+      "reason": "登记真实作者同文档绘制证据与限制",
+      "decision": "docs/development/wallpaper-quality-work-card.md#web-authored-live-draw"
     },
     {
       "section": "bodies",
@@ -414,11 +414,11 @@
     {
       "section": "bodies",
       "path": "docs/web/current-state.md",
-      "before": "f8eae8d4712d85ffbadbbf22bb03fb71f102afd5ce08c2e2082631cd4a38e199",
-      "after": "666673acc05e88f29fba62026dc9b75a6eb12deb8145eb266d0d2df6d6370346",
+      "before": "666673acc05e88f29fba62026dc9b75a6eb12deb8145eb266d0d2df6d6370346",
+      "after": "324121140ef2e8e693575ddeb7b27f598599acca3b3405d96ef682fbc0045266",
       "owner": "web-runtime",
-      "reason": "将仅变化的建议数值投递写入现役作者桥合同",
-      "decision": "docs/web/current-state.md#2-稳定实现合同"
+      "reason": "从现役帧率合同定位真实作者实窗验收",
+      "decision": "docs/development/wallpaper-quality-work-card.md#web-authored-live-draw"
     },
     {
       "section": "bodies",

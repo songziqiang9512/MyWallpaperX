@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "04c7ce6431928d82cb3f366e01bc2b2e3b5176e5686c9429cfaa332eb4775aec",
+        "sourceSHA256": "6f1d225d3d865645f032791f9237297914244b6f8872592702c9e4cfa69db422",
         "method": "document_registry --audit + document_health --check",
-        "scope": "记录 Pixabay 默认可选档的显示和实测",
-        "limitations": "近似字节只用于下载前；实际文件继续供播放和本地详情。"
+        "scope": "登记真实作者同文档绘制证据与限制",
+        "limitations": "真实作者绘制、画面运动、物理呈现与功耗分开。"
       }
     },
     {
@@ -1101,10 +1101,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ebb6e44b5d808e7506deb4f98cec1a9ddd9c329a9d05b759a3f3ea167e590810",
+        "sourceSHA256": "53043842aa9a486b3f1dca9a9ff8d520368e30702003ba2829280e243b9bb14f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "作者 FPS 建议按目标屏数值投影，活动、冷恢复、暂停与文档路径分界",
-        "limitations": "真实 WKWebView 和一个原作者；没有声明相同数字的官版回调次数"
+        "scope": "从现役帧率合同定位真实作者实窗验收",
+        "limitations": "真实作者绘制、画面运动、物理呈现与功耗分开。"
       }
     },
     {
