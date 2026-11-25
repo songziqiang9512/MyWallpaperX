@@ -228,17 +228,14 @@ import CoreGraphics
                 let input: [Float16] = Array(repeating: [0.5, 1, 4, 1], count: 40).flatMap { $0 }
                 fill(target, input)
                 let capacity = pool.reserveCompositionTargets(dimensions: [(8, 5)], commandBuffer: cb)!
-                let before = ScenePerformanceCounterHub.shared.snapshot()
+                MWXArmBlitFault(cb, 0)
                 MWXArmEncoderFault(cb, index < 2 ? 1 : 0)
                 let outcome = renderer.encodeTerminalColor(sourceCompleted: true, sceneColor: nil, target: target,
                     offscreenTexturePool: pool, dynamicValues: snapshot, commandBuffer: cb,
                     output: output, input: mode(mapping, target))
                 let encoderAttempts = MWXEncoderAttempts(); MWXArmEncoderFault(cb, 0)
-                let after = ScenePerformanceCounterHub.shared.snapshot()
                 faults["terminal-\(index)-usesNoCopyOrExtraCapacity"] =
-                    before[.textureCopyPasses, default: 0] == after[.textureCopyPasses, default: 0]
-                    && before[.textureCopyBytes, default: 0] == after[.textureCopyBytes, default: 0]
-                    && pool.residentByteCost == 320 && encoderAttempts == 1
+                    MWXBlitAttempts() == 0 && pool.residentByteCost == 320 && encoderAttempts == 1
                 if index == 1 {
                     faults["linearEncoderFailureRejectsSubmission"] = outcome == .dropped(
                         reasonCode: "scene-linear-display-export-unavailable")

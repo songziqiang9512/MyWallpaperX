@@ -200,7 +200,7 @@ Scene FPS 在下一排帧边界采纳，Web 在当前文档回调，能原位采
 <a id="scene-reflection-quality"></a>
 ### 反射
 
-**选型为沿原实时屏幕颜色近似反射，按真实消费者启用最近合格完成帧的完整颜色与 mip。** 模型路径对屏幕颜色按法线偏移、视角权重、边缘淡出与粗糙度 LOD 取样。图像和合格 Program 的环境输入沿各自已准备着色。独立水滴和同作品官版开／关对照已证局部贡献，尖端与相位的精确一致和整景性能仍需对应实测。统一内存上的全图复制和 mip 阶段应分开测。以 UHD 的 `rgba16Float` 为例，单基级约 63.3 MiB 逻辑载荷，完整 mip 链约 84.4 MiB，原 raw／候选与在途租约另计。 [原模型采样](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal) · [模型反射证据](../scene/capabilities/model-runtime-evidence.md#model-screen-reflection)
+**选型为沿原实时屏幕颜色近似反射，按真实消费者启用最近合格完成帧的完整颜色与 mip。** 模型路径对屏幕颜色按法线偏移、视角权重、边缘淡出与粗糙度 LOD 取样。图像和合格 Program 的环境输入沿各自已准备着色。独立水滴和同作品官版开／关对照已证局部贡献，尖端与相位的精确一致和整景性能仍需对应实测。统一内存上的全图复制和 mip 阶段应分开测。熟化的可选反射从上一完成快照直接生成 mip；未完成的双缓冲成员受同一提交 pin 保护。必需持续颜色保原单级和环境派生。以 UHD 的 `rgba16Float` 为例，单基级约 63.3 MiB 逻辑载荷，完整 mip 链约 84.4 MiB，分辨率、池计费及设备实际分配分别记录。 [原模型采样](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal) · [模型反射证据](../scene/capabilities/model-runtime-evidence.md#model-screen-reflection)
 
 | 算法 | 对本项目的取舍 |
 |---|---|

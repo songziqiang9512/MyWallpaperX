@@ -390,6 +390,7 @@ extension SceneMetalRenderer {
                 $0.alpha > 0 && ($0.material.surfaceProfile?.reflectivity ?? 0) > 0
             } == true
         }
+        let runtime = imageCompositor.resolvedMaterialRuntime
         var sourceConsumers: [SceneResolvedMaterialRuntimeBridge.SourceMaterialConsumer]?
         func demandedSourceMaterials(in runtime: SceneResolvedMaterialRuntimeBridge)
             -> [SceneResolvedMaterialRuntimeBridge.SourceMaterialConsumer] {
@@ -413,8 +414,7 @@ extension SceneMetalRenderer {
             var needed = hasReflectionConsumers(imageTextures: imageTextures,
                 framePlans: resolvedMaterialFrameTargetPlans, visibleLayerIDs: frameVisibleLayerIDs,
                 orderedLayers: orderedLayers)
-            if !needed, let runtime = imageCompositor.resolvedMaterialRuntime,
-               runtime.hasSourceMaterialSceneEnvironmentConsumer {
+            if !needed, let runtime, runtime.hasSourceMaterialSceneEnvironmentConsumer {
                 needed = demandedSourceMaterials(in: runtime).contains { consumer in
                     runtime.sourceMaterials[consumer.prototypeLayerID]?.requiresSceneEnvironment == true
                 }
@@ -448,12 +448,14 @@ extension SceneMetalRenderer {
                 mainPass.prepareMultisampling(attachments)
             }
         }
+        let hasSourceMaterials = runtime?.sourceMaterials.isEmpty == false
         displayMappingInput = displayMappingPostProcess?.input(for: drawable.texture,
             clearEnabled: frameDescriptor.camera.clearEnabled,
             hasPersistentSceneColor: sceneColor != nil, hasShadowReceiver: hasShadowReceiver,
-            hasSourceMaterials: imageCompositor.resolvedMaterialRuntime?.sourceMaterials.isEmpty == false,
+            hasSourceMaterials: hasSourceMaterials,
             requiresReflection: requiresImageReflection) ?? .textureSource
-        var scratchReady = false
+        let terminalExtent: (width: Int, height: Int)? = sceneColor == nil && displayMappingPostProcess != nil
+            && displayMappingInput == .textureSource ? (drawable.texture.width, drawable.texture.height) : nil
         var optionalScratch: [SceneOffscreenTexturePool.PinnedTexture]?
         if let pool = offscreenTexturePool,
            let targets = reserveOptionalEffectScratch(requiresShadow: shadowCandidates != nil,
@@ -462,28 +464,27 @@ extension SceneMetalRenderer {
             frameContext: frameContext, framePlans: resolvedMaterialFrameTargetPlans,
             visibleLayerIDs: frameVisibleLayerIDs, orderedLayers: orderedLayers,
             worldFrames: frameWorldFrames, cameraFrame: cameraFrame, parallax: parallaxConfiguration,
-            terminalExtent: sceneColor == nil && displayMappingPostProcess != nil
-                && displayMappingInput == .textureSource
-                ? (drawable.texture.width, drawable.texture.height) : nil,
+            terminalExtent: terminalExtent,
             commandBuffer: commandBuffer) {
-            optionalScratch = targets; scratchReady = true
+            optionalScratch = targets
         }
-        if scratchReady, let shadowCandidates, let pool = offscreenTexturePool {
+        func prepareTerminalAndFramebufferCapacity() -> Bool {
+            prepareTerminalCapacity(sceneColor: sceneColor,
+                target: drawable.texture, dynamicValues: frameContext.dynamicValues)
+                && prepareFramebufferSnapshotCapacity(orderedLayers: orderedLayers,
+                    visible: frameVisibleLayerIDs, framePlans: resolvedMaterialFrameTargetPlans,
+                    imageTextures: imageTextures, frameContext: frameContext,
+                    batches: particleBatchesByID, particlePipeline: particlePipeline,
+                    mainPass: mainPass, groups: compositionGroupRuntime,
+                    utilityExecution: frameProjection.utilityExecution)
+        }
+        if optionalScratch != nil, let shadowCandidates, let pool = offscreenTexturePool {
             prepareModelShadow(state: modelFrame, candidates: shadowCandidates, lights: shadowLights,
                 orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
                 batches: particleBatchesByID, particlePipeline: particlePipeline,
                 mainPass: mainPass, groups: compositionGroupRuntime, pool: pool,
                 commandBuffer: commandBuffer, leases: &frameDepthLeases,
-                mandatoryCapacity: {
-                    prepareTerminalCapacity(sceneColor: sceneColor,
-                        target: drawable.texture, dynamicValues: frameContext.dynamicValues)
-                    && prepareFramebufferSnapshotCapacity(orderedLayers: orderedLayers,
-                        visible: frameVisibleLayerIDs, framePlans: resolvedMaterialFrameTargetPlans,
-                        imageTextures: imageTextures, frameContext: frameContext,
-                        batches: particleBatchesByID, particlePipeline: particlePipeline,
-                        mainPass: mainPass, groups: compositionGroupRuntime,
-                        utilityExecution: frameProjection.utilityExecution)
-                },
+                mandatoryCapacity: prepareTerminalAndFramebufferCapacity,
                 recordsEvidence: SceneDesktopWallpaperHost.usesDebugEvidenceWindow && frameContext.frameIndex <= 2,
                 cameraFrame: cameraFrame)
         }
@@ -492,31 +493,9 @@ extension SceneMetalRenderer {
             mainPass.closeForOffscreen()
             return .deferred(reasonCode: reason)
         }
-        var preparedEnvironment: SceneFrameTextureResource?
-        if let targets = optionalScratch {
-            var history: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?
-            // The late named-shadow owner prepares its own ordered depth set.
-            // Do not pre-acquire leases that it would replace on this frame.
-            if !preparesNamedModelShadow,
-               hasReadyReflectiveModel || requiresImageReflection(),
-               let pool = offscreenTexturePool,
-               prepareReflectionDepth(),
-               prepareTerminalCapacity(sceneColor: sceneColor, target: drawable.texture,
-                dynamicValues: frameContext.dynamicValues),
-               prepareFramebufferSnapshotCapacity(orderedLayers: orderedLayers,
-                visible: frameVisibleLayerIDs, framePlans: resolvedMaterialFrameTargetPlans,
-                imageTextures: imageTextures, frameContext: frameContext,
-                batches: particleBatchesByID, particlePipeline: particlePipeline,
-                mainPass: mainPass, groups: compositionGroupRuntime,
-                utilityExecution: frameProjection.utilityExecution) {
-                history = sceneColor ?? imageCompositor.resolvedMaterialRuntime?.reserveSceneColor(
-                    pool: pool, width: mainTarget.width, height: mainTarget.height,
-                    frameIndex: frameContext.frameIndex, commandBuffer: commandBuffer, intent: .snapshot)
-            }
-            reflection.admit(targets, sceneColor: history)
-            // history is assigned only after the complete mandatory-capacity gate.
-            if history != nil { preparedEnvironment = reflection.resolve(commandBuffer) }
-        }
+        // The late named-shadow owner prepares its own ordered depth set.
+        let preparesReflection = optionalScratch != nil && !preparesNamedModelShadow
+            && (hasReadyReflectiveModel || requiresImageReflection()) && prepareReflectionDepth()
         func prepareReflectionDepth() -> Bool {
             if let candidates = modelFrame.prepared ?? shadowDrawCandidates(orderedLayers: orderedLayers,
                 visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames,
@@ -545,54 +524,68 @@ extension SceneMetalRenderer {
             mainPass.closeForOffscreen()
             return .deferred(reasonCode: reason)
         }
-        // No coordinator lock is held here. Late named dependencies retain
-        // their ordered preparation; they cannot promise early environment capacity.
-        if let runtime = imageCompositor.resolvedMaterialRuntime {
+        let hasRequiredCapacity = (preparesReflection || hasSourceMaterials)
+            && prepareTerminalAndFramebufferCapacity()
+        func prepareEnvironment() -> Bool {
+            var preparedEnvironment: SceneFrameTextureResource?
+            if let targets = optionalScratch {
+                var history: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?
+                if preparesReflection, hasRequiredCapacity, let pool = offscreenTexturePool {
+                    history = sceneColor ?? runtime?.reserveSceneColor(
+                        pool: pool, width: mainTarget.width, height: mainTarget.height,
+                        frameIndex: frameContext.frameIndex, commandBuffer: commandBuffer, intent: .snapshot)
+                }
+                reflection.admit(targets, sceneColor: history)
+                if history != nil { preparedEnvironment = reflection.resolve(commandBuffer) }
+            }
+            guard let runtime else { return true }
             let atom: SceneFrameTextureLookupStatus = preparedEnvironment.map { .ready($0) } ?? .unavailable
             let snapshot = SceneFrameTextureRegistrySnapshot(frameEpoch: textureRegistry.frameEpoch,
                 frameIndex: frameContext.frameIndex, entries: [.sceneEnvironment: atom])
-            guard runtime.overlayPreparedSceneEnvironment(from: snapshot) else {
-                imageCompositor.recordResolvedMaterialFramePreflightFailure("frame-environment-overlay-rejected")
-                _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
-                return .dropped(reasonCode: "frame-environment-overlay-rejected")
-            }
+            return runtime.overlayPreparedSceneEnvironment(from: snapshot)
         }
+        let demanded: [SceneResolvedMaterialRuntimeBridge.SourceMaterialConsumer] = if let runtime,
+            hasSourceMaterials, hasRequiredCapacity {
+            demandedSourceMaterials(in: runtime)
+        } else { [] }
+        var terminalPins: [SceneOffscreenTexturePool.PinnedTexture]? = []
+        if !demanded.isEmpty, optionalScratch == nil, let terminalExtent {
+            terminalPins = offscreenTexturePool?.reserveCompositionTargets(
+                dimensions: [terminalExtent], commandBuffer: commandBuffer)
+        }
+        let environmentOverlaid: Bool
+        if let runtime, !demanded.isEmpty, let terminalPins {
+            terminalPins.forEach { mainPass.retainCompositionPin($0.pin) }
+            let defersEnvironment = sceneColor == nil && preparesReflection && hasRequiredCapacity
+            let canPrepareSources = defersEnvironment || prepareEnvironment()
 #if DEBUG
-        performanceTelemetry?.beginStage("frame-admission")
+            performanceTelemetry?.beginStage("frame-admission")
 #endif
-
-        // Source evaluation is optional until its complete atom is ready.
-        // Protect graph/display/named-capture capacity first, then replace only
-        // the same unlit source used to prepare the already-reserved requests.
-        if let runtime = imageCompositor.resolvedMaterialRuntime, !runtime.sourceMaterials.isEmpty,
-           prepareTerminalCapacity(sceneColor: sceneColor, target: drawable.texture,
-                dynamicValues: frameContext.dynamicValues),
-           prepareFramebufferSnapshotCapacity(orderedLayers: orderedLayers,
-                visible: frameVisibleLayerIDs, framePlans: resolvedMaterialFrameTargetPlans,
-                imageTextures: imageTextures, frameContext: frameContext,
-                batches: particleBatchesByID, particlePipeline: particlePipeline,
-                mainPass: mainPass, groups: compositionGroupRuntime,
-                utilityExecution: frameProjection.utilityExecution) {
-            let demanded = demandedSourceMaterials(in: runtime)
-            let terminalPins: [SceneOffscreenTexturePool.PinnedTexture]?
-            if !demanded.isEmpty, sceneColor == nil, displayMappingPostProcess != nil {
-                // Reserve the existing neutral composition slot, not the
-                // coordinator's one-shot display-export token. Terminal encode
-                // later claims the same pending-buffer allocation.
-                terminalPins = offscreenTexturePool?.reserveCompositionTargets(
-                    dimensions: [(drawable.texture.width, drawable.texture.height)],
-                    commandBuffer: commandBuffer)
-            } else { terminalPins = [] }
-            if let terminalPins {
-                terminalPins.forEach { mainPass.retainCompositionPin($0.pin) }
-                let originalSources = imageTextures
-                imageTextures = runtime.prepareSourceMaterials(imageTextures: imageTextures,
-                    consumers: demanded, registry: textureRegistry, pool: offscreenTexturePool,
-                    mainPass: mainPass, commandBuffer: commandBuffer)
+            if canPrepareSources, let prepared = runtime.prepareSourceMaterials(imageTextures: imageTextures,
+                consumers: demanded, registry: textureRegistry, pool: offscreenTexturePool,
+                mainPass: mainPass, commandBuffer: commandBuffer,
+                prepareOptionalEnvironment: defersEnvironment ? prepareEnvironment : nil) {
                 preparationRequests = preparationRequests.map { request in
-                    request.replacingSource(original: originalSources, prepared: imageTextures)
+                    request.replacingSource(original: imageTextures, prepared: prepared)
                 }
+                imageTextures = prepared
+                environmentOverlaid = true
+            } else {
+                environmentOverlaid = false
             }
+        } else {
+            environmentOverlaid = prepareEnvironment()
+#if DEBUG
+            performanceTelemetry?.beginStage("frame-admission")
+#endif
+        }
+        guard environmentOverlaid else {
+#if DEBUG
+            performanceTelemetry?.endStage("frame-admission")
+#endif
+            imageCompositor.recordResolvedMaterialFramePreflightFailure("frame-environment-overlay-rejected")
+            _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
+            return .dropped(reasonCode: "frame-environment-overlay-rejected")
         }
 #if DEBUG
         let hubFrameFinalizationStart = ProcessInfo.processInfo.systemUptime

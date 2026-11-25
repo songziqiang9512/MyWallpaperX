@@ -43,7 +43,8 @@ struct SceneOffscreenTextureAllocationCandidate {
                 && targets.first.pixelFormat == pixelFormat
                 && targets.second.width == width && targets.second.height == height
                 && targets.second.pixelFormat == pixelFormat
-                && targets.first.mipmapLevelCount == 1 && targets.second.mipmapLevelCount == 1
+                && targets.first.mipmapLevelCount == intent.mipLevelCount(width: width, height: height)
+                && targets.second.mipmapLevelCount == targets.first.mipmapLevelCount
                 && (intent.needsDisplayScratch(pixelFormat: pixelFormat) ? targets.display.map {
                     $0.width == width && $0.height == height
                         && $0.pixelFormat == pixelFormat && $0.mipmapLevelCount == 1

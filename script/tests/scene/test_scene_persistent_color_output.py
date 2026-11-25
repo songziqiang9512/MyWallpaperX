@@ -84,14 +84,16 @@ final class SceneCompositionGroupFrameRuntime {
         fatalError("terminal fixture must not borrow composition groups")
     }
 }
+struct TerminalSpotLightRuntime { let plansByLayerID: [Int: Bool] }
 struct SceneMetalRenderer {
     let renderDescriptor: TerminalRenderDescriptor
     let imageCompositor: TerminalCompositor
     let bloomPostProcess: SceneBloomPostProcess?
     let displayMappingPostProcess: SceneDisplayMappingPostProcess?
+    var spotLightRuntime: TerminalSpotLightRuntime? { nil }
 }
 '''
-BLIT_FAULT_HEADER = "void MWXArmBlitFault(id<MTLCommandBuffer> buffer, NSUInteger mask);"
+BLIT_FAULT_HEADER = "void MWXArmBlitFault(id<MTLCommandBuffer> buffer, NSUInteger mask); NSUInteger MWXBlitAttempts(void);"
 BLIT_FAULT_SOURCE = r'''
 static id blitBuffer;
 static NSUInteger blitMask, blitAttempts;
@@ -109,6 +111,7 @@ void MWXArmBlitFault(id<MTLCommandBuffer> buffer, NSUInteger mask) {
     blitMask = mask;
     blitAttempts = 0;
 }
+NSUInteger MWXBlitAttempts(void) { return blitAttempts; }
 '''
 
 
@@ -368,14 +371,9 @@ import Metal
             && firstReceipt.commandBufferObservationID == owner.commandBufferRecords[ObjectIdentifier(first.commandBuffer)]!.sourceObservationID
             && firstReceipt.allocationGeneration == first.reservation.lease.targets.identity.generation
             && firstReceipt.resetEpoch == pool.sceneColorResetEpoch
-        let beforeSnapshotCopy = ScenePerformanceCounterHub.shared.snapshot()
         checks["terminalCapturesRaw"] = capture(first) == nil
             && first.reflection.mainSourceCompleted && owner.preparedSceneColor?.snapshotCopied == true
             && owner.preparedSceneColor?.displayMapped == nil
-        let afterSnapshotCopy = ScenePerformanceCounterHub.shared.snapshot()
-        checks["snapshotCountsActualEncodedCopy"] = afterSnapshotCopy[.textureCopyPasses, default: 0]
-            - beforeSnapshotCopy[.textureCopyPasses, default: 0] == 1
-            && afterSnapshotCopy[.textureCopyBytes, default: 0] - beforeSnapshotCopy[.textureCopyBytes, default: 0] == 64
         checks["pendingCannotPublishHistory"] = seal(first) && owner.completedSceneColor == nil
             && owner.pendingSubmissions.count == 1 && owner.shouldDeferFrame
         checks["firstGPUCompleted"] = complete(first)
@@ -390,18 +388,17 @@ import Metal
         checks["completedRawIsFrozenBeforeCurrentDraw"] = second.reservation.previous === first.reservation.raw
             && second.reservation.previousReceipt == firstReceipt
             && second.reservation.member != first.reservation.member && second.reservation.requiresDraw
-        let beforeEnvironmentCopy = ScenePerformanceCounterHub.shared.snapshot()
         let a = second.reflection.resolve(second.commandBuffer)!
-        let afterEnvironmentCopy = ScenePerformanceCounterHub.shared.snapshot()
-        checks["environmentCountsBaseLevelLogicalCopy"] = afterEnvironmentCopy[.textureCopyPasses, default: 0]
-            - beforeEnvironmentCopy[.textureCopyPasses, default: 0] == 1
-            && afterEnvironmentCopy[.textureCopyBytes, default: 0] - beforeEnvironmentCopy[.textureCopyBytes, default: 0] == 64
+        checks["environmentReusesPreviousWithoutSeparateTexture"] =
+            a.publication.texture === first.reservation.raw
+            && a.publication.texture !== second.reservation.raw
+            && pool.allocationCache.allocation(for: .environment(width: 4, height: 2)) == nil
         checks["fullRealMipChain"] = a.publication.texture.mipmapLevelCount == 3
         checks["typedPublicationPreservesProducer"] = a.publication.isComplete
             && a.publication.requestIdentity == .sceneEnvironment && a.publication.contentGeneration == 102
             && a.publication.candidate.identity == .provider(.sceneEnvironment(frameEpoch: 102,
                 allocationGeneration: a.resourceGeneration, source: firstReceipt))
-            && a.resourceGeneration == pool.allocationCache.allocation(for: .environment(width: 4, height: 2))?.generation
+            && a.resourceGeneration == firstReceipt.allocationGeneration
             && a.publication.texture.width == 4 && a.publication.texture.height == 2
             && firstReceipt.frameEpoch != a.publication.contentGeneration
         let beforeSuffix = sample(a, on: second.commandBuffer)
@@ -414,8 +411,6 @@ import Metal
             cb.makeRenderCommandEncoder(descriptor: clear)!.endEncoding()
         }
         let again = second.reflection.resolve(second.commandBuffer)!
-        checks["reusedEnvironmentDoesNotCountNewCopy"] = ScenePerformanceCounterHub.shared.snapshot()[.textureCopyPasses]
-            == afterEnvironmentCopy[.textureCopyPasses]
         checks["sameCommandBufferConsumersShareAtom"] = a.publication.isSameAtom(as: again.publication)
             && a.publication.texture === again.publication.texture && a.resourceGeneration == again.resourceGeneration
         checks["foreignCommandBufferCannotRead"] = second.reflection.resolve(queue.makeCommandBuffer()!) == nil
@@ -436,7 +431,8 @@ import Metal
         let third = prepare(2, 103, main: texture(color: [7, 0, 0, 1]))
         let blue = third.reflection.resolve(third.commandBuffer)!
         let nextSample = sample(blue, on: third.commandBuffer)
-        checks["completionAllowsMipStorageReuse"] = blue.publication.texture === a.publication.texture
+        checks["nextCompletionDerivesMipsOnTheOtherMember"] = blue.publication.texture !== a.publication.texture
+            && blue.publication.texture === second.reservation.raw
             && blue.publication.contentGeneration == 103
             && blue.publication.candidate.identity == .provider(.sceneEnvironment(frameEpoch: 103,
                 allocationGeneration: blue.resourceGeneration, source: secondReceipt))
@@ -461,11 +457,9 @@ import Metal
             && abandoned.commandBuffer.status == .notEnqueued
 
         let failedMip = prepare(3, 105, main: texture(color: [8, 0, 0, 1]))
-        let beforeFailedCopy = ScenePerformanceCounterHub.shared.snapshot()[.textureCopyPasses]
         MWXArmBlitFault(failedMip.commandBuffer, 1)
         let missing = failedMip.reflection.resolve(failedMip.commandBuffer)
         MWXArmBlitFault(failedMip.commandBuffer, 0)
-        checks["failedBlitDoesNotCountEncodedCopy"] = ScenePerformanceCounterHub.shared.snapshot()[.textureCopyPasses] == beforeFailedCopy
         checks["failedMipAttemptIsNotRetried"] = missing == nil
             && failedMip.reflection.resolve(failedMip.commandBuffer) == nil
         checks["failedMipStillAllowsTerminalCapture"] = capture(failedMip) == nil && seal(failedMip)
@@ -487,8 +481,8 @@ import Metal
         checks["resetCandidateWasReallySealed"] = capture(reset) == nil && seal(reset)
         reset.reflection.arm()
         owner.invalidate(reason: .allocationReprepare); pool.reset()
-        // 2 raw x 4x2x8 + mandatory 4x2x8 + mip (8+2+1)x8.
-        checks["resetRetainsAllInFlightPins"] = pool.residentByteCost == 280
+        // Two mip chains plus mandatory 4×2 scratch.
+        checks["resetRetainsAllInFlightPins"] = pool.residentByteCost == 2 * (8 + 2 + 1) * 8 + 8 * 8
             && owner.completedSceneColor == nil
         checks["resetBufferReallyCompletes"] = complete(reset, alreadyArmed: true)
         checks["resetCompletionCannotPromoteAndReleasesPins"] = owner.completedSceneColor == nil
@@ -500,7 +494,7 @@ import Metal
             && cancelledReset.reservation.producerReceipt.resetEpoch != latestReceipt.resetEpoch
         checks["cancelResetCandidateWasReallySealed"] = capture(cancelledReset) == nil && seal(cancelledReset)
         pool.reset()
-        checks["unsubmittedCommandsRemainPinned"] = pool.residentByteCost == 192
+        checks["unsubmittedCommandsRemainPinned"] = pool.residentByteCost == 2 * (8 + 2 + 1) * 8 + 8 * 8
         cancelledReset.reflection.cancel(); owner.cancelUnsubmittedFrame(on: cancelledReset.commandBuffer)
         cancelledReset.reflection.cancel(); owner.cancelUnsubmittedFrame(on: cancelledReset.commandBuffer)
         checks["cancelResetReleasesExactlyOnce"] = pool.residentByteCost == 0

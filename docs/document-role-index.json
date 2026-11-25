@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6477dd577ff7fce6ecdea8be420a03b427665bbbe2cef87dcd10a9a4140d23e6",
+        "sourceSHA256": "06be888a6684c31184546b3a596658887a76b500c9fd091b8b321d384c2f4fd4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "将画质阶数引到实际 PSO 冷准备 owner",
-        "limitations": "单 M4 的签名 Debug、取证限制在现役工作卡"
+        "scope": "从画质控制定位反射帧相序、快照编码和纹理准入",
+        "limitations": "保原入口的同一质量意图"
       }
     },
     {
@@ -347,10 +347,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "49774c70252a5b48f1c17b59ac3addc63592d6d1380063aa32e87873f2b78240",
+        "sourceSHA256": "ce3b72769908bae09616e65f48cd0da85a2534a03f6ce7d4584ea8c72f0d707f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "官版体积档静态解析、随包采样、渲染目标与本项目低档试验取舍",
-        "limitations": "未运行此次官版单档 A/B，未证明对象搬运或实际纹理尺寸"
+        "scope": "反射算法、共享消费者、可选快照与必需累积的不同成本",
+        "limitations": "设备流量与耗电另验"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cf7c0f62d585eca4b423937a766ca8cad5e54c5a0592f19b93976cd982eb41ca",
+        "sourceSHA256": "90e3ceda254ed6b37401d02fed39cae4c4939593e16172c8c82f57f56ef88e3c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "已交付后处理显示档和原作者 SDR/HDR 的实际 XDR WindowServer 输出",
-        "limitations": "实测单内屏冷启动；面板光度、混屏及实机热切未测"
+        "scope": "签名两个真实作者和紧预算四臂的真实复制、可见画面、恢复及原生生命周期",
+        "limitations": "短 GPU 窗，未量长稳与功耗"
       }
     },
     {
@@ -855,10 +855,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7bec32c1a895b1d2d48fb6e87114f5f8492d93d8601164e6a369df5dd4ff879b",
+        "sourceSHA256": "85b771d78f32afcc16d256e8920a51233af889054c0e3252aac10bddb42090d5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "补同一 PSO 槽内的原尺寸六点与有效回退",
-        "limitations": "单 M4 的签名 Debug、取证限制在现役工作卡"
+        "scope": "可选反射的已完成快照、一次 mip 和独立基础材质优先相序",
+        "limitations": "保原必需累积路径；资源预算结论以签名和原生验证为准"
       }
     },
     {

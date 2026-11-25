@@ -339,8 +339,8 @@ nonisolated struct SceneFrameTextureResource {
     }
 
     /// A submission-local mip derivation of completed raw scene color. The
-    /// completion owner supplies the source identity; this frame's copy and
-    /// mip-generation commands must precede reads on the same submission.
+    /// completion owner supplies the source identity; this frame's mip
+    /// preparation must precede reads on the same submission.
     static func sameFrameEnvironment(
         frameEpoch: UInt64, allocationGeneration: UInt64, texture: MTLTexture,
         source: SceneCompletedColorSourceIdentity

@@ -256,15 +256,8 @@ final class SceneOffscreenTexturePool {
                 width: width, height: height, mipmapped: mipmapped)
             descriptor.storageMode = .private
             descriptor.usage = [.shaderRead, .renderTarget]
-            var cost = 0, w = width, h = height
-            for _ in 0..<descriptor.mipmapLevelCount {
-                let (pixels, pixelOverflow) = w.multipliedReportingOverflow(by: h)
-                let (level, byteOverflow) = pixels.multipliedReportingOverflow(by: bytesPerPixel)
-                guard !pixelOverflow, !byteOverflow else { return nil }
-                let (next, overflow) = cost.addingReportingOverflow(level)
-                guard !overflow else { return nil }
-                cost = next; w = max(1, w / 2); h = max(1, h / 2)
-            }
+            guard let cost = byteCost(width: width, height: height,
+                levels: descriptor.mipmapLevelCount, bytesPerPixel: bytesPerPixel) else { return nil }
             descriptors[key] = descriptor; costs[key] = cost
         }
         let planned: (revision: UUID, missing: Set<CacheKey>)? = allocationCache.locked {
@@ -698,13 +691,21 @@ final class SceneOffscreenTexturePool {
         persistentPlansMemo.removeAll(keepingCapacity: true)
     }
 
-    func byteCost(width: Int, height: Int, textureCount: Int) -> Int? {
-        let (pixels, pixelOverflow) = width.multipliedReportingOverflow(by: height)
-        guard !pixelOverflow else { return nil }
-        let (bytes, byteOverflow) = pixels.multipliedReportingOverflow(by: backbufferFormat.logicalBytesPerPixel)
-        guard !byteOverflow else { return nil }
-        let (total, totalOverflow) = bytes.multipliedReportingOverflow(by: textureCount)
-        return totalOverflow ? nil : total
+    func byteCost(width: Int, height: Int, textureCount: Int = 1, levels: Int = 1,
+                  bytesPerPixel: Int? = nil) -> Int? {
+        let pixelBytes = bytesPerPixel ?? backbufferFormat.logicalBytesPerPixel
+        var cost = 0, w = width, h = height
+        for _ in 0..<levels {
+            let (pixels, pixelOverflow) = w.multipliedReportingOverflow(by: h)
+            let (level, byteOverflow) = pixels.multipliedReportingOverflow(by: pixelBytes)
+            let (next, overflow) = cost.addingReportingOverflow(level)
+            guard !pixelOverflow, !byteOverflow, !overflow else { return nil }
+            cost = next
+            w = max(1, w / 2)
+            h = max(1, h / 2)
+        }
+        let (total, overflow) = cost.multipliedReportingOverflow(by: textureCount)
+        return overflow ? nil : total
     }
 
 }

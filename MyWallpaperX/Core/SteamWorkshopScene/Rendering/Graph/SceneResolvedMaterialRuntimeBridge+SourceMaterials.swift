@@ -81,19 +81,20 @@ extension SceneResolvedMaterialRuntimeBridge {
         return .init(layerID: layerID, prototypeLayerID: prototype)
     }
 
-    /// Produces source atoms before any graph request freezes its inputs.
-    /// The same MainPass submission owner retains all writes, including writes
-    /// whose subsequent publication fails. There is no persistent source cache.
+    /// A deferred optional environment lets independent outputs take their
+    /// leases first. Both phases read the original source images.
     func prepareSourceMaterials(
         imageTextures: SceneBaseImageTextureSnapshot,
         consumers: [SourceMaterialConsumer],
         registry: SceneFrameTextureRegistry,
         pool: SceneOffscreenTexturePool?,
         mainPass: SceneMainPassEncoder,
-        commandBuffer: MTLCommandBuffer
-    ) -> SceneBaseImageTextureSnapshot {
-        guard !sourceMaterials.isEmpty, let pool,
-              let encoder = submissions.executor?.materialEncoder else { return imageTextures }
+        commandBuffer: MTLCommandBuffer,
+        prepareOptionalEnvironment: (() -> Bool)?
+    ) -> SceneBaseImageTextureSnapshot? {
+        guard let pool, let encoder = submissions.executor?.materialEncoder else {
+            return prepareOptionalEnvironment?() == false ? nil : imageTextures
+        }
         submissions.lock.lock()
         let canPrepare = submissions.frameIsActive && !submissions.framePreparationComplete
             && !submissions.frameRequiresDrop && submissions.frameFailure == nil
@@ -101,47 +102,49 @@ extension SceneResolvedMaterialRuntimeBridge {
         let original = canPrepare ? submissions.frame : nil
         submissions.lock.unlock()
         guard let original, original.frameIndex == registry.frameIndex,
-              original.textureRegistrySnapshot.frameEpoch == registry.frameEpoch else { return imageTextures }
+              original.textureRegistrySnapshot.frameEpoch == registry.frameEpoch else {
+            return prepareOptionalEnvironment?() == false ? nil : imageTextures
+        }
         var sources: [Int: SceneLayerSourcePublication] = [:]
-        let groups = Dictionary(grouping: consumers, by: \.prototypeLayerID)
-        for layerID in groups.keys.sorted() {
-            let layerIDs = (groups[layerID] ?? []).map(\.layerID).filter {
-                guard let base = imageTextures[$0] else { return false }
-                return imageTextures.candidate(for: $0, matching: base) != nil
+        func encodeSource(layerID: Int, consumers: [SourceMaterialConsumer],
+                          material: PreparedSourceMaterial, frame: SceneResolvedMaterialFrameSnapshot) {
+            let layerIDs = consumers.compactMap { consumer -> Int? in
+                let id = consumer.layerID
+                guard let base = imageTextures[id],
+                      imageTextures.candidate(for: id, matching: base) != nil else { return nil }
+                return id
             }
-            guard !layerIDs.isEmpty,
-                  let material = sourceMaterials[layerID], material.pixelFormat == pool.pixelFormat else { continue }
+            guard !layerIDs.isEmpty else { return }
             let sourceCandidate: SceneTextureCandidate?
             switch material.outputDomain {
             case let .sampledAsset(identity):
-                sourceCandidate = original.textureRegistrySnapshot.resource(for: .asset(identity))?
+                sourceCandidate = frame.textureRegistrySnapshot.resource(for: .asset(identity))?
                     .publication.candidate
             case .baseImage:
                 sourceCandidate = imageTextures[layerID].flatMap {
                     imageTextures.candidate(for: layerID, matching: $0)
                 }
             case .capturedMain:
-                continue // Its source exists only at the authored layer-loop boundary.
+                return // Its source exists only at the authored layer-loop boundary.
             }
             guard let sourceCandidate,
                   sourceCandidate.axisAlignedSourceUVTransform() != nil,
                   !sourceCandidate.isSpriteSheet,
                   let target = pool.reserveSourceMaterial(layerID: layerID,
                     width: sourceCandidate.texture.width, height: sourceCandidate.texture.height,
-                    commandBuffer: commandBuffer) else { continue }
+                    commandBuffer: commandBuffer) else { return }
             let size = CGSize(width: target.texture.width, height: target.texture.height)
-            let input = original.finalizationInput(layerID: layerID,
+            let input = frame.finalizationInput(layerID: layerID,
                 renderSize: size,
                 modelViewProjection: SceneResolvedMaterialGraphExecutor.fullTargetMVP(target.texture),
                 layerModelMatrix: matrix_identity_float4x4,
                 effectOutputModelViewProjection: matrix_identity_float4x4,
                 effectTextureProjectionMatrixInverse: matrix_identity_float4x4)
             let finalized = material.bindFrame(input)
-            if case let .failure(failure) = finalized, original.frameIndex <= 2 {
+            if case let .failure(failure) = finalized, frame.frameIndex <= 2 {
 #if DEBUG
                 submissions.logSink("source material frame rejected: layer=\(layerID) reason=\(failure)")
 #endif
-
             }
             guard case let .success(program) = finalized,
                   material.outputDomain.matchesSampledSource(program),
@@ -149,12 +152,13 @@ extension SceneResolvedMaterialRuntimeBridge {
                   pass.storedContent == .color(.resolved(.premultipliedAlpha))
                     || pass.storedContent == .color(.resolved(.straightAlpha))
                     || pass.storedContent == .color(.resolved(.opaque)) else {
-                target.pin.release(); continue
+                target.pin.release()
+                return
             }
             // A write can remain in a command buffer even if a later atom
             // validation fails; only submission completion/cancellation releases it.
             mainPass.retainCompositionPin(target.pin)
-            guard encoder.encode(pass, commandBuffer: commandBuffer) else { continue }
+            guard encoder.encode(pass, commandBuffer: commandBuffer) else { return }
             for consumerID in layerIDs {
                 let candidate = SceneTextureCandidate(texture: target.texture,
                     identity: .provider(.materialSource(layerID: consumerID,
@@ -173,16 +177,43 @@ extension SceneResolvedMaterialRuntimeBridge {
                     textPlacement: imageTextures.layerSourceTextPlacement(for: consumerID)) else { continue }
                 sources[consumerID] = source
             }
-            if original.frameIndex <= 2 {
+            if frame.frameIndex <= 2 {
 #if DEBUG
-                submissions.logSink("source material encoded: layer=\(layerID) frame=\(original.frameIndex) consumers=\(layerIDs.count) target=\(target.texture.width)x\(target.texture.height)")
+                submissions.logSink("source material encoded: layer=\(layerID) frame=\(frame.frameIndex) consumers=\(layerIDs.count) target=\(target.texture.width)x\(target.texture.height)")
 #endif
-
             }
         }
+        let groups = Dictionary(grouping: consumers, by: \.prototypeLayerID)
+        var environmentGroups: [(layerID: Int, consumers: [SourceMaterialConsumer], material: PreparedSourceMaterial)] = []
+        for layerID in groups.keys.sorted() {
+            guard let consumers = groups[layerID], let material = sourceMaterials[layerID],
+                  material.pixelFormat == pool.pixelFormat else { continue }
+            if prepareOptionalEnvironment != nil, material.requiresSceneEnvironment {
+                environmentGroups.append((layerID, consumers, material))
+            } else {
+                encodeSource(layerID: layerID, consumers: consumers, material: material, frame: original)
+            }
+        }
+        let publicationFrame: SceneResolvedMaterialFrameSnapshot
+        if let prepareOptionalEnvironment {
+            guard prepareOptionalEnvironment() else { return nil }
+            guard !sources.isEmpty || !environmentGroups.isEmpty else { return imageTextures }
+            submissions.lock.lock()
+            let overlaid = submissions.frame
+            submissions.lock.unlock()
+            guard let overlaid, overlaid.frameIndex == original.frameIndex,
+                  overlaid.textureRegistrySnapshot.frameEpoch == original.textureRegistrySnapshot.frameEpoch
+            else { return imageTextures }
+            for group in environmentGroups {
+                encodeSource(layerID: group.layerID, consumers: group.consumers, material: group.material, frame: overlaid)
+            }
+            publicationFrame = overlaid
+        } else {
+            publicationFrame = original
+        }
         guard !sources.isEmpty,
-              let textures = original.textureRegistrySnapshot.overlayingLayerSources(sources),
-              let updated = original.replacingTextureSnapshot(textures) else { return imageTextures }
+              let textures = publicationFrame.textureRegistrySnapshot.overlayingLayerSources(sources),
+              let updated = publicationFrame.replacingTextureSnapshot(textures) else { return imageTextures }
         submissions.lock.lock()
         let canPublish = submissions.frameIsActive && !submissions.framePreparationComplete
             && !submissions.frameRequiresDrop && submissions.frameFailure == nil

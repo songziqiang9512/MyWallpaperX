@@ -98,39 +98,50 @@ extension SceneMetalRenderer {
             guard actual === commandBuffer, scratchReady else { return nil }
             if attempted { return resource }
             attempted = true
-            guard let source = history?.previous, let sourceIdentity = history?.previousReceipt else {
+            guard let history, let source = history.previous, let sourceIdentity = history.previousReceipt else {
                 return nil
             }
-            let extent = mainPass.targetExtent
-            guard let reserved = pool?.reserveEnvironment(width: extent.width, height: extent.height,
-                commandBuffer: commandBuffer) else { return nil }
-            // Encoding a copy already creates an in-flight writer, even if
-            // publication or the eventual receiver subsequently fails.
-            pins.append(reserved.pin)
+            let target: MTLTexture, generation: UInt64
+            let copiesBase = history.intent == .persistence
+            if copiesBase {
+                let extent = mainPass.targetExtent
+                guard let reserved = pool?.reserveEnvironment(width: extent.width, height: extent.height,
+                    commandBuffer: commandBuffer) else { return nil }
+                pins.append(reserved.pin)
+                target = reserved.texture
+                generation = reserved.pin.generation
+            } else {
+                // The exclusive pair lease pins both the sampled previous member
+                // and the distinct member written by this frame's terminal.
+                target = source
+                generation = history.lease.submission.generation
+            }
             groupRuntime?.closeAllGroupEncoders()
-            let copied = mainPass.encodeOffscreen { buffer in
+            let encoded = mainPass.encodeOffscreen { buffer in
                 #if DEBUG
-                let timestampEncoder = SceneGPUStageTimestampHook.blit(buffer, role: "reflection-copy")
+                let timestampEncoder = SceneGPUStageTimestampHook.blit(buffer,
+                    role: copiesBase ? "reflection-copy" : "reflection-mip")
                 #else
                 let timestampEncoder = buffer.makeBlitCommandEncoder()
                 #endif
                 guard let blit = timestampEncoder else { return false }
-                blit.copy(from: source, sourceSlice: 0, sourceLevel: 0,
-                    sourceOrigin: MTLOriginMake(0, 0, 0),
-                    sourceSize: MTLSizeMake(source.width, source.height, 1),
-                    to: reserved.texture, destinationSlice: 0, destinationLevel: 0,
-                    destinationOrigin: MTLOriginMake(0, 0, 0))
-#if DEBUG
+                if copiesBase {
+                    blit.copy(from: source, sourceSlice: 0, sourceLevel: 0,
+                        sourceOrigin: MTLOriginMake(0, 0, 0),
+                        sourceSize: MTLSizeMake(source.width, source.height, 1),
+                        to: target, destinationSlice: 0, destinationLevel: 0,
+                        destinationOrigin: MTLOriginMake(0, 0, 0))
+                    #if DEBUG
                     SceneGPUCensus.recordTextureCopy(texture: source)
-#endif
-                if reserved.texture.mipmapLevelCount > 1 { blit.generateMipmaps(for: reserved.texture) }
+                    #endif
+                }
+                if target.mipmapLevelCount > 1 { blit.generateMipmaps(for: target) }
                 blit.endEncoding()
                 return true
             }
-            guard copied == true else { return nil }
+            guard encoded == true else { return nil }
             resource = .sameFrameEnvironment(frameEpoch: frameEpoch,
-                allocationGeneration: reserved.pin.generation, texture: reserved.texture,
-                source: sourceIdentity)
+                allocationGeneration: generation, texture: target, source: sourceIdentity)
             return resource
         }
 

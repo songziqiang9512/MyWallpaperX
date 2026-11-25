@@ -141,7 +141,10 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 <a id="scene-volume-lighting-policy"></a>
 体积照明沿同一 Scene 准备请求生效，已显示会话保本代资源直到重载。禁用退出点光、专用遮挡深度和聚光锥的 Plan、PSO 及主域／组域绘制。高档保旧 `enabled`，沿现有点光 PSO 槽采用四点。超高冷准备六点，创建失败沿同一槽退四点，聚光仍沿原作者几何。点光按实际相机射线与目标像素尺寸求保守光球投影并集，空范围退出遮挡重放，有界时收紧一次原尺寸积分的 scissor。眼内与跨近面走全屏。主相机深度、表面光、作者阴影、父组程式与具名输出各走原链。 [点光合同](../capabilities/advanced-object-coverage.md#point-light-volume) · [聚光合同](../capabilities/advanced-object-coverage.md#spot-light-frame)
 
+<a id="scene-reflection-quality-policy"></a>
 场景反射档在冷准备选择可选模型反射管线和普通图像的默认屏幕反射。关闭时保模型材质声明与原 HDR 发光、颜色和深度。普通图像的原 [光照 profile](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialLightingProfile.swift) 供直绘与基础图像捕获，共用作者 alpha、直接光及剩余有效纹理需求。作者 Program 的显式环境输入沿原资格供货。Shader 声明默认环境槽的基础材质随实际消费者准备，复用原前后帧颜色。具名模型源晚到时，独立环境消费者可用原根深度预约，无需可选反射模型作为许可。无其它环境需求时，模型关档退出原可选快照和 mip 工作，持久 raw、终端完成及具名输出继续由原提交 owner 管理。 [反射合同](../capabilities/advanced-object-coverage.md#static-model-screen-reflection)
+
+可选环境使用原提交 owner 的完成快照双缓冲。收尾写当前成员的第零级，消费端只在上一已完成成员生成一次 mip，按原源收据在同一提交供图像、模型和作者 Program。原池按双成员的完整 mip 计费。有效的可选快照在独立基础材质实际输出之后取得租约，有环境依赖的基础材质随后编码，两组共用原输入与一次发布。必需的累积 raw 保单级并沿原独立环境副本派生。 [预算与相序验证](../../development/wallpaper-quality-work-card.md#scene-reflection-snapshot-mips)
 
 <a id="scene-frame-rate-policy"></a>
 App 以 10–120 整数保存动画帧率，Scene 启动和热更新沿原数值 IPC。现有目标屏拓扑同时记录当前显示模式的小数刷新率。单屏和同频屏按当前模式限制，不同频或未知模式采用共同保守上限，最多 60。仅刷新率变化时重排原 timer，保候选身份和原 Surface。设置显示已确认会话的生效值，尚未接管时显示当前配置能预测的上限。 [活动及候选会话](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift) 各接收同一请求，活动会话重排原 timer，不更换作者时钟。过载找下一未来槽，暂停首帧保原有界准入。粒子沿原 1／60 秒固定步进，在正常低帧率期间按该会话有效间隔调节过载上限。

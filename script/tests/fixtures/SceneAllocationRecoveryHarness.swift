@@ -70,7 +70,7 @@ import Metal
     static func pressure(_ device: MTLDevice, _ queue: MTLCommandQueue,
                          kind: Kind, wide: Bool, snapshot: Bool) -> [String: Any] {
         let f = format(kind)
-        let d = descriptor(kind == .shadow ? .depth32Float : f, 512, 256, mipmapped: kind == .environment)
+        let d = descriptor(kind == .shadow ? .depth32Float : f, 512, 256, mipmapped: kind == .environment || kind == .snapshot)
         let charge = device.heapTextureSizeAndAlign(descriptor: d).size * count(kind)
         let pool = SceneOffscreenTexturePool(device: device, pixelFormat: f,
             residentByteBudget: logical(d) * count(kind) * (wide ? 16 : 1))

@@ -6,6 +6,10 @@ extension SceneOffscreenTexturePool {
         case persistence
         case snapshot
 
+        func mipLevelCount(width: Int, height: Int) -> Int {
+            self == .snapshot ? Int.bitWidth - max(width, height).leadingZeroBitCount : 1
+        }
+
         func needsDisplayScratch(pixelFormat: MTLPixelFormat) -> Bool {
             self == .persistence && pixelFormat == .rgba16Float
         }
@@ -56,23 +60,23 @@ extension SceneOffscreenTexturePool {
         intent: SceneColorIntent = .persistence,
         textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)? = nil
     ) -> SceneColorLease? {
-        let needsDisplayScratch = intent.needsDisplayScratch(pixelFormat: pixelFormat)
-        let textureCount = needsDisplayScratch ? 3 : 2
         guard width > 0, height > 0, width <= maxDimension, height <= maxDimension,
-              [.bgra8Unorm, .rgba8Unorm, .rgba16Float].contains(pixelFormat),
-              let cost = byteCost(width: width, height: height, textureCount: textureCount),
-              cost <= residentByteBudget else { return nil }
+              [.bgra8Unorm, .rgba8Unorm, .rgba16Float].contains(pixelFormat) else { return nil }
         let key = CacheKey.sceneColor(width: width, height: height,
                                       pixelFormat: pixelFormat, intent: intent)
         if allocationCache.allocation(for: key) == nil {
+            let needsDisplayScratch = intent.needsDisplayScratch(pixelFormat: pixelFormat)
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: pixelFormat, width: width, height: height, mipmapped: false)
+            descriptor.mipmapLevelCount = intent.mipLevelCount(width: width, height: height)
+            guard let cost = byteCost(width: width, height: height, textureCount: needsDisplayScratch ? 3 : 2,
+                levels: descriptor.mipmapLevelCount), cost <= residentByteBudget else { return nil }
             guard var expectedRevision = allocationCache.locked({ () -> UUID? in
                 var proposed = allocationCache.residents
                 guard allocationCache.evictToFit(&proposed, incomingCost: cost,
                     protected: [key]) else { return nil }
                 return allocationCache.revision
             }) else { return nil }
-            let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-                pixelFormat: pixelFormat, width: width, height: height, mipmapped: false)
             descriptor.storageMode = .private
             descriptor.usage = [.shaderRead, .renderTarget]
             let factory = textureFactory ?? { [device] in
