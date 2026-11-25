@@ -21,6 +21,7 @@ import os
 import hashlib
 import json
 import pathlib
+import platform
 import subprocess
 import tempfile
 import unittest
@@ -37,6 +38,7 @@ FADING_SCROLL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/InspectorFading
 FOOTER_METRICS_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/InspectorFooterMetrics.swift"
 INSPECTOR_SUPPORT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorSupport.swift"
 INSPECTOR_VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorView.swift"
+METADATA_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift"
 PROVIDER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridSupport.swift"
 PIPELINE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+CachePipeline.swift"
 MANAGER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager.swift"
@@ -48,7 +50,10 @@ INSPECTOR_SOURCES = [VIDEO_WALLPAPER_SOURCE,
     DECODER_SOURCE,
     REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/DecodedThumbnailMemoryCache.swift", THUMBNAIL_CACHE_SOURCE,
     FADING_SCROLL_SOURCE, FOOTER_METRICS_SOURCE, REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/InspectorBadgeView.swift",
-    INSPECTOR_SUPPORT_SOURCE, INSPECTOR_VIEW_SOURCE, REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/WallpaperInspectorActions.swift",
+    INSPECTOR_SUPPORT_SOURCE, INSPECTOR_VIEW_SOURCE, METADATA_SOURCE,
+    REPOSITORY_ROOT / "MyWallpaperX/Shared/WallpaperVideoTrackDetails.swift",
+    REPOSITORY_ROOT / "script/tests/fixtures/VideoTrackMetadataFixtures.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/WallpaperInspectorActions.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/FinderRevealCoordinator.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Shared/Components/WallpaperLibraryControlStyle.swift",
     INSPECTOR_HARNESS_SOURCE, REPOSITORY_ROOT / "script/tests/fixtures/VideoInspectorHostBackfillChecks.swift",
@@ -67,6 +72,8 @@ def prepare_inspector_sources(workdir: pathlib.Path, *, observe: bool = True) ->
         content = source.read_text()
         if source == TOOLBAR_SOURCE:
             content = "import AppKit\n" + declaration(content, "protocol ToolbarGridScrollDismissalSurface:")
+        elif source == METADATA_SOURCE:
+            content = content.replace("func loadWallpaperInspectorDetails(", "func loadActualWallpaperInspectorDetails(", 1)
         elif source == HOST_VIEW_SOURCE and observe:
             entry = declaration(content, "    func configure(request: InspectorHostRequest?")
             content = content.replace(entry, entry.replace("{\n", "{\n        InspectorContentBuildProbe.hostConfigurations += 1\n", 1), 1)
@@ -162,6 +169,8 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
                 "s17-later-identical-model-publication-still-refreshes-external-assets",
                 "s18-identical-publication-detects-actual-source-removal",
                 "s18-identical-publication-clears-notice-after-source-recovery",
+                "s18-source-recovery-restarts-inflight-metadata",
+                "s18-only-recovered-metadata-can-publish",
                 "s10-missing-preview-message-fits-without-covering-its-placeholder",
                 "s10-preview-constraints-do-not-grow-on-metadata-or-source-echoes",
                 "s10-metadata-and-missing-preview-keep-native-preview-frame",
@@ -192,13 +201,23 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
                 "s12-completed-remount-keeps-current-image-without-new-demand-or-decoding",
                 "s12-released-view-cancels-its-registered-consumer",
                 "s13-first-mount-does-not-duplicate-inflight-metadata",
-                "s13-pending-metadata-remount-restarts-and-reaches-final-values",
+                "s13-pending-metadata-remount-restarts",
                 "s13-completed-metadata-remount-does-not-reread",
                 "s15-unrelated-manager-change-does-not-rewrite-footer",
                 "s15-identical-library-publish-does-not-rewrite-footer",
                 "s15-injected-playing-favorite-and-permissions-update-native-footer",
                 "s15-stopped-and-disabled-footer-restores-icons-and-refuses-actions",
             )
+            if int(platform.mac_ver()[0].split(".")[0]) >= 26:
+                required_scenarios += (
+                    "s19-mounted-inspector-reads-first-real-h264-track",
+                    "s19-same-real-source-reports-missing-before-recovery",
+                    "s19-mounted-inspector-updates-to-restored-h264-track",
+                    "s19-unchanged-source-and-remount-reuse-recovered-track",
+                    "s19-initially-missing-source-settles-with-notice",
+                    "s19-initially-missing-source-recovers-real-track",
+                    "s19-read-in-progress-observes-restored-source-before-next-publication",
+                )
             results: dict[str, str] = {}
             for line in run.stdout.splitlines():
                 parts = line.split()
@@ -245,6 +264,7 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
             run = run_native_app(binary, [str(work), "--host-backfill"], timeout=25)
             self.assertEqual(run.launch_returncode, 0, run.stdout + run.stderr)
             self.assertNotRegex(run.stderr, r"Unable to simultaneously satisfy constraints|Unsatisfiable constraints")
+            self.assertTrue(run.stdout.strip(), run.stderr)
             facts = json.loads(run.stdout)
             print("VIDEO HOST BACKFILL " + json.dumps(facts, sort_keys=True))
             self.assertTrue(facts["checks"], run.stdout + run.stderr)

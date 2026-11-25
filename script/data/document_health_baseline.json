@@ -6,7 +6,7 @@
   "bodies": {
     "docs/architecture/appkit-migration.md": {
       "lines": 216,
-      "bytes": 25201
+      "bytes": 25405
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
       "lines": 50,
@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 17335
+      "bytes": 17567
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 358,
-      "bytes": 84619
+      "lines": 367,
+      "bytes": 86336
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 128650
+      "bytes": 128812
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,20 +378,20 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "e51eca615e222947e72f00a3e0fdcb1531a48e15b283233aafef3cfd4620d168",
-      "after": "7af63b4bc09275d15276743c99330437da7bc825a3929d703b2846be3c54c5a1",
+      "before": "7af63b4bc09275d15276743c99330437da7bc825a3929d703b2846be3c54c5a1",
+      "after": "db7ca8be0e0fc80864493335d4af487b9b3eb5f5b7915a98f9414a4ac60615f5",
       "owner": "壁纸质量改造",
-      "reason": "同步体积求积数值退出与当前档位",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-volume-density-arithmetic"
+      "reason": "登记已完成原片恢复和下一批采用时机",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "6decfc73502710171e8549bd64eb7d509172e0a1403b2f4064ee474d1f9a88ab",
-      "after": "79fc267a2b9a809159866d367fc6e5ac00611842ceed6473d96afa7ba6c1eff1",
-      "owner": "repository-map",
-      "reason": "标明完整重置的登录项所有者",
-      "decision": "docs/development/wallpaper-quality-work-card.md#quality-only-import-playback"
+      "before": "79fc267a2b9a809159866d367fc6e5ac00611842ceed6473d96afa7ba6c1eff1",
+      "after": "5bbfd7e285cbcca2f51e3a88caf9ed14764f3be54ffc3df674b38e7531c5712e",
+      "owner": "Video 质量入口",
+      "reason": "补可用性发布到原轨道回显的现役源码入口",
+      "decision": "docs/architecture/repository-map.md#wallpaper-quality"
     },
     {
       "section": "bodies",
@@ -684,11 +684,20 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "3e8ba781ef18a69b38874d7c10e6aa39c72d460a1efda1b3157c0c85cd80d4bc",
-      "after": "8dd1fbc850238b6f92d705586abbbcd0f9d74f8aa9b2590f3c99a68873c8e739",
-      "owner": "Scene 画质算法",
-      "reason": "记录四种固定重参数化求积的数值退出及独立复算",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-reparameterized-quadrature"
+      "before": "8dd1fbc850238b6f92d705586abbbcd0f9d74f8aa9b2590f3c99a68873c8e739",
+      "after": "e5646735754060f200287501cc7259d0a07c508a211d73d3cf43870f9c7ed802",
+      "owner": "壁纸质量改造",
+      "reason": "记录本地 Video Inspector 同路径源恢复的单任务设计与实际轨道验收",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-inspector-source-recovery"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/appkit-migration.md",
+      "before": "e837183ea29c4e646a7e192b21b471648e03fdfc036b337511a216e9efcb6c7b",
+      "after": "bb2ed54842c2bdb56a29a856453daf5e5dc4d25bd4938d4c2bc6f0a6d0cc5272",
+      "owner": "原生详情合同",
+      "reason": "校正同视图恢复的现役元数据与目录发布职责",
+      "decision": "docs/architecture/appkit-migration.md#inspector"
     }
   ]
 }

@@ -45,7 +45,7 @@
 
 - `InspectorHostStore`/request/token拥有当前呈现，Shell承接open、mount与关闭动画；模块提供AppKit `NSView`，不重建第二宿主。
 - App InspectorCoordinator 的显式详情请求可重开同项并复用原token/view；同项selection/catalog回填只更新已有内容与actions，不能复活正在关闭或隐藏的详情。实际来源/视图类型变化仍按原替换路径发open；选中项清空发close。详情动作与网格共用已呈现页面的不可变来源快照，无准备快照沿原fallback（本地page、远程single）；旧action保持原来源，后续render重绑。
-- Shell先确定request与卡片宽度，同Main turn发DidPresent供Coordinator及Steam Browser挂载/首次布局，再开始0.24s滑入；不等异步元数据或图片。Video Core helper同步装完整模板（大小缓存或占位、日期占位），stat/日期/AV由同文件@concurrent准备，原单Task回Main补值并保取消。Video完整正文只建一次，预览/标题/摘要/路径保持节点，终值原位更新；facts标签结构或播放列表名称变化仅替换对应内容，复用Style同步value绑定。原刷新点仍检查源文件缺失/恢复，命令读取保持即时来源，不叠模型缓存。
+- Shell先确定request与卡片宽度，同Main turn发DidPresent供Coordinator及Steam Browser挂载/首次布局，再开始0.24s滑入；不等异步元数据或图片。Video Core helper同步装完整模板（大小缓存或占位、日期占位），stat/日期/AV由同文件@concurrent准备，原单Task回Main补值并保取消。Video完整正文只建一次，预览/标题/摘要/路径保持节点，终值原位更新；facts标签结构或播放列表名称变化仅替换对应内容，复用Style同步value绑定。Video 库发布和重新挂载复查当前源，目录可用性差分独立于 footer 动作入同一视图，直接使用后台结果。源恢复撤销旧读轨并补一次终值，重复动作不复查文件。 [验收](../development/wallpaper-quality-settings-plan.md#video-inspector-source-recovery)
 - Online详情在订阅/session就绪后同步装正文，仅跳snapshot首值；后续同值/新值与progress/session反馈保留。重挂载先准备loading再同步读当前内容，旧error仍由详情成功清除，初始preview/detail顺序保持。
 - 关闭中重开从当前偏移反向，只有原本隐藏才设离屏起点；旧关闭完成受原transition generation约束。DidClose由Shell Main完成回调发出，Coordinator当turn释放；Steam独立close订阅仍排队，token归属不混用。焦点捕获/恢复、356/368宽度及面板UI保持。
 - 共享卡片详情按钮沿原生responder交Shell开关：打开含进入中即发原关闭通知，保Steam浏览页订阅；关闭中沿原来源动作重开。遮罩仅放行背后真实且可用的详情按钮，其余背景/滚动/控件仍沿原规则；不另建toggle状态或每来源转发。独立bar无Shell时调用原打开动作，异步取消、token及内容挂载仍归原owner。

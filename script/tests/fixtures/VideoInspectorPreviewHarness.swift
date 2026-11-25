@@ -3,6 +3,7 @@
 // 5000 个模型与一张 JPEG 不代表完整网格高压。
 
 import AppKit
+import AVFoundation
 import QuartzCore
 import Combine
 import Foundation
@@ -25,24 +26,13 @@ import Foundation
     static var hostConfigurations = 0
 }
 
-struct WallpaperInspectorDetails: Equatable {
-    let fileSizeText: String
-    let formatText: String
-    let durationText: String
-    let codecText: String
-    let resolutionText: String
-    let addedDateText: String
-    let pathText: String
-    var isLoading = false
-    var nominalFrameRateText: String? = nil
-}
-
 @MainActor
 enum InspectorMetadataProbe {
     static var starts: [String: Int] = [:]
     static var terminals: [String: Int] = [:]
     static var heldPaths: Set<String> = []
     static var omittedFacts: Set<String> = []
+    static var actualPaths: Set<String> = []
     static var pending: [String: [CheckedContinuation<Void, Never>]] = [:]
     static func waitIfHeld(_ path: String) async {
         if heldPaths.contains(path) {
@@ -63,6 +53,12 @@ func loadWallpaperInspectorDetails(
     completion: @escaping (WallpaperInspectorDetails) -> Void
 ) -> Task<Void, Never> {
     InspectorMetadataProbe.starts[wallpaper.path, default: 0] += 1
+    if InspectorMetadataProbe.actualPaths.contains(wallpaper.path) {
+        return loadActualWallpaperInspectorDetails(for: wallpaper) { details in
+            if !details.isLoading { InspectorMetadataProbe.terminals[wallpaper.path, default: 0] += 1 }
+            completion(details)
+        }
+    }
     completion(WallpaperInspectorDetails(fileSizeText: "1 MB", formatText: "MP4", durationText: "读取中…",
         codecText: "读取中…", resolutionText: "读取中…", addedDateText: "2026年10月25日 20:30", pathText: wallpaper.path, isLoading: true))
     return Task {
@@ -263,10 +259,12 @@ func firstSubview(of root: NSView, matching test: (NSView) -> Bool) -> NSView? {
     return nil
 }
 
-/// 「未找到缩略图」提示是否可见（面板唯一的预览缺失提示词条）。
+private let missingThumbnailText = String(localized: "No thumbnail found; showing a placeholder preview")
+private let missingSourceText = String(localized: "The source file is missing; details may be out of date.")
+
 private func noticeVisible(in root: NSView) -> Bool {
     firstSubview(of: root) { view in
-        (view as? NSTextField)?.stringValue.contains("未找到缩略图") == true && !view.isHiddenOrHasHiddenAncestor
+        (view as? NSTextField)?.stringValue == missingThumbnailText && !view.isHiddenOrHasHiddenAncestor
     } != nil
 }
 
@@ -424,7 +422,7 @@ enum Harness {
         check(placeholderVisible(in: inspector), "s1-initial-placeholder-visible")
         container.layoutSubtreeIfNeeded()
         let missingSurface = firstSubview(of: inspector) { $0 is VideoLibraryInspectorPreviewSurfaceView }!
-        let missingText = firstSubview(of: missingSurface) { ($0 as? NSTextField)?.stringValue.contains("未找到缩略图") == true }!
+        let missingText = firstSubview(of: missingSurface) { ($0 as? NSTextField)?.stringValue == missingThumbnailText }!
         let missingGlyph = firstSubview(of: missingSurface) { $0 is NSImageView }!
         let textRect = missingText.convert(missingText.bounds, to: missingSurface)
         let glyphRect = missingGlyph.convert(missingGlyph.bounds, to: missingSurface)
@@ -445,9 +443,9 @@ enum Harness {
         container.layoutSubtreeIfNeeded()
         let codecValue = firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "High Efficiency Video Coding Long Value" } as! NSTextField
         let resolutionValue = firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "3840×2160" } as! NSTextField
-        let addedTitle = firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "添加时间" } as! NSTextField
+        let addedTitle = firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == String(localized: "Date Added") } as! NSTextField
         let addedValue = (addedTitle.superview as! NSStackView).arrangedSubviews.last as! NSTextField
-        let metadataTitle = firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "原数据" }!
+        let metadataTitle = firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == String(localized: "Original Data") }!
         let metadataSection = metadataTitle.superview as! NSStackView
         let metadataGrid = metadataSection.arrangedSubviews.last as! NSStackView
         let rows = metadataGrid.arrangedSubviews.map { $0.convert($0.bounds, to: detailDocument) }.sorted { $0.minY < $1.minY }
@@ -656,7 +654,7 @@ enum Harness {
             canFavorite: true, canOrganize: false, playlistNames: ["New Store List"]), onPrimary: { injectedStops += 1 },
             onToggleFavorite: { injectedFavorites += 1 }, onChoosePlaylist: { _ in newMembership += 1 })
         organized.updateLibraryActions(playingActions)
-        let stopTitle = firstSubview(of: primaryControl) { ($0 as? NSTextField)?.stringValue == "停止播放" } != nil
+        let stopTitle = firstSubview(of: primaryControl) { ($0 as? NSTextField)?.stringValue == String(localized: "Stop Playback") } != nil
         let stopPrimaryImage = primaryIcon.image?.tiffRepresentation
         let outlineFavoriteImage = favoriteIcon.image?.tiffRepresentation
         let primaryChanged = idlePrimaryImage != nil && stopPrimaryImage != nil && stopPrimaryImage != idlePrimaryImage
@@ -671,7 +669,7 @@ enum Harness {
             canFavorite: false, canOrganize: false, playlistNames: ["New Store List"]), onPrimary: { injectedStops += 1 },
             onToggleFavorite: { injectedFavorites += 1 }, onChoosePlaylist: { _ in newMembership += 1 })
         organized.updateLibraryActions(stoppedActions)
-        let playTitle = firstSubview(of: primaryControl) { ($0 as? NSTextField)?.stringValue == "设为壁纸" } != nil
+        let playTitle = firstSubview(of: primaryControl) { ($0 as? NSTextField)?.stringValue == String(localized: "Set as Wallpaper") } != nil
         check(playTitle && primaryIcon.image?.tiffRepresentation == idlePrimaryImage
             && favoriteIcon.image?.tiffRepresentation == filledFavoriteImage
             && !primaryControl.isEnabled && !favoriteFooter.isEnabled && playlistControl?.isEnabled == false
@@ -823,30 +821,100 @@ enum Harness {
         drain(0.03)
         check(InspectorContentBuildProbe.bodiesByView[metadataIdentity] == beforeIdenticalPublication,
               "s17-later-identical-model-publication-still-refreshes-external-assets")
+        metadataView.removeFromSuperview()
+        container.addSubview(metadataView); metadataView.layoutSubtreeIfNeeded()
+        precondition(waitFor(timeout: 3) { InspectorMetadataProbe.pending[metadataPath]?.count == 2 })
+        check(InspectorMetadataProbe.starts[metadataPath] == 2, "s13-pending-metadata-remount-restarts")
         try! FileManager.default.removeItem(atPath: metadataPath)
         metadataManager.wallpapers = [firstPublished]
         check(waitFor(timeout: 3) { firstSubview(of: metadataView) {
-            ($0 as? NSTextField)?.stringValue.contains("源文件不存在") == true && !$0.isHiddenOrHasHiddenAncestor } != nil },
+            ($0 as? NSTextField)?.stringValue == missingSourceText && !$0.isHiddenOrHasHiddenAncestor } != nil },
             "s18-identical-publication-detects-actual-source-removal")
         try! Data("restored-owned-source".utf8).write(to: URL(fileURLWithPath: metadataPath))
         metadataManager.wallpapers = [firstPublished]
         check(waitFor(timeout: 3) { firstSubview(of: metadataView) {
-            ($0 as? NSTextField)?.stringValue.contains("源文件不存在") == true && !$0.isHiddenOrHasHiddenAncestor } == nil },
+            ($0 as? NSTextField)?.stringValue == missingSourceText && !$0.isHiddenOrHasHiddenAncestor } == nil },
             "s18-identical-publication-clears-notice-after-source-recovery")
-        metadataView.removeFromSuperview()
-        container.addSubview(metadataView); metadataView.layoutSubtreeIfNeeded()
-        precondition(waitFor(timeout: 3) { InspectorMetadataProbe.pending[metadataPath]?.count == 2 })
+        check(waitFor(timeout: 3) { InspectorMetadataProbe.pending[metadataPath]?.count == 3 },
+              "s18-source-recovery-restarts-inflight-metadata")
         InspectorMetadataProbe.release(metadataPath)
         precondition(waitFor(timeout: 3) {
             firstSubview(of: metadataView) { ($0 as? NSTextField)?.stringValue == "High Efficiency Video Coding Long Value" } != nil
         })
-        check(InspectorMetadataProbe.starts[metadataPath] == 2 && InspectorMetadataProbe.terminals[metadataPath] == 1,
-              "s13-pending-metadata-remount-restarts-and-reaches-final-values")
+        check(InspectorMetadataProbe.starts[metadataPath] == 3 && InspectorMetadataProbe.terminals[metadataPath] == 1,
+              "s18-only-recovered-metadata-can-publish")
         metadataView.removeFromSuperview()
         container.addSubview(metadataView); metadataView.layoutSubtreeIfNeeded(); drain(0.05)
-        check(InspectorMetadataProbe.starts[metadataPath] == 2 && InspectorMetadataProbe.terminals[metadataPath] == 1,
+        check(InspectorMetadataProbe.starts[metadataPath] == 3 && InspectorMetadataProbe.terminals[metadataPath] == 1,
               "s13-completed-metadata-remount-does-not-reread")
         metadataView.removeFromSuperview()
+
+        if #available(macOS 26.0, *) {
+            let source = root.appendingPathComponent("source.mov")
+            let replacement = root.appendingPathComponent("replacement.mov")
+            var fixturesReady = false
+            Task { @MainActor in
+                try! await VideoTrackMetadataFixtures.writeH264(source, width: 320, height: 180, rotationAngle: 0,
+                    frameDuration: CMTime(value: 1, timescale: 24))
+                try! await VideoTrackMetadataFixtures.writeH264(replacement, width: 192, height: 108, rotationAngle: 0,
+                    frameDuration: CMTime(value: 1, timescale: 60))
+                fixturesReady = true
+            }
+            precondition(waitFor(timeout: 15) { fixturesReady })
+            let sourceManager = WallpaperManager()
+            let movie = VideoWallpaper(id: "original-video", title: "Original Video", path: source.path)
+            InspectorMetadataProbe.actualPaths.insert(source.path)
+            sourceManager.wallpapers = [movie]
+            let view = VideoLibraryInspectorView(wallpaper: movie, wallpaperManager: sourceManager, libraryActions: previewActions)
+            container.addSubview(view)
+            view.layoutSubtreeIfNeeded()
+            func shows(_ text: String) -> Bool {
+                firstSubview(of: view) { ($0 as? NSTextField)?.stringValue == text && !$0.isHiddenOrHasHiddenAncestor } != nil
+            }
+            check(waitFor(timeout: 5) { shows("320 × 180") && shows("H.264") && shows("24 FPS") },
+                "s19-mounted-inspector-reads-first-real-h264-track")
+            try! FileManager.default.removeItem(at: source)
+            view.updateLibraryActions(previewActions, sourceAvailable: false)
+            check(waitFor(timeout: 3) { shows(missingSourceText) },
+                "s19-same-real-source-reports-missing-before-recovery")
+            try! FileManager.default.moveItem(at: replacement, to: source)
+            view.updateLibraryActions(previewActions, sourceAvailable: true)
+            check(waitFor(timeout: 5) { shows("192 × 108") && shows("60 FPS") && !shows("24 FPS") &&
+                !shows(missingSourceText) },
+                "s19-mounted-inspector-updates-to-restored-h264-track")
+            sourceManager.wallpapers = [movie]
+            view.removeFromSuperview()
+            container.addSubview(view)
+            view.layoutSubtreeIfNeeded()
+            drain(0.05)
+            check(InspectorMetadataProbe.starts[source.path] == 2 && InspectorMetadataProbe.terminals[source.path] == 2
+                && InspectorContentBuildProbe.bodiesByView[ObjectIdentifier(view)] == 1 && shows("60 FPS"),
+                "s19-unchanged-source-and-remount-reuse-recovered-track")
+            view.removeFromSuperview()
+
+            try! FileManager.default.moveItem(at: source, to: replacement)
+            let reopened = VideoLibraryInspectorView(wallpaper: movie, wallpaperManager: sourceManager, libraryActions: previewActions)
+            container.addSubview(reopened)
+            check(waitFor(timeout: 3) { InspectorMetadataProbe.terminals[source.path] == 3 &&
+                firstSubview(of: reopened) { ($0 as? NSTextField)?.stringValue == missingSourceText && !$0.isHiddenOrHasHiddenAncestor } != nil },
+                "s19-initially-missing-source-settles-with-notice")
+            try! FileManager.default.moveItem(at: replacement, to: source)
+            sourceManager.wallpapers = [movie]
+            check(waitFor(timeout: 5) { InspectorMetadataProbe.starts[source.path] == 4 && InspectorMetadataProbe.terminals[source.path] == 4 &&
+                firstSubview(of: reopened) { ($0 as? NSTextField)?.stringValue == "60 FPS" && !$0.isHiddenOrHasHiddenAncestor } != nil },
+                "s19-initially-missing-source-recovers-real-track")
+            reopened.removeFromSuperview()
+
+            try! FileManager.default.moveItem(at: source, to: replacement)
+            let recoveredDuringRead = VideoLibraryInspectorView(wallpaper: movie, wallpaperManager: sourceManager, libraryActions: previewActions)
+            container.addSubview(recoveredDuringRead)
+            try! FileManager.default.moveItem(at: replacement, to: source)
+            check(waitFor(timeout: 5) {
+                firstSubview(of: recoveredDuringRead) { ($0 as? NSTextField)?.stringValue == "60 FPS" && !$0.isHiddenOrHasHiddenAncestor } != nil &&
+                firstSubview(of: recoveredDuringRead) { ($0 as? NSTextField)?.stringValue == missingSourceText && !$0.isHiddenOrHasHiddenAncestor } == nil
+            }, "s19-read-in-progress-observes-restored-source-before-next-publication")
+            recoveredDuringRead.removeFromSuperview()
+        }
 
         let contentBuilds = ["initial": initialContentBuilds, "firstFinal": InspectorContentBuildProbe.finalBodies[videoA]?.first ?? -1]
         print("CONTENT BUILDS " + String(data: try! JSONEncoder().encode(contentBuilds), encoding: .utf8)!)

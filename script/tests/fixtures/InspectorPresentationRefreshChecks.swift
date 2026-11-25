@@ -120,10 +120,14 @@ private final class InspectorCardRouteProbe {
     var preparations = 0
     let coordinator = WallpaperLibraryInspectorCoordinator(workspace: workspace, manager: manager,
         images: SILService(), steam: SteamWorkshopService(), pixabay: PixabayService(),
-        makePrimaryAction: { content in preparations += 1; return content.capabilities.contains(.play) ? {} : nil },
+        makePrimaryAction: { content in
+            preparations += 1
+            return workspace.playing == content.reference || content.capabilities.contains(.play) ? {} : nil
+        },
         makeFavoriteAction: { _ in nil }, canOrganize: { workspace.presentation.canEditCollections },
         availabilityChanges: availability.eraseToAnyPublisher(), onChoosePlaylist: { _, _ in })
     await WallpaperLibraryInspectorHarness.pump()
+    let localProbe = InspectorProbe()
     coordinator.inspect(content: value)
     let token = coordinator.inspectorToken, prepared = preparations, reads = workspace.contentReads
     let published = workspace.presentation.publications
@@ -162,15 +166,24 @@ private final class InspectorCardRouteProbe {
     checks["playback-sync-refreshes-actions-without-needing-a-presentation-change"] = preparations == prepared + 5
     availability.send()
     checks["original-availability-publisher-still-refreshes-synchronously"] = preparations == prepared + 6
+    workspace.presentation.canEditCollections = false
+    workspace.publishPresentation(); await WallpaperLibraryInspectorHarness.pump()
+    checks["editing-admission-publication-still-refreshes-inspector"] = preparations == prepared + 7
+    let localView = localProbe.mounts.last(where: { $0.0 == token })?.1 as? VideoLibraryInspectorView
+    let heldActions = localView?.actions.state
     workspace.catalog.catalog.videos = [WallpaperContentItem(reference: reference, providerReference: reference,
         locator: value.locator, title: value.title, kind: .video, publishedAvailability: .unavailable,
         capabilities: [.inspect], metadata: .init(), acquisition: .idle, update: .idle, aliases: [])]
     workspace.publishPresentation(); await WallpaperLibraryInspectorHarness.pump()
-    checks["changed-source-availability-refreshes-without-another-selection"] = preparations == prepared + 7
-        && coordinator.inspectorToken == token
-    workspace.presentation.canEditCollections = false
+    checks["changed-source-availability-refreshes-without-another-selection"] = preparations == prepared + 8
+        && coordinator.inspectorToken == token && heldActions != nil && localView?.actions.state == heldActions
+        && localView?.sourceAvailability == [false]
+    workspace.catalog.catalog.videos = [value]
     workspace.publishPresentation(); await WallpaperLibraryInspectorHarness.pump()
-    checks["editing-admission-publication-still-refreshes-inspector"] = preparations == prepared + 8
+    availability.send()
+    checks["same-video-view-receives-source-recovery-once-with-equal-actions"] = preparations == prepared + 10
+        && coordinator.inspectorToken == token && localView?.actions.state == heldActions
+        && localView?.sourceAvailability == [false, true]
     coordinator.closeInspector()
     let library = OnlineImageLibrary.shared, previousSnapshot = library.snapshot
     defer { library.snapshot = previousSnapshot }

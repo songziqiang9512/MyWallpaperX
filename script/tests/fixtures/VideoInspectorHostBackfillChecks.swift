@@ -58,7 +58,7 @@ extension Harness {
         func nodes() -> [NSView] {
             let preview = firstSubview(of: inspector) { $0 is VideoLibraryInspectorPreviewSurfaceView }!
             let title = firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == expectedTitle }!
-            let codec = firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "编解码器" }!
+            let codec = firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == String(localized: "Codec") }!
             let column = codec.superview as! NSStackView
             return [preview, preview.superview!, firstSubview(of: inspector) { $0 is InspectorFadingScrollView }!, title,
                 title.superview!, codec, column.arrangedSubviews.last!, column,
@@ -141,7 +141,7 @@ extension Harness {
         checks["current-actions-and-playlist-still-update"] = primary.accessibilityPerformPress() && primaryWrites == 10 && manager.primaryWrites == 0
             && firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "Host Updated List" } != nil
         checks["final-real-preview-has-correct-pixels"] = looksGreen(centerPixel(in: inspector))
-        let section = firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "原数据" }!.superview as! NSStackView
+        let section = firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == String(localized: "Original Data") }!.superview as! NSStackView
         let currentNodes = nodes()
         let stable = Array(currentNodes.prefix(5)) + Array(currentNodes.suffix(2)) + [section, section.superview!]
         let alternate = root.appendingPathComponent("host-empty-facts.mp4")
@@ -153,11 +153,11 @@ extension Harness {
             rows[4999] = VideoWallpaper(id: current.id, title: expectedTitle, path: path.path)
             manager.wallpapers = rows
             let completed = await wait { InspectorMetadataProbe.terminals[path.path] == terminal }
-            let codec = firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "编解码器" && !$0.isHiddenOrHasHiddenAncestor }
+            let codec = firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == String(localized: "Codec") && !$0.isHiddenOrHasHiddenAncestor }
             checks["facts-structure-\(omitted ? "empty" : "restored")-replaces-only-grid"] = completed
                 && stable.allSatisfy { $0.isDescendant(of: inspector) } && section.arrangedSubviews.last !== previousGrid
                 && (codec != nil) == !omitted && (currentNodes.last as? NSTextField)?.stringValue == path.path
-                && (firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "添加时间" && !$0.isHiddenOrHasHiddenAncestor } != nil) == !omitted
+                && (firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == String(localized: "Date Added") && !$0.isHiddenOrHasHiddenAncestor } != nil) == !omitted
         }
         checks["one-template-serves-backfill-and-current-updates"] = InspectorContentBuildProbe.bodiesByView[ObjectIdentifier(inspector)] == 1
         checks["sampled-window-remains-visible-active-and-key"] = frames.allSatisfy { ($0["visible"] as? Bool) == true && ($0["active"] as? Bool) == true && ($0["key"] as? Bool) == true }

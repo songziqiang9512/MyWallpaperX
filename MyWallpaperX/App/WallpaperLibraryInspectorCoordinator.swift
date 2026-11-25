@@ -132,7 +132,8 @@ import QuickLookUI
            previous.content.providerReference == current.providerReference,
            matchesSourceView(previous.view, content: current) {
             inspection?.content = current
-            updateActions(on: previous.view, content: current, token: previous.token, pixabayItem: pixabayItem)
+            updateActions(on: previous.view, content: current, token: previous.token,
+                previousAvailability: previous.content.publishedAvailability, pixabayItem: pixabayItem)
             if presentsCurrent { present(content: current, token: previous.token) }
             return
         }
@@ -269,10 +270,13 @@ import QuickLookUI
         })
     }
 
-    private func updateActions(on view: NSView, content: WallpaperContentItem, token: InspectorCardToken, pixabayItem: PixabayVideoItem? = nil) {
+    private func updateActions(on view: NSView, content: WallpaperContentItem, token: InspectorCardToken,
+                               previousAvailability: WallpaperPublishedAvailability, pixabayItem: PixabayVideoItem?) {
         let actions = actions(for: content, token: token)
         switch view {
-        case let view as VideoLibraryInspectorView: view.updateLibraryActions(actions)
+        case let view as VideoLibraryInspectorView:
+            let available = content.publishedAvailability.isAvailable
+            view.updateLibraryActions(actions, sourceAvailable: available == previousAvailability.isAvailable ? nil : available)
         case let view as SILInspectorView: view.updateLibraryActions(actions)
         case let view as PixabayDownloadsInspectorView: view.updateLibraryActions(actions, remoteItem: pixabayItem)
         case let view as AppKitSteamWorkshopItemDetailView: view.updateLibraryActions(actions)

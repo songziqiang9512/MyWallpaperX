@@ -13,6 +13,7 @@ final class VideoLibraryInspectorView: NSView {
     private var details: WallpaperInspectorDetails?
     private var loadingTask: Task<Void, Never>?
     private var loadedDetailsPath: String?
+    private var sourceMissing = false
     private var contentStack: NSStackView?
     private weak var favoriteButton: InspectorFooterButton?
     private weak var setAsWallpaperButton: InspectorFooterButton?
@@ -39,7 +40,7 @@ final class VideoLibraryInspectorView: NSView {
         super.init(frame: .zero)
         setup()
         observeManager()
-        loadDetails(for: currentWallpaper)
+        refreshDetails(for: currentWallpaper)
         refreshFooterActions()
     }
 
@@ -56,11 +57,11 @@ final class VideoLibraryInspectorView: NSView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         if window != nil {
-            hasMounted = true
             let wallpaper = currentWallpaper
+            let needsRefresh = hasMounted || loadedDetailsPath != wallpaper.path
+            hasMounted = true
             loadPreviewImage(for: wallpaper)
-            if loadingTask == nil,
-               details?.isLoading != false || loadedDetailsPath != wallpaper.path { loadDetails(for: wallpaper) }
+            if needsRefresh { refreshDetails(for: wallpaper) }
         } else if hasMounted {
             loadingTask?.cancel()
             loadingTask = nil
@@ -184,12 +185,7 @@ final class VideoLibraryInspectorView: NSView {
                 // 派生图片补齐或清空也会发布模型，视频源路径可以保持不变。
                 let wallpaper = self.currentWallpaper
                 self.loadPreviewImage(for: wallpaper)
-                if self.loadedDetailsPath != nil,
-                   self.loadedDetailsPath != wallpaper.path {
-                    self.loadDetails(for: wallpaper)
-                } else {
-                    self.refreshContent(for: wallpaper)
-                }
+                self.refreshDetails(for: wallpaper)
             }
             .store(in: &cancellables)
         // 缩略图生成完成不必然伴随库内容 publish——generateThumbnail 只写磁盘与
@@ -216,7 +212,6 @@ final class VideoLibraryInspectorView: NSView {
 
     private func refreshContent(for wallpaper: VideoWallpaper) {
         guard let details else { return }
-        let sourceMissing = !FileManager.default.fileExists(atPath: wallpaper.path)
         if titleField == nil {
             addContentSection(makePreviewSection(for: wallpaper))
             addContentSection(makeContentSection())
@@ -465,12 +460,11 @@ final class VideoLibraryInspectorView: NSView {
         return stack
     }
 
-    func updateLibraryActions(_ actions: WallpaperInspectorActions) {
-        let changed = libraryActions.state != actions.state
+    func updateLibraryActions(_ actions: WallpaperInspectorActions, sourceAvailable: Bool? = nil) {
         let playlistsChanged = libraryActions.state.playlistNames != actions.state.playlistNames
         libraryActions = actions
         if playlistsChanged { refreshPlaylistContent() }
-        if changed { refreshContent(for: currentWallpaper) }
+        if let sourceAvailable { refreshDetails(for: currentWallpaper, sourceAvailable: sourceAvailable) }
         refreshFooterActions()
     }
 
@@ -496,18 +490,35 @@ final class VideoLibraryInspectorView: NSView {
         )
     }
 
-    private func loadDetails(for wallpaper: VideoWallpaper) {
+    private func refreshDetails(for wallpaper: VideoWallpaper, sourceAvailable: Bool? = nil) {
         guard !hasMounted || window != nil else { return }
+        let wasMissing = sourceMissing
+        sourceMissing = !(sourceAvailable ?? FileManager.default.isReadableFile(atPath: wallpaper.path))
+        if loadedDetailsPath != wallpaper.path || (wasMissing && !sourceMissing)
+            || (loadingTask == nil && details?.isLoading != false) {
+            loadDetails(for: wallpaper)
+        } else {
+            refreshContent(for: wallpaper)
+        }
+    }
+
+    private func loadDetails(for wallpaper: VideoWallpaper) {
         loadingTask?.cancel()
-        details = nil
-        loadedDetailsPath = nil
         loadedDetailsPath = wallpaper.path
         loadingTask = loadWallpaperInspectorDetails(for: wallpaper) { [weak self] loadedDetails in
             guard let self else { return }
-            // The placeholder is synchronous; final values may follow a model publication.
-            let current = self.details == nil ? wallpaper : self.currentWallpaper
             self.details = loadedDetails
-            self.refreshContent(for: current)
+            if loadedDetails.isLoading {
+                self.refreshContent(for: wallpaper)
+            } else {
+                self.loadingTask = nil
+                let current = self.currentWallpaper
+                if self.sourceMissing || current.path != wallpaper.path {
+                    self.refreshDetails(for: current)
+                } else {
+                    self.refreshContent(for: current)
+                }
+            }
         }
     }
 

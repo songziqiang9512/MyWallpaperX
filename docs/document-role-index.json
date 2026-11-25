@@ -111,7 +111,15 @@
       "path": "docs/architecture/appkit-migration.md",
       "role": "active-plan",
       "entrypoint": "docs/README.md",
-      "retirementCondition": "产品目标内的 SwiftUI import、NSHosting 接点和 SwiftUI-to-AppKit bridge 经可复现扫描与构建门证明全部为零，且长期架构合同已接管最终职责后，将本文转为 historical-evidence。"
+      "retirementCondition": "产品目标内的 SwiftUI import、NSHosting 接点和 SwiftUI-to-AppKit bridge 经可复现扫描与构建门证明全部为零，且长期架构合同已接管最终职责后，将本文转为 historical-evidence。",
+      "lastReviewed": "2026-11-25",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "892c19b76f95ed687492b749e2e29bc6a33152245a6dd3431c99b17e530b7053",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "原生详情更新边界、目录可用性与轨道回显",
+        "limitations": "原生 Inspector 和宿主已验；完整桌面播放沿原独立路径"
+      }
     },
     {
       "path": "docs/architecture/playback-lifecycle-transaction-design.md",
@@ -135,10 +143,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0f2427d41df3d429f4088a35f8f984c785985f46b19bd9538d77097df6d1a09b",
+        "sourceSHA256": "e6879ec7fa349bffba3dadbcc6cebb563c2942a1031ceb45b2dd8b50de97ef1f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "标明完整重置的登录项所有者",
-        "limitations": "仅完整重置读取系统状态。原服务错误继续上报。"
+        "scope": "三引擎画质、原片规格与同源恢复入口",
+        "limitations": "源码导航及局部原生验证；无事件替换未验证"
       }
     },
     {
@@ -347,10 +355,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3875e75f243305d5050d0c787990863e111cde744171e0bcd925cbded5bef471",
+        "sourceSHA256": "99605ecdce08128fa1b2dd8f26f3707cbe272ad627f9e5801bc585ca7c9100ba",
         "method": "document_registry --audit + document_health --check",
-        "scope": "评估路线、数值基线和重参数化求积退出证据",
-        "limitations": "CPU 归一化视线证据，未进入生产 shader、真机画面或功耗"
+        "scope": "算法、现役设计和原生同源恢复试验",
+        "limitations": "验证收到的源恢复及真实轨道；未复测无事件同路径替换和完整桌面播放"
       }
     },
     {
@@ -361,10 +369,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e9f4d8f0233c7d4ed8d6e77154ef94a3a28c9748b605907561a91359015e7a45",
+        "sourceSHA256": "c703296c378078e12a21351adb511c08ceabc3e78e2e514b657b8b2580a8c85f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "三引擎当前批、执行顺序和候选退出入口",
-        "limitations": "低／中体积未开放，物理混合显示、支持 8× 的设备和长稳功耗待验"
+        "scope": "现役执行顺序和原片恢复入口",
+        "limitations": "外设和长时功耗、Windows 实窗采纳仍待验"
       }
     },
     {
