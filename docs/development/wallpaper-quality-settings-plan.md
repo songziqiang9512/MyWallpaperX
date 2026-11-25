@@ -404,6 +404,13 @@ M4 内屏用同一团队签名的现役 Video helper 走真实可见接管。在
 
 固定 2.8.0.42 的 `wallpaperui.exe` 把 `applyGeneral` 送为消息 `0xc9`，本机同版 Win32 接收端从 `0x4250b8` 进入 `0x416a50`。比较函数 `0x439b70` 读取 MSAA、纹理分辨率、后处理的新旧值，三项差分共进 `0x43a0b2`。原路径在 `0x416c3c` 调 `0x451630` 清理正在使用的壁纸对象，再由 `0x416c41` 调带 `ApplyRefreshWallpaperConfig` 标记的 `0x416890`，后续读取 `selectedwallpapers`。这条普通桌面的原生自动刷新由编辑时的投递触发，具体时序、首帧、作者时钟和预览窗口继承仍待运行验证。SHA、消息表和三处分支随本机薄收据 `.artifacts/wallpaper-quality-official-cold-refresh` 保留。共享 VM 未操作。
 
+<a id="official-web-fps-window"></a>
+#### 具名 Web 预览的建议值与绘制
+
+用固定 2.8.0.42 的公开窗口 CLI 装载一个本轮自有 Web 探针。只读当前普通桌面配置中的 fps，保 receiver、全局设置和原壁纸；不尝试用作品 `applyProperties` 模拟全局 `applyGeneralProperties`。查首次回调数、类型与建议值，并用同一个 `requestAnimationFrame` 循环分别记采纳建议和忽略建议的 Canvas 绘制。取至少两个大于两秒的前景观测窗，记录实际时间、绘制、rAF 和像素标志。当前建议低于 rAF 时，采纳侧应收敛到建议值浮动 ±1 帧每秒，忽略侧接近 rAF；两者饱和时只结算实际建议和可见绘制。只用具名打开、查询、关闭；窗口或运输不能隔离即保留未验证。末尾复核确认原接收进程、桌面输出和画质意图。热改全局值、桌面继承与物理呈现另行核对。 [官方 Web 建议](https://docs.wallpaperengine.io/en/web/performance/fps.html) · [具名窗口命令](https://help.wallpaperengine.io/en/functionality/cli.html)
+
+先核固定客户端身份和现有 25 FPS 保存值。用完全相同的自有 `index.html` 在本机非持久 WKWebView 跑生产的 Web 兼容桥及帧属性入口，25 由夹具绑定的 adapter 提供。首个 rAF 前收到一次数值 25。在 840×440 CSS 视口，两段 3.016／3.000 秒各有 181／180 次 rAF 与 76／75 次按建议绘制，段内最长回调间隔为 19 ms。两窗结束后读取一次 Canvas 的橙色和蓝色标记，1680×880 的 WebKit 快照完整显示两条路径及同一组读数。回调、作者画布和 WebKit 输出均已取证，物理呈现仍单独测量。共享 Windows 客户端同时供另一 Scene 对照，仅做只读身份和保存值检查，未装载弹窗。复跑使用同摘要的作者输入，在客体临时目录核副本，逐项查验 `getWallpaper` 路径、DPI 缩放后的实际可见画面与两段计数后关闭该具名窗。官版初次交付、实际绘制和热改尚未取证。薄收据归 `.artifacts/wallpaper-quality-official-web-fps`。
+
 <a id="official-texture-resolution"></a>
 #### 官版纹理基级与合成范围
 

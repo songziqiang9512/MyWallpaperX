@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 439,
-      "bytes": 108128
+      "lines": 446,
+      "bytes": 110254
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 135509
+      "bytes": 135745
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "57b1b4420a5c801309f46cd078efa7c8cb22a6a4a34a02c3dbe329df3293fb07",
-      "after": "20bdc3ce6aa66043ef5869f38747fb6f58239ad941b14a536624642d16344816",
-      "owner": "Scene rendering",
-      "reason": "记录累积密度查表、守门边界与原生画面和计时结果",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-density-table"
+      "before": "20bdc3ce6aa66043ef5869f38747fb6f58239ad941b14a536624642d16344816",
+      "after": "4af4208b1eb61ba3a1cd62ff6a343a9f0be5e344ea2fe64a3e8714450b74bb13",
+      "owner": "Web playback",
+      "reason": "记录具名官版取证设计、固定运行体身份和本机 WebKit 画面",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-web-fps-window"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "3faf3f0ea2439dceeb89d7b24b5ab56ef8656a7b6da7f91ae881463e1e22c7ce",
-      "after": "f15e9d5e2db5149a7a77247b7a2eec8d2d89e2bb57291f9c5b81e6fe8d7ede44",
+      "before": "f15e9d5e2db5149a7a77247b7a2eec8d2d89e2bb57291f9c5b81e6fe8d7ede44",
+      "after": "4813b1ea9e445219c6b4ac859cf61851688abbc62c4d56fe88803d0973645d65",
       "owner": "声画质量执行路线",
-      "reason": "登记体积查表候选的退出和重启资格",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-volume-density-arithmetic"
+      "reason": "记录独立官版窗口待验和已读取的本机对应证据",
+      "decision": "docs/development/wallpaper-quality-work-card.md#web-authored-live-draw"
     },
     {
       "section": "bodies",

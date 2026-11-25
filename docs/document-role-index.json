@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "28ce759aaf6dcddb3be82fae8a9c5d6f6d0909882842c732b86b5c86e2b654d3",
+        "sourceSHA256": "b2b0fbbe2c218d9eb9813c9d2fff216096328995e04acbaf83f7eda4d865dab3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "三引擎评估与原尺寸体积点光查表实测、退出边界",
-        "limitations": "M4 隔离 Metal，无签名 LUT 作者、整帧或功耗结论"
+        "scope": "三引擎评估与具名官版 Web 预览实测口径",
+        "limitations": "官版只核身份和保存 FPS，本机 WebKit 渲染，未测官版交付或物理呈现"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0418abf3cd54487d1631a42466bf57073e01e942bc71b737f3b9e7833cbd906c",
+        "sourceSHA256": "4c2caec752c617e6d619a87ca882bcfbe20961a33d51c1b51263a2b1b463ad6e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役实施路线与现有体积分档，加入查表退出证据指针",
-        "limitations": "其它作者、硬件与官版实测仍按工作卡进行"
+        "scope": "现役质量实施路线，挂接官版 Web 预览待验",
+        "limitations": "共享 VM 仍需独占窗口条件，其他硬件依工作卡取证"
       }
     },
     {
