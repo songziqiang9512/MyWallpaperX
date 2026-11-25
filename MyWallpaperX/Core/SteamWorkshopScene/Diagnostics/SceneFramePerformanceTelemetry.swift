@@ -25,6 +25,7 @@ nonisolated struct ScenePresentationPerformance: Sendable {
     let intervalP95: TimeInterval
     let intervalP99: TimeInterval
     let intervalMax: TimeInterval
+    let intervalsByModePeriod: [Int]?
 }
 
 nonisolated struct SceneFrameCadencePerformance: Sendable {
@@ -409,22 +410,28 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
         recordPresented(at: uptime, streamID: streamID, generation: token)
     }
 
-    func snapshot(at uptime: TimeInterval = ProcessInfo.processInfo.systemUptime)
-        -> SceneFramePerformanceSnapshot {
+    func snapshot(
+        at uptime: TimeInterval = ProcessInfo.processInfo.systemUptime,
+        displayModeRefreshRates: [UInt64: Double] = [:]
+    ) -> SceneFramePerformanceSnapshot {
         withLock {
             let elapsed = max(uptime - measurementStart, .leastNonzeroMagnitude)
             let presentationIntervals = presentationStreams.values.flatMap(\.intervals).sorted()
-            let presentationsByStreamID = presentationStreams.mapValues { stream in
+            var presentationsByStreamID: [UInt64: ScenePresentationPerformance] = [:]
+            for (streamID, stream) in presentationStreams {
                 let intervals = stream.intervals.sorted()
                 let middle = intervals.count / 2
                 let median = intervals.isEmpty ? 0 : (intervals[(intervals.count - 1) / 2] + intervals[middle]) / 2
-                return ScenePresentationPerformance(
+                presentationsByStreamID[streamID] = ScenePresentationPerformance(
                     presented: stream.presented,
                     intervalCount: intervals.count,
                     intervalP50: median,
                     intervalP95: Self.percentile(inSorted: intervals, 0.95),
                     intervalP99: Self.percentile(inSorted: intervals, 0.99),
-                    intervalMax: intervals.last ?? 0
+                    intervalMax: intervals.last ?? 0,
+                    intervalsByModePeriod: displayModeRefreshRates[streamID].flatMap {
+                        Self.intervalsByModePeriod(intervals, refreshRate: $0)
+                    }
                 )
             }
             return SceneFramePerformanceSnapshot(
@@ -538,6 +545,20 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
         }
     }
 
+    private static func intervalsByModePeriod(_ intervals: [TimeInterval], refreshRate: Double) -> [Int]? {
+        guard refreshRate.isFinite, refreshRate > 0 else { return nil }
+        // Index zero holds intervals that cannot be assigned to a mode period.
+        return intervals.reduce(into: [Int](repeating: 0, count: 25)) { counts, interval in
+            let periods = interval * refreshRate
+            let nearest = periods.rounded()
+            if nearest >= 1, nearest < Double(counts.count), abs(periods - nearest) <= 0.20 {
+                counts[Int(nearest)] += 1
+            } else {
+                counts[0] += 1
+            }
+        }
+    }
+
     private static func percentile(_ values: [TimeInterval], _ quantile: Double) -> TimeInterval {
         percentile(inSorted: values.sorted(), quantile)
     }
@@ -640,7 +661,7 @@ nonisolated struct SceneProductPerformanceWindow {
         receipt["gpuP95MS"] = snapshot.gpuFrameP95 * 1_000
         receipt["surfaces"] = surfaces.map { surface -> [String: Any] in
             let present = snapshot.presentationsByStreamID[UInt64(surface.displayID)]
-            return [
+            var result: [String: Any] = [
                 "displayID": surface.displayID, "surfaceIdentity": surface.identity, "windowNumber": surface.windowNumber,
                 "maximumDisplayFPS": surface.maximumFPS, "modeRefreshRate": surface.modeRefreshRate,
                 "minimumRefreshInterval": surface.minimumRefreshInterval, "maximumRefreshInterval": surface.maximumRefreshInterval,
@@ -650,6 +671,8 @@ nonisolated struct SceneProductPerformanceWindow {
                 "presentP99MS": (present?.intervalP99 ?? 0) * 1_000,
                 "presentMaxMS": (present?.intervalMax ?? 0) * 1_000
             ]
+            result["presentIntervalsByModePeriod"] = present?.intervalsByModePeriod
+            return result
         }
         return receipt
     }

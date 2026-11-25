@@ -228,6 +228,12 @@ def scene_performance_matches(row: dict, fps: int, window: tuple[float, float],
         frames, intervals = surface.get("presented"), surface.get("presentIntervals")
         if type(frames) is not int or type(intervals) is not int or not 0 < intervals < frames:
             return False
+        if "presentIntervalsByModePeriod" in surface:
+            counts = surface["presentIntervalsByModePeriod"]
+            if (not isinstance(counts, list) or len(counts) != 25
+                    or not all(type(count) is int and count >= 0 for count in counts)
+                    or sum(counts) != intervals):
+                return False
         tails = [surface.get(key) for key in ("presentP50MS", "presentP95MS", "presentP99MS", "presentMaxMS")]
         if (not all(type(value) in (int, float) and math.isfinite(value) for value in tails)
                 or not 0 < tails[0] <= tails[1] <= tails[2] <= tails[3]):

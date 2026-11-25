@@ -62,6 +62,13 @@ class WallpaperStartupBenchmarkTests(unittest.TestCase):
         row = {"requestID": "req", "daemonPID": 42, "requestedFPS": 60, "productPerformance": receipt}
         validate = benchmark.scene_performance_matches
         self.assertTrue(validate(row, 60, (30, 60), children, binary, log))
+        surface = receipt["surfaces"][0]
+        counts = [0, 3580, 20] + [0] * 22
+        with_bins = dict(receipt, surfaces=[dict(surface, presentIntervalsByModePeriod=counts)])
+        self.assertTrue(validate(dict(row, productPerformance=with_bins), 60, (30, 60), children, binary, log))
+        for counts in ([0], [0, 3579, 20] + [0] * 22, [0, 3580, 21, -1] + [0] * 21):
+            with_bins["surfaces"] = [dict(surface, presentIntervalsByModePeriod=counts)]
+            self.assertFalse(validate(dict(row, productPerformance=with_bins), 60, (30, 60), children, binary, log))
         capped = dict(row, requestedFPS=120, productPerformance=dict(receipt, selectedFPS=120, effectiveFPS=60))
         self.assertTrue(validate(capped, 120, (30, 60), children, binary, log, expected_fps=60))
         self.assertFalse(validate(capped, 120, (30, 60), children, binary, log))

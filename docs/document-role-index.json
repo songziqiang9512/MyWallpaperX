@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "60d1358810512c48c809d5834fdbf23c1a28b1788e3a454b1cb61bd18f414e3f",
+        "sourceSHA256": "5ceab415f64cfddab338ce5bea6820cfe69634a1e5122ff9a3fd7db545508fad",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Video 执行中的画幅、双槽及清理源码定位",
-        "limitations": "仅核本轮 Video 源码链接。"
+        "scope": "Scene 逐屏呈现和模式分布的源码入口",
+        "limitations": "只核本轮变更的 Scene 遥测入口。"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0a2ceaab5d5ae44c4bfc376966284e4ddb3c1ff95593add30e5f7e93fdefb5ca",
+        "sourceSHA256": "bdf0e802ce13b180a7d5760f61303d2d1f1a0e11da999aab26722289db1114dc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Video 双槽淡入的选择、验收和显示证据",
-        "limitations": "只审核本次导航及当前原生 helper 合成边界，不代表物理屏逐刷新或 Windows 验收。"
+        "scope": "固定 60 Hz 和小数模式的可执行验收",
+        "limitations": "只核当前 M4 单屏成品 Debug 实测，不涵盖混合显示、面板光度、能耗。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0804d4cb8387a5c133547bdfc0da8c2824d0b6a5a0e47d36517db5b3f34185bc",
+        "sourceSHA256": "4b4091b569fd105dea7fd3510b81498b76fe199eb18244ca1c7073598919a36b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Video 原片和同窗播放验收的维护入口",
-        "limitations": "索引只记录本轮 Video 路线变化。"
+        "scope": "帧率路线和固定刷新验收入口",
+        "limitations": "只核同批帧率路由变化，混合屏保独立实机门。"
       }
     },
     {
@@ -871,10 +871,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0cebe8bc45b407c2314b57a26e6174f949ef340b4ef79857375f8081623f7798",
+        "sourceSHA256": "4b596c312ecbefa41871ffc796f6e06f7f41bfa0471d2f6fa86008c0f75589a3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通 Scene 选片准备时的同票据替换及作者画质消费",
-        "limitations": "已登记端点后的切换由原事务结算"
+        "scope": "Scene 帧率和原 Debug 实际呈现间隔诊断",
+        "limitations": "本次仅审帧率合同，未重验其它运行模块。"
       }
     },
     {

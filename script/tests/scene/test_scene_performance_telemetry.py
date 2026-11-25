@@ -155,7 +155,10 @@ enum Harness {
         staleCommandBuffer.waitUntilCompleted()
         let frameStages = telemetry.frameStageSummary()
         let callStages = telemetry.stageSummary()
-        let value = telemetry.snapshot(at: 11)
+        let value = telemetry.snapshot(at: 11, displayModeRefreshRates: [1: 59.94, 2: 50])
+        let withoutModes = telemetry.snapshot(at: 11)
+        let firstModePeriods = value.presentationsByStreamID[1]?.intervalsByModePeriod ?? []
+        let secondModePeriods = value.presentationsByStreamID[2]?.intervalsByModePeriod ?? []
         let particleLayers = telemetry.particleLayerSnapshot()
         let payload: [String: Any] = [
             "elapsed": value.elapsed,
@@ -167,6 +170,10 @@ enum Harness {
             "scheduleRealignments": value.cadence.scheduleRealignments,
             "firstStreamMedian": value.presentationsByStreamID[1]?.intervalP50 ?? -1,
             "secondStreamMedian": value.presentationsByStreamID[2]?.intervalP50 ?? -1,
+            "modePeriodCount": firstModePeriods.count,
+            "firstModePeriods": Array(firstModePeriods.prefix(4)),
+            "secondModePeriods": Array(secondModePeriods.prefix(4)),
+            "modePeriodsWithoutMode": withoutModes.presentationsByStreamID[1]?.intervalsByModePeriod != nil,
             "submitted": value.submitted,
             "completed": value.completed,
             "failed": value.failed,
@@ -470,6 +477,10 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         self.assertEqual(self.result["scheduleRealignments"], 1)
         self.assertAlmostEqual(self.result["firstStreamMedian"], 0.028)
         self.assertAlmostEqual(self.result["secondStreamMedian"], 0.060)
+        self.assertEqual(self.result["modePeriodCount"], 25)
+        self.assertEqual(self.result["firstModePeriods"], [1, 1, 0, 0])
+        self.assertEqual(self.result["secondModePeriods"], [0, 0, 0, 1])
+        self.assertFalse(self.result["modePeriodsWithoutMode"])
         self.assertEqual(self.result["submitted"], 1)
         self.assertEqual(self.result["completed"], 1)
         self.assertEqual(self.result["failed"], 0)

@@ -109,6 +109,24 @@ M4 单内屏用同一签名产品的真实作品 3477054430 与 3746066933，沿
 - **61–120 FPS**在高刷屏和真实输入的 GPU、作用线程及耗电结果通过后开放，验 61／90／119／120、退出高刷与热插。现有 Session 由单一时钟驱动多 Surface，先以单高刷屏或同刷新率组合取证。混合刷新率先沿已验证共同上限运行；只有省掉低刷屏额外提交的价值成立，才在既有驱动中按 Surface 准备有效调度，继续共用 SceneClock。用户选择可随屏幕限制临时降效，屏幕更换重新取有效值。
 - **技术比较**优先现有 Timer。若实测发现跨刷新率抖动、额外唤醒或提交错位，再在同一驱动职责内比较 `CADisplayLink`／`CAMetalDisplayLink`。系统帧率范围是调度提示，验收以尝试／提交／GPU 完成／presented 及长窗节奏为准。 [Apple 帧节奏建议](https://developer.apple.com/documentation/metal/improving-your-games-graphics-performance-and-settings) · [CAMetalDisplayLink 帧率提示](https://developer.apple.com/documentation/quartzcore/cametaldisplaylink/preferredframeraterange)
 
+<a id="scene-fixed-refresh-proof"></a>
+#### 固定刷新屏的实际呈现分布
+
+原 Debug 产品基准已采集每屏 `CAMetalDrawable.presentedTime` 并按稳定 Surface 汇总 P50／P95／P99。相同百分位可能来自不同的 2／3 周期比，不能据此判断 25 FPS 是否在固定 60 Hz 上按预期量化。窗口结束时在原遥测快照读取同一批有效间隔，按测量窗稳定的 CoreGraphics 模式率换算周期。保 1–24 周期的计数，偏离最近整数超过 0.20 周期或超范围的记在 0；未知模式省略分布。索引是周期数，每屏独立。原数组、计时器、时钟和普通帧开销保持，Release 无此诊断。不以模式名或这些计数单独裁决面板固定性。
+
+先确认另一工作树无在途真机性能采集。只在原显示的点尺寸、背板像素和几何相同的情况下，在隔离进程暂用 CoreGraphics 会自动回退的模式配置。用独立外部读回核 60／59.94 Hz 当前模式及实际显示时序，结束恢复原模式。同一签名 App 在固定 60 Hz 上跑自有移动态和独立真实作者的 25 FPS 实际窗口；窗内调度约 25，约 60% 间隔跨 2 个周期、40% 跨 3 个周期。首轮实测预期至少 95% 在两桶内，2 周期占比为 55%–65%，实际呈现 ≥24.5 FPS 且 GPU 零失败；偏离要保留实际分布及 A/A，检查提交和显示依赖。另以两个模式下的 120 请求验实效应分别为 60 和实际小数模式值。有实际过载时以轻夹具判模式限幅，复杂作品的呈现另记。混合屏和面板光度独立验收。 [CoreGraphics 临时模式](https://developer.apple.com/documentation/coregraphics/cgconfigureoption/forapponly)
+
+M4 内屏 1512×982 点、3024×1964 背板，同一团队签名 Debug 在原库选择路径接管。外部 CoreGraphics 和 AppKit 确认模式 55／56 的最短、最长刷新间隔一致。独立 display link 的中位周期为 16.66662／16.68329 ms。按相同几何临时切档，场景完成后独立进程读回原模式 54（120 Hz）。六窗的每屏桶计数均等于实呈帧数减一，GPU 失败、计时器和准入失期均为零，原请求正常排空。
+
+| 固定模式与请求 | 实际呈现 | 实际间隔 |
+|---|---:|---|
+| 60 Hz，自有动态场，25 FPS，两次约 61 秒 | 24.984／24.984 FPS | 每窗 912 段 2 周期、610 段 3 周期、1 段 1 周期。P50／P95／P99 约 33.33／50.00／50.00 ms |
+| 60 Hz，独立 Workshop 3455121165，25 FPS，60 秒 | 24.966 FPS | 898 段 2 周期、599 段 3 周期，无其它区间 |
+| 60 Hz／59.94 Hz，自有动态场，120 FPS，各约 12 秒 | 59.833／59.665 FPS | 生效 60／59.939987，717／715 段全为 1 周期 |
+| 59.94 Hz，自有动态场，25 FPS，13 秒 | 24.923 FPS | 195 段 2 周期、128 段 3 周期，无其它区间 |
+
+保持现役 Timer。三个长窗均满足预定的 25 FPS 门，单个 1 周期间隔的发生位置和原因未定。真实作者副本沿原包及着色器运行，首次把缺索引的下载标记散拷进测试库被正常拒绝，正式取证只在隔离副本内移出该标记，作者 project 与 pkg 摘要保持。基准验证本机单内屏及系统实际 drawable 呈现，不含同一个运行会话的物理切屏、混合屏、面板光学、真实启动分段或整机功耗。收据归 `.artifacts/wallpaper-quality-scene-fixed-refresh`。 [Apple 实际呈现时刻](https://developer.apple.com/documentation/metal/mtldrawable/presentedtime)
+
 <a id="scene-aa"></a>
 ### 抗锯齿
 

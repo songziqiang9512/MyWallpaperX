@@ -769,7 +769,11 @@ final class SceneDaemonRuntime {
         }
         performanceWindow = nil
         SceneFramePerformanceTelemetry.productSessionID = nil
-        let snapshot = stable ? SceneFramePerformanceTelemetry.debugEvidence.snapshot(at: now) : nil
+        let snapshot = stable ? SceneFramePerformanceTelemetry.debugEvidence.snapshot(
+            at: now, displayModeRefreshRates: Dictionary(uniqueKeysWithValues: surfaces.map {
+                (UInt64($0.displayID), $0.modeRefreshRate)
+            })
+        ) : nil
         return window.receipt(daemonPID: getpid(), snapshot: snapshot,
             failure: stable ? nil : "product-performance-observed-session-display-or-profile-drift")
     }

@@ -156,7 +156,7 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 可选环境使用原提交 owner 的完成快照双缓冲。收尾写当前成员的第零级，消费端只在上一已完成成员生成一次 mip，按原源收据在同一提交供图像、模型和作者 Program。原池按双成员的完整 mip 计费。有效的可选快照在独立基础材质实际输出之后取得租约，有环境依赖的基础材质随后编码，两组共用原输入与一次发布。必需的累积 raw 保单级并沿原独立环境副本派生。 [预算与相序验证](../../development/wallpaper-quality-work-card.md#scene-reflection-snapshot-mips)
 
 <a id="scene-frame-rate-policy"></a>
-App 以 10–120 整数保存动画帧率，Scene 启动和热更新沿原数值 IPC。现有目标屏拓扑同时记录当前显示模式的小数刷新率。单屏和同频屏按当前模式限制，不同频或未知模式采用共同保守上限，最多 60。仅刷新率变化时重排原 timer，保候选身份和原 Surface。设置显示已确认会话的生效值，尚未接管时显示当前配置能预测的上限。 [活动及候选会话](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift) 各接收同一请求，活动会话重排原 timer，不更换作者时钟。过载找下一未来槽，暂停首帧保原有界准入。粒子沿原 1／60 秒固定步进，在正常低帧率期间按该会话有效间隔调节过载上限。
+App 以 10–120 整数保存动画帧率，Scene 启动和热更新沿原数值 IPC。现有目标屏拓扑同时记录当前显示模式的小数刷新率。单屏和同频屏按当前模式限制，不同频或未知模式采用共同保守上限，最多 60。仅刷新率变化时重排原 timer，保候选身份和原 Surface。设置显示已确认会话的生效值，尚未接管时显示当前配置能预测的上限。 [活动及候选会话](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift) 各接收同一请求，活动会话重排原 timer，不更换作者时钟。过载找下一未来槽，暂停首帧保原有界准入。粒子沿原 1／60 秒固定步进，在正常低帧率期间按该会话有效间隔调节过载上限。 显式 Debug 产品窗在结束时用原 `presentedTime` 间隔生成按模式周期计数，逐屏保尾延迟和无法归桶的区间。普通帧与 Release 沿原链。 [取证合同](../../development/wallpaper-quality-settings-plan.md#scene-fixed-refresh-proof)
 
 解码租约预算在 Scene host 初始化时定一次，并与帧率分开。已有旧小预算的设备保留兼容值，便携导入不携带它，改帧率不扫描或缩减缓存。 [资源准入](scene-resource-admission.md#budget) · [实测与保留决定](../../development/wallpaper-quality-work-card.md#scene-decode-budget)
 

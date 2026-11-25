@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 19430
+      "bytes": 19577
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 510,
-      "bytes": 128911
+      "lines": 528,
+      "bytes": 132406
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 136723
+      "bytes": 136928
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -94,7 +94,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 292,
-      "bytes": 59078
+      "bytes": 59345
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,20 +369,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "abfa10caccdfbb497b2a94b465185a1f77ece6c39c655194a84fa3096a576138",
-      "after": "3351e18d3142cebece97ec26e376c1665713f2cbbebd3a1ed2db898b96a2535d",
-      "owner": "Scene",
-      "reason": "把同一票据的冷准备和反馈接入现役策略",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-cold-ordinary-preparation"
+      "before": "3351e18d3142cebece97ec26e376c1665713f2cbbebd3a1ed2db898b96a2535d",
+      "after": "aed9b80221cdbff5d8e855314e886449f8567bbbf6d0dfe9bdb7b48be04fc2e1",
+      "owner": "Scene 运行架构",
+      "reason": "同步原 Debug 帧遥测在测量窗结束时结算实际呈现间隔的职责。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-fixed-refresh-proof"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "117295f447b8cd4375749172796caf196d421c545d31f711cb5cff13f6d49082",
-      "after": "f48ceacfd8d31a4be6aa9f44be93568fe7fd937dc209aa9410804d77635db364",
+      "before": "f48ceacfd8d31a4be6aa9f44be93568fe7fd937dc209aa9410804d77635db364",
+      "after": "f0f4415117ce1c98cdd9dccd84ac9d485cfdce009a9994b70d2dbc5487b0cd46",
       "owner": "仓库架构导航",
-      "reason": "为原片播放补淡入和准备票据的实际源码入口。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-crossfade-luminance"
+      "reason": "把逐屏模式周期统计指到唯一现有 Scene 帧遥测代码。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-fixed-refresh-proof"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "8bbba713e5dcfcc1cd1ea1439844df53024e1cdedebd2c41f173c5e3522fe7e6",
-      "after": "3793c8ce0bc3c7db8015e03b831112a0cfe929e3bb1ec3da3a5d1fce149081a4",
-      "owner": "Video 画质与播放",
-      "reason": "登记相同片源淡入亮度、不同画幅、取消及 alpha 实窗验收。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-crossfade-luminance"
+      "before": "3793c8ce0bc3c7db8015e03b831112a0cfe929e3bb1ec3da3a5d1fce149081a4",
+      "after": "2a8886ac7230770f4dc5868fc0fa5ffe392b7a4ae3998749141be4a8e1300b1f",
+      "owner": "Scene 帧率与取证",
+      "reason": "登记固定显示刷新模式、真实呈现周期分布、限幅结果与适用边界。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-fixed-refresh-proof"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "4b68421c7e60db05bb6440e94a80631c5063e6ae111aff2f79dd08cf990f22a2",
-      "after": "82d25a657d1a45a85a44aa8b90568995349a6c6bc0b0086b57c2331fe25a23ed",
+      "before": "82d25a657d1a45a85a44aa8b90568995349a6c6bc0b0086b57c2331fe25a23ed",
+      "after": "c8b6544a3aab1995a2cfc06a52ce3c912f35fc6398818276366a737bb8a22da8",
       "owner": "壁纸质量实施",
-      "reason": "在原 Video 路线链接同窗播放实测，不新建路线或缓存。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-crossfade-luminance"
+      "reason": "从现役帧率批链接实机分布与尚未完成的显示验收。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-fixed-refresh-proof"
     },
     {
       "section": "bodies",
