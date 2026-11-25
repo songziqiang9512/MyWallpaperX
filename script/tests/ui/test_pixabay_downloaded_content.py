@@ -77,6 +77,7 @@ nonisolated private func observedDownloadedDirectoryContents(at directory: URL,
         shared_values = [ROOT / "MyWallpaperX/Models/WallpaperReference.swift", ROOT / "MyWallpaperX/Models/WallpaperContent.swift",
                          ROOT / "MyWallpaperX/Models/DownloadTask.swift",
                          ROOT / "MyWallpaperX/Shared/WallpaperSourceFileDeletion.swift",
+                         ROOT / "MyWallpaperX/Shared/WallpaperVideoTrackDetails.swift",
                          ROOT / "MyWallpaperX/Models/WallpaperLibraryPage.swift",
                          ROOT / "MyWallpaperX/Core/LibraryCollections/WallpaperLibraryQuery.swift",
                          MODULE / "Core/PixabayModels.swift", MODULE / "Core/PixabayLibraryContentProjection.swift"]

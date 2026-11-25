@@ -145,7 +145,7 @@ struct WallpaperContentProjectionHarness {
             && remotePixabay.capabilities.contains(.download) && !remotePixabay.capabilities.contains(.organize)
             && !remotePixabay.capabilities.contains(.play) && remotePixabay.aliases.isEmpty
         let download = PixabayPublishedDownload(id: 42, localURL: URL(fileURLWithPath: "/never-opened/42-Shared title.mp4"),
-                                                fileSize: 5000, duration: 15, resolutionString: "1280×720",
+                                                fileSize: 5000, duration: 15, displaySize: CGSize(width: 1280, height: 720),
                                                 thumbnailSourceKey: "original-thumbnail-owner-key")
         let localPixabay = PixabayLibraryContentProjection.project(item: pixabay, download: download, facts: local,
                                                                   backing: pixabayReceipt)!

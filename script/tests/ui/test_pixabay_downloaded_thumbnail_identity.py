@@ -21,6 +21,7 @@ from script.tests.ui.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 ROOT = Path(__file__).resolve().parents[3]
 SOURCE = ROOT / 'MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayDownloadsItem.swift'
 CORE = ROOT / 'MyWallpaperX/Modules/Pixabay/Core/PixabayDownloadedContent.swift'
+TRACK_DETAILS = ROOT / 'MyWallpaperX/Shared/WallpaperVideoTrackDetails.swift'
 FIXTURE = ROOT / 'script/tests/fixtures/PixabayDownloadedIdentityHarness.swift'
 CACHE = ROOT / 'MyWallpaperX/Shared/UI/ThumbnailCache.swift'
 MEMORY = ROOT / 'MyWallpaperX/Shared/UI/DecodedThumbnailMemoryCache.swift'
@@ -33,7 +34,7 @@ class PixabayDownloadedThumbnailIdentityTests(unittest.TestCase):
         fixture = ROOT / 'script/tests/fixtures/PixabayThumbnailGenerationChecks.swift'
         decoder = MEMORY.with_name('GridThumbnailDecoder.swift')
         request = ROOT / 'MyWallpaperX/Shared/ThumbnailRequest.swift'
-        paths = [SOURCE, CORE, fixture, CACHE, MEMORY, decoder, request]
+        paths = [SOURCE, CORE, TRACK_DETAILS, fixture, CACHE, MEMORY, decoder, request]
         hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
         with tempfile.TemporaryDirectory(prefix='mwx-pixabay-av-', dir='/private/tmp') as directory:
             work = Path(directory); home = work / 'home'; home.mkdir()
@@ -52,7 +53,16 @@ class PixabayDownloadedThumbnailIdentityTests(unittest.TestCase):
             commands.append(command)
             made = subprocess.run(command, capture_output=True, text=True, timeout=20)
             self.assertEqual(made.returncode, 0, made.stdout + made.stderr)
+            command = ['ffmpeg', '-nostdin', '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=440',
+                       '-t', '1', '-c:a', 'aac', str(media / 'online_9005.mp4')]
+            commands.append(command)
+            made = subprocess.run(command, capture_output=True, text=True, timeout=20)
+            self.assertEqual(made.returncode, 0, made.stdout + made.stderr)
             product = SOURCE.read_text(); core = CORE.read_text()
+            metadata = declaration(core, 'nonisolated struct PixabayDownloadedAssetMetadata')
+            track_read = '        guard let track = try? await asset.loadTracks(withMediaType: .video).first else { return nil }'
+            self.assertEqual(metadata.count(track_read), 1)
+            metadata = metadata.replace(track_read, '        PixabayAVProbe.noteTrackRead(asset)\n' + track_read)
             generator = declaration(product, 'nonisolated private final class PixabayThumbnailVideoGeneration')
             call = 'generator.generateCGImageAsynchronously(for: CMTime(seconds: 0.5, preferredTimescale: 600))'
             self.assertEqual(generator.count(call), 1)
@@ -60,15 +70,17 @@ class PixabayDownloadedThumbnailIdentityTests(unittest.TestCase):
                 'generator.generateCGImageAsynchronously(for: PixabayAVProbe.time(CMTime(seconds: 0.5, preferredTimescale: 600), generator: generator))')
             harness = work / 'Harness.swift'
             harness.write_text('import AppKit\nimport AVFoundation\n' + '\n'.join([
-                declaration(core, 'nonisolated struct PixabayDownloadedAssetMetadata'),
+                declaration(core, 'nonisolated struct PixabayDownloadedEntry'),
+                metadata,
                 declaration(core, 'nonisolated enum PixabayDownloadedFileIdentity'),
+                declaration(core, 'nonisolated enum PixabayDownloadedContent'),
                 declaration(product, 'enum PixabayDownloadedThumbnailStore'), observed,
                 declaration(product, 'extension PixabayDownloadedThumbnailStore'), fixture.read_text()]))
             cache_copy = work / 'ThumbnailCache.swift'
             cache_source = CACHE.read_text()
             self.assertEqual(cache_source.count('private func diskCacheURL('), 1)
             cache_copy.write_text(cache_source.replace('private func diskCacheURL(', 'func diskCacheURL(', 1))
-            sources = [MEMORY, cache_copy, decoder, request, harness]
+            sources = [TRACK_DETAILS, MEMORY, cache_copy, decoder, request, harness]
             command = ['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-warnings-as-errors', '-parse-as-library',
                 *map(str, sources), '-module-cache-path', str(work / 'modules'), '-o', str(work / 'checks')]
             build = subprocess.run(command, capture_output=True, text=True, timeout=150)
@@ -77,7 +89,7 @@ class PixabayDownloadedThumbnailIdentityTests(unittest.TestCase):
                 proof = Path(destination); proof.mkdir(parents=True, exist_ok=True)
                 (proof / 'compile.log').write_text(build.stdout + build.stderr)
                 (proof / 'inputs.json').write_text(json.dumps(dict(inputs=hashes, command=command,
-                    fixtureCommands=commands, observation='Only wraps the actual AV request time to observe its input, maximumSize and thread; no producer or cache body replaced.'), indent=2))
+                    fixtureCommands=commands, observation='Observes real AV frame request time, maximumSize, thread and explicit fallback track loads. Media results and cache work are unchanged.'), indent=2))
                 shutil.copy2(harness, proof / 'Harness.swift')
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             run = subprocess.run([str(work / 'checks'), str(media)], env=dict(os.environ,
@@ -97,7 +109,7 @@ class PixabayDownloadedThumbnailIdentityTests(unittest.TestCase):
             production = SOURCE.read_text()
             store = declaration(production, 'enum PixabayDownloadedThumbnailStore')
             store += '\n' + declaration(production, 'extension PixabayDownloadedThumbnailStore')
-            leaf = 'await PixabayThumbnailVideoGeneration(url: url, request: request).image()'
+            leaf = 'await PixabayThumbnailVideoGeneration(url: url, request: request).image(knownSize: knownSize)'
             self.assertEqual(store.count(leaf), 1)
             store = store.replace(leaf, 'await IdentityMediaGate.shared.input(request: request)')
             observe = 'var fileURL = url.standardizedFileURL'

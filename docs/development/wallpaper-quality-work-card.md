@@ -8,7 +8,7 @@
 
 从主工作树 `codex/engine-refactor-program` 的 `b2b80f892` 建 `Fluxo/wallpaper-quality-settings`。评估方案给技术取舍与失败判据，本卡维护唯一执行顺序与当前批。开工核对分支、实际 diff 和上批证据，从原设置行为追到真实运行消费者。 [算法与技术设计](wallpaper-quality-settings-plan.md#decision) · [源码地图](../architecture/repository-map.md#wallpaper-quality) · [验证工作流](repository-workflow.md#设计判定与记录)
 
-**当前推进整体交付与用户帮助**。原生设置、四档预设、10–120 FPS、Scene MSAA 最高已验 4×、泛光与超高输出、三种纹理策略、阴影五档及反射开关已接通。体积禁用覆盖点光和聚光，现役高／超高分别用四点／六点点光积分。低分辨率候选已由独立复核退出，低／中待有新办法保护细光与遮挡时再推进。M4 的三引擎交接及正常冷恢复已通过。后续按设备核混合显示拓扑、8× 实际支持与长稳功耗。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
+**当前推进 Web 实际绘制验收与 Pixabay 原片规格**。原生设置、四档预设、10–120 FPS、Scene MSAA 最高已验 4×、泛光与超高输出、三种纹理策略、阴影五档及反射开关已接通。体积禁用覆盖点光和聚光，现役高／超高分别用四点／六点点光积分。低分辨率候选已由独立复核退出，低／中待有新办法保护细光与遮挡时再推进。M4 的三引擎交接及正常冷恢复已通过。后续按设备核混合显示拓扑、8× 实际支持与长稳功耗。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
 
 Q0 已取得 M4 上基线源码的独立 Metal 泛光和映射结果。Q1 从 App 偏好写入入口把帧率与 Web 模式投影到实际端点，Scene 保原缓存档，Video 保原片。已验签名隔离 Debug 的 30／60 真实呈现、实际 WKWebView 投递、候选端点、导入复位和独立复核。复杂作品的 60 FPS 与长稳功耗仍按 [实测门槛](wallpaper-quality-settings-plan.md#quality-release-gates)验证。每批冻结源码后跑最近门和独立审查，只提交本批文档、源码与测试。
 
@@ -349,6 +349,15 @@ QV1 已验原生详情选择、重复 URL、单个有效规格、取消、原档
 
 原生详情回归通过导出优先、同一源回退与重扫只读取一次、换源取消、同路径同修改时间替换，以及失效或非 Video 记录清理。生产读取对 90° 和 45° MOV 分别返回 32 × 64、68 × 68，无轨不填标称帧率。独立 Workshop 3834029472 的实际源由生产 AVFoundation 入口和 ffprobe 匹配为 H.264、1920 × 1080、24 FPS。该验证读取本机真实文件和原生详情，不含在线下载、AVPlayer 输出帧率或整机能耗。
 
+<a id="pixabay-downloaded-track"></a>
+### Pixabay 下载原片的尺寸与标称帧率
+
+本地原片扫描已在首次或换版读取视频轨及方向，条目目前只保格式化尺寸。相同文件版本的首个定尺寸缩略图再加载一次轨和方向，详情也缺标称帧率。把本地／创意工坊已共用的轨道读取 owner 移到 Shared 供第三个消费者复用，将显示尺寸由字符串变为实际像素数，并让只需尺寸和帧率的 Pixabay 扫描不读编解码器。条目保实际显示尺寸和已知标称帧率，原紧凑尺寸文字从像素值生成。详情沿现有条目发布显示新行，未知值省略；不在显示时再读盘，也不照搬远端目录规格。
+
+缩略图在现有 path／size／mtime 版本相同且尺寸已知时直接选解码尺寸，原版本检查内的另一文件继续从实际轨读取。真实换源、读前并发和读后发布沿现有身份和取消处理，旧文本尺寸存储同批退出，不加缓存或文件第二身份。以真实横／旋转／极小文件核缩略图尺寸、颜色、旧请求和换版，比较现役无尺寸与候选带同版本尺寸时的实际显式 AV 轨道读取数。用已下载真实媒体和无轨反例核标称帧率及详情事实。此片的收益是已下载视频详情正确、正常缩略图路径减少一次显式轨道读取，播放帧率及 AVFoundation 内部读取统计不改口径。 [原片轨道读取](../../MyWallpaperX/Shared/WallpaperVideoTrackDetails.swift)
+
+真实 AVFoundation 的旋转 720×1280 原片发布标称 2 FPS。同版带尺寸请求与原无提示请求均实取 180×320，像素相同；生成前显式轨道读取从一次降到零。同路径原子换入 3840×2160 素材，旧条目仍在，按新键查一次轨并生成 180×101。有效纯音轨 MP4 不显示视频尺寸或帧率。独立 Workshop 3834029472 原件只读取得 1920×1080／24 FPS，ffprobe 一致。Pixabay 的原生详情有帧率显示该行，未知时省略；本地 Video 的轨道与取消、Steam 当前文件的详情回归通过。收据归 `.artifacts/wallpaper-quality-pixabay-track`。
+
 ### Video 派生验证与本地播放设置
 
 本地 Video 继续提交原文件给 AVFoundation，移除只影响 HLS 的分辨率偏好赋值，保原缓冲和播放器层。先由同一已签名运行链及真实媒体验证实际尺寸、就绪和循环。
@@ -359,7 +368,7 @@ QV1 已验原生详情选择、重复 URL、单个有效规格、取消、原档
 
 原片短循环合成的四臂为 2160p60、1080p60、2160p30、1080p30。真实 AVFoundation 解码分别读到 322／322／161／161 帧，同为 161／30 秒、BT.709、无音轨。按相同降尺寸／选帧参考，逐帧 SSIM 的最低亮度值为 0.9878，循环接缝比较最大差异 0.136 个码值。独立 1080p24 负控保原音轨和原片，实际桌面烟测 2.51 秒。真实桌面以同一签名 helper 做两次原片 A/A，再正反两轮比较。每窗约 21.467 秒，约四倍文件时长。原片四窗 CPU 全距为 13.49 ms/s。只有 1080p30 在两轮都超过同源 helper CPU 的噪声线，分别下降 43.3%／44.5%，物理 footprint 约降 12.0%／12.7%。RSS 变化在 A/A 波动内。2160p30 比原片臂大 52.2%，编码和码率差异随实际文件一起影响成本。
 
-实测屏幕为 M4 单内屏 3024×1964 当前 120 Hz，接交流电且无记录的热降频告警。短窗的一分钟系统负载为 2.32–7.65。该筛查统计本 helper CPU 与内存，保留 1080p30 作为下一阶段候选。发布依赖 VideoToolbox／WindowServer 与整机稳态功耗、转码净能量及更长的独立样本。当前工具可读范围内缺整机瓦数，保留原片播放。 [技术评估](wallpaper-quality-settings-plan.md#video)
+实测屏幕为 M4 单内屏 3024×1964 当前 120 Hz，接交流电且无记录的热降频告警。短窗的一分钟系统负载为 2.32–7.65。该筛查统计本 helper CPU 与内存，保留 1080p30 作为下一阶段候选。发布依赖 VideoToolbox／WindowServer 与整机稳态功耗、转码净能量及更长的独立样本。Apple M4 本机的 `xctrace` 模板虽列出 Power Profiler，实际短探针返回该 instrument 不支持 macOS。现有进程数字仅作入围筛查，缺整机瓦数时保留原片播放。 [Apple Power Profiler](https://developer.apple.com/documentation/xcode/measuring-your-app-s-power-use-with-power-profiler) [技术评估](wallpaper-quality-settings-plan.md#video)
 
 <a id="quality-user-help"></a>
 ### 三引擎内置帮助交付

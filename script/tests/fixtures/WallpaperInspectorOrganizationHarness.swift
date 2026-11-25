@@ -112,7 +112,7 @@ nonisolated private final class DownloadedInspectorFrameProbe: @unchecked Sendab
 nonisolated private final class PixabayThumbnailVideoGeneration: @unchecked Sendable {
     private let url: URL
     init(url: URL, request: ThumbnailRequest?) { self.url = url }
-    func image() async -> ThumbnailInput? {
+    func image(knownSize: CGSize?) async -> ThumbnailInput? {
         guard let image = await DownloadedInspectorFrameProbe.shared.image(url.path) else { return nil }
         return .image(image, nativeSize: image.size)
     }

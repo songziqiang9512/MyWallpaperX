@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-struct PixabayDownloadedEntry { let localURL: URL; let thumbnailSourceKey: String? }
+struct PixabayDownloadedEntry { let localURL: URL; let thumbnailSourceKey: String?; var displaySize: CGSize? = nil }
 nonisolated private final class IdentityProbe: @unchecked Sendable {
     static let shared = IdentityProbe()
     private let lock = NSLock()

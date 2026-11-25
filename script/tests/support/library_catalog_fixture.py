@@ -53,6 +53,7 @@ def assemble_catalog_fixture(main_fixture=None):
         "script/tests/fixtures/OnlineImageLibraryAppStub.swift",
         "MyWallpaperX/Modules/Pixabay/Core/PixabayModels.swift",
         "MyWallpaperX/Modules/Pixabay/Core/PixabayDownloadedContent.swift",
+        "MyWallpaperX/Shared/WallpaperVideoTrackDetails.swift",
         "MyWallpaperX/Modules/Pixabay/Core/PixabayLibraryContentProjection.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/VideoLibraryContentProjection.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+LibraryContent.swift",

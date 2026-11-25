@@ -36,6 +36,7 @@ class WallpaperContentProjectionTests(unittest.TestCase):
                 "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryContentProjection.swift",
                 "MyWallpaperX/Modules/Pixabay/Core/PixabayModels.swift",
                 "MyWallpaperX/Modules/Pixabay/Core/PixabayDownloadedContent.swift",
+                "MyWallpaperX/Shared/WallpaperVideoTrackDetails.swift",
                 "MyWallpaperX/Modules/Pixabay/Core/PixabayLibraryContentProjection.swift",
             ]
             build = subprocess.run(

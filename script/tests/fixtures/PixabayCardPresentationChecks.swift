@@ -844,7 +844,8 @@ import QuartzCore
     let decoded = image(6)
     transport.deliver(first, image: decoded)
     let generation = card.thumbnailRequestID, requests = transport.history.count
-    let metadataOnly = downloadModel(7, name: original.localURL.lastPathComponent, duration: 3661, resolution: "3840×2160")
+    let metadataOnly = downloadModel(7, name: original.localURL.lastPathComponent, duration: 3661,
+                                     displaySize: CGSize(width: 3840, height: 2160))
     firstBadge.toolTip = "Obsolete metadata hover"
     firstBadge.titleView.toolTip = "Obsolete title hover"
     card.view.toolTip = "Obsolete card hover"

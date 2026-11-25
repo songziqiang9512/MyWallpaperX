@@ -8,7 +8,8 @@ nonisolated struct PixabayDownloadedEntry: Equatable, Sendable {
     let localURL: URL
     let fileSize: Int
     var duration: Int?
-    var resolutionString: String?
+    var displaySize: CGSize?
+    var nominalFrameRateText: String?
     var thumbnailSourceKey: String? = nil
     var creationDate: Date? = nil
     var modificationDate: Date? = nil
@@ -16,6 +17,7 @@ nonisolated struct PixabayDownloadedEntry: Equatable, Sendable {
 
     var displayTitle: String { localURL.lastPathComponent }
     var durationString: String { duration.map(PixabayDownloadedAssetMetadata.formatDuration) ?? "" }
+    var resolutionString: String? { displaySize.map { "\(Int($0.width))×\(Int($0.height))" } }
     var fileSizeString: String? {
         guard fileSize > 0 else { return nil }
         let mb = Double(fileSize) / (1024 * 1024)
@@ -46,11 +48,14 @@ nonisolated struct PixabayLocalDeletionResult: Equatable, Sendable {
 
 nonisolated struct PixabayDownloadedAssetMetadata: Sendable {
     let durationSeconds: Int
-    let resolutionString: String?
+    let displaySize: CGSize?
+    let nominalFrameRateText: String?
 
     static func load(from url: URL) async -> Self {
         let asset = AVURLAsset(url: url)
-        return await Self(durationSeconds: durationSeconds(for: asset), resolutionString: resolutionString(for: asset))
+        let duration = await durationSeconds(for: asset)
+        let track = await WallpaperVideoTrackDetails.load(from: asset, includesCodec: false)
+        return Self(durationSeconds: duration, displaySize: track?.displaySize, nominalFrameRateText: track?.nominalFrameRateText)
     }
 
     static func formatDuration(_ seconds: Int) -> String {
@@ -68,20 +73,9 @@ nonisolated struct PixabayDownloadedAssetMetadata: Sendable {
         return Int(seconds.rounded())
     }
 
-    private static func resolutionString(for asset: AVAsset) async -> String? {
-        guard let size = await nativeSize(for: asset) else { return nil }
-        return "\(Int(size.width))×\(Int(size.height))"
-    }
-
     static func nativeSize(for asset: AVAsset) async -> CGSize? {
-        guard let tracks = try? await asset.loadTracks(withMediaType: .video), let track = tracks.first,
-              let naturalSize = try? await track.load(.naturalSize),
-              let preferredTransform = try? await track.load(.preferredTransform) else { return nil }
-        let transformed = CGRect(origin: .zero, size: naturalSize).applying(preferredTransform).size
-        let width = abs(transformed.width).rounded(), height = abs(transformed.height).rounded()
-        guard width.isFinite, height.isFinite, width > 0, height > 0,
-              width < Double(Int.max), height < Double(Int.max) else { return nil }
-        return CGSize(width: width, height: height)
+        guard let track = try? await asset.loadTracks(withMediaType: .video).first else { return nil }
+        return await WallpaperVideoTrackDetails.displaySize(for: track)
     }
 }
 
@@ -145,7 +139,8 @@ nonisolated enum PixabayDownloadedContent {
             let reused = prior[id].flatMap { $0.thumbnailSourceKey == key ? $0 : nil }
             entries.append(PixabayDownloadedEntry(id: id, localURL: url, fileSize: size,
                 duration: metadata.map { $0.durationSeconds > 0 ? $0.durationSeconds : nil } ?? reused?.duration,
-                resolutionString: metadata?.resolutionString ?? reused?.resolutionString, thumbnailSourceKey: key,
+                displaySize: metadata?.displaySize ?? reused?.displaySize,
+                nominalFrameRateText: metadata?.nominalFrameRateText ?? reused?.nominalFrameRateText, thumbnailSourceKey: key,
                 creationDate: values.creationDate, modificationDate: values.contentModificationDate, isAvailable: available))
         }
         return entries

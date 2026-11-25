@@ -6080,6 +6080,7 @@
     {
       "id": "main-library-downloaded-source",
       "patterns": [
+        "MyWallpaperX/Shared/WallpaperVideoTrackDetails.swift",
         "MyWallpaperX/Modules/Pixabay/Core/PixabayDownloadedContent.swift",
         "MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift",
         "script/tests/ui/test_pixabay_downloaded_content.py",
@@ -6241,6 +6242,7 @@
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemMenu.swift",
         "script/tests/steam/test_steam_item_menu.py",
         "script/tests/fixtures/SteamItemMenuHarness.swift",
+        "MyWallpaperX/Shared/WallpaperVideoTrackDetails.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift",
         "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorView.swift",
         "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorSupport.swift",

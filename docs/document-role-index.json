@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "959fe8566303ef30923450fc9042bb780a724ed5f9b6323607a87dd9ab0b34a8",
+        "sourceSHA256": "6b5b7245120ee476331558b8b7c063e37f157f889b48c85818334d6e144da6de",
         "method": "document_registry --audit + document_health --check",
-        "scope": "从质量行为变更定位实际设置、执行端和本地五语帮助入口",
-        "limitations": "Help Checker 校验发布结构，浏览器交互由实际 WebKit 行为门验证"
+        "scope": "质量应用与报告、共用原片轨道读取、Pixabay 同版缩略图",
+        "limitations": "源码 owner 和验证路由，发布行为与媒体条件详见各能力合同"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "960059f8aa244992aa3e1f6d0960f5543982e6fdf8509f0e70150d1375ed7cca",
+        "sourceSHA256": "0a0f962f3f3b4329ce840042abc6a5e55add974a8835e845563380f7b1b0749b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "三引擎质量执行顺序、当前原生粗格否证及五语内置帮助交互",
-        "limitations": "帮助实测为成品内的本地 WKWebView；未启动系统 Help Viewer"
+        "scope": "三引擎执行顺序、原生粗格否证、Help、同版本 Pixabay 实际纹理和文件读取",
+        "limitations": "明确只统计显式 AV 轨道查询和移动后的源，不把尺寸复用当整机功耗"
       }
     },
     {

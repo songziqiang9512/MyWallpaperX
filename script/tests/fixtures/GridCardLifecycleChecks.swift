@@ -222,9 +222,9 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
 }
 
 @MainActor func downloadModel(_ id: Int, name: String = "forest.mp4", bytes: Int = 1_048_576,
-                              duration: Int? = 11, resolution: String? = "1920×1080") -> PixabayDownloadedEntry {
+                              duration: Int? = 11, displaySize: CGSize? = CGSize(width: 1920, height: 1080)) -> PixabayDownloadedEntry {
     PixabayDownloadedEntry(id: id, localURL: URL(fileURLWithPath: "/fixture/\(name)"),
-                      fileSize: bytes, duration: duration, resolutionString: resolution)
+                          fileSize: bytes, duration: duration, displaySize: displaySize)
 }
 
 @MainActor func configure(_ card: AppKitPixabayBrowserItem, _ item: PixabayVideoItem,

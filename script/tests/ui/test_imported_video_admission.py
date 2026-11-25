@@ -83,7 +83,9 @@ class ImportedVideoAdmissionTests(unittest.TestCase):
             work = Path(temporary)
             harness = work / 'Checks.swift'
             harness.write_text(source + '\n' + types + '\n' + support + '\n' + program)
-            originals = [*GATE_SOURCES, ROOT / 'MyWallpaperX/Modules/Pixabay/Core/PixabayDownloadedContent.swift', ROOT / 'MyWallpaperX/Models/VideoWallpaper.swift', ROOT / 'MyWallpaperX/Models/WallpaperContent.swift', ROOT / 'MyWallpaperX/Models/WallpaperSourceImportResult.swift',
+            originals = [*GATE_SOURCES, ROOT / 'MyWallpaperX/Modules/Pixabay/Core/PixabayDownloadedContent.swift',
+                         ROOT / 'MyWallpaperX/Shared/WallpaperVideoTrackDetails.swift',
+                         ROOT / 'MyWallpaperX/Models/VideoWallpaper.swift', ROOT / 'MyWallpaperX/Models/WallpaperContent.swift', ROOT / 'MyWallpaperX/Models/WallpaperSourceImportResult.swift',
                          ROOT / 'MyWallpaperX/Models/WallpaperIndexStartupChanges.swift',
                          ROOT / 'MyWallpaperX/App/ImportedVideoPlaybackObserver.swift']
             copied = []

@@ -48,6 +48,7 @@ CARDS = [UI / "AppKitPixabayBrowserItem.swift", UI / "AppKitPixabayDownloadsItem
 BROWSER = Path(os.environ.get("MWX_ONLINE_BROWSER_GRID_SOURCE", UI / "AppKitPixabayBrowserGridView.swift"))
 DEPENDENCIES = [
     ROOT / "MyWallpaperX/Modules/Pixabay/Core/PixabayDownloadedContent.swift",
+    ROOT / "MyWallpaperX/Shared/WallpaperVideoTrackDetails.swift",
     ROOT / "MyWallpaperX/Modules/Pixabay/Core/PixabayModels.swift",
     SHARED / "AppearanceAwareContainerView.swift",
     SHARED / "NSViewExtensions.swift",

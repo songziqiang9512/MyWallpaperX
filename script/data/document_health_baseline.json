@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 62,
-      "bytes": 15164
+      "bytes": 15390
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -77,8 +77,8 @@
       "bytes": 79291
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 382,
-      "bytes": 78319
+      "lines": 391,
+      "bytes": 80740
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,19 +378,19 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "9d762265673b436bf7ee3998736cb53f8adfedc08a6b56bc840fc6ff355c0e80",
-      "after": "a53ea0139af68ed690572589221e03b712faaa8977ce078ec23ee05209bf11d9",
+      "before": "a53ea0139af68ed690572589221e03b712faaa8977ce078ec23ee05209bf11d9",
+      "after": "24e9c41bf876ee1023daa1ddb019bd4561f9803a1b39f96d22c4e506299a405e",
       "owner": "wallpaper-quality",
-      "reason": "同步产品帮助退役项及真实的五语帮助交互证据",
-      "decision": "docs/development/wallpaper-quality-work-card.md#quality-user-help"
+      "reason": "记录 Pixabay 实际本地原片详情及缩略图回归，核对本机功耗工具能力边界",
+      "decision": "docs/development/wallpaper-quality-work-card.md#pixabay-downloaded-track"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "94521a8c1105cc00850e4938a00888fedd84d9a164dcb60e7e0587d9245dd9f6",
-      "after": "ca8fc7fdfcdef37de4814c8f42beb79601fa72fc4059422e34a159a9d3659f46",
+      "before": "ca8fc7fdfcdef37de4814c8f42beb79601fa72fc4059422e34a159a9d3659f46",
+      "after": "70aaf84a8ca7ad1cfe2fe8c2688024b0d5f9ff10d561a3f747e45d8b7793fe8d",
       "owner": "wallpaper-quality",
-      "reason": "定位同改生效范围时需要更新的产品帮助与已有检查",
+      "reason": "原片轨道读取迁至真实共享 owner，同时定位 Pixabay 同版尺寸的消费者",
       "decision": "docs/architecture/repository-map.md#wallpaper-quality"
     },
     {

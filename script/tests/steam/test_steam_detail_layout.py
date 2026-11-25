@@ -46,6 +46,7 @@ class SteamDetailLayoutTests(unittest.TestCase):
                 ROOT / 'MyWallpaperX/Shared/UI/WallpaperInspectorActions.swift',
                 ROOT / 'MyWallpaperX/Shared/UI/InspectorFadingScrollView.swift',
                 ROOT / 'MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift',
+                ROOT / 'MyWallpaperX/Shared/WallpaperVideoTrackDetails.swift',
                 ROOT / 'MyWallpaperX/Models/VideoWallpaper.swift',
                 ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift']
             originals = {}

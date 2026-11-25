@@ -45,7 +45,7 @@ Scene 阴影档经冷准备进入 [光空间贴图与受光绘制](../../MyWallp
 
 Scene 体积开关从同一准备请求进入 [根域点光与有序聚光绘制](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift)。 [点光管线](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/ScenePointVolumePipeline.swift) 负责实际光球覆盖与同一积分编码。积分阶数沿 [PSO 槽](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneImageEffectPipelineRepository.swift) 冷选。 [生效合同](../scene/architecture/runtime-architecture.md#scene-volume-lighting-policy)
 
-本地 Video 和已就绪 Steam Video 详情共用[原片轨道读取](../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift)。标称帧率来自实际播放文件；[Steam 获取合同](steam-workshop-acquisition-contract.md#source-video-facts)约定适用范围。
+本地 Video、已就绪 Steam Video 与已下载 Pixabay 共用[原片轨道读取](../../MyWallpaperX/Shared/WallpaperVideoTrackDetails.swift)。标称帧率来自实际文件；[Steam 获取合同](steam-workshop-acquisition-contract.md#source-video-facts)约定适用范围。Pixabay 的[本地发布](../../MyWallpaperX/Modules/Pixabay/Core/PixabayDownloadedContent.swift)保同版本显示尺寸，供[定尺寸缩略图](../../MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayDownloadsItem.swift)直接消费。
 
 Pixabay 新下载由 [规格选择](../../MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadQualityPrompt.swift)交给[下载服务](../../MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift)发布实际文件。[下载历史](../../MyWallpaperX/App/DownloadTasksController.swift)用原档位重试。播放仍由原 Video daemon 读取发布文件。
 

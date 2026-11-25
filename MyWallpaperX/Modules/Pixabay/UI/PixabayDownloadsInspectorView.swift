@@ -124,6 +124,7 @@ final class PixabayDownloadsInspectorView: NSView {
         }
         let facts: [(String, String?)] = [
             (String(localized: "Resolution"), snapshot.resolutionText),
+            (String(localized: "Nominal Frame Rate"), snapshot.entry.nominalFrameRateText),
             (String(localized: "Date Added"), snapshot.creationDateText),
             (String(localized: "Source Platform"), snapshot.platformText)
         ]

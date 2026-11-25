@@ -49,12 +49,14 @@ nonisolated private final class PixabayThumbnailVideoGeneration: @unchecked Send
         generator.maximumSize = CGSize(width: 520, height: 300)
     }
 
-    func image() async -> ThumbnailInput? {
+    func image(knownSize: CGSize? = nil) async -> ThumbnailInput? {
         await withTaskCancellationHandler {
             let nativeSize: CGSize?
             if let request {
-                guard let size = await PixabayDownloadedAssetMetadata.nativeSize(for: generator.asset) else { return nil }
-                nativeSize = size
+                nativeSize = if let knownSize { knownSize } else {
+                    await PixabayDownloadedAssetMetadata.nativeSize(for: generator.asset)
+                }
+                guard let size = nativeSize else { return nil }
                 generator.maximumSize = request.decodedSize(for: size)
             } else { nativeSize = nil }
             return await withCheckedContinuation { continuation in
@@ -90,8 +92,8 @@ nonisolated private final class PixabayThumbnailVideoGeneration: @unchecked Send
 }
 
 extension PixabayDownloadedThumbnailStore {
-    nonisolated static func generateThumbnail(from url: URL, request: ThumbnailRequest?) async -> ThumbnailInput? {
-        await PixabayThumbnailVideoGeneration(url: url, request: request).image()
+    nonisolated static func generateThumbnail(from url: URL, request: ThumbnailRequest?, knownSize: CGSize?) async -> ThumbnailInput? {
+        await PixabayThumbnailVideoGeneration(url: url, request: request).image(knownSize: knownSize)
     }
 
     static func loadThumbnail(_ entry: PixabayDownloadedEntry, request: ThumbnailRequest? = nil, priority: ThumbnailCacheRequestPriority,
@@ -108,6 +110,7 @@ extension PixabayDownloadedThumbnailStore {
                 return cacheKey(for: url)
             }.value
             guard let key, !cancellation.cancelled else { return }
+            let knownSize = entry.thumbnailSourceKey == key ? entry.displaySize : nil
             cache.loadImageAsync(forKey: key, request: request, priority: priority, cancellation: cancellation, loader: {
                 // The producer may wait behind another generation. Never publish
                 // pixels from a later source revision under this request's key.
@@ -115,7 +118,7 @@ extension PixabayDownloadedThumbnailStore {
                     cache.remove(forKey: key)
                     return nil
                 }
-                let image = await generateThumbnail(from: url, request: request)
+                let image = await generateThumbnail(from: url, request: request, knownSize: knownSize)
                 guard cacheKey(for: url) == key else {
                     cache.remove(forKey: key)
                     return nil

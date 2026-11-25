@@ -8,6 +8,8 @@ struct PixabayDownloadedEntry: Equatable {
     var fileSize = 12
     var duration: Int? = 2
     var resolutionString: String? = "8×8"
+    var displaySize: CGSize? = nil
+    var nominalFrameRateText: String? = nil
     var thumbnailSourceKey: String? = nil
     var creationDate: Date? = nil
     var modificationDate: Date? = nil
@@ -94,6 +96,16 @@ func appModalHostWindow() -> NSWindow? { nil }
         observeInspectorAlert = { _, _, _ in preconditionFailure("one actual file must download without a prompt") }
         precondition(downloadButton(in: singleView)!.accessibilityPerformPress())
         precondition(pixabay.downloadRequests == [67, 68] && pixabay.selectedDownloadTiers == [.small, .medium])
+
+        pixabay.downloadedContent.entries = [
+            .init(id: 69, localURL: URL(fileURLWithPath: "/fixture/online_69.mp4"), nominalFrameRateText: "24 FPS"),
+            .init(id: 70, localURL: URL(fileURLWithPath: "/fixture/online_70.mp4")),
+        ]
+        let known = PixabayDownloadsInspectorView(itemID: 69, service: pixabay, remoteItem: nil)
+        let unknown = PixabayDownloadsInspectorView(itemID: 70, service: pixabay, remoteItem: nil)
+        let label = String(localized: "Nominal Frame Rate")
+        precondition(labels(in: known).contains(label) && labels(in: known).contains("24 FPS"))
+        precondition(!labels(in: unknown).contains(label))
         print("pixabay-remote-download-quality-pass")
     }
 
@@ -102,5 +114,10 @@ func appModalHostWindow() -> NSWindow? { nil }
             return button
         }
         return view.subviews.lazy.compactMap { downloadButton(in: $0) }.first
+    }
+
+    private static func labels(in view: NSView) -> [String] {
+        if let label = view as? NSTextField { return [label.stringValue] }
+        return view.subviews.flatMap { labels(in: $0) }
     }
 }

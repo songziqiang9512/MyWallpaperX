@@ -21,6 +21,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
 SUPPORT = Path(os.environ.get("MWX_VIDEO_METADATA_SUPPORT_SOURCE", ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift"))
+TRACK_DETAILS = ROOT / "MyWallpaperX/Shared/WallpaperVideoTrackDetails.swift"
 MODEL = ROOT / "MyWallpaperX/Models/VideoWallpaper.swift"
 FIXTURE = ROOT / "script/tests/fixtures/VideoInspectorMetadataHarness.swift"
 MEDIA_FIXTURE = FIXTURE.with_name("VideoTrackMetadataFixtures.swift")
@@ -57,8 +58,10 @@ def observe_production(source):
 
 class VideoInspectorMetadataTests(unittest.TestCase):
     def test_real_helper_publishes_complete_template_before_return_and_honors_cancellation(self):
-        production, delivery = observe_production(SUPPORT.read_text())
-        paths = [SUPPORT, MODEL, FIXTURE, MEDIA_FIXTURE, Path(__file__).resolve()]
+        support = SUPPORT.read_text()
+        track_sources = [] if "nonisolated struct WallpaperVideoTrackDetails" in support else [TRACK_DETAILS]
+        production, delivery = observe_production("\n".join([support, *(p.read_text() for p in track_sources)]))
+        paths = [SUPPORT, *track_sources, MODEL, FIXTURE, MEDIA_FIXTURE, Path(__file__).resolve()]
         inputs = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
         with tempfile.TemporaryDirectory(prefix="mwx-inspector-metadata-", dir="/private/tmp") as folder:
             work = Path(folder)

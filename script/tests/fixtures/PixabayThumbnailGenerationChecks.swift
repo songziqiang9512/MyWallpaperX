@@ -2,12 +2,11 @@ import AppKit
 import AVFoundation
 import ImageIO
 
-struct PixabayDownloadedEntry { let localURL: URL; let thumbnailSourceKey: String? }
-
 nonisolated final class PixabayAVProbe: @unchecked Sendable {
     static let shared = PixabayAVProbe()
     private let lock = NSLock()
     private var values: [String: [[String: Double]]] = [:]
+    private var trackReads: [String: Int] = [:]
     static func time(_ time: CMTime, generator: AVAssetImageGenerator) -> CMTime {
         let name = (generator.asset as! AVURLAsset).url.lastPathComponent
         shared.lock.lock()
@@ -17,8 +16,20 @@ nonisolated final class PixabayAVProbe: @unchecked Sendable {
         shared.lock.unlock()
         return time
     }
+    static func noteTrackRead(_ asset: AVAsset) {
+        let name = (asset as! AVURLAsset).url.lastPathComponent
+        shared.lock.lock()
+        shared.trackReads[name, default: 0] += 1
+        shared.lock.unlock()
+    }
+    func trackCount(_ name: String) -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return trackReads[name, default: 0]
+    }
     func count(_ name: String) -> Int { lock.lock(); defer { lock.unlock() }; return values[name]?.count ?? 0 }
     var observations: [String: [[String: Double]]] { lock.lock(); defer { lock.unlock() }; return values }
+    var explicitTrackLoads: [String: Int] { lock.lock(); defer { lock.unlock() }; return trackReads }
 }
 
 @main enum PixabayThumbnailGenerationChecks {
@@ -36,10 +47,10 @@ nonisolated final class PixabayAVProbe: @unchecked Sendable {
             while !condition(), Date() < deadline { try await Task.sleep(for: .milliseconds(5)) }
             return condition()
         }
-        func load(_ name: String, _ request: ThumbnailRequest?) async throws -> NSImage {
+        func load(_ name: String, _ request: ThumbnailRequest?, entry: PixabayDownloadedEntry? = nil) async throws -> NSImage {
             let url = root.appendingPathComponent(name), cancellation = ThumbnailCacheRequestCancellation()
             var completed = false, result: NSImage?
-            PixabayDownloadedThumbnailStore.loadThumbnail(.init(localURL: url, thumbnailSourceKey: nil),
+            PixabayDownloadedThumbnailStore.loadThumbnail(entry ?? .init(id: 0, localURL: url, fileSize: 0),
                 request: request, priority: .visible, cancellation: cancellation) { _, image in
                     result = image; completed = true
                 }
@@ -94,12 +105,34 @@ nonisolated final class PixabayAVProbe: @unchecked Sendable {
         checks["native-cap-warm-return-does-not-retry-AV"] = tinyReturn === capped
             && PixabayAVProbe.shared.count("tiny.mp4") == 1
 
-        let portrait = try await load("portrait.mp4", .init(width: 180, height: 320, mode: .fit))
+        let portraitRequest = ThumbnailRequest(width: 180, height: 320, mode: .fit)
+        let portrait = try await load("portrait.mp4", portraitRequest)
         let portraitPixels = pixels(portrait, "portrait")
         checks["preferred-track-rotation-controls-the-requested-native-size"] = abs(portraitPixels.width - 180) <= 1
             && abs(portraitPixels.height - 320) <= 1 && PixabayAVProbe.shared.count("portrait.mp4") == 1
-        let metadata = await PixabayDownloadedAssetMetadata.load(from: root.appendingPathComponent("portrait.mp4"))
-        checks["metadata-and-frame-use-the-same-oriented-size-reader"] = metadata.resolutionString == "720×1280"
+        let publishedURL = root.appendingPathComponent("online_9004.mp4")
+        try FileManager.default.copyItem(at: root.appendingPathComponent("portrait.mp4"), to: publishedURL)
+        let entries = try await PixabayDownloadedContent.scan(in: root, reusing: [])
+        let published = entries.first { $0.id == 9004 }!
+        let noTrack = entries.first { $0.id == 9005 }!
+        checks["scan-publishes-actual-rotated-size-and-only-known-nominal-rate"] =
+            published.displaySize == CGSize(width: 720, height: 1280)
+            && published.resolutionString == "720×1280" && published.nominalFrameRateText == "2 FPS"
+            && noTrack.displaySize == nil && noTrack.nominalFrameRateText == nil
+        let reused = try await load("online_9004.mp4", portraitRequest, entry: published)
+        checks["same-file-version-reuses-scan-dimensions-and-preserves-frame-pixels"] =
+            pixels(reused, "published") == portraitPixels && reused.tiffRepresentation == portrait.tiffRepresentation
+            && PixabayAVProbe.shared.count("online_9004.mp4") == 1
+            && PixabayAVProbe.shared.trackCount("online_9004.mp4") == 0
+            && PixabayAVProbe.shared.trackCount("portrait.mp4") == 1
+        let replacement = try Data(contentsOf: root.appendingPathComponent("landscape.mp4"))
+        try replacement.write(to: publishedURL, options: .atomic)
+        let changed = try await load("online_9004.mp4", portraitRequest, entry: published)
+        let changedPixels = pixels(changed, "replaced")
+        checks["same-path-replacement-reloads-current-dimensions-and-pixels"] =
+            changedPixels.width > changedPixels.height && changed.tiffRepresentation != reused.tiffRepresentation
+            && PixabayAVProbe.shared.count("online_9004.mp4") == 2
+            && PixabayAVProbe.shared.trackCount("online_9004.mp4") == 1
 
         await withCheckedContinuation { continuation in
             cache.clearAll(cancelInFlight: true) { continuation.resume() }
@@ -121,6 +154,7 @@ nonisolated final class PixabayAVProbe: @unchecked Sendable {
         checks["actual-AV-requests-retain-half-second-frame-and-background-work"] = observations.values.flatMap { $0 }
             .allSatisfy { $0["seconds"] == 0.5 && $0["onMain"] == 0 }
         print(String(decoding: try JSONSerialization.data(withJSONObject: ["checks": checks,
-            "images": images, "generation": observations], options: [.sortedKeys]), as: UTF8.self))
+            "images": images, "generation": observations, "explicitTrackLoads": PixabayAVProbe.shared.explicitTrackLoads],
+            options: [.sortedKeys]), as: UTF8.self))
     }
 }

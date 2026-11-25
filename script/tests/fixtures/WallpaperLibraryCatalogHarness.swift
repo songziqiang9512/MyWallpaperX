@@ -620,7 +620,7 @@ nonisolated private func onlineStatuses(_ status: WallpaperSourceScanStatus) -> 
         // the supplied path by the catalog or false aliases to a Video row.
         let pixabayDate = Date(timeIntervalSince1970: 900)
         let pixabayEntry = PixabayDownloadedEntry(id: 42, localURL: sharedFile, fileSize: 1, duration: 8,
-            resolutionString: "10×20", thumbnailSourceKey: "published-42", creationDate: pixabayDate,
+            displaySize: CGSize(width: 10, height: 20), thumbnailSourceKey: "published-42", creationDate: pixabayDate,
             modificationDate: Date(timeIntervalSince1970: 901))
         steam.downloads = [record(id: "42", video: sharedFile)]
         _ = await wait { controller.catalog.downloads.first?.reference.sourceID == "42" }
