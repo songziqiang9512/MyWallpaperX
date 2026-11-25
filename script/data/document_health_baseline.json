@@ -74,7 +74,7 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 337,
-      "bytes": 78788
+      "bytes": 79291
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 364,
@@ -684,11 +684,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "a813c85bbbc414c0083959992d15a553c0e9b833b16915ea71a95d8a2d58099d",
-      "after": "56896768e817712aad31bb9178f66d0ec814ca6939ac106c58cecdfe4bfc4a10",
+      "before": "56896768e817712aad31bb9178f66d0ec814ca6939ac106c58cecdfe4bfc4a10",
+      "after": "ec69477d89287a71a175d95213db8464af2dfc8d2445f1b365de8bdd7193fb20",
       "owner": "跨引擎画质设计",
-      "reason": "闭合固定官方体积档冷启动字段运输和 D3D11 实际目标尺寸",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-volume-shader"
+      "reason": "登记四 lane 代表射线和 helper 机制无法达到当前准入的依据",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-quality"
     }
   ]
 }

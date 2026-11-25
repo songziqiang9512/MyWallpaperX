@@ -347,10 +347,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "89b72fb63e5cf77f91f7eb8cebfe216f95528f38f07ac2a380e4a96078283d38",
+        "sourceSHA256": "11c933114b29a563bb6a35b7dd9510988bae6ef167a746a7b95e58b847845292",
         "method": "document_registry --audit + document_health --check",
-        "scope": "32 位固定官版体积档冷路线、D3D 尺寸、shader 步数和设备门",
-        "limitations": "仍未动态核 DPI、热切、创建成功与最终画面"
+        "scope": "Metal quad 求积与窄峰、真实深度及 helper 约束",
+        "limitations": "已有 SDK 编译，未引入产品路径或发布档"
       }
     },
     {
