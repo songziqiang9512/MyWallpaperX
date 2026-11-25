@@ -77,8 +77,8 @@
       "bytes": 80400
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 598,
-      "bytes": 126549
+      "lines": 600,
+      "bytes": 127695
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "557cbefa80c293ea50437af2632bfd29eae97d90488c367fb4b24af6531a0540",
-      "after": "34c2fe221fd368299eda143416617fa6fac15117c481f5be37ef0ed8f0a6c24c",
+      "before": "34c2fe221fd368299eda143416617fa6fac15117c481f5be37ef0ed8f0a6c24c",
+      "after": "ff763ca337a2b1e5830e6eb0291557d1c2f5f5dd5f4fae56710027d64cbc3137",
       "owner": "wallpaper-quality",
-      "reason": "登记真实作者同文档绘制证据与限制",
-      "decision": "docs/development/wallpaper-quality-work-card.md#web-authored-live-draw"
+      "reason": "登记灯族裁剪未过冷准备门的结论",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-shadow-unused-preparation"
     },
     {
       "section": "bodies",

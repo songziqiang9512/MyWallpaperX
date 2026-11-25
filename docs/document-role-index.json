@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6f1d225d3d865645f032791f9237297914244b6f8872592702c9e4cfa69db422",
+        "sourceSHA256": "5930fa72877bcc92d2efaeec0c4e2633019a15a9a9824e5b2f4e4161f6fc4a60",
         "method": "document_registry --audit + document_health --check",
-        "scope": "登记真实作者同文档绘制证据与限制",
-        "limitations": "真实作者绘制、画面运动、物理呈现与功耗分开。"
+        "scope": "双作者 Scene 阴影灯族冷准备证据",
+        "limitations": "新进程与系统 Metal 缓存属不同口径，实际首帧与 ready 计时分开。"
       }
     },
     {
