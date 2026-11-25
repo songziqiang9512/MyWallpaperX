@@ -282,18 +282,20 @@ float4 particleColorSample(
     return mix(first, second, in.frameBlend);
 }
 
+constant bool normalizedParticleTarget [[function_constant(0)]];
+
 fragment float4 sceneParticleFrag(
     Varyings in [[stage_in]],
     texture2d<float> texture [[texture(0)]],
     sampler colorSampler [[sampler(0)]],
-    constant float4 &parameters [[buffer(0)]]) {
+    constant float3 &parameters [[buffer(0)]]) {
     float4 texel = particleColorSample(in, texture, colorSampler, parameters.xy);
     float4 result = texel * in.tint;
     // in.tint already includes particle alpha. Apply texture coverage only
     // after filtering/interpolation, retaining authored RGB at zero alpha.
     result.rgb *= texel.a * parameters.z;
-    if (parameters.w > 0.5) {
-        // With a white mask, this saturates the straight gain without unpremultiplying.
+    if (normalizedParticleTarget) {
+        // Apply the straight-color limit before coverage and framebuffer blending.
         result.rgb = min(result.rgb, float3(result.a));
     }
     return result;
@@ -377,7 +379,7 @@ fragment float4 sceneParticleCoverageFrag(
     Varyings in [[stage_in]],
     texture2d<float> texture [[texture(0)]],
     sampler colorSampler [[sampler(0)]],
-    constant float4 &parameters [[buffer(0)]]) {
+    constant float3 &parameters [[buffer(0)]]) {
     float4 color = particleColorSample(in, texture, colorSampler, parameters.xy) * in.tint;
     color.rgb *= parameters.z;
     return color;

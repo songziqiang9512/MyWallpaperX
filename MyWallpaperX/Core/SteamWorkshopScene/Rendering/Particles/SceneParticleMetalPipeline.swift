@@ -112,7 +112,10 @@ final class SceneParticleMetalPipeline {
             return nil
         }
         let vertex = library.makeFunction(name: "sceneParticleVert")
-        let fragment = library.makeFunction(name: "sceneParticleFrag")
+        var normalizedTarget = pixelFormat == .bgra8Unorm || pixelFormat == .rgba8Unorm
+        let fragmentConstants = MTLFunctionConstantValues()
+        fragmentConstants.setConstantValue(&normalizedTarget, type: .bool, index: 0)
+        let fragment = try? library.makeFunction(name: "sceneParticleFrag", constantValues: fragmentConstants)
         let refractFragment = library.makeFunction(name: "sceneParticleRefractFrag")
         let coverageVertex = coverageLibrary?.makeFunction(name: "sceneParticleCoverageVert")
         let coverageFragment = coverageLibrary?.makeFunction(name: "sceneParticleCoverageFrag")
@@ -247,15 +250,14 @@ final class SceneParticleMetalPipeline {
             samplerStates.state(for: colorSampling),
             index: 0
         )
-        var parameters = SIMD4<Float>(
+        var parameters = SIMD3<Float>(
             colorUVScale.x,
             colorUVScale.y,
-            renderState.overbright,
-            renderState.usesStraightMaskTint ? 1 : 0
+            renderState.overbright
         )
         encoder.setFragmentBytes(
             &parameters,
-            length: MemoryLayout<SIMD4<Float>>.stride,
+            length: MemoryLayout<SIMD3<Float>>.stride,
             index: 0
         )
         encoder.drawPrimitives(

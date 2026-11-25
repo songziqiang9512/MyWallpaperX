@@ -20,7 +20,6 @@
 | Sphere 全零方向的出生可见性（待证） | [固定零半径初速](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)已恢复。显式全零 Directions 的隔离 Sprite 在官版窗内无像素，本机可见且静止。需分出生资格与可见条件，先找活动作者或单轴逐步归零的反例，保零速度和非零轴的正常出生。 |
 | 音频环形变 · 3612940332 | [分组末段缓释](../capabilities/runtime-evidence-current.md#author-spectrum-near-target-release)已恢复已测音乐左弧的主要形变。小残差、44.1kHz和全环跨画幅仍开放，有新可见证据再核相位或构图。 |
 | 粒子外圈 · 3653620838 | [近轴与像素相位](../capabilities/runtime-evidence-current.md#vortex-outer-pixel-phase-365)的静卡一致。继续须运动同亚像素或重复成熟群组，区分出光与覆盖。 |
-| 普通粒子材质增亮的裁幅 | 平面 RG88 同窗对照测得材质 gain1.4 的官版 `(0,144,144)`、本机新 `(0,163,202)`。先找实际作者消费，并用有色 texel、半透明底和双层加色区分 tint、采样与裁幅顺序。已验证的中性 R8 半透明 Trail 裁幅另有原证据。 [运行证据](../capabilities/runtime-evidence-current.md#particle-instance-tint-native) |
 | 3454689854 的相邻丝层 | [同画幅单丝、原包和实际预算](../capabilities/runtime-evidence-current.md#silk-capture-density-345)已闭两条SDR根丝密度。子层及多阶段保持原工作域，只有取得可归属的同相位残差再重启。原默认绕身文字两端均隐藏，条件另见[原包对照](../capabilities/runtime-evidence-current.md#author-silk-raster-345)。 |
 | Puppet 约束的剩余时序与组合 | [原317和313已恢复主要播放](../capabilities/runtime-evidence-current.md#puppet-planar-constraints-native)。固定根解析投影在317额外+96对照的肘误差约2.17px，313极近伸直时官版定槽后仍收敛。待有原包可见差异再核有效根位移与收敛。复杂链、挂点及同链脚本与物理后写按实际消费者验证。 |
 | 初始组合源未解析 · 2982559622 | 两次原包的111/e0在开头三次 preflight 读到 `resourceSnapshotUnresolved`，随后整景 Ready 且有终端 GPU 回执。保独立的103属性脚本 bad-return。先核111所需视频或命名源、显隐与首次可用时刻，再查目标 Program 有无恢复。 |
@@ -228,7 +227,7 @@
 | 3228084178 | 已修复音条周期性近熄，静音保无柱。196散景恢复双侧。[音条](../capabilities/runtime-evidence-current.md#author-led-placement-tail-322) · [散景](../capabilities/runtime-evidence-current.md#box-birth-distance) |
 | 2868108515 | 已修复。锁链左侧规则叠影已消除，链条和正常雾层保留。[局部光效](../capabilities/runtime-evidence-current.md#author-chain-godrays-local-grid) |
 | 3141464346 | 部分修复。环形丝雾的工作栅格与弧线曲向已修复，原摆位裁切与官版一致，随音乐变化待核。[双环](../capabilities/runtime-evidence-current.md#ring-cover-314) |
-| 3382111183 | 已修复缺条。原曲驱动六层脚边彩条实际出生并入图。密度与节拍需要同相位证据再查。[原包与官版](../capabilities/runtime-evidence-current.md#floor-beam-continuous-emission) |
+| 3382111183 | 已修复缺条及普通 SDR 材质增亮过量。原曲六层实绘，已测条纹反差与官版接近。密度与节拍仍开放，续查须同相位图及实际 emitter，不复做出生或增亮矩阵。[出生](../capabilities/runtime-evidence-current.md#floor-beam-continuous-emission) · [材质亮度](../capabilities/runtime-evidence-current.md#particle-material-gain-sdr) |
 | 3673609113 | 部分修复。片头后背景复制6→1，剩约0.66 MB/帧，GPU仍超预算。两级残影与官版同属作者合成。[性能](../capabilities/runtime-evidence-current.md#puppet-zero-alpha-private-frame-367) · [残影](../capabilities/runtime-evidence-current.md#author-motion-history-367) |
 | 3187857248 | 部分修复。双Surface拖动失效已修复，物理指针若仍间歇须新输入证据。[拖动](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318) |
 | 3766299002 | 已修复。面具属性正确选择纹理并保持眼部同步，两主题均验。[面具和眼部](../capabilities/runtime-evidence-current.md#author-conditional-mask-376) |

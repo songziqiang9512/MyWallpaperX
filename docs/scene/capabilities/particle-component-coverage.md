@@ -56,7 +56,14 @@ Turbulence、Turbulent Velocity、Remap 和 Position Offset 共用梯度噪声�
 <a id="hdr-instance-brightness"></a>
 `instanceoverride.brightness` 在场景装载时由 HDR 与 Bloom 同开选中，强度为0也有效。沿原 typed slider 和 Simulator 出生 writer 给直色乘有限标量，缺省或不可用取1。三类颜色均可乘，保零值、超白、alpha、后继 writer 与材质 `overbright`。热值只供有绑定的根实例，不传 child 模板。父事件颜色仍是实际出生值。禁用颜色覆盖沿原实现，官版 bit8、运行中切换 Bloom、脚本和动画供值待证。[运行对照](runtime-evidence-current.md#hdr-particle-instance-brightness)
 
-<a id="neutral-mask-trail-color"></a>普通无光照、SDR 半透明 SpriteTrail 使用实际 R8 白色覆盖纹理及独立根 `colorn` 时，原普通片元对已有 PMA RGB 限至 `alpha`，等价于先把增亮后的直色限制到1，再乘一次覆盖率。裁幅随已准备绘制状态传入原 uniform，保现有 blend、采样和 PSO。Legacy `color`、HDR、折射、有色纹理、后继颜色写入与子系统的材质裁幅沿原路径。双背景、改名和独立纹理的[验收](runtime-evidence-current.md#neutral-mask-trail-382)。
+<a id="ordinary-particle-sdr-material-gain"></a>
+### 普通粒子在归一化颜色附件的材质增亮
+
+共用普通非折射片元的 Sprite、SpriteTrail、Rope 和 RopeTrail 先在直色空间过滤纹理，以作者 tint 和材质 `overbright` 乘 RGB。在 BGRA8／RGBA8 归一化附件，每个片元在乘覆盖前把各颜色通道裁到 1；等价地，以片元的纹理与粒子联合 alpha 裁 PMA RGB。该 alpha 同时继续供原透叠或加色混合，多个片元各自裁幅后仍照常叠加。16 位浮点保留中间超白；折射与 A2C 的独立片元继续使用各自合同。
+
+由原 Metal Pipeline 按目标格式冷选普通片元变体，删除按 Trail、R8、实例颜色来源和算子筛选的窄许可。沿原纹理、实例与材质传递输出，不增加帧分支、资源读取或 PSO 数量。验收取有色纹理、不同增益和 alpha、非黑底、半透明、两层加色、等价改名及浮点反例。原包核脚边光、独立原包核高增益青光，复用零增益、未超白和原白掩码的健康对照。
+
+<a id="neutral-mask-trail-color"></a>3823864170 的白色 R8 半透明 SpriteTrail 是该裁幅的特例。双背景、改名和独立纹理的[验收](runtime-evidence-current.md#neutral-mask-trail-382)。
 
 <a id="size-change-instance-override"></a>
 ### SizeChange 的实例尺寸
