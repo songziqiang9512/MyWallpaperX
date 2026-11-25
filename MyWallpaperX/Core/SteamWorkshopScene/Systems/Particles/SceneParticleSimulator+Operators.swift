@@ -194,10 +194,7 @@ nonisolated extension SceneParticleSimulator {
             let blend = executionPlan.blend
             for index in particles.indices {
                 let factor = oscillationFactor(
-                    oscillationPlan,
-                    index,
-                    operatorIndex,
-                    age: particles[index].age
+                    oscillationPlan, particleID: particles[index].id, age: particles[index].age
                 )
                 particles[index].alpha *= 1 + (factor - 1)
                     * operatorBlend(blend, normalizedLives[index])
@@ -218,10 +215,7 @@ nonisolated extension SceneParticleSimulator {
             let blend = executionPlan.blend
             for index in particles.indices {
                 let factor = oscillationFactor(
-                    oscillationPlan,
-                    index,
-                    operatorIndex,
-                    age: particles[index].age,
+                    oscillationPlan, particleID: particles[index].id, age: particles[index].age,
                 )
                 particles[index].size *= 1 + (factor - 1)
                     * operatorBlend(blend, normalizedLives[index])
@@ -285,15 +279,8 @@ nonisolated extension SceneParticleSimulator {
             let lives = normalizedLives
             particles.withUnsafeMutableBufferPointer { buffer in
                 for index in buffer.indices {
-                    let unit: Double
-                    if usesParticleRandom {
-                        var generator = SceneParticleRandomGenerator(
-                            state: seed ^ (buffer[index].id &* 0x9E3779B97F4A7C15)
-                        )
-                        unit = generator.unit()
-                    } else {
-                        unit = 0
-                    }
+                    let unit = usesParticleRandom
+                        ? SceneParticleRandomGenerator.particleUnit(id: buffer[index].id, seed: seed) : 0
                     let point = (SIMD3<Float>(buffer[index].position) + Float(clockOffset + unit * plan.phaseSpan)) * plan.scale
                     let force = SceneParticleSimulationMath.continuousTurbulence(at: point, mask: plan.mask)
                     let speed = plan.minimumSpeed + unit * plan.speedSpan

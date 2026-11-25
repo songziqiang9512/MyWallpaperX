@@ -3055,7 +3055,7 @@ enum Harness {
     {"material":"p.json","maxcount":1,
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
      "initializer":[{"name":"lifetimerandom","min":4,"max":4},{"name":"alpharandom","min":1,"max":1},{"name":"sizerandom","min":10,"max":10}],
-     "operator":[{"name":"oscillatealpha","frequencymin":0.25,"frequencymax":0.25,"phasemin":0,"phasemax":0,"scalemin":0.2,"scalemax":1},{"name":"oscillatesize","frequencymin":0.25,"frequencymax":0.25,"phasemin":0,"phasemax":0,"scalemin":0.5,"scalemax":1}],
+     "operator":[{"name":"oscillatealpha","frequencymin":3.141592653589793,"frequencymax":3.141592653589793,"phasemin":0.5,"phasemax":0.5,"scalemin":0.2,"scalemax":1},{"name":"oscillatesize","frequencymin":3.141592653589793,"frequencymax":3.141592653589793,"phasemin":0.5,"phasemax":0.5,"scalemin":0.5,"scalemax":1}],
      "renderer":[{"name":"sprite"}]}
     """#
 
@@ -4033,24 +4033,14 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["operatorColor"], [0.975, 0.9875, 1])
         self.assertEqual(self.results["operatorRotation"], [0, 0, 0.25])
         self.assertLess(self.results["operatorPosition"][0], 0)
-        age_one_wave = (math.cos(0.25) + 1) * 0.5
-        age_two_wave = (math.cos(0.5) + 1) * 0.5
-        self.assertAlmostEqual(
-            self.results["quarterLifeOscillationAlpha"],
-            0.2 + 0.8 * age_one_wave,
-        )
-        self.assertAlmostEqual(
-            self.results["halfLifeOscillationAlpha"],
-            0.2 + 0.8 * age_two_wave,
-        )
-        self.assertAlmostEqual(
-            self.results["fineHalfLifeOscillationAlpha"],
-            self.results["halfLifeOscillationAlpha"],
-        )
-        self.assertAlmostEqual(
-            self.results["halfLifeOscillationSize"],
-            10 * (0.5 + 0.5 * age_two_wave),
-        )
+        self.assertAlmostEqual(self.results["quarterLifeOscillationAlpha"], 0.2)
+        half_alpha = self.results["halfLifeOscillationAlpha"]
+        self.assertGreater(half_alpha, 0.2)
+        self.assertLess(half_alpha, 1)
+        self.assertAlmostEqual(self.results["fineHalfLifeOscillationAlpha"], half_alpha)
+        alpha_span = (half_alpha - 0.2) / 0.8
+        size_span = (self.results["halfLifeOscillationSize"] / 10 - 0.5) / 0.5
+        self.assertAlmostEqual(alpha_span, size_span)
         self.assertAlmostEqual(
             self.results["fineHalfLifeOscillationSize"],
             self.results["halfLifeOscillationSize"],

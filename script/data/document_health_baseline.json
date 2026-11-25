@@ -121,8 +121,8 @@
       "bytes": 7411
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 391,
-      "bytes": 74972
+      "lines": 398,
+      "bytes": 76269
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 463,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 351835
+      "bytes": 352870
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 243,
-      "bytes": 69849
+      "bytes": 69913
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "d2bb8892be670ebbd50b7c057c30d0c24a30f66dc130e827a712c4cb4ef4f727",
-      "after": "bb4b464f89116d37888629ccfd28a7cfee916474b76d892657e82574b7562909",
-      "owner": "Scene particle operator plan",
-      "reason": "以原共享算子计划接空间、时钟与帧率力，退役旧方向字段。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#continuous-turbulence"
+      "before": "bb4b464f89116d37888629ccfd28a7cfee916474b76d892657e82574b7562909",
+      "after": "7a70e4d31c5448b889ada3284a8e3123d2de61eb672ef29efeb30496505775e6",
+      "owner": "Scene scalar oscillation plan",
+      "reason": "登记共享稳定随机、振荡跨度、寿命和混合合同。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#scalar-oscillation"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "94a39932fcf179a5fc527ae04d98b768641ce55bb6a8e8f91fb7a33d6253af35",
-      "after": "e9eabe8b5f2da5a071d0fcfe5735e98dcc5f8a7998591306978fb3fe8d96c5a1",
-      "owner": "Scene continuous particle evidence",
-      "reason": "登记同龄轨迹、官版单步位移、符号与倍率正反例及真实作者合成。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-continuous-turbulence-field"
+      "before": "e9eabe8b5f2da5a071d0fcfe5735e98dcc5f8a7998591306978fb3fe8d96c5a1",
+      "after": "254d5bac2fc2b3c88e01917a67561f516b11ebd18f88373bc800a9aa6c894503",
+      "owner": "Scene scalar particle oscillation evidence",
+      "reason": "并入定相位、两个作者及更新后的成熟覆盖实际结果。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-scalar-oscillation"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "4ef71e1ebc24bb6eb87223480d4dcf585114120b8b234613a45e6d9af7867d2f",
-      "after": "939a46f8caf5614ec9e006f91bb6e0cfbdc2e46d65c3990b75ce615f541bfe7a",
+      "before": "939a46f8caf5614ec9e006f91bb6e0cfbdc2e46d65c3990b75ce615f541bfe7a",
+      "after": "88328eaaf274ccf3cfca72ada3c1821c5bbd936d5c7ee3bccae3a0c71ce4a479",
       "owner": "Scene current breakpoints",
-      "reason": "关闭持续力的已复验差异，保留成熟群和右带覆盖。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-continuous-turbulence-field"
+      "reason": "标记振荡修复，按最新同龄实绘收窄剩余轨迹和覆盖。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-scalar-oscillation"
     },
     {
       "section": "bodies",

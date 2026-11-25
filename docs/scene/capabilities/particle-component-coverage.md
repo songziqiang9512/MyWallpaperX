@@ -189,6 +189,13 @@ Sphere沿原DefinitionParser一次准备显式local origin、radius及bouncefact
 
 验收用真实 Parser/Simulator 复现作者 891 的同 ID 入向越界和反弹，核画布边界、切向、朝内、未碰触、同顺序与改名，以及缩放/旋转、预热和无有效画布的反例。经原 Runtime→生产 Metal 验证固定输入的轨迹与最终像素，原作者须保原折射材质、显隐和主景；独立作者至少复测相邻 Sphere/Plane 和原相机取景。官方右边界控制只限定已测行为，不用于拟合作者画面。
 
+<a id="scalar-oscillation"></a>
+### Alpha 与 Size 振荡
+
+两种标量算子共用冷准备的相位、频率及尺度跨度。以稳定粒子单位样本 `u` 同时在相位与频率区间取值，振荡系数为 `scaleMin + u × (scaleMax − scaleMin) × (sin((粒龄秒 + 相位) × 频率) + 1) / 2`。频率缺省 1…10，相位 0…2π。Alpha 尺度缺省0…1，Size .8…1.2。固定尺度直接采用作者值。粒龄沿原固定模拟步，blend 以归一寿命把系数向 1 混合后乘当前属性。基线重置及作者顺序继续归原 Simulator。
+
+与持续 Turbulence 共用原粒子身份取样语义，不进发射 RNG，也不新增逐粒缓存。退役旧相位外加、余弦起点及不受粒子幅值约束的各自采样。Position 振荡仍消费自身向量与位移合同。验收覆盖固定频率/相位、相位变体、Size 与 Alpha 同源、固定端点、作者混合及既有 position 邻例。固定实机轨迹以单粒亮度和卡片宽度测量，真实作者以原图层实际合成验证。成熟覆盖继续以同龄 Sprite/Trail 分别比较。[官方作者说明](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html#oscillate-alpha) · [定相位与原包复验](runtime-evidence-current.md#particle-scalar-oscillation)
+
 <a id="operators"></a>
 ## 需要保留的数值边界
 

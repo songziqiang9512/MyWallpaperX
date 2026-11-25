@@ -56,26 +56,24 @@ nonisolated struct SceneParticlePositionOscillationPlan: Sendable {
 /// are prepared once so the fixed-step loop does not repeatedly normalize
 /// optional numeric values.
 nonisolated struct SceneParticleScalarOscillationPlan: Sendable {
-    let minimum: Double
-    let maximum: Double
+    let scaleMinimum: Double
+    let scaleSpan: Double
     let frequencyMinimum: Double
-    let frequencyMaximum: Double
+    let frequencySpan: Double
     let phaseMinimum: Double
-    let phaseMaximum: Double
+    let phaseSpan: Double
 
     nonisolated init(_ value: SceneParticleOperator, sizeDefaults: Bool) {
-        minimum = SceneParticleSimulationMath.scalar(
-            value.scaleMinimum,
-            fallback: sizeDefaults ? 0.8 : 0
+        scaleMinimum = SceneParticleSimulationMath.scalar(
+            value.scaleMinimum, fallback: sizeDefaults ? 0.8 : 0
         )
-        maximum = SceneParticleSimulationMath.scalar(
-            value.scaleMaximum,
-            fallback: sizeDefaults ? 1.2 : 1
-        )
-        frequencyMinimum = value.frequencyMinimum ?? 0
-        frequencyMaximum = value.frequencyMaximum ?? 10
+        scaleSpan = SceneParticleSimulationMath.scalar(
+            value.scaleMaximum, fallback: sizeDefaults ? 1.2 : 1
+        ) - scaleMinimum
+        frequencyMinimum = value.frequencyMinimum ?? 1
+        frequencySpan = (value.frequencyMaximum ?? 10) - frequencyMinimum
         phaseMinimum = value.phaseMinimum ?? 0
-        phaseMaximum = value.phaseMaximum ?? 2 * .pi
+        phaseSpan = (value.phaseMaximum ?? 2 * .pi) - phaseMinimum
     }
 }
 
@@ -285,27 +283,14 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
 
 extension SceneParticleSimulator {
     nonisolated func oscillationFactor(
-        _ plan: SceneParticleScalarOscillationPlan,
-        _ index: Int,
-        _ operatorIndex: Int,
-        age: Double
+        _ plan: SceneParticleScalarOscillationPlan, particleID: UInt64, age: Double
     ) -> Double {
-        let frequency = oscillationRandom(
-            plan.frequencyMinimum,
-            plan.frequencyMaximum,
-            index,
-            operatorIndex,
-            0
-        )
-        let phase = oscillationRandom(
-            plan.phaseMinimum,
-            plan.phaseMaximum,
-            index,
-            operatorIndex,
-            1
-        )
-        let wave = (cos(frequency * age + phase) + 1) * 0.5
-        return plan.minimum + (plan.maximum - plan.minimum) * wave
+        guard plan.scaleSpan != 0 else { return plan.scaleMinimum }
+        let unit = SceneParticleRandomGenerator.particleUnit(id: particleID, seed: simulationSeed)
+        let frequency = plan.frequencyMinimum + unit * plan.frequencySpan
+        let phase = plan.phaseMinimum + unit * plan.phaseSpan
+        let wave = (sin((age + phase) * frequency) + 1) * 0.5
+        return plan.scaleMinimum + unit * plan.scaleSpan * wave
     }
 
     nonisolated func operatorBlend(

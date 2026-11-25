@@ -40,6 +40,11 @@ nonisolated struct SceneParticleRandomGenerator: Sendable {
         return Double(value >> 11) * (1.0 / 9_007_199_254_740_992.0)
     }
 
+    static func particleUnit(id: UInt64, seed: UInt64) -> Double {
+        var generator = Self(state: seed ^ (id &* 0x9E3779B97F4A7C15))
+        return generator.unit()
+    }
+
     mutating func value(_ first: Double, _ second: Double) -> Double {
         let lower = min(first, second)
         return lower + unit() * (max(first, second) - lower)

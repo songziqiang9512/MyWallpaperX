@@ -720,6 +720,22 @@
       ]
     },
     {
+      "id": "scene-particle-scalar-oscillation",
+      "title": "Shared particle alpha and size oscillator",
+      "owner": "Scene particle operator preparation and simulation",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/particle-component-coverage.md",
+      "design_notes": "Replace the separate keyed frequency/phase and full-depth cosine with the measured one-sample sine model. Preserve authored blend/reset ordering and the distinct position oscillator. Qualify fixed, variable, and renamed inputs through the original operator and actual sampled frames.",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleOscillationCache.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Operators.swift"
+      ],
+      "contentPatterns": [
+        "oscillationFactor",
+        "SceneParticleScalarOscillationPlan"
+      ]
+    },
+    {
       "id": "scene-conditional-material-atlas",
       "title": "Property-selected material atlas publication",
       "owner": "Scene condition atlas resource transaction and material asset catalog",
