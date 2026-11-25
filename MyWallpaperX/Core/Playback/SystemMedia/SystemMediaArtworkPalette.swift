@@ -81,12 +81,12 @@ nonisolated struct SystemMediaArtworkPalette: Equatable, Sendable {
         // A decoded, fully transparent image is valid artwork. An explicit
         // black/white palette keeps the contrast contract valid in this case.
         let primary = ranked.first ?? .zero
-        let secondary = ranked.count > 1 ? ranked[1] : primary
-        let tertiary = ranked.count > 2 ? ranked[2] : primary
+        let secondary = ranked.count > 1 ? ranked[1] : .zero
+        let tertiary = ranked.count > 2 ? ranked[2] : .zero
         let black = SIMD3<Double>.zero
         let white = SIMD3<Double>(repeating: 1)
         let highContrast = contrast(primary, white) > contrast(primary, black) ? white : black
-        let text = [secondary, tertiary].first { contrast(primary, $0) >= 4.5 } ?? highContrast
+        let text = ranked.dropFirst().first { contrast(primary, $0) >= 4.5 } ?? highContrast
         return Self(primaryColor: primary, secondaryColor: secondary, tertiaryColor: tertiary,
                     textColor: text, highContrastColor: highContrast)
     }

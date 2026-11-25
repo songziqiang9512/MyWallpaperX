@@ -52,7 +52,7 @@ D5 frame 定向推送      SceneMediaThumbnailInbox
 | `wallpaperRegisterMediaPlaybackListener` | 显式映射 STOPPED/PLAYING/PAUSED，维持现有作者常量兼容，不靠真假值判断数字枚举 |
 | `wallpaperRegisterMediaTimelineListener` | 已确认的 position/duration 秒数；来源不支持时保持缺失，不假造进度 |
 
-官方正文称封面为 base64 PNG，示例直接赋给 img.src，因此采用完整 PNG data URL；不能误传裸 base64、file URL 或 JPEG。共享服务在后台另按 artwork identity 缓存 Web PNG（最长边至多 512px、编码至多 1MiB），不重复转码或降低 Scene 原图质量；颜色复用现有 `SceneMediaArtworkPalette`，Web 只转换 CSS 表示，不再重复用 canvas 抓系统封面。调色板具体数值不声称与官方一致。
+官方正文称封面为 base64 PNG，示例直接赋给 img.src，因此采用完整 PNG data URL；不能误传裸 base64、file URL 或 JPEG。共享服务在后台另按 artwork identity 缓存 Web PNG（最长边至多 512px、编码至多 1MiB），不重复转码或降低 Scene 原图质量；颜色复用共享 `SystemMediaArtworkPalette`，Web 只转换 CSS 表示。有效封面的实际色簇写入各自角色，缺失的次色或第三色发布黑色向量。文字对比只从实际色簇和原黑白对比回退选择。角色值随同一封面身份发布，完整排序见已测范围。
 
 Web 独立播放进程按 request UUID 接收主 App 的完整快照，不在子进程另建采集；宿主通过既有 D5 endpoint/token、定向 evaluateJavaScript 和 push sequence 投递，主 frame、同源及跨源子 frame 都按各自有效文档消费。监听注册上报独立 media 需求，不能借用频谱需求；只有 status 监听时仅订阅开关，无需启动歌曲采集；legacy `updateMedia*` 兼容回调也通过同一 reducer 分发。初始化、晚注册、导航后的 hello snapshot 都包含开关和最新媒体状态；endpoint 注销、导航、WebContent 退出与 teardown 同步撤需求。每 endpoint 只保留一个在途投递和最新待发 snapshot，合并时保留最新完整状态，不能丢掉清空或封面变更。最后一个 Scene/Web 需求退出即停止共享观察和轮询，开关关闭时仅保留轻量设置状态同步。
 

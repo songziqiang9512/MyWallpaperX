@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 340487
+      "bytes": 341084
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 245,
-      "bytes": 69191
+      "bytes": 69518
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -186,7 +186,7 @@
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 76,
-      "bytes": 12511
+      "bytes": 12651
     },
     "docs/web/steam-downloads-failed-items-visibility-design.md": {
       "lines": 60,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "980f96a73f0f8d53312a62f7babd5d0809bc882dd3a0d95613b392fc9b1dc8fd",
-      "after": "34f16b6be914d81db07ba241928e327780d0a049f426e8d40257c0e77d7b929a",
-      "owner": "Scene particle audio",
-      "reason": "Record official side selection, real author bars and independent GPU receipts.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#floor-beam-continuous-emission"
+      "before": "34f16b6be914d81db07ba241928e327780d0a049f426e8d40257c0e77d7b929a",
+      "after": "ef45c786a4b9fcea3b7b007ba36343bb50f6ce70d1434ac32a864961200920b3",
+      "owner": "Shared artwork palette",
+      "reason": "Record original GPU output and qualify the official published thumbnail.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#media-palette-empty-slots-370"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "8984122e7b5beca857e0dff6c506c9637f6775ae2f6fc202928437518855848d",
-      "after": "7834c8a276d8bddf2a011ce229895e23926ed3ae05472d416360a763385a72f2",
-      "owner": "Scene particle simulation",
-      "reason": "Close the missing diagonal coverage and retain the measured movement and SceneScript setter gaps.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "before": "7f696aca33ba4bac4e07b8a638670a7d65a5dab2ba447b324334fd12439f32df",
+      "after": "bdecc58ce38342c07be4ba43b594b71b8da0c12fec0a5e57f27c1ffc736d0c24",
+      "owner": "Shared artwork palette",
+      "reason": "Close missing color roles and record the discriminating multicolor comparison.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#resolved-user-feedback"
     },
     {
       "section": "bodies",
@@ -663,6 +663,15 @@
       "owner": "repository governance",
       "reason": "Use the current test collection paths and repair the navigation after the script move.",
       "decision": "docs/development/repository-workflow.md#并行与验证"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/mediaremote-nowplaying-design.md",
+      "before": "dfde33030a243053bc732aaf6d8aeb4b2946185098b536409d39d95b0f3662bf",
+      "after": "3e0e3fe97206f466b3569297094aef79a768d0f2e07320d2b81abf944a0ee6c5",
+      "owner": "Shared artwork palette",
+      "reason": "Define the shared palette semantics for a missing color role.",
+      "decision": "docs/web/mediaremote-nowplaying-design.md"
     }
   ]
 }

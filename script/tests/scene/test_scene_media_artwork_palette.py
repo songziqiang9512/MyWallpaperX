@@ -112,8 +112,7 @@ nonisolated enum PaletteCases {
             let data = Fixtures.png(width: 7, height: 5, pixels: Array(repeating: pixel, count: 35))
             let palette = extract(data)
             close(palette.primaryColor, SIMD3<Double>(37, 126, 219) / 255)
-            precondition(palette.secondaryColor == palette.primaryColor)
-            precondition(palette.tertiaryColor == palette.primaryColor)
+            precondition(palette.secondaryColor == black && palette.tertiaryColor == black)
             precondition(palette == extract(data))
             for pixel in [Fixtures.black, Fixtures.white] {
                 let value = extract(Fixtures.regions([(pixel, 1)]))
@@ -137,13 +136,13 @@ nonisolated enum PaletteCases {
                                                    (Fixtures.green, 4)]))
             close(palette.primaryColor, SIMD3<Double>(251.0 / 255.0, 0, 0), tolerance: 0.004)
             close(palette.secondaryColor, green)
-            precondition(palette.tertiaryColor == palette.primaryColor)
+            precondition(palette.tertiaryColor == black)
         case "alpha":
             let weighted = extract(Fixtures.regions([(Fixtures.red, 1), ([0, 0, 255, 64], 2),
                                                      ([0, 255, 0, 0], 8)]))
             close(weighted.primaryColor, red)
             close(weighted.secondaryColor, blue)
-            precondition(weighted.tertiaryColor == weighted.primaryColor)
+            precondition(weighted.tertiaryColor == black)
             let half = extract(Fixtures.regions([([200, 80, 40, 128], 4)]))
             close(half.primaryColor, SIMD3<Double>(200, 80, 40) / 255)
             let transparent = extract(Fixtures.regions([([255, 0, 0, 0], 2), ([0, 255, 0, 0], 3)]))
@@ -167,6 +166,11 @@ nonisolated enum PaletteCases {
             let dark = extract(Fixtures.regions([([32, 32, 32, 255], 6),
                                                 ([64, 64, 64, 255], 3), ([96, 0, 0, 255], 1)]))
             precondition(dark.textColor == white && dark.highContrastColor == white)
+            let neutral = extract(Fixtures.regions([([117, 117, 117, 255], 1)]))
+            precondition(neutral.secondaryColor == black && neutral.textColor == white)
+            let withBlack = extract(Fixtures.regions([([117, 117, 117, 255], 2), (Fixtures.black, 1)]))
+            precondition(withBlack.secondaryColor == black && withBlack.textColor == black)
+            precondition(withBlack.highContrastColor == white)
         case "tie":
             let first = extract(Fixtures.regions([(Fixtures.red, 1), (Fixtures.green, 1), (Fixtures.blue, 1)]))
             let reverse = extract(Fixtures.regions([(Fixtures.blue, 1), (Fixtures.green, 1), (Fixtures.red, 1)]))
@@ -246,7 +250,7 @@ class SystemMediaArtworkPaletteTests(unittest.TestCase):
         self.assertEqual(report["case"], mode)
         self.assertTrue(report["worker"])
 
-    def test_solid_color_and_repeat_primary(self):
+    def test_solid_color_keeps_accent_slots_empty(self):
         self.run_case("solid")
 
     def test_dominant_areas_select_three_colors(self):
