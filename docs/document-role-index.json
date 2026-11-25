@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3e665da28c402d1fd5cb696fd43129f850cb08411d970abf98547905820e5831",
+        "sourceSHA256": "5adb9f05823a58a40642da045f8ec82ce3080d7363dbcefa4fa400350d26546f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同几何刷新率变化的实际源码入口",
-        "limitations": "只核当前 Scene 帧率与拓扑链。"
+        "scope": "点光实际编码与候选筛查入口",
+        "limitations": "只核 point volume 源码和实测链接。"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3f39f18527c015d5c23ccda0b2604ed4bed431ce1d38ac519a3ef29ebf2c96a9",
+        "sourceSHA256": "a52bdfe1af4eaf36a95685c5a6c11ebe05ad79751e1affbfc9b50edc15efa853",
         "method": "document_registry --audit + document_health --check",
-        "scope": "M4 单内屏同会话物理模式切换",
-        "limitations": "只覆盖单内屏同几何变化与阶段画面。"
+        "scope": "现役体积质量及暗尾候选筛查",
+        "limitations": "只覆盖两部作品的三帧实际点光数据，未量新 GPU 路线和整机功耗。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bcc0631da0386b6010917657607714b7b6551dd69c1e830bdb7378672597929b",
+        "sourceSHA256": "c757279864f68e3587a94060a21ad1ce7c933d2a8f319bf39c69f9860ebb8bfe",
         "method": "document_registry --audit + document_health --check",
-        "scope": "固定模式与物理热切的现役路由",
-        "limitations": "混合屏与其它机型保独立验收。"
+        "scope": "体积档位与现役取证路由",
+        "limitations": "只核本轮体积照明路线。"
       }
     },
     {

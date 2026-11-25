@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 19731
+      "bytes": 19851
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 539,
-      "bytes": 135336
+      "lines": 558,
+      "bytes": 139599
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 137060
+      "bytes": 137162
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "f0f4415117ce1c98cdd9dccd84ac9d485cfdce009a9994b70d2dbc5487b0cd46",
-      "after": "c9546156645192acac8b2e11fbc6e1b14dfc13a6538a2f1ce7696a58eee6ef80",
+      "before": "c9546156645192acac8b2e11fbc6e1b14dfc13a6538a2f1ce7696a58eee6ef80",
+      "after": "cd9550b8938a81924afdf057bea7267c01a75655cc121e9fb9afe6447a02671b",
       "owner": "仓库架构导航",
-      "reason": "补原 AppKit 屏幕变化到 Scene 父子拓扑的源码定位。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-live-refresh-proof"
+      "reason": "将点光实际着色与取证归回既有渲染职责。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-dark-tail-screen"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "2a8886ac7230770f4dc5868fc0fa5ffe392b7a4ae3998749141be4a8e1300b1f",
-      "after": "00fd6e4047334db580697e596abd088a07458ce64ab35dd2de0f8acb6d47c758",
-      "owner": "Scene 帧率与取证",
-      "reason": "登记同播放请求跨固定刷新率的原生窗口、时钟和回退证据。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-live-refresh-proof"
+      "before": "00fd6e4047334db580697e596abd088a07458ce64ab35dd2de0f8acb6d47c758",
+      "after": "a1972d8753d27d8efc34214e343c4fe24b4559ee0825e161c8044d093aa9532d",
+      "owner": "Scene 点光体积",
+      "reason": "登记真实深度与暗尾预算的数值结果和退出依据。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-dark-tail-screen"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "c8b6544a3aab1995a2cfc06a52ce3c912f35fc6398818276366a737bb8a22da8",
-      "after": "61782258d6f41d056c83d7200d98eb49b63bc10267a87d8f0bdc527fe66d8394",
+      "before": "61782258d6f41d056c83d7200d98eb49b63bc10267a87d8f0bdc527fe66d8394",
+      "after": "46f0fdc8dd1a0c0f9d91a57867ebae45af6ff263de08a756e15c7b891e8579e9",
       "owner": "壁纸质量实施",
-      "reason": "用实际物理热切结果更新现役帧率验收入口。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-live-refresh-proof"
+      "reason": "从现役高超高路线指出已结束的暗尾筛查。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-dark-tail-screen"
     },
     {
       "section": "bodies",
