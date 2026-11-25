@@ -119,7 +119,7 @@
 
 | 输入 | 精确待核位置 |
 |---|---|
-| 条件 TEX · 附属消费者 | [3766299002 面具与独立3791967416袖标](../capabilities/runtime-evidence-current.md#author-conditional-mask-376)已沿作者基图与Puppet事务恢复。3747492842的附属材质同时带三路Combo；后续确认该消费者的选择、供货与实际画面，动态构造和图层发射源保各自的生命周期。重叠条件次序待作者正例。 |
+| 条件 TEX · 剩余消费者（待证） | [作者基图及Puppet](../capabilities/runtime-evidence-current.md#author-conditional-mask-376)和[材质附属图](../capabilities/runtime-evidence-current.md#author-conditional-material-xray-374)的已测冷热选择已修复。动态构造和发射源需各自活动消费者，重叠条件次序及半透明图块细节待有可区分输入。 |
 | 3187857248 | [原包单/双Surface拖动](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318)已恢复双Surface脚本拖动，作者命中范围与小幅变形保持。若物理单屏仍间歇失败，先取原生真实按下点/当前骨位置、持有与释放，再核命中、骨写与末端。官版按键传输未获资格。 |
 | 3781003282 | 中央白方[未重现](../capabilities/runtime-evidence-current.md#pointer-halo-378)。重启须可复现位置、画幅或桌面版本，再判888采样与独立395/e16。 |
 | Puppet 后置标量轨 | [384与独立377的普通骨轨已恢复](../capabilities/runtime-evidence-current.md#puppet-post-bounds-trs)。同相位标量替换未证主要遮挡差。重启须有单骨/同位置的可见交叠对照，再分纯绘制顺序、骨权重或几何作用。 |
@@ -229,6 +229,7 @@
 | 3673609113 | 部分修复。片头后背景复制6→1，已省两层零覆盖私有图，GPU仍超预算。两级残影与官版同属作者合成。[性能](../capabilities/runtime-evidence-current.md#ordinary-zero-alpha-chain-367) · [残影](../capabilities/runtime-evidence-current.md#author-motion-history-367) |
 | 3187857248 | 部分修复。双Surface拖动失效已修复，物理指针若仍间歇须新输入证据。[拖动](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318) |
 | 3766299002 | 已修复。面具属性正确选择纹理并保持眼部同步，两主题均验。[面具和眼部](../capabilities/runtime-evidence-current.md#author-conditional-mask-376) |
+| 3747492842 | 已修复 X 光样式的初始选择与实时切换。官版和本机同点心→圆→回心，星形及闪光形本机已实绘。闪烁、光束、裁剪及文字构图仍见上方各自条目。[实际画面](../capabilities/runtime-evidence-current.md#author-conditional-material-xray-374) |
 | 3586705329 | 已修复。拼贴右缘错误回卷，两档镜头缩放均验。[拼贴](../capabilities/runtime-evidence-current.md#author-collage-edge-358) |
 | 3708363772 | 已修复[封面与实体错动](../capabilities/model-runtime-evidence.md#model-composition-cover-370)、[同色壳体受光](../capabilities/model-runtime-evidence.md#legacy-generic2-model-lighting)及[封面多色排序与缺位](../capabilities/runtime-evidence-current.md#media-palette-hue-ranking)。同PNG五角色和原包156消费已核，独立作者状态字变蓝。重启须有解码/重采样引起的新可见差异。 |
 | 3337494481 | 已修复。盒体侧背文字不再错误透出。[文字遮挡](../capabilities/runtime-evidence-current.md#author-box-text-occlusion-333) |

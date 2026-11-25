@@ -97,8 +97,8 @@
       "bytes": 9092
     },
     "docs/scene/architecture/scene-resource-admission.md": {
-      "lines": 92,
-      "bytes": 13050
+      "lines": 94,
+      "bytes": 13800
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 73,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 349221
+      "bytes": 349885
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 242,
-      "bytes": 69541
+      "lines": 243,
+      "bytes": 69853
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -469,11 +469,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/scene-resource-admission.md",
-      "before": "d080bbd9a3bda80b3236976e01d5c8a419f5ec4d96ca8563562a538a7fcd6bf9",
-      "after": "2731b347d82b356ce22a39188d370970d18be4f973545a00ac6671c88f8647cb",
-      "owner": "Scene authored texture and property preparation",
-      "reason": "Record exact transparent replacement, baseline budget priority and authored publication scope.",
-      "decision": "docs/scene/architecture/scene-resource-admission.md#conditional-tex-atlas"
+      "before": "2731b347d82b356ce22a39188d370970d18be4f973545a00ac6671c88f8647cb",
+      "after": "0c4bfeee431dc47d0a5ac1a48fe6b8c50ba83bbd45d3812180b6d1b01300020b",
+      "owner": "Scene conditional texture preparation and publication",
+      "reason": "登记附属候选的原冷准备、公共资源事务与内容代次。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-conditional-material-xray-374"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "aca7e7255d2b414fa50d39ec4cb9cebb29a7dc174c46dc8a157f1e4b54dbd698",
-      "after": "b9e51351fd06da705aaf982cff2b4ce69ff80ea3f4e3b9a5ac95bd066108a55e",
-      "owner": "Shared system media artwork palette",
-      "reason": "补齐主色对照、边界采集、相同PNG精确数值及两个原包GPU验证。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#media-palette-hue-ranking"
+      "before": "b9e51351fd06da705aaf982cff2b4ce69ff80ea3f4e3b9a5ac95bd066108a55e",
+      "after": "753ec610c0740109b5c3a103f76dcfb11443af6f85ec616ca6af0716075b93d8",
+      "owner": "Scene conditional texture preparation and publication",
+      "reason": "记录官版与本机原包画面、附属图代次、改名和独立基图。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-conditional-material-xray-374"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "082a46d1f7ece63a85b1069fd20c8136808e262e8dd6a8ce8cf2318c00a719be",
-      "after": "f54e711dd7849cfec40012ff77fe1a49e0e31608694cbcd2274feafc6a371408",
-      "owner": "SceneScript particle instance values",
-      "reason": "沿原实例事务接入尺寸并登记官版、本机及独立作者的发射证据。",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#particle-instance-scalars"
+      "before": "fb8ff9809bf53651a3e6e06f1aaeb0b5afc6153f76703bed68283c41806fa826",
+      "after": "05aeaceee71236642e235d4722bdec65e2484ba4bf6084fc7b21bce553089e79",
+      "owner": "Scene conditional texture preparation and publication",
+      "reason": "将已复验的 X 光属性选择标为已修复，收窄其余未证消费者。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-conditional-material-xray-374"
     },
     {
       "section": "bodies",

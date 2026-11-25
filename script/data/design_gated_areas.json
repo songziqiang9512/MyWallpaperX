@@ -685,6 +685,23 @@
       ]
     },
     {
+      "id": "scene-conditional-material-atlas",
+      "title": "Property-selected material atlas publication",
+      "owner": "Scene condition atlas resource transaction and material asset catalog",
+      "status": "approved",
+      "designDoc": "docs/scene/architecture/scene-resource-admission.md",
+      "design_notes": "Extend the existing conditional atlas transaction to prepared static material assets. Choose at launch and on property edits, preserve format and purpose, and publish immutable candidates at the property barrier. Keep cached shader format facts independent of hot publications. Qualify fixed-pointer official and native output, renamed conditions and the existing base image route.",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneMaterialAssetTextureCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift"
+      ],
+      "contentPatterns": [
+        "SceneTextureAtlasConditions",
+        "loadConditionalTransaction",
+        "replaceConditionalAssets"
+      ]
+    },
+    {
       "id": "scene-graph-residency-query",
       "title": "Operation-scoped graph residency query",
       "owner": "SceneOffscreenTextureAllocationCache",

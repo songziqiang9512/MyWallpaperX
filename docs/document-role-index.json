@@ -859,13 +859,13 @@
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene 资源计费与使用期",
       "currentStateAuthority": "docs/scene/capabilities/advanced-object-coverage.md",
-      "lastReviewed": "2026-11-24",
+      "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4089b1162a27d8f211c91b31b808debd919866b624525e62423d93341399158b",
+        "sourceSHA256": "e48fa9fd68740b4cb46dd67f39e213a31d2e8d2d9a030be9a0856559c03f86db",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对资源准备、发布、预算与条件 TEX 图集的现行职责。",
-        "limitations": "导航复核。作者基图与Puppet热接入的实机范围由运行证据记载，附属消费者仍在开放队列。"
+        "limitations": "导航复核。作者基图、Puppet及材质附属图的实机范围由运行证据记载。"
       }
     },
     {
