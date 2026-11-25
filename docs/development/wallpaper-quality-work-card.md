@@ -340,7 +340,7 @@ M4 内置当前 120 Hz 下，签名短窗 61／90／119／120 实呈 60.75／89.
 <a id="scene-texture-rollout"></a>
 ### Scene 普通图像作者 mip 尾
 
-原准备期只在用途已经证明为静态根图、唯一受支持的普通本地采样、归一 UV 的颜色消费者时允许降低物理规格。复用现有材质与依赖分析，精确作者程式、带填充、atlas、动画、mask、深度／named 供货和粒子像素读取各保全规格。实例和材质定义的具名来源都保原规格。普通图像中可能缩小的一组在原 Program 准备出已接纳的动态创建者后选择规格，其余图片继续原并行。实际接纳的模型创建或图层变更 owner 会令模型别名保全规格，覆盖无字面量请求的计算路径。每个基础图仍只准备一种表示。ImageIO 独立图片、原生 BC／raw、自动占用投影分析分开取证。 [纹理技术评估](wallpaper-quality-settings-plan.md#scene-texture-quality) · [官版 L0 路径与合成取证](wallpaper-quality-settings-plan.md#official-texture-resolution)
+原准备期只在用途已经证明为静态根图、唯一受支持的普通本地采样、归一 UV 的颜色消费者时允许降低物理规格。复用现有材质与依赖分析，精确作者程式、带填充、atlas、动画、mask、深度／named 供货和粒子像素读取各保全规格。实例和材质定义的具名来源都保原规格。普通图像中可能缩小的一组在原 Program 准备出已接纳的动态创建者后选择规格，其余图片继续原并行。实际接纳的模型创建或图层变更 owner 会令模型别名保全规格，覆盖无字面量请求的计算路径。每个基础图仍只准备一种表示。ImageIO 独立图片、原生 BC／raw、自动占用投影分析分开取证。 [纹理技术评估](wallpaper-quality-settings-plan.md#scene-texture-quality) · [官版 L0 路径](wallpaper-quality-settings-plan.md#official-texture-resolution) · [一级试验与保留决定](wallpaper-quality-settings-plan.md#scene-one-level-texture-trial)
 
 高性能试验沿现有 TEXB3 嵌入图解码，取长边不超过 2048 的首个合格作者 mip 及其原尾链。只有原首级等于实际映射范围时采用。原作者布局、归一比例、颜色／直通 alpha、采样和寻址由当前契约提供。GPU 表示缓存键区分真正的基级；原 source revision 和 CPU 解码共享。偏好走同一 Scene 质量请求的冷准备快照。高质量保现役精度。先用真实 1695673397/12、独立 3383210272/184 和带填充 BC3 邻例查物理 extent、像素、同原文件双用途顺序和缓存、画布与边缘、预算。记录实际栅格化、上传或 Metal 驻留差异，完整解码仍运行时按原事实记录。
 

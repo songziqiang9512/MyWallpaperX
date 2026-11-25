@@ -355,10 +355,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ec0481dc7964b8211f406d46fca7abc7565a918e9da28b330945466f75216848",
+        "sourceSHA256": "73e1dca4a235b9003748b018b3d36b1f0e61a680fa66ca69eadd3f1588a9328a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "官版纹理设置到 L0、TEXS 和组合阶段",
-        "limitations": "固定版本静态证据，Windows 实际目标待验"
+        "scope": "L1 真作者对照、失败预算边界和停止",
+        "limitations": "保持现役；未进 GPU 时延与预算压力"
       }
     },
     {
@@ -369,10 +369,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f6115c1026a0a2e8e1347c1b16ee5c6fa727bee1e2f2f6ca4fd8f831d97d30c1",
+        "sourceSHA256": "428148d5087c498427ba7f7368162e02b71bbcc9c8cafee8bad8db8034a29221",
         "method": "document_registry --audit + document_health --check",
-        "scope": "纹理行为对照入口",
-        "limitations": "保留已验本机设置合同"
+        "scope": "连接一级试验与保留决定",
+        "limitations": "仍为现役 2048 cap"
       }
     },
     {
