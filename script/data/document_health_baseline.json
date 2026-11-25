@@ -77,8 +77,8 @@
       "bytes": 79900
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 523,
-      "bytes": 111461
+      "lines": 534,
+      "bytes": 114481
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "b828397f10f67419982441ccfdc245ed0ddbbde5cb15dc809bf0d93d47c29675",
-      "after": "712f2ac3aebc80e1fae2cf9c48f36c839ffa65a633bf5e31215760e42a83ebaa",
+      "before": "712f2ac3aebc80e1fae2cf9c48f36c839ffa65a633bf5e31215760e42a83ebaa",
+      "after": "d16551653d04417445d5df631826811384ef894ca369baaa6456276cbc38bf3a",
       "owner": "画质执行路线",
-      "reason": "活动 Video 的画质与视图反序导入",
-      "decision": "docs/development/wallpaper-quality-work-card.md#quality-import-video-sort"
+      "reason": "M4 Video 进程外输入诊断的资格、六窗短试及停止线",
+      "decision": "docs/development/wallpaper-quality-work-card.md#video-power-sensor-feasibility"
     },
     {
       "section": "bodies",

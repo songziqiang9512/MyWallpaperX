@@ -8,7 +8,7 @@
 
 从主工作树 `codex/engine-refactor-program` 的 `b2b80f892` 建 `Fluxo/wallpaper-quality-settings`。评估方案给技术取舍与失败判据，本卡维护唯一执行顺序与当前批。开工核对分支、实际 diff 和上批证据，从原设置行为追到真实运行消费者。 [算法与技术设计](wallpaper-quality-settings-plan.md#decision) · [源码地图](../architecture/repository-map.md#wallpaper-quality) · [验证工作流](repository-workflow.md#设计判定与记录)
 
-**当前验证便携导入时的播放连续性**。原生设置、四档预设、10–120 FPS、Scene MSAA 最高已验 4×、泛光与超高输出、三种纹理策略、阴影五档及反射开关已接通。体积禁用覆盖点光和聚光，现役高／超高分别用四点／六点点光积分。低分辨率及四点减负候选已由独立复核退出，低／中待有新办法保护细光与遮挡时再推进。M4 的三引擎交接及正常冷恢复已通过。后续按设备核混合显示拓扑、8× 实际支持与长稳功耗。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
+**当前筛查 Video 节能候选的功耗取证**。原生设置、四档预设、10–120 FPS、Scene MSAA 最高已验 4×、泛光与超高输出、三种纹理策略、阴影五档及反射开关已接通。体积禁用覆盖点光和聚光，现役高／超高分别用四点／六点点光积分。低分辨率及四点减负候选已由独立复核退出，低／中待有新办法保护细光与遮挡时再推进。M4 三引擎交接、正常冷恢复及画质导入保活已通过。后续按设备核混合显示拓扑、8× 实际支持与长稳功耗。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
 
 Q0 已取得 M4 上基线源码的独立 Metal 泛光和映射结果。Q1 从 App 偏好写入入口把帧率与 Web 模式投影到实际端点，Scene 保原缓存档，Video 保原片。已验签名隔离 Debug 的 30／60 真实呈现、实际 WKWebView 投递、候选端点、导入复位和独立复核。复杂作品的 60 FPS 与长稳功耗仍按 [实测门槛](wallpaper-quality-settings-plan.md#quality-release-gates)验证。每批冻结源码后跑最近门和独立审查，只提交本批文档、源码与测试。
 
@@ -475,6 +475,17 @@ QV1 已验原生详情选择、重复 URL、单个有效规格、取消、原档
 原片短循环合成的四臂为 2160p60、1080p60、2160p30、1080p30。真实 AVFoundation 解码分别读到 322／322／161／161 帧，同为 161／30 秒、BT.709、无音轨。按相同降尺寸／选帧参考，逐帧 SSIM 的最低亮度值为 0.9878，循环接缝比较最大差异 0.136 个码值。独立 1080p24 负控保原音轨和原片，实际桌面烟测 2.51 秒。真实桌面以同一签名 helper 做两次原片 A/A，再正反两轮比较。每窗约 21.467 秒，约四倍文件时长。原片四窗 CPU 全距为 13.49 ms/s。只有 1080p30 在两轮都超过同源 helper CPU 的噪声线，分别下降 43.3%／44.5%，物理 footprint 约降 12.0%／12.7%。RSS 变化在 A/A 波动内。2160p30 比原片臂大 52.2%，编码和码率差异随实际文件一起影响成本。
 
 实测屏幕为 M4 单内屏 3024×1964 当前 120 Hz，接交流电且无记录的热降频告警。短窗的一分钟系统负载为 2.32–7.65。该筛查统计本 helper CPU 与内存，保留 1080p30 作为下一阶段候选。发布依赖 VideoToolbox／WindowServer 与整机稳态功耗、转码净能量及更长的独立样本。Apple M4 本机的 `xctrace` 模板虽列出 Power Profiler，实际短探针返回该 instrument 不支持 macOS。现有进程数字仅作入围筛查，缺整机瓦数时保留原片播放。 [Apple Power Profiler](https://developer.apple.com/documentation/xcode/measuring-your-app-s-power-use-with-power-profiler) [技术评估](wallpaper-quality-settings-plan.md#video)
+
+<a id="video-power-sensor-feasibility"></a>
+#### 同机输入能量的诊断资格
+
+本机 powermetrics 需要现有账户没有的管理员授权，其 Apple Silicon 默认分项也无法单独说明媒体引擎或系统总消耗。先核可只读访问的电池控制器输入功率、累计系统能量与采样计数。维持单内屏、同刷新模式和接电无充电，记录计数单调、累计差值与输入电压和电流的量级、连续读回的计数覆盖。观察同一原片的 A/A 波动先于任何 A/B 推断。该未公开的控制器数值只作为本机诊断，与独立电源计量取得交叉证据后再决定结果可用于什么范围。
+
+若诊断读数有足够时序覆盖，沿原签名 AVPlayerLayer 可见窗口先比较真实 2160p60 与已入围的 1080p30。先做同源 A/A，再比较平衡顺序及独立原片。保持解码和显示实际发生，控制采样器开销及并行负荷。若没有可解释且重复的区分能力，结束诊断并回到外部电表路线；整机收益与转码成本按实读瓦时、同配置至少 20–30 分钟有效窗重新验收。Apple 的 Mac 电气数据用插座输入且包含电源损耗，硬件测量口径以此为参照。 [Apple Mac 耗电测量](https://support.apple.com/en-au/103253) · [实测门槛](wallpaper-quality-settings-plan.md#quality-release-gates)
+
+本机 185 秒的每秒读回看到三次发布，间隔约 60 秒。两段完整发布差分别覆盖 60 和 59 个内部样点，累计功率差除样点数可报 Mac 直流输入均值。单点输入电压乘电流约 20.764 W，控制器读 20.733 W。完整段的累计功率与能量字段增量比约 3.6003–3.6006，符合内部换算，二者共享同一测量链。WallEnergyEstimate 未获得校准，播放窗内还一致低于 DC 输入。保留原始数值用于排查。取到并行进程负载时的读数只用于判断发布时间，独立播放窗在另一基准退出后启动。 [Apple 电源遥测单位](https://github.com/apple-oss-distributions/PowerManagement/blob/main/pmconfigd/Resources/com.apple.bdc.metadata.plist#L1309-L1452)
+
+保持 M4 单内屏和交流接入，各采样点的电池电流均为零。按前一轮实际 SDR 源 3821417083 重建 2160p60 和 1080p30 两臂。同一签名 helper 的实际窗口每次先取两帧，中心变化像素约 70%，再预热并量两个连续发布间隔。六个有效分钟窗各含 59–60 个样点。原片 A/A 为 5.274／5.174 W，正向为原片 5.482 对候选 5.140 W，反向为候选 4.399 对原片 7.372 W，均为主机 DC 输入。正向差约 0.342 W，落在四个原片窗全部波动 2.198 W 内，候选自身相差 0.741 W。独立复核重算原始边界后停止此短窗，保留原片为现役。结果未建立可归因的节能值。下一次须用热平衡长窗、独立高规素材和同边界转码能量确认，每臂的实际帧交付也须于计量外核读。运行收据归 `.artifacts/wallpaper-quality-video-power`。
 
 <a id="quality-user-help"></a>
 ### 三引擎内置帮助交付

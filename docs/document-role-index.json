@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1453bb967ebe72ae4fee7170ade56fc33eaa5eccab1e336e7c23e251aa5b35f5",
+        "sourceSHA256": "78648dfbe51ad685b9aa80d565b966962a7fa350bec3fc144149075642af92da",
         "method": "document_registry --audit + document_health --check",
-        "scope": "活动 Video 的画质与视图反序导入",
-        "limitations": "签名双作者实际输出及前后顺序，保留完整备份及自动轮换取证边界。"
+        "scope": "M4 Video 进程外输入诊断的资格、六窗短试及停止线",
+        "limitations": "同机 60 秒 DC 输入，全程原片漂移覆盖正向差，发布仍需长窗、独立作者和同口径转码实测。"
       }
     },
     {
