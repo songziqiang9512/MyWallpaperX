@@ -86,6 +86,7 @@ import Foundation
             return
         }
         let original = daemon.activePlayer.currentItem
+        let originalLayer = daemon.activeLayer
         let cohortB = UUID(), activationB = UUID()
         daemon.play(videoPath: fixture.path, framePath: nil, fillMode: "aspectFill", shouldLoopCurrentItem: true, requestID: 2, cohortID: cohortB)
         until { daemon.videoPreparation?.isPrepared == true }
@@ -101,12 +102,17 @@ import Foundation
         daemon.handle(command("setOutputActivity", request: 1, cohort: cohortA, active: false, activity: activity))
         precondition(!daemon.outputActivityAllowed && daemon.activePlayer.volume == 0)
         daemon.handle(command("commitVideo", request: 2, cohort: cohortB, generation: generationB, activation: activationB))
+        precondition(originalLayer.opacity == 1 && daemon.activeLayer.zPosition > originalLayer.zPosition,
+            "incoming fade must cover the full-strength outgoing picture")
         until { daemon.videoPreparation?.visibilityConfirmed == true }
+        precondition(originalLayer.opacity == 0 && daemon.activeLayer.opacity == 1,
+            "only the new picture should be visible before finalize")
         precondition(daemon.inactivePlayer.currentItem === original, "previous item released before finalize")
         daemon.handle(command("cancelVideoPreparation", request: 2, cohort: cohortB, generation: generationB, activation: UUID()))
         precondition(daemon.currentRequestID == 2, "stale cancel affected candidate")
         daemon.handle(command("cancelVideoPreparation", request: 2, cohort: cohortB, generation: generationB, activation: activationB))
         precondition(daemon.currentRequestID == 1 && daemon.activePlayer.currentItem === original)
+        precondition(originalLayer.opacity == 1 && daemon.inactiveLayer.opacity == 0)
         precondition(!daemon.outputActivityAllowed && daemon.activePlayer.volume == 0)
         daemon.handle(command("setOutputActivity", request: 1, cohort: cohortA, active: true, activity: UUID()))
         precondition(daemon.outputActivityAllowed && daemon.activePlayer.rate == 0, "restore overwrote paused policy")

@@ -73,6 +73,7 @@ import QuartzCore
         // is exercised separately by the real visibility harness; fake items
         // need an explicit confirmed fact before testing slot finalization.
         func finalizeSlot(_ id: Int) {
+            daemon.completeVideoTransition(token: daemon.switchToken)
             daemon.videoPreparation?.visibilityConfirmed = true
             daemon.finalizeVideoPreparation(requestID: id)
         }
@@ -112,7 +113,6 @@ import QuartzCore
                 "level": daemon.window.level.rawValue,
                 "expectedLevel": PlaybackSurfaceVisibility.activationLevel(normal: WallpaperDaemon.desktopWindowLevel).rawValue,
                 "requestMatches": daemon.currentRequestID == 2,
-                "transformAnimationPresent": candidateLayer.animation(forKey: "switchInPosition") != nil,
                 "layoutSettled": outgoingLayoutIsSettled()]
             print("video-transition-diagnostic=" + String(data:
                 try! JSONSerialization.data(withJSONObject: facts, options: [.sortedKeys]), encoding: .utf8)!)
@@ -135,14 +135,29 @@ import QuartzCore
         precondition(outgoingLayoutIsSettled(), "fixture outgoing presentation did not settle to its inset frame")
         let tokenB = daemon.switchToken
         daemon.commitVideoPreparation(requestID: 2)
-        transitionDiagnostic("after-animated-commit")
+        CATransaction.flush()
+        func hasPresentedFade() -> Bool {
+            guard let incoming = candidateLayer.presentation(), let outgoing = outgoingLayer.presentation() else {
+                return false
+            }
+            return incoming.opacity > 0 && incoming.opacity < 1 && outgoing.opacity == 1
+                && incoming.zPosition > outgoing.zPosition
+                && incoming.frame.width > insetFrame.width && incoming.frame.width < bounds.width
+        }
+        let fadeDeadline = Date().addingTimeInterval(0.4)
+        while !hasPresentedFade() && Date() < fadeDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.005))
+        }
+        transitionDiagnostic("during-animated-commit")
         precondition(daemon.currentVideoPath == "B" && daemon.activeSlot == .secondary)
         renderingFact("animatedCommitPublishesCurrentOutput", daemon.currentRequestID == 2
-            && daemon.activeLayer.animation(forKey: "switchInPosition") != nil
+            && hasPresentedFade()
             && daemon.window.level == PlaybackSurfaceVisibility.activationLevel(normal: WallpaperDaemon.desktopWindowLevel))
         precondition(daemon.videoPreparation?.transitionComplete == false,
             "an animated switch must retain its animation completion")
         daemon.completeVideoTransition(token: tokenB)
+        precondition(outgoingLayer.opacity == 0 && candidateLayer.opacity == 1,
+            "transition completion must hide only the retained picture")
         precondition(daemon.primaryPlayer.currentItem === original, "old A released before finalize")
         daemon.cancelVideoPreparation(requestID: 2)
         precondition(daemon.currentVideoPath == "A" && daemon.activeSlot == .primary)

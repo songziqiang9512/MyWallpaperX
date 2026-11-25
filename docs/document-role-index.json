@@ -129,10 +129,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "21a73a60f34c907364af441a828a9a05aa915ecda742f3113b5b84a41d159be5",
+        "sourceSHA256": "544d230c55d9447e4e4d1f931ba16de53ced99463d97ed23747ff0417d71c781",
         "method": "document_registry --audit + document_health --check",
-        "scope": "可见切换事务与 Video 冷海报适用范围和释放点",
-        "limitations": "本轮和原生窗口候选链交叉核对，不代表产品全屏拓扑复验"
+        "scope": "Video 同窗淡入和原可见请求票据",
+        "limitations": "只核可交接确认段与当前实现的映射。"
       }
     },
     {
@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a8a3d8ca9e548c5efa6a3eeb0a37fa90c685b27ef67737e89a15289b4728a6af",
+        "sourceSHA256": "60d1358810512c48c809d5834fdbf23c1a28b1788e3a454b1cb61bd18f414e3f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通 Scene 选片冷准备与同源重载各自源码入口",
-        "limitations": "已提交输出的合同沿原入口"
+        "scope": "Video 执行中的画幅、双槽及清理源码定位",
+        "limitations": "仅核本轮 Video 源码链接。"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1e64020bc9d49ed8e1482ffc4dcd25c1bd96a79dd4a53af1e490a57f3e7adff3",
+        "sourceSHA256": "0a2ceaab5d5ae44c4bfc376966284e4ddb3c1ff95593add30e5f7e93fdefb5ca",
         "method": "document_registry --audit + document_health --check",
-        "scope": "固定版官方反射附件、材质默认与作者独立效果来源取证",
-        "limitations": "静态路径及已有模型局部运行，保留同版全局材质 A/B 缺口"
+        "scope": "Video 双槽淡入的选择、验收和显示证据",
+        "limitations": "只审核本次导航及当前原生 helper 合成边界，不代表物理屏逐刷新或 Windows 验收。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "45e1c5de72b3446a3c2b7d892340604eb056c3192c256a49494cd07693e15770",
+        "sourceSHA256": "0804d4cb8387a5c133547bdfc0da8c2824d0b6a5a0e47d36517db5b3f34185bc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "画质工作卡链接反射来源和独占对照",
-        "limitations": "源位置和实测边界归技术评估"
+        "scope": "Video 原片和同窗播放验收的维护入口",
+        "limitations": "索引只记录本轮 Video 路线变化。"
       }
     },
     {

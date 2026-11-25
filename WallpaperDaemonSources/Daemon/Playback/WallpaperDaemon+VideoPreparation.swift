@@ -26,31 +26,26 @@ extension WallpaperDaemon {
         let targetFrame = window.contentView.map {
             layerFrameForFillMode(currentFillMode, in: $0.bounds, sourceLayer: inactiveLayer)
         } ?? preparation.targetFrame
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        inactiveLayer.frame = targetFrame
-        CATransaction.commit()
         finishVisualSwitch(targetFrame: targetFrame,
             requestID: requestID, videoPath: preparation.videoPath)
     }
 
     func finalizeVideoPreparation(requestID: Int?) {
         guard let preparation = videoPreparation,
-              preparation.requestID == requestID, preparation.isCommitted,
-              !preparation.isFinalized else { return }
-        guard preparation.visibilityConfirmed else { return }
-        videoPreparation?.isFinalized = true
+              preparation.requestID == requestID, preparation.visibilityConfirmed else { return }
         window.level = Self.desktopWindowLevel
-        if preparation.transitionComplete { completeVideoTransition(token: preparation.token) }
+        clearVideoSlot(preparation.previousSlot)
+        videoPreparation = nil
     }
 
     func completeVideoTransition(token: Int) {
-        guard let preparation = videoPreparation, preparation.token == token,
-              switchToken == token else { return }
+        guard videoPreparation?.token == token, switchToken == token else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        inactiveLayer.opacity = 0
+        inactiveLayer.transform = CATransform3DIdentity
+        CATransaction.commit()
         videoPreparation?.transitionComplete = true
-        guard preparation.isFinalized else { return }
-        clearVideoSlot(preparation.previousSlot)
-        videoPreparation = nil
     }
 
     func cancelVideoPreparation(requestID: Int? = nil) {
@@ -64,16 +59,6 @@ extension WallpaperDaemon {
         pendingDisplayFallbackWorkItem = nil
         rememberCancelledPreparation(preparation)
         videoPreparation = nil
-        if preparation.isFinalized {
-            clearVideoSlot(preparation.previousSlot)
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            activeLayer.removeAllAnimations()
-            activeLayer.transform = CATransform3DIdentity
-            activeLayer.opacity = 1
-            CATransaction.commit()
-            return
-        }
         if preparation.isCommitted {
             activeSlot = preparation.previousSlot
             currentVideoPath = preparation.previousVideoPath
@@ -88,7 +73,6 @@ extension WallpaperDaemon {
         for layer in [primaryLayer, secondaryLayer] {
             layer.removeAllAnimations()
             layer.transform = CATransform3DIdentity
-            layer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
             layer.opacity = layer === activeLayer && currentVideoPath != nil ? 1 : 0
         }
         if let bounds = window.contentView?.bounds {

@@ -10,11 +10,11 @@
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
       "lines": 52,
-      "bytes": 9059
+      "bytes": 9406
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 19180
+      "bytes": 19430
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 501,
-      "bytes": 125899
+      "lines": 510,
+      "bytes": 128911
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 136504
+      "bytes": 136723
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "a4d1f36834c51645b34c81d52e741e9043664e5b60b37150fb927c1add4ccb4a",
-      "after": "117295f447b8cd4375749172796caf196d421c545d31f711cb5cff13f6d49082",
-      "owner": "架构",
-      "reason": "定位普通 Scene 选片和同源调档职责",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-cold-ordinary-preparation"
+      "before": "117295f447b8cd4375749172796caf196d421c545d31f711cb5cff13f6d49082",
+      "after": "f48ceacfd8d31a4be6aa9f44be93568fe7fd937dc209aa9410804d77635db364",
+      "owner": "仓库架构导航",
+      "reason": "为原片播放补淡入和准备票据的实际源码入口。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-crossfade-luminance"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "a1694f4c2857661944b5fe39b07342bd4dca148a5a5a4016b41ade661faffb17",
-      "after": "8bbba713e5dcfcc1cd1ea1439844df53024e1cdedebd2c41f173c5e3522fe7e6",
-      "owner": "开发",
-      "reason": "固定版官版反射目标和作者输入的证据边界与全局试验条件",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-reflection-targets"
+      "before": "8bbba713e5dcfcc1cd1ea1439844df53024e1cdedebd2c41f173c5e3522fe7e6",
+      "after": "3793c8ce0bc3c7db8015e03b831112a0cfe929e3bb1ec3da3a5d1fce149081a4",
+      "owner": "Video 画质与播放",
+      "reason": "登记相同片源淡入亮度、不同画幅、取消及 alpha 实窗验收。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-crossfade-luminance"
     },
     {
       "section": "bodies",
@@ -693,20 +693,20 @@
     {
       "section": "bodies",
       "path": "docs/architecture/playback-lifecycle-transaction-design.md",
-      "before": "df4cbf01b297d9976787c561f172336c8686f3500b60ae18a8689b24a8096355",
-      "after": "673f4da81b88fc6fc2f9604251668e9eb856efe72499fa67f41d24572798402b",
-      "owner": "Playback lifecycle",
-      "reason": "由现有 Video 窗口事务拥有冷海报与收回时点",
-      "decision": "docs/architecture/playback-lifecycle-transaction-design.md#二可交接确认"
+      "before": "673f4da81b88fc6fc2f9604251668e9eb856efe72499fa67f41d24572798402b",
+      "after": "f2db710dcdc6ce2a33e1b08d6f2ac9df120a7945ff3d29ff18d16deb50cd771e",
+      "owner": "播放生命周期",
+      "reason": "同步实窗双槽的层级、隐藏旧层和保留媒体的合同。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-crossfade-luminance"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "cd2d8866cd794576b80ff29b241c6d213596e9d9383abb7577111684cb5d3cb3",
-      "after": "4b68421c7e60db05bb6440e94a80631c5063e6ae111aff2f79dd08cf990f22a2",
-      "owner": "开发",
-      "reason": "链接反射目标静态定位和独占官版验收入口",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-reflection-targets"
+      "before": "4b68421c7e60db05bb6440e94a80631c5063e6ae111aff2f79dd08cf990f22a2",
+      "after": "82d25a657d1a45a85a44aa8b90568995349a6c6bc0b0086b57c2331fe25a23ed",
+      "owner": "壁纸质量实施",
+      "reason": "在原 Video 路线链接同窗播放实测，不新建路线或缓存。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-crossfade-luminance"
     },
     {
       "section": "bodies",

@@ -92,7 +92,7 @@ extension WallpaperDaemon {
     }
 
     func cancelVideoPreparationCommand(_ command: DaemonCommand) {
-        if matchesVideoPreparation(command), videoPreparation?.isFinalized == false {
+        if matchesVideoPreparation(command) {
             // Typed cancellation withdraws the candidate's audio grant before
             // restoring the old picture. The parent separately restores old activity.
             if command.cohortID != nil || command.activationID != nil { outputActivityAllowed = false }

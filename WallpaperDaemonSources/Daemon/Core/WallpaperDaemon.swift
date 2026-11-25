@@ -29,7 +29,6 @@ final class WallpaperDaemon: NSObject {
         var isPrepared = false
         var isSeekingToStart = false
         var isCommitted = false
-        var isFinalized = false
         var transitionComplete = false
         var activationID: UUID? = nil
         var cohortID: UUID? = nil
@@ -135,6 +134,7 @@ final class WallpaperDaemon: NSObject {
             layer.frame = window.contentView?.bounds ?? CGRect(origin: .zero, size: screen.frame.size)
             layer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
             layer.videoGravity = .resizeAspectFill
+            layer.backgroundColor = NSColor.black.cgColor
             layer.opacity = 0
             window.contentView?.layer?.addSublayer(layer)
         }
