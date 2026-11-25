@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 17099
+      "bytes": 17199
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 340,
-      "bytes": 80400
+      "lines": 349,
+      "bytes": 82782
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 127695
+      "bytes": 127913
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,20 +378,20 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "34c2fe221fd368299eda143416617fa6fac15117c481f5be37ef0ed8f0a6c24c",
-      "after": "ff763ca337a2b1e5830e6eb0291557d1c2f5f5dd5f4fae56710027d64cbc3137",
+      "before": "ff763ca337a2b1e5830e6eb0291557d1c2f5f5dd5f4fae56710027d64cbc3137",
+      "after": "3a3d34413ed8a0352b7c15ba5b49c50aaa100ba15c26453885a52c5270aa1b6c",
       "owner": "wallpaper-quality",
-      "reason": "登记灯族裁剪未过冷准备门的结论",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-shadow-unused-preparation"
+      "reason": "记录原片 HDR 实窗通过现役路径",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-hdr-output-proof"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "72be8f6e40639a45f01d9d417d5b1bda63125c9b877d5be116e57d4a4269dbff",
-      "after": "6dc69ea2ab1ba6bd34764e1231b2d80421af1b1d27423db98c51a05fc26a9b4c",
+      "before": "6dc69ea2ab1ba6bd34764e1231b2d80421af1b1d27423db98c51a05fc26a9b4c",
+      "after": "6decfc73502710171e8549bd64eb7d509172e0a1403b2f4064ee474d1f9a88ab",
       "owner": "repository-map",
-      "reason": "定位下载前规格的模型所有权",
-      "decision": "docs/development/wallpaper-quality-work-card.md#pixabay-default-download-facts"
+      "reason": "从 Video 原片链定位原生 HDR 实窗证据",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-hdr-output-proof"
     },
     {
       "section": "bodies",
@@ -684,11 +684,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "b8d8d32adf5819537b991000aeb7452a58b39016def00d36e9a1f845171a2e12",
-      "after": "ae38a6593a84b47cc0a0082168e028166d64be445597eeb69162e7b5471ea9c0",
+      "before": "ae38a6593a84b47cc0a0082168e028166d64be445597eeb69162e7b5471ea9c0",
+      "after": "e84a6996abfad7b80f7b0deb6a9506dcd0b496bd53f5b0d77c84eccd4a006dc1",
       "owner": "wallpaper-quality",
-      "reason": "规定下载前远程规格随默认可选档",
-      "decision": "docs/development/wallpaper-quality-work-card.md#pixabay-default-download-facts"
+      "reason": "记录 Video 原生 HDR 的验证、控制和交付边界",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-hdr-output-proof"
     }
   ]
 }

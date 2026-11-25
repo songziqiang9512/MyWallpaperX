@@ -237,7 +237,7 @@ Scene FPS 在下一排帧边界采纳，Web 在当前文档回调，能原位采
 <a id="video"></a>
 ## Video 实施与兼容
 
-**默认原片。** 桌面 helper 使用本地 URL、`AVPlayerItem → AVQueuePlayer/AVPlayerLooper → AVPlayerLayer`，App 和 helper 在现有 DaemonKit 换行 JSON 协议中各司其职，系统屏保为独立执行端。原片尺寸和规格按需复用异步详情入口，素材帧率从 track 补读；VFR 仅显示已知的标称值并标明口径。现本地 item 设置的 `preferredMaximumResolution` 只适用 HLS，可在接触该 owner 时撤掉无效赋值。缩 layer、限呈现频率或改变 rate 无法替代压缩素材降规格。 [播放实现](../../WallpaperDaemonSources/Daemon/Playback/WallpaperDaemon+Video.swift) · [媒体详情](../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift) · [Apple HLS 限制](https://developer.apple.com/documentation/avfoundation/avplayeritem/preferredmaximumresolution) · [官方 Video 性能](https://help.wallpaperengine.io/en/performance/gpu.html)
+**默认原片。** 桌面 helper 使用本地 URL、`AVPlayerItem → AVQueuePlayer/AVPlayerLooper → AVPlayerLayer`，App 和 helper 在现有 DaemonKit 换行 JSON 协议中各司其职，系统屏保为独立执行端。原片尺寸和规格按需复用异步详情入口，素材帧率从 track 补读；VFR 仅显示已知的标称值并标明口径。本地 item 已移除仅适用 HLS 的 `preferredMaximumResolution`，仍直接播放原文件。缩 layer、限呈现频率或改变 rate 无法替代压缩素材降规格。 [播放实现](../../WallpaperDaemonSources/Daemon/Playback/WallpaperDaemon+Video.swift) · [媒体详情](../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift) · [Apple HLS 限制](https://developer.apple.com/documentation/avfoundation/avplayeritem/preferredmaximumresolution) · [官方 Video 性能](https://help.wallpaperengine.io/en/performance/gpu.html)
 
 | 候选 | 选择与边界 |
 |---|---|
@@ -250,6 +250,15 @@ Scene FPS 在下一排帧边界采纳，Web 在当前文档回调，能原位采
 收益按实际选中的压缩文件和媒体时基验证。4K60→1080p30 理论源像素/秒约少八分之七，编码器、bitrate、媒体引擎及窗口合成决定实际能耗；测 App、每屏 helper、WindowServer 与整机，核 24／29.97／60、横竖和长 GOP、旋转/色彩、音画同步、loop/ended、跨屏和睡眠。1× 的素材帧率口径须明确，2× 播放速度属于时间控制。Scene 图中的视频、Web 媒体和系统屏保独立验证。
 
 <a id="alternatives"></a>
+<a id="video-hdr-output-proof"></a>
+### Video 原片的 HDR 输出验收
+
+Scene 的作者工作域和桌面显示权限独立于 Video。Windows 2.8 的 Scene DX11 是 Video 可选框架。本项目先验现有本地文件的 AVPlayerLayer 原生结果，没有画面问题时无需另加模式、转码或帧输出。设备 `eligibleForHDRPlayback`、原轨色彩标记、WindowServer 实际扩展亮度与真实发光度分别登记。 [官方 2.8 变更](https://steamcommunity.com/ogg/431960/announcements/detail/705520776093106486) · [Apple 原生 HDR 播放](https://developer.apple.com/videos/play/wwdc2022/110565/)
+
+在 M4 XDR 以同一签名 Video helper、相同可见桌面窗口口径分别播放 SDR、已知范围的 10 位 PQ／HLG 测试片及有可信色彩标记的独立外部 HDR 素材。输入按原格式、原轨和内容摘要核对；若外部来自公开分片，只作有界无重编码封装。复用现有 play→prepared→commit→ready→finalize 和暂停恢复。读 ScreenCaptureKit HDR 窗口的线性亮度、超过 SDR 的像素和宿主 PID。正例须见稳定高于 SDR 白点的区域，SDR 须保在基准范围；至少跨一次真实动态更新。先在异档同屏重复排除捕获变动，再看有无可复现的呈现问题。显示实测授权只限本机这一屏、该格式和可见捕获路径。 [Apple 样片](https://developer.apple.com/streaming/examples/advanced-stream-dv-atmos.html)
+
+M4 内屏用同一团队签名的现役 Video helper 走真实可见接管。在同一 PID／窗口依次播放 SDR、10 位 PQ、10 位 HLG、Apple 公开的 1920×1080 Main10 PQ 片，再切回 SDR。ScreenCaptureKit 16 位图在扩展线性 Rec.2020 算亮度 Y。PQ 灰阶为 0.591／1.500／6.552，HLG 为 0.110／0.848／9.852，前后 SDR 为 0.047／0.264／0.805，均无超白。公开素材的 406 个视频包封装前后内容摘要逐个一致，保 HDR10+ 动态元数据；1× 播放有实窗运动，首捕 Y 峰 3.492、3406 像素超白。用 .25× 拉开同素材的亮段复测，首捕 Y 峰 3.694、近中性超白像素 52351，后续采样也有较暗画面。屏幕当前扩展余量 1.2，窗口的扩展内容值不用于推算物理发光。当前证据支持沿原 AVFoundation 路径播放；屏保、混接屏、Dolby Vision 及 Windows 物理输出仍未实测。收据归 `.artifacts/wallpaper-quality-video-hdr`。
+
 ## 超出截图的选项与决策
 
 | 方向 | 采用条件与成本 |

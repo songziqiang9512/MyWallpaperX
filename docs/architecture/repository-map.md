@@ -49,7 +49,7 @@ Scene 体积开关从同一准备请求进入 [根域点光与有序聚光绘制
 
 本地 Video、已就绪 Steam Video 与已下载 Pixabay 共用[原片轨道读取](../../MyWallpaperX/Shared/WallpaperVideoTrackDetails.swift)。标称帧率来自实际文件；[Steam 获取合同](steam-workshop-acquisition-contract.md#source-video-facts)约定适用范围。Pixabay 的[本地发布](../../MyWallpaperX/Modules/Pixabay/Core/PixabayDownloadedContent.swift)保同版本显示尺寸，供[定尺寸缩略图](../../MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayDownloadsItem.swift)直接消费。
 
-Pixabay 新下载由 [规格选择](../../MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadQualityPrompt.swift)交给[下载服务](../../MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift)发布实际文件。浏览卡和远程详情从[视频模型](../../MyWallpaperX/Modules/Pixabay/Core/PixabayModels.swift)读取同一默认可选档的规格。[下载历史](../../MyWallpaperX/App/DownloadTasksController.swift)用原档位重试。播放仍由原 Video daemon 读取发布文件。
+Pixabay 新下载由 [规格选择](../../MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadQualityPrompt.swift)交给[下载服务](../../MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift)发布实际文件。浏览卡和远程详情从[视频模型](../../MyWallpaperX/Modules/Pixabay/Core/PixabayModels.swift)读取同一默认可选档的规格。[下载历史](../../MyWallpaperX/App/DownloadTasksController.swift)用原档位重试。播放仍由原 Video daemon 读取发布文件。 [原片 HDR 窗口证据](../development/wallpaper-quality-settings-plan.md#video-hdr-output-proof)
 
 - `App/` 装配产品入口，`Shell/` 承载主界面，`Modules/` 按产品能力组织，`Core/` 提供当前共享执行能力；名字本身不证明依赖方向。`SteamWorkshop/Web/Core` 中仍有三类型分发，定位时必须追调用者。
 - 三引擎采用相同的控制/播放隔离边界；Video/Web 与 Scene 的会话生命周期分属现役执行链；不能把 `WallpaperEngine` 描述成全引擎唯一生命周期 owner。静态输出也有独立系统 API 消费者。跨引擎工作先核对[工程路线](../scene/architecture/runtime-architecture.md)的迁移合同。

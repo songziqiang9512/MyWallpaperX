@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f4873ccdf9094cd1cfad1aa2558f6b620a5b99da700f0c40f3e212eb40b31857",
+        "sourceSHA256": "350e2c9655568d2e1eb7cb8354abd0d8dc54a423a6a5767d0ecf92b22e3c1ace",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定位下载前规格的模型所有权",
-        "limitations": "近似字节只用于下载前；实际文件继续供播放和本地详情。"
+        "scope": "从 Video 原片链定位原生 HDR 实窗证据",
+        "limitations": "捕获扩展内容限本机同屏，不代替物理输出或 Windows。"
       }
     },
     {
@@ -347,10 +347,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "942422025f6d40827915bf3d8fe72b3ea806c37d541c7d4d5ecd34b324ba467a",
+        "sourceSHA256": "cabc6dd36785a634c9fa1fac1e3ab4c8ac0102d945c7abdb0a0efbe24afc9b98",
         "method": "document_registry --audit + document_health --check",
-        "scope": "规定下载前远程规格随默认可选档",
-        "limitations": "近似字节只用于下载前；实际文件继续供播放和本地详情。"
+        "scope": "记录 Video 原生 HDR 的验证、控制和交付边界",
+        "limitations": "捕获扩展内容限本机同屏，不代替物理输出或 Windows。"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5930fa72877bcc92d2efaeec0c4e2633019a15a9a9824e5b2f4e4161f6fc4a60",
+        "sourceSHA256": "5802cf9e90c597a084bbd0971664a5df945d46128bda079761fac684a99fa533",
         "method": "document_registry --audit + document_health --check",
-        "scope": "双作者 Scene 阴影灯族冷准备证据",
-        "limitations": "新进程与系统 Metal 缓存属不同口径，实际首帧与 ready 计时分开。"
+        "scope": "记录原片 HDR 实窗通过现役路径",
+        "limitations": "捕获扩展内容限本机同屏，不代替物理输出或 Windows。"
       }
     },
     {

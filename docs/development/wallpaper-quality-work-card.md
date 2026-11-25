@@ -517,7 +517,7 @@ Pixabay 以空 URL 和零字节表示缺失 Large。浏览卡、远程详情和�
 
 ### Video 原片规格的实施片
 
-原视频异步详情入口只加载一次视频轨道，复用这一轨读方向变换、实际分辨率、编码和标称帧率。帧率为零、不可读或没有视频轨道时省略，VFR 采用标称口径。Steam 的就绪 Video 详情复用该读取，取与播放器相同的 `record.videoURL`，厂商标签保持原口径。复用预览已取得的同文件身份，轨道读取不随无关重建或库刷新重复，换条目时晚完成不能回填别处。验证非直角旋转、缺轨、导出回退、同路径替换和旧启动缓存，不增加预扫描、库索引字段或播放器重写。 [原媒体详情入口](../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift)
+原视频异步详情入口只加载一次视频轨道，复用这一轨读方向变换、实际分辨率、编码和标称帧率。帧率为零、不可读或没有视频轨道时省略，VFR 采用标称口径。Steam 的就绪 Video 详情复用该读取，取与播放器相同的 `record.videoURL`，厂商标签保持原口径。复用预览已取得的同文件身份，轨道读取不随无关重建或库刷新重复，换条目时晚完成不能回填别处。验证非直角旋转、缺轨、导出回退、同路径替换和旧启动缓存，不增加预扫描、库索引字段或播放器重写。现役签名 Video helper 在 M4 内屏实测 PQ、HLG 及公开 HDR10+ 片均有超白，切回 SDR 保正常范围，继续原片路径。 [HDR 原片实窗](wallpaper-quality-settings-plan.md#video-hdr-output-proof) [原媒体详情入口](../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift)
 
 原生详情回归通过导出优先、同一源回退与重扫只读取一次、换源取消、同路径同修改时间替换，以及失效或非 Video 记录清理。生产读取对 90° 和 45° MOV 分别返回 32 × 64、68 × 68，无轨不填标称帧率。独立 Workshop 3834029472 的实际源由生产 AVFoundation 入口和 ffprobe 匹配为 H.264、1920 × 1080、24 FPS。该验证读取本机真实文件和原生详情，不含在线下载、AVPlayer 输出帧率或整机能耗。
 
