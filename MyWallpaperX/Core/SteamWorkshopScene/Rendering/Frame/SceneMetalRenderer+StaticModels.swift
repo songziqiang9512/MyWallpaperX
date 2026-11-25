@@ -845,7 +845,8 @@ extension SceneMetalRenderer {
     ) {
         guard let pipeline = staticModelResources.pipeline else { return }
         let includesDirectional = lights.contains { if case .directional = $0 { return true }; return false }
-        var casters: [(draw: StaticModelDraw, frontFacing: MTLWinding)] = []
+        let includesLocal = lights.contains { if case .directional = $0 { return false }; return true }
+        var casters: [(draw: StaticModelDraw, frontFacing: MTLWinding, directional: Bool)] = []
         var bounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4)] = []
         var receiverBounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4,
                               clip: simd_float4x4?)] = []
@@ -871,12 +872,14 @@ extension SceneMetalRenderer {
             } else { receiverClip = nil }
             for draw in draws {
                 let casts = (layer.modelShadowCastIntent?.modelCastsShadow ?? true) && draw.material.opacity > 0
-                if casts {
-                    casters.append((draw, frontFacing))
+                let directional = draw.entry.materialBlending != .translucent
+                    || draw.material.surfaceProfile?.kind != .generic4
+                if casts && (directional || includesLocal) {
+                    casters.append((draw, frontFacing, directional))
                 }
                 if includesDirectional {
                     let item = (draw.mesh.boundsMinimum, draw.mesh.boundsMaximum, draw.world)
-                    if casts { bounds.append(item) }
+                    if casts && directional { bounds.append(item) }
                     if draw.material.receivesLighting {
                         receiverBounds.append((item.0, item.1, item.2, receiverClip))
                     }
@@ -945,13 +948,14 @@ extension SceneMetalRenderer {
             #endif
             guard let encoder = timestampEncoder else { continue }
             encoder.label = "Scene model shadow slot \(slot)"
+            let isDirectional = if case .directional = projection { true } else { false }
             var encoded = true
             for face in 0..<projection.faceCount {
                 let viewport = projection.viewport(face: face, width: target.texture.width, height: target.texture.height)
                 encoder.setViewport(viewport)
                 encoder.setScissorRect(MTLScissorRect(x: Int(viewport.originX), y: Int(viewport.originY),
                     width: Int(viewport.width), height: Int(viewport.height)))
-                for caster in casters {
+                for caster in casters where !isDirectional || caster.directional {
                     let draw = caster.draw
                     encoded = pipeline.drawShadow(mesh: draw.mesh, texture: draw.texture,
                         textureFrame: draw.textureFrame, sampling: draw.sampling,
@@ -967,7 +971,7 @@ extension SceneMetalRenderer {
 #if DEBUG
             if recordsEvidence {
                 NSLog("MWX Scene shadow phase=depth-written epoch=%llu light=%d generation=%llu casters=%d",
-                    textureRegistry.frameEpoch, lightID, target.pin.generation, casters.count)
+                    textureRegistry.frameEpoch, lightID, target.pin.generation, isDirectional ? bounds.count : casters.count)
                 let epoch = textureRegistry.frameEpoch, generation = target.pin.generation
                 commandBuffer.addCompletedHandler { completed in
                     NSLog("MWX Scene shadow phase=completed epoch=%llu light=%d generation=%llu status=%ld",

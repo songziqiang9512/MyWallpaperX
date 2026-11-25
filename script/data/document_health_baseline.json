@@ -110,7 +110,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 552,
-      "bytes": 126226
+      "bytes": 125406
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 110,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 243,
-      "bytes": 69868
+      "bytes": 69844
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14367
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 600,
-      "bytes": 173633
+      "lines": 598,
+      "bytes": 172229
     },
     "docs/development/localization-contract.md": {
       "lines": 390,

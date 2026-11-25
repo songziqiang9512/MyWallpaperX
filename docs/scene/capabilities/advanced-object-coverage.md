@@ -160,11 +160,11 @@ Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先�
 <a id="model-shadow-coverage"></a>
 ### 模型阴影的实际覆盖
 
-具有可见覆盖的半透明材质网格（如星环）已能遮挡其它模型的直接光，Frame按translucent整类拒绝caster的旧门已退出。颜色blending不充作灯域投影许可；唯一作者cast intent与原prepared可见draw决定候选，normal/缺省/additive现有结果保持。阴影与camera depth test/write独立，不按混合、写深度或材质名建立新白名单；明确不投影、hidden/父隐藏与无prepared几何仍沿原路径退出。
+定向投影消费已准备的材质与作者cast intent。已准入 stock `generic4` 的 `translucent` 部件继续绘色、接收阴影，退出定向caster边界与深度绘制。官版已用479全不透明纹理、462带孔纹理分别核实此混合区别。normal、其他材质、点灯和聚光灯沿原资格；相机深度各自消费原声明。Frame保一组部件和定向资格，空caster不申请影图。
 
-复用drawShadow已有自有二值覆盖合同：clamp(material.opacity×layerAlpha,0,1)，只有原textureAlphaIsOpacity才乘实际albedo A，最终coverage>.5写灯空间深度，≤.5/透明孔保持原深度；tint-mask A不误当洞。三灯共用原shader/cull/当前同帧mesh/world/UV/sampler，原定向bounds本已包含有cast intent的半透明几何，不新建范围计算、PSO、map类型或caster状态。新增caster会沿原有每灯map/同提交增加实际绘制，首个caster也可能触发原map申请，不授零成本或性能收益。这里只恢复该既有覆盖消费者的可达性，不宣半透明透射/有色阴影/官方阈值；原additive既可按作者intent投影，未获新反例不另加类别禁令。
+合格部件沿原 `drawShadow` 的二值覆盖计算。先取 clamp(material.opacity×layerAlpha,0,1)，原 textureAlphaIsOpacity 才乘实际 albedo A。最终 coverage>.5 写光域深度，≤.5 保留空孔；tint-mask A 由原颜色消费者使用。三灯共用原 shader、cull 及同帧 mesh/world/UV/sampler。
 
-验收沿真实Frame收集→原灯map→接收者像素及map深度，用translucent有覆盖/孔洞/透明边界，与同输入normal及明确castfalse作可区分对照；核material与layer alpha、mask含义、cull/改名和camera-depth独立，保additive原行为与三灯邻例。冻结真实星环MDL/TEX与接收球面、灯/相机/相位，旧/新App核实际投影和孔洞，另用未参与修复的真实作者保原受光/完整图。官方证据不足时依此明确几何覆盖算法验收；若原景投影难以归因，使用同真实资产的自有控制，不拟合阴影ROI或以caster计数代像素收益。当前资格见[模型运行证据](model-runtime-evidence.md#model-shadow-coverage)。
+验收沿真实 Frame 收集、光域深度及接收像素。用 stock generic4 同纹理 normal/translucent、改名、cast 开关及点聚邻例区分投影与颜色；保覆盖阈值、材质/层 alpha、cull、相机深度与健康 normal 宽影。以冻结原环和独立作者实际绘制验收。范围见[模型运行证据](model-runtime-evidence.md#model-shadow-coverage)。
 
 有序命名来源准备以已就绪部件为当前阴影输入。纯模型raw provider确定无当前源，或模型部件在其准备位置尚拿不到当前publication，只退出缺失部件的本帧投影及接收范围；前后健康层和同层ready部件继续沿原顺序取得必需附件，再用原灯图。部分draw只供本次发图，颜色准备缓存仍只收完整层，使普通绘制在publication晚到后重新取资源；发图截点后的供货随下一帧进入影图。某pass尚无深度决定时，已接纳的当前graph输出在原位置保留颜色深度；raw来源须在可选影图前确有本帧完整发布才预约。尚无发布或已经退役的raw来源不耗该域深度。保原身份失败、混合provider、已有源的容量或编码失败和必需附件优先级，不加跨帧缓存、回放或第二资源owner。验收同时量缺失时的健康投影、普通颜色晚取、完整回供、同层健康部件及原配额和取消反例，以实际接收像素为准。
 

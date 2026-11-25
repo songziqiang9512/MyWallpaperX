@@ -91,6 +91,9 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
     brightness:1,usesHDRBrightness:false,viewTint:nil)
   }
   var material=makeMaterial(Float(coverage?["opacity"] as? Double ?? 1),coverage?["tintMask"] as? Bool ?? false)
+  if let shader = coverage?["surface"] as? String, let kind = SceneStaticModelSurfaceProfile.Kind(rawValue: shader) {
+   material.surfaceProfile = .init(metallic: 0, roughness: 0.7, kind: kind)
+  }
   material.cullMode=noCull ? .none:.back
   var textureFrame=SceneTextureUVTransform.identity
   if let scale=coverage?["frameScale"] as? Double {
@@ -177,11 +180,15 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
   let center=(normalConsumer ? controlWorld:world).columns.3.xyz
   let position=((normalConsumer ? controlWorld:world)*sourceNormal).xyz
   let toward=simd_normalize(position-center)
-  let light:SceneLightSnapshot.ShadowLight
-  if type=="directional" {light = .directional(.init(layerID:7,castsShadow:true,directionTowardLight:toward,color:SIMD3(repeating:1),intensity:1))}
-  else if type=="spot" {light = .spot(.init(layerID:7,castsShadow:true,position:position,directionFromLight:-toward,
-    color:SIMD3(repeating:1),intensity:1,radius:10,innerConeCosine:cos(.pi/6),outerConeCosine:cos(.pi/4),outerConeDegrees:45))}
-  else {light = .point(.init(layerID:7,castsShadow:true,position:position,color:SIMD3(repeating:1),intensity:1,radius:10))}
+  let directional = SceneLightSnapshot.ShadowLight.directional(.init(layerID: 7, castsShadow: true,
+    directionTowardLight: toward, color: SIMD3(repeating: 1), intensity: 1))
+  let spot = SceneLightSnapshot.ShadowLight.spot(.init(layerID: 8, castsShadow: true, position: position,
+    directionFromLight: -toward, color: SIMD3(repeating: 1), intensity: 1, radius: 10,
+    innerConeCosine: cos(.pi/6), outerConeCosine: cos(.pi/4), outerConeDegrees: 45))
+  let point = SceneLightSnapshot.ShadowLight.point(.init(layerID: 9, castsShadow: true, position: position,
+    color: SIMD3(repeating: 1), intensity: 1, radius: 10))
+  let light = type == "directional" ? directional : type == "spot" ? spot : point
+  let lights = coverage?["mixedLights"] as? Bool == true ? [directional, spot] : [light]
   let outDesc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm,width:64,height:64,mipmapped:false)
   outDesc.storageMode = coverage?["frameScale"] == nil && !pixelReadback ? .private:.shared;outDesc.usage = .renderTarget
   let output=device.makeTexture(descriptor:outDesc)!,cb=queue.makeCommandBuffer()!
@@ -205,11 +212,11 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
   let candidates=renderer.shadowDrawCandidates(orderedLayers:layers,visible:visible,worldFrames:worlds,snapshot:dynamic,groups:nil)
   var leases:[SceneParticleDepthTargetLease]=[]
   if let candidates {
-   renderer.prepareModelShadow(state:state,candidates:candidates,lights:[light],orderedLayers:layers,visible:visible,batches:[:],
+   renderer.prepareModelShadow(state:state,candidates:candidates,lights:lights,orderedLayers:layers,visible:visible,batches:[:],
     particlePipeline:nil,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,leases:&leases,
     mandatoryCapacity:{true},recordsEvidence:false,cameraFrame:camera)
   }
-  let shadow=state.shadows.first
+  let shadow = state.shadows.first { $0.lightLayerID == light.layerID }
   let shadowResidentAfterPrepare=pool.residentByteCost
   let cameraDepthResidentAfterPrepare=renderer.staticModelDepthTargetPool.residentByteCost
   var colorEncoded:Bool?=nil
