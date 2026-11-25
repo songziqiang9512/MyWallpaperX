@@ -237,8 +237,7 @@ extension SceneMetalRenderer {
                 sorting: sortsTransparency, mayOrderText: mayOrderText, modelFrame: modelFrame,
                 visible: frameVisibleLayerIDs, cameraFrame: cameraFrame, snapshot: frameContext.dynamicValues,
                 worldFrames: frameWorldFrames, utility: utilityExecution,
-                backgroundCuts: backgroundCuts, particleBatches: particleBatchesByID,
-                particlePipeline: particlePipeline) : nil
+                backgroundCuts: backgroundCuts, particleBatches: particleBatchesByID) : nil
         let orderedLayers = reorderedLayers ?? frameProjection.orderedLayers
         let unavailableDepthConsumers = unavailableSharedTerminalDepthLayers(
             requestedFramebufferSources, state: modelFrame, orderedLayers: orderedLayers,

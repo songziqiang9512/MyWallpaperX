@@ -46,7 +46,7 @@ extension SceneMetalRenderer {
         visible: Set<Int>, cameraFrame: SceneParticleCameraFrame, snapshot: SceneDynamicSnapshot,
         worldFrames: [Int: simd_float4x4],
         utility: SceneUtilityLayerRuntimePlanner.Execution, backgroundCuts: Set<Int>,
-        particleBatches: [Int: [SceneParticleMetalPipeline.PreparedBatch]], particlePipeline: SceneParticleMetalPipeline?
+        particleBatches: [Int: [SceneParticleMetalPipeline.PreparedBatch]]
     ) -> [SceneRenderDescriptor.Layer]? {
         func drawsOpaqueModel(_ layer: SceneRenderDescriptor.Layer) -> Bool {
             layer.contentKind == "model" && cameraFrame.resolvesPerspective(for: layer)
@@ -74,13 +74,9 @@ extension SceneMetalRenderer {
             case "container", "sound", "pointLight", "directionalLight", "tubeLight": return false
             case "spotLight": return layer.spotLight?.castsVolumetrics == true
             case "particle":
-                let canReadSceneDepth = cameraFrame.defaultsToPerspective
-                    && cameraFrame.resolvesPerspective(for: layer)
                 return particleBatches[layer.id]?.contains {
                     $0.draw.refraction != nil || $0.draw.renderState.depthWriteEnabled
                         || $0.draw.renderState.blendMode != .additive
-                        || (canReadSceneDepth && $0.draw.readsSceneDepth
-                            && particlePipeline?.supportsSceneDepth(for: $0.draw.renderState.blendMode) == true)
                 } ?? false
             case "image", "solid", "text":
                 guard (layer.colorBlendMode ?? 0) == 0,

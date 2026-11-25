@@ -236,33 +236,52 @@ class SceneParticleMainDepthTests(unittest.TestCase):
             x, y = map(round, screen(position, width, height))
             self.assertEqual(tuple(rgb[y][3*x:3*x+3]), expected, (path, name))
 
-    def test_late_model_does_not_cross_particle_and_background_capture(self):
-        entries = background_cut_entries(sorting=True, writes_depth=True)
-        particle_entries, material, _ = fixture("enabled")
+    def test_sorted_opaque_prefix_supplies_background_and_read_only_particles(self):
         particle = "particles/reader/far.json"
-        for path in (particle, material, "materials/reader/white.png"):
-            entries[path] = particle_entries[path]
-        scene = json.loads(entries["scene.json"])
-        background, capture, _, late_model = scene["objects"]
         prior = {"id": 17, "name": "prior reader", "particle": particle,
                  "origin": ".288 0 -1.2", "perspective": True}
-        middle = {**prior, "id": 21, "name": "middle reader", "origin": "1.636364 0 -1.2"}
-        after = {**middle, "id": 31, "name": "late reader"}
-        scene["objects"] = [background, prior, capture, middle, late_model, after]
-        entries["scene.json"] = encoded(scene)
-        for path, event in self.captures("background-cut", entries, material):
-            rows = [row for row in event["rows"]
-                    if row["kind"] in ("model", "particle", "sourceCapture", "group") and row.get("slot") in (0, None)]
-            self.assertEqual([(row["kind"], row["layerID"]) for row in rows],
-                             [("model", 1), ("particle", 17), ("sourceCapture", 20), ("group", 20),
-                              ("particle", 21), ("model", 30), ("particle", 31)])
-            readers = [row for row in rows if row["kind"] == "particle"]
-            self.assertEqual(len({r["details"]["depthTextureToken"] for r in readers}), 1)
-            self.assertEqual(rows[2]["source"]["textureToken"], readers[0]["target"]["textureToken"])
-            width, height, rgb = png_rgb_pixels(path)
-            for position in ((-.36, 0, 0), (1.5, 0, -.6)):
-                x, y = map(round, screen(position, width, height))
-                self.assertEqual(tuple(rgb[y][3*x:3*x+3]), (0, 255, 0), (path, position))
+        far = (1.636364, -.14, -1.2)
+        near = (1.272727, .115, .4)
+        readers = [{**prior, "id": layer_id, "name": name, "origin": " ".join(map(str, position))}
+                   for layer_id, name, position in ((21, "far reader", far), (22, "near reader", near))]
+        for arm, sorting, tests_depth in (("sorted", True, True), ("depth-off", True, False),
+                                          ("sort-off", False, True)):
+            with self.subTest(arm=arm):
+                entries = background_cut_entries(sorting=sorting, writes_depth=True)
+                particle_entries, material, _ = fixture("enabled" if tests_depth else "disabled")
+                for resource in (material, "materials/reader/white.png"):
+                    entries[resource] = particle_entries[resource]
+                sprite = json.loads(particle_entries[particle])
+                sprite["initializer"][1].update(min=.14, max=.14)
+                entries[particle] = encoded(sprite)
+                scene = json.loads(entries["scene.json"])
+                background, capture, _, late_model = scene["objects"]
+                scene["objects"] = [background, prior, capture, *readers, late_model]
+                entries["scene.json"] = encoded(scene)
+                for path, event in self.captures(f"background-cut-{arm}", entries, material):
+                    rows = [row for row in event["rows"] if row["kind"] in
+                            ("model", "particle", "sourceCapture", "group") and row.get("slot") in (0, None)]
+                    output = [(row["kind"], row["layerID"]) for row in rows]
+                    expected = [("model", 1), ("particle", 17), ("sourceCapture", 20), ("group", 20),
+                                ("particle", 21), ("particle", 22)]
+                    expected.insert(2 if sorting else len(expected), ("model", 30))
+                    self.assertEqual(output, expected)
+                    capture_row = next(row for row in rows if row["kind"] == "sourceCapture")
+                    draws = [row for row in rows if row["kind"] == "particle"]
+                    self.assertEqual({row["target"]["textureToken"] for row in draws},
+                                     {capture_row["source"]["textureToken"]})
+                    self.assertEqual({row["details"]["readsSceneDepth"] for row in draws},
+                                     {str(tests_depth).lower()})
+                    self.assertEqual({row["details"]["depthWriteEnabled"] for row in draws}, {"false"})
+                    self.assertEqual(len({row["details"]["depthTextureToken"] for row in draws
+                                          if "depthTextureToken" in row["details"]}), int(tests_depth))
+                    width, height, rgb = png_rgb_pixels(path)
+                    green, cyan = (0, 255, 0), (0, 255, 255)
+                    for position, color in (((-.36, 0, 0), (255, 0, 255) if sorting else green),
+                                            (far, cyan if not tests_depth else green),
+                                            (near, cyan if sorting else green)):
+                        x, y = map(round, screen(position, width, height))
+                        self.assertEqual(tuple(rgb[y][3*x:3*x+3]), color, (path, position))
 
     def captures(self, name, entries, material):
         app_runner.SceneReflectionHistoryIntegrationTests.run_case(

@@ -4,7 +4,7 @@
 
 本页维护未闭问题、输入定位和下一步。按画面合成/正常播放、可证性能成本、属性接线、工具资格排序。架构归[当前主链](../architecture/runtime-architecture.md)，领域合同归[能力入口](../capabilities/README.md)，冻结身份与覆盖范围归[运行证据](../capabilities/runtime-evidence-current.md)。
 
-2026-11-24 增量筛查以现库859个目录与仓库旧归档522个 ID 对账，旧3个已不在库，340个待核。9个复用 project、包和树摘要均一致的既有实际运行。本轮331个输入进入签名候选 `740bf83d…d3016f` 的默认4秒流程，329个取得匹配终端 GPU 回执。3736952187 缺 project，3822067395 缺首帧。8个异常保并发原始记录及串行8秒复验。结果归 `.artifacts/scene-new-author-intake-20261124/intake-index.json`，短窗覆盖默认播放，后续仍须实际音频、媒体、交互、成熟时段及官版对照。
+2026-11-24 增量筛查在859个目录中查出340个未核输入。9个复用身份一致的既有实跑，331个以签名候选 `740bf83d…d3016f` 跑默认4秒，329个取得匹配终端GPU回执。3736952187缺 project，3822067395当时缺首帧，现[已修复](../capabilities/runtime-evidence-current.md#tex-alpha-channel-priority-author)。8个异常保并发原始记录及串行8秒复验。结果归 `.artifacts/scene-new-author-intake-20261124/intake-index.json`，短窗覆盖默认播放。
 
 2026-11-25 实库862个目录，新增3822608807、3842434470、3842709835均以 `31d5b1b8f` 的签名候选完成默认4秒、终端GPU与停止排空。三者各取得左→右→左轨迹的3张匹配GPU帧。两件X-Ray的17/e0均由通用Program消费鼠标，移位有局部像素变化，回位逐像素相同。3822608807含持续动态，轨迹图只授实际终端捕获。当前未定位共同渲染断点；两场短窗呈现诊断归下方工具项。原始报告与帧归 `.artifacts/scene-evidence/runs/scene-author-intake-delta-20261125/`。
 
@@ -238,6 +238,6 @@
 | 3842265910 | 已修复双瞳缺失及身体普通骨轨。后置标量仍开放。[双瞳](../capabilities/runtime-evidence-current.md#puppet-pupil-color-order-384) · [身体](../capabilities/runtime-evidence-current.md#puppet-post-bounds-trs) |
 | 3372715909 | 已定位。原包时间和日期被作者重建的全屏视频覆盖，测试副本调层序后恢复。官版原包此次无对照画面。[时钟与层序](../capabilities/runtime-evidence-current.md#author-clock-video-order-337) |
 | 3306942838 | 已修复头肩主要脱节。官版与本机同画幅同相位实绘，正向横移差≤1.1 px。[头肩](../capabilities/runtime-evidence-current.md#puppet-head-phase-330) |
-| 3455121165 | 已修复。默认排序下时钟下方的原作者音条已恢复。[钟下音条](../capabilities/runtime-evidence-current.md#native-composition-audio-prefix) |
+| 3455121165 | 已修复。11-25 修正只读加色粒子隔断背景排序造成的回归，原包默认排序下钟下音条恢复。[实绘与官版排序对照](../capabilities/runtime-evidence-current.md#native-composition-audio-prefix) |
 
 已核官版表现也可复用。3769688830 默认玩偶会持续自转并随父层摆动，属性可关闭自转。3351163962 在已测相同较窄画幅两端时钟均出圈。3617449489 的白色音频环在现行原包两端均未见。3781003282 的红尾两端均跟随，中央白块未复现。这些现象有新触发证据再查。[玩偶](../capabilities/runtime-evidence-current.md#orb-spin-parent-motion-376) · [时钟画幅](../capabilities/runtime-evidence-current.md#text-screen-anchor-viewport) · [白环](../capabilities/runtime-evidence-current.md#preview-ring-361744) · [鼠标拖尾](../capabilities/runtime-evidence-current.md#pointer-halo-378)
