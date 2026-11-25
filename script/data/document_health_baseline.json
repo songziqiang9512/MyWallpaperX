@@ -73,8 +73,8 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 324,
-      "bytes": 75143
+      "lines": 333,
+      "bytes": 77912
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 306,
@@ -684,11 +684,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "277aca041e0b2c0a0d2b69c12e624a7128913c7e7bb4607f5d258faaa8b03832",
-      "after": "5fe1a3ba1ca8a697387fbed8bcfdfe0cca8a045eb2bca64b0c28c720ccbf4d19",
-      "owner": "Scene 体积照明",
-      "reason": "把六点与旧值、预设和现行体积算法统一",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-higher-order"
+      "before": "5fe1a3ba1ca8a697387fbed8bcfdfe0cca8a045eb2bca64b0c28c720ccbf4d19",
+      "after": "a7acbd07bb3b89c12a904f89b9130b8097d44162c0b7306ff1a43062d522dd0d",
+      "owner": "跨引擎画质设计",
+      "reason": "记录固定官版的体积质量采样与工厂边界，并排除未经验证的低档映射",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-volume-shader"
     }
   ]
 }

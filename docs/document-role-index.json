@@ -347,10 +347,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6ccfbda25750f20afc23423c8a98bc92fa81b3a289abac891c0554bb722d012e",
+        "sourceSHA256": "49774c70252a5b48f1c17b59ac3addc63592d6d1380063aa32e87873f2b78240",
         "method": "document_registry --audit + document_health --check",
-        "scope": "把六点与旧值、预设和现行体积算法统一",
-        "limitations": "单 M4 的签名 Debug、取证限制在现役工作卡"
+        "scope": "官版体积档静态解析、随包采样、渲染目标与本项目低档试验取舍",
+        "limitations": "未运行此次官版单档 A/B，未证明对象搬运或实际纹理尺寸"
       }
     },
     {
