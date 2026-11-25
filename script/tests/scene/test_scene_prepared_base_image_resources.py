@@ -60,7 +60,7 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
              str(SCENE / "Format/SceneJSONValue.swift"),
              str(SCENE / "Resources/Assets/SceneModelResourceIdentity.swift"),
              str(SCENE / "Compilation/Material/ScenePreparedImageMaterialCatalog.swift"),
-             str(FIXTURE), str(PARTICLE_INPUTS), "-framework", "Metal", "-module-cache-path",
+             str(FIXTURE), str(PARTICLE_INPUTS), str(SCENE / "../PlaybackControl/PlaybackPerformanceProfile.swift"), "-framework", "Metal", "-module-cache-path",
              str(workspace / "modules"), "-o", str(binary)],
             capture_output=True, text=True, timeout=120,
         )

@@ -52,7 +52,7 @@ final class SceneImageEffectPipelineRepository {
     private let litImageLayerSlot: ScenePipelineSlot<SceneLitImageLayerPipeline>
     private let puppetClippingSlot: ScenePipelineSlot<MTLRenderPipelineState>
 
-    init(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
+    init(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm, usesSixPointQuadrature: Bool = false) {
         self.device = device
         layerColorBlendStateSlot = .init {
             SceneLayerColorBlendPipelineState(device: device, pixelFormat: pixelFormat)
@@ -60,6 +60,10 @@ final class SceneImageEffectPipelineRepository {
         spotLightSlot = .init { SceneSpotLightPipeline(device: device, pixelFormat: pixelFormat) }
         pointVolumeSlot = .init {
             guard let library = device.makeDefaultLibrary() else { return nil }
+            if usesSixPointQuadrature, let pipeline = ScenePointVolumePipeline(device: device, library: library,
+                    pixelFormat: pixelFormat, usesSixPointQuadrature: true) {
+                return pipeline
+            }
             return ScenePointVolumePipeline(device: device, library: library, pixelFormat: pixelFormat)
         }
         directDrawSlot = .init {

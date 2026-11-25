@@ -44,6 +44,9 @@ nonisolated enum SceneShadowQuality: String, Sendable {
 nonisolated enum SceneVolumeLightingQuality: String, Sendable {
     case disabled
     case enabled
+    case ultra
+
+    var isEnabled: Bool { self != .disabled }
 }
 
 nonisolated enum SceneReflectionQuality: String, Sendable {
@@ -111,7 +114,8 @@ nonisolated enum SceneQualityPreset: String, CaseIterable, Sendable {
         case .ultra: (30, .ultra, .adaptive, .enabled, .msaa2)
         }
         return (AnimationFrameRate(rawValue: fps)!, .init(postProcessing: postProcessing, shadows: shadows,
-            volumeLighting: .enabled, reflections: reflections, textures: .full, antiAliasing: antiAliasing))
+            volumeLighting: self == .ultra ? .ultra : .enabled,
+            reflections: reflections, textures: .full, antiAliasing: antiAliasing))
     }
 }
 

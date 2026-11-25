@@ -105,6 +105,8 @@ final class SceneGraphRenderTargetResidencyPin { func release() {} }
 
         let ldr = ScenePointVolumePipeline(device: device, library: library, pixelFormat: .bgra8Unorm)!
         let hdr = ScenePointVolumePipeline(device: device, library: library, pixelFormat: .rgba16Float)!
+        let preciseHDR = ScenePointVolumePipeline(device: device, library: library, pixelFormat: .rgba16Float,
+            usesSixPointQuadrature: true)!
         let position = SIMD3<Float>(0, 0, -5)
         let red = point(position, radius: 1.75)
         let green = point(position, radius: 1.75, color: SIMD3(0, 1, 0))
@@ -133,6 +135,30 @@ final class SceneGraphRenderTargetResidencyPin { func release() {} }
             "hdrHighExponent": render([point(position, radius: 1.75, intensity: 8,
                 volume: .init(density: 1, exponent: 10))], format: .rgba16Float, pipeline: hdr),
         ]
+        let partialFar = 5 + 0.65 * 1.75 * sqrt(Float(1 - 0.05 * 0.05))
+        let precisionProbes: [(String, Float, SIMD3<Float>, Float)] = [
+            ("center-16", 16, position, 20),
+            ("center-32", 32, position, 20),
+            ("partial-10", 10, SIMD3(0.0875, 0, -5), partialFar),
+        ]
+        for (name, exponent, center, far) in precisionProbes {
+            let light = point(center, radius: 1.75, intensity: 20,
+                volume: .init(density: 1, exponent: exponent))
+            for (order, pipeline) in [(4, hdr), (6, preciseHDR)] {
+                result["GL\(order)-\(name)"] = render([light], far: far, format: .rgba16Float,
+                    pipeline: pipeline, clipsScreenCoverage: true)
+            }
+        }
+
+        let uniform = point(position, radius: 1.75, intensity: 20, volume: .init(density: 1, exponent: 0))
+        let uniformFour = render([uniform], format: .rgba16Float, pipeline: hdr, wholeFrame: true)
+        let uniformSix = render([uniform], format: .rgba16Float, pipeline: preciseHDR, wholeFrame: true)
+        result["quadratureUniform"] = ["encoded": uniformFour["encoded"] as! Bool && uniformSix["encoded"] as! Bool,
+            "sameRGBA": uniformFour["pixels"] as! Data == uniformSix["pixels"] as! Data]
+        for (order, pipeline) in [(4, hdr), (6, preciseHDR)] {
+            result["GL\(order)-model-depth"] = render([red], planes: [2], format: .rgba16Float,
+                pipeline: pipeline, clipsScreenCoverage: true)
+        }
         let probes: [(String, [SceneLightSnapshot.Point], [Float], Bool)] = [
             ("occluded", [red], [2], false),
             ("through", [red], [5], false),

@@ -373,7 +373,7 @@ extension Notification.Name {
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: unwritableRecoveryParent.path)
         let modeBefore = PlaybackQualityPreference.current.scene.postProcessing
         let importedShadows: SceneShadowQuality = .high
-        let importedPointVolume: SceneVolumeLightingQuality = .disabled
+        let importedPointVolume: SceneVolumeLightingQuality = .ultra
         let importedReflections: SceneReflectionQuality = .disabled
         let importedMode: ScenePostProcessingMode = modeBefore.requestsDisplayHDR ? .ultra : .ultraDisplayHDR
         let mediaBefore = SceneMediaSourcePreference.isEnabled
@@ -455,6 +455,18 @@ extension Notification.Name {
             && PlaybackQualityPreference.current.scene.antiAliasing == importedAntiAliasing
             && SceneMediaSourcePreference.isEnabled == !mediaBefore && PlaybackQualityPreference.current.animationFrameRate == customFPS
             && PlaybackQualityPreference.current.webFrameRateMode == .followAnimationFrameRate
+        var legacyVolumePreferences = PersonalSettingsPreferences(from: manager.settings)
+        legacyVolumePreferences.scenePointVolumeQuality = "enabled"
+        var expectedLegacyVolume = PlaybackQualityPreference.current
+        expectedLegacyVolume.scene.volumeLighting = .enabled
+        let sceneCountBeforeLegacyVolume = sceneQuality.commands.count
+        let webCountBeforeLegacyVolume = webQuality.commands.count
+        try write(.init(exportedAt: originalDate, preferences: legacyVolumePreferences, sources: [], collections: .init()), to: completeProfile)
+        _ = try await coordinator.importPersonalSettings(from: completeProfile)
+        checks["LegacyPortableVolumeValueSelectsHighThroughItsOriginalOwner"] = PlaybackQualityPreference.current == expectedLegacyVolume
+            && sceneQuality.commands.count == sceneCountBeforeLegacyVolume + 1
+            && sceneQuality.commands.last == .setSceneRenderQuality(expectedLegacyVolume.scene)
+            && webQuality.commands.count == webCountBeforeLegacyVolume
         checks["SameNameDifferentUUIDAndMixedOfflineMembersSurvive"] = controller.snapshot.playlists.count == 2
             && controller.snapshot.members.filter { $0.playlistID == second.id }.map(\.reference) == [ref("video:offline-scene", .steamWorkshop), ref("77", .pixabay)]
         checks["ExplicitFalseOnlyClearsItsCanonicalFavorite"] = !controller.snapshot.favorites.contains { $0.reference == ref("A") }

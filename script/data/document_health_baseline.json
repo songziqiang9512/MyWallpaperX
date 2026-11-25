@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 56,
-      "bytes": 13827
+      "bytes": 13963
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 315,
-      "bytes": 73500
+      "lines": 324,
+      "bytes": 75143
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 291,
-      "bytes": 58069
+      "lines": 306,
+      "bytes": 61123
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -94,7 +94,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 280,
-      "bytes": 55206
+      "bytes": 55169
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -378,19 +378,19 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "4c377c99928ce3780cd4f15287b9b1f41170e26290da8686bd75d11ee723f46d",
-      "after": "fbc3f32d1f537e4bb3594cfe7e7d5da8e934e58631f9071a76a938d408a0ace3",
+      "before": "fbc3f32d1f537e4bb3594cfe7e7d5da8e934e58631f9071a76a938d408a0ace3",
+      "after": "eac0ef0ca2e055e2217a7057671fdb2a0cb4bf3e85190f822fc86ded95bf79c6",
       "owner": "Scene 体积照明",
-      "reason": "记录半宽高的同签名画面与成本停止线，并落实候选顺序",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-volume-half-trial"
+      "reason": "登记超高档的真实画面、长窗、兼容性和已验证实际入口",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-volume-gl6-trial"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "8331fb8382785b211cba6419ae4f58ba10dd4d756309c626ac130a8c8cfcb6c9",
-      "after": "f33dc399ea1c8deaed18f061a22d9fcdfc567dca8e8bcd1fbcb1b83d35973381",
-      "owner": "壁纸质量与播放链",
-      "reason": "登记正常入口运行验收与现役工作卡",
+      "before": "f33dc399ea1c8deaed18f061a22d9fcdfc567dca8e8bcd1fbcb1b83d35973381",
+      "after": "efe3b87df09b491067d0745274099a1716f8c33084d2d511ea51db4ece42bf48",
+      "owner": "Scene 运行与渲染",
+      "reason": "将画质阶数引到实际 PSO 冷准备 owner",
       "decision": "docs/architecture/repository-map.md#wallpaper-quality"
     },
     {
@@ -684,11 +684,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "4845b681b18f9a38dd2b71e1d0cc39895fe8e709be6052f0644175f4a50c0a1f",
-      "after": "96dfe731f4936eea88cc349499a49708ff9a3c67774bed1601d5bcc22a091e74",
-      "owner": "壁纸质量设计",
-      "reason": "点光原分辨率积分、保守覆盖及退出两点实验",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-quality"
+      "before": "277aca041e0b2c0a0d2b69c12e624a7128913c7e7bb4607f5d258faaa8b03832",
+      "after": "5fe1a3ba1ca8a697387fbed8bcfdfe0cca8a045eb2bca64b0c28c720ccbf4d19",
+      "owner": "Scene 体积照明",
+      "reason": "把六点与旧值、预设和现行体积算法统一",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-higher-order"
     }
   ]
 }

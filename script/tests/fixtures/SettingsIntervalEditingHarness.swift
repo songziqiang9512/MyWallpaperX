@@ -81,7 +81,10 @@ extension Notification.Name {
             sceneTextureQualityPopup.addItem(withTitle: mode.rawValue)
             sceneTextureQualityPopup.lastItem?.representedObject = mode.rawValue
         }
-        sceneVolumeLightingPopup.addItems(withTitles: ["Disabled", "Enabled"])
+        for tier in [SceneVolumeLightingQuality.disabled, .enabled, .ultra] {
+            sceneVolumeLightingPopup.addItem(withTitle: tier.rawValue)
+            sceneVolumeLightingPopup.lastItem?.representedObject = tier.rawValue
+        }
         webFrameRatePopup.addItems(withTitles: ["Display", "Follow"])
         sceneQualityPresetPopup.autoenablesItems = false
         sceneQualityPresetPopup.addItem(withTitle: "Custom")
@@ -94,7 +97,7 @@ extension Notification.Name {
             sceneShadowsPopup.addItem(withTitle: shadow.rawValue)
             sceneShadowsPopup.lastItem?.representedObject = shadow.rawValue
         }
-        for control in [sceneQualityPresetPopup, sceneAntiAliasingPopup, sceneTextureQualityPopup] {
+        for control in [sceneQualityPresetPopup, sceneAntiAliasingPopup, sceneTextureQualityPopup, sceneVolumeLightingPopup] {
             control.target = self
             control.action = #selector(handleQualityChange(_:))
         }
@@ -276,6 +279,7 @@ extension Notification.Name {
             requests.requests.count == 6 && requests.requests.last == 60
             && PlaybackQualityPreference.current == .defaults
             && view.sceneQualityPresetPopup.indexOfSelectedItem == 0 && view.sceneFPSField.stringValue == "60"
+            && view.sceneVolumeLightingPopup.selectedItem?.representedObject as? String == "enabled"
         view.sceneTextureQualityPopup.selectItem(at: view.sceneTextureQualityPopup.indexOfItem(withRepresentedObject: "auto"))
         _ = view.sceneTextureQualityPopup.sendAction(view.sceneTextureQualityPopup.action, to: view)
         view.refreshQualityControls()
@@ -283,6 +287,24 @@ extension Notification.Name {
             requests.requests.count == 7 && requests.requests.last == 60
             && PlaybackQualityPreference.current.scene.textures == .automatic
             && view.sceneTextureQualityPopup.selectedItem?.representedObject as? String == "auto"
+        view.sceneQualityPresetPopup.selectItem(at: view.sceneQualityPresetPopup.indexOfItem(withRepresentedObject: "ultra"))
+        _ = view.sceneQualityPresetPopup.sendAction(view.sceneQualityPresetPopup.action, to: view)
+        checks["native-ultra-preset-selects-ultra-volume"] = requests.requests.count == 8
+            && PlaybackQualityPreference.current.scene.volumeLighting == .ultra
+            && view.sceneFPSField.stringValue == "30"
+            && view.sceneVolumeLightingPopup.selectedItem?.representedObject as? String == "ultra"
+        let volumePopup = view.sceneVolumeLightingPopup
+        volumePopup.selectItem(at: volumePopup.indexOfItem(withRepresentedObject: "enabled"))
+        _ = volumePopup.sendAction(volumePopup.action, to: view)
+        checks["native-high-volume-preserves-rate-and-makes-ultra-preset-custom"] =
+            requests.requests.count == 9 && requests.requests.last == 30
+            && PlaybackQualityPreference.current.scene.volumeLighting == .enabled
+            && view.sceneQualityPresetPopup.indexOfSelectedItem == 0
+        volumePopup.selectItem(at: volumePopup.indexOfItem(withRepresentedObject: "ultra"))
+        _ = volumePopup.sendAction(volumePopup.action, to: view)
+        checks["native-ultra-volume-restores-derived-ultra-preset"] = requests.requests.count == 10
+            && PlaybackQualityPreference.current.scene.volumeLighting == .ultra
+            && view.sceneQualityPresetPopup.selectedItem?.representedObject as? String == "ultra"
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

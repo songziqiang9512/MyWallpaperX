@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
-import json
 import shutil
-import subprocess
-import tempfile
 import unittest
 from pathlib import Path
+
+from script.tests.scene.test_scene_directional_shadow import run_swift
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 REPOSITORY_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneImageEffectPipelineRepository.swift"
 )
+
+POINT_VOLUME_SHADER = REPOSITORY_SOURCE.parent.parent / "Lighting/ScenePointVolume.metal"
 
 HARNESS = r'''
 import Foundation
@@ -43,6 +44,16 @@ final class SceneSpotLightPipeline {
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat) {
         Self.attempts.increment()
         deviceRegistryID = device.registryID
+    }
+}
+
+final class ScenePointVolumePipeline {
+    static var attempts: [Bool] = []
+
+    init?(device: MTLDevice, library: MTLLibrary, pixelFormat: MTLPixelFormat,
+          usesSixPointQuadrature: Bool = false) {
+        Self.attempts.append(usesSixPointQuadrature)
+        if usesSixPointQuadrature { return nil }
     }
 }
 
@@ -145,7 +156,15 @@ enum Harness {
         let firstColorBlendAgain = first.layerColorBlendState()
         let secondColorBlend = second.layerColorBlendState()
 
+        let ultra = SceneImageEffectPipelineRepository(device: device, usesSixPointQuadrature: true)
+        let pointWasUnprepared = ScenePointVolumePipeline.attempts.isEmpty
+        let fallback = ultra.pointVolume()
+        let fallbackWasReused = fallback != nil && ultra.pointVolume() === fallback
+
         let result: [String: Any] = [
+            "pointWasUnprepared": pointWasUnprepared,
+            "pointFallbackReused": fallbackWasReused,
+            "pointAttempts": ScenePointVolumePipeline.attempts,
             "clippingPreparedOnce": clippingBeforePreparation && clippingFailureCached,
             "clippingRepositoriesIndependent": clippingRepositoriesIndependent,
             "litPreparedOnce": litBeforePreparation && litAttemptsBeforePreparation == 0
@@ -179,35 +198,12 @@ class ScenePipelineRepositoryTests(unittest.TestCase):
     def test_slots_are_lazy_shared_thread_safe_and_cache_failures(self) -> None:
         if shutil.which("swiftc") is None:
             self.skipTest("swiftc is unavailable")
-        with tempfile.TemporaryDirectory(prefix="mwx-scene-pipeline-repository-") as tmp:
-            root = Path(tmp)
-            harness = root / "Harness.swift"
-            binary = root / "pipeline-repository"
-            harness.write_text(HARNESS, encoding="utf-8")
-            compilation = subprocess.run(
-                [
-                    "xcrun",
-                    "--sdk",
-                    "macosx",
-                    "swiftc",
-                    str(REPOSITORY_SOURCE),
-                    str(harness),
-                    "-o",
-                    str(binary),
-                ],
-                capture_output=True,
-                text=True,
-            )
-            if compilation.returncode != 0:
-                raise RuntimeError(compilation.stderr)
-            completed = subprocess.run(
-                [str(binary)],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            result = json.loads(completed.stdout)
+        result = run_swift([REPOSITORY_SOURCE], HARNESS, label="point-volume-fallback",
+                           metal_sources=[POINT_VOLUME_SHADER])
 
+        self.assertTrue(result["pointWasUnprepared"])
+        self.assertTrue(result["pointFallbackReused"])
+        self.assertEqual(result["pointAttempts"], [True, False])
         self.assertTrue(result["litPreparedOnce"])
         self.assertTrue(result["clippingPreparedOnce"])
         self.assertTrue(result["clippingRepositoriesIndependent"])

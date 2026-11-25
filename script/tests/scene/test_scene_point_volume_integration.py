@@ -110,6 +110,7 @@ class ScenePointVolumeIntegrationTests(unittest.TestCase):
                 self.assertEqual(depth[0]["details"]["partCount"], "2")
                 self.assertEqual(depth[0]["target"]["textureToken"], volume[0]["source"]["textureToken"])
                 self.assertEqual(volume[0]["details"]["layerIDs"], str(LIGHT))
+                self.assertEqual(volume[0]["details"]["quadrature"], "6" if quality == "ultra" else "4")
                 self.assertEqual(volume[0]["target"]["textureToken"], seal["target"]["textureToken"])
                 self.assertLess(rows.index(depth[0]), rows.index(volume[0]))
                 self.assertLess(rows.index(volume[0]), rows.index(seal))
@@ -120,7 +121,10 @@ class ScenePointVolumeIntegrationTests(unittest.TestCase):
     def test_on_off_preserves_direct_light_and_opaque_foreground(self):
         enabled, enabled_package = self.run_volume_case("enabled", quality="enabled", contributes=True)
         disabled, disabled_package = self.run_volume_case("disabled", quality="disabled")
+        ultra, ultra_package = self.run_volume_case("ultra", quality="ultra", contributes=True)
         self.assertEqual(enabled_package, disabled_package)
+        self.assertEqual(enabled_package, ultra_package)
+        self.assertEqual(enabled, ultra)  # This fixture uses an exactly integrated uniform light.
         for phase, on in enabled.items():
             with self.subTest(phase=phase):
                 off = disabled[phase]
@@ -134,7 +138,8 @@ class ScenePointVolumeIntegrationTests(unittest.TestCase):
     def test_user_enabled_does_not_change_author_or_camera_admission(self):
         for variant in ("author-disabled", "author-shadow", "no-writer", "accumulating", "orthographic"):
             with self.subTest(variant=variant):
-                measurements, _ = self.run_volume_case(variant, quality="enabled", variant=variant)
+                quality = "ultra" if variant in ("author-shadow", "accumulating") else "enabled"
+                measurements, _ = self.run_volume_case(variant, quality=quality, variant=variant)
                 if variant != "orthographic":
                     for capture in measurements.values():
                         self.assertLessEqual(capture["halo"]["maximum"][0], 1)

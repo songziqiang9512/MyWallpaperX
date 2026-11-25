@@ -65,14 +65,14 @@ Scene FPS 在下一排帧边界采纳，Web 在当前文档回调，能原位采
 
 兼容默认向量为 60 FPS（升级保原 30／60）、1×、作者适用的普通／HDR 泛光、现役纹理与自适应阴影、点光原全尺寸四点和原聚光锥、作者可用的实时反射。Web 按屏幕给建议，Video 默认原片。恢复默认采用这个向量，后处理选普通超高。
 
-预设沿已核对的官版请求向量。帧率、抗锯齿、后处理、纹理、阴影和反射直接投影。现有体积「启用」保作者点光和聚光的实际贡献，各档先共用。原 60 FPS 兼容默认向量不随发布改变，恢复默认也沿同一向量。
+预设沿已核对的官版请求向量。帧率、抗锯齿、后处理、纹理、阴影和反射直接投影。前三档沿「高」保作者点光和聚光的既有贡献。超高预设请求全尺寸六点。原 60 FPS 兼容默认向量不随发布改变，恢复默认也沿同一向量。
 
 | Scene 预设 | FPS | 抗锯齿 | 场景泛光 | 纹理分辨率 | 阴影 | 体积照明 | 实时反射 |
 |---|---:|---|---|---|---|---|---|
-| 低 | 10 | 无 | 禁用 | 高质量 | 低 | 启用 | 关 |
-| 中 | 15 | 无 | 启用 | 高质量 | 中 | 启用 | 开 |
-| 高 | 25 | MSAA ×2 | 启用 | 高质量 | 高 | 启用 | 开 |
-| 超高 | 30 | MSAA ×2 | 超高 | 高质量 | 超高 | 启用 | 开 |
+| 低 | 10 | 无 | 禁用 | 高质量 | 低 | 高 | 关 |
+| 中 | 15 | 无 | 启用 | 高质量 | 中 | 高 | 开 |
+| 高 | 25 | MSAA ×2 | 启用 | 高质量 | 高 | 高 | 开 |
+| 超高 | 30 | MSAA ×2 | 超高 | 高质量 | 超高 | 超高 | 开 |
 
 用已保存的 Scene 请求和动画帧率精确派生当前预设。任一字段不同就显示「自定」。设备上限、EDR 和作者的实际生效范围独立确定。待验的体积分级随其验收映射。HDR 显示、高刷和高性能纹理保独立选择。Video 文件继续各自选择。Web 已选择跟随时接收同一动画帧率建议。 [官版向量](#official-quality-evidence)
 
@@ -166,11 +166,11 @@ Scene FPS 在下一排帧边界采纳，Web 在当前文档回调，能原位采
 <a id="scene-volume-quality"></a>
 ### 体积照明
 
-**选型为点光保当前球内有限视线的分段 Gauss–Legendre 求积，聚光保自己的有序光锥绘制。** 点光需要清屏透视根域、作者无阴影的合格点光、至少一个合格的根域实体写入者。用独立遮挡深度截取视线，进出球界之后在最近点分段，每段现用四点求积，指数零直接用线段长度。聚光当前是按作者 TRS 及材质参数绘制的锥形覆盖，沿根层、父层和组 source 位置合成。两者已有真实链证据，通用照明、多重散射及更广聚光遮挡须各自验收。 [点光合同](../scene/capabilities/advanced-object-coverage.md#point-light-volume) · [点光 MSL](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/ScenePointVolume.metal) · [实际遮挡生产](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift) · [聚光锥合同](../scene/capabilities/advanced-object-coverage.md#spot-light-frame) · [代表实播证据](../scene/capabilities/runtime-evidence-current.md#point-light-volume)
+**选型为点光保当前球内有限视线的分段 Gauss–Legendre 求积，聚光保自己的有序光锥绘制。** 点光需要清屏透视根域、作者无阴影的合格点光、至少一个合格的根域实体写入者。用独立遮挡深度截取视线，进出球界之后在最近点分段，高档每段用四点，超高用六点，指数零直接用线段长度。聚光当前是按作者 TRS 及材质参数绘制的锥形覆盖，沿根层、父层和组 source 位置合成。两者已有真实链证据，通用照明、多重散射及更广聚光遮挡须各自验收。 [点光合同](../scene/capabilities/advanced-object-coverage.md#point-light-volume) · [点光 MSL](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/ScenePointVolume.metal) · [实际遮挡生产](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift) · [聚光锥合同](../scene/capabilities/advanced-object-coverage.md#spot-light-frame) · [代表实播证据](../scene/capabilities/runtime-evidence-current.md#point-light-volume) · [官方点光／聚光作者控制](https://docs.wallpaperengine.io/en/scene/models/lighting.html)
 
 | 算法 | 对本项目的取舍 |
 |---|---|
-| **原尺寸四点积分／原有光锥** | 点光在同一实际遮挡深度上积分，按真实光球投影的保守并集收紧片元覆盖，输出直加原主颜色。全屏仍走同一积分。同尺寸两点未复现收益，实验已退役。聚光开关沿真实 producer，保作者锥形覆盖和顺序。 [实测](wallpaper-quality-work-card.md#scene-volume-point-coverage) |
+| **原尺寸四点／六点积分与有序光锥** | 点光在同一实际遮挡深度上积分，按真实光球投影的保守并集收紧片元覆盖，输出直加原主颜色。全屏仍走本档同一积分。六点适用于真实高指数峰值，沿同一 PSO 槽冷准备。两点未复现收益，实验已退役。聚光开关沿真实 producer，保作者锥形覆盖和顺序。 [实测](wallpaper-quality-work-card.md#scene-volume-point-coverage) |
 | 半宽高积分＋深度引导重建 | 已退出。色积分像素数约 1/4，但同一 Apple GPU 的粗格和重建合计与现役成本重合。真实深度不足以恢复稀疏亮光，试验丢失窄峰。额外私有颜色跨 pass 存储，不能用 memoryless 消除。 [实测](wallpaper-quality-work-card.md#scene-volume-half-trial) · [联合上采样](https://johanneskopf.de/publications/jbu/) · [Metal 存储](https://developer.apple.com/documentation/metal/mtlstoragemode/memoryless) |
 | 逐像素 ray march／froxel／时域重投影 | 支撑更广的阴影体积和介质，增加采样、3D 网格或历史，且会碰到作者分组／顺序和动态透明深度。待有完整的光空间可见性和介质需求再独立评估。 [视锥体素照明实践](https://advances.realtimerendering.com/s2018/Siggraph%202018%20HDRP%20talk_with%20notes.pdf) |
 
@@ -180,11 +180,20 @@ Scene FPS 在下一排帧边界采纳，Web 在当前文档回调，能原位采
 | 低 | 同尺寸两点与半宽高重建未达真实成本或画面门。等待可区分的低耗算法 |
 | 中 | 保持现行基线。只有与低档在画面及完整成本上存在一致分级时开放 |
 | 高 | 对应已交付「启用」所用的原尺寸四点兼容基线，积分区域按实际场景收紧 |
-| 超高 | 全尺寸试六点或经验证的较高阶数，薄峰与积分误差有独立收益才开放 |
+| 超高 | 原尺寸六点。保指数零解析分支，PSO 不可用沿原四点 |
 
-**实现和生效**首片交付禁用及现行质量。关点光一并跳过遮挡收集与度量需要的 optional pass，实体深度仍由实际合法几何供给。关聚光要证明在根层、组和显式图输入的原位置取消贡献，保其它 producer、父程式输入、顺序、可见性和普通灯。首片只有点光具备这项证明时按「点光体积」呈现。比较新等级只改变目标中间尺寸／求积阶数，作者半径、密度、指数和亮度仍由原参数控制。 [顺序编码与遮挡重放](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift)
+**实现和生效**体积档随原 Scene 冷准备。禁用退出独立体积点光和聚光锥的原 producer。高档保旧 `enabled`，超高只从同一光积分 PSO 槽改求积阶数。作者半径、密度、指数和亮度继续由原参数控制，父程式输入、顺序、可见性、直接光和具名供货留原权威。 [顺序编码与遮挡重放](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift)
 
 **实测验收**用离线高精度积分或指数零的解析长度验证能量与光锥轮廓，再用场内球内／外、擦边射线、近远裁剪、亮窄峰、透明轨、薄实体、名义有灯但零贡献及 group／named spot 夹具核原 App。配对作者启用／关闭 `castsShadow`，分别切用户阴影档，核前者不会生出无阴影光束。移除唯一合格根域实体作无体积负控。单列前景两侧的漏光与轮廓偏差，核异尺寸换屏、开关无错误残影、Fog 与直接灯邻例。量遮挡深度重放、积分、重建各自成本和总 P95、带宽、临时池与整机能耗。额外纹理读写吞掉节省时放弃半尺寸，较高积分阶数未超过参考噪声时让「高」保持上限。
+
+<a id="scene-volume-higher-order"></a>
+#### 全尺寸六点精度筛查
+
+六点候选只替换球内每一段的 Gauss–Legendre 节点与权重。沿现有点光 PSO 冷建时选定阶数，保视线与遮挡、实际覆盖裁剪、原加法叠加和目标 alpha。指数零仍用解析路径，聚光不改。始终共用原全尺寸反向深度与终端，无粗格纹理或新增编码段。当前选择达到本机验收，官版各质量档的具体算法仍须另取证。
+
+原生 `rgba16Float` 用完整中心弦 e16／e32 精确贡献 0.117647／0.060606，把六点误差分别限制在 0.0004／0.0032，同时核四点误差确实≥0.0055／0.0225。e10 用偏距 0.05 倍半径且远平面截到后半弦 65% 的中心射线，独立数值参考为 0.146492，六点误差≤0.0008、四点≥0.0035。复用实际深度写入、SDR、完全遮挡、透明、多光和基础小指数等原路径。RGBA 读回中受光之外及 alpha 保原。
+
+先用已证作者 3453730450 灯 39 做 A/A、六点两轮和回归原四点的同签名对照，静止相机、作者属性、时间与分辨率，按事先固定的灯内和盘外区域量差分。灯内至少 1% 的像素差达到两个显示码值，且明显高于同区原四点 A/A 才计真实变化。若独立低指数 3455121165 画面保持且高指数素材确实产生精度收益，再以 30 秒预热和至少 60 秒稳态核原播放预算、完整 GPU P95、实际呈现与零失败。若实际作者画面对比未达门，或昂贵路径出现持续预算回退，保留四点并撤实验。 [实施路线](wallpaper-quality-work-card.md#scene-volume-gl6-trial)
 
 <a id="scene-reflection-quality"></a>
 ### 反射

@@ -12,7 +12,7 @@ extension SceneDesktopWallpaperHost {
     ) throws {
         let session = SceneDesktopWallpaperSession(textureDecodeCacheBudget: textureDecodeCacheBudget,
             surfacePreparationQueue: launchPreparationQueue, scenePostProcessing: sceneRenderQuality.postProcessing,
-            allowsProjectedSpotVolume: sceneRenderQuality.volumeLighting == .enabled)
+            allowsProjectedSpotVolume: sceneRenderQuality.volumeLighting.isEnabled)
         session.launchRequestID = firstPresentation.requestID
         configure(session)
         candidateSession = session

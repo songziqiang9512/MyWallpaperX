@@ -105,11 +105,25 @@ final class ScenePointVolumePipeline {
     }
 
     private let state: MTLRenderPipelineState
+#if DEBUG
+    let quadraturePointCount: Int
+#endif
 
-    init?(device: MTLDevice, library: MTLLibrary, pixelFormat: MTLPixelFormat) {
+    init?(device: MTLDevice, library: MTLLibrary, pixelFormat: MTLPixelFormat,
+          usesSixPointQuadrature: Bool = false) {
+        let constants = MTLFunctionConstantValues()
+        var sixPoint = usesSixPointQuadrature
+        constants.setConstantValue(&sixPoint, type: .bool, index: 0)
+        guard let vertex = library.makeFunction(name: "scenePointVolumeVertex"),
+              let fragment = try? library.makeFunction(name: "scenePointVolumeFragment", constantValues: constants)
+        else { return nil }
         let descriptor = MTLRenderPipelineDescriptor()
-        descriptor.vertexFunction = library.makeFunction(name: "scenePointVolumeVertex")
-        descriptor.fragmentFunction = library.makeFunction(name: "scenePointVolumeFragment")
+#if DEBUG
+        quadraturePointCount = usesSixPointQuadrature ? 6 : 4
+        descriptor.label = usesSixPointQuadrature ? "Scene point volume GL6" : "Scene point volume GL4"
+#endif
+        descriptor.vertexFunction = vertex
+        descriptor.fragmentFunction = fragment
         let color = descriptor.colorAttachments[0]!
         color.pixelFormat = pixelFormat
         color.isBlendingEnabled = true

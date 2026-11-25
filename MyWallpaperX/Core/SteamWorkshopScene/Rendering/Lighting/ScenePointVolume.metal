@@ -1,6 +1,8 @@
 #include <metal_stdlib>
 using namespace metal;
 
+constant bool scenePointVolumeUsesSixPointQuadrature [[function_constant(0)]];
+
 struct ScenePointVolumeVertex {
     float4 position [[position]];
     float2 clip;
@@ -23,14 +25,29 @@ vertex ScenePointVolumeVertex scenePointVolumeVertex(uint vertexID [[vertex_id]]
     return {float4(clip, 0.0, 1.0), clip};
 }
 
+template <typename Samples>
+static inline float weightedVolumeDensity(
+    float middle, float halfLength, float offsetSquared, float exponent, Samples nodes, Samples weights
+) {
+    const Samples t = middle + nodes * halfLength;
+    const Samples distance = sqrt(offsetSquared + t * t);
+    return dot(weights, powr(max(0.0, 1.0 - distance), Samples(exponent)));
+}
+
 static float integrateVolumeSegment(float start, float end, float offsetSquared, float exponent) {
     const float middle = (start + end) * 0.5;
     const float halfLength = (end - start) * 0.5;
+    if (scenePointVolumeUsesSixPointQuadrature) {
+        const float3 nodes = float3(0.2386191861, 0.6612093865, 0.9324695142);
+        const float3 weights = float3(0.4679139346, 0.3607615730, 0.1713244924);
+        return halfLength * (
+            weightedVolumeDensity(middle, halfLength, offsetSquared, exponent, -nodes, weights)
+            + weightedVolumeDensity(middle, halfLength, offsetSquared, exponent, nodes, weights)
+        );
+    }
     const float4 nodes = float4(-0.86113631, -0.33998104, 0.33998104, 0.86113631);
     const float4 weights = float4(0.34785485, 0.65214515, 0.65214515, 0.34785485);
-    const float4 t = middle + nodes * halfLength;
-    const float4 distance = sqrt(offsetSquared + t * t);
-    return halfLength * dot(weights, powr(max(0.0, 1.0 - distance), float4(exponent)));
+    return halfLength * weightedVolumeDensity(middle, halfLength, offsetSquared, exponent, nodes, weights);
 }
 
 static float integratedPointVolume(

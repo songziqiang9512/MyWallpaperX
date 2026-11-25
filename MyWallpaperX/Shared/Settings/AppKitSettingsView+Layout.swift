@@ -432,7 +432,15 @@ extension AppKitSettingsContainerView {
         }
         qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Shadows"), iconSystemName: "shadow",
             subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: sceneShadowsPopup))
-        sceneVolumeLightingPopup.addItems(withTitles: [String(localized: "Disabled"), String(localized: "Enabled")])
+        let volumeTiers: [(SceneVolumeLightingQuality, String)] = [
+            (.disabled, String(localized: "Disabled")),
+            (.enabled, String(localized: "High")),
+            (.ultra, String(localized: "Ultra")),
+        ]
+        for (tier, title) in volumeTiers {
+            sceneVolumeLightingPopup.addItem(withTitle: title)
+            sceneVolumeLightingPopup.lastItem?.representedObject = tier.rawValue
+        }
         qualitySection.addRow(makeSettingRow(title: String(localized: "Volumetric Lighting"), iconSystemName: "light.max",
             subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: sceneVolumeLightingPopup))
         qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Reflections"), iconSystemName: "sparkle",
@@ -472,7 +480,8 @@ extension AppKitSettingsContainerView {
         refreshScenePostProcessingMenu(quality.scene.postProcessing)
         sceneTextureQualityPopup.selectItem(at: sceneTextureQualityPopup.indexOfItem(withRepresentedObject: quality.scene.textures.rawValue))
         sceneShadowsPopup.selectItem(at: sceneShadowsPopup.indexOfItem(withRepresentedObject: quality.scene.shadows.rawValue))
-        sceneVolumeLightingPopup.selectItem(at: quality.scene.volumeLighting == .disabled ? 0 : 1)
+        sceneVolumeLightingPopup.selectItem(at: sceneVolumeLightingPopup.indexOfItem(
+            withRepresentedObject: quality.scene.volumeLighting.rawValue))
         sceneReflectionsSwitch.state = quality.scene.reflections == .enabled ? .on : .off
     }
 
@@ -543,8 +552,6 @@ extension AppKitSettingsContainerView {
             quality.webFrameRateMode = webFrameRatePopup.indexOfSelectedItem == 1 ? .followAnimationFrameRate : .display
         } else if sender === sceneReflectionsSwitch {
             quality.scene.reflections = sceneReflectionsSwitch.state == .on ? .enabled : .disabled
-        } else if sender === sceneVolumeLightingPopup {
-            quality.scene.volumeLighting = sceneVolumeLightingPopup.indexOfSelectedItem == 0 ? .disabled : .enabled
         } else if let mode = (sender as? NSPopUpButton)?.selectedItem?.representedObject as? String {
             if sender === sceneAntiAliasingPopup, let selected = SceneAntiAliasingMode(rawValue: mode) {
                 quality.scene.antiAliasing = selected
@@ -552,6 +559,8 @@ extension AppKitSettingsContainerView {
                 quality.scene.textures = selected
             } else if sender === sceneShadowsPopup, let selected = SceneShadowQuality(rawValue: mode) {
                 quality.scene.shadows = selected
+            } else if sender === sceneVolumeLightingPopup, let selected = SceneVolumeLightingQuality(rawValue: mode) {
+                quality.scene.volumeLighting = selected
             } else if sender === scenePostProcessingPopup, let selected = ScenePostProcessingMode(rawValue: mode) {
                 quality.scene.postProcessing = selected
             }

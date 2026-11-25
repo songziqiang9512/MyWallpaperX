@@ -14,6 +14,7 @@ from script.tests.scene.test_scene_prepared_script_resource_catalog import swift
 
 ROOT = Path(__file__).resolve().parents[3]
 SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResourcesTask.swift"
+QUALITY = ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift"
 
 STUBS = r'''
 import Foundation
@@ -39,7 +40,7 @@ struct SceneImageLayerPipeline {
     }
 }
 struct SceneImageEffectPipelineRepository {
-    init(device: MTLDevice, pixelFormat: Int) {}
+    init(device: MTLDevice, pixelFormat: Int, usesSixPointQuadrature: Bool) {}
     func prepareDirectDraw() -> Bool { true }
     func preparePuppetClipping() -> Bool {
         fatalError("resource handoff must not prepare unrelated Puppet pipelines")
@@ -111,7 +112,7 @@ HARNESS = r'''
 @main enum Harness {
     static func task() -> ScenePreparedDeviceResourcesTask {
         .init(descriptor: .init(), directionalShadowDimensionLimit: 1024,
-            pointVolumeEnabled: false, modelReflectionsEnabled: false, resourceView: .init(), device: .init(), sceneGeneration: 1,
+            pointVolumeQuality: .disabled, modelReflectionsEnabled: false, resourceView: .init(), device: .init(), sceneGeneration: 1,
             cacheDirectory: URL(fileURLWithPath: "/unused-resource-task-cache", isDirectory: true),
             cancellationCheck: {})
     }
@@ -166,13 +167,13 @@ class SceneScriptResourceTaskTests(unittest.TestCase):
         source.write_text(STUBS+"\n"+task+HARNESS)
         evidence = Path(os.environ["MWX_RESOURCE_TASK_EVIDENCE"]) if os.environ.get("MWX_RESOURCE_TASK_EVIDENCE") else None
         identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
-                    for path in [SOURCE, Path(__file__), Path(swift_declaration.__code__.co_filename)]}
+                    for path in [SOURCE, QUALITY, Path(__file__), Path(swift_declaration.__code__.co_filename)]}
         if evidence:
             evidence.mkdir(parents=True, exist_ok=True)
             (evidence / "Harness.swift").write_bytes(source.read_bytes())
             (evidence / "identity.json").write_text(json.dumps({"sources": identity,
                 "harnessSHA256": hashlib.sha256(source.read_bytes()).hexdigest()}, indent=2))
-        compile = subprocess.run(["xcrun","swiftc","-swift-version","5","-parse-as-library",str(source),"-o",str(root/"task")],
+        compile = subprocess.run(["xcrun","swiftc","-swift-version","5","-parse-as-library",str(source),str(QUALITY),"-o",str(root/"task")],
             capture_output=True,text=True,timeout=60)
         if evidence:
             (evidence / "compile.stderr").write_text(compile.stderr)

@@ -104,12 +104,21 @@ import Foundation
         if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(shadowLoadPayload) {
             shadowLoadValid = quality == .init(postProcessing: .ultra, shadows: .disabled)
         } else { shadowLoadValid = false }
-        var pointVolumeLoadPayload = hdrLoadPayload
-        pointVolumeLoadPayload["pointVolumeQuality"] = "disabled"
-        let pointVolumeLoadValid: Bool
-        if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(pointVolumeLoadPayload) {
-            pointVolumeLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, volumeLighting: .disabled)
-        } else { pointVolumeLoadValid = false }
+        let volumeTiers: [(String, SceneVolumeLightingQuality)] = [
+            ("disabled", .disabled), ("enabled", .enabled), ("ultra", .ultra)
+        ]
+        let pointVolumeTiersValid = volumeTiers.allSatisfy { rawValue, tier in
+            var loadPayload = hdrLoadPayload
+            loadPayload["pointVolumeQuality"] = rawValue
+            guard case let .success(.loadScene(_, _, _, _, _, _, _, _, _, loaded)) = decode(loadPayload),
+                  loaded == .init(postProcessing: .ultraDisplayHDR, volumeLighting: tier) else { return false }
+            var quality = requestedQuality
+            quality.volumeLighting = tier
+            var updatePayload = qualityChangePayload
+            SceneDaemonProtocol.writeRenderQuality(quality, to: &updatePayload)
+            return updatePayload["pointVolumeQuality"] as? String == rawValue
+                && decode(updatePayload) == .success(.setSceneRenderQuality(quality))
+        }
         var reflectionLoadPayload = hdrLoadPayload
         reflectionLoadPayload["reflectionQuality"] = "disabled"
         let reflectionLoadValid: Bool
@@ -588,7 +597,7 @@ import Foundation
             "loadValid": loadValid,
             "hdrLoadValid": hdrLoadValid,
             "shadowLoadValid": shadowLoadValid,
-            "pointVolumeLoadValid": pointVolumeLoadValid,
+            "pointVolumeTiersValid": pointVolumeTiersValid,
             "reflectionLoadValid": reflectionLoadValid,
             "qualityChangeValid": qualityChangeValid,
             "malformedQualityRejected": malformedQualityRejected,

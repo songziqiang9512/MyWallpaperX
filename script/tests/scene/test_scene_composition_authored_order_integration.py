@@ -679,10 +679,10 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
         self.assertEqual(len({r["surface"] for r in readout}), 1)
         (evidence.parent / "spotlight-readout.json").write_bytes(encoded(readout))
 
-    def run_case(self, *, spotlight=None, spotlight_volume_enabled=True, **parameters):
+    def run_case(self, *, spotlight=None, spotlight_volume_quality="enabled", **parameters):
         if spotlight:
             project, entries, protocol = spotlight_fixture(spotlight)
-            protocol["spotlight"]["volumeEnabled"] = spotlight_volume_enabled
+            protocol["spotlight"]["volumeEnabled"] = spotlight_volume_quality != "disabled"
         else:
             protocol = preregistration(**parameters)
             project, entries = fixture_entries(**parameters)
@@ -716,8 +716,8 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
             command = [str(self.app), "--mwx-debug-scene-root", str(content),
                        "--mwx-debug-scene-duration", "7",
                        "--mwx-debug-scene-evidence-dir", str(evidence)]
-            if spotlight and not spotlight_volume_enabled:
-                command += ["-mwx.playback.quality", "{ scenePointVolumeQuality = disabled; }"]
+            if spotlight and spotlight_volume_quality != "enabled":
+                command += ["-mwx.playback.quality", f"{{ scenePointVolumeQuality = {spotlight_volume_quality}; }}"]
             if settings := protocol.get("quadInput", protocol.get("spotlight")):
                 command += ["--mwx-debug-scene-after-snapshot-delay", str(settings["afterDelay"]),
                             "--mwx-debug-scene-live-property-sequence-json", json.dumps(settings["sequence"])]
@@ -917,13 +917,13 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
         self.run_case(spotlight="identity")
 
     def test_renamed_spotlight_parent_quarter_turn_and_scale_show_after_ready(self):
-        self.run_case(spotlight="quarter-turn")
+        self.run_case(spotlight_volume_quality="ultra", spotlight="quarter-turn")
 
     def test_spotlight_nonuniform_parent_and_rotated_child_keep_shear(self):
         self.run_case(spotlight="shear")
 
     def test_volume_disabled_removes_root_and_group_spotlight_preserving_group_program(self):
-        self.run_case(spotlight="identity", spotlight_volume_enabled=False)
+        self.run_case(spotlight="identity", spotlight_volume_quality="disabled")
 
 
 if __name__ == "__main__":

@@ -97,16 +97,19 @@ final class Handler: PlaybackEngineControlling {
         precondition(video.qualityCommands == [.setWebFrameRateSuggestion(30), .setWebFrameRateSuggestion(nil)])
         var quality = PlaybackQualityPreference.defaults
         quality.scene.shadows = .medium
-        quality.scene.volumeLighting = .disabled
+        quality.scene.volumeLighting = .ultra
         quality.scene.reflections = .disabled
         mux.applyQualityPreference(quality, defaults: suite)
         mux.applyQualityPreference(quality, defaults: suite)
         precondition(PlaybackQualityPreference.read(from: suite) == quality)
+        precondition(suite.dictionary(forKey: PlaybackQualityPreference.userDefaultsKey)?["scenePointVolumeQuality"] as? String == "ultra")
         precondition(scene.qualityCommands.count == 3 && scene.qualityCommands.last == .setSceneRenderQuality(quality.scene))
         suite.set(["sceneShadowQuality": "future"], forKey: PlaybackQualityPreference.userDefaultsKey)
         precondition(PlaybackQualityPreference.read(from: suite).scene.shadows == .adaptive)
         precondition(PlaybackQualityPreference.read(from: suite).scene.volumeLighting == .enabled)
         precondition(PlaybackQualityPreference.read(from: suite).scene.reflections == .enabled)
+        suite.set(["scenePointVolumeQuality": "future"], forKey: PlaybackQualityPreference.userDefaultsKey)
+        precondition(PlaybackQualityPreference.read(from: suite).scene.volumeLighting == .enabled)
         precondition(AnimationFrameRate(rawValue: 9) == nil && AnimationFrameRate(rawValue: 121) == nil)
         precondition(AnimationFrameRate(rawValue: 10) != nil && AnimationFrameRate(rawValue: 120) != nil)
         suite.removeObject(forKey: PlaybackQualityPreference.userDefaultsKey)
@@ -218,17 +221,18 @@ final class Handler: PlaybackEngineControlling {
         mux.register(scene); mux.register(web); mux.register(video)
         precondition(SceneQualityPreset.matching(.defaults) == nil)
 
-        let vectors: [(SceneQualityPreset, Int, ScenePostProcessingMode, SceneShadowQuality, SceneReflectionQuality, SceneAntiAliasingMode)] = [
-            (.low, 10, .disabled, .low, .disabled, .none),
-            (.medium, 15, .enabled, .medium, .enabled, .none),
-            (.high, 25, .enabled, .high, .enabled, .msaa2),
-            (.ultra, 30, .ultra, .adaptive, .enabled, .msaa2)
+        let vectors: [(SceneQualityPreset, Int, ScenePostProcessingMode, SceneShadowQuality,
+                       SceneVolumeLightingQuality, SceneReflectionQuality, SceneAntiAliasingMode)] = [
+            (.low, 10, .disabled, .low, .enabled, .disabled, .none),
+            (.medium, 15, .enabled, .medium, .enabled, .enabled, .none),
+            (.high, 25, .enabled, .high, .enabled, .enabled, .msaa2),
+            (.ultra, 30, .ultra, .adaptive, .ultra, .enabled, .msaa2)
         ]
         var quality = PlaybackQualityPreference.read(from: defaults)
-        for (preset, fps, postProcessing, shadows, reflections, antiAliasing) in vectors {
+        for (preset, fps, postProcessing, shadows, volumeLighting, reflections, antiAliasing) in vectors {
             let frameRate = AnimationFrameRate(rawValue: fps)!
             let expected = SceneRenderQuality(postProcessing: postProcessing, shadows: shadows,
-                volumeLighting: .enabled, reflections: reflections, textures: .full, antiAliasing: antiAliasing)
+                volumeLighting: volumeLighting, reflections: reflections, textures: .full, antiAliasing: antiAliasing)
             scene.qualityCommands.removeAll()
             preset.apply(to: &quality)
             mux.applyQualityPreference(quality, defaults: defaults)
@@ -266,6 +270,15 @@ final class Handler: PlaybackEngineControlling {
         SceneQualityPreset.ultra.apply(to: &fresh)
         mux.applyQualityPreference(fresh, defaults: defaults)
         precondition(!fresh.keepsLegacySceneDecodeLimit && PlaybackQualityPreference.read(from: defaults) == fresh)
+
+        var previousUltra = defaults.dictionary(forKey: PlaybackQualityPreference.userDefaultsKey)!
+        previousUltra["scenePointVolumeQuality"] = "enabled"
+        defaults.set(previousUltra, forKey: PlaybackQualityPreference.userDefaultsKey)
+        var expectedPreviousUltra = fresh
+        expectedPreviousUltra.scene.volumeLighting = .enabled
+        let retained = PlaybackQualityPreference.read(from: defaults)
+        precondition(retained == expectedPreviousUltra && SceneQualityPreset.matching(retained) == nil)
+        precondition(defaults.dictionary(forKey: PlaybackQualityPreference.userDefaultsKey)?["scenePointVolumeQuality"] as? String == "enabled")
     }
 }
 '''

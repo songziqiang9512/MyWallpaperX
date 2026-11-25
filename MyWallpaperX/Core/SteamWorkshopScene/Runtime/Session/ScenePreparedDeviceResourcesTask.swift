@@ -22,7 +22,7 @@ final class ScenePreparedDeviceResourcesTask {
     private let condition = NSCondition()
     private let descriptor: SceneRenderDescriptor
     private let directionalShadowDimensionLimit: Int?
-    private let pointVolumeEnabled: Bool
+    private let pointVolumeQuality: SceneVolumeLightingQuality
     private let modelReflectionsEnabled: Bool
     private let rasterSampleCount: Int
     private let ordinaryColorMipLongEdge: Int?
@@ -46,7 +46,7 @@ final class ScenePreparedDeviceResourcesTask {
     init(
         descriptor: SceneRenderDescriptor,
         directionalShadowDimensionLimit: Int?,
-        pointVolumeEnabled: Bool,
+        pointVolumeQuality: SceneVolumeLightingQuality,
         modelReflectionsEnabled: Bool,
         rasterSampleCount: Int = 1,
         ordinaryColorMipLongEdge: Int? = nil,
@@ -67,7 +67,7 @@ final class ScenePreparedDeviceResourcesTask {
     ) {
         self.descriptor = descriptor
         self.directionalShadowDimensionLimit = directionalShadowDimensionLimit
-        self.pointVolumeEnabled = pointVolumeEnabled
+        self.pointVolumeQuality = pointVolumeQuality
         self.modelReflectionsEnabled = modelReflectionsEnabled
         self.rasterSampleCount = rasterSampleCount
         self.ordinaryColorMipLongEdge = ordinaryColorMipLongEdge
@@ -109,7 +109,8 @@ final class ScenePreparedDeviceResourcesTask {
                 }
                 let pipelineRepository = SceneImageEffectPipelineRepository(
                     device: device,
-                    pixelFormat: descriptor.colorTargetFormat.metalPixelFormat
+                    pixelFormat: descriptor.colorTargetFormat.metalPixelFormat,
+                    usesSixPointQuadrature: pointVolumeQuality == .ultra
                 )
                 if descriptor.layers.contains(where: { $0.contentKind == "quad" }) {
                     // This is a required fixed compositor state, like the
@@ -156,7 +157,7 @@ final class ScenePreparedDeviceResourcesTask {
                 let staticModels = try ScenePreparedStaticModelResources.prepare(
                     descriptor: descriptor,
                     directionalShadowDimensionLimit: directionalShadowDimensionLimit,
-                    pointVolumeEnabled: pointVolumeEnabled,
+                    pointVolumeEnabled: pointVolumeQuality.isEnabled,
                     modelReflectionsEnabled: modelReflectionsEnabled,
                     rasterSampleCount: rasterSampleCount,
                     resourceView: resourceView,

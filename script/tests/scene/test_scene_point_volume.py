@@ -130,3 +130,32 @@ class ScenePointVolumeTests(unittest.TestCase):
             with self.subTest(label=label):
                 for pixel in ("center", "covered", "uncovered", "shoulder", "outside"):
                     self.assertEqual(pixels[label][pixel], pixels["background"][pixel])
+
+    def test_six_point_improves_clipped_and_high_exponent_hdr_integrals(self):
+        # The central rays integrate (1 - |t|) ** exponent on [-1, 1].
+        # The off-axis case integrates to 0.65 of the far half chord, with
+        # perpendicular offset 0.05 radii (independent Simpson reference).
+        for name, reference, four_min, six_max in (
+            ("center-16", 2 / 17, 0.0055, 0.0004),
+            ("center-32", 2 / 33, 0.0225, 0.0032),
+            ("partial-10", 0.14649234406169, 0.0035, 0.0008),
+        ):
+            with self.subTest(probe=name):
+                four, six = (self.pixels[f"GL{order}-{name}"] for order in (4, 6))
+                for capture in (four, six):
+                    self.assertTrue(capture["encoded"], capture)
+                    self.assertEqual(capture["center"][1:], [0.125, 0.1875, 0.375])
+                self.assertGreaterEqual(abs(four["center"][0] - 0.0625 - reference), four_min)
+                self.assertLessEqual(abs(six["center"][0] - 0.0625 - reference), six_max)
+
+    def test_six_point_keeps_uniform_color_model_depth_and_destination_alpha(self):
+        self.assertEqual(self.pixels["quadratureUniform"], {"encoded": True, "sameRGBA": True})
+        background = [0.0625, 0.125, 0.1875, 0.375]
+        for order in (4, 6):
+            with self.subTest(order=order):
+                capture = self.pixels[f"GL{order}-model-depth"]
+                self.assertTrue(capture["encoded"], capture)
+                self.assertEqual(capture["covered"], background)
+                self.assertEqual(capture["outside"], background)
+                self.assertGreater(capture["uncovered"][0], background[0] + 0.02)
+                self.assertEqual(capture["uncovered"][1:], background[1:])

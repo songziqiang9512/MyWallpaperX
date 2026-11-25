@@ -112,7 +112,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         // Scene handshake / restart replay must retain a pause received before ready.
         scene.pendingIntent = ScenePlaybackLoadRequest(rootURL: URL(fileURLWithPath: "/fixture"),
             propertyOverrides: [:], userPropertyTextures: [:], recordID: "fixture")
-        precondition(mux.dispatch(.setSceneRenderQuality(.init(postProcessing: .ultraDisplayHDR, shadows: .medium, volumeLighting: .disabled, reflections: .disabled, antiAliasing: .msaa2)), to: .scene))
+        precondition(mux.dispatch(.setSceneRenderQuality(.init(postProcessing: .ultraDisplayHDR, shadows: .medium, volumeLighting: .ultra, reflections: .disabled, antiAliasing: .msaa2)), to: .scene))
         precondition(mux.dispatch(.setAnimationFrameRate(AnimationFrameRate(rawValue: 25)!), to: .scene))
         precondition(scene.commands.isEmpty)
         scene.endpointReady = true
@@ -133,7 +133,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         precondition(scene.commands.first?["profile"] as? Int == 25)
         precondition(scene.commands.first?["scenePostProcessing"] as? String == "displayHDR")
         precondition(scene.commands.first?["shadowQuality"] as? String == "medium")
-        precondition(scene.commands.first?["pointVolumeQuality"] as? String == "disabled")
+        precondition(scene.commands.first?["pointVolumeQuality"] as? String == "ultra")
         precondition(scene.commands.first?["reflectionQuality"] as? String == "disabled")
         precondition(scene.commands.first?["antiAliasingMode"] as? String == "msaa2")
         precondition(scene.commands.last?["cmd"] as? String == "pause")

@@ -687,7 +687,9 @@ extension SceneMetalRenderer {
                 trace.recordComposition(.init(kind: "point-volume",
                     source: .init(depth, role: "model-camera-depth"),
                     target: mainPass.compositionTarget, access: "texture-bind", outcome: "draw-encoded",
-                    details: ["screenCoverage": coverage, "layerIDs": frameLightSnapshot.point.compactMap {
+                    details: ["screenCoverage": coverage,
+                              "quadrature": String(pointVolumePipeline.quadraturePointCount),
+                              "layerIDs": frameLightSnapshot.point.compactMap {
                         $0.volume == nil ? nil : $0.layerID.map(String.init)
                     }.joined(separator: ",")]))
             }
