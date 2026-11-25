@@ -21,8 +21,8 @@
       "bytes": 18243
     },
     "docs/architecture/system-audio-spectrum-design.md": {
-      "lines": 46,
-      "bytes": 7559
+      "lines": 48,
+      "bytes": 8043
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 200,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 336674
+      "bytes": 337871
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 245,
-      "bytes": 69217
+      "bytes": 69156
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -361,10 +361,10 @@
     {
       "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "9ed71bdec1a4eaade739d64f31e3209851a5a132332b1fe300df868f2852d866",
-      "after": "6b0269f4f69e7ec8d381e1ade36803228a18ff2ba98c6d6b399155024d8079b6",
+      "before": "6b0269f4f69e7ec8d381e1ade36803228a18ff2ba98c6d6b399155024d8079b6",
+      "after": "d33fccee54bc4d4343d09ab4208b0fe50e841b3709acf21ea3eab1ea1ef211ac",
       "owner": "Scene audio normalization",
-      "reason": "Replace the separate common peak state with per-group target tracking.",
+      "reason": "Record the prepared per-band steps with separately reset denominator history.",
       "decision": "docs/architecture/system-audio-spectrum-design.md"
     },
     {
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f149d0b1a5209551db55d8a962e4cf8655588174712219d76b4628ddcf2081bb",
-      "after": "788473acc361e66f546d3ed9ca46c8102e70f6276368b0ffc820b3ef14206ad6",
+      "before": "788473acc361e66f546d3ed9ca46c8102e70f6276368b0ffc820b3ef14206ad6",
+      "after": "96b2d307ca70792dcc8a267dcd834c8ece258493bda2eb8858f6cd24247f3367",
       "owner": "Scene audio normalization",
-      "reason": "Record qualified official and native group attacks, exact matched tails, original ring residual, and independent authored output.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-group-shared-target"
+      "reason": "Record official per-band steps, exact quiet reentry and the updated authored contour range.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-band-steps"
     },
     {
       "section": "bodies",

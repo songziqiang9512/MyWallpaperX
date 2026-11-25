@@ -250,6 +250,17 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
         self.assertAlmostEqual(held[0], .183, delta=.01)
         self.assertAlmostEqual(held[1], .05, delta=.01)
 
+    def test_author_bands_take_one_step_and_hold_history_during_silence(self) -> None:
+        for result in self.result["analyzer"]["bandSteps"]:
+            before, first, repeated, second, release, quiet, stale, resumed, reset = result
+            self.assertAlmostEqual(first - before, 1, delta=0.0001)
+            self.assertEqual(repeated, first)
+            self.assertAlmostEqual(second - first, 1, delta=0.0001)
+            self.assertAlmostEqual(second - release, 1, delta=0.0001)
+            self.assertEqual((quiet, stale), (0, 0))
+            self.assertAlmostEqual(resumed - release, 1, delta=0.0001)
+            self.assertAlmostEqual(reset, 1, delta=0.0001)
+
 
 class SceneAudioSpectrumWiringTests(unittest.TestCase):
     """静态接线断言：确保采集服务与播放引擎按 A0 合同接线。"""

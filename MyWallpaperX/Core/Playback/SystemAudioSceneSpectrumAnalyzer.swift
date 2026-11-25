@@ -296,13 +296,13 @@ private extension SystemAudioSceneSpectrumAnalyzer {
         private var lastTimestamp: TimeInterval?
         private var quietDuration: TimeInterval = 0
         private var denominators = Array(repeating: onsetDenominator, count: 2 * groupCount)
-        private var lastLevels = AuthorLevels.silence
+        private var lastActiveLevels = AuthorLevels.silence
 
         mutating func reset() {
             lastTimestamp = nil
             quietDuration = 0
             seedOnset()
-            lastLevels = .silence
+            lastActiveLevels = .silence
         }
 
         mutating func analyze(
@@ -313,7 +313,7 @@ private extension SystemAudioSceneSpectrumAnalyzer {
         ) -> AuthorLevels {
             let time = timestamp.flatMap { $0.isFinite ? $0 : nil }
             if let time, let lastTimestamp, time <= lastTimestamp {
-                return lastLevels
+                return quietDuration > 0 ? .silence : lastActiveLevels
             }
             guard let first = frame.signedChannels.first, sampleRate.isFinite, sampleRate > 0 else {
                 reset()
@@ -336,8 +336,8 @@ private extension SystemAudioSceneSpectrumAnalyzer {
             var right = channels == 2 ? window.bands(frame.signedChannels[1], fftSetup: fftSetup) : nil
             let peak = max(left.max() ?? 0, right?.max() ?? 0)
             guard peak.isFinite else {
-                lastLevels = .silence
-                return lastLevels
+                lastActiveLevels = .silence
+                return .silence
             }
             let dt = Float(elapsed)
             let fall = 0.05634 * dt
@@ -352,19 +352,20 @@ private extension SystemAudioSceneSpectrumAnalyzer {
                         }
                     }
                 }
-                lastLevels = .silence
-                return lastLevels
+                return .silence
             }
 
             quietDuration = 0
             let sharedTarget = max(peak / 3, Self.minimumDenominator)
             let rise = 0.12 * dt
-            normalize(&left, channelOffset: 0, sharedTarget: sharedTarget, rise: rise, fall: fall)
+            normalize(&left, previousBands: lastActiveLevels.left64,
+                      channelOffset: 0, sharedTarget: sharedTarget, rise: rise, fall: fall)
             if right != nil {
-                normalize(&right!, channelOffset: Self.groupCount, sharedTarget: sharedTarget, rise: rise, fall: fall)
+                normalize(&right!, previousBands: lastActiveLevels.right64,
+                          channelOffset: Self.groupCount, sharedTarget: sharedTarget, rise: rise, fall: fall)
             }
-            lastLevels = AuthorLevels(left64: left, right64: right)
-            return lastLevels
+            lastActiveLevels = AuthorLevels(left64: left, right64: right)
+            return lastActiveLevels
         }
 
         private mutating func seedOnset() {
@@ -373,6 +374,7 @@ private extension SystemAudioSceneSpectrumAnalyzer {
 
         private mutating func normalize(
             _ bands: inout [Float],
+            previousBands: [Float],
             channelOffset: Int,
             sharedTarget: Float,
             rise: Float,
@@ -385,7 +387,10 @@ private extension SystemAudioSceneSpectrumAnalyzer {
                 let previous = denominators[index]
                 let next = max(Self.minimumDenominator, previous + min(rise, max(-fall, target - previous)))
                 denominators[index] = next
-                for band in samples { bands[band] /= next }
+                for band in samples {
+                    let previousValue = previousBands[band]
+                    bands[band] = min(previousValue + 1, max(previousValue - 1, bands[band] / next))
+                }
             }
         }
     }

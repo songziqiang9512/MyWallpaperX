@@ -217,7 +217,10 @@ enum Harness {
         let dcFrame = captured([Array(repeating: 0.125, count: frameCount)])
         let dc = freshAuthor(dcFrame, sampleRate: sampleRate)
         let stereo = freshAuthor(stereoFrame, sampleRate: sampleRate)
-        let hot = freshAuthor(captured([highTone, zero]), sampleRate: sampleRate)
+        let hotAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
+        let hotFrame = captured([highTone, zero])
+        _ = hotAnalyzer.analyzeAuthor(hotFrame, sampleRate: sampleRate, timestamp: 1)
+        let hot = hotAnalyzer.analyzeAuthor(hotFrame, sampleRate: sampleRate, timestamp: 1.04)
         let silent = freshAuthor(captured([zero]), sampleRate: sampleRate)
         let nearSilentFrame = captured([tone(275.730014, amplitude: 0.000_001)])
         let nearSilent = freshAuthor(nearSilentFrame, sampleRate: sampleRate)
@@ -264,6 +267,7 @@ enum Harness {
             "nearSilentPeak": nearSilent.left64.max() ?? 0,
             "reentry": reentryChecks(active: dcFrame, quiet: nearSilentFrame),
             "sharedAttack": sharedAttackChecks(),
+            "bandSteps": bandStepChecks(),
             "usesTail": arrays(freshAuthor(sameTail, sampleRate: sampleRate)) == arrays(center),
             "incompleteTailSilent": arrays(freshAuthor(incompleteTail, sampleRate: sampleRate))
                 .joined().allSatisfy { $0 == 0 },
@@ -327,6 +331,33 @@ enum Harness {
         let attack = at(pressure, tick: 91)
         for tick in 92..<180 { _ = at(pressure, tick: tick) }
         return [before, attack, at(pressure, tick: 180)]
+    }
+
+    static func bandStepChecks() -> [[Float]] {
+        let reference = tone(758.257539, amplitude: 0.03964522)
+        let low = captured([tone(1_102.920057, amplitude: 0.03426054), reference])
+        let high = captured([tone(1_493.537578, amplitude: 0.36), reference])
+        let zero = Array(repeating: Float(0), count: reference.count)
+        let silent = captured([zero, zero])
+
+        return [1.0 / 60, 1.0 / 24].map { interval in
+            let analyzer = SystemAudioSceneSpectrumAnalyzer()!
+            func at(_ frame: SystemAudioCapturedFrame, _ time: Double) -> Float {
+                analyzer.analyzeAuthor(frame, sampleRate: sampleRate, timestamp: time).left64[36]
+            }
+            for tick in 0..<90 { _ = at(low, Double(tick) / 30) }
+            let before = at(low, 3)
+            let first = at(high, 3 + interval)
+            let repeatTime = at(high, 3 + interval)
+            let second = at(high, 3 + 2 * interval)
+            let release = at(low, 3 + 3 * interval)
+            let quiet = at(silent, 3.3)
+            let staleWhileQuiet = at(high, 3.3)
+            for tick in 1...21 { _ = at(silent, 3.3 + Double(tick) / 30) }
+            let resumed = at(high, 4.04)
+            analyzer.resetAuthor()
+            return [before, first, repeatTime, second, release, quiet, staleWhileQuiet, resumed, at(high, 4.08)]
+        }
     }
 
     static func tone(_ frequency: Double, amplitude: Float, at sourceSampleRate: Float = sampleRate) -> [Float] {
