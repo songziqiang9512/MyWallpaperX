@@ -77,8 +77,8 @@
       "bytes": 78788
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 355,
-      "bytes": 73485
+      "lines": 364,
+      "bytes": 74807
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "8d288ad2bd5740697b15caf4fc3dc56a04a6f610800fe68edb55f1040e6d295c",
-      "after": "f9ea75359a02fec187008f150f46f67b461e53d391ea9e639b62263f18f769dc",
+      "before": "f9ea75359a02fec187008f150f46f67b461e53d391ea9e639b62263f18f769dc",
+      "after": "436167702bff284c1bf057175aea1213c2adfe2389961d2ca8a850987040325f",
       "owner": "跨引擎画质实施",
-      "reason": "记录普通 Bloom 换尺寸旧红新绿及真实作者画面",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-standard-bloom-resize"
+      "reason": "记录重复遮挡裁剪的真画面、阶段重叠复核与无实效退出",
+      "decision": "docs/development/wallpaper-quality-work-card.md#point-volume-occluder-scissor"
     },
     {
       "section": "bodies",

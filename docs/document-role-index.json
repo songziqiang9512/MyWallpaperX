@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "939f87aea9e89ace1f4232e0ceb21defda205dae3fa10aee03e1fcc98d5cb12f",
+        "sourceSHA256": "69b3c41e0b5262f18b34f3c8134cf058a8a945aad8dd5f8a10292e33000003b8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通泛光换尺寸时真实预算、在途拒绝和像素恢复",
-        "limitations": "签名作者验证正常窗口与恢复原尺寸后的实绘，压力使用原生夹具"
+        "scope": "点光遮挡专用深度裁剪的原生正确性和签名阶段重叠",
+        "limitations": "未重复证实收益，试验源码已退役"
       }
     },
     {
