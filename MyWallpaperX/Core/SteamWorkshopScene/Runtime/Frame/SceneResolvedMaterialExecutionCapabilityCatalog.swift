@@ -163,6 +163,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     private let ownerID: UUID
     private let capabilitiesByLayerID: [Int: LayerCapability]
     let audioConsumerLayerIDs: Set<Int>
+    let privateLayerAlphaPreservingIDs: Set<Int>
     let systemProviderConsumerLayerIDs: [SceneSystemProviderTextureIdentity: Set<Int>]
     private let productAuthorityRejectionReasonsByLayerID: [Int: String]
     private let dynamicVisibleRootLayerIDs: Set<Int>
@@ -174,6 +175,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         ownerID: UUID,
         capabilitiesByLayerID: [Int: LayerCapability],
         audioConsumerLayerIDs: Set<Int>,
+        privateLayerAlphaPreservingIDs: Set<Int> = [],
         systemProviderConsumerLayerIDs: [SceneSystemProviderTextureIdentity: Set<Int>],
         productAuthorityRejectionReasonsByLayerID: [Int: String],
         dynamicVisibleRootLayerIDs: Set<Int>,
@@ -182,6 +184,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         self.ownerID = ownerID
         self.capabilitiesByLayerID = capabilitiesByLayerID
         self.audioConsumerLayerIDs = audioConsumerLayerIDs
+        self.privateLayerAlphaPreservingIDs = privateLayerAlphaPreservingIDs
         self.systemProviderConsumerLayerIDs = systemProviderConsumerLayerIDs
         self.productAuthorityRejectionReasonsByLayerID = productAuthorityRejectionReasonsByLayerID
         self.dynamicVisibleRootLayerIDs = dynamicVisibleRootLayerIDs

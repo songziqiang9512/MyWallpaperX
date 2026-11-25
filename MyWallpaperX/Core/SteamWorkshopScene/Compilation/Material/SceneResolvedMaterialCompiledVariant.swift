@@ -127,6 +127,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
     let neutralTextureResolution:
         SceneAuthoredShaderNeutralTextureResolutionFact?
     let preservesTargetPixelFootprint: Bool
+    let preservesGraphInputAlpha: Bool
 
     init(
         readinessMask: UInt8,
@@ -149,7 +150,8 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         activeUniforms: [String: Uniform],
         neutralTextureResolution:
             SceneAuthoredShaderNeutralTextureResolutionFact?,
-        preservesTargetPixelFootprint: Bool = false
+        preservesTargetPixelFootprint: Bool = false,
+        preservesGraphInputAlpha: Bool = false
     ) {
         self.readinessMask = readinessMask
         self.textureFormats = textureFormats
@@ -169,6 +171,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         self.activeUniforms = activeUniforms
         self.neutralTextureResolution = neutralTextureResolution
         self.preservesTargetPixelFootprint = preservesTargetPixelFootprint
+        self.preservesGraphInputAlpha = preservesGraphInputAlpha
     }
 
     var requiresInvertibleEffectTextureProjection: Bool {

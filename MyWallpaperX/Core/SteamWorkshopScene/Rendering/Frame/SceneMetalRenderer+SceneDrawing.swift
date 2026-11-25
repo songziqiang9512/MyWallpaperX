@@ -274,9 +274,21 @@ extension SceneMetalRenderer {
 #if DEBUG
         let hubFrameAdmissionStart = ProcessInfo.processInfo.systemUptime
 #endif
+        let resolvedRuntime = imageCompositor.resolvedMaterialRuntime
+        let omittedPrivateLayerIDs = (resolvedRuntime?.privateLayerAlphaPreservingIDs ?? []).filter { id in
+            guard frameVisibleLayerIDs.contains(id), let layer = frameLayersByID[id],
+                  layer.utilityLayer == nil,
+                  SceneLayerColorBlendRenderer.keepsBackdropAtZeroOpacity(layer.colorBlendMode ?? 0),
+                  imageTextures.geometryProducts[id] != nil,
+                  utilityExecution.memberRootsByLayerID[id] == nil,
+                  frameLightSnapshot.distanceFogColor.w == 0,
+                  !dependencyRuntime.requiresCapture(for: id) else { return false }
+            return SceneDynamicLayerValues.alpha(layerID: id, authoredValue: layer.alpha,
+                snapshot: frameContext.dynamicValues) == 0
+        }
         let liveLayerIDs = frameProjection.renderLayerIDs.subtracting(unavailableTerminalLayers)
-        let availableExecutionLayerIDs = (imageCompositor.resolvedMaterialRuntime?
-            .executionLayerIDs ?? []).intersection(liveLayerIDs)
+            .subtracting(omittedPrivateLayerIDs)
+        let availableExecutionLayerIDs = (resolvedRuntime?.executionLayerIDs ?? []).intersection(liveLayerIDs)
         guard let sourcePlan = dependencyRuntime.sourcePreparationPlan(
             authoredLayerIDs: reorderedLayers?.map(\.id) ?? frameProjection.orderedLayerIDs,
             availableExecutionLayerIDs: availableExecutionLayerIDs,
@@ -657,6 +669,7 @@ extension SceneMetalRenderer {
             forwardGraphProviderLayerIDs: forwardGraphProviderLayerIDs,
             preparationSchedule: preparationSchedule,
             frameVisibleLayerIDs: frameVisibleLayerIDs,
+            omittedPrivateLayerIDs: omittedPrivateLayerIDs,
             activeStaticModelNamedAlbedoLayerIDs: activeStaticModelNamedAlbedoLayerIDs,
             imageTextures: imageTextures,
             imagePipeline: imagePipeline,

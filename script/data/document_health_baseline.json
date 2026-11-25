@@ -125,12 +125,12 @@
       "bytes": 69477
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 445,
-      "bytes": 89543
+      "lines": 454,
+      "bytes": 91450
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 596,
-      "bytes": 325965
+      "bytes": 327219
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 245,
-      "bytes": 69611
+      "bytes": 69527
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -460,11 +460,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "dd9a315b84b819db4d286cf855032bb5f4fe2a05f11d33138fd04c078832c262",
-      "after": "e7a3b11b98c0003e050cba9dac7a248258082a346d9d04263f452efc4de246e2",
-      "owner": "Scene image material replay",
-      "reason": "Document the exact mapped capture cohort and budget fallback",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#isolated-image-source-density"
+      "before": "e398ecc9c475c75e54331783223e5a68ed173c678cd5acd942b32569040d120d",
+      "after": "9d8d0007ae697cf2231b5d662fe424394a986bae6ae22de7eed076cf2b951472",
+      "owner": "Scene private material coverage",
+      "reason": "Specify alpha-preserving private graph and dynamic passthrough before implementation.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#zero-alpha-private-graph"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2783517b5b345542c62b31d062956059d6c467a00f9deb2ea640109855d89576",
-      "after": "b076900b9837b3ba39e26b30e32a86db36610498ba942825a9f5bb3a7fb8689d",
-      "owner": "Scene author spectrum",
-      "reason": "Record actual amplitude-scale holdout and independent decay measurement.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-physical-release-361"
+      "before": "b076900b9837b3ba39e26b30e32a86db36610498ba942825a9f5bb3a7fb8689d",
+      "after": "f070da2962fe56e1e99fed73962bcee5b6c0537b4bad7355a02d5893896054eb",
+      "owner": "Scene Puppet terminal composition",
+      "reason": "Record observed stage and copy removal, dynamic framebuffer controls and presentation comparison limits.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-zero-alpha-private-frame-367"
     },
     {
       "section": "bodies",

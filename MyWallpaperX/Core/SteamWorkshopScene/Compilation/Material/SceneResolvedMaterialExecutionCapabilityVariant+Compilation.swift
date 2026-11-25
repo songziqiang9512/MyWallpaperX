@@ -158,6 +158,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         let (
             alphaAttenuationFact,
             colorBlendFact,
+            preservesGraphInputAlpha,
             artifactStart,
             artifactResolution
         ) = resolveVariantArtifact(
@@ -298,7 +299,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             activeUniforms: uniforms,
             neutralTextureResolution: neutralTextureResolution,
             preservesTargetPixelFootprint: SceneAuthoredShaderSamePixelSourceAnalyzer
-                .preservesTargetPixelFootprint(vertexSource: compilerSources.vertex)
+                .preservesTargetPixelFootprint(vertexSource: compilerSources.vertex),
+            preservesGraphInputAlpha: preservesGraphInputAlpha
         )
     }
 

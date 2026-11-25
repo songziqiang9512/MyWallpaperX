@@ -47,6 +47,16 @@ private enum Harness {
                 maskEnabled: true,
                 modeZero: false
             ),
+            "authoredStockXYZ": preparedAuthored(
+                authoredStock.replacingOccurrences(of: ".rgb", with: ".xyz"),
+                maskEnabled: true,
+                modeZero: false
+            ),
+            "reorderedSource": preparedAuthored(
+                authoredStock.replacingOccurrences(of: ".rgb", with: ".bgr"),
+                maskEnabled: true,
+                modeZero: false
+            ),
             "authoredLegacyMaskOverride": preparedAuthored(
                 authoredLegacyMaskOverride,
                 maskEnabled: true,
@@ -292,6 +302,7 @@ class SceneAuthoredShaderGraphInputColorBlendTests(unittest.TestCase):
             result["authoredStock"],
             {"sourceSlot": 0, "auxiliaryRedSlots": [1], "alphaOutput": "preserved"},
         )
+        self.assertEqual(result["authoredStockXYZ"], result["authoredStock"])
         self.assertEqual(
             result["authoredLegacyMaskOverride"],
             {"sourceSlot": 0, "auxiliaryRedSlots": [1], "alphaOutput": "preserved"},
@@ -306,7 +317,7 @@ class SceneAuthoredShaderGraphInputColorBlendTests(unittest.TestCase):
         for name in (
             "conditional", "wrongBase", "nonUniformColor", "greenMask",
             "twoMasks", "opaqueMismatch", "modeZeroPreservesAlpha",
-            "sourceResampled",
+            "sourceResampled", "reorderedSource",
             "negativeMode", "aboveMaximumMode",
         ):
             with self.subTest(name=name):

@@ -181,6 +181,7 @@ extension SceneMetalRenderer {
         forwardGraphProviderLayerIDs: Set<Int>,
         preparationSchedule: SceneDependencyRenderPlan.PreparationSchedule,
         frameVisibleLayerIDs: Set<Int>,
+        omittedPrivateLayerIDs: Set<Int>,
         activeStaticModelNamedAlbedoLayerIDs: Set<Int>,
         imageTextures: SceneBaseImageTextureSnapshot,
         imagePipeline: SceneImageLayerPipeline?,
@@ -300,7 +301,7 @@ extension SceneMetalRenderer {
                 }
                 graphProviderLayerIDs.formUnion(prepared)
             }
-            if skipsGroupMember { continue }
+            if skipsGroupMember || omittedPrivateLayerIDs.contains(layer.id) { continue }
             let reusesForwardOutput = graphProviderLayerIDs.contains(layer.id)
             if !reusesForwardOutput, !frameVisibleLayerIDs.contains(layer.id),
                preparationSchedule.scheduledGraphProviderLayerIDs.contains(layer.id) { continue }

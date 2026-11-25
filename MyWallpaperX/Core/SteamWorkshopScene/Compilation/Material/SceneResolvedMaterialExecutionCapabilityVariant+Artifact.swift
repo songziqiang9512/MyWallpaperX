@@ -35,6 +35,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
     ) -> (
         alphaAttenuationFact: SceneAuthoredShaderAlphaAttenuationFact?,
         colorBlendFact: SceneAuthoredShaderGraphInputColorBlendFact?,
+        preservesGraphInputAlpha: Bool,
         artifactStart: Double,
         artifactResolution: SceneResolvedMaterialGenericShaderArtifactCache.Resolution
     ) {
@@ -167,6 +168,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         return (
             alphaAttenuationFact,
             colorBlendFact,
+            colorBlendFact?.alphaOutput == .preserved && colorBlendSourceSlot != nil,
             artifactStart,
             artifactResolution
         )

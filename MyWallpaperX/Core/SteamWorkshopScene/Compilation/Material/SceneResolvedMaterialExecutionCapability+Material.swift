@@ -64,6 +64,24 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
         return node
     }
 
+    func preservesPrivateLayerAlpha() -> Bool {
+        guard isVisibleExecutionRoot, !isGraphOutputProvider,
+              sourceRoute == .capturedLayerTexture, dependencyOwnership == .none,
+              sceneBackgroundRequirement == nil, !requiresSceneEnvironment,
+              stages.count == 1, materials.count == 1,
+              let stage = stages.first,
+              case let .resolved(_, activation) = stage.execution,
+              activation == nil || stage.supportsEffectEntryPassthrough,
+              let node = Self.terminalColorNode(in: stage),
+              let material = material(for: node), material.attachmentStorage == .color,
+              material.template.renderState.supportsResolvedMaterialFullscreenOverwrite else { return false }
+        let input = SceneAuthoredEffectRenderPlan.TextureIdentity.layerSource(layerID: layerID)
+        guard stage.product.graph.effects[0].input == input else { return false }
+        let envelope = material.variants.launchEnvelopeCapabilitySnapshot()
+        return envelope.inputIdentity == input && envelope.allEntriesReady && !envelope.variants.isEmpty
+            && envelope.variants.allSatisfy(\.preservesGraphInputAlpha)
+    }
+
     /// Proves a simple color chain whose intermediates follow its real source.
     /// Every possible terminal has the same proven placement contract;
     /// the graph executor preserves inputs across trailing passthroughs.

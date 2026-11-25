@@ -279,6 +279,15 @@ enum SceneLayerColorBlendRenderer {
         (0 ... SceneBlendModeShaderSource.maximumMode).contains(blendMode)
     }
 
+    static func keepsBackdropAtZeroOpacity(_ blendMode: Int) -> Bool {
+        // Min/max ignore opacity. Soft Light and HSL can evaluate outside
+        // their color domain on an HDR backdrop before multiplying by zero.
+        switch blendMode {
+        case 0, 5, 10, 12, 26...29: false
+        default: supports(blendMode)
+        }
+    }
+
     static func draw(
         texture: MTLTexture,
         mvp: simd_float4x4,
