@@ -37,15 +37,14 @@ extension WallpaperDaemon {
         videoPreparation?.targetScreenFrame = screen.frame
 
         window.setFrame(screen.frame, display: true)
-        if currentVideoPath != nil {
+        currentFillMode = fillMode
+        updateLayerFrames()
+        if currentVideoPath == nil {
+            showFallback(framePath: framePath, gravity: .resizeAspectFill, fillMode: fillMode)
+        } else {
             window.level = WallpaperDaemon.desktopWindowLevel
             window.orderFrontRegardless()
         }
-        currentFillMode = fillMode
-        updateLayerFrames()
-
-        let fallbackGravity: CALayerContentsGravity = .resizeAspectFill
-        showFallback(framePath: framePath, gravity: fallbackGravity, fillMode: fillMode)
 
         let incomingPlayer = inactivePlayer
         clearLooper(for: inactiveSlot)
@@ -148,6 +147,7 @@ extension WallpaperDaemon {
         incomingLayer.transform = CATransform3DIdentity
         if targetFrame != .zero { incomingLayer.frame = targetFrame }
         incomingLayer.opacity = 0
+        fallbackLayer.contents = nil
         fallbackLayer.opacity = 0
         CATransaction.commit()
 

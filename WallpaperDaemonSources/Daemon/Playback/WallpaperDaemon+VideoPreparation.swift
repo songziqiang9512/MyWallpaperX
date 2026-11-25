@@ -94,6 +94,7 @@ extension WallpaperDaemon {
         if let bounds = window.contentView?.bounds {
             activeLayer.frame = layerFrameForFillMode(currentFillMode, in: bounds)
         }
+        fallbackLayer.contents = nil
         fallbackLayer.opacity = 0
         CATransaction.commit()
         clearVideoSlot(preparation.incomingSlot)

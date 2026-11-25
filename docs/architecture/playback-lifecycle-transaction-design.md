@@ -26,6 +26,7 @@ Scene进程保留服务于已提交Web/Video后的短时重入：只有真实han
 - 新 Web 保留每屏 snapshot preparation；新 Video 保留 AVPlayerItem/AVPlayerLayer readiness。激活后逐目标屏核对窗口身份、目标几何、alpha、层级和 WindowServer onscreen 状态；有界重试绑定 request、surface/preparation generation。不能把 onscreen 叫物理视频帧呈现。
 - Web/Video 激活临时使用 desktop + 2（仍低于桌面图标），确保新输出不会被旧 Web 窗口覆盖；旧端点退休后 finalize 恢复原层。当前不在活动 Space 的表面不冒充上屏成功：激活有界退出并保留旧壁纸，不持续轮询；用户重新选择可重试。
 - Web 原生媒体恢复 completion 也属于激活代际，失败、超时、拓扑改变或导航替换撤销该确认。只有所有目标窗口和媒体状态就绪才发可交接事件。
+- Video helper 仅为空窗口准备候选静帧。同一 helper 已有当前视频时，准备下一部期间保原 AVPlayerLayer、原几何与留黑区，候选静帧直接跳过读取。沿原当前视频身份作决定，已加载海报在候选 AVPlayerItem 就绪或撤销时随原状态释放，层级和接管仍走原事务。
 - 候选准备期间静音且不拥有输入。统一事务在旧输出撤音频/输入与新输出启用之间安排有序交接；旧画面可继续保留。激活失败恢复旧策略，不覆盖用户暂停、音量、显示和属性的新值。
 - Scene 保留真实 drawable presented，不降为一般窗口 ready；既有本地呈现截止期与父端 finalize、GPU drain/版本租约合同继续成立。
 

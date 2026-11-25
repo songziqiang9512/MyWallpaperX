@@ -32,17 +32,11 @@ extension WallpaperDaemon {
             CATransaction.setDisableActions(true)
             incomingLayer.opacity = 1
             outgoingLayer.opacity = 0
-            fallbackLayer.opacity = 0
             CATransaction.commit()
             cleanupOutgoing()
             confirmVideoActivationWhenVisible(requestID: requestID)
             return
         }
-
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        fallbackLayer.opacity = 0
-        CATransaction.commit()
 
         let outFrame = outgoingLayer.presentation()?.frame ?? outgoingLayer.frame
         let needsFrameAnim = targetFrame != .zero

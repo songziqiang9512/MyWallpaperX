@@ -129,10 +129,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e9abadb4a44eb90901240417fb2ed69fc194c09a1d48ec60a420ffefb2b149ea",
+        "sourceSHA256": "21a73a60f34c907364af441a828a9a05aa915ecda742f3113b5b84a41d159be5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene 冷档直接提交与原精确撤单",
-        "limitations": "端点回执与单内屏实窗验证"
+        "scope": "可见切换事务与 Video 冷海报适用范围和释放点",
+        "limitations": "本轮和原生窗口候选链交叉核对，不代表产品全屏拓扑复验"
       }
     },
     {
@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "24fd3f0cb480cfdddee6934bb3cacc342306e39bad163cc99987738097deeed3",
+        "sourceSHA256": "09b37f2cc3d2e5752cff6a22d0a610617ca2859ea9a376e3a2079a4ac29addd0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本地 Video 后台目录与详情读轨入口",
-        "limitations": "按已有目录观察"
+        "scope": "Video 窗口静帧和同窗接管的源码导航",
+        "limitations": "导航审计，不重复运行所有引擎"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f3d5c49ce71cf0bc3ed9e277032cfbc34255556d17c84bcef36983bbfcd54d95",
+        "sourceSHA256": "7b8944fc1080c9b8e4275c67480bd7ba4f1c8a025418bffc6cf696c60208f121",
         "method": "document_registry --audit + document_health --check",
-        "scope": "三引擎质量评估与官版 Web 具名窗口同输入回调及画布证据",
-        "limitations": "VM 局部窗口，官版图像为原生控制台观察转录，未量全局热改或物理呈现"
+        "scope": "三引擎质量方案与 Video 同窗海报的真实窗口验证",
+        "limitations": "隔离原生 helper 与固定原片，未测物理显示时序或长期功耗"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a3b2485ffd47696be800ad5fbf3be2e438f4901b68b4fa63112d1a8ff7c47e19",
+        "sourceSHA256": "cba023653d878aa572005d64672c95ce6a7e83509852864960318c1567e96739",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役质量路线，核准固定官版 Web 启动与实绘定位",
-        "limitations": "普通桌面、全局热改和硬件按工作卡另验"
+        "scope": "现役画质路线与 Video 同窗候选保持原画入口",
+        "limitations": "其余官版、硬件依工作卡另验"
       }
     },
     {

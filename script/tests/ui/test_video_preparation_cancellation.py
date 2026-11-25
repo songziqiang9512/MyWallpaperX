@@ -226,20 +226,42 @@ import QuartzCore
             writer.finishWriting { finished.signal() }
             precondition(finished.wait(timeout: .now() + 5) == .success && writer.status == .completed)
         } catch { preconditionFailure("video fixture: \(error)") }
+        let poster = fixtureRoot.appendingPathComponent("candidate-poster.png")
+        let posterImage = NSImage(size: NSSize(width: 128, height: 64), flipped: false) { bounds in
+            NSColor.red.setFill()
+            bounds.fill()
+            return true
+        }
+        let posterPixels = NSBitmapImageRep(data: posterImage.tiffRepresentation!)!
+        try! posterPixels.representation(using: .png, properties: [:])!.write(to: poster)
+        defer { try? FileManager.default.removeItem(at: poster) }
+        var coldPosterReleased = true
         for paused in [true, false] {
             daemon.cancelVideoPreparation()
             daemon.clearVideoSlot(.primary); daemon.clearVideoSlot(.secondary)
             daemon.currentVideoPath = nil; daemon.currentRequestID = nil
             daemon.paused = paused
             daemon.window.level = NSWindow.Level(rawValue: WallpaperDaemon.desktopWindowLevel.rawValue - 2)
-            daemon.play(videoPath: fixture.path, framePath: nil, fillMode: "aspectFill",
+            if paused {
+                daemon.play(videoPath: fixture.path, framePath: poster.path, fillMode: "aspectFill",
+                    shouldLoopCurrentItem: false, requestID: 80)
+                let stagedPoster = daemon.fallbackLayer.opacity == 1 && daemon.fallbackLayer.contents != nil
+                daemon.cancelVideoPreparation(requestID: 80)
+                renderingFacts["coldCancellationReleasesPoster"] = stagedPoster
+                    && daemon.fallbackLayer.opacity == 0 && daemon.fallbackLayer.contents == nil
+            }
+            daemon.play(videoPath: fixture.path, framePath: poster.path, fillMode: "aspectFill",
                 shouldLoopCurrentItem: false, requestID: 8)
+            renderingFact(paused ? "pausedColdPosterLoads" : "playingColdPosterLoads",
+                daemon.fallbackLayer.opacity == 1 && daemon.fallbackLayer.contents != nil)
             let deadline = Date().addingTimeInterval(5)
             while daemon.videoPreparation?.isPrepared != true && Date() < deadline {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.01))
             }
             precondition(daemon.videoPreparation?.isPrepared == true, "real layer readiness failed, paused=\(paused)")
             precondition(daemon.currentVideoPath == nil && daemon.inactivePlayer.volume == 0)
+            coldPosterReleased = coldPosterReleased
+                && daemon.fallbackLayer.opacity == 0 && daemon.fallbackLayer.contents == nil
             let preparedTime = daemon.inactivePlayer.currentTime().seconds
             RunLoop.current.run(until: Date().addingTimeInterval(0.6))
             precondition(preparedTime < 0.03 && abs(daemon.inactivePlayer.currentTime().seconds - preparedTime) < 0.01,
@@ -277,7 +299,7 @@ import QuartzCore
         // Existing but undecodable files must traverse item preparation and
         // produce a correlated failure, retaining the actual committed movie.
         daemon.paused = true
-        daemon.play(videoPath: fixture.path, framePath: nil, fillMode: "aspectFill",
+        daemon.play(videoPath: fixture.path, framePath: nil, fillMode: "aspectFit",
             shouldLoopCurrentItem: false, requestID: 9)
         let activeDeadline = Date().addingTimeInterval(5)
         while daemon.videoPreparation?.isPrepared != true && Date() < activeDeadline {
@@ -288,6 +310,9 @@ import QuartzCore
         finalizeSlot(9)
         daemon.completeVideoTransition(token: daemon.switchToken)
         let committedItem = daemon.activePlayer.currentItem
+        let committedFrame = daemon.activeLayer.frame
+        precondition(committedFrame.size != daemon.window.contentView?.bounds.size,
+            "aspect-fit fixture did not leave a visible border")
         let corrupt = fixtureRoot
             .appendingPathComponent("mwx-corrupt-video-\(UUID().uuidString).mov")
         defer { try? FileManager.default.removeItem(at: corrupt) }
@@ -297,8 +322,12 @@ import QuartzCore
         let originalStdout = dup(STDOUT_FILENO)
         precondition(originalStdout >= 0 && dup2(emitted.fileHandleForWriting.fileDescriptor, STDOUT_FILENO) >= 0)
         let corruptCohort = UUID()
-        daemon.play(videoPath: corrupt.path, framePath: nil, fillMode: "aspectFill",
+        daemon.play(videoPath: corrupt.path, framePath: poster.path, fillMode: "aspectFill",
             shouldLoopCurrentItem: false, requestID: 10, cohortID: corruptCohort)
+        renderingFact("warmCandidateKeepsOriginalBorder", daemon.videoPreparation?.isPrepared == false
+            && daemon.activePlayer.currentItem === committedItem && daemon.activeLayer.frame == committedFrame
+            && daemon.fallbackLayer.opacity == 0 && daemon.fallbackLayer.contents == nil)
+        renderingFact("readyReleasesColdPoster", coldPosterReleased)
         let failureDeadline = Date().addingTimeInterval(9)
         while daemon.videoPreparation != nil && Date() < failureDeadline {
             RunLoop.current.run(until: Date().addingTimeInterval(0.01))
@@ -435,7 +464,8 @@ class VideoPreparationCancellationTests(unittest.TestCase):
                     "animatedCancelRestoresGeometry", "fixedPropertiesAfterAnimatedCancel",
                     "firstCommitPublishesCurrentOutput", "pausedFirstPlayKeepsFixedProperties",
                     "playingFirstPlayKeepsFixedProperties", "pausedResizePreservesFillGeometry",
-                    "playingResizePreservesFillGeometry"}.issubset(rendering))
+                    "playingResizePreservesFillGeometry", "pausedColdPosterLoads", "playingColdPosterLoads",
+                    "warmCandidateKeepsOriginalBorder", "readyReleasesColdPoster", "coldCancellationReleasesPoster"}.issubset(rendering))
                 self.assertTrue(all(rendering.values()), rendering)
                 rendering_by_configuration[configuration] = rendering
                 (root / "result.json").write_text(json.dumps({"configuration": configuration, "command": command,

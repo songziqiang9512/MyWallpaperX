@@ -9,12 +9,12 @@
       "bytes": 25405
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
-      "lines": 51,
-      "bytes": 8722
+      "lines": 52,
+      "bytes": 9059
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 18428
+      "bytes": 18616
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 448,
-      "bytes": 110815
+      "lines": 455,
+      "bytes": 112407
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 135771
+      "bytes": 135895
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "35562c748c1b5032bf95e90508f132d67d5c7cfb1cbcffa6696c92a2ef90cde3",
-      "after": "4a239edc8017eddda2a31bfdf155c6b950b4b3024bd58660076fd4f95e42f920",
-      "owner": "仓库源码导航",
-      "reason": "定位后台目录源版本到原视图的交付",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-inspector-source-recovery"
+      "before": "4a239edc8017eddda2a31bfdf155c6b950b4b3024bd58660076fd4f95e42f920",
+      "after": "af2403be6059a1a9d38bae01d24492be1547d327bd50fb9367b393189b733d3e",
+      "owner": "Architecture source map",
+      "reason": "登记原 Video helper 的显示职责及合同入口",
+      "decision": "docs/architecture/repository-map.md#wallpaper-quality"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "4af4208b1eb61ba3a1cd62ff6a343a9f0be5e344ea2fe64a3e8714450b74bb13",
-      "after": "b0563ae348b42847bc029b9318094d88b7d9a1c9c51dcd7ca9a75d9654576265",
-      "owner": "Web playback",
-      "reason": "登记固定官方入口的同输入帧率与渲染证据",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-web-fps-window"
+      "before": "b0563ae348b42847bc029b9318094d88b7d9a1c9c51dcd7ca9a75d9654576265",
+      "after": "7203229c31d261950917d5cab2262a840c367c2eb157ca8008e0c2630c4d0069",
+      "owner": "Video playback",
+      "reason": "登记实际同窗海报遮挡、候选失败和原生回归",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-candidate-poster"
     },
     {
       "section": "bodies",
@@ -693,20 +693,20 @@
     {
       "section": "bodies",
       "path": "docs/architecture/playback-lifecycle-transaction-design.md",
-      "before": "ca8ccfeccda9fe17176547e17ddcbc7898a38e6386adadaa8a3e0db743a5f768",
-      "after": "df4cbf01b297d9976787c561f172336c8686f3500b60ae18a8689b24a8096355",
-      "owner": "Manager 播放事务",
-      "reason": "登记精确撤回保提交输出及取消确认合同",
-      "decision": "docs/architecture/playback-lifecycle-transaction-design.md#三唯一产品事务"
+      "before": "df4cbf01b297d9976787c561f172336c8686f3500b60ae18a8689b24a8096355",
+      "after": "673f4da81b88fc6fc2f9604251668e9eb856efe72499fa67f41d24572798402b",
+      "owner": "Playback lifecycle",
+      "reason": "由现有 Video 窗口事务拥有冷海报与收回时点",
+      "decision": "docs/architecture/playback-lifecycle-transaction-design.md#二可交接确认"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "4813b1ea9e445219c6b4ac859cf61851688abbc62c4d56fe88803d0973645d65",
-      "after": "5b4a26c9d20fbe0fd8f70b9f9756fdbd15c59698f2309f1f8462603e08bbe467",
+      "before": "5b4a26c9d20fbe0fd8f70b9f9756fdbd15c59698f2309f1f8462603e08bbe467",
+      "after": "d656136623cdd80d665ad27e72bfeb04b06058fc2e14c2b07cf2307731e51239",
       "owner": "声画质量执行路线",
-      "reason": "接入官版具名窗口启动与作者实绘的完成条件",
-      "decision": "docs/development/wallpaper-quality-work-card.md#web-authored-live-draw"
+      "reason": "接入 Video 同窗画面回归与现役领路链接",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
