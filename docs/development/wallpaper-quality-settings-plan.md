@@ -127,6 +127,17 @@ M4 内屏 1512×982 点、3024×1964 背板，同一团队签名 Debug 在原库
 
 保持现役 Timer。三个长窗均满足预定的 25 FPS 门，单个 1 周期间隔的发生位置和原因未定。真实作者副本沿原包及着色器运行，首次把缺索引的下载标记散拷进测试库被正常拒绝，正式取证只在隔离副本内移出该标记，作者 project 与 pkg 摘要保持。基准验证本机单内屏及系统实际 drawable 呈现，不含同一个运行会话的物理切屏、混合屏、面板光学、真实启动分段或整机功耗。收据归 `.artifacts/wallpaper-quality-scene-fixed-refresh`。 [Apple 实际呈现时刻](https://developer.apple.com/documentation/metal/mtldrawable/presentedtime)
 
+<a id="scene-live-refresh-proof"></a>
+#### 原播放会话跟随物理刷新率变化
+
+固定模式的稳态窗遇显示或有效 FPS 变化时主动结束。热切另外沿原产品的库选择、已完成交接与现有 Debug 帧捕获取证。父进程只保存 120 FPS 请求，从既有 cadence 回执等待 120→60→实际 59.94→120。独立进程临时更改同屏、同几何和背板的模式，在每次切换后核 CoreGraphics 与实际显示时序。Scene 父端仍由 AppKit 屏幕通知走原拓扑 IPC，不注入模拟拓扑、不重选壁纸。
+
+每档前后两次捕获核 parent ticket、execution、Scene request、generation、daemon PID、session 和 WindowServer 窗 ID 不变，帧驱动仍活动。作者时钟随主机单调时钟前进，验每段及相邻两档，无重置、冻结或补时跃升；稳态每 0.4–2 秒的时间差与主机差容差 0.12 秒，跨档允许 0.25 秒。独立外部固定窗两帧应有内容变化，并核显示与窗口归属。固定 120 请求下照实回显有效小数，假通知、重复选片或仅看冷启动不计通过。自有移动场先过主门，再用同签名独立作者作品。结束需原模式回读、原机偏好与精确子进程退出。诊断仅用于这一验证，若产品通过则退出追加的临时观测入口。物理多屏仍独立验收。 [CoreGraphics 临时模式](https://developer.apple.com/documentation/coregraphics/cgconfigureoption/forapponly)
+
+M4 同内屏 3024×1964 在同一签名诊断 Debug 的原库入口分别播放自有移动场和独立 Workshop 3455121165。两次都保持自身的 ticket、execution、request、transport generation、daemon、session 和 WindowServer 窗。每次只保一个已接管的请求，保存 120，实际回显为 120→60→59.939987→120。独立 CoreGraphics 模式 54→55→56→54 与回执相符，两个固定档的独立显示时钟间隔为约 16.667／16.683 ms。同屏尺寸与背板保持，结束均以独立进程读回原 120 模式。
+
+每档在同一 WindowServer 窗取两张实际画面。缩到 320×208、任一 RGB 通道差超过 3 的像素比例，自有场为 2.75%–2.79%，独立作者为 1.28%–1.48%。两作品的八段档内及六段跨档取样中，作者时钟增量与单调主机时间增量最大偏差小于 0.012 ms。前后两帧均为活动帧驱动，实际画面仍在变化。样本在隔离副本取证，作者 project 和 pkg 摘要与固定刷新门相同。独立作者图层 115 的 named target 绑定在首档前先报失败、随后成功。画面样本用于取证持续出画和时钟，单层效果正确性另验。正常退出、子进程结清和生产偏好摘要复核通过。阶段采样未量切换瞬间的系统黑场、逐帧间隔或跨物理屏事件。退出临时诊断改动，现役保持原通知、拓扑和 Timer 实现。收据归 `.artifacts/wallpaper-quality-scene-live-refresh`。
+
 <a id="scene-aa"></a>
 ### 抗锯齿
 

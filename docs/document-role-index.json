@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5ceab415f64cfddab338ce5bea6820cfe69634a1e5122ff9a3fd7db545508fad",
+        "sourceSHA256": "3e665da28c402d1fd5cb696fd43129f850cb08411d970abf98547905820e5831",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene 逐屏呈现和模式分布的源码入口",
-        "limitations": "只核本轮变更的 Scene 遥测入口。"
+        "scope": "同几何刷新率变化的实际源码入口",
+        "limitations": "只核当前 Scene 帧率与拓扑链。"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bdf0e802ce13b180a7d5760f61303d2d1f1a0e11da999aab26722289db1114dc",
+        "sourceSHA256": "3f39f18527c015d5c23ccda0b2604ed4bed431ce1d38ac519a3ef29ebf2c96a9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "固定 60 Hz 和小数模式的可执行验收",
-        "limitations": "只核当前 M4 单屏成品 Debug 实测，不涵盖混合显示、面板光度、能耗。"
+        "scope": "M4 单内屏同会话物理模式切换",
+        "limitations": "只覆盖单内屏同几何变化与阶段画面。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4b4091b569fd105dea7fd3510b81498b76fe199eb18244ca1c7073598919a36b",
+        "sourceSHA256": "bcc0631da0386b6010917657607714b7b6551dd69c1e830bdb7378672597929b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "帧率路线和固定刷新验收入口",
-        "limitations": "只核同批帧率路由变化，混合屏保独立实机门。"
+        "scope": "固定模式与物理热切的现役路由",
+        "limitations": "混合屏与其它机型保独立验收。"
       }
     },
     {
@@ -871,10 +871,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4b596c312ecbefa41871ffc796f6e06f7f41bfa0471d2f6fa86008c0f75589a3",
+        "sourceSHA256": "9a4c4f1f6d89a21014c0c9f3c46f9487ef5fd7b919df21261f6e4bd1ecda9131",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene 帧率和原 Debug 实际呈现间隔诊断",
-        "limitations": "本次仅审帧率合同，未重验其它运行模块。"
+        "scope": "Scene 帧率合同的实际验证链接",
+        "limitations": "验证结果不改变其他播放架构。"
       }
     },
     {

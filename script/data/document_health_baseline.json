@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 19577
+      "bytes": 19731
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 528,
-      "bytes": 132406
+      "lines": 539,
+      "bytes": 135336
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 136928
+      "bytes": 137060
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -94,7 +94,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 292,
-      "bytes": 59345
+      "bytes": 59448
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,20 +369,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "3351e18d3142cebece97ec26e376c1665713f2cbbebd3a1ed2db898b96a2535d",
-      "after": "aed9b80221cdbff5d8e855314e886449f8567bbbf6d0dfe9bdb7b48be04fc2e1",
+      "before": "aed9b80221cdbff5d8e855314e886449f8567bbbf6d0dfe9bdb7b48be04fc2e1",
+      "after": "faaa28b23610b78386410c5549724ae728db8defc33561900719ef5027c3b55f",
       "owner": "Scene 运行架构",
-      "reason": "同步原 Debug 帧遥测在测量窗结束时结算实际呈现间隔的职责。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-fixed-refresh-proof"
+      "reason": "关联同几何改变保持原 Surface 和帧驱动的真机证据。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-live-refresh-proof"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "f48ceacfd8d31a4be6aa9f44be93568fe7fd937dc209aa9410804d77635db364",
-      "after": "f0f4415117ce1c98cdd9dccd84ac9d485cfdce009a9994b70d2dbc5487b0cd46",
+      "before": "f0f4415117ce1c98cdd9dccd84ac9d485cfdce009a9994b70d2dbc5487b0cd46",
+      "after": "c9546156645192acac8b2e11fbc6e1b14dfc13a6538a2f1ce7696a58eee6ef80",
       "owner": "仓库架构导航",
-      "reason": "把逐屏模式周期统计指到唯一现有 Scene 帧遥测代码。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-fixed-refresh-proof"
+      "reason": "补原 AppKit 屏幕变化到 Scene 父子拓扑的源码定位。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-live-refresh-proof"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "3793c8ce0bc3c7db8015e03b831112a0cfe929e3bb1ec3da3a5d1fce149081a4",
-      "after": "2a8886ac7230770f4dc5868fc0fa5ffe392b7a4ae3998749141be4a8e1300b1f",
+      "before": "2a8886ac7230770f4dc5868fc0fa5ffe392b7a4ae3998749141be4a8e1300b1f",
+      "after": "00fd6e4047334db580697e596abd088a07458ce64ab35dd2de0f8acb6d47c758",
       "owner": "Scene 帧率与取证",
-      "reason": "登记固定显示刷新模式、真实呈现周期分布、限幅结果与适用边界。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-fixed-refresh-proof"
+      "reason": "登记同播放请求跨固定刷新率的原生窗口、时钟和回退证据。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-live-refresh-proof"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "82d25a657d1a45a85a44aa8b90568995349a6c6bc0b0086b57c2331fe25a23ed",
-      "after": "c8b6544a3aab1995a2cfc06a52ce3c912f35fc6398818276366a737bb8a22da8",
+      "before": "c8b6544a3aab1995a2cfc06a52ce3c912f35fc6398818276366a737bb8a22da8",
+      "after": "61782258d6f41d056c83d7200d98eb49b63bc10267a87d8f0bdc527fe66d8394",
       "owner": "壁纸质量实施",
-      "reason": "从现役帧率批链接实机分布与尚未完成的显示验收。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-fixed-refresh-proof"
+      "reason": "用实际物理热切结果更新现役帧率验收入口。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-live-refresh-proof"
     },
     {
       "section": "bodies",
