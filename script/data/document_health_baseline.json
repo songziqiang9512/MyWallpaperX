@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 54,
-      "bytes": 13210
+      "bytes": 13394
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 315,
-      "bytes": 73413
+      "bytes": 73561
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 240,
-      "bytes": 47726
+      "lines": 255,
+      "bytes": 51397
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -93,8 +93,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 278,
-      "bytes": 54192
+      "lines": 280,
+      "bytes": 54968
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,28 +369,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "28ec67d178800799285aa3440de0eab6c7d74463949f52481de4cfc517347507",
-      "after": "91067c18b5f13a6531ef8954f5e94a8a59a5395ccabb1172b36e83aa1d6fb64f",
+      "before": "91067c18b5f13a6531ef8954f5e94a8a59a5395ccabb1172b36e83aa1d6fb64f",
+      "after": "e1822c36462e5f48d8b8203dcf5205e6f044139f62cc9f42872f1858fbc71885",
       "owner": "Scene 运行时",
-      "reason": "确认当前单域按请求选择匹配的样本数",
-      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
+      "reason": "登记物理 drawable、mip 选择、共享升级及帧引用合同",
+      "decision": "docs/scene/architecture/runtime-architecture.md#scene-texture-quality-policy"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "169cafe6e34901ff7d6ea595ff458066501f40ec9d498d2b8f55924c67daab9a",
-      "after": "51462b8ace80bc2e3b7a41fb5cdcb6f9040467027bdb0dfb0990840cdf145e08",
+      "before": "51462b8ace80bc2e3b7a41fb5cdcb6f9040467027bdb0dfb0990840cdf145e08",
+      "after": "82aac8684a60c02bd1be288f576f618e18305a7e06d923675abd6d4c24dbad6a",
       "owner": "壁纸质量工作卡",
-      "reason": "记录 4× 原生覆盖、签名作者、实际节奏和 8× 设备负控",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-aa-four"
+      "reason": "记录 Auto 实际纹理容积、异步升档与后台退役",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-texture-auto"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "5ee405b5fe86b3e7dc477a83f06ef1a732efc67348216dc1860a77dcda88d77f",
-      "after": "dcf8bd3f6757e7fd4405bf65f56962ec5ce237aee8c120ec83cd172a02a0ffe4",
+      "before": "dcf8bd3f6757e7fd4405bf65f56962ec5ce237aee8c120ec83cd172a02a0ffe4",
+      "after": "6e1d736865ece114bb9c71ac485ab4141a53b980bc615179b3c4e0094555ea24",
       "owner": "源码地图",
-      "reason": "登记预设与手改的唯一命令通路",
+      "reason": "关联 Auto 对应的两处原准备和尺寸回调",
       "decision": "docs/architecture/repository-map.md#wallpaper-quality"
     },
     {
@@ -684,11 +684,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "9004052309c67fb6dbc42792854c042de88d98d0adbd4e88e8abded398a50a05",
-      "after": "a658c2eb748fba03b0fcbc1f895ff4a4fbf207ec282c94dac211549fcb0f590c",
+      "before": "a658c2eb748fba03b0fcbc1f895ff4a4fbf207ec282c94dac211549fcb0f590c",
+      "after": "4845b681b18f9a38dd2b71e1d0cc39895fe8e709be6052f0644175f4a50c0a1f",
       "owner": "壁纸质量设计",
-      "reason": "同步经本机验证的两种多采样请求",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa"
+      "reason": "同步自动纹理扩大时的实际准备与失败边界",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-texture-quality"
     }
   ]
 }

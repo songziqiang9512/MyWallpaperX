@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import QuartzCore
 import Metal
@@ -64,7 +65,15 @@ extension SceneDesktopWallpaperHost {
             screenTopology = SceneDesktopWallpaperSession.debugInitialSurfaceTopology(screenTopology)
         }
 #endif
-        let surfaceDisplayIDs = SceneDesktopWallpaperSession.surfaceScreens(topology: screenTopology).map(\.1)
+        let surfaceScreens = SceneDesktopWallpaperSession.surfaceScreens(topology: screenTopology)
+        let surfaceDisplayIDs = surfaceScreens.map(\.1)
+        let automaticDrawableExtent = sceneRenderQuality.textures == .automatic
+            ? surfaceScreens.reduce(CGSize.zero) { extent, surface in
+                let screen = surface.0
+                let frame = SceneDesktopWallpaperSession.initialSurfaceFrame(for: screen)
+                return CGSize(width: max(extent.width, ceil(frame.width * screen.backingScaleFactor)),
+                    height: max(extent.height, ceil(frame.height * screen.backingScaleFactor)))
+            } : nil
         launchPreparationQueue.async { [weak self] in
             guard let self else { return }
             do {
@@ -80,6 +89,7 @@ extension SceneDesktopWallpaperHost {
                     sceneScriptGeneration: scriptGeneration,
                     textureDecodeCacheBudget: self.textureDecodeCacheBudget,
                     surfaceDisplayIDs: surfaceDisplayIDs,
+                    automaticDrawableExtent: automaticDrawableExtent,
                     cancellation: cancellation
                 ) { [weak self] phase, message in
                     DispatchQueue.main.async {
@@ -235,6 +245,7 @@ extension SceneDesktopWallpaperHost {
         sceneScriptGeneration: UInt64,
         textureDecodeCacheBudget: SceneTextureDecodeCacheBudget,
         surfaceDisplayIDs: [CGDirectDisplayID],
+        automaticDrawableExtent: CGSize?,
         cancellation: SceneWallpaperLaunchCancellation?,
         progress: ((SceneWallpaperLaunchState.Phase, String) -> Void)?
     ) throws -> PreparedLaunch {
@@ -288,6 +299,7 @@ extension SceneDesktopWallpaperHost {
             modelReflectionsEnabled: sceneRenderQuality.reflections == .enabled,
             rasterSampleCount: requestedSampleCount > 1 && device.supportsFamily(.apple7) ? requestedSampleCount : 1,
             ordinaryColorMipLongEdge: sceneRenderQuality.textures.ordinaryColorMipLongEdge,
+            automaticDrawableExtent: automaticDrawableExtent,
             resourceView: model.resourceView,
             device: device,
             sceneGeneration: sceneScriptGeneration,
@@ -535,7 +547,8 @@ extension SceneDesktopWallpaperHost {
             descriptor: runtimeInput.renderDescriptor,
             textureUploadCommandQueue: textureUploadCommandQueue,
             textureDecodeCacheBudget: textureDecodeCacheBudget,
-            device: device, checkCancellation: { try cancellation?.check() }
+            device: device, collectsSourceIdentities: automaticDrawableExtent != nil,
+            checkCancellation: { try cancellation?.check() }
         )
 #if DEBUG
         NSLog("MWX LAUNCH-STAGE: stage=catalog-decode elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
@@ -681,10 +694,26 @@ extension SceneDesktopWallpaperHost {
                     "scenescript-family-candidate-publication"
                 )
         }
+        var automaticMipConstraints: ScenePreparedBaseImageResources.AutomaticMipConstraints?
+        if automaticDrawableExtent != nil {
+            let targets = timelineTargets.union(propertyBindingTargets)
+                .union(committedPrograms.vectorProgram.definitions.map(\.target))
+                .union(committedPrograms.scalarProgram.definitions.map(\.target))
+            if !targets.contains(.camera(.zoom)), !targets.contains(.camera(.generalZoom)) {
+                automaticMipConstraints = .init(dynamicLayerIDs: Set(targets.compactMap { target in
+                    switch target {
+                    case let .layer(id, .scale), let .layer(id, .perspective),
+                         let .layer(id, .size), let .layer(id, .angles): return id
+                    default: return nil
+                    }
+                }), exactSources: materialAssetCatalog.preparedSourceIdentities)
+            }
+        }
         let assetLaunchStates = materialAssetCatalog.launchStates
         deviceResourcesPreparation.completeResourcePlanning(.init(
             dynamicImageModelPaths: committedPrograms.domain?.dynamicImageRequestedModelPaths ?? [],
             hasStatefulLayerMutationOwner: committedPrograms.domain?.hasStatefulLayerMutationOwner == true,
+            automaticMipConstraints: automaticMipConstraints,
             modelMaterialPlan: modelMaterialPlan,
             modelAlbedoStates: modelMaterialPlan.assetDemands.reduce(into: [:]) {
                 $0[$1] = assetLaunchStates[$1]

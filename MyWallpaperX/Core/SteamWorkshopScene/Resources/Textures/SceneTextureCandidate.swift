@@ -187,6 +187,7 @@ nonisolated struct SceneTextureCandidate {
     let isSpriteSheet: Bool
     let sampling: SceneTextureSampling
     let authoredFormat: SceneShaderTextureFormat?
+    let embeddedBaseMip: Int
 
     init(
         texture: MTLTexture,
@@ -199,7 +200,8 @@ nonisolated struct SceneTextureCandidate {
         uvTransform: SceneTextureUVTransform,
         isSpriteSheet: Bool = false,
         sampling: SceneTextureSampling,
-        authoredFormat: SceneShaderTextureFormat? = nil
+        authoredFormat: SceneShaderTextureFormat? = nil,
+        embeddedBaseMip: Int = 0
     ) {
         self.texture = texture
         self.identity = identity
@@ -212,6 +214,7 @@ nonisolated struct SceneTextureCandidate {
         self.isSpriteSheet = isSpriteSheet
         self.sampling = sampling
         self.authoredFormat = authoredFormat
+        self.embeddedBaseMip = embeddedBaseMip
     }
 
     var pixelFormat: MTLPixelFormat { texture.pixelFormat }

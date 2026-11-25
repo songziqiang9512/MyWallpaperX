@@ -42,10 +42,13 @@ nonisolated enum SceneDeferredBaseImageStatus: Equatable {
 /// video and other providers keep their lifecycle owners. Puppet CPU models and
 /// static atlases are shared; pose/physics/GPU geometry remain surface-scoped.
 final class ScenePreparedBaseImageResources {
-    private struct Entry {
+    private let automaticMipProjection: SceneAutomaticTextureProjection?
+    private var automaticMipTails: [SceneTextureLoader.SourceKey: AutomaticMipTail]
+
+    struct Entry {
         let input: SceneResourceView.FileInput
         let source: SceneTextureLoader.SourceKey
-        let outcome: SceneBaseImageTextureLoad.Outcome?
+        var outcome: SceneBaseImageTextureLoad.Outcome?
         let naturalSizeWH: [Float]?
     }
 
@@ -99,7 +102,7 @@ final class ScenePreparedBaseImageResources {
     private let sceneGeneration: UInt64
     private let device: MTLDevice
     private let deviceRegistryID: UInt64
-    private let entries: [Int: Entry]
+    private var entries: [Int: Entry]
     private let conditionalAtlases: [SceneTextureLoader.SourceKey: ConditionalAtlas]
     let conditionalPropertyKeys: Set<String>
     private var conditionalProducts: [SceneTextureLoader.SourceKey: ConditionalProduct]
@@ -127,6 +130,8 @@ final class ScenePreparedBaseImageResources {
         conditionalProducts: [SceneTextureLoader.SourceKey: ConditionalProduct],
         dynamicImageResources: [String: ScenePreparedDynamicImageResource],
         deferredRequests: [Int: DeferredRequest],
+        automaticMipProjection: SceneAutomaticTextureProjection?,
+        automaticMipTails: [SceneTextureLoader.SourceKey: AutomaticMipTail],
         loadedCount: Int,
         failedCount: Int
     ) {
@@ -141,6 +146,8 @@ final class ScenePreparedBaseImageResources {
         self.device = device
         self.deviceRegistryID = deviceRegistryID
         self.entries = entries
+        self.automaticMipProjection = automaticMipProjection
+        self.automaticMipTails = automaticMipTails
         self.conditionalAtlases = conditionalAtlases
         self.conditionalProducts = conditionalProducts
         self.conditionalPropertyKeys = Set(conditionalAtlases.values.flatMap { $0.conditions.values.map(\.key) })
@@ -165,10 +172,11 @@ final class ScenePreparedBaseImageResources {
         cacheDirectory: URL,
         effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
         dynamicImageModelPaths: Set<String> = [],
-        dynamicImageRequestsProvider: (() throws -> (models: Set<String>, retainsModelDefaultAliases: Bool))? = nil,
+        dynamicImageRequestsProvider: (() throws -> ImagePlanning)? = nil,
         deferredBaseImageLayerIDs: Set<Int> = [],
         imageGeometryModels: [SceneAssetCatalog.ModelAsset] = [],
         ordinaryColorMipLongEdge: Int? = nil,
+        automaticDrawableExtent: CGSize? = nil,
         geometryPrepared: ([Int: [Float]]) -> Void = { _ in },
         uploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
         decodeCacheBudget: SceneTextureDecodeCacheBudget = .init(
@@ -282,8 +290,13 @@ final class ScenePreparedBaseImageResources {
                     failedCount += atlas.layerIDs.count
                 }
             }
+            let camera = descriptor.camera
+            let automaticProjection = automaticDrawableExtent != nil && camera.authoredOrthographicProjectionActive == true
+                && camera.default2DInputLayerID == nil ? SceneAutomaticTextureProjection(
+                    canvasWidth: camera.orthoWidth, canvasHeight: camera.orthoHeight, zoom: camera.generalZoom) : nil
+            let automaticCover = automaticDrawableExtent.flatMap { automaticProjection?.coverScale(for: $0) }
             var fullResolutionLayerIDs: Set<Int> = []
-            if ordinaryColorMipLongEdge != nil {
+            if ordinaryColorMipLongEdge != nil || automaticProjection != nil {
                 fullResolutionLayerIDs = SceneNamedTextureDependencyReferenceAnalysis.participatingLayerIDs(
                     in: descriptor.layers, includingPotential: true)
                 fullResolutionLayerIDs.formUnion(descriptor.materialPasses.lazy.flatMap(\.textureSlots)
@@ -293,7 +306,7 @@ final class ScenePreparedBaseImageResources {
                     for dependency in layer.authoredDependencies { fullResolutionLayerIDs.insert(dependency.layerID) }
                 }
             }
-            func loadInitialImage(_ layer: SceneRenderDescriptor.Layer, mipLongEdge: Int? = nil) throws {
+            func loadInitialImage(_ layer: SceneRenderDescriptor.Layer, mipSelection: SceneOrdinaryImageMipSelection? = nil) throws {
                 guard let request = imageRequests.removeValue(forKey: layer.id) else { return }
                 try cancellationCheck()
                 let outcome = SceneBaseImageTextureLoad.load(
@@ -302,7 +315,7 @@ final class ScenePreparedBaseImageResources {
                     loader: textureLoader,
                     spriteTextureLoader: spriteTextureLoader,
                     device: device, source: request.source, preparedDirectImageSource: request.direct,
-                    maximumMipLongEdge: mipLongEdge,
+                    mipSelection: mipSelection,
                     checkCancellation: cancellationCheck
                 )
                 if case let .failed(failure) = outcome { try failure.rethrowResourceReadFailure() }
@@ -316,24 +329,40 @@ final class ScenePreparedBaseImageResources {
                 }
             }
             var mipTailLayers: [SceneRenderDescriptor.Layer] = []
+            var automaticSources: [SceneTextureLoader.SourceKey: SceneAutomaticTextureProjection.Source] = [:]
+            var exactSources: Set<SceneTextureLoader.SourceKey> = []
             for layer in descriptor.layers {
-                if let ordinaryColorMipLongEdge, layer.scalableStaticColorSource == true,
-                   let request = imageRequests[layer.id], request.url.pathExtension.lowercased() == "tex",
-                   let size = entries[layer.id]?.naturalSizeWH,
-                   size.contains(where: { $0 > Float(ordinaryColorMipLongEdge) }),
+                if layer.scalableStaticColorSource == true, let request = imageRequests[layer.id],
+                   request.url.pathExtension.lowercased() == "tex", let size = entries[layer.id]?.naturalSizeWH,
                    !fullResolutionLayerIDs.contains(layer.id) {
-                    mipTailLayers.append(layer)
-                } else {
-                    try loadInitialImage(layer)
+                    if let ordinaryColorMipLongEdge, size.contains(where: { $0 > Float(ordinaryColorMipLongEdge) }) {
+                        mipTailLayers.append(layer)
+                        continue
+                    }
+                    if let automaticCover, let world = Self.automaticMipWorldExtent(layer, size: geometry[layer.id]),
+                       let required = SceneAutomaticTextureProjection.minimumExtent(worldExtent: world, coverScale: automaticCover),
+                       size[0] / 2 >= Float(required.x), size[1] / 2 >= Float(required.y) {
+                        automaticSources[request.source, default: .init(worldExtent: world, layerIDs: [])]
+                            .include(layerID: layer.id, worldExtent: world)
+                        mipTailLayers.append(layer)
+                        continue
+                    }
                 }
+                if automaticProjection != nil, let source = entries[layer.id]?.source { exactSources.insert(source) }
+                try loadInitialImage(layer)
             }
-            let (requestedModels, retainsModelDefaultAliases) = try dynamicImageRequestsProvider?()
-                ?? (dynamicImageModelPaths, false)
-            // Admitted layer mutation owners can resolve computed paths from
-            // existing model aliases even with no literal requests.
-            let canReduceModelDefaults = requestedModels.isEmpty && !retainsModelDefaultAliases
-            let effectiveMipLongEdge = canReduceModelDefaults ? ordinaryColorMipLongEdge : nil
-            for layer in mipTailLayers { try loadInitialImage(layer, mipLongEdge: effectiveMipLongEdge) }
+            let planning = try dynamicImageRequestsProvider?() ?? .init(models: dynamicImageModelPaths)
+            // Admitted mutation owners can use model aliases without literal requests.
+            let requestedModels = planning.models
+            let canReduceModelDefaults = requestedModels.isEmpty && !planning.retainsModelDefaultAliases
+            let automaticPlans = Self.automaticMipPlans(automaticSources, cover: automaticCover,
+                exactSources: exactSources, constraints: canReduceModelDefaults ? planning.automaticMipConstraints : nil)
+            let performanceSelection = canReduceModelDefaults
+                ? ordinaryColorMipLongEdge.map(SceneOrdinaryImageMipSelection.maximumLongEdge) : nil
+            for layer in mipTailLayers {
+                let selection = imageRequests[layer.id].flatMap { automaticPlans[$0.source]?.selection } ?? performanceSelection
+                try loadInitialImage(layer, mipSelection: selection)
+            }
 
             var dynamicImageResources: [String: ScenePreparedDynamicImageResource] = [:]
             var videoFiles: [SceneTextureLoader.SourceKey: Result<SceneVideoOwnedFile, Error>] = [:]
@@ -468,6 +497,7 @@ final class ScenePreparedBaseImageResources {
                 case .failed: failedCount += 1
                 }
             }
+            let automaticMipTails = Self.keepPublishedAutomaticTails(automaticPlans, entries: entries, loader: textureLoader)
             // Model-default aliases reuse published entries, never layer overrides.
             for layer in descriptor.layers where layer.contentKind == "image" {
                 try cancellationCheck()
@@ -475,7 +505,7 @@ final class ScenePreparedBaseImageResources {
                       dynamicImageResources[modelPath.lowercased()] == nil,
                       let profile = imageMaterials.profiles[SceneModelResourceIdentity(modelPath).value],
                       layer.puppetMeshPath == nil || !profile.surfaceEnabled,
-                      let entry = entries[layer.id],
+                      let entry = entries[layer.id], automaticMipTails[entry.source] == nil,
                       let modelURL = resolver.resolvePrimaryTexture(modelPath: modelPath),
                       try (modelURL == entry.input || textureLoader.sourceKey(for: modelURL) == entry.source),
                       case let .loaded(loaded)? = entry.outcome,
@@ -509,6 +539,8 @@ final class ScenePreparedBaseImageResources {
                 conditionalProducts: conditionalProducts,
                 dynamicImageResources: dynamicImageResources,
                 deferredRequests: deferredRequests,
+                automaticMipProjection: automaticMipTails.isEmpty ? nil : automaticProjection,
+                automaticMipTails: automaticMipTails,
                 loadedCount: loadedCount,
                 failedCount: failedCount
             )
@@ -517,7 +549,8 @@ final class ScenePreparedBaseImageResources {
 
     func particleLayerImageCompilation(descriptor: SceneRenderDescriptor, destroyedIDs: Set<Int> = [])
         -> SceneParticleLayerImageEmitterCompilation {
-        let loaded: [Int: SceneBaseImageTextureLoad.Loaded] = entries
+        let snapshot = deferredLock.withLock { entries }
+        let loaded: [Int: SceneBaseImageTextureLoad.Loaded] = snapshot
             .filter { !destroyedIDs.contains($0.key) }.compactMapValues { entry in
                 if let atlas = conditionalOutcome(for: entry.source) { return atlas }
                 guard case let .loaded(value)? = entry.outcome else { return nil }
@@ -631,6 +664,58 @@ final class ScenePreparedBaseImageResources {
             case let .failed(failure):
                 try failure.rethrowResourceReadFailure()
                 return nil
+            }
+        }
+    }
+
+    @MainActor
+    func promoteAutomaticMips(for drawable: CGSize, publish: @escaping @MainActor ([Int: SceneBaseImageTextureLoad.Loaded]) -> Void) {
+        guard !automaticMipTails.isEmpty, let automaticMipProjection else { return }
+        let cover = automaticMipProjection.coverScale(for: drawable)
+        let requests = automaticMipTails.filter { $0.value.maximumCoverScale < cover }
+        guard !requests.isEmpty else { return }
+        for key in requests.keys { automaticMipTails.removeValue(forKey: key) }
+        deferredQueue.async { [weak self] in
+            guard let self else { return }
+            var updates: [Int: SceneBaseImageTextureLoad.Loaded] = [:]
+            for (source, request) in requests {
+                do {
+                    defer { self.deferredTextureLoader.evictDecodedCaches() }
+                    try self.checkDeferredCancellation()
+                    guard let prepared = try self.deferredTextureLoader.prepareTexSource(from: request.input,
+                            source: source, checkCancellation: self.checkDeferredCancellation),
+                          case let .loaded(loaded) = try SceneBaseImageTextureLoad.loadOrdinaryCandidate(
+                            from: request.input, loader: self.deferredTextureLoader, device: self.device,
+                            preparedTexSource: prepared, checkCancellation: self.checkDeferredCancellation) else { continue }
+                    self.deferredTextureLoader.evictTextures(containedIn: [loaded.texture])
+                    for layerID in request.layerIDs { updates[layerID] = loaded }
+                } catch is CancellationError { break } catch { continue }
+            }
+            let prepared = updates
+            guard !prepared.isEmpty else { return }
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+#if DEBUG
+                if ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_INITIAL_WINDOW_SCALE"] != nil {
+                    for layerID in prepared.keys {
+                        guard case let .loaded(old)? = self.entries[layerID]?.outcome else { continue }
+                        let texture = old.texture
+                        let size = "\(texture.width)x\(texture.height)"
+                        let allocation = texture.allocatedSize
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak texture] in
+                            NSLog("MWX Scene: phase=automatic-mip-retirement layer=%ld size=%@ bytes=%ld released=%@",
+                                layerID, size, allocation, texture == nil ? "true" : "false")
+                        }
+                    }
+                }
+#endif
+                let committed = self.deferredLock.withLock {
+                    guard !self.cancelled else { return false }
+                    for (layerID, loaded) in prepared { self.entries[layerID]?.outcome = .loaded(loaded) }
+                    return true
+                }
+                guard committed else { return }
+                publish(prepared)
             }
         }
     }
@@ -895,42 +980,4 @@ final class ScenePreparedBaseImageResources {
             + " loaded=\(loadedCount) failed=\(failedCount)"
             + " device=\(deviceRegistryID)"
     }
-}
-
-struct ScenePreparedDeviceResources {
-    let pipelineRepository: SceneImageEffectPipelineRepository
-    let imageLayerPipeline: SceneImageLayerPipeline
-    let spriteTextureLoader: SceneMultiImageSpriteTextureLoader
-    let baseImages: ScenePreparedBaseImageResources
-    let staticModels: ScenePreparedStaticModelResources
-
-    var device: MTLDevice { pipelineRepository.device }
-}
-
-extension ScenePreparedDeviceResources {
-    /// Both the first-surface worker and later surfaces use this launch-only
-    /// preparation boundary. Rendering receives typed frame binding only.
-    static func makeMaterialRuntime(
-        catalog: SceneResolvedMaterialRuntimeCatalog,
-        capabilities: SceneResolvedMaterialExecutionCapabilityCatalog,
-        assets: SceneMaterialAssetTextureCatalog,
-        device: MTLDevice,
-        visibleExecutionRootLayerIDs: Set<Int> = [],
-        capturesExecutionObservations: Bool
-    ) -> SceneResolvedMaterialRuntimeBridge {
-        let runtime = SceneResolvedMaterialRuntimeBridge(
-            userPropertyDemands: catalog.userPropertyDemands,
-            systemProviderDemands: catalog.systemProviderDemands,
-            capabilities: capabilities, assets: assets, device: device,
-            visibleExecutionRootLayerIDs: visibleExecutionRootLayerIDs,
-            capturesExecutionObservations: capturesExecutionObservations)
-        runtime.sourceMaterials = prepareSourceMaterialPrograms(catalog: catalog,
-            assets: assets, device: device,
-            encoder: runtime.submissions.executor?.materialEncoder,
-            logSink: runtime.submissions.logSink)
-        return runtime
-    }
-
-
-
 }

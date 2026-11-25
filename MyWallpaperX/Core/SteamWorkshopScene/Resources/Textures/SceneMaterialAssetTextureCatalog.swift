@@ -150,6 +150,7 @@ final class SceneMaterialAssetTextureCatalog {
     }
 
     private let staticStates: [SceneAssetTextureIdentity: SceneTextureProviderState]
+    let preparedSourceIdentities: Set<SceneTextureLoader.SourceKey>
     private let animatedDefinitions: [SceneAssetTextureIdentity: AnimatedDefinition]
     let videoDeclarations: [SceneAssetTextureIdentity: SceneTextureLoader.VideoSourceDeclaration]
     private let launchStatesByIdentity: [
@@ -165,6 +166,7 @@ final class SceneMaterialAssetTextureCatalog {
             maximumBytes: 1_024 * 1_024 * 1_024
         ),
         device: MTLDevice,
+        collectsSourceIdentities: Bool = false,
         checkCancellation: (() throws -> Void)? = nil
     ) throws {
         let resolver = SceneTexturePathResolver(
@@ -175,6 +177,7 @@ final class SceneMaterialAssetTextureCatalog {
             uploadCommandQueue: textureUploadCommandQueue,
             decodeCacheBudget: textureDecodeCacheBudget
         )
+        var sourceIdentities: Set<SceneTextureLoader.SourceKey> = []
         var loaded: [SceneAssetTextureIdentity: SceneTextureProviderState] = [:]
         var animated: [SceneAssetTextureIdentity: AnimatedDefinition] = [:]
         var videos: [SceneAssetTextureIdentity: SceneTextureLoader.VideoSourceDeclaration] = [:]
@@ -196,6 +199,9 @@ final class SceneMaterialAssetTextureCatalog {
                     try loader.prepareDirectImageSource(from: url, checkCancellation: checkCancellation))
             }
             let prepared = sourceCohort?.tex
+            if collectsSourceIdentities, let source = prepared?.source ?? sourceCohort?.direct?.source {
+                sourceIdentities.insert(source)
+            }
             let container = prepared?.container
             if let prepared, let container,
                let declaration = try loader.videoSourceDeclaration(from: prepared, checkCancellation: checkCancellation) {
@@ -280,6 +286,7 @@ final class SceneMaterialAssetTextureCatalog {
             }
         }
         staticStates = loaded
+        preparedSourceIdentities = sourceIdentities
         animatedDefinitions = animated
         videoDeclarations = videos
         launchStatesByIdentity = launchStates

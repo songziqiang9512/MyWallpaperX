@@ -408,7 +408,15 @@ extension AppKitSettingsContainerView {
         }
         qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Post-Processing"), iconSystemName: "sun.max",
             subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: scenePostProcessingPopup))
-        sceneTextureQualityPopup.addItems(withTitles: [String(localized: "High Quality"), String(localized: "High Performance")])
+        for mode in SceneTextureQuality.allCases {
+            let title = switch mode {
+            case .automatic: String(localized: "Automatic")
+            case .full: String(localized: "High Quality")
+            case .performance: String(localized: "High Performance")
+            }
+            sceneTextureQualityPopup.addItem(withTitle: title)
+            sceneTextureQualityPopup.lastItem?.representedObject = mode.rawValue
+        }
         qualitySection.addRow(makeSettingRow(title: String(localized: "Texture Resolution"), iconSystemName: "square.stack.3d.up",
             subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: sceneTextureQualityPopup))
         let shadowTiers: [(SceneShadowQuality, String)] = [
@@ -462,7 +470,7 @@ extension AppKitSettingsContainerView {
         webFrameRatePopup.selectItem(at: quality.webFrameRateMode == .display ? 0 : 1)
         sceneAntiAliasingPopup.selectItem(at: sceneAntiAliasingPopup.indexOfItem(withRepresentedObject: quality.scene.antiAliasing.rawValue))
         refreshScenePostProcessingMenu(quality.scene.postProcessing)
-        sceneTextureQualityPopup.selectItem(at: quality.scene.textures == .performance ? 1 : 0)
+        sceneTextureQualityPopup.selectItem(at: sceneTextureQualityPopup.indexOfItem(withRepresentedObject: quality.scene.textures.rawValue))
         sceneShadowsPopup.selectItem(at: sceneShadowsPopup.indexOfItem(withRepresentedObject: quality.scene.shadows.rawValue))
         sceneVolumeLightingPopup.selectItem(at: quality.scene.volumeLighting == .disabled ? 0 : 1)
         sceneReflectionsSwitch.state = quality.scene.reflections == .enabled ? .on : .off
@@ -533,8 +541,6 @@ extension AppKitSettingsContainerView {
         }
         if sender === webFrameRatePopup {
             quality.webFrameRateMode = webFrameRatePopup.indexOfSelectedItem == 1 ? .followAnimationFrameRate : .display
-        } else if sender === sceneTextureQualityPopup {
-            quality.scene.textures = sceneTextureQualityPopup.indexOfSelectedItem == 1 ? .performance : .full
         } else if sender === sceneReflectionsSwitch {
             quality.scene.reflections = sceneReflectionsSwitch.state == .on ? .enabled : .disabled
         } else if sender === sceneVolumeLightingPopup {
@@ -542,6 +548,8 @@ extension AppKitSettingsContainerView {
         } else if let mode = (sender as? NSPopUpButton)?.selectedItem?.representedObject as? String {
             if sender === sceneAntiAliasingPopup, let selected = SceneAntiAliasingMode(rawValue: mode) {
                 quality.scene.antiAliasing = selected
+            } else if sender === sceneTextureQualityPopup, let selected = SceneTextureQuality(rawValue: mode) {
+                quality.scene.textures = selected
             } else if sender === sceneShadowsPopup, let selected = SceneShadowQuality(rawValue: mode) {
                 quality.scene.shadows = selected
             } else if sender === scenePostProcessingPopup, let selected = ScenePostProcessingMode(rawValue: mode) {

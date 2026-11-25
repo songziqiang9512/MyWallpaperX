@@ -30,6 +30,6 @@ extension SceneFrameTextureRegistry {
         _ texture: MTLTexture,
         for identity: SceneFrameTextureIdentity
     ) {
-        publishPersistent(texture, for: identity)
+        publishPersistent(texture, for: identity, previous: framePublicationBaseline?.persistentEntries[identity])
     }
 }

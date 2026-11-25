@@ -1,6 +1,41 @@
 import Foundation
 import Metal
 
+struct ScenePreparedDeviceResources {
+    let pipelineRepository: SceneImageEffectPipelineRepository
+    let imageLayerPipeline: SceneImageLayerPipeline
+    let spriteTextureLoader: SceneMultiImageSpriteTextureLoader
+    let baseImages: ScenePreparedBaseImageResources
+    let staticModels: ScenePreparedStaticModelResources
+
+    var device: MTLDevice { pipelineRepository.device }
+}
+
+extension ScenePreparedDeviceResources {
+    /// Both the first-surface worker and later surfaces use this launch-only
+    /// preparation boundary. Rendering receives typed frame binding only.
+    static func makeMaterialRuntime(
+        catalog: SceneResolvedMaterialRuntimeCatalog,
+        capabilities: SceneResolvedMaterialExecutionCapabilityCatalog,
+        assets: SceneMaterialAssetTextureCatalog,
+        device: MTLDevice,
+        visibleExecutionRootLayerIDs: Set<Int> = [],
+        capturesExecutionObservations: Bool
+    ) -> SceneResolvedMaterialRuntimeBridge {
+        let runtime = SceneResolvedMaterialRuntimeBridge(
+            userPropertyDemands: catalog.userPropertyDemands,
+            systemProviderDemands: catalog.systemProviderDemands,
+            capabilities: capabilities, assets: assets, device: device,
+            visibleExecutionRootLayerIDs: visibleExecutionRootLayerIDs,
+            capturesExecutionObservations: capturesExecutionObservations)
+        runtime.sourceMaterials = prepareSourceMaterialPrograms(catalog: catalog,
+            assets: assets, device: device,
+            encoder: runtime.submissions.executor?.materialEncoder,
+            logSink: runtime.submissions.logSink)
+        return runtime
+    }
+}
+
 extension ScenePreparedDeviceResources {
     static func prepareSourceMaterialPrograms(
         catalog: SceneResolvedMaterialRuntimeCatalog,

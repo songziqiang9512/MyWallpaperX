@@ -77,7 +77,10 @@ extension Notification.Name {
             sceneAntiAliasingPopup.addItem(withTitle: mode.rawValue)
             sceneAntiAliasingPopup.lastItem?.representedObject = mode.rawValue
         }
-        sceneTextureQualityPopup.addItems(withTitles: ["Quality", "Performance"])
+        for mode in SceneTextureQuality.allCases {
+            sceneTextureQualityPopup.addItem(withTitle: mode.rawValue)
+            sceneTextureQualityPopup.lastItem?.representedObject = mode.rawValue
+        }
         sceneVolumeLightingPopup.addItems(withTitles: ["Disabled", "Enabled"])
         webFrameRatePopup.addItems(withTitles: ["Display", "Follow"])
         sceneQualityPresetPopup.autoenablesItems = false
@@ -91,7 +94,7 @@ extension Notification.Name {
             sceneShadowsPopup.addItem(withTitle: shadow.rawValue)
             sceneShadowsPopup.lastItem?.representedObject = shadow.rawValue
         }
-        for control in [sceneQualityPresetPopup, sceneAntiAliasingPopup] {
+        for control in [sceneQualityPresetPopup, sceneAntiAliasingPopup, sceneTextureQualityPopup] {
             control.target = self
             control.action = #selector(handleQualityChange(_:))
         }
@@ -273,6 +276,13 @@ extension Notification.Name {
             requests.requests.count == 6 && requests.requests.last == 60
             && PlaybackQualityPreference.current == .defaults
             && view.sceneQualityPresetPopup.indexOfSelectedItem == 0 && view.sceneFPSField.stringValue == "60"
+        view.sceneTextureQualityPopup.selectItem(at: view.sceneTextureQualityPopup.indexOfItem(withRepresentedObject: "auto"))
+        _ = view.sceneTextureQualityPopup.sendAction(view.sceneTextureQualityPopup.action, to: view)
+        view.refreshQualityControls()
+        checks["native-texture-auto-keeps-original-rate-and-saved-choice"] =
+            requests.requests.count == 7 && requests.requests.last == 60
+            && PlaybackQualityPreference.current.scene.textures == .automatic
+            && view.sceneTextureQualityPopup.selectedItem?.representedObject as? String == "auto"
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

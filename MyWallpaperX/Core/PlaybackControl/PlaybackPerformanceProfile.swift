@@ -51,7 +51,8 @@ nonisolated enum SceneReflectionQuality: String, Sendable {
     case enabled
 }
 
-nonisolated enum SceneTextureQuality: String, Sendable {
+nonisolated enum SceneTextureQuality: String, CaseIterable, Sendable {
+    case automatic = "auto"
     case full = "quality"
     case performance
 

@@ -80,6 +80,7 @@ private enum EmbeddedDataMipHarness {
         facts["mapped"] = [Int(candidate.mappedSize.width), Int(candidate.mappedSize.height)]
         facts["identityUV"] = candidate.uvTransform == .identity
         facts["purposeMatches"] = candidate.purpose == purpose
+        facts["embeddedBaseMip"] = candidate.embeddedBaseMip
         return facts
     }
 
@@ -89,27 +90,29 @@ private enum EmbeddedDataMipHarness {
     ) throws -> [String: Any] {
         func candidate(
             _ loader: SceneTextureLoader, _ prepared: SceneTextureLoader.PreparedTexSource,
-            _ maximum: Int?, purpose: SceneTextureLoadPurpose = .straightAlbedo
+            _ selection: SceneOrdinaryImageMipSelection?, purpose: SceneTextureLoadPurpose = .straightAlbedo
         ) throws -> SceneTextureCandidate {
             switch try loader.loadCandidate(from: prepared, purpose: purpose, device: device,
-                maximumMipLongEdge: maximum) {
+                mipSelection: selection) {
             case let .loaded(value): return value
-            case let .failed(failure): fatalError("mip tail fixture could not load: \(failure)")
+            case let .failed(failure):
+                fatalError("mip tail fixture \(prepared.input.lastPathComponent) could not load: \(failure)")
             }
         }
         var observations: [String: Any] = [:]
+        let limit = SceneOrdinaryImageMipSelection.maximumLongEdge(2048)
         for tailFirst in [false, true] {
             let loader = SceneTextureLoader()
             let prepared = try loader.prepareTexSource(from: root.appendingPathComponent("authored-data-mips.tex"))!
-            let first = try candidate(loader, prepared, tailFirst ? 2048 : nil)
-            let second = try candidate(loader, prepared, tailFirst ? nil : 2048)
+            let first = try candidate(loader, prepared, tailFirst ? limit : nil)
+            let second = try candidate(loader, prepared, tailFirst ? nil : limit)
             let full = tailFirst ? second : first
             let tail = tailFirst ? first : second
-            let sameTail = try candidate(loader, prepared, 2049)
-            let lastMip = try candidate(loader, prepared, 1024)
-            let originalMip = try candidate(loader, prepared, 4097)
-            let belowChain = try candidate(loader, prepared, 1023)
-            let data = try candidate(loader, prepared, 2048, purpose: .mask)
+            let sameTail = try candidate(loader, prepared, .maximumLongEdge(2049))
+            let lastMip = try candidate(loader, prepared, .maximumLongEdge(1024))
+            let originalMip = try candidate(loader, prepared, .maximumLongEdge(4097))
+            let belowChain = try candidate(loader, prepared, .maximumLongEdge(1023))
+            let data = try candidate(loader, prepared, limit, purpose: .mask)
             observations[tailFirst ? "tailFirst" : "fullFirst"] = [
                 "full": observe(full, purpose: .straightAlbedo, queue: queue, expected: raw),
                 "tail": observe(tail, purpose: .straightAlbedo, queue: queue, expected: Array(raw.dropFirst())),
@@ -128,12 +131,47 @@ private enum EmbeddedDataMipHarness {
         for (name, maximum, expected) in [("padded-authored.tex", 2048, raw), ("single-small.tex", 4, small)] {
             let loader = SceneTextureLoader()
             let prepared = try loader.prepareTexSource(from: root.appendingPathComponent(name))!
-            let requested = try candidate(loader, prepared, maximum)
+            let requested = try candidate(loader, prepared, .maximumLongEdge(maximum))
             let full = try candidate(loader, prepared, nil)
             var facts = observe(requested, purpose: .straightAlbedo, queue: queue, expected: expected)
             facts["cacheReusesOriginal"] = requested.texture === full.texture
             observations[name] = facts
         }
+
+        for name in ["short-oversized-chain.tex", "single-oversized.tex"] {
+            let loader = SceneTextureLoader()
+            let prepared = try loader.prepareTexSource(from: root.appendingPathComponent(name))!
+            let requested = try candidate(loader, prepared, .minimumExtent(SIMD2(3200, 1)))
+            let full = try candidate(loader, prepared, nil)
+            observations[name] = [
+                "physical": [requested.texture.width, requested.texture.height],
+                "levels": requested.texture.mipmapLevelCount,
+                "embeddedBaseMip": requested.embeddedBaseMip,
+                "cacheReusesOriginal": requested.texture === full.texture,
+            ]
+        }
+
+        let loader = SceneTextureLoader()
+        let prepared = try loader.prepareTexSource(from: root.appendingPathComponent("authored-data-mips.tex"))!
+        let full = try candidate(loader, prepared, nil)
+        let budget = SceneResourceBudget.shared
+        let before = budget.snapshot
+        let available = budget.maximumBytes - before.residentBytes
+        precondition(budget.reserve(available, kind: .gpu))
+        let fallback: SceneTextureCandidate
+        do {
+            defer { budget.release(available, kind: .gpu) }
+            fallback = try candidate(loader, prepared, limit)
+        }
+        let after = budget.snapshot
+        let retried = try candidate(loader, prepared, limit)
+        observations["allocationFallback"] = [
+            "rejections": after.rejectionCount - before.rejectionCount,
+            "reusedFull": fallback.texture === full.texture,
+            "fallbackMip": fallback.embeddedBaseMip,
+            "retriedMip": retried.embeddedBaseMip,
+            "retried": observe(retried, purpose: .straightAlbedo, queue: queue, expected: Array(raw.dropFirst())),
+        ]
         return observations
     }
 
@@ -406,6 +444,10 @@ def prepare_inputs(root: Path) -> None:
     (root / "renamed-signal.tex").write_bytes(authored)
     (root / "padded-authored.tex").write_bytes(_tex(mips, mapped=(4096, 4), physical=(4097, 4)))
     (root / "single-oversized.tex").write_bytes(_tex(mips[:1]))
+    short_mips = [(width, height, _png(width, height, _pixels(width, height, level)))
+                  for level, (width, height) in enumerate(((10000, 4), (5000, 2)))]
+    (root / "short-oversized-chain.tex").write_bytes(
+        _tex(short_mips, mapped=(10000, 4), physical=(10000, 4)))
     (root / "bad-mip-table.tex").write_bytes(_tex([mips[0], (2047, 2, mips[1][2])]))
     (root / "bad-mip-payload.tex").write_bytes(_tex([mips[0], (2048, 2, mips[2][2])]))
     (root / "bad-header-mapped.tex").write_bytes(_tex(mips, mapped=(8193, 4)))
@@ -491,14 +533,15 @@ class SceneEmbeddedDataMipResourceTests(unittest.TestCase):
                             "sameSourceAndSampling", "smallerAllocation"):
                     self.assertTrue(facts[key], facts)
                 self.assertEqual(facts["decodedLevels"], 3, facts)
-                for role, extent, levels in (("full", [4097, 4], 3), ("tail", [2048, 2], 2),
-                                             ("lastMip", [1024, 1], 1),
-                                             ("data", [4097, 4], 3)):
+                for role, extent, levels, base in (("full", [4097, 4], 3, 0), ("tail", [2048, 2], 2, 1),
+                                                   ("lastMip", [1024, 1], 1, 2),
+                                                   ("data", [4097, 4], 3, 0)):
                     result = facts[role]
                     self.assertEqual(result["status"], "loaded", result)
                     self.assertEqual(result["physical"], extent, result)
                     self.assertEqual(result["mapped"], extent, result)
                     self.assertEqual(result["levels"], levels, result)
+                    self.assertEqual(result["embeddedBaseMip"], base, result)
                     self.assertEqual(result["levelPixelsMatch"], [True] * levels, result)
                     for key in ("identityUV", "purposeMatches", "gpuCompleted"):
                         self.assertTrue(result[key], result)
@@ -513,8 +556,27 @@ class SceneEmbeddedDataMipResourceTests(unittest.TestCase):
                 self.assertEqual(facts["physical"], extent, facts)
                 self.assertEqual(facts["mapped"], mapped, facts)
                 self.assertEqual(facts["levels"], levels, facts)
+                self.assertEqual(facts["embeddedBaseMip"], 0, facts)
                 self.assertEqual(facts["levelPixelsMatch"], [True] * levels, facts)
                 self.assertEqual(facts["identityUV"], extent == mapped, facts)
+
+    def test_oversized_short_chain_preserves_authored_levels_and_normalization_is_not_a_tail(self) -> None:
+        observations = self.result["mipTail"]
+        for name, extent, levels in (("short-oversized-chain.tex", [10000, 4], 2),
+                                     ("single-oversized.tex", [4096, 3], 1)):
+            with self.subTest(source=name):
+                self.assertEqual(observations[name], {
+                    "physical": extent, "levels": levels, "embeddedBaseMip": 0, "cacheReusesOriginal": True,
+                })
+
+    def test_rejected_tail_allocation_falls_back_once_to_original_cache(self) -> None:
+        receipt = self.result["mipTail"]["allocationFallback"]
+        self.assertEqual(receipt["rejections"], 1, receipt)
+        self.assertTrue(receipt["reusedFull"], receipt)
+        self.assertEqual(receipt["fallbackMip"], 0, receipt)
+        self.assertEqual(receipt["retriedMip"], 1, receipt)
+        self.assertTrue(receipt["retried"]["gpuCompleted"], receipt)
+        self.assertEqual(receipt["retried"]["levelPixelsMatch"], [True, True], receipt)
 
     def test_packed_rgb_gray_alpha_and_padding_preserve_gpu_channels(self) -> None:
         layouts = self.result["packedLayouts"]

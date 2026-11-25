@@ -404,7 +404,7 @@ extension SceneDesktopWallpaperSession {
         context.liveState = candidateLiveState
         if pending.hasConditionalAtlases {
             let updates = resources.finishConditionalAtlases(generation: pending.generation, commit: true)
-            for surface in adoptedSurfaces { surface.metalView.replaceConditionalAtlases(updates) }
+            for surface in adoptedSurfaces { surface.metalView.replacePreparedBaseImages(updates) }
         }
         soundPlaybackRegistry?.apply(userValues: candidateLiveState.userValues,
             committedSnapshot: evaluationTransaction.committedSnapshot,

@@ -29,7 +29,7 @@
 
 Scene 的 [显示模式与目标屏](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneScreenTopology.swift) 进入原 daemon 拓扑入口。请求、生效上限及解码配额见 [帧率合同](../scene/architecture/runtime-architecture.md#scene-frame-rate-policy)。Scene 稳态节律用 [原产品启动基准](../../script/web/wallpaper_startup_benchmark.py) 对实际接管的 daemon 采集逐屏呈现与 GPU 完成。参数、观测边界和当前 A/A 见[工作卡](../development/wallpaper-quality-work-card.md#连续帧率的产品测量与接管)。
 
-Scene 的 [基础图像准备](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift) 和 [TEX 候选加载](../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader+Candidate.swift) 负责真实纹理规格。精确用途、GPU 表示与作者布局见 [纹理档位合同](../scene/architecture/runtime-architecture.md#scene-texture-quality-policy)。
+Scene 的 [基础图像准备](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift) 和 [TEX 候选加载](../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader+Candidate.swift) 负责真实纹理规格。Auto 的目标像素从 [原屏幕安装与 drawable 变化](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePreparation.swift) 接入。精确用途、GPU 表示与作者布局见 [纹理档位合同](../scene/architecture/runtime-architecture.md#scene-texture-quality-policy)。
 
 Scene MSAA 请求经 [主域准入](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+SceneDrawing.swift) 交给 [唯一主合成编码器](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneMainPassEncoder.swift)。普通图像、纯色与文字用 [同采样 Quad PSO](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift)。 [实际采样与回退](../scene/architecture/runtime-architecture.md#raster-sample-domain)
 

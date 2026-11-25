@@ -160,6 +160,7 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
 
     def test_frame_publication_discard_restores_previous_generation(self) -> None:
         self.assertTrue(self.result["framePublicationDiscardRestoresPrevious"])
+        self.assertTrue(self.result["replacedTextureRetiresAtCommit"])
 
     def test_property_reset_retires_resources_only_after_frame_acceptance(self) -> None:
         for name, passed in self.result["propertyResetRetirement"].items():

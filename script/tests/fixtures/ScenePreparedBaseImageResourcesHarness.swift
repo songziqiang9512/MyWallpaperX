@@ -34,7 +34,29 @@ struct ScenePreparedPuppetResources {
     func defaultPose(for layer: SceneRenderDescriptor.Layer) -> ScenePuppetLayerLoad.PreparedPose? { nil }
 }
 struct SceneRenderDescriptor {
+    struct Camera {
+        var authoredOrthographicProjectionActive: Bool?
+        var default2DInputLayerID: Int?
+        var orthoWidth: Float?
+        var orthoHeight: Float?
+        var generalZoom: Float?
+    }
     struct Dependency { let layerID: Int; let index: Int; let type: String }
+    struct EffectDescriptor {
+        struct PassDescriptor {
+            struct UserTexture {
+                enum Kind { case system, property }
+                let kind: Kind
+                let value: String
+            }
+            let passIndex: Int
+            let textureSlots: [String?]
+            let userTextureInputs: [UserTexture?]
+        }
+        let id: String
+        let visible: Bool?
+        let passes: [PassDescriptor]
+    }
     struct Layer {
         let id: Int
         var contentKind = "image"
@@ -45,6 +67,13 @@ struct SceneRenderDescriptor {
         var initialConfiguration: SceneJSONValue? = nil
         var size: String? = "3 4"
         var sizeWH: [Float]? = [3, 4]
+        var renderSizeWH: [Float]? { sizeWH }
+        var scaleXYZ: [Float]?
+        var anglesXYZ: [Float]?
+        var usesPerspective: Bool?
+        var scalableStaticColorSource: Bool?
+        var effects: [EffectDescriptor] = []
+        var dependencyLayerIDs: [Int] = []
         var authoredDependencies: [Dependency] = []
         var isImageRenderable: Bool { ["image", "solid"].contains(contentKind) }
     }
@@ -67,6 +96,7 @@ struct SceneRenderDescriptor {
     }
     typealias MaterialPassDescriptor = MaterialPass
     var layers: [Layer]
+    var camera = Camera()
     var modelMaterialLinks: [ModelMaterialLink] = [
         .init(modelPath: "models/shared.json", materialPath: "materials/shared.json")
     ]
@@ -128,11 +158,25 @@ enum SceneTextureLoadOutcome {
     func rethrowResourceReadFailure() throws { if case let .resourceReadFailed(error) = self { throw error } }
 }
 struct SceneTextureCandidate {
+    enum Content: Equatable {
+        enum Representation: Equatable { case straightAlpha }
+        enum Resolution: Equatable { case resolved(Representation) }
+        case color(Resolution)
+    }
     let texture: MTLTexture
     let loadOrdinal: Int
+    let embeddedBaseMip = 0
+    let content = Content.color(.resolved(.straightAlpha))
+    var physicalSize: CGSize { CGSize(width: texture.width, height: texture.height) }
     let samplingMarker = "authored-sampling"
 }
 struct TestContainer {
+    struct ConditionalVariant {
+        enum Condition { case boolean(String), equals(String, String) }
+        let id: UInt32
+        let condition: Condition
+    }
+    var conditionalVariants: [ConditionalVariant] = []
     var reason: String? = nil
     var isVideoMp4 = false
     var isWebM = false
@@ -167,6 +211,12 @@ struct SceneBaseImageTextureLoad {
         let loadOrdinal: Int
     }
     enum Outcome { case loaded(Loaded), failed(SceneTextureLoadOutcome) }
+    static func loadOrdinaryCandidate(from url: SceneResourceView.FileInput, loader: SceneTextureLoader,
+        device: MTLDevice, preparedTexSource: SceneTextureLoader.PreparedTexSource,
+        conditionalVariantIDs: Set<UInt32>? = nil, checkCancellation: (() throws -> Void)? = nil) throws -> Outcome {
+        try checkCancellation?()
+        return loader.controlledLoad(url: url, device: device)
+    }
     static func specializedLoadReason(url: SceneResourceView.FileInput, container: TestContainer?, usesPuppet: Bool) -> String? {
         if usesPuppet { return "puppet" }
         return container?.reason
@@ -177,6 +227,7 @@ struct SceneBaseImageTextureLoad {
                      source expectedSource: SceneTextureLoader.SourceKey? = nil,
                      preparedTexSource: SceneTextureLoader.PreparedTexSource? = nil,
                      preparedDirectImageSource: SceneTextureLoader.PreparedDirectImageSource? = nil,
+                     mipSelection: SceneOrdinaryImageMipSelection? = nil,
                      checkCancellation: (() throws -> Void)? = nil) -> Outcome {
         do {
             try checkCancellation?()
@@ -426,8 +477,12 @@ struct SceneResolvedMaterialVariantCache {
             let preparedShader: Shader
             let frontendProgram: Frontend
         }
+        struct TextureSelectionFacts { let candidatePurposes: [Int: Set<String>] }
         let activeSamplers: [Int: TestSampler]
         let preparedAssembly: PreparedAssembly
+        var textureSelectionFacts: TextureSelectionFacts {
+            .init(candidatePurposes: activeSamplers.mapValues { Set($0.purposes.values) })
+        }
     }
     struct Envelope { let allEntriesReady: Bool; let variants: [Variant] }
     let fixture: TestVariantFixture

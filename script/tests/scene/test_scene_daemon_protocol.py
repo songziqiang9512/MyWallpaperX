@@ -122,10 +122,10 @@ import Foundation
         legacyExpected.textures = .full
         let legacyTextureDefaults = decode(legacyQualityChange) == .success(.setSceneRenderQuality(legacyExpected))
         var textureLoadPayload = hdrLoadPayload
-        textureLoadPayload["textureQuality"] = "performance"
+        textureLoadPayload["textureQuality"] = "auto"
         let textureLoadValid: Bool
         if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(textureLoadPayload) {
-            textureLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, textures: .performance)
+            textureLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, textures: .automatic)
         } else { textureLoadValid = false }
         var antiAliasLoad = hdrLoadPayload
         antiAliasLoad["antiAliasingMode"] = "msaa4"

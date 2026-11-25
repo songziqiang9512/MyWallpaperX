@@ -15,6 +15,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from script.tests.scene.test_scene_prepared_script_resource_catalog import swift_declaration
+
 
 ROOT = Path(__file__).resolve().parents[3]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -38,13 +40,22 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
         cls.addClassCleanup(cls.workspace.cleanup)
         binary = workspace / "checks"
         source = Path(os.environ.get("MWX_PREPARED_BASE_IMAGE_SOURCE", PREPARATION))
+        binding = workspace / "SceneUserPropertyBindingReference.swift"
+        binding.write_text(swift_declaration(
+            (SCENE / "Systems/Properties/SceneUserPropertyBindings.swift").read_text(),
+            "nonisolated struct SceneUserPropertyBindingReference"))
         compile_result = subprocess.run(
             ["xcrun", "swiftc", "-swift-version", "5",
              str(SCENE / "Resources/Assets/SceneResourceIndex.swift"),
              str(SCENE / "../SteamWorkshopStorage/ScenePlaybackSource.swift"), str(SCENE / "Format/ScenePkgReader.swift"),
              str(SCENE / "Resources/Assets/SceneResourceIdentity.swift"), str(SCENE / "Resources/Assets/SceneResourceView+Backing.swift"),
              str(SCENE / "Resources/Assets/SceneResourceView.swift"), str(source), str(TASKS), str(SOURCE_MATERIALS),
-             str(SCENE / "Runtime/Session/ScenePreparedDeviceResources+Puppets.swift"), str(RESOLVER),
+             str(SCENE / "Runtime/Session/ScenePreparedDeviceResources+Puppets.swift"),
+             str(SCENE / "Runtime/Session/ScenePreparedDeviceResources+AutomaticMip.swift"),
+             str(SCENE / "Resources/Textures/SceneOrdinaryImageMipSelection.swift"), str(RESOLVER),
+             str(SCENE / "Resources/Textures/SceneNamedTextureReference.swift"),
+             str(SCENE / "Rendering/Dependencies/SceneNamedTextureDependencyReferenceAnalysis.swift"),
+             str(SCENE / "Systems/Properties/SceneUserProperty.swift"), str(binding),
              str(BUILTIN), str(RENDER_STATE), str(RENDER_STATE_COMPILATION),
              str(SCENE / "Format/SceneJSONValue.swift"),
              str(SCENE / "Resources/Assets/SceneModelResourceIdentity.swift"),

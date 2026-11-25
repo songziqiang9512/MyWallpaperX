@@ -135,9 +135,9 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e700600df94bef5a85e284bf16d82b3f3b2d10a733014b835a40267f8a35b016",
+        "sourceSHA256": "fa03d0cbfab5a9045ed04e5bf30c85a3364960a310b438a33827c8bb4a091e64",
         "method": "document_registry --audit + document_health --check",
-        "scope": "质量预设与手改共用的设置入口",
+        "scope": "基础资源准备和实际 Surface 缩放入口",
         "limitations": "源码导航"
       }
     },
@@ -347,10 +347,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c94bf1c43a6bfa3790d5b0fc3cc2f2d285b4b911e6f8a3dcb71fe132796cd454",
+        "sourceSHA256": "e1df25a802236ea14ab9fff2c1ccaa5a24e06920c513116b304dbd10bb5f3287",
         "method": "document_registry --audit + document_health --check",
-        "scope": "可用的实际 MSAA 档及设备门",
-        "limitations": "不具备支持 8× 的物理设备"
+        "scope": "自动纹理冷选择及扩窗条件",
+        "limitations": "其它格式和显示组合需独立验证"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8f6e53a79ecb6664b3db618603aa37cfae3eb908f9bbb1a074f6987784c347ef",
+        "sourceSHA256": "2e69192575ab0ce6a52c0341821d135472fd1eb2a3aaefb17cf04779088cdcf0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "精确覆盖、真实作者、SDR/HDR、4× 长窗",
-        "limitations": "多屏功耗及 8× 保待验"
+        "scope": "原生 GPU、两位实际作者、暂停上调和释放",
+        "limitations": "物理多屏及常态功耗未验"
       }
     },
     {
@@ -855,10 +855,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c42b0fa6dcc533db5d792b8e293b10fa63c11b02e6811d0d04ab21ef3b23718d",
+        "sourceSHA256": "e91127394ad2832d2644ab6f4fa7e6fabeaabddbdcf689fb97bcca621fb04c84",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原采样域及一致样本数",
-        "limitations": "实际帧时归工作卡"
+        "scope": "Auto 投影、准备、精确用途及退役",
+        "limitations": "具体性能在对应工作卡"
       }
     },
     {

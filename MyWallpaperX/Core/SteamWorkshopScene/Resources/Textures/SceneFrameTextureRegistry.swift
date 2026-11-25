@@ -130,7 +130,6 @@ final class SceneFrameTextureRegistry {
 
     private var entries: [SceneFrameTextureIdentity: Entry] = [:]
     private var persistentEntries: [SceneFrameTextureIdentity: PersistentEntry] = [:]
-    private var priorFrameEntries: [SceneFrameTextureIdentity: PersistentEntry] = [:]
     private var committedPublications: [
         SceneFrameTextureIdentity: PersistentEntry
     ] = [:]
@@ -143,7 +142,6 @@ final class SceneFrameTextureRegistry {
     private var resourceGeneration: UInt64 = 0
     private struct FramePublicationBaseline {
         var persistentEntries: [SceneFrameTextureIdentity: PersistentEntry]
-        var priorFrameEntries: [SceneFrameTextureIdentity: PersistentEntry]
         var committedPublications: [SceneFrameTextureIdentity: PersistentEntry]
         let resourceGeneration: UInt64
     }
@@ -168,11 +166,9 @@ final class SceneFrameTextureRegistry {
         }
         collect(entries)
         collect(persistentEntries)
-        collect(priorFrameEntries)
         collect(committedPublications)
         if let baseline = framePublicationBaseline {
             collect(baseline.persistentEntries)
-            collect(baseline.priorFrameEntries)
             collect(baseline.committedPublications)
         }
         for identity in retired {
@@ -180,10 +176,8 @@ final class SceneFrameTextureRegistry {
             entries.removeValue(forKey: identity)
             liveSelectionDigest = liveSelectionDigest.replacing(identity, previous: previous, with: nil)
             persistentEntries.removeValue(forKey: identity)
-            priorFrameEntries.removeValue(forKey: identity)
             committedPublications.removeValue(forKey: identity)
             framePublicationBaseline?.persistentEntries.removeValue(forKey: identity)
-            framePublicationBaseline?.priorFrameEntries.removeValue(forKey: identity)
             framePublicationBaseline?.committedPublications.removeValue(forKey: identity)
         }
     }
@@ -209,9 +203,9 @@ final class SceneFrameTextureRegistry {
         if framePublicationBaseline != nil {
             commitFramePublication()
         }
+        let previousEntries = persistentEntries
         framePublicationBaseline = FramePublicationBaseline(
-            persistentEntries: persistentEntries,
-            priorFrameEntries: priorFrameEntries,
+            persistentEntries: previousEntries,
             committedPublications: committedPublications,
             resourceGeneration: resourceGeneration
         )
@@ -219,7 +213,6 @@ final class SceneFrameTextureRegistry {
         self.frameIndex = frameIndex
         entries.removeAll(keepingCapacity: true)
         liveSelectionDigest = SceneFrameTextureSelectionDigest.empty()
-        priorFrameEntries = persistentEntries
         persistentEntries.removeAll(keepingCapacity: true)
         for layerID in orderedLayerSourceIDs.resolve(
             layerSources.keys, by: <
@@ -242,7 +235,7 @@ final class SceneFrameTextureRegistry {
                     for: graphRequest
                 )
             } else {
-                publishPersistent(texture, for: identity)
+                publishPersistent(texture, for: identity, previous: previousEntries[identity])
             }
         }
         for identity in orderedAssetIdentities.resolve(
@@ -258,7 +251,8 @@ final class SceneFrameTextureRegistry {
             userPropertyTextures.keys, by: <
         ) where !typedColorPropertyKeys.contains(key) {
             guard let texture = userPropertyTextures[key] else { continue }
-            publishPersistent(texture, for: .userProperty(key))
+            let identity = SceneFrameTextureIdentity.userProperty(key)
+            publishPersistent(texture, for: identity, previous: previousEntries[identity])
         }
         for identity in orderedUserPropertyIdentities.resolve(
             userPropertyStates.keys, by: { $0.reportToken < $1.reportToken }
@@ -275,7 +269,7 @@ final class SceneFrameTextureRegistry {
                 guard publication.texture === texture else { continue }
                 publishExplicit(publication, for: identity)
             } else {
-                publishPersistent(texture, for: identity)
+                publishPersistent(texture, for: identity, previous: previousEntries[identity])
             }
         }
         for systemIdentity in orderedSystemProviderIdentities.resolve(
@@ -301,7 +295,6 @@ final class SceneFrameTextureRegistry {
     func discardFramePublication() {
         guard let baseline = framePublicationBaseline else { return }
         persistentEntries = baseline.persistentEntries
-        priorFrameEntries = baseline.priorFrameEntries
         committedPublications = baseline.committedPublications
         resourceGeneration = baseline.resourceGeneration
         entries.removeAll(keepingCapacity: true)
@@ -455,10 +448,11 @@ final class SceneFrameTextureRegistry {
 
     private func publishPersistent(
         _ texture: MTLTexture,
-        for identity: SceneFrameTextureIdentity
+        for identity: SceneFrameTextureIdentity,
+        previous: PersistentEntry?
     ) {
         let generation: UInt64
-        if let previous = priorFrameEntries[identity],
+        if let previous,
            case let .bare(previousTexture) = previous.stored,
            previousTexture === texture {
             generation = previous.generation
@@ -517,12 +511,10 @@ final class SceneFrameTextureRegistry {
                 // and restores it if this surface's frame fails.
                 committedPublications.removeValue(forKey: identity)
                 persistentEntries.removeValue(forKey: identity)
-                priorFrameEntries.removeValue(forKey: identity)
                 if case let .materialUserProperty(property) = identity,
                    property.purpose == .premultipliedColor {
                     let alias = SceneFrameTextureIdentity.userProperty(property.propertyKey)
                     persistentEntries.removeValue(forKey: alias)
-                    priorFrameEntries.removeValue(forKey: alias)
                 }
             default: break
             }

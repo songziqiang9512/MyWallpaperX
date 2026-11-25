@@ -156,7 +156,21 @@ extension Harness {
             && rollbackRestoredResource.publication.contentGeneration == 50
             && rollbackRestoredResource.resourceGeneration
                 == rollbackInitialResource.resourceGeneration
+        let replacementRegistry = SceneFrameTextureRegistry()
+        let tailDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm, width: 16, height: 8, mipmapped: true)
+        var tail = dynamicTexture.device.makeTexture(descriptor: tailDescriptor)
+        weak var retiredTail = tail
+        replacementRegistry.beginFrame(frameIndex: 1, layerSources: [21: tail!])
+        replacementRegistry.commitFramePublication()
+        tail = nil
+        replacementRegistry.beginFrame(frameIndex: 2, layerSources: [21: replacementDynamicTexture])
+        let keptUntilCommit = retiredTail != nil
+        replacementRegistry.commitFramePublication()
+        let replacedTextureRetiresAtCommit = keptUntilCommit && retiredTail == nil
+            && replacementRegistry.texture(for: rollbackRequest) === replacementDynamicTexture
         return [
+            "replacedTextureRetiresAtCommit": replacedTextureRetiresAtCommit,
             "videoLifecycleGenerationIsAtomic": videoLifecycleGenerationIsAtomic,
             "framePublicationDiscardRestoresPrevious":
                 framePublicationDiscardRestoresPrevious,

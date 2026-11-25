@@ -49,23 +49,31 @@ struct SceneImageEffectPipelineRepository {
 struct SceneMultiImageSpriteTextureLoader {}
 struct Loader { func evictDecodedCaches() {} }
 struct ScenePreparedBaseImageResources {
+    struct AutomaticMipConstraints { let exactSourceCount: Int }
+    struct ImagePlanning {
+        let models: Set<String>
+        let retainsModelDefaultAliases: Bool
+        let automaticMipConstraints: AutomaticMipConstraints?
+    }
     let textureLoader = Loader()
     let models: Set<String>
     let retainsModelDefaultAliases: Bool
+    let automaticMipSourceCount: Int?
     let puppetClipping: [String: Int] = [:]
     static func prepare(descriptor: SceneRenderDescriptor, resourceView: SceneResourceView,
         device: MTLDevice, spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
         sceneGeneration: UInt64, cacheDirectory: URL, effectivePropertyValues: [String: SceneUserPropertyValue],
-        dynamicImageRequestsProvider: (() throws -> (models: Set<String>, retainsModelDefaultAliases: Bool))?,
+        dynamicImageRequestsProvider: (() throws -> ImagePlanning)?,
         deferredBaseImageLayerIDs: Set<Int>, imageGeometryModels: [SceneAssetCatalog.ModelAsset],
-        ordinaryColorMipLongEdge: Int?,
+        ordinaryColorMipLongEdge: Int?, automaticDrawableExtent: CGSize?,
         geometryPrepared: ([Int: [Float]]) -> Void, uploadCommandQueue: SceneTextureUploadCommandQueue,
         decodeCacheBudget: SceneTextureDecodeCacheBudget, cancellationCheck: () throws -> Void) throws -> Self {
         geometryPrepared([17:[200,100]])
         Backend.entered.signal()
         let requests = try dynamicImageRequestsProvider!()
         try cancellationCheck()
-        return .init(models: requests.models, retainsModelDefaultAliases: requests.retainsModelDefaultAliases)
+        return .init(models: requests.models, retainsModelDefaultAliases: requests.retainsModelDefaultAliases,
+            automaticMipSourceCount: requests.automaticMipConstraints?.exactSourceCount)
     }
 }
 enum SceneMdlStaticModel { struct PreparedSource {} }
@@ -115,10 +123,12 @@ HARNESS = r'''
         let states: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [
             .init(token: 1): .ready, .init(token: 2): .preparedVideo, .init(token: 3): .absent]
         t.completeResourcePlanning(.init(dynamicImageModelPaths: ["models/a.json", "models/b.json"],
-            hasStatefulLayerMutationOwner: true, modelMaterialPlan: .init(token: 73), modelAlbedoStates: states))
+            hasStatefulLayerMutationOwner: true, automaticMipConstraints: .init(exactSourceCount: 4),
+            modelMaterialPlan: .init(token: 73), modelAlbedoStates: states))
         let prepared = try t.value()
         out["plannedModels"] = prepared.baseImages.models.sorted()
         out["samePlanningPayload"] = prepared.baseImages.retainsModelDefaultAliases
+            && prepared.baseImages.automaticMipSourceCount == 4
             && prepared.staticModels.planToken == 73 && prepared.staticModels.states == states
             && prepared.staticModels.directionalShadowDimensionLimit == 1024
             && !prepared.staticModels.pointVolumeEnabled && !prepared.staticModels.modelReflectionsEnabled

@@ -237,7 +237,10 @@ extension SceneDesktopWallpaperSession {
                 _ = prepared.playback.teardown(reason: "displayNoLongerDesired")
                 continue
             }
-            let frame = screen.frame
+            let frame = Self.initialSurfaceFrame(for: screen)
+#if DEBUG
+            if frame != screen.frame { debugSurfaceReferenceFrames[screenID] = screen.frame }
+#endif
             let materialRuntime = prepared.materialRuntime
             materialRuntime.installAssetVideoSources(assetVideoSources,
                 declaredIdentities: Set(launchContext.materialAssetCatalog.videoDeclarations.keys),
@@ -422,6 +425,7 @@ extension SceneDesktopWallpaperSession {
                             return
                         }
                     }
+                    self.promoteAutomaticTextures(for: surface)
                     surface.didSubmitSimulationFrame = false
                     if self.sceneClock.isPaused || self.awaitsInitialPresentation { self.startFrameDriver() }
                 }
@@ -433,10 +437,36 @@ extension SceneDesktopWallpaperSession {
                     self.startFrameDriver()
                 }
             }
+            promoteAutomaticTextures(for: surface)
             created += 1
         }
 
         return created
+    }
+
+    static func initialSurfaceFrame(for screen: NSScreen) -> CGRect {
+        let frame = screen.frame
+#if DEBUG
+        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
+           let raw = ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_INITIAL_WINDOW_SCALE"],
+           let scale = Double(raw), scale > 0, scale < 1 {
+            let width = frame.width * scale, height = frame.height * scale
+            return CGRect(x: frame.midX - width / 2, y: frame.midY - height / 2, width: width, height: height)
+        }
+#endif
+        return frame
+    }
+
+    private func promoteAutomaticTextures(for surface: Surface) {
+        guard let images = launchContext?.preparedDeviceResources.baseImages else { return }
+        images.promoteAutomaticMips(for: surface.metalView.metalLayer.drawableSize) { [weak self, weak images] updates in
+            guard let self, let images, self.launchContext?.preparedDeviceResources.baseImages === images else { return }
+            for surface in self.surfaces.values {
+                surface.metalView.replacePreparedBaseImages(updates)
+                surface.didSubmitSimulationFrame = false
+            }
+            if self.sceneClock.isPaused || self.awaitsInitialPresentation { self.startFrameDriver() }
+        }
     }
 
     private func prepareSurfaceFrame(

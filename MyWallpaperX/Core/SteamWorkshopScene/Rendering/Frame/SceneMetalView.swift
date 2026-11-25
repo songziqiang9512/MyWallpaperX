@@ -530,7 +530,7 @@ class SceneMetalView: NSView {
         }
     }
 
-    func replaceConditionalAtlases(_ updates: [Int: SceneBaseImageTextureLoad.Loaded]) {
+    func replacePreparedBaseImages(_ updates: [Int: SceneBaseImageTextureLoad.Loaded]) {
         for (layerID, loaded) in updates where imageTextures[layerID] != nil {
             if let product = imageTextures.geometryProducts[layerID] {
                 imageTextures.setPuppetGeometry(product, samplingAtlas: loaded.texture,

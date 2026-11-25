@@ -1,4 +1,4 @@
-"""Signed Scene checks for texture consumers that still require full resolution."""
+"""Signed Scene checks for physical texture quality and exact consumers."""
 
 import json
 import os
@@ -15,7 +15,7 @@ from script.tests.scene.test_scene_mixed_provider_abi_integration import named_v
 from script.tests.support.scene_pkg_fixture import make_package
 
 
-def image_model(entries, name, rgb):
+def image_model(entries, name, rgb, sizes=((4096, 4), (2048, 2), (1024, 1))):
     model = f"models/{name}.json"
     material = f"materials/{name}.json"
     texture = f"materials/{name}.tex"
@@ -24,8 +24,8 @@ def image_model(entries, name, rgb):
         "blending": "translucent", "depthtest": "disabled", "depthwrite": "disabled",
         "cullmode": "nocull"}]}).encode()
     mips = [(width, height, _png(width, height, bytes((*rgb, 255)) * (width * height)))
-        for width, height in ((4096, 4), (2048, 2), (1024, 1))]
-    entries[texture] = _tex(mips, mapped=(4096, 4), physical=(4096, 4))
+        for width, height in sizes]
+    entries[texture] = _tex(mips, mapped=sizes[0], physical=sizes[0])
     return model
 
 
@@ -38,7 +38,7 @@ class SceneTextureQualityIntegrationTests(unittest.TestCase):
         app = Path(value).resolve(strict=True)
         cls.exe = app / "Contents/MacOS/MyWallpaperX" if app.suffix == ".app" else app
 
-    def run_sample(self, project, entries):
+    def run_sample(self, project, entries, *, mode="performance", resize=False):
         parent = os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE")
         if parent:
             Path(parent).mkdir(parents=True, exist_ok=True)
@@ -56,12 +56,15 @@ class SceneTextureQualityIntegrationTests(unittest.TestCase):
         command = [str(self.exe), "--mwx-debug-scene-root", str(content),
             "--mwx-debug-scene-evidence-dir", str(evidence), "--mwx-debug-scene-duration", "7",
             "--mwx-debug-scene-after-snapshot-delay", "4",
-            "-mwx.playback.quality", "{ sceneTextureQuality = performance; }"]
+            "-mwx.playback.quality", f"{{ sceneTextureQuality = {mode}; }}"]
+        if resize:
+            environment["MWX_SCENE_DEBUG_INITIAL_WINDOW_SCALE"] = "0.35"
+            command += ["--mwx-debug-scene-start-paused", "--mwx-debug-scene-resize-sequence", "2:1"]
         completed = subprocess.run(command, env=environment, capture_output=True, text=True, timeout=50)
         log = completed.stdout + completed.stderr
         (work / "app.log").write_text(log)
         self.assertEqual(completed.returncode, 0, log[-4000:])
-        self.assertIn("textureQuality=performance", log)
+        self.assertIn(f"textureQuality={mode}", log)
         self.assertIn("gpuDrained=true", log)
         marker = "MWX SCENE COMPOSITION OBSERVATION: "
         frames = [json.loads(line.split(marker, 1)[1]) for line in log.splitlines() if marker in line]
@@ -69,6 +72,32 @@ class SceneTextureQualityIntegrationTests(unittest.TestCase):
         self.assertEqual(sum(frame["truncatedRows"] for frame in frames), 0)
         rows = [row for frame in frames if frame["gpuStatus"] == "completed" for row in frame["rows"]]
         return rows, evidence / "scene-after-window.png", log
+
+    def test_automatic_mip_grows_once_and_releases_the_retired_representation(self):
+        project = {"title": "Owned automatic texture resize", "type": "scene", "file": "scene.json"}
+        entries = {}
+        sizes = tuple((4096 >> level, 2048 >> level) for level in range(5))
+        model = image_model(entries, "scalable-red", (230, 25, 15), sizes=sizes)
+        entries["scene.json"] = json.dumps({"version": 3,
+            "general": {"orthogonalprojection": {"width": 4096, "height": 2048}, "parallax": False},
+            "objects": [{"id": 119, "image": model, "origin": "2048 1024 0", "size": "4096 2048"}],
+        }).encode()
+        rows, image_path, log = self.run_sample(project, entries, mode="auto", resize=True)
+        sources = [row.get("source") or {} for row in rows
+                   if row["kind"] == "ordinary" and row["outcome"] == "draw-encoded"
+                   and row.get("layerID") == 119]
+        observed = list(dict.fromkeys((source["width"], source["height"], source["textureToken"])
+                                      for source in sources))
+        self.assertEqual(len(observed), 2, observed)
+        initial, final = observed
+        self.assertLess(initial[0], 4096)
+        self.assertEqual(final[:2], (4096, 2048))
+        self.assertNotEqual(initial[2], final[2])
+        self.assertEqual(sources[-1]["textureToken"], final[2])
+        self.assertEqual(log.count("phase=surface-resize"), 1)
+        self.assertRegex(log, rf"phase=automatic-mip-retirement layer=119 size={initial[0]}x{initial[1]} bytes=[1-9]\d* released=true")
+        with Image.open(image_path) as image:
+            self.assertEqual(image.convert("RGB").getpixel((image.width // 2, image.height // 2)), (230, 25, 15))
 
     def test_material_definition_keeps_named_source_at_full_resolution(self):
         project, entries = named_vector_entries("both", forward_nested=True)

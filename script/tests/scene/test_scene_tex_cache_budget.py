@@ -139,7 +139,7 @@ import Metal
         scene = SOURCE.parents[2]
         candidate_sources = [scene / 'Resources/Textures' / name for name in (
             'SceneTextureSampling.swift', 'SceneTextureUVTransform.swift',
-            'SceneTextureCandidate.swift', 'SceneTextureLoader+Candidate.swift')]
+            'SceneTextureCandidate.swift', 'SceneTextureLoader+Candidate.swift', 'SceneOrdinaryImageMipSelection.swift')]
         with tempfile.TemporaryDirectory(prefix='mwx-tex-prepared-request-') as directory:
             root = Path(directory)
             single = bytearray(compressed_tex(image_count=1))

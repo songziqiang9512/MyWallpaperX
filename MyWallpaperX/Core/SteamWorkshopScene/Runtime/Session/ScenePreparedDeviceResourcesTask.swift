@@ -9,6 +9,7 @@ final class ScenePreparedDeviceResourcesTask {
     struct Planning {
         let dynamicImageModelPaths: Set<String>
         var hasStatefulLayerMutationOwner = false
+        var automaticMipConstraints: ScenePreparedBaseImageResources.AutomaticMipConstraints?
         let modelMaterialPlan: ScenePreparedStaticModelResources.MaterialPlan
         let modelAlbedoStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
     }
@@ -25,6 +26,7 @@ final class ScenePreparedDeviceResourcesTask {
     private let modelReflectionsEnabled: Bool
     private let rasterSampleCount: Int
     private let ordinaryColorMipLongEdge: Int?
+    private let automaticDrawableExtent: CGSize?
     private let resourceView: SceneResourceView
     private let device: MTLDevice
     private let cacheDirectory: URL
@@ -48,6 +50,7 @@ final class ScenePreparedDeviceResourcesTask {
         modelReflectionsEnabled: Bool,
         rasterSampleCount: Int = 1,
         ordinaryColorMipLongEdge: Int? = nil,
+        automaticDrawableExtent: CGSize? = nil,
         resourceView: SceneResourceView,
         device: MTLDevice,
         sceneGeneration: UInt64,
@@ -68,6 +71,7 @@ final class ScenePreparedDeviceResourcesTask {
         self.modelReflectionsEnabled = modelReflectionsEnabled
         self.rasterSampleCount = rasterSampleCount
         self.ordinaryColorMipLongEdge = ordinaryColorMipLongEdge
+        self.automaticDrawableExtent = automaticDrawableExtent
         self.resourceView = resourceView
         self.device = device
         self.cacheDirectory = cacheDirectory
@@ -134,6 +138,7 @@ final class ScenePreparedDeviceResourcesTask {
                     deferredBaseImageLayerIDs: deferredBaseImageLayerIDs,
                     imageGeometryModels: imageGeometryModels,
                     ordinaryColorMipLongEdge: ordinaryColorMipLongEdge,
+                    automaticDrawableExtent: automaticDrawableExtent,
                     geometryPrepared: { geometry in
                         condition.lock()
                         geometryResult = .success(geometry)
@@ -191,13 +196,15 @@ final class ScenePreparedDeviceResourcesTask {
         condition.unlock()
     }
 
-    private func plannedDynamicImageRequests() throws -> (models: Set<String>, retainsModelDefaultAliases: Bool) {
+    private func plannedDynamicImageRequests() throws -> ScenePreparedBaseImageResources.ImagePlanning {
         condition.lock()
         while resourcePlanningResult == nil && !cancellationRequested { condition.wait() }
         let planning = resourcePlanningResult
         condition.unlock()
         try checkCancellation()
-        return (planning!.dynamicImageModelPaths, planning!.hasStatefulLayerMutationOwner)
+        return .init(models: planning!.dynamicImageModelPaths,
+            retainsModelDefaultAliases: planning!.hasStatefulLayerMutationOwner,
+            automaticMipConstraints: planning!.automaticMipConstraints)
     }
 
     func preparedImageGeometry() throws -> [Int: [Float]] {

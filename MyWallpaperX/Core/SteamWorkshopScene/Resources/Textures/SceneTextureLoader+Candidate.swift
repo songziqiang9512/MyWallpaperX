@@ -107,12 +107,12 @@ nonisolated extension SceneTextureLoader {
     func loadCandidate(
         from prepared: PreparedTexSource, purpose: SceneTextureLoadPurpose, device: MTLDevice,
         conditionalVariantIDs: Set<UInt32>? = nil,
-        maximumMipLongEdge: Int? = nil,
+        mipSelection: SceneOrdinaryImageMipSelection? = nil,
         checkCancellation: (() throws -> Void)? = nil
     ) throws -> SceneTextureCandidateLoadOutcome {
         try loadCandidate(from: prepared.input, source: prepared.source, prepared: prepared,
             purpose: purpose, device: device, conditionalVariantIDs: conditionalVariantIDs,
-            maximumMipLongEdge: maximumMipLongEdge,
+            mipSelection: mipSelection,
             checkCancellation: checkCancellation)
     }
 
@@ -129,7 +129,7 @@ nonisolated extension SceneTextureLoader {
         preparedDirect: PreparedDirectImageSource? = nil,
         purpose: SceneTextureLoadPurpose, device: MTLDevice,
         conditionalVariantIDs: Set<UInt32>? = nil,
-        maximumMipLongEdge: Int? = nil,
+        mipSelection: SceneOrdinaryImageMipSelection? = nil,
         checkCancellation: (() throws -> Void)?
     ) throws -> SceneTextureCandidateLoadOutcome {
         let isTex = input.pathExtension.lowercased() == "tex"
@@ -150,11 +150,11 @@ nonisolated extension SceneTextureLoader {
             }
             spriteFrame = nil
         }
-        let embeddedBaseMip = if let maximumMipLongEdge, let prepared, purpose == .straightAlbedo,
+        var embeddedBaseMip = if let mipSelection, let prepared, purpose == .straightAlbedo,
                                  spriteFrame == nil, conditionalVariantIDs == nil {
-            embeddedUploadBaseMip(prepared.resource, maximumLongEdge: maximumMipLongEdge)
+            embeddedUploadBaseMip(prepared.resource, selection: mipSelection)
         } else { 0 }
-        let outcome: SceneTextureLoadOutcome
+        var outcome: SceneTextureLoadOutcome
         if let prepared, let conditionalVariantIDs {
             try checkCancellation?()
             outcome = loadConditionalAtlas(from: prepared, selectedIDs: conditionalVariantIDs,
@@ -164,6 +164,15 @@ nonisolated extension SceneTextureLoader {
                 preparedTexSource: prepared, preparedDirectImageSource: preparedDirect,
                 embeddedBaseMip: embeddedBaseMip,
                 checkCancellation: checkCancellation)
+        }
+        if embeddedBaseMip > 0 {
+            switch outcome {
+            case .loaded: break
+            default:
+                embeddedBaseMip = 0
+                outcome = try load(from: input, source: source, purpose: purpose, device: device,
+                    preparedTexSource: prepared, checkCancellation: checkCancellation)
+            }
         }
         guard case .loaded(let texture) = outcome else { return .failed(outcome) }
         return try makeCandidate(texture: texture, resource: prepared?.resource, source: source,
@@ -319,7 +328,8 @@ nonisolated extension SceneTextureLoader {
                 ?? .directImageFallback,
             authoredFormat: container.flatMap {
                 SceneShaderTextureFormat(rawValue: $0.format)
-            }
+            },
+            embeddedBaseMip: embeddedBaseMip
         ))
     }
 
@@ -438,12 +448,13 @@ nonisolated extension SceneTextureLoader {
         return mapped
     }
 
-    private func embeddedUploadBaseMip(_ resource: TexResource, maximumLongEdge: Int) -> Int {
+    private func embeddedUploadBaseMip(_ resource: TexResource, selection: SceneOrdinaryImageMipSelection) -> Int {
         guard let container = resource.container, container.containerVersion == .texb0003,
               resource.hasValidTexb3EmbeddedMipChain, container.conditionalVariants.isEmpty,
               !container.isVolume, let base = container.mips.first,
               base.width == container.imageWidth, base.height == container.imageHeight else { return 0 }
-        return container.mips.firstIndex { max($0.width, $0.height) <= maximumLongEdge } ?? 0
+        return selection.baseIndex(in: container.mips.map { ($0.width, $0.height) },
+            maximumSingleLevelDimension: Self.maxTextureDimension)
     }
 
     private func candidateOutputGeometry(
