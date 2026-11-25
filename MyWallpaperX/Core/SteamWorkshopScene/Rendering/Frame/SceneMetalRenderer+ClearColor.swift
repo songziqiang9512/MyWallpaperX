@@ -259,13 +259,24 @@ extension SceneMetalRenderer {
                 return .dropped(reasonCode: "scene-color-output-identity-rejected")
             }
         } else {
-            bloomPostProcess?.encode(configuration: renderDescriptor.camera.bloom.resolving(
-                dynamicValues), source: target,
-                commandBuffer: commandBuffer)
+            let attachment = input == .colorAttachment
+                ? displayMappingPostProcess?.attachmentDraw(for: target, output: output) : nil
             var mapped = false
+            if let bloomPostProcess {
+                let bloom = renderDescriptor.camera.bloom.resolving(dynamicValues)
+                if let attachment, bloomPostProcess.usesHDR {
+                    mapped = bloomPostProcess.encodeHDR(configuration: bloom, source: target,
+                        commandBuffer: commandBuffer, combineRole: "bloom-hdr-combine-display-mapping") { encoder in
+                            attachment.encode(on: encoder)
+                        }
+                } else {
+                    bloomPostProcess.encode(configuration: bloom, source: target, commandBuffer: commandBuffer)
+                }
+            }
             if input == .colorAttachment {
-                mapped = displayMappingPostProcess?.encodeAttachment(target: target,
-                    commandBuffer: commandBuffer, output: output) == true
+                if !mapped {
+                    mapped = attachment?.encodePass(target: target, commandBuffer: commandBuffer) == true
+                }
 #if DEBUG
                 if let executionTrace, executionTrace.isCompositionSelected {
                     executionTrace.recordComposition(.init(kind: "export",

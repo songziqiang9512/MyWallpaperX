@@ -386,12 +386,12 @@ Program 只对已证明的颜色槽做 PMA/straight 适配；data/signal 保原�
 
 仅红通道 scalar 或 alpha-only 读取有各自准备证明，不能从一条 swizzle 推出整张纹理是 mask。未知用途、混合颜色/数据流或反射不守恒保持局部拒绝。R/A preserved-channel 路径不能外推所有 `.xw` generic artifact 已有完整输出证明。
 
-HDR 合成与显示 EDR 分开：scene color/Bloom 先保浮点范围，唯一终端进行 SDR 裁剪或当前显示 headroom 映射。normal/roughness 不做显示变换。截图导出是普通预览，不能证明物理 EDR 高光。当前 light/receiver 范围见[光照](advanced-object-coverage.md#lighting)。
+HDR 合成与显示 EDR 分开。已取得附件读取资格的单采样 RGBA16F 清色帧，沿原终端按顺序在同一 encoder 叠加 HDR Bloom、从 `color(0)` 映射 SDR 或 EDR，省一次全尺寸附件存取。保两套 PSO、色域、alpha 和唯一输出。持久 raw 和独立纹理输入沿原路径；Bloom 停用或编码失败时，显示映射仍可单独编码。诊断记录联合区间。验收比较完整像素、真实失败、原包及独立作者样本。物理 EDR 需实际显示取证，受光范围见[光照](advanced-object-coverage.md#lighting)。
 
 <a id="hdr-bloom-extraction"></a>
 HDR Bloom 的亮度阈值作用于已完成 source 的物理像素，随后才做空间降采样；同一峰值不能因高光变窄或移动一个像素而先被均值降到阈值下。输入保持当前项目颜色域，不插入未经验证的 gamma 转换。首级半尺寸 pass 按每个目标像素覆盖的源像素面积，平均逐源像素的 soft-threshold 贡献；常规尺寸为2×2，奇数尺寸最多3×3，完整覆盖末行列。它替换旧的先 tent 均值再提取，不叠加补偿增益；后续金字塔、重建权重、作者 threshold/feather/strength/scatter/iterations、alpha 与唯一终端保持原职责。
 
-该修正留在现有 `SceneBloomPostProcess`/Metal 首级pass，不新增全尺寸纹理、pass、PSO、uniform ABI、缓存或质量owner。中间失败不写回source，零strength不编码，非HDR保原算法。原[真实Bloom门](../../../script/tests/scene/test_scene_bloom_post_process.py)保宽块/细线、相位、奇数边界、软阈值、alpha及局部失败；13项旧均匀场原始采集质量仍unknown，仅作历史回归，不授整组Ultra身份或限制默认Ultra目标。新6组明确Ultra控制中，5个已有对应量化点与Native相同，另一个低亮关闭正控单列；不是给旧13补造身份。当前Ultra宽块off/on/off-repeat的近中远轮廓与Native接近，细线/单点受JPEG低码与串光限制，未给改变当前空间重建的明显反证。总响应仍不能唯一确定各层权重/核；替代空间重建提案已撤回且无产品实现，现有owner/算法不变，不继续靠泛光调参补偿水滴。后继沿模型反射、辐射与分辨率的真实消费者取得可区分证据；未授官方精确HDR浮点、空间核、全水滴或性能一致。
+首级空间提取仍由 `SceneBloomPostProcess` 与原 Metal pass 承担。原[真实 Bloom 门](../../../script/tests/scene/test_scene_bloom_post_process.py)核宽块、细线、相位、奇数边界、软阈值、alpha 和局部失败。13项旧均匀场采集质量未知。明确 Ultra 的6组中，5组有相同量化点，低亮关闭单列；宽块 off/on/off-repeat 的近中远轮廓接近。细线与单点受 JPEG 低码和串光限制。现有响应不足以唯一确定重建核或权重，替代提案已撤；水滴余项沿反射、辐射和分辨率定位。
 
 <a id="history"></a>
 ## Target、copy 与 history

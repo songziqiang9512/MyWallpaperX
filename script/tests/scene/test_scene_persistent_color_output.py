@@ -89,7 +89,10 @@ struct SceneMetalRenderer {
     let displayMappingPostProcess: SceneDisplayMappingPostProcess?
 }
 '''
-BLIT_FAULT_HEADER = "void MWXArmBlitFault(id<MTLCommandBuffer> buffer, NSUInteger mask);"
+BLIT_FAULT_HEADER = """
+void MWXArmBlitFault(id<MTLCommandBuffer> buffer, NSUInteger mask);
+NSUInteger MWXBlitAttempts(void);
+"""
 BLIT_FAULT_SOURCE = r'''
 static id blitBuffer;
 static NSUInteger blitMask, blitAttempts;
@@ -107,6 +110,7 @@ void MWXArmBlitFault(id<MTLCommandBuffer> buffer, NSUInteger mask) {
     blitMask = mask;
     blitAttempts = 0;
 }
+NSUInteger MWXBlitAttempts(void) { return blitAttempts; }
 '''
 
 

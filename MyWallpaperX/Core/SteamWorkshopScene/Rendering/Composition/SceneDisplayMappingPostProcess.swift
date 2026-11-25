@@ -105,43 +105,47 @@ final class SceneDisplayMappingPostProcess {
               source.device === device, target.device === device,
               source.width == target.width, source.height == target.height
         else { return false }
-        return encodePass(source: source, target: target, pipeline: pipeline,
-            commandBuffer: commandBuffer, output: output)
+        return Draw(pipeline: pipeline, output: output).encodePass(
+            source: source, target: target, commandBuffer: commandBuffer)
     }
 
-    /// Reads color(0), never binds the target as a sampled texture. Encoder
-    /// failure precedes all writes; the caller preserves the output contract.
-    @discardableResult
-    func encodeAttachment(target: MTLTexture, commandBuffer: MTLCommandBuffer,
-                          output: Output = .sRGB) -> Bool {
-        guard let attachmentPipeline, acceptsAttachment(target) else { return false }
-        return encodePass(source: nil, target: target, pipeline: attachmentPipeline,
-            commandBuffer: commandBuffer, output: output)
+    /// Reads color(0) without binding the target as a sampled texture.
+    func attachmentDraw(for target: MTLTexture, output: Output) -> Draw? {
+        guard let attachmentPipeline, acceptsAttachment(target) else { return nil }
+        return Draw(pipeline: attachmentPipeline, output: output)
     }
 
-    private func encodePass(source: MTLTexture?, target: MTLTexture,
-                            pipeline: MTLRenderPipelineState,
-                            commandBuffer: MTLCommandBuffer, output: Output) -> Bool {
-        let descriptor = MTLRenderPassDescriptor()
-        descriptor.colorAttachments[0].texture = target
-        descriptor.colorAttachments[0].loadAction = source == nil ? .load : .dontCare
-        descriptor.colorAttachments[0].storeAction = .store
+    struct Draw {
+        fileprivate let pipeline: MTLRenderPipelineState
+        fileprivate let output: Output
+
+        func encodePass(source: MTLTexture? = nil, target: MTLTexture,
+                        commandBuffer: MTLCommandBuffer) -> Bool {
+            let descriptor = MTLRenderPassDescriptor()
+            descriptor.colorAttachments[0].texture = target
+            descriptor.colorAttachments[0].loadAction = source == nil ? .load : .dontCare
+            descriptor.colorAttachments[0].storeAction = .store
 #if DEBUG
-        let timestampEncoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: "display-mapping")
+            let timestampEncoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: "display-mapping")
 #else
-        let timestampEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
+            let timestampEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
 #endif
-        guard let encoder = timestampEncoder else { return false }
-        encoder.setRenderPipelineState(pipeline)
-        encoder.setTriangleFillMode(.fill)
-        if let source { encoder.setFragmentTexture(source, index: 0) }
-        var headroom = output.uniform
-        encoder.setFragmentBytes(&headroom, length: MemoryLayout<Float>.stride, index: 0)
-        encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
-        #if DEBUG
-        SceneGPUStageTimestampHook.drew(encoder)
-        #endif
-        encoder.endEncoding()
-        return true
+            guard let encoder = timestampEncoder else { return false }
+            encode(on: encoder, source: source)
+#if DEBUG
+            SceneGPUStageTimestampHook.drew(encoder)
+#endif
+            encoder.endEncoding()
+            return true
+        }
+
+        func encode(on encoder: MTLRenderCommandEncoder, source: MTLTexture? = nil) {
+            encoder.setRenderPipelineState(pipeline)
+            encoder.setTriangleFillMode(.fill)
+            if let source { encoder.setFragmentTexture(source, index: 0) }
+            var headroom = output.uniform
+            encoder.setFragmentBytes(&headroom, length: MemoryLayout<Float>.stride, index: 0)
+            encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        }
     }
 }

@@ -103,7 +103,8 @@ import CoreGraphics
                     let cb = queue.makeCommandBuffer()!
                     precondition(mapping.encode(source: source, target: reference,
                         commandBuffer: cb, output: output))
-                    precondition(mapping.encodeAttachment(target: native, commandBuffer: cb, output: output))
+                    precondition(mapping.attachmentDraw(for: native, output: output)!
+                        .encodePass(target: native, commandBuffer: cb))
                     cb.commit(); cb.waitUntilCompleted()
                     precondition(cb.status == .completed && cb.error == nil)
                     let actual = read(native), original = read(source)
@@ -143,9 +144,40 @@ import CoreGraphics
             let configuration = SceneBloomConfiguration(enabled: true, strength: 1,
                 threshold: 0.65, tint: SIMD3(1, 1, 1), hdr: .init(strength: 1,
                     threshold: 1, scatter: 0.7, feather: 1, iterations: 2))
+            typealias Coordinator = SceneResolvedMaterialSubmissionCoordinator
+            let bloomOwner = Coordinator(device: device,
+                capabilities: try .init(admissionCandidates: [], materialCatalog: .init(entries: [:], resourceDemandIssues: [])),
+                capturesExecutionObservations: false, logSink: { _ in })
+            let hdrRenderer = SceneMetalRenderer(renderDescriptor: .init(hdrEnabled: true,
+                camera: .init(clearColor: [0, 0, 0], bloom: configuration)),
+                imageCompositor: .init(resolvedMaterialRuntime: bloomOwner),
+                bloomPostProcess: bloom, displayMappingPostProcess: mapping)
             let bloomPrepared = MWXPipelineAttempts()
+            var frameIndex: UInt64 = 20
+            func renderBloomTerminal(_ target: MTLTexture, output: Mapping.Output, faultIndex: UInt) -> Int {
+                frameIndex += 1
+                let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: frameIndex,
+                    generation: frameIndex, definitions: []).snapshot
+                bloomOwner.beginFrame(textureSnapshot: .init(frameEpoch: frameIndex, frameIndex: frameIndex, entries: [:]),
+                    dynamicSnapshot: snapshot, frameInputs: .init(frameIndex: frameIndex,
+                        screenSize: CGSize(width: target.width, height: target.height), sceneTime: 0,
+                        dayTime: 0, frameTime: 1 / 60, pointerCurrentNDC: .zero, pointerPreviousNDC: .zero))
+                let cb = queue.makeCommandBuffer()!
+                MWXArmEncoderFault(cb, faultIndex)
+                precondition(hdrRenderer.encodeTerminalColor(sourceCompleted: true, sceneColor: nil,
+                    target: target, offscreenTexturePool: nil, dynamicValues: snapshot, commandBuffer: cb,
+                    output: output, input: mode(mapping, target)) == nil)
+                let attempts = MWXEncoderAttempts()
+                MWXArmEncoderFault(cb, 0)
+                cb.commit(); cb.waitUntilCompleted()
+                precondition(cb.status == .completed && cb.error == nil)
+                if let record = bloomOwner.commandBufferRecords[ObjectIdentifier(cb)] {
+                    bloomOwner.completeCommandBuffer(identity: ObjectIdentifier(cb), observationID: record.observationID, status: .completed)
+                }
+                return Int(attempts)
+            }
             var bloomExact = true, bloomChangedPixels = true
-            for output in [Mapping.Output.sRGB, .extendedLinearSRGB(headroom: 4)] {
+            for (index, output) in [Mapping.Output.sRGB, .extendedLinearSRGB(headroom: 4)].enumerated() {
                 let w = 41, h = 29
                 var input = [Float16](repeating: 0, count: w * h * 4)
                 for i in 0..<(w * h) { input[i * 4 + 3] = 0.5 }
@@ -160,7 +192,10 @@ import CoreGraphics
                 let native = texture(w, h), original = texture(w, h), reference = texture(w, h)
                 fill(native, input); fill(original, input)
                 let producer = queue.makeCommandBuffer()!
+                MWXArmEncoderFault(producer, 0)
                 precondition(bloom.encode(configuration: configuration, source: native, commandBuffer: producer))
+                let bloomPasses = Int(MWXEncoderAttempts())
+                precondition(bloomPasses > 1)
                 precondition(bloom.encode(configuration: configuration, source: original, commandBuffer: producer))
                 producer.commit(); producer.waitUntilCompleted()
                 precondition(producer.status == .completed && producer.error == nil)
@@ -169,11 +204,26 @@ import CoreGraphics
                     $0 % 4 != 3 && input[$0] == 0 && prepared[$0] > 0
                 }
                 let terminal = queue.makeCommandBuffer()!
-                precondition(mapping.encodeAttachment(target: native, commandBuffer: terminal, output: output))
+                let draw = mapping.attachmentDraw(for: native, output: output)!
+                precondition(draw.encodePass(target: native, commandBuffer: terminal))
                 precondition(mapping.encode(source: original, target: reference, commandBuffer: terminal, output: output))
+                let mappedWithoutBloom = texture(w, h)
+                fill(mappedWithoutBloom, input)
+                precondition(draw.encodePass(target: mappedWithoutBloom, commandBuffer: terminal))
                 terminal.commit(); terminal.waitUntilCompleted()
                 precondition(terminal.status == .completed && terminal.error == nil)
                 bloomExact = bloomExact && sameBits(read(native), read(reference))
+                let merged = texture(w, h)
+                fill(merged, input)
+                let count = renderBloomTerminal(merged, output: output, faultIndex: 0)
+                pixels["combinedBloom-\(index)-matchesAndSavesOnePass"] = count == bloomPasses
+                    && sameBits(read(merged), read(reference))
+                for failure in [1, bloomPasses] {
+                    fill(merged, input)
+                    let attempts = renderBloomTerminal(merged, output: output, faultIndex: UInt(failure))
+                    faults["bloom-\(index)-encoder-\(failure)-stillMaps"] = attempts == failure + 1
+                        && sameBits(read(merged), read(mappedWithoutBloom))
+                }
                 comparedPixels += w * h
             }
             pixels["actualBloomChangesNeighborsBeforeBitExactDisplayInputs"] = bloomExact && bloomChangedPixels
@@ -205,7 +255,6 @@ import CoreGraphics
             }
 
             // Real terminal, pool and submission owners. No graph/history is invented.
-            typealias Coordinator = SceneResolvedMaterialSubmissionCoordinator
             let owner = Coordinator(device: device, capabilities: try .init(admissionCandidates: [],
                 materialCatalog: .init(entries: [:], resourceDemandIssues: [])),
                 capturesExecutionObservations: false, logSink: { _ in })
@@ -228,17 +277,14 @@ import CoreGraphics
                 let input: [Float16] = Array(repeating: [0.5, 1, 4, 1], count: 40).flatMap { $0 }
                 fill(target, input)
                 let capacity = pool.reserveCompositionTargets(dimensions: [(8, 5)], commandBuffer: cb)!
-                let before = ScenePerformanceCounterHub.shared.snapshot()
+                MWXArmBlitFault(cb, 0)
                 MWXArmEncoderFault(cb, index < 2 ? 1 : 0)
                 let outcome = renderer.encodeTerminalColor(sourceCompleted: true, sceneColor: nil, target: target,
                     offscreenTexturePool: pool, dynamicValues: snapshot, commandBuffer: cb,
                     output: output, input: mode(mapping, target))
                 let encoderAttempts = MWXEncoderAttempts(); MWXArmEncoderFault(cb, 0)
-                let after = ScenePerformanceCounterHub.shared.snapshot()
                 faults["terminal-\(index)-usesNoCopyOrExtraCapacity"] =
-                    before[.textureCopyPasses, default: 0] == after[.textureCopyPasses, default: 0]
-                    && before[.textureCopyBytes, default: 0] == after[.textureCopyBytes, default: 0]
-                    && pool.residentByteCost == 320 && encoderAttempts == 1
+                    MWXBlitAttempts() == 0 && pool.residentByteCost == 320 && encoderAttempts == 1
                 if index == 1 {
                     faults["linearEncoderFailureRejectsSubmission"] = outcome == .dropped(
                         reasonCode: "scene-linear-display-export-unavailable")

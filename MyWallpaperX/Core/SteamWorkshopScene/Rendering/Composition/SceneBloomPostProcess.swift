@@ -75,6 +75,7 @@ final class SceneBloomPostProcess {
     private var cachedTexturesBySize: [SIMD2<Int>: (mip1: MTLTexture, mip2: MTLTexture)] = [:]
 
     private let pixelFormat: MTLPixelFormat
+    var usesHDR: Bool { hdrUpsamplePipeline != nil }
 
     /// Prepare the complete pipeline set once at renderer creation. A partial
     /// set is never published and cannot trigger compiler work during encode.
@@ -243,7 +244,7 @@ final class SceneBloomPostProcess {
         source: MTLTexture,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
-        if hdrUpsamplePipeline != nil {
+        if usesHDR {
             return encodeHDR(configuration: configuration, source: source, commandBuffer: commandBuffer)
         }
         // Zero strength contributes no RGB and combine preserves source alpha.
@@ -402,9 +403,14 @@ final class SceneBloomPostProcess {
         return (raw.map { Float($0 / total) }, Float(total))
     }
 
-    private func encodeHDR(
+    /// The caller may append its prepared display draw to this final pass.
+    /// No attachment draw runs here if Bloom is skipped or fails to encode.
+    @discardableResult
+    func encodeHDR(
         configuration: SceneBloomConfiguration, source: MTLTexture,
-        commandBuffer: MTLCommandBuffer
+        commandBuffer: MTLCommandBuffer,
+        combineRole: String = "bloom-hdr-combine",
+        afterCombine: (MTLRenderCommandEncoder) -> Void = { _ in }
     ) -> Bool {
         guard configuration.enabled, let hdr = configuration.hdr,
               source.pixelFormat == pixelFormat, source.device === device,
@@ -442,7 +448,7 @@ final class SceneBloomPostProcess {
         descriptor.colorAttachments[0].loadAction = .load
         descriptor.colorAttachments[0].storeAction = .store
         #if DEBUG
-        let timestampEncoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: "bloom-hdr-combine")
+        let timestampEncoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: combineRole)
         #else
         let timestampEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
         #endif
@@ -454,6 +460,7 @@ final class SceneBloomPostProcess {
         #if DEBUG
         SceneGPUStageTimestampHook.drew(encoder)
         #endif
+        afterCombine(encoder)
         encoder.endEncoding()
         return true
     }
