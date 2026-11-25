@@ -714,7 +714,7 @@ class SceneCompositionBackgroundBoundsIntegrationTests(unittest.TestCase):
         self.run_childless_local_raster(renamed=False, size=(128, 64), scale="0.75 2 1")
 
     def test_renamed_non_square_raster_preserves_the_same_background_cut(self):
-        self.run_childless_local_raster(renamed=True, size=(48, 96), scale="2 1.33333333 1")
+        self.run_childless_local_raster(renamed=True, size=(48, 2304), scale="2 0.0555555556 1")
 
     def run_ordinary_root_program(self, *, enabled):
         source_digest = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()

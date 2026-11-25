@@ -263,11 +263,11 @@ Geometry 的 primary named 输入表示 provider 自身的 authored-local 色图
 <a id="childless-composition-local-effect-raster"></a>
 ### 无子 Composition 的局部效果栅格
 
-带局部尺寸的无子 Composition 读取作者位当时的主画布。读取位置由原捕获 UV 和投影决定，效果工作纹理由作者局部尺寸决定。世界旋转、非等比缩放和窗口尺寸只用于取源或放置，退出按投影轴像素数决定这一离屏图的长宽。实际 Metal 纹理和 `g_TextureNResolution` 的物理/映射尺寸继续一致。
+无子 Composition 在作者位取主画布前缀，取样及回绘沿原 UV 和投影。工作栅格由作者局部尺寸给定，世界 TRS、窗口和相机只影响取源及放置。Metal 真实物理/映射尺寸继续提供 `g_TextureNResolution`，`g_TexelSize` 仍属当前画面。
 
-原 FramePreflight 只为已准备、正交、无成员、读取主画布的普通 Composition 选择原 `SceneLayerEffectSourceExtent`。确实走离屏的 graph pair 与首来源用同一个尺寸和原目标限额，仍按原 UV 采一次背景、在原截点执行 Program，并由唯一 compositor 沿原 quad 回绘。缺合格作者尺寸仍沿现有投影尺寸。保留显式 framebuffer source、组/子树、具名供货、透视和已获资格的 attachment-read replay。复用原分配和发布，不引入副本、缓存、宽高比特例或改变纹理尺寸 ABI。
+原 FramePreflight 为已有局部尺寸、正交、无成员且读取主画布的普通 Composition 优先预约精确作者栅格。超过常用2048时，沿已有精确目标偏好与原子预算准入，为捕获和 graph pair 选择同一尺寸。异尺寸偏好按原顺序共用一个额外尺寸名额。超硬限、预算拒绝与历史链沿原等比限额绘制。停用效果的透传沿同一栅格。组、显式 framebuffer source、具名发布、透视、attachment-read replay 与其他层保各自路径。沿唯一 compositor 回绘，不伪报纹理尺寸，也不追加栅格或资源 owner。
 
-先以官版方形与同角点的非方形输入核工作尺寸。近门用非等比放置、背景读前后次序、原名/改名及透明邻例验证同帧实际槽和像素，再沿原包 314 的两道弧、平移对照、保持开启的 Spin 与独立已有真实场景核画面。同一采样域只随作者尺寸改变，不由无声/裁屏冒充效果恢复。绝对帧率与其他来源尺寸另有各自证据。
+验收保原背景截点、改名、非等比放置和小局部窗，补超2048的真采样及超硬限反例。原344的官版相邻像素、`Resolution`、格距与实际 GPU 回绘和成本须同条件复核，独立宽幅作者另验颜色链。旧314的弧、平移和 Spin 沿原合成验证。
 
 <a id="plain-project-color-blend"></a>
 ### 无效果 Project 的作者位颜色混合

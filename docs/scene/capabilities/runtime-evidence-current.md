@@ -443,11 +443,11 @@ CPU探针用原CoreText加载器与原作者127B文本。保存的Jost-Black产�
 <a id="unbound-sampler-control"></a>
 ## 未绑定 sampler 的官方采样
 
-3042492564/363/e0 的首 pass 实读两个无来源 hidden sampler，旧 2.8.0.42 自有板的执行、空间和取样正控未通过。原失败归`.artifacts/scene-unbound-input-control-20261108/`。hidden、named 与当前画布用途仍各自待证。
+3042492564/363/e0 两个无来源 hidden sampler 的旧自有对照未通过正控，仍待证。归`.artifacts/scene-unbound-input-control-20261108/`。
 
-<a id="missing-ordinary-material-texture-evidence"></a>2026-11-25 官版2.8.0.42（`DAAC1EA7…BDA07`）借3556263543原材、原字形及slot1的实际流图正控，slot2留空显示稳定黄黑交替。显式纯白、纯黑不透明与透明黑均可区分。按6×6像素中心采样读全36格，左上黑、透明度1，四项Resolution均6，边界和跨整周期核为最近点重复。显式不存在的普通文件与留空同类。独立3448845950将作者马赛克属性设为4，官版原包装材显示实际满屏棋盘。
+<a id="missing-ordinary-material-texture-evidence"></a>官版2.8.0.42以3556263543原材核普通副槽留空与文件确缺，皆读6×6不透明黄黑棋盘，左上黑、最近点重复。3556263543 已修复。签名Debug `1ded3364…a9c3` 原包F183五个文字e0共用棋盘并写入终图，日期字缘相对基线Δ≥24为153px，相对显式棋盘为3px。改槽、确缺、显式覆盖和格式槽反例通过。归`.artifacts/scene-missing-material-texture-20261125`。
 
-3556263543 已修复。签名Debug基线`0b4ac412…4c2a` 的五道文字e0旁路，候选`1ded3364…a9c3` 原包F183均执行，共用棋盘并到终图。日期区Δ≥24的字缘153px，相对显式棋盘仅3px。改槽/变量、VFS确缺、实际资源覆盖和声明格式槽反例通过。3448845950原马赛克180/e3 F182恢复，背景ROI暗像素0→16204。格宽按960宽归一，官/本中位间隔3/8.25px，密度差待查源图Resolution。证据归`.artifacts/scene-missing-material-texture-20261125/evidence.zip`。[合同](render-graph-shader-coverage.md#missing-ordinary-material-texture)
+<a id="composition-exact-local-raster-evidence"></a>3448845950 马赛克格距已修复。属性4的180/e3官版三帧物理/映射均5120×1440，四组相邻对0/255，`g_TexelSize`属客户区960×623。签名 `e3164a30…b695` 本机2048×576→5120×1440，四组恢复0/255，960宽归一格距8.25→3px，与官版同中位数。独立3759799379/433双效果4500×1051。小窗、改名和9216超限降级均实绘通过。匹配5.5秒诊断窗GPU P95 11.28→16.33ms，完成33.77→27.83FPS，池采样峰170.6→219.8MB，九道全幅透传增加每帧223MB逻辑复制。归`.artifacts/scene-composition-exact-raster-20261125`。
 
 <a id="particle-lighting-control"></a>
 ## REFRACT ambient 与光照边界
