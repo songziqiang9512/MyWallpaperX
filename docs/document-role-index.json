@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b2b0fbbe2c218d9eb9813c9d2fff216096328995e04acbaf83f7eda4d865dab3",
+        "sourceSHA256": "f3d5c49ce71cf0bc3ed9e277032cfbc34255556d17c84bcef36983bbfcd54d95",
         "method": "document_registry --audit + document_health --check",
-        "scope": "三引擎评估与具名官版 Web 预览实测口径",
-        "limitations": "官版只核身份和保存 FPS，本机 WebKit 渲染，未测官版交付或物理呈现"
+        "scope": "三引擎质量评估与官版 Web 具名窗口同输入回调及画布证据",
+        "limitations": "VM 局部窗口，官版图像为原生控制台观察转录，未量全局热改或物理呈现"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4c2caec752c617e6d619a87ca882bcfbe20961a33d51c1b51263a2b1b463ad6e",
+        "sourceSHA256": "a3b2485ffd47696be800ad5fbf3be2e438f4901b68b4fa63112d1a8ff7c47e19",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役质量实施路线，挂接官版 Web 预览待验",
-        "limitations": "共享 VM 仍需独占窗口条件，其他硬件依工作卡取证"
+        "scope": "现役质量路线，核准固定官版 Web 启动与实绘定位",
+        "limitations": "普通桌面、全局热改和硬件按工作卡另验"
       }
     },
     {

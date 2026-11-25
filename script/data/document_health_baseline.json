@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 446,
-      "bytes": 110254
+      "lines": 448,
+      "bytes": 110815
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 135745
+      "bytes": 135771
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -675,10 +675,10 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "20bdc3ce6aa66043ef5869f38747fb6f58239ad941b14a536624642d16344816",
-      "after": "4af4208b1eb61ba3a1cd62ff6a343a9f0be5e344ea2fe64a3e8714450b74bb13",
+      "before": "4af4208b1eb61ba3a1cd62ff6a343a9f0be5e344ea2fe64a3e8714450b74bb13",
+      "after": "b0563ae348b42847bc029b9318094d88b7d9a1c9c51dcd7ca9a75d9654576265",
       "owner": "Web playback",
-      "reason": "记录具名官版取证设计、固定运行体身份和本机 WebKit 画面",
+      "reason": "登记固定官方入口的同输入帧率与渲染证据",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#official-web-fps-window"
     },
     {
@@ -702,10 +702,10 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "f15e9d5e2db5149a7a77247b7a2eec8d2d89e2bb57291f9c5b81e6fe8d7ede44",
-      "after": "4813b1ea9e445219c6b4ac859cf61851688abbc62c4d56fe88803d0973645d65",
+      "before": "4813b1ea9e445219c6b4ac859cf61851688abbc62c4d56fe88803d0973645d65",
+      "after": "5b4a26c9d20fbe0fd8f70b9f9756fdbd15c59698f2309f1f8462603e08bbe467",
       "owner": "声画质量执行路线",
-      "reason": "记录独立官版窗口待验和已读取的本机对应证据",
+      "reason": "接入官版具名窗口启动与作者实绘的完成条件",
       "decision": "docs/development/wallpaper-quality-work-card.md#web-authored-live-draw"
     },
     {
