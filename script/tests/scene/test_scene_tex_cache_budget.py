@@ -623,3 +623,107 @@ import Metal
             self.assertIs(result['normalizedPNGNativeMetadata'], True)
             self.assertEqual(result['cachedLoadDecoded'], 0)
             self.assertEqual(result['decodeAttempts'], 1)
+
+    def test_raw_tex_shares_immutable_mips_without_sharing_converted_rgba(self):
+        def fixture(format_code, pixel):
+            tex = b'TEXV0005\0TEXI0001\0' + struct.pack('<7I', format_code, 0, 16, 16, 16, 16, 0)
+            tex += b'TEXB0001\0' + struct.pack('<2I', 1, 2)
+            for extent, value in ((16, pixel), (8, pixel[::-1])):
+                data = bytes(value) * (extent * extent)
+                tex += struct.pack('<3I', extent, extent, len(data)) + data
+            return tex
+
+        with tempfile.TemporaryDirectory(prefix='mwx-raw-texture-reuse-') as directory:
+            root = Path(directory)
+            for name, format_code, pixel in (('renamed-rg', 8, [53, 197]), ('revised-rg', 8, [91, 23]),
+                                             ('r', 9, [139]), ('rgba', 0, [200, 100, 50, 128])):
+                (root / f'{name}.tex').write_bytes(fixture(format_code, pixel))
+            harness = root / 'Harness.swift'
+            harness.write_text(r'''
+import Foundation
+import Metal
+
+@main enum Harness {
+    static func pixel(_ texture: MTLTexture, level: Int, channels: Int) -> [UInt8] {
+        var bytes = [UInt8](repeating: 0, count: channels)
+        texture.getBytes(&bytes, bytesPerRow: channels,
+            from: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: level)
+        return bytes
+    }
+
+    static func texture(_ outcome: SceneTextureLoadOutcome) -> MTLTexture? {
+        if case let .loaded(texture) = outcome { return texture }
+        return nil
+    }
+
+    static func main() throws {
+        guard let device = MTLCreateSystemDefaultDevice() else { print("SKIP"); return }
+        let root = URL(fileURLWithPath: CommandLine.arguments[1])
+        func url(_ name: String) -> URL { root.appendingPathComponent(name + ".tex") }
+        let budget = SceneResourceBudget.shared
+        let decoded = SceneTextureDecodeCacheBudget(maximumBytes: 4_096)
+        let loader = SceneTextureLoader(decodeCacheBudget: decoded)
+        let rg = url("renamed-rg")
+        var result: [String: Bool] = [:]
+        let before = budget.snapshot.residentBytes
+        let first = try texture(loader.load(from: rg, purpose: .premultipliedColor, device: device))!
+        let firstSource = try loader.sourceKey(for: rg)!
+        loader.evictDecodedCaches()
+        let rawCharge = budget.snapshot.residentBytes - before
+        let filler = budget.maximumBytes - budget.snapshot.residentBytes - (rawCharge - 1)
+        precondition(rawCharge > 0 && filler >= 0 && budget.reserve(filler, kind: .gpu))
+        let tight = try loader.load(from: rg, purpose: .normal, device: device)
+        if case .textureAllocationFailed = tight { result["tightWouldLoseNormal"] = true }
+        result["tightShares"] = texture(tight) === first
+        budget.release(filler, kind: .gpu)
+        loader.evictDecodedCaches()
+        let normal = try texture(loader.load(from: rg, purpose: .normal, device: device))!
+        result["singleCharge"] = normal === first && budget.snapshot.residentBytes == before + rawCharge
+        result["mipsAndFormat"] = normal.pixelFormat == .rg8Unorm && normal.mipmapLevelCount == 2
+            && normal.width == 16 && normal.height == 16
+            && pixel(normal, level: 0, channels: 2) == [53, 197]
+            && pixel(normal, level: 1, channels: 2) == [197, 53]
+        result["warmSkipsDecodeAfterEviction"] = decoded.residentBytes == 0
+
+        let r = url("r")
+        let dataFirst = try texture(loader.load(from: r, purpose: .mask, device: device))!
+        loader.evictDecodedCaches()
+        let colorSecond = try texture(loader.load(from: r, purpose: .premultipliedColor, device: device))!
+        result["reverseR8"] = dataFirst === colorSecond && colorSecond.pixelFormat == .r8Unorm
+            && pixel(colorSecond, level: 1, channels: 1) == [139]
+
+        let rgba = url("rgba")
+        let rgbaColor = try texture(loader.load(from: rgba, purpose: .premultipliedColor, device: device))!
+        let rgbaData = try texture(loader.load(from: rgba, purpose: .normal, device: device))!
+        result["rgbaStaysSeparate"] = rgbaColor !== rgbaData && pixel(rgbaColor, level: 0, channels: 4) == [100, 50, 25, 128]
+            && pixel(rgbaData, level: 0, channels: 4) == [200, 100, 50, 128]
+
+        let removed = loader.evictTextures(containedIn: [first])
+        let reloaded = try texture(loader.load(from: rg, purpose: .normal, device: device))!
+        let recached = try texture(loader.load(from: rg, purpose: .premultipliedColor, device: device))
+        result["evictOnePhysicalEntry"] = removed == 1 && reloaded !== first && recached === reloaded
+        try Data(contentsOf: url("revised-rg")).write(to: rg, options: .atomic)
+        do { _ = try loader.load(from: rg, source: firstSource, purpose: .normal, device: device) }
+        catch SceneResourceView.ReadError.sourceChanged { result["staleRevisionRejected"] = true }
+        let revised = try texture(loader.load(from: rg, purpose: .premultipliedColor, device: device))!
+        result["revisionReplacesStorage"] = revised !== reloaded && pixel(revised, level: 0, channels: 2) == [91, 23]
+            && pixel(reloaded, level: 0, channels: 2) == [53, 197]
+        print(String(decoding: try JSONEncoder().encode(result), as: UTF8.self))
+    }
+}
+''')
+            binary = root / 'harness'
+            build = subprocess.run(['swiftc', str(SOURCE), str(RESAMPLE_SOURCE), *map(str, LOADER_SOURCES),
+                                    str(harness), '-module-cache-path', str(root / 'modules'), '-o', str(binary)],
+                                   capture_output=True, text=True, timeout=120)
+            self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
+            run = subprocess.run([str(binary), str(root)], capture_output=True, text=True, timeout=30)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            if run.stdout.strip() == 'SKIP':
+                self.skipTest('requires actual Metal device')
+            result = json.loads(run.stdout)
+            for key in ('tightShares', 'singleCharge', 'mipsAndFormat', 'warmSkipsDecodeAfterEviction', 'reverseR8',
+                        'rgbaStaysSeparate', 'evictOnePhysicalEntry', 'staleRevisionRejected', 'revisionReplacesStorage'):
+                with self.subTest(key=key):
+                    self.assertTrue(result[key], result)
+            self.assertNotIn('tightWouldLoseNormal', result)

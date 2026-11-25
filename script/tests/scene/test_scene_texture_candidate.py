@@ -239,7 +239,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "normalizedColorPreservesCompiledBaseLevel": True,
                 "normalizedColorScale": [1, 1],
                 "oversizedMappedRejected": True,
-                "purposeCacheSeparated": True,
+                "rawStorageSharedWithDistinctPurposes": True,
                 "refreshedGenerationMatchesFileSize": True,
                 "refreshedPhysical": [8, 8],
                 "rotatedRejected": True,

@@ -124,7 +124,8 @@ extension Harness {
             "sameCandidateGeneration": first.generation == repeated.generation,
             "sameResourceIdentityAcrossPurpose": first.identity == flow.identity,
             "sameGenerationAcrossPurpose": first.generation == flow.generation,
-            "purposeCacheSeparated": first.texture !== flow.texture,
+            "rawStorageSharedWithDistinctPurposes": first.texture === flow.texture
+                && first.purpose == .mask && flow.purpose == .flow,
             "slotBindingRangeRejected":
                 SceneTextureSlotBinding(slotIndex: -1, candidate: first) == nil
                     && SceneTextureSlotBinding(

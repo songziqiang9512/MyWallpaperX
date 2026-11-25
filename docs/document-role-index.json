@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1a5620d6cf1484117a80c63c1134bd19c39e218f27fa76219149e967b7257159",
+        "sourceSHA256": "3165e8a9d5dfac42c941e4b3626871ea9214939c65e1853fa4442187cbb60e53",
         "method": "document_registry --audit + document_health --check",
-        "scope": "冷档直接提交、精确撤单、原实呈回执",
-        "limitations": "源码路由及单内屏原生取证"
+        "scope": "现役纹理 loader 与物理存储合同入口",
+        "limitations": "不同表示继续读取原专门合同"
       }
     },
     {
@@ -355,10 +355,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1772e342570890d625512f59b63c567a1f823d4dd9e17dcc852a9114d66ba924",
+        "sourceSHA256": "99109502e38fccb2618b10c0447c507807988c1de214245fa930223f2a59bb4e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "固定版本阴影档位、尺寸与比较 sampler",
-        "limitations": "静态 Windows 路径，M4 实测止损"
+        "scope": "纹理表示、原通道物理复用路由",
+        "limitations": "复用实施由工作卡约束"
       }
     },
     {
@@ -369,10 +369,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7caf49b5879da2f9f4da3c924dac9bbe8035c3998e31dcf2a7cf380162df9fe0",
+        "sourceSHA256": "6f18511f939646803bb28c2b873d7470998f8df1c5725b04b63292635018d252",
         "method": "document_registry --audit + document_health --check",
-        "scope": "512 定向滤波预登记阈值与 M4 实测退出",
-        "limitations": "绘制比较为原生夹具，未进入作者帧时"
+        "scope": "真实原通道重复、GPU 权威计费及签名实绘",
+        "limitations": "紧预算仅原生加载器，作者正常额度"
       }
     },
     {
@@ -908,10 +908,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e812a804c4bc8d42e3bb2ca3330c1923b9fd3561396c74341d001b1f64536a25",
+        "sourceSHA256": "eb54278b8361090a4e1d46852b9b21d1f1d7bbc3d322a894b10bc8d6663300b4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对包 reader 的同 FD 生命周期与原 Root 地址边界",
-        "limitations": "只涉及包路径；资源准入与其他 backing 沿其合同。"
+        "scope": "原通道存储、逻辑元数据、引用和租约职责",
+        "limitations": "限实际原通道 2D 完整 mip"
       }
     },
     {

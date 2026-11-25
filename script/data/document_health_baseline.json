@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 17689
+      "bytes": 17810
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 390,
-      "bytes": 92375
+      "bytes": 92458
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 599,
-      "bytes": 130762
+      "lines": 600,
+      "bytes": 132249
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -105,8 +105,8 @@
       "bytes": 9092
     },
     "docs/scene/architecture/scene-resource-admission.md": {
-      "lines": 94,
-      "bytes": 13569
+      "lines": 99,
+      "bytes": 14385
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 73,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "5bbfd7e285cbcca2f51e3a88caf9ed14764f3be54ffc3df674b38e7531c5712e",
-      "after": "e9cff0ce8190204b0d2b6bd511fe0b087cad2395f21c3f87d0f4c8c68d7ccfb5",
-      "owner": "源码导航",
-      "reason": "登记原切换事务的应用与撤销入口",
-      "decision": "docs/architecture/repository-map.md#wallpaper-quality"
+      "before": "e9cff0ce8190204b0d2b6bd511fe0b087cad2395f21c3f87d0f4c8c68d7ccfb5",
+      "after": "b21e4383c9c71483fdb2d1615e834b202f5238a3a527f54f02127cb0844ed7f8",
+      "owner": "repository",
+      "reason": "纹理物理存储 owner 路由",
+      "decision": "docs/scene/architecture/scene-resource-admission.md#raw-channel-texture-storage"
     },
     {
       "section": "bodies",
@@ -513,11 +513,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/scene-resource-admission.md",
-      "before": "2731b347d82b356ce22a39188d370970d18be4f973545a00ac6671c88f8647cb",
-      "after": "c17e1d29b9b63e736288a7c60ecdd6987d81060aed754028b52dea60e94e6a65",
-      "owner": "scene-resource-admission",
-      "reason": "明确原包 reader 直接填充分块与原范围和失败职责",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-package-read-copy"
+      "before": "c17e1d29b9b63e736288a7c60ecdd6987d81060aed754028b52dea60e94e6a65",
+      "after": "994f7bc809374100649b8f602bc05f8fb736177bac9dacbb04985f4b052c808d",
+      "owner": "scene-resource",
+      "reason": "原通道 TEX 物理存储与原用途边界",
+      "decision": "docs/scene/architecture/scene-resource-admission.md#raw-channel-texture-storage"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "b089f1216ddbacb60e2e074cbebbdaf132b2038fb221bc208ee961357cc1a063",
-      "after": "5b450a8a434d4d56bb2d3675405ad48181553d597ee25f461ef9f519e4a3f173",
+      "before": "5b450a8a434d4d56bb2d3675405ad48181553d597ee25f461ef9f519e4a3f173",
+      "after": "328e9e23dbfb5d3812a3882d26661bc6bb9dbe38c4949646af8dab966e3aa8a8",
       "owner": "wallpaper-quality",
-      "reason": "官版阴影 atlas 与比较路径",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-shadow-atlas"
+      "reason": "纹理表示复用实施入口",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-raw-texture-reuse"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "9168e35319b008fa8182bd1f7d571540da27634a579558bb24402737b32cbcbd",
-      "after": "2bffcd7c83add4e0bbf36faaf82f855582df2ab6ff53a942b6afb9e4a307668c",
+      "before": "2bffcd7c83add4e0bbf36faaf82f855582df2ab6ff53a942b6afb9e4a307668c",
+      "after": "a566ff49c2397df3b6f266c9156215d7a5c8fece90f196f40a6137978f1323db",
       "owner": "wallpaper-quality",
-      "reason": "512 定向接收端相位止损与收据",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-shadow-low-filter"
+      "reason": "原通道 TEX 物理存储设计与实测",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-raw-texture-reuse"
     }
   ]
 }

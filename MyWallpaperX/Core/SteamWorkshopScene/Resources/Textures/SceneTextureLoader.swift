@@ -133,10 +133,14 @@ nonisolated final class SceneTextureLoader {
     }
 
     private struct TextureKey: Hashable {
+        enum Representation: Hashable {
+            case purpose(SceneTextureLoadPurpose, baseMip: Int)
+            case rawChannels2D
+        }
+
         let source: SourceKey
         let deviceRegistryID: UInt64
-        let purpose: SceneTextureLoadPurpose
-        let embeddedBaseMip: Int
+        let representation: Representation
     }
 
     struct TexResource {
@@ -294,8 +298,7 @@ nonisolated final class SceneTextureLoader {
 
     func recordDirectImageDecodeAttempt() { directImageDecodeAttemptCount += 1 }
 
-    /// Purpose participates in cache identity; source identity is checked on
-    /// cache hits without rereading payload bytes.
+    /// The same source revision can share storage when uploads leave its channels unchanged.
     func load(
         from input: Input, purpose: SceneTextureLoadPurpose, device: MTLDevice,
         checkCancellation: (() throws -> Void)? = nil
@@ -326,25 +329,32 @@ nonisolated final class SceneTextureLoader {
             source = current
         }
         if let expectedSource, expectedSource != source { throw SceneResourceView.ReadError.sourceChanged }
-        let key = TextureKey(source: source, deviceRegistryID: device.registryID, purpose: purpose,
-            embeddedBaseMip: embeddedBaseMip)
+        let deviceRegistryID = device.registryID
+        let key = TextureKey(source: source, deviceRegistryID: deviceRegistryID,
+            representation: .purpose(purpose, baseMip: embeddedBaseMip))
         if let cached = textures[key] { return .loaded(cached) }
         let ext = input.pathExtension.lowercased()
         let outcome: SceneTextureLoadOutcome
+        var storageKey = key
         if Self.directImageExtensions.contains(ext) {
             outcome = try loadDirectImage(input: input, source: source, purpose: purpose,
                 device: device, prepared: preparedDirectImageSource, checkCancellation: checkCancellation)
         } else if ext == Self.texExtension {
-            outcome = try loadWallpaperEngineTex(input: input, source: source, purpose: purpose,
+            let rawKey = embeddedBaseMip == 0 ? TextureKey(source: source, deviceRegistryID: deviceRegistryID,
+                representation: .rawChannels2D) : nil
+            if let rawKey, let cached = textures[rawKey] { return .loaded(cached) }
+            let loaded = try loadWallpaperEngineTex(input: input, source: source, purpose: purpose,
                 device: device, preparedResource: preparedTexSource?.resource,
                 embeddedBaseMip: embeddedBaseMip,
                 checkCancellation: checkCancellation)
+            outcome = loaded.outcome
+            if loaded.isRawChannels2D, let rawKey { storageKey = rawKey }
         } else {
             outcome = .unsupportedFormat(extension: ext)
         }
         try checkCancellation?()
         // A failed upload is an attempt, never a successful cache entry.
-        if case let .loaded(texture) = outcome { textures[key] = texture }
+        if case let .loaded(texture) = outcome { textures[storageKey] = texture }
         return outcome
     }
 
@@ -592,25 +602,29 @@ nonisolated final class SceneTextureLoader {
         preparedResource: TexResource? = nil,
         embeddedBaseMip: Int,
         checkCancellation: (() throws -> Void)?
-    ) throws -> SceneTextureLoadOutcome {
+    ) throws -> (outcome: SceneTextureLoadOutcome, isRawChannels2D: Bool) {
         guard let resource = try preparedResource ?? texResource(from: input, source: source,
                                                                checkCancellation: checkCancellation) else {
-            return .decodeFailed("read failed: \(input.lastPathComponent)")
+            return (.decodeFailed("read failed: \(input.lastPathComponent)"), false)
         }
         guard let container = resource.container else {
-            return .decodeFailed("TEX parse failed: \(resource.parseError ?? "unknown error")")
+            return (.decodeFailed("TEX parse failed: \(resource.parseError ?? "unknown error")"), false)
         }
         if container.format == 0 {
-            return loadFormatZeroContainer(
+            return (loadFormatZeroContainer(
                 container, embeddedMipChainIsValid: resource.hasValidTexb3EmbeddedMipChain,
                 source: source, purpose: purpose, device: device, embeddedBaseMip: embeddedBaseMip
-            )
+            ), false)
         }
-        return makeDirectUploadTexture(
-            from: container,
-            purpose: purpose,
-            device: device
-        ) ?? .unsupportedTexFormat(code: container.format)
+        if let pixelFormat = container.metalPixelFormat {
+            return (SceneCompressedTextureUploader.upload(container: container, pixelFormat: pixelFormat,
+                purpose: purpose, uploadCommandQueue: uploadCommandQueue, device: device), false)
+        }
+        if let pixelFormat = container.rawMetalPixelFormat, let bytesPerPixel = container.rawBytesPerPixel {
+            return (SceneTextureMipUploader.uploadRaw(container: container, pixelFormat: pixelFormat,
+                bytesPerPixel: bytesPerPixel, device: device), true)
+        }
+        return (.unsupportedTexFormat(code: container.format), false)
     }
 
     private func texResource(from input: Input, source: SourceKey,
@@ -799,35 +813,6 @@ nonisolated final class SceneTextureLoader {
             by: image.height
         )
         return overflow ? Int.max : cost
-    }
-
-    private func makeDirectUploadTexture(
-        from container: SceneTexContainer,
-        purpose: SceneTextureLoadPurpose,
-        device: MTLDevice
-    ) -> SceneTextureLoadOutcome? {
-        if let pixelFormat = container.metalPixelFormat {
-            return SceneCompressedTextureUploader.upload(
-                container: container,
-                pixelFormat: pixelFormat,
-                purpose: purpose,
-                uploadCommandQueue: uploadCommandQueue,
-                device: device
-            )
-        }
-        if let pixelFormat = container.rawMetalPixelFormat,
-           let bytesPerPixel = container.rawBytesPerPixel {
-            return SceneTextureMipUploader.uploadRaw(
-                container: container,
-                pixelFormat: pixelFormat,
-                bytesPerPixel: bytesPerPixel,
-                device: device
-            )
-        }
-        if container.format == 0 {
-            return SceneTextureMipUploader.uploadRawRGBA(container: container, device: device)
-        }
-        return nil
     }
 
 }

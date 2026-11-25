@@ -51,6 +51,11 @@ GPU 入口以 Metal size/alignment 需求先预留，分配失败返还。租约
 
 图片自然/显示尺寸与物理纹理尺寸分别保留；EXIF 方向由 ImageTextureUploader 解释，像素、mapped/physical extent 保持一致。source size 回填不重算已准备 graph 计划。purpose、alpha、数据通道和编码格式不是可互换的事实，领域规则归[采样与颜色](../capabilities/render-graph-shader-coverage.md#sampling)。
 
+<a id="raw-channel-texture-storage"></a>
+### 原通道 TEX 的物理存储
+
+同一 `SceneTextureLoader` 按实际来源 revision、Metal 设备和上传表示复用已完成的实物。原格式 R8／RG8 的完整 2D mip 链同步直传，成功后只登记一个事务内存储键。各消费者单独准备原用途、采样及布局，继续按原身份发布。源 revision 改变进入新实物，原引用和 GPU 在途持有旧实物至释放。实际走用途转换、压缩、体积或尾链时保原用途和级别。物理租约沿原 GPU 总账。CPU cache 的准备边界不变，有现成物理纹理时纯纹理请求可直接命中，需要容器元数据的消费者仍走原读取。 [真实作者、原生字节与压力](../../development/wallpaper-quality-work-card.md#scene-raw-texture-reuse)
+
 <a id="conditional-tex-atlas"></a>
 ### 条件 TEX 图集
 
