@@ -77,8 +77,8 @@
       "bytes": 79291
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 364,
-      "bytes": 74807
+      "lines": 373,
+      "bytes": 76665
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "f9ea75359a02fec187008f150f46f67b461e53d391ea9e639b62263f18f769dc",
-      "after": "436167702bff284c1bf057175aea1213c2adfe2389961d2ca8a850987040325f",
-      "owner": "跨引擎画质实施",
-      "reason": "记录重复遮挡裁剪的真画面、阶段重叠复核与无实效退出",
-      "decision": "docs/development/wallpaper-quality-work-card.md#point-volume-occluder-scissor"
+      "before": "436167702bff284c1bf057175aea1213c2adfe2389961d2ca8a850987040325f",
+      "after": "9d762265673b436bf7ee3998736cb53f8adfedc08a6b56bc840fc6ff355c0e80",
+      "owner": "wallpaper-quality",
+      "reason": "保留低分辨率原生被拒证据及需要更换的路线",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-volume-low-resolution-probe"
     },
     {
       "section": "bodies",
