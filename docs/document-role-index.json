@@ -347,10 +347,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0ac914399be02f4dee2bf67e079c2b0f8f4365af444cfdcf4030485b1e57336a",
+        "sourceSHA256": "b22068710ac81314dcacea887cefff5a18a0084118c67a65c0342d813e606063",
         "method": "document_registry --audit + document_health --check",
-        "scope": "已验证的积分和未验细分候选",
-        "limitations": "更高积分档和半分辨率待评估"
+        "scope": "点光稀疏采样质量和重量裁决",
+        "limitations": "半宽高依据现役工作卡"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "46efe9f4622781770025c5da69f6c4c84d0dea3362d5460c9925f598590e74e4",
+        "sourceSHA256": "0b7360f4cfa590663a68b713b7aea55b05a89129e822dcb88e36bbae8aeb3d3a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "旧小配额收据、实际画面和保留决定",
-        "limitations": "签名单 M4 与取证边界详见本卡"
+        "scope": "原尺寸与半宽高阶段、真实覆盖及窄峰反例",
+        "limitations": "结论限定现有 M4 实验"
       }
     },
     {

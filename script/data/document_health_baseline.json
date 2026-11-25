@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 315,
-      "bytes": 73674
+      "bytes": 73500
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 284,
-      "bytes": 56880
+      "lines": 291,
+      "bytes": 58069
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "1aa7ac97bfa4e02aca624874eb3c7fbe44a3ea640b5b4b6bb53dd3fe4d445a48",
-      "after": "4c377c99928ce3780cd4f15287b9b1f41170e26290da8686bd75d11ee723f46d",
-      "owner": "壁纸质量与 Scene 准备",
-      "reason": "记录旧配额同 FPS 配对及保留决定",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-decode-budget"
+      "before": "4c377c99928ce3780cd4f15287b9b1f41170e26290da8686bd75d11ee723f46d",
+      "after": "fbc3f32d1f537e4bb3594cfe7e7d5da8e934e58631f9071a76a938d408a0ace3",
+      "owner": "Scene 体积照明",
+      "reason": "记录半宽高的同签名画面与成本停止线，并落实候选顺序",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-volume-half-trial"
     },
     {
       "section": "bodies",

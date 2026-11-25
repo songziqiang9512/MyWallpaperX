@@ -171,14 +171,14 @@ Scene FPS 在下一排帧边界采纳，Web 在当前文档回调，能原位采
 | 算法 | 对本项目的取舍 |
 |---|---|
 | **原尺寸四点积分／原有光锥** | 点光在同一实际遮挡深度上积分，按真实光球投影的保守并集收紧片元覆盖，输出直加原主颜色。全屏仍走同一积分。同尺寸两点未复现收益，实验已退役。聚光开关沿真实 producer，保作者锥形覆盖和顺序。 [实测](wallpaper-quality-work-card.md#scene-volume-point-coverage) |
-| 半宽高积分＋深度引导重建 | 色积分像素数约 1/4，增加中间颜色目标与重建。每个粗像素读取自身射线对应的深度 texel，按原反向深度和相机重建到可比较的视空间尺度，再用全尺寸深度邻域引导。沿用整数读取，避免跨边混合以及依赖部分 GPU 缺少的 `depth32Float` 过滤。计遮挡重放、分配、读写与合成总成本，若薄障碍或深度断层回归、总帧时无稳定收益，保现有原尺寸四点。 [联合上采样参考](https://johanneskopf.de/publications/jbu/) · [Metal 像素格式表](https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf) |
+| 半宽高积分＋深度引导重建 | 已退出。色积分像素数约 1/4，但同一 Apple GPU 的粗格和重建合计与现役成本重合。真实深度不足以恢复稀疏亮光，试验丢失窄峰。额外私有颜色跨 pass 存储，不能用 memoryless 消除。 [实测](wallpaper-quality-work-card.md#scene-volume-half-trial) · [联合上采样](https://johanneskopf.de/publications/jbu/) · [Metal 存储](https://developer.apple.com/documentation/metal/mtlstoragemode/memoryless) |
 | 逐像素 ray march／froxel／时域重投影 | 支撑更广的阴影体积和介质，增加采样、3D 网格或历史，且会碰到作者分组／顺序和动态透明深度。待有完整的光空间可见性和介质需求再独立评估。 [视锥体素照明实践](https://advances.realtimerendering.com/s2018/Siggraph%202018%20HDRP%20talk_with%20notes.pdf) |
 
 | 档位 | 点光已交付基线与其余候选 |
 |---|---|
 | 禁用 | 停可选遮挡收集、独立深度重放及终端加光，保表面光与主相机深度 |
-| 低 | 同尺寸两点已退役。整帧收益有证据时再试半宽高两点＋深度引导 |
-| 中 | 半宽高四点＋深度引导的候选。只有与低档在画面及完整成本上存在一致分级时开放 |
+| 低 | 同尺寸两点与半宽高重建未达真实成本或画面门。等待可区分的低耗算法 |
+| 中 | 保持现行基线。只有与低档在画面及完整成本上存在一致分级时开放 |
 | 高 | 对应已交付「启用」所用的原尺寸四点兼容基线，积分区域按实际场景收紧 |
 | 超高 | 全尺寸试六点或经验证的较高阶数，薄峰与积分误差有独立收益才开放 |
 
