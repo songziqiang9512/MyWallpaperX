@@ -110,7 +110,7 @@ General基准与CameraTransforms相对倍率共用此值求解顺序但保独立
 
 暂停重绘只消费冻结帧。媒体只在 generation、terminal publication 和完整同帧 cohort 匹配时刷新；不采新 Inbox 或重跑 VM。候选首呈现有独立 cohort，稳态不等待所有屏幕。原暂停重试窗口、异步失败恢复与 stale completion 都归 [FrameDriver](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift)、[pre-script骨骼](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppetBones.swift)、[SurfaceSimulation](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSimulation.swift)、[SurfaceSubmission](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSubmission.swift)。
 
-稳态 tick 到期且当前各屏均等待原材质 GPU 提交时，FrameDriver 可在消费本次模拟输入之前等至下一名义 tick。原 Coordinator 结算并释放历史后，首个恢复准入的当前屏唤醒同一个一次性计时器。截止时照常推进一次模拟，延后的 tick 从实际执行时刻排下一帧，避免追赶时额外触发 VM。健康屏存在时照常前进，媒体、drawable 和编码失败仍走原路径。暂停、换屏、退役沿原计时器与 Surface 身份取消。保原历史提交和失败回滚，不重画旧模拟或放宽串行约束。以原包实际呈现间隔、CPU 每秒成本及独立媒体邻例核验。
+稳态 tick 到期若各屏均等待材质 GPU 提交，FrameDriver 延后模拟，每个名义间隔复查准入。原 Coordinator 释放历史后，首个恢复准入的当前屏唤醒一次性计时器，延后帧按实际起帧时刻排下一帧。任一屏可用即照常前进，媒体、drawable 和编码失败沿原路径。暂停、换屏、退役凭原计时器与 Surface 身份取消。以原包实呈间隔、CPU 每秒成本及独立样本核验。
 
 <a id="rendering"></a>
 ## 材质、图与输出

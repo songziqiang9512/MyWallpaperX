@@ -129,7 +129,7 @@ extension SceneDesktopWallpaperSession {
         let timer = Timer(timeInterval: delay, repeats: false) { [weak self] timer in
             guard let self, self.frameTimer === timer else { return }
             self.frameTimer = nil
-            if !waitingForGPU, self.waitForFrameAdmission(until: deadline + self.sceneFrameInterval) { return }
+            if self.waitForFrameAdmission(after: deadline) { return }
             let cadence = waitingForGPU ? CACurrentMediaTime() : deadline
             let attempt = self.renderFrame()
             self.scheduleFrameDriver(after: attempt, scheduledDeadline: cadence)
@@ -138,11 +138,11 @@ extension SceneDesktopWallpaperSession {
         frameTimer = timer
         return timer
     }
-    private func waitForFrameAdmission(until deadline: CFTimeInterval) -> Bool {
+    private func waitForFrameAdmission(after deadline: CFTimeInterval) -> Bool {
         guard isVisible, !sceneClock.isPaused, !surfaces.isEmpty,
-              CACurrentMediaTime() < deadline,
               surfaces.values.allSatisfy({ $0.metalView.shouldDeferResolvedMaterialFrame }) else { return false }
-        let timer = armFrameDriver(at: deadline, waitingForGPU: true)
+        let nextCheck = max(deadline, CACurrentMediaTime()) + sceneFrameInterval
+        let timer = armFrameDriver(at: nextCheck, waitingForGPU: true)
         for (displayID, surface) in surfaces {
             surface.metalView.renderer.imageCompositor.resolvedMaterialRuntime?.submissions
                 .notifyWhenFrameAdmissionOpens { [weak self, weak surface, weak timer] in

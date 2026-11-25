@@ -86,7 +86,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 259,
-      "bytes": 48516
+      "bytes": 48304
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 352870
+      "bytes": 353980
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 243,
-      "bytes": 69913
+      "bytes": 69910
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e9eabe8b5f2da5a071d0fcfe5735e98dcc5f8a7998591306978fb3fe8d96c5a1",
-      "after": "254d5bac2fc2b3c88e01917a67561f516b11ebd18f88373bc800a9aa6c894503",
-      "owner": "Scene scalar particle oscillation evidence",
-      "reason": "并入定相位、两个作者及更新后的成熟覆盖实际结果。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-scalar-oscillation"
+      "before": "254d5bac2fc2b3c88e01917a67561f516b11ebd18f88373bc800a9aa6c894503",
+      "after": "ea7f613346b839f0a7f28fb7c23ed7778d6e3c6ec762c2cbef2061f9dfcd1658",
+      "owner": "Scene GPU frame admission evidence",
+      "reason": "记录可复现的真实播放节奏、独立样本和剩余 GPU 预算。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#gpu-admission-timeout-367"
     },
     {
       "section": "bodies",
