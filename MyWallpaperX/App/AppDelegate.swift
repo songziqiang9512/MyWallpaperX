@@ -52,6 +52,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 #if DEBUG
  DebugWebPlaybackRunner.scheduleWorkshopPlaybackIfRequested()
  DebugWebPlaybackRunner.scheduleWebWorkshopRuntimeIfRequested()
+ DebugPlaybackCoexistenceRunner.scheduleIfRequested()
 #endif
  // 避开启动期布局敏感窗口，延后创建状态栏项，降低触发 AppKit 布局递归的概率。
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { [weak self] in

@@ -42,16 +42,21 @@ enum DebugWebPlaybackRunner {
     /// Check before product singletons can read preferences or restore playback.
     /// Reuses the Scene probe's canonical path/account-home admission boundary.
     static var hasIsolatedStartupEnvironment: Bool {
+        let sceneStartup = DebugSceneProductEntryPolicy.isStartupMeasurementRequested(arguments: arguments)
+        guard isStartupMeasurementRequested != sceneStartup else { return false }
+        return hasIsolatedProductEnvironment(
+            bundleID: "com.songziqiang.MyWallpaperX.Debug.Startup",
+            reportFlag: isStartupMeasurementRequested
+                ? "--mwx-debug-web-startup-report" : "--mwx-debug-scene-startup-report")
+    }
+
+    static func hasIsolatedProductEnvironment(bundleID: String, reportFlag: String) -> Bool {
         func value(after flag: String) -> String? {
             guard let index = arguments.firstIndex(of: flag),
                   arguments.indices.contains(index + 1) else { return nil }
             return arguments[index + 1]
         }
-        let sceneStartup = DebugSceneProductEntryPolicy.isStartupMeasurementRequested(arguments: arguments)
-        guard isStartupMeasurementRequested != sceneStartup else { return false }
-        let reportFlag = isStartupMeasurementRequested
-            ? "--mwx-debug-web-startup-report" : "--mwx-debug-scene-startup-report"
-        guard Bundle.main.bundleIdentifier == "com.songziqiang.MyWallpaperX.Debug.Startup",
+        guard Bundle.main.bundleIdentifier == bundleID,
               let token = value(after: "--mwx-debug-startup-defaults-token"), !token.isEmpty,
               UserDefaults.standard.string(forKey: "MWXStartupDefaultsToken") == token,
               let userHome = DebugSceneProductEntryPolicy.protectedUserHomeURL(),

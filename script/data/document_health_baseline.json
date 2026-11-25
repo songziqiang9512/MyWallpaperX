@@ -13,8 +13,8 @@
       "bytes": 8300
     },
     "docs/architecture/repository-map.md": {
-      "lines": 54,
-      "bytes": 13552
+      "lines": 56,
+      "bytes": 13827
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -77,8 +77,8 @@
       "bytes": 73674
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 266,
-      "bytes": 53709
+      "lines": 277,
+      "bytes": 55636
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,19 +378,19 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "82aac8684a60c02bd1be288f576f618e18305a7e06d923675abd6d4c24dbad6a",
-      "after": "b0c1acf215be6c1f090ed55ea693f10a92a8e591ecdb4d1bfca821bb0c7de803",
-      "owner": "壁纸质量工作卡",
-      "reason": "点光投影有边域、真实片元成本和完整输出证据",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-volume-point-coverage"
+      "before": "b0c1acf215be6c1f090ed55ea693f10a92a8e591ecdb4d1bfca821bb0c7de803",
+      "after": "1aa7ac97bfa4e02aca624874eb3c7fbe44a3ea640b5b4b6bb53dd3fe4d445a48",
+      "owner": "壁纸质量与播放链",
+      "reason": "记录正常产品入口三引擎接管、暂停及冷恢复的实测证据，并维护当前批顺序",
+      "decision": "docs/development/wallpaper-quality-work-card.md#quality-engine-coexistence"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "6e1d736865ece114bb9c71ac485ab4141a53b980bc615179b3c4e0094555ea24",
-      "after": "8331fb8382785b211cba6419ae4f58ba10dd4d756309c626ac130a8c8cfcb6c9",
-      "owner": "源码地图",
-      "reason": "标记点光实际投影与积分准备入口",
+      "before": "8331fb8382785b211cba6419ae4f58ba10dd4d756309c626ac130a8c8cfcb6c9",
+      "after": "f33dc399ea1c8deaed18f061a22d9fcdfc567dca8e8bcd1fbcb1b83d35973381",
+      "owner": "壁纸质量与播放链",
+      "reason": "登记正常入口运行验收与现役工作卡",
       "decision": "docs/architecture/repository-map.md#wallpaper-quality"
     },
     {

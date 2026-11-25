@@ -45,6 +45,14 @@ enum MyWallpaperXApplication {
             NSLog("MWX STARTUP: dedicated test bundle identity, standard-defaults token and isolated HOME/Library/cache/workshop/report required")
             return
         }
+        let coexistenceMain = Bundle.main.bundleIdentifier == DebugPlaybackCoexistenceRunner.bundleID
+            && !WebDaemonRuntime.isRequested && !SceneDaemonRuntime.isRequested
+        if coexistenceMain || DebugPlaybackCoexistenceRunner.isRequested {
+            guard DebugPlaybackCoexistenceRunner.hasIsolatedEnvironment else {
+                NSLog("MWX COEXISTENCE: dedicated signed test bundle, defaults token and isolated HOME/workshop/report required")
+                return
+            }
+        }
 #endif
         if WebDaemonRuntime.isRequested || SceneDaemonRuntime.isRequested {
             _ = DaemonParentLifetime.shared
@@ -250,6 +258,9 @@ enum MyWallpaperXApplication {
         }
 #endif
         if !usesDirectPlaybackHarness, let startup = userCollectionsStartup {
+#if DEBUG
+            DebugPlaybackCoexistenceRunner.prepareIfRequested()
+#endif
             ScreenSaverActivityMonitor.shared.start()
             WallpaperManager.shared.configureRuntimeSwitching()
             libraryWorkspace = WallpaperLibraryWorkspace(startup: startup, manager: .shared, images: .shared,

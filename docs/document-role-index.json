@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "dee3b9d1f2b26066c3244dad51c5b07b2564b340f3b3dbf516b2123dfcfdaa19",
+        "sourceSHA256": "450e1cff7cf4785b5013050fd40d1fffe9ee05f7c9d9c1ccd0ef0e0ae30c3e86",
         "method": "document_registry --audit + document_health --check",
-        "scope": "点光准备和主编码源码路由",
-        "limitations": "导航校验"
+        "scope": "壁纸质量的正常产品接管与恢复取证入口",
+        "limitations": "源码地图定位，结果与观测边界见壁纸质量工作卡"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "11718380ceca7f6c43930da785bba4d7b7d06bca66b9f9e4557f37b078c29976",
+        "sourceSHA256": "31dc6d84d3436e875db1f128fe7f0e075aa073ad69257475c88954bb6d284426",
         "method": "document_registry --audit + document_health --check",
-        "scope": "真机覆盖成本、光学正反例和产品默认",
-        "limitations": "仅本机单屏和指定输入，暂无整机功耗"
+        "scope": "正常库选择、真实窗口及配置冷恢复",
+        "limitations": "导航核查，运行证据与单屏限制见三引擎验收节"
       }
     },
     {

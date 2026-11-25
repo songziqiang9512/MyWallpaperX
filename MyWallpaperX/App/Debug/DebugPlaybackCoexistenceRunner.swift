@@ -1,0 +1,310 @@
+#if DEBUG
+import AppKit
+import CoreGraphics
+import Foundation
+
+@MainActor
+enum DebugPlaybackCoexistenceRunner {
+    static let bundleID = "com.songziqiang.MyWallpaperX.Debug.Coexistence"
+    private static let reportFlag = "--mwx-debug-coexistence-report"
+    static var isRequested: Bool { ProcessInfo.processInfo.arguments.contains(reportFlag) }
+    static var hasIsolatedEnvironment: Bool {
+        isRequested
+            && !DebugWebPlaybackRunner.runsIsolatedWebWorkshopSample
+            && !DebugScenePlaybackRunner.runsIsolatedSceneSample
+            && !DebugSceneDaemonClientRunner.isRequested
+            && !DebugSystemMediaRunner.isRequested
+            && DebugWebPlaybackRunner.hasIsolatedProductEnvironment(bundleID: bundleID, reportFlag: reportFlag)
+    }
+
+    private struct Receipt {
+        let selection: PlaybackSwitchTransaction.Selection
+        let pid: Int32
+        let evidence: [String: Any]
+        let windows: [Int]
+    }
+
+    private struct Failure: LocalizedError {
+        let errorDescription: String?
+        init(_ message: String) { errorDescription = message }
+    }
+
+    private static var sceneCapture: [String: Any]?
+
+    static func prepareIfRequested() {
+        guard isRequested else { return }
+        let scene = SceneDaemonClient.shared
+        // Use the existing child launch flag that includes clocks and window IDs in capture replies.
+        scene.debugStartupPrefixObserver = { _ in }
+        scene.debugStartupWireObserver = { _, _, _, payload in
+            if let capture = payload["debugCapture"] as? [String: Any] { sceneCapture = capture }
+        }
+    }
+
+    static func scheduleIfRequested() {
+        guard isRequested, let rawReport = DebugScenePlaybackRunner.argumentValue(after: reportFlag) else { return }
+        let report = URL(fileURLWithPath: rawReport)
+        Task { @MainActor in
+            // Deferred AppKit termination runs a nested loop while the library flushes.
+            defer { RunLoop.main.perform { MainActor.assumeIsolated { NSApp.terminate(nil) } } }
+            var result: [String: Any] = ["parentPID": ProcessInfo.processInfo.processIdentifier]
+            do {
+                try await run(
+                    sceneID: DebugScenePlaybackRunner.argumentValue(after: "--mwx-debug-coexistence-scene"),
+                    webID: DebugScenePlaybackRunner.argumentValue(after: "--mwx-debug-coexistence-web"),
+                    phase: DebugScenePlaybackRunner.argumentValue(after: "--mwx-debug-coexistence-phase"),
+                    directory: report.deletingLastPathComponent(), result: &result)
+                result["passed"] = true
+            } catch {
+                result["passed"] = false
+                result["failure"] = error.localizedDescription
+                NSLog("MWX COEXISTENCE: %@", error.localizedDescription)
+            }
+            do {
+                try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
+                    .write(to: report, options: .atomic)
+            } catch {
+                NSLog("MWX COEXISTENCE report: %@", error.localizedDescription)
+            }
+        }
+    }
+
+    private static func run(sceneID: String?, webID: String?, phase: String?, directory: URL,
+                            result: inout [String: Any]) async throws {
+        guard let sceneID, let webID, let workspace = MyWallpaperXApplication.libraryWorkspace,
+              phase == "switch" || phase == "restore" else { throw Failure("invalid phase or product library unavailable") }
+        let manager = WallpaperManager.shared
+        let mux = PlaybackCommandMultiplexer.shared
+        let scene = WallpaperReference(provider: .steamWorkshop, sourceID: sceneID)
+        let web = WallpaperReference(provider: .steamWorkshop, sourceID: webID)
+        var preference = PlaybackQualityPreference.defaults
+        SceneQualityPreset.medium.apply(to: &preference)
+        preference.webFrameRateMode = .followAnimationFrameRate
+        let selectedFPS = preference.animationFrameRate.rawValue
+        result["requestedFPS"] = selectedFPS
+
+        if phase == "restore" {
+            preference.scene.postProcessing = .disabled
+            guard manager.settings.restorePlaybackOnLaunch, PlaybackQualityPreference.current == preference,
+                  SceneQualityPreset.matching(preference) == nil else { throw Failure("restored quality request differs") }
+            SteamWorkshopService.shared.performStartupLibraryReloadIfNeeded()
+            let restored = try await receipt(for: scene, runtime: .scene, after: nil)
+            guard mux.isUserPaused, mux.isPlaybackPaused else { throw Failure("restoration lost user's pause request") }
+            result["restored"] = restored.evidence
+            result["scene"] = try await scenePauseResume("restored", receipt: restored, fps: selectedFPS,
+                initiallyPaused: true, directory: directory)
+            return
+        }
+
+        guard manager.playbackSwitch.committed == nil, manager.playbackSwitch.pending == nil,
+              SceneQualityPreset.matching(preference) == .medium else { throw Failure("fresh product was not idle") }
+        var settings = manager.settings
+        settings.restorePlaybackOnLaunch = true
+        settings.multiDisplayEnabled = false
+        settings.pauseWhenOtherAppFocused = false
+        settings.pauseWhenOtherAppFullscreen = false
+        settings.pauseWhenUnplugged = false
+        settings.pauseWhenIdle = false
+        settings.syncSystemWallpaper = false
+        manager.settings = settings
+        mux.applyQualityPreference(preference)
+        let workshop = SteamWorkshopService.shared
+        workshop.reloadInstalledItems()
+        guard await DebugWebPlaybackRunner.awaitInstalledRecord(sceneID, using: workshop)?.contentType == .scene,
+              await DebugWebPlaybackRunner.awaitInstalledRecord(webID, using: workshop)?.contentType == .web,
+              let videoURL = BundledVideoLibrary.videoURL(named: "Video2") else { throw Failure("installed fixtures unavailable") }
+        let video = try await wait("real bundled video index") {
+            manager.wallpapers.first { URL(fileURLWithPath: $0.path).standardizedFileURL == videoURL.standardizedFileURL }
+        }
+        let references: [(String, WallpaperReference, WallpaperRuntimeKind)] = [
+            ("scene-in", scene, .scene), ("web", web, .web),
+            ("video", .init(provider: .videoLibrary, sourceID: video.id), .video), ("scene-back", scene, .scene)
+        ]
+        var previous: Receipt?
+        var rows: [[String: Any]] = []
+        for (label, reference, runtime) in references {
+            workspace.requestSingle(reference)
+            let current = try await receipt(for: reference, runtime: runtime, after: previous)
+            rows.append(current.evidence)
+            result["switches"] = rows
+            switch runtime {
+            case .scene:
+                result[label] = try await scenePauseResume(label, receipt: current, fps: selectedFPS,
+                    initiallyPaused: false, directory: directory)
+            case .web, .video:
+                if runtime == .video, WallpaperEngine.shared.currentContentPath != video.path {
+                    throw Failure("video selected a different input")
+                }
+                try await captureMotion(label, receipt: current, directory: directory)
+            case .systemStill: break
+            }
+            previous = current
+        }
+        preference.scene.postProcessing = .disabled
+        mux.applyQualityPreference(preference)
+        mux.dispatch(.pause)
+        guard PlaybackQualityPreference.current == preference, mux.isUserPaused,
+              SceneQualityPreset.matching(preference) == nil else { throw Failure("custom quality or pause not retained") }
+        result["savedPaused"] = true
+    }
+
+    private static func receipt(for reference: WallpaperReference, runtime: WallpaperRuntimeKind,
+                                after previous: Receipt?) async throws -> Receipt {
+        let manager = WallpaperManager.shared
+        let engine = WallpaperEngine.shared
+        let scene = SceneDaemonClient.shared
+        guard let web = engine.dedicatedWebHostAdapter as? WebDaemonHostAdapter else {
+            throw Failure("product Web daemon adapter unavailable")
+        }
+        return try await wait("finalized \(runtime.rawValue) \(reference.sourceID)") {
+            guard let current = manager.playbackSwitch.committed, let execution = current.executionID,
+                  current.ticket.runtime == runtime, current.ticket != previous?.selection.ticket,
+                  current.executionID != previous?.selection.executionID,
+                  manager.libraryPlaybackSequence.committed?.ticket == current.ticket,
+                  manager.libraryPlaybackSequence.committed?.reference == reference,
+                  manager.playbackSwitch.retirements.isEmpty else { return nil }
+            let onscreen = onscreenWindows()
+            guard previous?.windows.allSatisfy({ onscreen[$0] == nil }) != false else { return nil }
+            let pid: Int32
+            let request: String
+            switch runtime {
+            case .scene:
+                guard scene.activeRecordID == reference.sourceID, scene.activeSwitchTicket == current.ticket,
+                      let id = scene.activeRequestID, let activePID = scene.debugProcessIdentifier,
+                      engine.activeVideoExecution == nil, web.activeRequest == nil else { return nil }
+                (pid, request) = (activePID, id.uuidString)
+            case .web:
+                guard let open = web.activeRequest, open.recordID == reference.sourceID,
+                      let activePID = web.debugActiveProcessIdentifier, scene.activeIntent == nil,
+                      engine.activeVideoExecution == nil else { return nil }
+                (pid, request) = (activePID, open.id.uuidString)
+            case .video:
+                guard let active = engine.activeVideoExecution, active.id == execution, active.finalized,
+                      let display = active.sessions.values.first, let id = display.latestFinalizedPlayRequestID,
+                      id == active.requests[display.displayID],
+                      scene.activeIntent == nil, web.activeRequest == nil else { return nil }
+                (pid, request) = (display.process.processIdentifier, String(id))
+            case .systemStill: return nil
+            }
+            let windows = onscreen.filter { $0.value == pid }.map(\.key).sorted()
+            guard !windows.isEmpty else { return nil }
+            return Receipt(selection: current, pid: pid, evidence: ["runtime": runtime.rawValue,
+                "reference": reference.sourceID, "ticket": current.ticket.id.uuidString,
+                "epoch": current.ticket.epoch, "execution": execution.uuidString,
+                "request": request, "pid": pid, "windows": windows], windows: windows)
+        }
+    }
+
+    private static func scenePauseResume(_ label: String, receipt: Receipt, fps: Int,
+                                         initiallyPaused: Bool, directory: URL) async throws -> [String: Any] {
+        let scene = SceneDaemonClient.shared
+        let mux = PlaybackCommandMultiplexer.shared
+        let cadence = try await wait("Scene cadence") { scene.activeAnimationCadence }
+        guard cadence.requestedFPS.rawValue == fps, cadence.effectiveFPS == Double(fps) else {
+            throw Failure("Scene did not adopt the requested cadence on this display")
+        }
+        if !initiallyPaused { mux.dispatch(.pause) }
+        try await Task.sleep(for: .milliseconds(300))
+        let first = try await captureScene(label + "-paused", receipt: receipt, directory: directory)
+        try await Task.sleep(for: .milliseconds(400))
+        let still = try await captureScene(label + "-still", receipt: receipt, directory: directory)
+        guard let frozen = first["sceneTime"] as? Double, still["sceneTime"] as? Double == frozen,
+              first["isPlaybackPaused"] as? Bool == true, still["isPlaybackPaused"] as? Bool == true,
+              still["isFrameDriverActive"] as? Bool == false else { throw Failure("Scene clock did not freeze") }
+        mux.dispatch(.resume)
+        try await Task.sleep(for: .milliseconds(500))
+        let resumed = try await captureScene(label + "-resumed", receipt: receipt, directory: directory)
+        guard resumed["isPlaybackPaused"] as? Bool == false, resumed["isFrameDriverActive"] as? Bool == true,
+              let time = resumed["sceneTime"] as? Double, time > frozen else { throw Failure("Scene clock did not resume") }
+        return ["requestedFPS": fps, "effectiveFPS": cadence.effectiveFPS, "paused": first,
+            "still": still, "resumed": resumed]
+    }
+
+    private static func captureScene(_ name: String, receipt: Receipt, directory: URL) async throws -> [String: Any] {
+        sceneCapture = nil
+        let url: URL? = await withCheckedContinuation { continuation in
+            SceneDaemonClient.shared.captureSurfaceFrame { continuation.resume(returning: $0) }
+        }
+        guard let url else { throw Failure("Scene window capture unavailable") }
+        let prefix = "mwx-scene-frame-"
+        let stem = url.deletingPathExtension().lastPathComponent
+        let isOwnedCapture = url.deletingLastPathComponent().path == "/private/tmp"
+            && url.pathExtension == "jpg" && stem.hasPrefix(prefix)
+            && UUID(uuidString: String(stem.dropFirst(prefix.count))) != nil
+        defer { if isOwnedCapture { try? FileManager.default.removeItem(at: url) } }
+        guard isOwnedCapture, let snapshot = sceneCapture, let captureID = snapshot["captureID"] as? String,
+              url.lastPathComponent == "\(prefix)\(captureID).jpg" else {
+            throw Failure("Scene capture lacked a matched debug receipt")
+        }
+        guard snapshot["requestID"] as? String == receipt.evidence["request"] as? String,
+              snapshot["daemonPID"] as? Int32 == receipt.pid,
+              WallpaperManager.shared.playbackSwitch.committed == receipt.selection else {
+            throw Failure("Scene capture did not belong to the active execution")
+        }
+        try FileManager.default.copyItem(at: url, to: directory.appendingPathComponent(name + ".jpg"))
+        return snapshot
+    }
+
+    private static func captureMotion(_ label: String, receipt: Receipt, directory: URL) async throws {
+        let mux = PlaybackCommandMultiplexer.shared
+        mux.dispatch(.pause)
+        try await Task.sleep(for: .milliseconds(350))
+        try await capture(label + "-paused", receipt: receipt, directory: directory)
+        try await Task.sleep(for: .milliseconds(400))
+        try await capture(label + "-still", receipt: receipt, directory: directory)
+        mux.dispatch(.resume)
+        try await Task.sleep(for: .milliseconds(450))
+        try await capture(label + "-resumed", receipt: receipt, directory: directory)
+        try await Task.sleep(for: .milliseconds(450))
+        try await capture(label + "-running", receipt: receipt, directory: directory)
+    }
+
+    private static func capture(_ name: String, receipt: Receipt, directory: URL) async throws {
+        let image = directory.appendingPathComponent(name + ".png")
+        if receipt.selection.ticket.runtime == .web {
+            let frame: NSImage? = await withCheckedContinuation { continuation in
+                WallpaperEngine.shared.captureWebWallpaperFrame { continuation.resume(returning: $0) }
+            }
+            guard let tiff = frame?.tiffRepresentation,
+                  let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) else {
+                throw Failure("Web window capture unavailable")
+            }
+            try png.write(to: image, options: .atomic)
+        } else {
+            // The outer runner owns Screen Recording for the actual Video daemon window.
+            let window = receipt.windows[0]
+            guard onscreenWindows()[window] == receipt.pid else { throw Failure("Video window lost its owner") }
+            let request = ["window": window, "name": name] as [String: Any]
+            try JSONSerialization.data(withJSONObject: request)
+                .write(to: directory.appendingPathComponent("capture-request.json"), options: .atomic)
+            try await wait("physical Video capture \(name)") {
+                FileManager.default.fileExists(atPath: image.path) ? true : nil
+            }
+            guard onscreenWindows()[window] == receipt.pid else { throw Failure("Video window changed during capture") }
+        }
+        guard WallpaperManager.shared.playbackSwitch.committed == receipt.selection else {
+            throw Failure("window capture left the committed execution")
+        }
+    }
+
+    private static func onscreenWindows() -> [Int: Int32] {
+        let info = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
+        let level = Int(CGWindowLevelForKey(.desktopWindow))
+        return info.reduce(into: [:]) { windows, row in
+            guard let number = row[kCGWindowNumber as String] as? Int,
+                  let pid = row[kCGWindowOwnerPID as String] as? Int32,
+                  let layer = row[kCGWindowLayer as String] as? Int, (level...level + 2).contains(layer) else { return }
+            windows[number] = pid
+        }
+    }
+
+    private static func wait<Value>(_ fact: String, _ observe: () -> Value?) async throws -> Value {
+        let deadline = ProcessInfo.processInfo.systemUptime + 25
+        repeat {
+            if let value = observe() { return value }
+            try await Task.sleep(for: .milliseconds(75))
+        } while ProcessInfo.processInfo.systemUptime < deadline
+        throw Failure("timed out waiting for " + fact)
+    }
+}
+#endif
