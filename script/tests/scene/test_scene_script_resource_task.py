@@ -34,7 +34,7 @@ struct SceneRenderDescriptor {
 }
 enum SceneDesktopWallpaperHostLaunchError: Error { case requiredImagePipelineUnavailable }
 struct SceneImageLayerPipeline {
-    init?(device: MTLDevice, pixelFormat: Int, preparesDepth: Bool, preparesAdditive: Bool, preparesNormalDepth: Bool) {
+    init?(device: MTLDevice, pixelFormat: Int, preparesDepth: Bool, preparesAdditive: Bool, preparesNormalDepth: Bool, rasterSampleCount: Int) {
         if Backend.rejectPipeline { return nil }
     }
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare actual 1× and 2× root model raster output in one signed Debug App."""
+"""Compare actual 1× and 2× main raster output in one signed Debug App."""
 
 from __future__ import annotations
 
@@ -34,6 +34,7 @@ from script.tests.support.scene_pkg_fixture import make_package
 
 
 ADDITIVE_LAYER = 14
+BACKGROUND_LAYER, ALPHA_LAYER, TEXT_LAYER, UNPREPARED_SPOT_LAYER = 29, 30, 31, 32
 
 
 def model_input(variant):
@@ -71,8 +72,27 @@ def model_input(variant):
         entries[material] = json.dumps(additive).encode()
         entries[model] = quad(78, 82, 43, 46, 0, material)
         scene["objects"].append(dict(edge, id=ADDITIVE_LAYER, model=model))
-    elif variant == "suffix":
-        scene["objects"].append(suffix)
+    elif variant in ("suffix", "color-blend"):
+        background = dict(suffix, id=BACKGROUND_LAYER, origin="80 48 0", size="160 96",
+                          color="0 0 .25", perspective=False)
+        suffix.update(image="models/mixed-alpha.json", origin="96 48 0", size="40 16",
+                      alpha=0.5, perspective=False)
+        entries["models/mixed-alpha.json"] = json.dumps({"material": "materials/mixed-alpha.json"}).encode()
+        entries["materials/mixed-alpha.json"] = json.dumps({"passes": [{
+            "shader": "genericimage", "textures": ["materials/mixed-alpha.png"],
+            "blending": "translucent",
+        }]}).encode()
+        entries["materials/mixed-alpha.png"] = rgba_png((255, 255, 255))
+        if variant == "color-blend":
+            suffix["colorBlendMode"] = 2
+        text = {"id": TEXT_LAYER, "text": "MMMM", "font": "systemfont_arial",
+                "pointsize": 3, "color": "1 1 1", "origin": "126 20 0",
+                "size": "48 18", "perspective": False}
+        unprepared_spot = {"id": UNPREPARED_SPOT_LAYER, "light": "lspot", "visible": True, "solid": False,
+                           "castvolumetrics": True, "color": "1 0 1", "origin": "20 16 0",
+                           "radius": 30, "intensity": 25, "innercone": 10, "outercone": 20,
+                           "density": 3, "exponent": 2, "volumetricsexponent": 2}
+        scene["objects"] = [background, *scene["objects"], suffix, text, unprepared_spot]
     elif variant == "current-color":
         _, readers = composition_fixture(copy_background=True, childless=True)
         _, consumer = json.loads(readers.pop("scene.json"))["objects"]
@@ -186,12 +206,20 @@ class SceneMultisampleIntegrationTests(unittest.TestCase):
         self.assertEqual(baseline[0].size, experiment[0].size)
         return baseline, experiment, model_ids
 
-    def assert_model_pass(self, rows, expected_samples, model_ids):
-        opening, = [row for row in rows if row["kind"] == "main-raster-open"]
+    def assert_model_pass(self, rows, expected_samples, model_ids, *, mixed=False):
+        openings = [row for row in rows if row["kind"] == "main-raster-open"]
+        mixed_single_sample = mixed and expected_samples == 1
+        if mixed_single_sample:
+            first, opening, last = openings
+            self.assertEqual([row["details"]["sampleCount"] for row in openings], ["1", "1", "1"])
+            self.assertEqual([row["details"]["colorLoad"] for row in openings], ["2", "1", "1"])
+            self.assertTrue(all("depthSamples" not in row["details"] for row in (first, last)))
+        else:
+            opening, = openings
         self.assertEqual(opening["details"]["sampleCount"], str(expected_samples), opening)
         self.assertEqual(opening["details"]["depthSamples"], str(expected_samples), opening)
         self.assertEqual(opening["details"]["depthClear"], "0.0", opening)
-        self.assertEqual(opening["details"]["colorLoad"], "2", opening)
+        self.assertEqual(opening["details"]["colorLoad"], "1" if mixed_single_sample else "2", opening)
         self.assertEqual(opening["details"]["colorStore"], str(expected_samples), opening)
         self.assertEqual(opening["details"]["depthStore"], "0" if expected_samples == 2 else "1", opening)
         if expected_samples == 2:
@@ -212,7 +240,28 @@ class SceneMultisampleIntegrationTests(unittest.TestCase):
             self.assertEqual(row["outcome"], "draw-encoded")
         seal, = [index for index, row in enumerate(rows) if row["kind"] == "frame-seal"]
         self.assertLess(draws[-1][0], seal)
+        if mixed:
+            self.assert_mixed_draw_order(rows, openings, model_ids, seal)
         return draws[-1][0], seal
+
+    def assert_mixed_draw_order(self, rows, openings, model_ids, seal):
+        draws = [(index, row) for index, row in enumerate(rows) if row["kind"] in {"ordinary", "model"}]
+        self.assertFalse(any(row["kind"] == "geometry" and row.get("layerID") == UNPREPARED_SPOT_LAYER
+                             for row in rows))
+        self.assertEqual([(row["layerID"], row["kind"]) for _, row in draws],
+                         [(BACKGROUND_LAYER, "ordinary"), *((layer, "model") for layer in model_ids),
+                          (ALPHA_LAYER, "ordinary"), (TEXT_LAYER, "ordinary")])
+        token = rows[seal]["target"]["textureToken"]
+        self.assertTrue(all(row["target"]["textureToken"] == token for row in openings))
+        for index, row in draws:
+            self.assertEqual(row["outcome"], "draw-encoded", row)
+            self.assertEqual(row["target"]["textureToken"], token)
+            self.assertTrue(rows.index(openings[0]) < index < seal)
+        self.assertEqual([row["details"]["contentKind"] for _, row in draws if row["kind"] == "ordinary"],
+                         ["solid", "image", "text"])
+        if len(openings) == 3:
+            self.assertTrue(draws[0][0] < rows.index(openings[1]) < draws[1][0])
+            self.assertTrue(draws[-3][0] < rows.index(openings[2]) < draws[-2][0])
 
     def assert_color(self, image, location, expected):
         x, y = MODEL_ROIS[location] if isinstance(location, str) else location
@@ -226,38 +275,62 @@ class SceneMultisampleIntegrationTests(unittest.TestCase):
     def test_renamed_model_keeps_hdr_terminal_output(self):
         self.check_model_resolve("renamed-hdr")
 
+    def test_plain_color_and_text_share_the_resolved_model_pass(self):
+        self.check_model_resolve("suffix")
+
     def check_model_resolve(self, name):
         baseline, experiment, model_ids = self.comparison(name)
         edge_count = []
+        text_count = []
+        mixed = name == "suffix"
         for samples, (image, rows) in enumerate((baseline, experiment), 1):
-            last_draw, seal = self.assert_model_pass(rows, samples, model_ids)
+            last_draw, seal = self.assert_model_pass(rows, samples, model_ids, mixed=mixed)
             if name == "renamed-hdr":
                 self.assertTrue(any(row["kind"] == "export" and row["outcome"] == "exported"
                                     for row in rows[last_draw + 1:seal]), rows)
             for label, expected in (("grazing", (255, 0, 0)), ("front", (255, 0, 0)),
-                                    ("unoccludedBlue", (0, 0, 255)), ("opaquePeer", (0, 255, 0))):
+                                    ("opaquePeer", (0, 255, 0))):
                 self.assert_color(image, label, expected)
+            self.assert_color(image, "unoccludedBlue", (128, 0, 127) if mixed else (0, 0, 255))
+            if mixed:
+                self.assert_color(image, (108, 48), (128, 0, 32))
+                self.assert_color(image, (110, 20), (0, 0, 64))
+                text = image.crop(canvas_box(image, 101, 62, 149, 92)).getcolors(100_000)
+                text_count.append(sum(count for count, rgb in text if min(rgb) >= 224))
             if name == "plain":
                 self.assert_color(image, (80, 44.5), (255, 0, 255))
             box = canvas_box(image, 34, 59, 63, 81)
             edge_count.append(sum(count for count, (r, g, b) in image.crop(box).getcolors(100_000)
-                                  if max(r, b) <= 2 and 32 <= g <= 224))
+                                  if r <= 2 and b <= (66 if mixed else 2) and 32 <= g <= 224))
         self.assertEqual(edge_count[0], 0, edge_count)
         self.assertGreater(edge_count[1], 24, edge_count)
         self.assertLess(edge_count[1], 3 * sum(experiment[0].size), edge_count)
         (self.work / name / "edge-pixels.json").write_text(json.dumps(edge_count) + "\n")
+        if mixed:
+            self.assertGreater(min(text_count), 24, text_count)
+            self.assertAlmostEqual(text_count[1], text_count[0], delta=0.05 * text_count[0])
+            (self.work / name / "glyph-pixels.json").write_text(json.dumps(text_count) + "\n")
 
     def test_authored_consumers_preserve_the_original_single_sample_output(self):
-        for name in ("suffix", "current-color", "named", "history"):
+        for name in ("color-blend", "current-color", "named", "history"):
             with self.subTest(case=name):
                 baseline, experiment, _ = self.comparison(name)
                 self.assertEqual(baseline[0].tobytes(), experiment[0].tobytes())
                 for _, rows in (baseline, experiment):
                     openings = [row for row in rows if row["kind"] == "main-raster-open"]
                     self.assertTrue(openings and all(row["details"]["sampleCount"] == "1" for row in openings))
-                    if name == "suffix":
-                        self.assertEqual(len(openings), 2, openings)
-                        self.assertTrue(any(row["kind"] == "ordinary" and row.get("layerID") == 30 for row in rows))
+                    if name == "color-blend":
+                        blend, = [row for row in rows if row["kind"] == "color-blend-background"
+                                  and row.get("layerID") == ALPHA_LAYER and row["outcome"] == "draw-encoded"]
+                        token = openings[0]["target"]["textureToken"]
+                        self.assertEqual(blend["target"]["textureToken"], token)
+                        if blend.get("access") == "color-attachment-read":
+                            self.assertEqual(blend["source"]["textureToken"], token)
+                        else:
+                            self.assertTrue(any(row["kind"] == "background-copy"
+                                and row.get("layerID") == ALPHA_LAYER and row["outcome"] == "encoded"
+                                and row["source"]["textureToken"] == token
+                                and row["target"]["textureToken"] == blend["source"]["textureToken"] for row in rows))
                     elif name == "current-color":
                         token = openings[0]["target"]["textureToken"]
                         self.assertTrue(any(row.get("layerID") == 87

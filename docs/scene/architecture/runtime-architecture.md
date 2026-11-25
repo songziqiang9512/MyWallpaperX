@@ -156,11 +156,11 @@ App 以 10–120 整数保存动画帧率，Scene 启动和热更新沿原数值
 <a id="raster-sample-domain"></a>
 ### 光栅采样域与单一可读输出
 
-兼容缺省为 1×。「MSAA ×2」随原 Scene 冷准备接纳。静态模型资源只为实际材质 blend 准备匹配的 PSO，共用原 shader、采样和深度状态。确定支持后，每个 Surface 按当前像素尺寸与格式持有一组 memoryless 颜色与反向深度。配对失败时当前规格沿原 1×，调整大小或重新准备可产生新规格。 [设置入口](../../development/wallpaper-quality-work-card.md#scene-aa-rollout)
+兼容缺省为 1×。「MSAA ×2」随原 Scene 冷准备接纳。静态模型只为实际材质 blend 准备匹配的 PSO。含模型与候选普通颜色层的素材额外准备一个同样本数 source-over Quad PSO，复用原 shader、采样和无深度写入状态。确定支持后，每个 Surface 按当前像素尺寸与格式持有一组 memoryless 颜色与反向深度。配对失败时当前规格沿原 1×，调整大小或重新准备可产生新规格。 [设置入口](../../development/wallpaper-quality-work-card.md#scene-aa-rollout)
 
-主合成编码前沿已有实际素材及可见性，选择只包含清屏根域模型的连续采样段。含原加法模型时须有同样本数 PSO。组域、具名供货、帧中读取颜色、可读相机深度、累积或同帧需要暂离主域的消费者使用 1×。2× 在同一 `SceneMainPassEncoder` 清色、清反向深度为 0，省原私有相机深度图，结束时丢弃逐样本深度，一次 resolve 进入原输出。Bloom、EDR、发布、截图和 GPU 完成沿原消费者。现役作者热开效果时在首 draw 前依据实际准入切回 1×，关闭效果可恢复。
+主合成编码前沿已有实际素材及可见性，选择含模型的连续清屏根域。普通图像、纯色和文字仅在可由同采样 Quad 直接 source-over 时参与，保原作者顺序。含原加法模型时须有同样本数 PSO。组域、具名供货、帧中读取颜色、可读相机深度、累积或需交错执行的消费者使用 1×。聚光取实际准入的光锥计划。2× 在同一 `SceneMainPassEncoder` 清色、清反向深度为 0，省原私有相机深度图，结束时丢弃逐样本深度，一次 resolve 进入原输出。Bloom、EDR、发布、截图和 GPU 完成沿原消费者。现役作者热开效果时在首 draw 前依据实际准入切回 1×，关闭效果可恢复。
 
-光空间阴影、VolumeOccluder 独立深度及具名离屏各守原附件。未来需要跨读取延续多采样的域保原逐样本色深和作者顺序。非线性 attachment-read 需匹配其真实逐样本语义。 [原成本与像素对照](../capabilities/model-runtime-evidence.md#model-raster-coverage)
+光空间阴影、VolumeOccluder 独立深度及具名离屏各守原附件。未来需要跨读取延续多采样的域保原逐样本色深和作者顺序。非线性 attachment-read 需匹配其真实逐样本语义。 [原成本与像素对照](../capabilities/model-runtime-evidence.md#model-raster-coverage) · [混合域验收](../../development/wallpaper-quality-work-card.md#scene-aa-mixed-main)
 
 原必需资源顺序和最小失败半径必须保留。可选采样不能先占账号使graph/source/snapshot或原1×深度失败；也不能仅记需求就当成真实容量、常规先造1×再重造2×、清暖缓存后每帧重建，或改账面lease却仍持物理纹理。已有在途/发布资源不回收，未编码可选资源沿原owner真实退账；不得为此无限扩张回收/重试协调层。域确定后不换采样数，无法取得原必需资源仍沿原局部失败/延期。
 

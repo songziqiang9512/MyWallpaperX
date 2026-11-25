@@ -86,12 +86,19 @@ final class ScenePreparedDeviceResourcesTask {
             let prepared = Result {
                 defer { preparedStaticModels.removeAll() }
                 try checkCancellation()
+                let preparesMixedMultisampling = rasterSampleCount > 1
+                    && descriptor.layers.contains { $0.contentKind == "model" }
+                    && descriptor.layers.contains {
+                        $0.contentKind == "image" || $0.contentKind == "solid" || $0.contentKind == "text"
+                    }
+                let imageRasterSampleCount = preparesMixedMultisampling ? rasterSampleCount : 1
                 guard let imageLayerPipeline = SceneImageLayerPipeline(
                     device: device,
                     pixelFormat: descriptor.colorTargetFormat.metalPixelFormat,
                     preparesDepth: descriptor.requiresImageDepthAttachment,
                     preparesAdditive: descriptor.requiresImageAdditiveRGB,
-                    preparesNormalDepth: descriptor.requiresImageNormalDepth
+                    preparesNormalDepth: descriptor.requiresImageNormalDepth,
+                    rasterSampleCount: imageRasterSampleCount
                 ) else {
                     throw SceneDesktopWallpaperHostLaunchError
                         .requiredImagePipelineUnavailable

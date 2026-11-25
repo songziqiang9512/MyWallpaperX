@@ -335,7 +335,9 @@ enum SceneLayerColorBlendRenderer {
             } else if terminalDepth != nil {
                 guard pipeline.bindReadOnlyDepth(encoder: encoder) else { return false }
             } else {
-                pipeline.bind(encoder: encoder)
+                guard pipeline.bind(encoder: encoder, rasterSampleCount: mainPass.rasterSampleCount) else {
+                    return false
+                }
             }
             pipeline.drawLayer(
                 texture: texture,

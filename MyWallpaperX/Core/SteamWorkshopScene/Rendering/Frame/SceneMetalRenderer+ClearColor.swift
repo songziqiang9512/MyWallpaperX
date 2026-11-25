@@ -9,7 +9,7 @@ extension SceneMetalRenderer {
             let format: MTLPixelFormat
         }
 
-        private let sampleCount: Int
+        let sampleCount: Int
         private var currentTarget: Target?
         private var current: SceneMainPassEncoder.MultisampleAttachments?
 
@@ -41,21 +41,23 @@ extension SceneMetalRenderer {
         }
     }
 
-    func modelLayersAllowMultisampling(_ orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>) -> Bool {
-        var drawsModels = false
+    func mainLayersAllowMultisampling(
+        _ orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>,
+        allowsOrdinaryLayer: (SceneRenderDescriptor.Layer) -> Bool
+    ) -> Bool {
         for layer in orderedLayers where visible.contains(layer.id) {
             switch layer.contentKind {
-            case "model":
-                drawsModels = true
-            case "container", "sound", "pointLight", "directionalLight", "tubeLight", "project", "fullscreen":
+            case "model", "container", "sound", "pointLight", "directionalLight", "tubeLight", "project", "fullscreen":
                 continue
-            case "spotLight" where spotLightRuntime == nil || layer.spotLight?.castsVolumetrics != true:
+            case "image", "solid", "text":
+                guard allowsOrdinaryLayer(layer) else { return false }
+            case "spotLight" where spotLightRuntime?.plansByLayerID[layer.id] == nil:
                 continue
             default:
                 return false
             }
         }
-        return drawsModels
+        return true
     }
 
     /// One submission's optional environment and the mandatory scratch it may

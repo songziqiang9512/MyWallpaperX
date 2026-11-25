@@ -46,6 +46,7 @@ struct SceneLayerFragmentUniforms {
 struct SceneImageLayerPipeline {
     let pixelFormat: MTLPixelFormat
     let state: MTLRenderPipelineState
+    private let multisampleState: (sampleCount: Int, pipeline: MTLRenderPipelineState)?
     private enum DepthMode: Hashable {
         case readOnly, readWrite, writeOnly
     }
@@ -54,6 +55,7 @@ struct SceneImageLayerPipeline {
     private let normalDepthMaterialState: MTLRenderPipelineState?
     private let disabledDepthStencilState: MTLDepthStencilState
     private let supportsTranslucentMaterialState: Bool
+    var multisampleRasterSampleCount: Int { multisampleState?.sampleCount ?? 1 }
     var supportsReadOnlyDepth: Bool {
         depthBindings[.readOnly] != nil
     }
@@ -77,7 +79,8 @@ struct SceneImageLayerPipeline {
         library injectedLibrary: MTLLibrary? = nil,
         preparesDepth: Bool = false,
         preparesAdditive: Bool = false,
-        preparesNormalDepth: Bool = false
+        preparesNormalDepth: Bool = false,
+        rasterSampleCount: Int = 1
     ) {
         guard let library = injectedLibrary ?? device.makeDefaultLibrary(),
               let vertFn = library.makeFunction(name: "sceneImageLayerVert") else { return nil }
@@ -113,6 +116,17 @@ struct SceneImageLayerPipeline {
         disabledDepthStencilState = disabledDepthState
         self.pixelFormat = pixelFormat
         supportsTranslucentMaterialState = blendMode == .sourceOver
+        if rasterSampleCount > 1, blendMode == .sourceOver,
+           device.supportsTextureSampleCount(rasterSampleCount) {
+            descriptor.rasterSampleCount = rasterSampleCount
+            descriptor.depthAttachmentPixelFormat = .depth32Float
+            multisampleState = (try? device.makeRenderPipelineState(descriptor: descriptor))
+                .map { (rasterSampleCount, $0) }
+            descriptor.rasterSampleCount = 1
+            descriptor.depthAttachmentPixelFormat = .invalid
+        } else {
+            multisampleState = nil
+        }
         if preparesAdditive && blendMode == .sourceOver {
             // This uses the ordinary fragment: straight input is associated
             // once, while an already-associated graph output stays unchanged.
@@ -185,13 +199,26 @@ struct SceneImageLayerPipeline {
         return state.depthWrite == .enabled ? .writeOnly : nil
     }
 
-    // Sets pipeline state + vertex quad buffer once per encoder. Call drawLayer
-    // per layer after binding.
     func bind(encoder: MTLRenderCommandEncoder) {
+        bind(state, encoder: encoder)
+    }
+
+    func bind(encoder: MTLRenderCommandEncoder, rasterSampleCount: Int) -> Bool {
+        if rasterSampleCount == 1 {
+            bind(encoder: encoder)
+        } else {
+            guard let multisampleState,
+                  multisampleState.sampleCount == rasterSampleCount else { return false }
+            bind(multisampleState.pipeline, encoder: encoder)
+        }
+        return true
+    }
+
+    private func bind(_ pipelineState: MTLRenderPipelineState, encoder: MTLRenderCommandEncoder) {
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
 #endif
-        encoder.setRenderPipelineState(state)
+        encoder.setRenderPipelineState(pipelineState)
         encoder.setDepthStencilState(disabledDepthStencilState)
         encoder.setFrontFacing(.counterClockwise)
         encoder.setCullMode(.none)
@@ -207,14 +234,7 @@ struct SceneImageLayerPipeline {
         guard supports(renderState) else { return false }
         if renderState.supportsImageAdditiveRGB {
             guard let additiveMaterialState else { return false }
-#if DEBUG
-            ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
-#endif
-            encoder.setRenderPipelineState(additiveMaterialState)
-            encoder.setDepthStencilState(disabledDepthStencilState)
-            encoder.setFrontFacing(.counterClockwise)
-            encoder.setCullMode(.none)
-            Self.bindQuad(encoder: encoder)
+            bind(additiveMaterialState, encoder: encoder)
             return true
         }
         let cullMode: MTLCullMode = renderState.cullMode == .normal ? .back : .none

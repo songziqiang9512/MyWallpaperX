@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 54,
-      "bytes": 12909
+      "bytes": 13051
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 315,
-      "bytes": 73409
+      "bytes": 73451
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 207,
-      "bytes": 41005
+      "lines": 218,
+      "bytes": 43126
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -94,7 +94,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 278,
-      "bytes": 53809
+      "bytes": 54123
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,29 +369,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "2d261718ec08847a70e2f63198aaa7664a0baf12e781dc430487ac530f735877",
-      "after": "1cb9cdf19069a2dcc0ffa45a871ee7e4d5174d9d7a05343db605c0297edece5e",
-      "owner": "Scene runtime / Metal",
-      "reason": "约定唯一主域、冷准备、实际消费者以及 1× 回退。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-aa-rollout"
+      "before": "1cb9cdf19069a2dcc0ffa45a871ee7e4d5174d9d7a05343db605c0297edece5e",
+      "after": "28ec67d178800799285aa3440de0eab6c7d74463949f52481de4cfc517347507",
+      "owner": "Scene 运行时",
+      "reason": "同步普通色层和模型共用原采样域合同",
+      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "37a56996b9605ec539bc379bb355b9a0b281b4ac081e3763be64910dafdb31d5",
-      "after": "27f5045cf19c10fb5969fc72786eb9a6972ae7a13711a6bca16180074e5a5af1",
-      "owner": "Scene lighting / GPU",
-      "reason": "保存两点求积的实测退出条件和候选工作。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#点光求积阶数的测量结论"
+      "before": "27f5045cf19c10fb5969fc72786eb9a6972ae7a13711a6bca16180074e5a5af1",
+      "after": "f9398921592a6d87834c3956d277b714e3600571a98c7d4179c04726366c7cd5",
+      "owner": "壁纸质量工作卡",
+      "reason": "记录混合主域真实签名验收和回退边界",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-aa-mixed-main"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "ec4fd806b619e54e93bf0283a771b51dc349a14b916c4da3013b9b3e56f2d52b",
-      "after": "821bce7ced1a50404b2231f6fdb2469152a5c90875fe82c2101a4b08f1241a9c",
-      "owner": "Repository navigation",
-      "reason": "路由新的实际采样设置到 MainPass。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-aa-rollout"
+      "before": "821bce7ced1a50404b2231f6fdb2469152a5c90875fe82c2101a4b08f1241a9c",
+      "after": "5ee405b5fe86b3e7dc477a83f06ef1a732efc67348216dc1860a77dcda88d77f",
+      "owner": "源码地图",
+      "reason": "登记普通图像、纯色与文字的同采样 PSO owner",
+      "decision": "docs/architecture/repository-map.md#wallpaper-quality"
     },
     {
       "section": "bodies",
@@ -680,6 +680,15 @@
       "owner": "repository governance",
       "reason": "Use the current test collection paths and repair the navigation after the script move.",
       "decision": "docs/development/repository-workflow.md#并行与验证"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-settings-plan.md",
+      "before": "89b781d9726271f73fd22083ccac13ed9c4ffac2ac18a43ee7f213f6d60df034",
+      "after": "6fe69e73c8069c88dfe02efbddbe6cabdc9cdf1533cfe847a9d30346000485c3",
+      "owner": "壁纸质量设计",
+      "reason": "校准实际 MSAA 请求范围与后续设备资格",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa"
     }
   ]
 }

@@ -74,6 +74,7 @@ struct SceneRenderDescriptor {
     var colorTargetFormat = TestColorFormat()
     var requiresImageDepthAttachment = false
     var requiresImageAdditiveRGB = false
+    var requiresImageNormalDepth = false
     var preparedImageMaterialStatesByModelPath: [String: SceneMaterialRenderState]? = nil
 }
 // Material-value compilation has its own production-source gate. This owner
@@ -338,7 +339,8 @@ enum SceneDesktopWallpaperHostLaunchError: Error { case requiredImagePipelineUna
 final class SceneImageLayerPipeline {
     static var reject = false
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat,
-          preparesDepth: Bool = false, preparesAdditive: Bool = false) {
+          preparesDepth: Bool = false, preparesAdditive: Bool = false,
+          preparesNormalDepth: Bool = false, rasterSampleCount: Int = 1) {
         if Self.reject { return nil }
     }
 }

@@ -429,7 +429,13 @@ extension SceneMetalRenderer {
            resolvedMaterialFrameTargetPlans.isEmpty,
            preparationSchedule.prepassProviderLayerIDs.isEmpty,
            preparationSchedule.providersBeforeLayerID.isEmpty,
-           modelLayersAllowMultisampling(orderedLayers, visible: frameVisibleLayerIDs),
+           mainLayersAllowMultisampling(orderedLayers, visible: frameVisibleLayerIDs, allowsOrdinaryLayer: {
+               [supportsOrdinary = imagePipeline?.multisampleRasterSampleCount == multisampleTargets.sampleCount] layer in
+               supportsOrdinary && layer.utilityLayer == nil && (layer.colorBlendMode ?? 0) == 0
+                   && imageTextures.geometryProducts[layer.id] == nil
+                   && modelFrame.imageMaterialStates[layer.id] == nil
+                   && baseMaterialProviderBindings.lightingProfile(for: layer)?.surfaceEnabled != true
+           }),
            !requiresImageReflection(),
            let draws = modelFrame.prepared ?? shadowCandidates ?? shadowDrawCandidates(
                orderedLayers: orderedLayers, visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames,
