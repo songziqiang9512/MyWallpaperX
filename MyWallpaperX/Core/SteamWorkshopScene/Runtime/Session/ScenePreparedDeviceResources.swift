@@ -207,7 +207,7 @@ final class ScenePreparedBaseImageResources {
                 ($0.relativePath, $0)
             })
             var imageRequests: [Int: (url: SceneResourceView.FileInput, source: SceneTextureLoader.SourceKey,
-                direct: SceneTextureLoader.PreparedDirectImageSource?)] = [:]
+                direct: SceneTextureLoader.PreparedDirectImageSource?, videoPayload: Bool)] = [:]
             var videoModelPaths: Set<String> = []
             var geometry: [Int: [Float]] = [:]
             for layer in descriptor.layers where layer.isImageRenderable {
@@ -220,10 +220,12 @@ final class ScenePreparedBaseImageResources {
                 let direct = try textureLoader.prepareDirectImageSource(from: url, checkCancellation: cancellationCheck)
                 guard let source = preparedTex?.source ?? direct?.source else { continue }
                 let container = preparedTex?.container
-                if container?.isVideoMp4 == true, layer.contentKind == "image",
-                   let modelPath = layer.imagePath,
-                   url == resolver.resolvePrimaryTexture(modelPath: modelPath) {
-                    videoModelPaths.insert(modelPath)
+                let isVideo = container?.isVideoMp4 == true
+                let videoModelPath = isVideo && layer.contentKind == "image" ? layer.imagePath.flatMap {
+                    url == resolver.resolvePrimaryTexture(modelPath: $0) ? $0 : nil
+                } : nil
+                if let videoModelPath {
+                    videoModelPaths.insert(videoModelPath)
                 }
                 guard SceneBaseImageTextureLoad.specializedLoadReason(
                     url: url,
@@ -237,7 +239,7 @@ final class ScenePreparedBaseImageResources {
                 } ?? container.map { CGSize(width: $0.imageWidth, height: $0.imageHeight) }
                 let naturalSizeWH = naturalSize.map { [Float($0.width), Float($0.height)] }
                 entries[layer.id] = .init(input: url, source: source, outcome: nil, naturalSizeWH: naturalSizeWH)
-                if layer.contentKind == "image", layer.puppetMeshPath == nil, container?.isVideoMp4 != true,
+                if layer.contentKind == "image", layer.puppetMeshPath == nil, !isVideo,
                    let model = layer.imagePath.flatMap({ models[$0] }) {
                     if model.autosize == true, let naturalSizeWH,
                        naturalSizeWH.allSatisfy({ $0.isFinite && $0 > 0 }) {
@@ -272,7 +274,9 @@ final class ScenePreparedBaseImageResources {
                     )
                     continue
                 }
-                imageRequests[layer.id] = (url, source, direct?.admitForPreparation() == true ? direct : nil)
+                let videoPayload = videoModelPath != nil && layer.puppetMeshPath == nil
+                    && container?.format == 0 && container?.isVolume == false
+                imageRequests[layer.id] = (url, source, direct?.admitForPreparation() == true ? direct : nil, videoPayload)
             }
             try cancellationCheck()
             geometryPrepared(geometry)
@@ -309,6 +313,13 @@ final class ScenePreparedBaseImageResources {
             func loadInitialImage(_ layer: SceneRenderDescriptor.Layer, mipSelection: SceneOrdinaryImageMipSelection? = nil) throws {
                 guard let request = imageRequests.removeValue(forKey: layer.id) else { return }
                 try cancellationCheck()
+                if request.videoPayload {
+                    // Preserve the ordinary revision boundary without reparsing a non-uploadable payload.
+                    if let source = try textureLoader.sourceKey(for: request.url, checkCancellation: cancellationCheck),
+                       source != request.source { throw SceneResourceView.ReadError.sourceChanged }
+                    failedCount += 1
+                    return
+                }
                 let outcome = SceneBaseImageTextureLoad.load(
                     from: request.url,
                     usesPuppet: layer.puppetMeshPath != nil,

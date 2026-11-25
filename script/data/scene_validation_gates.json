@@ -577,7 +577,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchModels.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift",
         "script/tests/scene/test_scene_prepared_base_image_resources.py",
-        "script/tests/fixtures/ScenePreparedBaseImageResourcesHarness.swift"
+        "script/tests/fixtures/ScenePreparedBaseImageResourcesHarness.swift",
+        "script/tests/fixtures/ScenePreparedBaseImageTextureBoundaries.swift"
       ],
       "modules": [
         "test_scene_detail_diagnostics_on_demand",
@@ -4537,7 +4538,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift",
         "script/tests/scene/test_scene_static_image_autosize.py",
         "script/tests/scene/test_scene_prepared_base_image_resources.py",
-        "script/tests/fixtures/ScenePreparedBaseImageResourcesHarness.swift"
+        "script/tests/fixtures/ScenePreparedBaseImageResourcesHarness.swift",
+        "script/tests/fixtures/ScenePreparedBaseImageTextureBoundaries.swift"
       ],
       "modules": [
         "test_scene_static_image_autosize",

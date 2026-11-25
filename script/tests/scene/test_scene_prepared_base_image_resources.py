@@ -28,6 +28,7 @@ BUILTIN = SCENE / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift"
 RENDER_STATE = SCENE / "Runtime/Frame/SceneMaterialRenderState.swift"
 RENDER_STATE_COMPILATION = SCENE / "Compilation/Material/SceneMaterialRenderState+Compilation.swift"
 FIXTURE = (Path(__file__).resolve().parents[1] / "fixtures") / "ScenePreparedBaseImageResourcesHarness.swift"
+TEXTURE_BOUNDARIES = FIXTURE.with_name("ScenePreparedBaseImageTextureBoundaries.swift")
 PARTICLE_INPUTS = FIXTURE.with_name("ScenePreparedBaseImageParticleInputsChecks.swift")
 
 
@@ -60,7 +61,8 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
              str(SCENE / "Format/SceneJSONValue.swift"),
              str(SCENE / "Resources/Assets/SceneModelResourceIdentity.swift"),
              str(SCENE / "Compilation/Material/ScenePreparedImageMaterialCatalog.swift"),
-             str(FIXTURE), str(PARTICLE_INPUTS), str(SCENE / "../PlaybackControl/PlaybackPerformanceProfile.swift"), "-framework", "Metal", "-module-cache-path",
+             str(FIXTURE), str(TEXTURE_BOUNDARIES), str(PARTICLE_INPUTS),
+             str(SCENE / "../PlaybackControl/PlaybackPerformanceProfile.swift"), "-framework", "Metal", "-module-cache-path",
              str(workspace / "modules"), "-o", str(binary)],
             capture_output=True, text=True, timeout=120,
         )
@@ -180,6 +182,7 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
                 case = self.facts[name]
                 self.assertEqual(case["loads"], 0)
                 self.assertFalse(case["hasOutcome"])
+                self.assertEqual(case["failedCount"], 0 if name == "videoExplicit" else 1)
                 self.assertEqual(case["dynamicCount"], 1)
                 self.assertTrue(case["videoProduct"])
                 self.assertTrue(case["videoSourceMatchesModel"])
@@ -194,11 +197,14 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
         self.assertEqual(overridden["videoPreparations"], 0)
         for name in ("videoOverrideKeepsUnusedStaticDefaultCold", "videoOverrideKeepsUnusedVideoDefaultCold"):
             with self.subTest(unused_default=name):
-                self.assertEqual(self.facts[name]["loads"], 0)
-                self.assertEqual(self.facts[name]["dynamicCount"], 0)
-                self.assertEqual(self.facts[name]["videoPreparations"], 0)
+                case = self.facts[name]
+                self.assertEqual(case["loads"], 1)
+                self.assertEqual(case["failedCount"], 1)
+                self.assertEqual(case["dynamicCount"], 0)
+                self.assertEqual(case["videoPreparations"], 0)
         peer = self.facts["videoOverrideWithCanonicalPeer"]
         self.assertEqual(peer["loads"], 1)
+        self.assertEqual(peer["failedCount"], 1)
         self.assertTrue(peer["videoProduct"])
         self.assertTrue(peer["videoSourceMatchesModel"])
         self.assertEqual(peer["videoPayload"], "video.tex")
@@ -206,10 +212,22 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
         self.assertEqual(webm["loads"], 0)
         self.assertEqual(webm["dynamicCount"], 0)
         self.assertEqual(webm["videoPreparations"], 0)
+        deferred = self.facts["videoDeferred"]
+        self.assertTrue(deferred["pending"])
+        self.assertEqual(deferred["failedCount"], 0)
+        self.assertEqual(deferred["loads"], 0)
+        self.assertEqual(deferred["videoPreparations"], 1)
+
+    def test_mp4_replaced_after_geometry_cannot_prepare_media_for_the_old_revision(self) -> None:
+        case = self.facts["videoRevisionChanged"]
+        self.assertTrue(case["replacedAtGeometry"])
+        self.assertTrue(case["sourceChanged"])
+        self.assertEqual(case["videoPreparations"], 0)
 
     def test_models_with_the_same_video_source_share_one_prepared_file(self) -> None:
         case = self.facts["videoSharedModels"]
         self.assertEqual(case["loads"], 0)
+        self.assertEqual(case["failedCount"], 2)
         self.assertEqual(case["dynamicCount"], 2)
         self.assertEqual(case["videoProducts"], 2)
         self.assertEqual(case["videoPreparations"], 1)
@@ -228,18 +246,18 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
         repeated = self.facts["videoRepeatedFailure"]
         self.assertEqual(repeated["videoPreparations"], 1)
         self.assertEqual(repeated["dynamicCount"], 0)
-        self.assertEqual(repeated["failedCount"], 2)
+        self.assertEqual(repeated["failedCount"], 4)
         failed = self.facts["videoWriteFailure"]
         self.assertEqual(failed["loads"], 0)
         self.assertEqual(failed["dynamicCount"], 0)
-        self.assertEqual(failed["failedCount"], 1)
+        self.assertEqual(failed["failedCount"], 2)
         self.assertEqual(failed["videoPreparations"], 1)
         peer = self.facts["videoFailedPeer"]
         self.assertEqual(peer["loads"], 0)
         self.assertEqual(peer["dynamicCount"], 1)
         self.assertEqual(peer["videoProducts"], 1)
         self.assertEqual(peer["videoPreparations"], 2)
-        self.assertEqual(peer["failedCount"], 1)
+        self.assertEqual(peer["failedCount"], 3)
         for key in ("healthyPeer", "failedPeerAbsent", "leasesReleased"):
             self.assertTrue(peer[key], key)
         cancelled = self.facts["videoCancelled"]

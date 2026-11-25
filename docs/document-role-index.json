@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "eb17a43780a554ac14ec2817e362e966daf40171d93f57279a751416f7a5e1bc",
+        "sourceSHA256": "1c737181363ffa31762b6f7f0445a6225d987b3514e26da892f744a118cd95b5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "质量选择和生效路由，模型阴影准备和每帧消费者",
-        "limitations": "导航与源码是真的，完整运行结果由专项收据记录"
+        "scope": "核对 Scene 纹理档位与内嵌视频来源的入口",
+        "limitations": "入口指向各自职责说明，运行证据见质量工作卡。"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "604be950b530c68cb014bb09c229ef15a09140ea9527063c54d0b3f6b65a20fc",
+        "sourceSHA256": "2fa0daa8ff85059629709b426b2ce30f4320ff4f17a4f041796f0ad5332ea7cb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "质量专项执行顺序、四部签名原作者与实际阴影启动试验、缺失片元负例",
-        "limitations": "PSO 实际调用少三次；未量毫秒或整机功耗，阳性动画相位不同"
+        "scope": "记录真实作者、用实像素核对的静态对照及准备门",
+        "limitations": "已测范围为本机签名 Debug；字节是读取给解析器的载荷。"
       }
     },
     {
@@ -951,7 +951,15 @@
       "path": "docs/scene/capabilities/material-video-assets.md",
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
-      "purpose": "视频与声音运行边界"
+      "purpose": "视频与声音运行边界",
+      "lastReviewed": "2026-11-25",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "9a5b808df1cb4bc1e8ddcaacdddd765fcd0f655eb5440ccc7a1bc81784af9549",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "核对普通 MP4 TEX 退出静态上传的职责与验收入口",
+        "limitations": "既有材质槽、格式和生命周期限制仍在各自合同。"
+      }
     },
     {
       "path": "docs/scene/capabilities/model-runtime-evidence.md",

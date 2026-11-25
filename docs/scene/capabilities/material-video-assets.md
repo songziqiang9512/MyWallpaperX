@@ -7,6 +7,8 @@
 
 视频 layer、material 资产、用户纹理视频和已支持动态实例沿原资源入口准备，Session 的 video registry/source 持有实际播放状态与 AV 生命周期。帧只消费 ready/last-ready texture publication；AVFoundation 可读格式与作者入口资格分别判断，不因文件扩展名宣称 codec 支持。
 
+基础模型图预检已完整识别普通 MP4 TEX 时，几何发布后的原普通请求只核对选定的源版本，随后结算不上传。静态 TEX、条件变体、体积、Puppet 和延迟图片各沿原准备。实际 MP4 仍由 [基础图准备](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift) 的原媒体路径及 Session registry 读取和交付，失败保持原局部回退。 [读取与原作者验收](../../development/wallpaper-quality-work-card.md#scene-video-tex-redundant-load)
+
 Sound 使用独立的 SoundPlaybackProgram/Registry、voice 和局部播放计划。声音播放不拥有视频 clock、Scene 频谱采集或最终视觉输出；随机等待、hidden、暂停与退休分别处理。
 
 素材文件的授权/OwnedFile 与 AV borrower 持续到实际读取结束。stop、释放一个 texture 或 GPU barrier 都不能代替 AV item/asset 借用终态。
