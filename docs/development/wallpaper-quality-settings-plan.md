@@ -175,7 +175,7 @@ M4 单内屏用同一签名产品的真实作品 3477054430 与 3746066933，沿
 
 **实现和生效**先验禁用、定向上限 1024 和现行自适应上限。高图集预约仍整体优先保护必需主附件，分配失败走原局部回退。当前原定向 fit 基于 1024 的保守边界，逐灯分配及高图回退也有 1024 固定值。试 512 时用同一有效 extent 接通投影边界／texel 稳定网格、逐灯与整组回退、实际 atlas viewport 和 receiver 采样，验证不会越过档上限或削掉有效投影。禁用改变实际阴影生产和读取，保直接表面光、相机深度、体积遮挡与作者 `castsShadow` 声明。作者设为投影的点光仍按现有定义排除在无阴影体积积分外。中／高／超高在只有点光／聚光时可等效。 [作者点光资格](../../MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePointLightDefinition.swift)
 
-**实测验收**用固定 world 网格和亚 texel 四相位的原生 Metal 正控，量投影轮廓位移、静态邻点亮度随时间变差、接触间隙、遮挡孔洞和自阴影伪影。动态骨骼、组裁剪、合法屏外 caster、点光六面接缝、聚光锥边界、多灯紧预算、草木 cutout 和原独立实体遮挡为正反例。比较每灯 map 真实物理尺寸、caster draws 和深度 pass、接收者着色成本、纹理计费及连续帧 P95。低档的柔化或边缘跳变须守预定可见容差，关闭时三种可选阴影工作实际归零，且直接光与普通遮挡保持。 [实际投影与覆盖合同](../scene/capabilities/advanced-object-coverage.md#model-directional-shadow-density) · [完整回归与影边成本](../scene/capabilities/model-runtime-evidence.md#model-directional-shadow-filter)
+**实测验收**用固定 world 网格和亚 texel 四相位的原生 Metal 正控，量投影轮廓位移、静态邻点亮度随时间变差、接触间隙、遮挡孔洞和自阴影伪影。动态骨骼、组裁剪、合法屏外 caster、点光六面接缝、聚光锥边界、多灯紧预算、草木 cutout 和原独立实体遮挡为正反例。比较每灯 map 真实物理尺寸、caster draws 和深度 pass、接收者着色成本、纹理计费及连续帧 P95。低档的柔化或边缘跳变须守预定可见容差，关闭时三种可选阴影工作实际归零，且直接光与普通遮挡保持。 [实际投影与覆盖合同](../scene/capabilities/advanced-object-coverage.md#model-directional-shadow-density) · [完整回归与影边成本](../scene/capabilities/model-runtime-evidence.md#model-directional-shadow-filter) · [官版阴影图与滤波](#official-shadow-atlas)
 
 <a id="scene-volume-quality"></a>
 ### 体积照明
@@ -361,6 +361,13 @@ M4 内屏用同一团队签名的现役 Video helper 走真实可见接管。在
 #### 已运行桌面的冷档刷新路径
 
 固定 2.8.0.42 的 `wallpaperui.exe` 把 `applyGeneral` 送为消息 `0xc9`，本机同版 Win32 接收端从 `0x4250b8` 进入 `0x416a50`。比较函数 `0x439b70` 读取 MSAA、纹理分辨率、后处理的新旧值，三项差分共进 `0x43a0b2`。原路径在 `0x416c3c` 调 `0x451630` 清理正在使用的壁纸对象，再由 `0x416c41` 调带 `ApplyRefreshWallpaperConfig` 标记的 `0x416890`，后续读取 `selectedwallpapers`。这条普通桌面的原生自动刷新由编辑时的投递触发，具体时序、首帧、作者时钟和预览窗口继承仍待运行验证。SHA、消息表和三处分支随本机薄收据 `.artifacts/wallpaper-quality-official-cold-refresh` 保留。共享 VM 未操作。
+
+<a id="official-shadow-atlas"></a>
+### 官版阴影图与比较滤波
+
+Win32 2.8.0.42 从 `0x4d9280` 读取 `shadows`，禁用／低／中／高／超高对应 0–4，缺省或不识别值为中。值经应用 `+0x190`、打包配置 `+4` 和渲染字段 `+0x178` 到 `0x548105–0x54817c` 写入 `LIGHTS_SHADOW_MAPPING_QUALITY`。档位尺寸助手 `0x5e16d0` 返回低／中／高／超高 256／256／512／1024。定向路径在 `0x53a60c` 取值，`0x53b0ce` 分派三次级联插入，`0x53cb29–0x53cb39` 将边长填入每一级的宽高。点光在同一个 atlas 内用 2×3 视口组，`0x53c899–0x53c8bc` 分别将该边长除以 2 和 3。整个 atlas 由随后打包决定。本项目使用单张自适应定向图、3×2 点光 atlas 的六个方形面和单张聚光方图，档位尺寸须按各自接收区比较。
+
+随包 `common_pbr_2.h` 第 74–115 行对低档发一次深度比较采样，对其它启用档发九次等权比较。D3D11 atlas 从 `0x53b48d` 传标志，经纹理工厂到 `0x476c50`，在 `0x476d10–0x476d9f` 建比较线性 `0x95`、零边界、`GREATER` sampler。硬件对邻近 texel 的比较结果作滤波。此证据给出固定版本随包代码与原生路径，运行时变体选择、实际可见画面、热切换和 Windows 驱动表现待单项运行核对。本机在低档 512 上用原接收面逐 tap 语义比较。一次 gather 未通过细影与亮孔相位门，现役低档继续采用三 texel 滤波。 [滤波枚举](https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_filter) · [比较采样](https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-to-samplecmp) · [本机计划](wallpaper-quality-work-card.md#scene-shadow-low-filter)
 
 <a id="official-volume-shader"></a>
 #### 官版体积照明的静态边界

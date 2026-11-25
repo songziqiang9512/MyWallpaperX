@@ -355,10 +355,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "90c50462d6c3059a29d1bf74f6cdc684e584f0654190e35e72840419658a392f",
+        "sourceSHA256": "1772e342570890d625512f59b63c567a1f823d4dd9e17dcc852a9114d66ba924",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene 冷档直接提交与官版静态分支",
-        "limitations": "单内屏当前方案，未覆盖外接屏或 Windows 首帧"
+        "scope": "固定版本阴影档位、尺寸与比较 sampler",
+        "limitations": "静态 Windows 路径，M4 实测止损"
       }
     },
     {
@@ -369,10 +369,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e7060fb797eeac524484479cafeaa569610da1a980000c86b0ea4bcbbd0be74e",
+        "sourceSHA256": "7caf49b5879da2f9f4da3c924dac9bbe8035c3998e31dcf2a7cf380162df9fe0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役顺序、自动采纳、同源撤销与真机结果",
-        "limitations": "两作者单屏通过，Windows 时序、外接屏以及长稳功耗仍待证"
+        "scope": "512 定向滤波预登记阈值与 M4 实测退出",
+        "limitations": "绘制比较为原生夹具，未进入作者帧时"
       }
     },
     {

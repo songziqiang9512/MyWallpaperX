@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 383,
-      "bytes": 90563
+      "lines": 390,
+      "bytes": 92375
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 600,
-      "bytes": 129008
+      "lines": 599,
+      "bytes": 130762
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "bb5a9db6c429f7a9a0f087219731d022c0e0f2c8ad88a3987431d133cf9bfb5e",
-      "after": "b089f1216ddbacb60e2e074cbebbdaf132b2038fb221bc208ee961357cc1a063",
-      "owner": "Scene 画质",
-      "reason": "同步冷档直接调节、精确撤销、真实窗口及重试边界",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-cold-auto-adoption"
+      "before": "b089f1216ddbacb60e2e074cbebbdaf132b2038fb221bc208ee961357cc1a063",
+      "after": "5b450a8a434d4d56bb2d3675405ad48181553d597ee25f461ef9f519e4a3f173",
+      "owner": "wallpaper-quality",
+      "reason": "官版阴影 atlas 与比较路径",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-shadow-atlas"
     },
     {
       "section": "bodies",
@@ -698,6 +698,15 @@
       "owner": "Manager 播放事务",
       "reason": "登记精确撤回保提交输出及取消确认合同",
       "decision": "docs/architecture/playback-lifecycle-transaction-design.md#三唯一产品事务"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "9168e35319b008fa8182bd1f7d571540da27634a579558bb24402737b32cbcbd",
+      "after": "2bffcd7c83add4e0bbf36faaf82f855582df2ab6ff53a942b6afb9e4a307668c",
+      "owner": "wallpaper-quality",
+      "reason": "512 定向接收端相位止损与收据",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-shadow-low-filter"
     }
   ]
 }
