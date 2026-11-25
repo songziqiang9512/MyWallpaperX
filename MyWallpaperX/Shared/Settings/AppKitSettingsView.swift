@@ -109,6 +109,7 @@ final class AppKitSettingsContainerView: NSView {
     let sceneReflectionsSwitch = NSSwitch()
     let sceneMediaInfoSwitch = NSSwitch()
     let webFrameRatePopup = NSPopUpButton()
+    let reapplySceneQualityButton = NSButton(title: String(localized: "Reapply Current Scene"), target: nil, action: nil)
     let resetQualityButton = NSButton(title: String(localized: "Restore Default Quality"), target: nil, action: nil)
     private var sceneMediaAuthorizationCheckID = UUID()
     let systemAudioSpectrumSwitch = NSSwitch()

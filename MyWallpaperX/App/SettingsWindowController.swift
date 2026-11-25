@@ -120,6 +120,7 @@ private final class SettingsContentViewController: NSViewController {
         let manager = WallpaperManager.shared
         return AppSettingsActions(
             applyEngineSettings: { manager.applyEngineSettings(reloadWallpaper: $0) },
+            reapplySceneQuality: { manager.reapplySceneQuality() },
             clearAllCaches: {
                 await withCheckedContinuation { continuation in
                     manager.clearAllCaches { continuation.resume() }
@@ -193,6 +194,11 @@ private final class SettingsContentViewController: NSViewController {
         view = rootView
 
         bindSettingsAuthority()
+        let manager = WallpaperManager.shared
+        settingsView.reapplySceneQualityButton.isEnabled = manager.canReapplySceneQuality
+        MyWallpaperXApplication.libraryWorkspace?.playbackChanges
+            .sink { [weak self] in self?.settingsView.reapplySceneQualityButton.isEnabled = manager.canReapplySceneQuality }
+            .store(in: &cancellables)
         WallpaperManager.shared.$settings.map(\.libraryBackgroundStyle).removeDuplicates()
             .sink { [weak rootView] in rootView?.usesListTint = $0 == .listCoverTint }
             .store(in: &cancellables)
@@ -234,6 +240,7 @@ private final class SettingsContentViewController: NSViewController {
     func refresh() {
         settingsView.updateVisibleSections(Set(AppSettingsSection.allCases))
         settingsView.refreshFromState()
+        settingsView.reapplySceneQualityButton.isEnabled = WallpaperManager.shared.canReapplySceneQuality
     }
 
     func updateMainWindowTint(_ tint: NSColor?, animated: Bool) {

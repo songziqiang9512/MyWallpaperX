@@ -132,6 +132,8 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 
 默认播放以完整作者能力为基准；水滴所需的官方后处理超高发光属于当前兼容目标，不等待档位UI。作者General HDR/Bloom开关、各自strength与材质声明继续控制实际贡献，默认不能覆盖关闭或零贡献。材质语义及验收归[HDR发光合同](../capabilities/advanced-object-coverage.md#model-hdr-emissive-gain)，未验证效果仍由开放队列维护，不把目标写成已获官方画面资格。
 
+需冷准备的档由原 Scene 候选读取。设置中的「重新应用当前场景」经 [同源重载](../../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift) 复用已提交库票据的作品和播放快照，沿可见接管和回滚。成功的新会话采用已保存质量并开始新作者时钟，继承最新暂停意图。用户仍在调档时，当前会话只消费已有的热更字段。 [入口与画面验收](../../development/wallpaper-quality-work-card.md#quality-reapply-current-scene)
+
 后处理的「超高」和「超高（显示 HDR）」共用作者工作域、资源、颜色传递函数与终端映射。App 保存选择，Scene daemon 将同一意愿交给活动、候选及以后安装的 Surface；Metal View 只消费显示意愿和当前屏有效 headroom。普通超高始终使用 SDR 范围，显示 HDR 按屏申请 EDR。切换这两档不重建 Program、附件、作者时钟或 raw history。已暂停的活动 Surface 用原冻结帧刷新，候选继续按原接管状态。当前余量若在开启后变化，原屏幕参数通知进入同一 Surface 的暂停输出失效。这条类型化路径接管后退出独立 HDR 偏好通知及跨进程强制同步。 [单内屏暂停热切验收](../../development/wallpaper-quality-work-card.md#scene-paused-display-hdr-live)
 
 <a id="scene-hdr-bloom-reconstruction"></a>

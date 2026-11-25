@@ -445,6 +445,12 @@ extension AppKitSettingsContainerView {
             subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: sceneVolumeLightingPopup))
         qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Reflections"), iconSystemName: "sparkle",
             subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: sceneReflectionsSwitch))
+        configureMaintenanceActionButton(reapplySceneQualityButton)
+        reapplySceneQualityButton.identifier = NSUserInterfaceItemIdentifier("settings.scene.reapply-quality")
+        reapplySceneQualityButton.isEnabled = false
+        reapplySceneQualityButton.target = self
+        reapplySceneQualityButton.action = #selector(reapplySceneQuality)
+        qualitySection.addRow(makeMaintenanceActionRow(button: reapplySceneQualityButton, iconSystemName: "arrow.clockwise"))
         webFrameRatePopup.addItems(withTitles: [
             String(localized: "Match Display (up to 60 FPS)"),
             String(localized: "Follow Animation Frame Rate"),
@@ -567,6 +573,10 @@ extension AppKitSettingsContainerView {
         }
         PlaybackCommandMultiplexer.shared.applyQualityPreference(quality)
         refreshSceneQualityPreset(quality)
+    }
+
+    @objc private func reapplySceneQuality() {
+        dependency.actions.reapplySceneQuality()
     }
 
     @objc private func restoreDefaultQuality() {

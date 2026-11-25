@@ -13,8 +13,8 @@
       "bytes": 8300
     },
     "docs/architecture/repository-map.md": {
-      "lines": 62,
-      "bytes": 16298
+      "lines": 64,
+      "bytes": 16675
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 338,
-      "bytes": 79900
+      "bytes": 79971
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 534,
-      "bytes": 114481
+      "lines": 553,
+      "bytes": 117716
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -93,8 +93,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 288,
-      "bytes": 57552
+      "lines": 290,
+      "bytes": 58094
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,29 +369,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "4c5aa8660c85e03dcd8faa39d0c130f228535d0ecc2663d9457b5ae825c0a6e5",
-      "after": "8607c82ebf7a0e4891695406f5e7ec125b3808ce5372b024324947b262cbd9d3",
-      "owner": "scene-runtime",
-      "reason": "记录同 loader 连续尾链和真实解码失败边界",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-embedded-selected-mip-decode"
+      "before": "8607c82ebf7a0e4891695406f5e7ec125b3808ce5372b024324947b262cbd9d3",
+      "after": "47f3c5e7a930c80211216e925bfad7a290ab8f43dc9e86d5a0053edd4426043f",
+      "owner": "Scene 运行合同",
+      "reason": "同源重载的会话和质量权威",
+      "decision": "docs/development/wallpaper-quality-work-card.md#quality-reapply-current-scene"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "712f2ac3aebc80e1fae2cf9c48f36c839ffa65a633bf5e31215760e42a83ebaa",
-      "after": "d16551653d04417445d5df631826811384ef894ca369baaa6456276cbc38bf3a",
+      "before": "d16551653d04417445d5df631826811384ef894ca369baaa6456276cbc38bf3a",
+      "after": "123e960b3e3afd57192b5387c87972f6649bee3c52ecdef2949bc714f657b7cd",
       "owner": "画质执行路线",
-      "reason": "M4 Video 进程外输入诊断的资格、六窗短试及停止线",
-      "decision": "docs/development/wallpaper-quality-work-card.md#video-power-sensor-feasibility"
+      "reason": "同源冷档重载设计及真实呈现",
+      "decision": "docs/development/wallpaper-quality-work-card.md#quality-reapply-current-scene"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "de1c1400407aa2b94fa50c6b707c21cb2c73264386da32087d202d1ca6381a15",
-      "after": "a4e5028e5d50ac017fa81d7f9d0e44290e8f2f431a9218a2090d221f508340fd",
+      "before": "a4e5028e5d50ac017fa81d7f9d0e44290e8f2f431a9218a2090d221f508340fd",
+      "after": "4e81fe13b53a1a3f3ce0a93e669e766b775d4366cc43f0313d19646c3d88d38c",
       "owner": "仓库源码地图",
-      "reason": "标记 Videos 会话及播放快照入口",
-      "decision": "docs/development/wallpaper-quality-work-card.md#quality-import-video-sort"
+      "reason": "标记原生入口与原同源重载 owner",
+      "decision": "docs/development/wallpaper-quality-work-card.md#quality-reapply-current-scene"
     },
     {
       "section": "bodies",
@@ -684,11 +684,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "5c9aac85a5accb2814a435839da61bd5de5b2bc41fa8af0c5c1f431e3376ee35",
-      "after": "fbd81ed6a35edce77c019cfc1143e8bfd149b456597d740c61056015067b2539",
+      "before": "fbd81ed6a35edce77c019cfc1143e8bfd149b456597d740c61056015067b2539",
+      "after": "f2a83949ff59299e5f9e9909901335e0a215851c18249133d18244d39abd3c72",
       "owner": "三引擎画质评估",
-      "reason": "便携导入的活动播放合同",
-      "decision": "docs/development/wallpaper-quality-work-card.md#quality-import-video-sort"
+      "reason": "当前场景重载入口及生效读数",
+      "decision": "docs/development/wallpaper-quality-work-card.md#quality-reapply-current-scene"
     }
   ]
 }

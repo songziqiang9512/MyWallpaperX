@@ -166,6 +166,28 @@ typealias Sequence = WallpaperPlaybackSequence
             && detached.proposeAdvance(mode: .sequential, chooseIndex: { _ in 0 })?.entry == c
         detached.updateSource(try snapshot([a, b, entry("c", playable: false), d], 3), reason: .availability)
         checks["detachedSnapshotStillReceivesResourceAvailability"] = detached.committed?.snapshot.entries.first(where: { $0.reference == c.reference })?.isPlayable == false
+        var reloadedDetached = start(b)
+        reloadedDetached.updateSource(try snapshot([], 2), reason: .sourceDeleted)
+        let reload = reloadedDetached.proposeSelection(b.reference, from: all, cause: .settingsReload)!
+        let reloadTicket = ticket(.video)
+        reloadedDetached.stage(reload, ticket: reloadTicket)
+        reloadedDetached.updateSource(try snapshot([b, d], 3), reason: .explicitMembers)
+        let reloadCommit = reloadedDetached.commit(reloadTicket)
+        checks["settingsReloadKeepsDeletedSourceDetachedAndRetainsItsEntries"] = reloadCommit?.shouldRecordRecent == false
+            && reloadedDetached.committed?.isDetached == true && reloadedDetached.committed?.snapshot.entries == all.entries
+        var reloadedRemoved = start(b)
+        let remaining = try snapshot([a, c, d], 2)
+        reloadedRemoved.updateSource(remaining, reason: .explicitMembers)
+        let removedReload = reloadedRemoved.proposeSelection(b.reference, from: all, cause: .settingsReload)
+        let removedTicket = ticket(.video)
+        if let removedReload { reloadedRemoved.stage(removedReload, ticket: removedTicket) }
+        let removedCommit = reloadedRemoved.commit(removedTicket)
+        var previousAfterReload = reloadedRemoved
+        checks["settingsReloadRetainsRemovedCurrentSourceAndNavigationBoundary"] =
+            removedReload?.entry.reference == b.reference && removedCommit?.shouldRecordRecent == false
+            && reloadedRemoved.committed?.snapshot == remaining
+            && reloadedRemoved.proposeAdvance(.next, mode: .sequential, chooseIndex: { _ in 0 })?.entry == c
+            && previousAfterReload.proposeAdvance(.previous, mode: .sequential, chooseIndex: { _ in 0 })?.entry == a
         var recent = start(b, from: try snapshot([a, b, c], source: .page(.recent)))
         recent.updateSource(try snapshot([b, a, c], 2, source: .page(.recent)), reason: .recentSuccessReorder)
         checks["recentSuccessfulMoveToFrontDoesNotReorderActiveSnapshot"] = recent.proposeAdvance(mode: .sequential, chooseIndex: { _ in 0 })?.entry == c

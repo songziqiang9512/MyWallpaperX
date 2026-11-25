@@ -72,7 +72,8 @@ enum DebugPlaybackCoexistenceRunner {
     private static func run(sceneID: String?, webID: String?, phase: String?, directory: URL,
                             result: inout [String: Any]) async throws {
         guard let sceneID, let webID, let workspace = MyWallpaperXApplication.libraryWorkspace,
-              phase == "switch" || phase == "restore" || phase == "quality-import" else { throw Failure("invalid phase or product library unavailable") }
+              phase == "switch" || phase == "restore" || phase == "quality-import" || phase == "scene-reapply"
+        else { throw Failure("invalid phase or product library unavailable") }
         let manager = WallpaperManager.shared
         let mux = PlaybackCommandMultiplexer.shared
         let scene = WallpaperReference(provider: .steamWorkshop, sourceID: sceneID)
@@ -116,10 +117,15 @@ enum DebugPlaybackCoexistenceRunner {
         let video = try await wait("real bundled video index") {
             manager.wallpapers.first { URL(fileURLWithPath: $0.path).standardizedFileURL == videoURL.standardizedFileURL }
         }
+        let videoReference = WallpaperReference(provider: .videoLibrary, sourceID: video.id)
+        if phase == "scene-reapply" {
+            result["sceneReapply"] = try await reapplySceneQuality(scene, web: web, video: videoReference,
+                workspace: workspace, directory: directory)
+            return
+        }
         let importsQuality = phase == "quality-import"
         let references: [(String, WallpaperReference, WallpaperRuntimeKind)] = [
-            ("scene-in", scene, .scene), ("web", web, .web),
-            ("video", .init(provider: .videoLibrary, sourceID: video.id), .video), ("scene-back", scene, .scene)
+            ("scene-in", scene, .scene), ("web", web, .web), ("video", videoReference, .video), ("scene-back", scene, .scene)
         ]
         var previous: Receipt?
         var rows: [[String: Any]] = []
@@ -172,6 +178,91 @@ enum DebugPlaybackCoexistenceRunner {
         guard PlaybackQualityPreference.current == preference, mux.isUserPaused,
               SceneQualityPreset.matching(preference) == nil else { throw Failure("custom quality or pause not retained") }
         result["savedPaused"] = true
+    }
+
+    private static func reapplySceneQuality(_ scene: WallpaperReference, web: WallpaperReference,
+                                            video: WallpaperReference, workspace: WallpaperLibraryWorkspace,
+                                            directory: URL) async throws -> [String: Any] {
+        let manager = WallpaperManager.shared
+        let mux = PlaybackCommandMultiplexer.shared
+        let controller = SettingsWindowController.shared
+        controller.showWindow()
+        defer { controller.window?.close() }
+        guard let window = controller.window, let root = window.contentView,
+              let settings = root.subviews.compactMap({ $0 as? AppKitSettingsContainerView }).first,
+              !settings.reapplySceneQualityButton.isEnabled, workspace.presentation.switchPage(.downloads)
+        else { throw Failure("native Scene quality control or Downloads page unavailable") }
+        _ = try await wait("Scene and Web in Downloads") {
+            let references = workspace.presentation.queryResult.items.map(\.reference)
+            return references.contains(scene) && references.contains(web) ? true : nil
+        }
+        workspace.play(scene)
+        let initial = try await receipt(for: scene, runtime: .scene, after: nil)
+        guard let original = manager.libraryPlaybackSequence.committed?.snapshot,
+              original.source == .page(.downloads), original.entries.count > 1,
+              settings.reapplySceneQualityButton.isEnabled else { throw Failure("Scene page reapply unavailable") }
+        let button = settings.reapplySceneQualityButton
+        root.layoutSubtreeIfNeeded()
+        button.scrollToVisible(button.bounds)
+        root.layoutSubtreeIfNeeded()
+        guard button.visibleRect.width + 1 >= button.intrinsicContentSize.width,
+              button.visibleRect.height > 0 else { throw Failure("Scene reapply control was clipped") }
+        try await captureWindow("settings-reapply", id: window.windowNumber, directory: directory)
+        mux.dispatch(.pause)
+        try await Task.sleep(for: .milliseconds(350))
+        let before = try await captureScene("scene-reapply-before", receipt: initial, directory: directory)
+        let post = settings.scenePostProcessingPopup
+        post.selectItem(at: post.indexOfItem(withRepresentedObject: ScenePostProcessingMode.disabled.rawValue))
+        guard post.sendAction(post.action, to: post.target), PlaybackQualityPreference.current.scene.postProcessing == .disabled
+        else { throw Failure("native quality choice did not save") }
+        let held = try await captureScene("scene-reapply-held", receipt: initial, directory: directory)
+        guard held["sessionID"] as? String == before["sessionID"] as? String,
+              held["sceneTime"] as? Double == before["sceneTime"] as? Double else {
+            throw Failure("quality selection changed the frozen active Scene")
+        }
+
+        button.performClick(nil)
+        guard let pending = manager.libraryPlaybackSequence.pending, pending.proposal.cause == .settingsReload,
+              manager.playbackSwitch.committed == initial.selection,
+              initial.windows.allSatisfy({ onscreenWindows()[$0] == initial.pid }),
+              !button.isEnabled else { throw Failure("Scene reapply did not stage behind the old window") }
+        let updated = try await receipt(for: scene, runtime: .scene, after: initial)
+        guard let session = manager.libraryPlaybackSequence.committed, session.ticket == pending.ticket,
+              session.snapshot.source == original.source, session.snapshot.sourceQuery == original.sourceQuery,
+              session.snapshot.entries.map(\.reference) == original.entries.map(\.reference),
+              mux.isUserPaused, button.isEnabled else {
+            throw Failure("Scene reapply lost its playback scope or pause intent")
+        }
+        let after = try await captureScene("scene-reapply-after", receipt: updated, directory: directory)
+        try await Task.sleep(for: .milliseconds(350))
+        let still = try await captureScene("scene-reapply-still", receipt: updated, directory: directory)
+        guard still["isPlaybackPaused"] as? Bool == true, still["isFrameDriverActive"] as? Bool == false,
+              still["sceneTime"] as? Double == after["sceneTime"] as? Double,
+              still["sessionID"] as? String != before["sessionID"] as? String else {
+            throw Failure("reapplied Scene did not remain frozen in its new session")
+        }
+        mux.dispatch(.resume)
+        try await Task.sleep(for: .milliseconds(500))
+        let resumed = try await captureScene("scene-reapply-resumed", receipt: updated, directory: directory)
+        guard let frozen = after["sceneTime"] as? Double, let time = resumed["sceneTime"] as? Double, time > frozen
+        else { throw Failure("reapplied Scene clock did not resume") }
+
+        var previous = updated
+        for (reference, kind) in [(web, WallpaperRuntimeKind.web), (video, .video)] {
+            workspace.requestSingle(reference)
+            previous = try await receipt(for: reference, runtime: kind, after: previous)
+            button.performClick(nil)
+            guard !button.isEnabled, manager.playbackSwitch.pending == nil,
+                  manager.playbackSwitch.committed == previous.selection else {
+                throw Failure("a non-Scene wallpaper accepted the Scene control")
+            }
+        }
+        return ["before": before, "held": held, "after": after, "still": still, "resumed": resumed,
+                "original": initial.evidence, "reapplied": updated.evidence,
+                "entryCount": original.entries.count, "nonSceneActionsRejected": true,
+                "control": ["language": Bundle.main.preferredLocalizations.first ?? "",
+                            "title": button.title, "visibleWidth": Double(button.visibleRect.width),
+                            "intrinsicWidth": Double(button.intrinsicContentSize.width)]]
     }
 
     private static func qualityImport(_ runtime: WallpaperRuntimeKind, receipt: Receipt,
@@ -394,16 +485,21 @@ enum DebugPlaybackCoexistenceRunner {
             // The outer runner owns Screen Recording for the actual Video daemon window.
             let window = receipt.windows[0]
             guard onscreenWindows()[window] == receipt.pid else { throw Failure("Video window lost its owner") }
-            let request = ["window": window, "name": name] as [String: Any]
-            try JSONSerialization.data(withJSONObject: request)
-                .write(to: directory.appendingPathComponent("capture-request.json"), options: .atomic)
-            try await wait("physical Video capture \(name)") {
-                FileManager.default.fileExists(atPath: image.path) ? true : nil
-            }
+            try await captureWindow(name, id: window, directory: directory)
             guard onscreenWindows()[window] == receipt.pid else { throw Failure("Video window changed during capture") }
         }
         guard WallpaperManager.shared.playbackSwitch.committed == receipt.selection else {
             throw Failure("window capture left the committed execution")
+        }
+    }
+
+    private static func captureWindow(_ name: String, id: Int, directory: URL) async throws {
+        let request = ["window": id, "name": name] as [String: Any]
+        try JSONSerialization.data(withJSONObject: request)
+            .write(to: directory.appendingPathComponent("capture-request.json"), options: .atomic)
+        let image = directory.appendingPathComponent(name + ".png")
+        try await wait("physical window capture \(name)") {
+            FileManager.default.fileExists(atPath: image.path) ? true : nil
         }
     }
 

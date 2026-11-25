@@ -32739,6 +32739,40 @@
         }
       }
     },
+    "Reapply Current Scene": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reapply Current Scene"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新应用当前场景"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Применить текущую сцену заново"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktuelle Szene erneut anwenden"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réappliquer la scène actuelle"
+          }
+        }
+      }
+    },
     "Restore Default Quality": {
       "localizations": {
         "en": {

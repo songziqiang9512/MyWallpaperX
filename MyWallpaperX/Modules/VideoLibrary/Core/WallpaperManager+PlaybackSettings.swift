@@ -58,7 +58,7 @@ extension WallpaperManager {
                     multiDisplayEnabled: settings.multiDisplayEnabled
                 )
             } else if let session = libraryPlaybackSequence.committed {
-                _ = requestLibraryPlayback(reference: session.reference, from: session.snapshot, cause: .settingsReload)
+                reloadLibrarySession(session)
                 return
             } else if let currentWallpaper {
                 _ = requestLibraryPlayback(reference: .init(provider: .videoLibrary, sourceID: currentWallpaper.id),
@@ -70,6 +70,23 @@ extension WallpaperManager {
         // 频谱由启动播种和 settings 差分投影负责；这里仅投影音量。
         PlaybackVolumeState.shared.setNormalizedVolume(Float(settings.volume / 100))
         PlaybackCommandMultiplexer.shared.dispatch(.setVolume(Float(settings.volume)))
+    }
+
+    var canReapplySceneQuality: Bool { sceneQualityReloadSession != nil }
+
+    func reapplySceneQuality() {
+        guard let session = sceneQualityReloadSession else { return }
+        reloadLibrarySession(session)
+    }
+
+    private var sceneQualityReloadSession: WallpaperPlaybackSequence.Session? {
+        guard playbackSwitch.pending == nil, let session = libraryPlaybackSequence.committed,
+              session.ticket.runtime == .scene, playbackSwitch.committed?.ticket == session.ticket else { return nil }
+        return session
+    }
+
+    private func reloadLibrarySession(_ session: WallpaperPlaybackSequence.Session) {
+        requestLibraryPlayback(reference: session.reference, from: session.snapshot, cause: .settingsReload)
     }
 
     // The existing Timer consumes the single pure monotonic deadline.

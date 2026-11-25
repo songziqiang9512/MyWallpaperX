@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Signed Scene/Web/Video handoff, cold restoration, or portable quality import."""
+"""Signed Scene/Web/Video handoff, cold restoration, quality import or Scene reapply."""
 
 import argparse
 import json
@@ -64,17 +64,21 @@ def run_phase(command, environment, directory, phase, timeout):
                 if request.is_file():
                     value = json.loads(request.read_text())
                     name, window = value["name"], value["window"]
-                    names = (("video-import-before", "video-import-after") if phase == "quality-import"
-                             else ("video-paused", "video-still", "video-resumed", "video-running"))
+                    if phase == "scene-reapply":
+                        names = ("settings-reapply",)
+                    elif phase == "quality-import":
+                        names = ("video-import-before", "video-import-after")
+                    else:
+                        names = ("video-paused", "video-still", "video-resumed", "video-running")
                     if name not in names:
-                        raise RuntimeError("unexpected Video capture request")
+                        raise RuntimeError("unexpected window capture request")
                     if name not in captured:
                         temporary = directory / f"{name}-inflight.png"
                         capture = subprocess.run(
                             ["/usr/sbin/screencapture", "-x", "-o", "-t", "png", "-l", str(int(window)), str(temporary)],
                             capture_output=True, text=True, timeout=8)
                         if capture.returncode or not png_has_non_black_pixel(temporary):
-                            raise RuntimeError("Video window capture failed; check Screen Recording: " + capture.stderr)
+                            raise RuntimeError("window capture failed; check Screen Recording: " + capture.stderr)
                         temporary.rename(directory / f"{name}.png")
                         captured.add(name)
                 time.sleep(.15)
@@ -98,10 +102,16 @@ def run_phase(command, environment, directory, phase, timeout):
             if marker in line:
                 values = dict(word.split("=", 1) for word in line.split(marker, 1)[1].split() if "=" in word)
                 prepared[values["session"]] = values["postProcessing"]
-        keys, expected = (("scene-in", "scene-back"), "enabled") if phase == "switch" else (("scene",), "disabled")
-        applied = {key: prepared.get(result[key]["resumed"]["sessionID"]) for key in keys}
-        if any(mode != expected for mode in applied.values()):
-            raise RuntimeError(f"{phase} Scene did not prepare the saved post-processing mode: {applied}")
+        if phase == "scene-reapply":
+            observations = result["sceneReapply"]
+            applied = {key: prepared.get(observations[key]["sessionID"]) for key in ("before", "after")}
+            if applied != {"before": "enabled", "after": "disabled"}:
+                raise RuntimeError(f"Scene did not prepare the chosen modes: {applied}")
+        else:
+            keys, expected = (("scene-in", "scene-back"), "enabled") if phase == "switch" else (("scene",), "disabled")
+            applied = {key: prepared.get(result[key]["resumed"]["sessionID"]) for key in keys}
+            if any(mode != expected for mode in applied.values()):
+                raise RuntimeError(f"{phase} Scene did not prepare the saved post-processing mode: {applied}")
         result["preparedScenePostProcessing"] = applied
         (directory / "native.json").write_text(json.dumps(result, indent=2) + "\n")
         return result
@@ -144,6 +154,17 @@ def verify_import_pixels(root):
     return {"webFPSBeforeRGB": before, "webFPSAfterRGB": after, "videoMotion": motion}
 
 
+def verify_reapply_pixels(root):
+    paths = [root / f"scene-reapply-{name}.jpg" for name in ("before", "held", "after", "still")]
+    held = png_motion_metrics(paths[0], paths[1], threshold=3, region=(.1, .1, .9, .9))
+    changed = png_motion_metrics(paths[1], paths[2], threshold=3, region=(.1, .1, .9, .9))
+    frozen = png_motion_metrics(paths[2], paths[3], threshold=3, region=(.1, .1, .9, .9))
+    if (not all((held, changed, frozen)) or max(held["changed_ratio"], frozen["changed_ratio"]) > .001
+            or changed["changed_ratio"] < .001):
+        raise RuntimeError(f"Scene did not visibly change only with reapply: {held}, {changed}, {frozen}")
+    return {"savedOnly": held, "reapplied": changed, "stillPaused": frozen}
+
+
 def verify_restore(first, second):
     rows = first["switches"]
     restored = second["restored"]
@@ -162,7 +183,11 @@ def main():
     parser.add_argument("--scene-root", type=Path, required=True, help="isolated small dynamic numeric Workshop item copy")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--timeout", type=float, default=120, help="per native phase")
-    parser.add_argument("--quality-import", action="store_true", help="run the portable quality-only live import")
+    phase = parser.add_mutually_exclusive_group()
+    phase.add_argument("--quality-import", action="store_true", help="run the portable quality-only live import")
+    phase.add_argument("--scene-reapply", action="store_true", help="reapply the current Scene through native Settings")
+    parser.add_argument("--ui-language", choices=("en", "zh-Hans", "ru", "de", "fr"),
+                        help="language of the isolated Settings window")
     args = parser.parse_args()
     scene, output = isolated_path(args.scene_root), isolated_path(args.output_dir)
     library = (Path(pwd.getpwuid(os.getuid()).pw_dir) / "Library").resolve()
@@ -210,6 +235,8 @@ def main():
         common = [str(binary), "--mwx-debug-user-defaults-suite", suite, "--mwx-debug-suppress-main-window",
                   "--mwx-debug-workshop-root", str(workshop), "--mwx-debug-coexistence-scene", scene.name,
                   "--mwx-debug-coexistence-web", WEB_ID]
+        if args.ui_language:
+            common += ["-AppleLanguages", f"({args.ui_language})"]
         negative_report = output / "rejected.json"
         negative = subprocess.run([*common, "--mwx-debug-startup-defaults-token", "wrong",
                                    "--mwx-debug-coexistence-report", str(negative_report),
@@ -220,13 +247,19 @@ def main():
             raise RuntimeError("mismatched isolation token did not fail closed")
         metadata["invalidIsolationTokenRejected"] = True
         phases = {}
-        phase_order = ("quality-import",) if args.quality_import else ("switch", "restore")
+        phase_order = ("scene-reapply",) if args.scene_reapply else (
+            ("quality-import",) if args.quality_import else ("switch", "restore"))
         for name in phase_order:
             directory = output / name
             directory.mkdir()
             phases[name] = run_phase([*common, "--mwx-debug-startup-defaults-token", token],
                                      environment, directory, name, args.timeout)
-        if args.quality_import:
+        if args.scene_reapply:
+            metadata["pixels"] = verify_reapply_pixels(output / "scene-reapply")
+            control = phases["scene-reapply"]["sceneReapply"]["control"]
+            if args.ui_language and control["language"] != args.ui_language:
+                raise RuntimeError(f"Settings did not use the requested language: {control}")
+        elif args.quality_import:
             metadata["pixels"] = verify_import_pixels(output / "quality-import")
         else:
             verify_restore(phases["switch"], phases["restore"])

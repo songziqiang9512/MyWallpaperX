@@ -45,7 +45,7 @@
 - 复用 `SettingsWindowController`、`AppKitSettingsView` 和 `AppSettingsPanelDependency`。质量区域由动画帧率、Scene 质量、Web 建议和 Video 素材组成。Scene 后处理统一管理显示 HDR。作品的作者属性仍可从原属性面板操作。 [布局现址](../../MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift) · [设置动作注入](../../MyWallpaperX/Shared/Settings/AppSettingsPanelDependency.swift)
 - 全局「动画帧率」首批保留 30／60 两值，随后在已验收范围内采用可键盘步进和直接输入的 1 FPS 滑杆，目标范围为 10–120。副标题说明 Scene 使用此调度上限，受当前屏幕组合限制时并列显示意愿与生效值。Web 可选「随显示器（最高 60）」或「跟随动画帧率」，缺省随显示器；跟随后，帧率、预设或 Web 模式变更将重算作品建议。Video 显示已知的片源分辨率与素材帧率，派生达到交付门后再显示素材选择。静态图、封面、系统屏保与锁屏遵循各自既有路径。
 - 使用 AppKit 原生 segmented control、popup、switch，连续 FPS 经验证再用有数值反馈和键盘步进的 slider。Tab、VoiceOver 读出控件名和当前值，说明和失败状态用文字表达；窄窗、浅／深色及已支持语言的长文案实查。拖动时可预览数字，触发资源准备或 IPC 只在一次完成编辑时合并提交。 [本地化与布局标准](localization-contract.md#layout)
-- 「恢复默认画质」沿一次差分更新复位帧率、Web 模式和已交付的画质字段。显示 HDR 随后处理档恢复为普通超高。保留用户请求值；当前作品不适用、设备不支持、重新应用才生效或回用原画的理由，从已有引擎就绪／准备结果一次反馈。未完善的档位留在开发验证面。状态基于既有事件，Web 无作者回执时显示「作品支持时应用」。
+- 「恢复默认画质」沿一次差分更新复位帧率、Web 模式和已交付的画质字段。显示 HDR 随后处理档恢复为普通超高。用户可在同一面板重新应用当前 Scene，让需冷准备的档生效。帧率受限时可看到确认的生效值，其他质量控件显示所选档及适用说明。未完善的档位留在开发验证面。Web 无作者回执时显示「作品支持时应用」。 [重新应用与验收](wallpaper-quality-work-card.md#quality-reapply-current-scene)
 
 ### 数据与生命周期
 

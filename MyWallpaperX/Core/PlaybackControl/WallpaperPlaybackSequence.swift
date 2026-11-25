@@ -116,15 +116,22 @@ nonisolated struct WallpaperPlaybackSequence: Sendable {
                                    expectedGeneration: UInt64? = nil) -> Proposal? {
         guard expectedGeneration == nil || expectedGeneration == rotationGeneration else { return nil }
         var selectedSnapshot = snapshot
+        let target: Entry
         switch cause {
         case .timer, .ended, .failureRecovery, .recovery: return nil
         case .settingsReload:
             guard let committed, committed.reference == reference, committed.snapshot.source == snapshot.source,
                   pending == nil, reserved == nil else { return nil }
             selectedSnapshot = committed.snapshot
-        case .userSelection, .manualNavigation, .restore: break
+            // A playing item can leave its captured list. The source dispatcher
+            // still resolves the committed identity and admits the actual file.
+            target = selectedSnapshot.entries.first {
+                $0.reference == reference && $0.runtime == committed.ticket.runtime && $0.isPlayable
+            } ?? Entry(reference: reference, runtime: committed.ticket.runtime, isPlayable: true)
+        case .userSelection, .manualNavigation, .restore:
+            guard let entry = selectedSnapshot.entries.first(where: { $0.reference == reference && $0.isPlayable }) else { return nil }
+            target = entry
         }
-        guard let target = selectedSnapshot.entries.first(where: { $0.reference == reference && $0.isPlayable }) else { return nil }
         rotationGeneration &+= 1
         pending = nil
         pendingSnapshot = nil
@@ -168,7 +175,7 @@ nonisolated struct WallpaperPlaybackSequence: Sendable {
               proposal.entry.runtime == ticket.runtime, ticket != committed?.ticket else { return false }
         pending = Pending(proposal: proposal, ticket: ticket)
         pendingSnapshot = nil
-        pendingDetached = false
+        pendingDetached = proposal.cause == .settingsReload && committed?.isDetached == true
         reserved = nil
         return true
     }
@@ -187,6 +194,10 @@ nonisolated struct WallpaperPlaybackSequence: Sendable {
         updateHistory(proposal.history, target: proposal.entry.reference, snapshot: latest)
         var session = Session(snapshot: proposal.snapshot, reference: proposal.entry.reference, ticket: ticket,
                               isDetached: pendingDetached)
+        if proposal.cause == .settingsReload, let committed {
+            session.removedNext = committed.removedNext
+            session.removedPrevious = committed.removedPrevious
+        }
         replaceSnapshot(&session, with: latest)
         committed = session
         clearAttempt()

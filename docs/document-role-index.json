@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fccfccc3464e306aae91051d8f8cfd550d9c12eb98a55bdacb7c0e7f60cf1649",
+        "sourceSHA256": "7d7af61a85cbf2f3727f88ef3e245f0b4c7a634b6c27e8d89efa270909b0b24d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "标记 Videos 会话及播放快照入口",
-        "limitations": "导航到原视图状态与捕获顺序以及真实验收，无需新 owner。"
+        "scope": "标记原生入口与原同源重载 owner",
+        "limitations": "导航到原主 App 和 Scene 可见候选。"
       }
     },
     {
@@ -347,10 +347,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5602ae28d3a8f0ed14c386fca4801d0b35ef2815092bb711a80edc7c81b6daa6",
+        "sourceSHA256": "3a9a7d949dc5d2eb8f20bd55ab5871d16b7636e55e8bd0f2e6c765f91590836f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "便携导入的活动播放合同",
-        "limitations": "计划按实际来源、关系和非画质设置决定停播，排序继续由原视图入口提交。"
+        "scope": "当前场景重载入口及生效读数",
+        "limitations": "质量面板保原保存和热更，冷档由用户显式重载。"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "78648dfbe51ad685b9aa80d565b966962a7fa350bec3fc144149075642af92da",
+        "sourceSHA256": "1f3de974eb7f7b642502c75b87c73f15886ab4d0de012f94d9e9cb53bbc183f6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "M4 Video 进程外输入诊断的资格、六窗短试及停止线",
-        "limitations": "同机 60 秒 DC 输入，全程原片漂移覆盖正向差，发布仍需长窗、独立作者和同口径转码实测。"
+        "scope": "同源冷档重载设计及真实呈现",
+        "limitations": "德俄签名两作者、原生序列及临近真实播放，区分快照、暂停与场景时钟。"
       }
     },
     {
@@ -855,10 +855,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4548e799871e812234cdfc25f37ec880f0174745be3907b9a1a2fbb5308cee3b",
+        "sourceSHA256": "4ccd3e93377c43d12942f377d22653df9f64858d56ce2f6b68d3dad41d2de4ca",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对嵌入像素缓存、TEX 结构和选档职责",
-        "limitations": "范围限已准入的原作者尾链；不同 loader 不共享 CPU 图像。"
+        "scope": "同源重载的会话和质量权威",
+        "limitations": "新会话采用已保存质量并继承暂停意图，原作者动画时钟重启。"
       }
     },
     {
