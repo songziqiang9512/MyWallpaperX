@@ -156,7 +156,7 @@
 | 3789316755 /3211615441 | 频谱形状/幅度/全柱活动；321首焦点、持续按住的作者行为与多步跟随分别待验证。 |
 | 3788467391 | 漩涡方向、速度、形态与长预热的可比相位。 |
 | 1315486372 | 光线宽软、渐隐及水波位置。 |
-| 3769761761 | [主要斜光已恢复](../capabilities/runtime-evidence-current.md#particle-size-change-instance-override)。同龄粒群仍偏低、右带覆盖偏强。下一步用同龄位置标记区分出生后的方向与持续力，再查独立的透明度振荡；已闭尺寸语义直接复用。 |
+| 3769761761 | 同龄粒群仍偏低、右带覆盖偏强。[同投影单粒](../capabilities/runtime-evidence-current.md#ember-birth-clock-and-position)定位独立出生方向差，已排除三种时钟合成。现库筛查无活动零时钟正例。续查须在原包非零时钟及独立3769364482/.2上验证可区分的噪声输入；持续力和透明度另核。尺寸、投影和既有时钟矩阵直接复用。 |
 | 3113287126 | 小提琴方向/密度反馈仍开。原R0五活动root均到main/GPU、无child，全随parent500；Directions普通量/默认，旧bounded不作缺图，当前未见可证重复world转换。重启须明确root/ROI、发射与父Puppet同phase及当帧pos/vel→attachment/model/VP，不能由单图或几何实例数调count/speed；薄事实在`.artifacts/scene-violin-311-next-20261109/`。 |
 | 3743305891 | 原R0活动十字为child1的22个Sprite几何实例；root/child各取自身size空间flags，child2.5与父layer10是不同声明，当前静态消费链未见同一scale重复乘。缺同phase尺寸oracle与当帧instance.size/MVP，反馈仍开；重启须官方子world继承资格或可归属size/空间→像素错配，不调size拟合或无差别重跑。原输入、三batch/main/GPU及链路在`.artifacts/scene-cross-size-374-next-20261109/`。 |
 | 3768229922 /3770444459 | 376原R0的4秒片头与16秒后续均未定位黑滴ROI；1103/1144玻璃各30实例、color/normal/background→main与GPU已有实际供货，不判完全未执行。反馈仍开，重启须明确哪颗/哪个ROI、相位和对应活动source，不追加无差别第三场或由名称推PMA/混合；薄事实在`.artifacts/scene-droplet-3768229922-next-20261109/`。377主体/眼部完整过渡仍须同相位合成ROI。 |
@@ -236,7 +236,7 @@
 | 3708363772 | 已修复[封面与实体错动](../capabilities/model-runtime-evidence.md#model-composition-cover-370)、[同色壳体受光](../capabilities/model-runtime-evidence.md#legacy-generic2-model-lighting)及[单色缺位重复主色](../capabilities/runtime-evidence-current.md#media-palette-empty-slots-370)。多色排序仍开放。 |
 | 3337494481 | 已修复。盒体侧背文字不再错误透出。[文字遮挡](../capabilities/runtime-evidence-current.md#author-box-text-occlusion-333) |
 | 3509243656 | 已修复。轨迹打开后进入原作者发射和绘制，关后停止，再开恢复。[属性热切](../capabilities/runtime-evidence-current.md#author-normal-depth-trails-350) |
-| 3769761761 | 部分修复。已修复斜光主要缺失、预热、缺省初速和相位。成熟群下坠、覆盖余量待核。[原包复验](../capabilities/runtime-evidence-current.md#particle-size-change-instance-override) |
+| 3769761761 | 部分修复。已修复斜光主要缺失、预热、缺省初速和缺省相位。成熟群下坠与右带覆盖仍开放，出生方向已单独定位。[画面复验](../capabilities/runtime-evidence-current.md#particle-size-change-instance-override) · [方向对照](../capabilities/runtime-evidence-current.md#ember-birth-clock-and-position) |
 | 3842265910 | 已修复双瞳缺失及身体普通骨轨。后置标量仍开放。[双瞳](../capabilities/runtime-evidence-current.md#puppet-pupil-color-order-384) · [身体](../capabilities/runtime-evidence-current.md#puppet-post-bounds-trs) |
 | 3372715909 | 已定位。原包时间和日期被作者重建的全屏视频覆盖，测试副本调层序后恢复。官版原包此次无对照画面。[时钟与层序](../capabilities/runtime-evidence-current.md#author-clock-video-order-337) |
 | 3306942838 | 已修复头肩主要脱节。官版与本机同画幅同相位实绘，正向横移差≤1.1 px。[头肩](../capabilities/runtime-evidence-current.md#puppet-head-phase-330) |
