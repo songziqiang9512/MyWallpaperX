@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8342f53a4737af569fe08330c5ef30d8f64f163f85ca6802621ad0a583934588",
+        "sourceSHA256": "db2b273f2493e55747355e3f4fad44d73aadcf528814fcdbac008a0634735cd7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "纹理 loader、已验布局与用途各自入口",
-        "limitations": "按原表示和来源 revision"
+        "scope": "纹理 loader、静态布局及 mip reader 入口",
+        "limitations": "按原资源职责"
       }
     },
     {
@@ -355,10 +355,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "92f1499831ab586cf01223a1015f5673639e72236cc2ff84e20aa14a0afabe06",
+        "sourceSHA256": "7157e3ba680956984209cdffe3fe71ea98dd110f391035aabb9b8734b03c9db6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原通道布局复用评估、约束与验收",
-        "limitations": "仅候选静态布局适用"
+        "scope": "TEX 单变量 CPU 对照及压缩范围验收",
+        "limitations": "量预载静态输入"
       }
     },
     {
@@ -369,10 +369,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "413b2c93219d98258766f91663a83c8d82f248d2f7482358dcb20842b36317d1",
+        "sourceSHA256": "9b8a6b62249636372c511b8e2183dafdc94d3d8b76e82be1ae50583f20b77b4f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原通道 GPU 计费、原生准备与签名实绘",
-        "limitations": "准备时延限原生单操作"
+        "scope": "TEX 压缩输入 CPU 试验及真实终端",
+        "limitations": "阶段耗时不外推桌面首帧"
       }
     },
     {
@@ -908,10 +908,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2772aa4de5cbbf05783873a57cf7b704d794f36d8cbe0efd70ad45ba8f998398",
+        "sourceSHA256": "dd4dc08a1f244f2cbf8bb39ba441fb405183b4f830a7033ce01684d4502ba8b3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原通道已验布局和实物租约职责",
-        "limitations": "限静态原通道 2D 完整 mip"
+        "scope": "纹理快照、压缩输入和输出 Data 职责",
+        "limitations": "保原长度和预算检查"
       }
     },
     {

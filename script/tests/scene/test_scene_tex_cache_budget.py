@@ -49,7 +49,12 @@ class SceneTexCacheBudgetTests(unittest.TestCase):
                               (4, [(1, 1, 2, 1, 1, lower_tile), (2, 2, 1, 2, 2, lower_tile)]), (2, [])]:
             base = png(size, size, base_pixel * size * size)
             mip_headers.append(len(tex))
-            tex += struct.pack('<5I', size, size, 0, 0, len(base)) + base
+            if size == 4:
+                # The patch table follows the compressed mip, including its exact stored length.
+                compressed = bytes([0xf0, len(base) - 15]) + base
+                tex += struct.pack('<5I', size, size, 1, len(base), len(compressed)) + compressed
+            else:
+                tex += struct.pack('<5I', size, size, 0, 0, len(base)) + base
             tex += struct.pack('<2I', 1, len(patches))
             patch_tables.append(len(tex))
             payload_bytes += len(base)

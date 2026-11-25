@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 17974
+      "bytes": 18107
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 395,
-      "bytes": 94123
+      "lines": 398,
+      "bytes": 94887
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 132961
+      "bytes": 133617
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -106,7 +106,7 @@
     },
     "docs/scene/architecture/scene-resource-admission.md": {
       "lines": 99,
-      "bytes": 14622
+      "bytes": 14829
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 73,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "b21e4383c9c71483fdb2d1615e834b202f5238a3a527f54f02127cb0844ed7f8",
-      "after": "f96eabf512f56bfed529f0982d155174dcf2482c6bd8644e0003629df6ea2bfa",
+      "before": "f96eabf512f56bfed529f0982d155174dcf2482c6bd8644e0003629df6ea2bfa",
+      "after": "5a0af76f3b1a5bb78d438daa25cd7c64d2e9c1c29ea1932470969e8150171fc2",
       "owner": "repository",
-      "reason": "已验静态 Candidate 布局入口",
-      "decision": "docs/scene/architecture/scene-resource-admission.md#raw-channel-texture-storage"
+      "reason": "TEX 解压 owner 路由",
+      "decision": "docs/scene/architecture/scene-resource-admission.md#source-readiness"
     },
     {
       "section": "bodies",
@@ -513,11 +513,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/scene-resource-admission.md",
-      "before": "994f7bc809374100649b8f602bc05f8fb736177bac9dacbb04985f4b052c808d",
-      "after": "8f56f12594856050820e694d8438fdacb2bb95f08ab7fb212d3909e811d2ed37",
+      "before": "8f56f12594856050820e694d8438fdacb2bb95f08ab7fb212d3909e811d2ed37",
+      "after": "e8367761c23f5564c4b8c79e6d1ad6dd949b3ed11e5d49dd2e60107f1bea541a",
       "owner": "scene-resource",
-      "reason": "已验布局和 GPU 条目共同生命周期",
-      "decision": "docs/scene/architecture/scene-resource-admission.md#raw-channel-texture-storage"
+      "reason": "TEX 同步输入范围与输出存储合同",
+      "decision": "docs/scene/architecture/scene-resource-admission.md#source-readiness"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "328e9e23dbfb5d3812a3882d26661bc6bb9dbe38c4949646af8dab966e3aa8a8",
-      "after": "c1eecf49227adb5a5aaa142f84423f220c6896641892cb1e08aee547d406a888",
+      "before": "c1eecf49227adb5a5aaa142f84423f220c6896641892cb1e08aee547d406a888",
+      "after": "6351f195f593c89f9eabc952a87fbc988714bacc0a8eb8a1a1f56a4549e9cc63",
       "owner": "wallpaper-quality",
-      "reason": "同源 TEX 第二次解析的设计与止损",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-raw-candidate-layout"
+      "reason": "TEX LZ4 去掉已校验输入副本",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-tex-lz4-input"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "a566ff49c2397df3b6f266c9156215d7a5c8fece90f196f40a6137978f1323db",
-      "after": "3133208cd67506c20fa8ab50f4b4d6fc30e3a5c3315107c837d52365b370f520",
+      "before": "3133208cd67506c20fa8ab50f4b4d6fc30e3a5c3315107c837d52365b370f520",
+      "after": "031dfe50112fc060344c8289ff33de4878e24d7e70cbe37750a51d6a357007dd",
       "owner": "wallpaper-quality",
-      "reason": "同源布局复用实际读量与画面验证",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-raw-candidate-layout"
+      "reason": "TEX 压缩输入实测和签名作者复核",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-tex-lz4-input"
     }
   ]
 }

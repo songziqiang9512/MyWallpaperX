@@ -340,27 +340,27 @@ nonisolated extension SceneTexContainerReader {
             throw ReadError.decodedDataBudgetExceeded
         }
         remainingDecodedBytes -= outputByteCount
-        let storedBytes = data.subdata(in: offset..<(offset + storedByteCount))
-        offset += storedByteCount
+        let storedRange = offset..<(offset + storedByteCount)
+        offset = storedRange.upperBound
         let mipData = compressionCode == 0
-            ? storedBytes
-            : try decompressLZ4Raw(storedBytes, expectedSize: decodedByteCount)
+            ? data.subdata(in: storedRange)
+            : try decompressLZ4Raw(data, range: storedRange, expectedSize: decodedByteCount)
 
         return .init(width: width, height: height, depth: depth, data: mipData)
     }
 
-    private func decompressLZ4Raw(_ compressed: Data, expectedSize: Int) throws -> Data {
+    private func decompressLZ4Raw(_ data: Data, range: Range<Int>, expectedSize: Int) throws -> Data {
         // The decoder returns the buffer size when output is truncated. One
         // extra byte distinguishes an exact payload from an oversized block.
         let capacity = expectedSize + 1
         var decoded = Data(count: capacity)
         let actualSize = decoded.withUnsafeMutableBytes { destinationBuffer in
-            compressed.withUnsafeBytes { sourceBuffer in
+            data.withUnsafeBytes { sourceBuffer in
                 compression_decode_buffer(
                     destinationBuffer.bindMemory(to: UInt8.self).baseAddress!,
                     capacity,
-                    sourceBuffer.bindMemory(to: UInt8.self).baseAddress!,
-                    compressed.count,
+                    sourceBuffer.bindMemory(to: UInt8.self).baseAddress!.advanced(by: range.lowerBound),
+                    range.count,
                     nil,
                     COMPRESSION_LZ4_RAW
                 )

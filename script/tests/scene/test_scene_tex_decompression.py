@@ -31,6 +31,8 @@ import Foundation
             do {
                 let container = try SceneTexContainerReader().read(data: data)
                 return container.mips[0].data.map { String(format: "%02x", $0) }.joined()
+            } catch SceneTexContainerReader.ReadError.decompressionFailed {
+                return "decompression-failed"
             } catch { return "rejected" }
         }
         print(String(decoding: try JSONEncoder().encode(results), as: UTF8.self))
@@ -47,20 +49,22 @@ import Foundation
             # Raw LZ4 literal blocks: high token nibble gives literal length.
             cases = [
                 (b"\x40\x01\x02\x03\x04", 4, "01020304"),
-                (b"\x30\x01\x02\x03", 4, "rejected"),
-                (b"\x50\x01\x02\x03\x04\x05", 4, "rejected"),
-                (b"\x80\x01\x02\x03\x04\x05\x06\x07\x08", 4, "rejected"),
+                (b"\x30\x01\x02\x03", 4, "decompression-failed"),
+                (b"\x50\x01\x02\x03\x04\x05", 4, "decompression-failed"),
+                (b"\x80\x01\x02\x03\x04\x05\x06\x07\x08", 4, "decompression-failed"),
                 (b"\x1fA\x01\x00\x00\x50\x01\x02\x03\x04\x05", 25,
                  "41" * 20 + "0102030405"),
-                (b"\x1fA\x01\x00\x00\x50\x01\x02\x03\x04\x05", 24, "rejected"),
-                (b"", 4, "rejected"),
-                (b"\x80\x01", 4, "rejected"),
+                (b"\x1fA\x01\x00\x00\x50\x01\x02\x03\x04\x05", 24, "decompression-failed"),
+                (b"", 4, "decompression-failed"),
+                (b"\x80\x01", 4, "decompression-failed"),
             ]
             paths = []
             for index, (payload, decoded_size, _) in enumerate(cases):
                 path = root / f"{index}.tex"
                 path.write_bytes(tex(payload, decoded_size))
                 paths.append(str(path))
-            result = subprocess.run([str(binary), *paths], check=True,
+            trailing = root / "next-record.tex"
+            trailing.write_bytes(tex(b"\x40AB", 4) + b"CD")
+            result = subprocess.run([str(binary), *paths, str(trailing)], check=True,
                                     capture_output=True, text=True)
-            self.assertEqual(json.loads(result.stdout), [case[2] for case in cases])
+            self.assertEqual(json.loads(result.stdout), [case[2] for case in cases] + ["decompression-failed"])

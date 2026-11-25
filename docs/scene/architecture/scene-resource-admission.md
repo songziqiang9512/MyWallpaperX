@@ -45,7 +45,7 @@ GPU 入口以 Metal size/alignment 需求先预留，分配失败返还。租约
 <a id="source-readiness"></a>
 ## 来源、用途与准备
 
-逻辑 path/purpose identity 在[SceneTextureLookupIdentity](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLookupIdentity.swift)；物理解码、上传、Candidate 和 publication 留在各资源 owner。路径归一与资源访问在实际入口检查，内部不重复解析 identity。
+逻辑 path/purpose identity 在[SceneTextureLookupIdentity](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLookupIdentity.swift)；物理解码、上传、Candidate 和 publication 留在各资源 owner。路径归一与资源访问在实际入口检查，内部不重复解析 identity。TEX 的 LZ4 同步消费快照已校验的输入区间，按原总账和精确输出长度接纳其新 Data。未压缩 mip 继续自己持有 Data，后随条件记录按压缩输入的存储长度定位。
 
 隐藏不代表无消费。现有 named/potential 引用和 static-model 需求参与 base source 准备；capture、可见绘制和 graph-final publication 仍需自己的实际资格。不以 visibility 代替资源消费者，也不因预备 source 就宣布 graph 可执行。
 
