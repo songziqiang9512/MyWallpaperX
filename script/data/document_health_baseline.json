@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 334464
+      "bytes": 335379
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 245,
-      "bytes": 69206
+      "bytes": 69157
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a3572bb20422500dfe8094c525b72ef4f17d3e8fae0cb9094f6a7f925084edb3",
-      "after": "ec4bcefa4e8043893255c169fdb2d4f492b9e8662e420b7a58e72ecdf8416a14",
-      "owner": "Scene Project color output",
-      "reason": "Record paired official and native project blend, controlled original author contrast and an independent real author.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-ring-project-prefix-blend-361"
+      "before": "ec4bcefa4e8043893255c169fdb2d4f492b9e8662e420b7a58e72ecdf8416a14",
+      "after": "f149d0b1a5209551db55d8a962e4cf8655588174712219d76b4628ddcf2081bb",
+      "owner": "Scene author ring",
+      "reason": "Record comparable original audio ring contours, exact PCM and the nearby prepared-spectrum corroboration.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-ring-live-contour-361"
     },
     {
       "section": "bodies",

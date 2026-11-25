@@ -18,7 +18,7 @@
 | 定位 | 当前事实与下一步 |
 |---|---|
 | Sphere 全零方向的出生可见性（待证） | [固定零半径初速](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)已恢复。显式全零 Directions 的隔离 Sprite 在官版窗内无像素，本机可见且静止。需分出生资格与可见条件，先找活动作者或单轴逐步归零的反例，保零速度和非零轴的正常出生。 |
-| 音频供值 · 3612940332 | [作者域](../capabilities/runtime-evidence-current.md#author-spectrum-capture-live-361)已改善48kHz有声线宽。[Project合成](../capabilities/runtime-evidence-current.md#author-ring-project-prefix-blend-361)已恢复已测原包左弧背景和反差。沿[共享设计](../../architecture/system-audio-spectrum-design.md)保早段、强弱交接和44.1kHz的未验项。 |
+| 音频环形变 · 3612940332 | [原包音乐对照](../capabilities/runtime-evidence-current.md#author-ring-live-contour-361)复现左弧轮廓差异，已测末材以全尺寸绘制。先用等峰、不同激发组、逐样相同尾段的双声道对照，区分共同和分组历史，并按频谱发布相位核对。44.1kHz与全环跨画幅仍开放。 |
 | 粒子外圈 · 3653620838 | [近轴与像素相位](../capabilities/runtime-evidence-current.md#vortex-outer-pixel-phase-365)的静卡一致。继续须运动同亚像素或重复成熟群组，区分出光与覆盖。 |
 | 普通粒子材质增亮的裁幅 | 平面 RG88 同窗对照测得材质 gain1.4 的官版 `(0,144,144)`、本机新 `(0,163,202)`。先找实际作者消费，并用有色 texel、半透明底和双层加色区分 tint、采样与裁幅顺序。已验证的中性 R8 半透明 Trail 裁幅另有原证据。 [运行证据](../capabilities/runtime-evidence-current.md#particle-instance-tint-native) |
 | 3454689854 的相邻丝层 | [同画幅单丝、原包和实际预算](../capabilities/runtime-evidence-current.md#silk-capture-density-345)已闭两条SDR根丝密度。子层及多阶段保持原工作域，只有取得可归属的同相位残差再重启。原默认绕身文字两端均隐藏，条件另见[原包对照](../capabilities/runtime-evidence-current.md#author-silk-raster-345)。 |
@@ -218,7 +218,7 @@
 | 样本 | 状态与已验证范围 |
 |---|---|
 | 3653620838 | 已修复内圈运动、轴向/半径、初速、尾迹、HDR出生亮度及 Project 光效栅格。外围和时相仍开。[运动](../capabilities/runtime-evidence-current.md#vortex-axis-world-365) · [合成](../capabilities/runtime-evidence-current.md#project-framebuffer-resolution-365) |
-| 3612940332 | 部分修复。已修复静态几何宽度、末材密度及背景采样，48kHz有声轮廓、线宽和已测环周反差已恢复。[原包实绘](../capabilities/runtime-evidence-current.md#author-ring-project-prefix-blend-361) · [实时频谱与待验范围](../capabilities/runtime-evidence-current.md#author-spectrum-capture-live-361) |
+| 3612940332 | 部分修复。已修复静态几何宽度、末材密度及已测环周反差。新增反馈的有声轮廓差异已复现，沿上方队列继续。[已修复范围](../capabilities/runtime-evidence-current.md#author-ring-project-prefix-blend-361) · [动态残差](../capabilities/runtime-evidence-current.md#author-ring-live-contour-361) |
 | 3822067395 | 已修复。原包可启动，首帧及相关效果已实绘。[首帧](../capabilities/runtime-evidence-current.md#tex-alpha-channel-priority-author) |
 | 3174321827 | 已修复。部件回到正确组装姿态，双臂和武器在胸前，细微姿态残差有独立证据。[组装](../capabilities/runtime-evidence-current.md#puppet-counted-reference-317) |
 | 3823864170 | 已修复。拖尾跟随鼠标，默认与可选尾迹通过跟踪、颜色对照。[运动](../capabilities/runtime-evidence-current.md#pointer-zero-angles-author) · [颜色](../capabilities/runtime-evidence-current.md#neutral-mask-trail-382) |
