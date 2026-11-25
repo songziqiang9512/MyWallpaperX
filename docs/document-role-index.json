@@ -355,10 +355,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7157e3ba680956984209cdffe3fe71ea98dd110f391035aabb9b8734b03c9db6",
+        "sourceSHA256": "ec0481dc7964b8211f406d46fca7abc7565a918e9da28b330945466f75216848",
         "method": "document_registry --audit + document_health --check",
-        "scope": "TEX 单变量 CPU 对照及压缩范围验收",
-        "limitations": "量预载静态输入"
+        "scope": "官版纹理设置到 L0、TEXS 和组合阶段",
+        "limitations": "固定版本静态证据，Windows 实际目标待验"
       }
     },
     {
@@ -369,10 +369,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9b8a6b62249636372c511b8e2183dafdc94d3d8b76e82be1ae50583f20b77b4f",
+        "sourceSHA256": "f6115c1026a0a2e8e1347c1b16ee5c6fa727bee1e2f2f6ca4fd8f831d97d30c1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "TEX 压缩输入 CPU 试验及真实终端",
-        "limitations": "阶段耗时不外推桌面首帧"
+        "scope": "纹理行为对照入口",
+        "limitations": "保留已验本机设置合同"
       }
     },
     {

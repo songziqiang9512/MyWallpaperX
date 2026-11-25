@@ -370,6 +370,13 @@ M4 内屏用同一团队签名的现役 Video helper 走真实可见接管。在
 
 固定 2.8.0.42 的 `wallpaperui.exe` 把 `applyGeneral` 送为消息 `0xc9`，本机同版 Win32 接收端从 `0x4250b8` 进入 `0x416a50`。比较函数 `0x439b70` 读取 MSAA、纹理分辨率、后处理的新旧值，三项差分共进 `0x43a0b2`。原路径在 `0x416c3c` 调 `0x451630` 清理正在使用的壁纸对象，再由 `0x416c41` 调带 `ApplyRefreshWallpaperConfig` 标记的 `0x416890`，后续读取 `selectedwallpapers`。这条普通桌面的原生自动刷新由编辑时的投递触发，具体时序、首帧、作者时钟和预览窗口继承仍待运行验证。SHA、消息表和三处分支随本机薄收据 `.artifacts/wallpaper-quality-official-cold-refresh` 保留。共享 VM 未操作。
 
+<a id="official-texture-resolution"></a>
+#### 官版纹理基级与合成范围
+
+固定 Win32 2.8.0.42 的界面将高质量／高性能／自动写为 `generalSettings.resolution` 的 `full/half/auto`。`0x4de3eb–0x4de453` 映射至位域 0／0x20／0x10，`0x4de850` 写到 Scene。内层 `0x52c4e0` 得出全／半，Auto 会比较字段面积与 1,969,920，另一个标志路径比较两组面积与 3.9 倍。适用的真实 TEX 调用将 `0x533da7` 写入的因子 1／2 变成 `0x515986–0x5159cd` 的 0x4／0x6。TEXB4 reader 在 `0x5138cf–0x5139f8` 根据新增 0x2 位、mip 索引为 0、该图超过一级作决定，按存储长度越过 L0 并绕过其解码。单 mip 输入仍载入 L0。该处不看尺寸或用途。跳过后如有 TEXS，`0x514ca0–0x514d01` 将三对 sprite 坐标乘 0.5。随包雨滴色图与折射法线均为 256²、七级、16 帧，收到同一 0x6 的通用调用时都符合这段条件。上游预缓存顺序、真实调用及 GPU 建图结果待分用途运行核对。
+
+帧端 `0x52d6d8` 独立计算分支。部分内容在 `0x52e13f` 经同一虚调用的两轴尺寸乘 2，之后 `0x52e36c` 恢复。随包组合材质引用 `_rt_FullFrameBuffer`。已追踪的 `WM_SIZE→0x52cfc0→0x52d30f` 创建使用传入的客户区尺寸，`0x52d012/15` 保存工厂后续消费的宽高。当前只确认两条静态消费，整场主色半尺寸或所有用途统一降档仍待实际 D3D 目标与画面核对。保留本机现役逐源策略。下一试验在已准入的过 4096 真实色图 1695673397/12 和独立 3355255518/54 对照只跳一级与现役长边上限，后者的一级规格已有 Auto 真画面。记录原布局、相邻精确用途、细节和实际 Metal 容量，核可见收益及帧时与驻留开销，再决定是否调整。Windows 固定相位对照同时登记无纹理几何斜边、TEX 物理基级、主色与组合尺寸，用来区分素材降级和主域缩放。薄收据归 `.artifacts/wallpaper-quality-official-texture-resolution`。 [WM_SIZE 客户区尺寸](https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-size) · [本机现役策略](#scene-texture-quality)
+
 <a id="official-shadow-atlas"></a>
 ### 官版阴影图与比较滤波
 

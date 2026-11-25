@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 398,
-      "bytes": 94887
+      "lines": 405,
+      "bytes": 97061
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 133617
+      "bytes": 133718
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "c1eecf49227adb5a5aaa142f84423f220c6896641892cb1e08aee547d406a888",
-      "after": "6351f195f593c89f9eabc952a87fbc988714bacc0a8eb8a1a1f56a4549e9cc63",
+      "before": "6351f195f593c89f9eabc952a87fbc988714bacc0a8eb8a1a1f56a4549e9cc63",
+      "after": "3d507aa8172fa375c5409db93ee583ed69986d714de91d076c0b8e7bbbe416ea",
       "owner": "wallpaper-quality",
-      "reason": "TEX LZ4 去掉已校验输入副本",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-tex-lz4-input"
+      "reason": "官版纹理档实际 L0 及后续 TEXS 与本机候选",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-texture-resolution"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "3133208cd67506c20fa8ab50f4b4d6fc30e3a5c3315107c837d52365b370f520",
-      "after": "031dfe50112fc060344c8289ff33de4878e24d7e70cbe37750a51d6a357007dd",
+      "before": "031dfe50112fc060344c8289ff33de4878e24d7e70cbe37750a51d6a357007dd",
+      "after": "11f39f9c51681e452c6232e707715bcdd755f286187ffcc964a077c67a25816e",
       "owner": "wallpaper-quality",
-      "reason": "TEX 压缩输入实测和签名作者复核",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-tex-lz4-input"
+      "reason": "现役纹理与官版消费对照入口",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-texture-resolution"
     }
   ]
 }
