@@ -77,8 +77,8 @@
       "bytes": 77912
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 313,
-      "bytes": 61956
+      "lines": 315,
+      "bytes": 62985
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "eac0ef0ca2e055e2217a7057671fdb2a0cb4bf3e85190f822fc86ded95bf79c6",
-      "after": "b5a5ae8276373ed2fa9db790633fd61fd2652ed63acdb3be721e606a4240bd52",
+      "before": "b5a5ae8276373ed2fa9db790633fd61fd2652ed63acdb3be721e606a4240bd52",
+      "after": "735b3c2e822fc6dcd68fba794def8f072a7ab24002fc53370c674b6b4d3c5c47",
       "owner": "跨引擎画质实施",
-      "reason": "关闭聚光锥的几何与片元零贡献试验并保留画面反例",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-spot-cone-support-trial"
+      "reason": "记录签名真机 WindowServer HDR 浮点收据和单屏边界",
+      "decision": "docs/development/wallpaper-quality-work-card.md#官方对照和-hdr-决策"
     },
     {
       "section": "bodies",

@@ -38,6 +38,8 @@ Q2 先在原准备入口引入有效后处理投影。普通档和禁用档沿�
 
 首片先落实两种超高档。新增值加入现有画质记录，旧 bool 只读迁移，便携载荷优先新字段，缺省新字段才采合法的旧 bool。App 仅在请求变更发一次 Scene 命令，启动与恢复采用原 Scene wire。原 Host 保最新意图，候选、恢复会话及换屏交给原 Surface。切档只更新每屏 EDR 申请和必要的冻结帧，复用既有颜色映射、GPU 资源和时钟。受控夹具要求验证旧／新导入、正常／暂停切换、SDR 反例和取消候选。 [Scene 质量策略](../scene/architecture/runtime-architecture.md#effective-quality-policy)
 
+在单内屏 M4 Liquid Retina XDR（3024×1964）用同一团队签名 Debug 和同包做普通超高／显示 HDR 冷启动。ScreenCaptureKit 锁定实际 Scene 窗口 ID 和进程，取本地显示 RGhA，转扩展线性 sRGB 浮点。带超白源的两个普通超高窗峰值均为 1，两个显示 HDR 窗均为 13.5703，高于 1.02 的像素为 0／166,698。独立白、灰探针分别保持 1、0.21404，显示 HDR 捕获时系统当前余量为 13.5799。真作者 HDR 3219398263 的两窗峰值约 1.0008／13.5703，采到超过 1.02 的像素 0／704,642，动画相位未锁到同帧。作者 SDR 邻例 3477054430 根 `hdr=false`，两档峰值均约 1.0007，无扩展高亮。八窗均实际提交并排空。收据归 `.artifacts/wallpaper-quality-xdr/windowserver-edr.json`；此门验证 WindowServer 的实际窗口输出和单屏能力，面板光度、真实多屏和物理热切仍未测。 [Apple 屏幕余量接口](https://developer.apple.com/documentation/metal/determining-support-for-edr-values)
+
 ### 禁用与普通泛光的实施片
 
 1. `loadScene` 采纳请求时由原 Host 固定准备档。穿过已有 Model／SourceFacts 准备入口，将有效 HDR 投影给对象解释和渲染 descriptor。保留作者原始 General、属性和脚本输入。超高与显示 HDR 沿同一已准备工作域热更，跨工作域显示下次应用生效，由原候选和可见接管承载。
