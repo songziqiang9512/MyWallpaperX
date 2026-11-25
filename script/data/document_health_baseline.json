@@ -121,8 +121,8 @@
       "bytes": 7411
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 382,
-      "bytes": 73208
+      "lines": 391,
+      "bytes": 74972
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 463,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 350835
+      "bytes": 351835
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 243,
-      "bytes": 69824
+      "bytes": 69849
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "e528641340afbccefbd8530627eb56b0852a7d80ac1049dd7539253f170cee4c",
-      "after": "d2bb8892be670ebbd50b7c057c30d0c24a30f66dc130e827a712c4cb4ef4f727",
-      "owner": "Scene particle initializer plan",
-      "reason": "替换旧出生方向合同并登记位置、实例速率与预热验收。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#turbulent-birth-clock"
+      "before": "d2bb8892be670ebbd50b7c057c30d0c24a30f66dc130e827a712c4cb4ef4f727",
+      "after": "bb4b464f89116d37888629ccfd28a7cfee916474b76d892657e82574b7562909",
+      "owner": "Scene particle operator plan",
+      "reason": "以原共享算子计划接空间、时钟与帧率力，退役旧方向字段。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#continuous-turbulence"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "753ec610c0740109b5c3a103f76dcfb11443af6f85ec616ca6af0716075b93d8",
-      "after": "94a39932fcf179a5fc527ae04d98b768641ce55bb6a8e8f91fb7a33d6253af35",
-      "owner": "Scene particle birth evidence",
-      "reason": "登记固定相位、预热及两个真实作者的画面证据。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ember-birth-scene-simplex"
+      "before": "94a39932fcf179a5fc527ae04d98b768641ce55bb6a8e8f91fb7a33d6253af35",
+      "after": "e9eabe8b5f2da5a071d0fcfe5735e98dcc5f8a7998591306978fb3fe8d96c5a1",
+      "owner": "Scene continuous particle evidence",
+      "reason": "登记同龄轨迹、官版单步位移、符号与倍率正反例及真实作者合成。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-continuous-turbulence-field"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "fb8ff9809bf53651a3e6e06f1aaeb0b5afc6153f76703bed68283c41806fa826",
-      "after": "05aeaceee71236642e235d4722bdec65e2484ba4bf6084fc7b21bce553089e79",
-      "owner": "Scene conditional texture preparation and publication",
-      "reason": "将已复验的 X 光属性选择标为已修复，收窄其余未证消费者。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-conditional-material-xray-374"
+      "before": "4ef71e1ebc24bb6eb87223480d4dcf585114120b8b234613a45e6d9af7867d2f",
+      "after": "939a46f8caf5614ec9e006f91bb6e0cfbdc2e46d65c3990b75ce615f541bfe7a",
+      "owner": "Scene current breakpoints",
+      "reason": "关闭持续力的已复验差异，保留成熟群和右带覆盖。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-continuous-turbulence-field"
     },
     {
       "section": "bodies",

@@ -53,8 +53,8 @@ extension SceneDesktopWallpaperSession.Surface {
 #endif
 
         let batches = particlePlayback.advance(
-            by: timing.simulationFrameTime,
-            sceneTime: timing.sceneTime,
+            by: timing.simulationFrameTime, sceneTime: timing.sceneTime,
+            rawFrameDelta: timing.rawFrameTime,
             dynamicValues: dynamicValues,
             pointerLocalPositions: pointerLocalPositions,
             audioSpectrum: frameContext.audioSpectrum,

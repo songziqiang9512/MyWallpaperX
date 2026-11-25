@@ -336,7 +336,7 @@ enum Harness {
     """#
     private static let turbulenceJSON = #"""
     {"material":"p.json","maxcount":1,
-     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0,"origin":"128 42 -19"}],
      "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
      "operator":[{"name":"turbulence","mask":"1 1 0","scale":0.02,"speedmin":25,"speedmax":25,"phasemin":1,"phasemax":1,"timescale":0,"audioprocessingmode":3}],
      "renderer":[{"name":"sprite"}]}
@@ -426,7 +426,8 @@ class SceneParticleAudioResponseTests(unittest.TestCase):
     def test_phase_consumers_change_only_for_nonzero_response(self) -> None:
         self.assertNotEqual(self.result["initializerSilent"], self.result["initializerActive"])
         self.assertTrue(self.result["fixedPhaseStable"])
-        self.assertNotEqual(self.result["turbulenceSilent"], self.result["turbulenceActive"])
+        self.assertEqual(self.result["turbulenceSilent"], [0, 0, 0])
+        self.assertNotEqual(self.result["turbulenceActive"], [0, 0, 0])
         self.assertEqual(self.result["publishedSilenceInitializerCount"], 60)
         self.assertEqual(self.result["publishedSilenceObservationCount"], 0)
 

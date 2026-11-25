@@ -1,6 +1,11 @@
 import Foundation
 import simd
 
+nonisolated struct SceneParticleFrameTiming: Sendable {
+    var sceneTime: Double = 0
+    var turbulenceForceFactor: Double = 1
+}
+
 nonisolated struct SceneParticleState: Equatable, Sendable {
     let id: UInt64
     var position: SIMD3<Double>
@@ -145,24 +150,24 @@ nonisolated enum SceneParticleSimulationMath {
         return direction * random.value(value.speedMinimum, value.speedMaximum)
     }
 
-    // Signed 1D gradients derived from Perlin's published 256-cell permutation.
-    private static let turbulentGradients: [Int8] = [
-        8, 1, -2, -4, -3, -8, 4, -6, -2, -8, 1, 6, 3, -2, 8, 2,
-        -5, 5, 8, -7, 6, -7, -1, 4, 6, 1, 6, -3, 8, -7, 7, 5,
-        8, -1, -3, -4, 1, -3, 6, -7, -7, -5, -4, -4, 6, 4, -4, 1,
-        -2, 2, 2, -1, -6, 6, -1, 8, -7, 5, -6, -1, -4, -1, 5, -8,
-        -3, 6, 8, 7, -4, 1, -4, 7, -6, 3, -7, 8, 4, -8, 6, -3,
-        -5, 4, 6, 7, -5, -2, -5, -2, 8, -7, 6, -1, 5, 7, -8, 7,
-        2, -2, -8, 2, 2, -1, 1, -2, 2, -5, 5, -4, 1, -2, 3, -2,
-        -1, 5, 8, 3, 5, -5, -8, 7, 5, 5, -6, 7, -6, -3, 4, 1,
-        5, -2, 3, -3, -5, -4, 6, -3, 7, 4, 7, -7, -8, 3, 6, 5,
-        -8, -7, -4, 4, -8, 1, -3, 2, 7, -6, -5, -3, -8, 8, -3, 6,
-        8, -1, -1, 3, -5, -3, 4, 7, -6, -2, 6, -4, 8, -4, -5, -2,
-        2, 7, 8, -6, 4, 3, -5, -7, -8, 2, 1, -1, 3, -2, 1, -1,
-        -3, 7, 2, 5, -4, 3, 3, 2, -7, 3, 1, -5, -8, 4, 3, 2,
-        2, 4, 2, -4, -2, -7, -8, -4, 2, 1, 7, -8, 6, 8, -3, -6,
-        -1, 5, -5, 1, 4, -2, 3, -6, -8, 5, 7, -7, -3, -5, -6, -6,
-        -7, 3, 4, -6, -1, -1, 4, -6, 1, 4, -7, 3, 8, -6, -5, 5,
+    // Perlin's published 256-cell permutation, shared by both simplex fields.
+    private static let simplexPermutation: [UInt8] = [
+        151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225,
+        140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148,
+        247, 120, 234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32,
+        57, 177, 33, 88, 237, 149, 56, 87, 174, 20, 125, 136, 171, 168, 68, 175,
+        74, 165, 71, 134, 139, 48, 27, 166, 77, 146, 158, 231, 83, 111, 229, 122,
+        60, 211, 133, 230, 220, 105, 92, 41, 55, 46, 245, 40, 244, 102, 143, 54,
+        65, 25, 63, 161, 1, 216, 80, 73, 209, 76, 132, 187, 208, 89, 18, 169,
+        200, 196, 135, 130, 116, 188, 159, 86, 164, 100, 109, 198, 173, 186, 3, 64,
+        52, 217, 226, 250, 124, 123, 5, 202, 38, 147, 118, 126, 255, 82, 85, 212,
+        207, 206, 59, 227, 47, 16, 58, 17, 182, 189, 28, 42, 223, 183, 170, 213,
+        119, 248, 152, 2, 44, 154, 163, 70, 221, 153, 101, 155, 167, 43, 172, 9,
+        129, 22, 39, 253, 19, 98, 108, 110, 79, 113, 224, 232, 178, 185, 112, 104,
+        218, 246, 97, 228, 251, 34, 242, 193, 238, 210, 144, 12, 191, 179, 162, 241,
+        81, 51, 145, 235, 249, 14, 239, 107, 49, 192, 214, 31, 181, 199, 106, 157,
+        184, 84, 204, 176, 115, 121, 50, 45, 127, 4, 150, 254, 138, 236, 205, 93,
+        222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180,
     ]
 
     private static func turbulentNoise(_ time: Float) -> Float {
@@ -172,7 +177,10 @@ nonisolated enum SceneParticleSimulationMath {
         func contribution(_ distance: Float, cell: Int) -> Float {
             let weight = 1 - distance * distance
             let weightSquared = weight * weight
-            return Float(turbulentGradients[cell]) * distance * weightSquared * weightSquared
+            let hash = simplexPermutation[cell]
+            let magnitude = Float(1 + (hash & 7))
+            let gradient = hash & 8 == 0 ? magnitude : -magnitude
+            return gradient * distance * weightSquared * weightSquared
         }
         return 0.395 * (contribution(x, cell: cell) + contribution(x - 1, cell: (cell + 1) & 255))
     }
@@ -381,43 +389,46 @@ nonisolated enum SceneParticleSimulationMath {
         return noise * plan.directions * plan.distance
     }
 
-    static func turbulenceDirection(
-        position: SIMD3<Double>,
-        time: Double,
-        phase: Double,
-        scale: Double,
-        timeScale: Double,
-        mask: SIMD3<Double>
-    ) -> SIMD3<Double> {
-        guard position.x.isFinite, position.y.isFinite, position.z.isFinite,
-              time.isFinite, phase.isFinite, scale.isFinite, timeScale.isFinite,
-              mask.x.isFinite, mask.y.isFinite, mask.z.isFinite else { return .zero }
-        let noiseTime = phase + time * timeScale
-        // De-correlate one project-owned coherent field across its three sample axes.
-        let point = position * scale + SIMD3(
-            noiseTime,
-            noiseTime * 0.754_877_666,
-            noiseTime * 1.324_717_957
+    static func continuousTurbulence(at point: SIMD3<Float>, mask: SIMD3<Double>) -> SIMD3<Double> {
+        guard abs(point.x) < 1e12, abs(point.y) < 1e12, abs(point.z) < 1e12 else { return .zero }
+        return SIMD3(
+            mask.x == 0 ? 0 : Double(simplexField(point)) * mask.x,
+            mask.y == 0 ? 0 : Double(simplexField(SIMD3(point.z, point.x, point.y))) * mask.y,
+            mask.z == 0 ? 0 : Double(simplexField(SIMD3(point.y, point.z, point.x))) * mask.z
         )
-        guard point.x.isFinite, point.y.isFinite, point.z.isFinite,
-              abs(point.x) < 1e12, abs(point.y) < 1e12, abs(point.z) < 1e12 else {
-            return .zero
+    }
+
+    private static let simplexGradients: [SIMD3<Float>] = [
+        SIMD3(1, 1, 0), SIMD3(-1, 1, 0), SIMD3(1, -1, 0), SIMD3(-1, -1, 0),
+        SIMD3(1, 0, 1), SIMD3(-1, 0, 1), SIMD3(1, 0, -1), SIMD3(-1, 0, -1),
+        SIMD3(0, 1, 1), SIMD3(0, -1, 1), SIMD3(0, 1, -1), SIMD3(0, -1, -1),
+    ]
+
+    private static func simplexField(_ point: SIMD3<Float>) -> Float {
+        let cell = (point + simd_reduce_add(point) / 3).rounded(.down)
+        let offset = point - cell + simd_reduce_add(cell) / 6
+        let xy = offset.x >= offset.y
+        let xz = offset.x >= offset.z
+        let yz = offset.y >= offset.z
+        let first = SIMD3<Int>(xy && xz ? 1 : 0, !xy && yz ? 1 : 0, !xz && !yz ? 1 : 0)
+        let second = SIMD3<Int>(xy || xz ? 1 : 0, !xy || yz ? 1 : 0, !xz || !yz ? 1 : 0)
+        let lattice = SIMD3(Int(cell.x), Int(cell.y), Int(cell.z))
+        func corner(_ distance: SIMD3<Float>, at index: SIMD3<Int>) -> Float {
+            let weight = 0.6 - simd_length_squared(distance)
+            guard weight > 0 else { return 0 }
+            let z = Int(simplexPermutation[index.z & 255])
+            let y = Int(simplexPermutation[(index.y + z) & 255])
+            let hash = Int(simplexPermutation[(index.x + y) & 255])
+            let squared = weight * weight
+            return squared * squared * simd_dot(simplexGradients[hash % 12], distance)
         }
-        let turn = gradientNoise(point, seed: 0xD6E8FEB86659FD93) * 2 * Double.pi
-        var direction = SIMD3(cos(turn), sin(turn), 0.0)
-        if abs(mask.z) > 1e-9 {
-            direction.z = gradientNoise(
-                point + SIMD3(47.17, 73.31, 101.03),
-                seed: 0xA0761D6478BD642F
-            )
-            let directionLength = length(direction)
-            guard directionLength.isFinite, directionLength > 1e-9 else { return .zero }
-            direction /= directionLength
-        }
-        // Authored mask components scale each axis of the field. Normalizing
-        // after masking would erase both that magnitude and single-axis
-        // attenuation; zero axes naturally contribute no velocity change.
-        return direction * mask
+        // The continuous field's far corner uses the starting Z lattice index for its gradient.
+        return 32 * (
+            corner(offset, at: lattice)
+            + corner(offset - SIMD3<Float>(first) + 1.0 / 6, at: lattice &+ first)
+            + corner(offset - SIMD3<Float>(second) + 1.0 / 3, at: lattice &+ second)
+            + corner(offset - 0.5, at: lattice &+ SIMD3(1, 1, 0))
+        )
     }
 
     static func changeAmount(

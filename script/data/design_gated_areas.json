@@ -703,6 +703,23 @@
       ]
     },
     {
+      "id": "scene-particle-continuous-turbulence",
+      "title": "Position-sampled continuous particle turbulence",
+      "owner": "Scene particle operator plan and existing Scene frame timing",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/particle-component-coverage.md",
+      "design_notes": "Replace the unit-angle force with the measured position-sampled 3D simplex field. Prepare signed controls once, reuse Scene timing, and keep the strength factor shared across particle consumers of a frame. Qualify fixed tracks, cadence, signed masks and real author rendering.",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationSupport.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Operators.swift"
+      ],
+      "contentPatterns": [
+        "continuousTurbulence",
+        "turbulenceForceFactor",
+        "SceneParticleTurbulencePlan"
+      ]
+    },
+    {
       "id": "scene-conditional-material-atlas",
       "title": "Property-selected material atlas publication",
       "owner": "Scene condition atlas resource transaction and material asset catalog",

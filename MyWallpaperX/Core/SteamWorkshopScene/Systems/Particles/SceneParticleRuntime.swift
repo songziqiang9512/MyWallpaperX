@@ -331,6 +331,7 @@ final class SceneParticleRuntime {
                 textureLoader: textureLoader,
                 builtInTextureRegistry: builtInTextureRegistry,
                 device: device,
+                sceneIsOrthographic: descriptor.camera.authoredOrthographicProjectionActive == true,
                 worldSpaceFrame: worldSpaceFrame,
                 rootInstanceOverride: layer.particleInstanceOverride,
                 initialDynamicInstanceValues: initialDynamicValues.particleInstanceValues(layerID: layer.id),
@@ -557,7 +558,7 @@ final class SceneParticleRuntime {
     }
 
     /// Advances every active layer by the frame delta and returns batches in scene render order.
-    func advance(by frameDelta: TimeInterval, sceneTime: Double = 0,
+    func advance(by frameDelta: TimeInterval, timing: SceneParticleFrameTiming = .init(),
                  dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
                  pointerLocalPositions: [Int: SIMD3<Double>] = [:], audioInput: SceneParticleAudioInput = .silent,
                  layerWorldFrames: [Int: simd_float4x4] = [:]) -> [SceneParticleDrawBatch] {
@@ -619,7 +620,7 @@ final class SceneParticleRuntime {
                 }
                 root.simulator.advance(
                     by: layerDelta,
-                    sceneTime: sceneTime,
+                    timing: timing,
                     dynamicControlPoints: rootControlPoints,
                     dynamicControlPointAngles: controlPointAngles,
                     dynamicInstanceOverride: instanceOverride,
@@ -642,7 +643,7 @@ final class SceneParticleRuntime {
                 // generic layer alpha does not modulate particle renderers.
                 let result = childRuntime.advance(
                     by: layerDelta,
-                    sceneTime: sceneTime,
+                    timing: timing,
                     spawnEvents: births,
                     deathEvents: deaths,
                     parentParticles: parentParticles,
@@ -843,7 +844,8 @@ final class SceneParticleRuntime {
             initialDynamicControlPoints: initialDynamicValues.particleControlPoints(layerID: layer.id),
             initialDynamicControlPointAngles: initialDynamicValues.particleControlPointAngles(layerID: layer.id),
             initialPlayback: initialPlayback,
-            initialAudioInput: initialAudioInput, initialSceneTime: initialSceneTime,
+            initialAudioInput: initialAudioInput, initialTiming: .init(sceneTime: initialSceneTime),
+            sceneIsOrthographic: descriptor.camera.authoredOrthographicProjectionActive == true,
             seed: UInt64(bitPattern: Int64(layer.id)),
             prewarmStepBudget: nil,
             shouldCancelPrewarm: shouldCancelPrewarm,

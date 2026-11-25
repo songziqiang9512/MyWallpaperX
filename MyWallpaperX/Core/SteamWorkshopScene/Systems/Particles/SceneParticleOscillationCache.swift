@@ -127,6 +127,36 @@ nonisolated struct SceneParticleAngularMovementPlan: Sendable {
     }
 }
 
+/// Launch-stable inputs for the continuous turbulence operator.
+nonisolated struct SceneParticleTurbulencePlan: Sendable {
+    let scale: Float
+    let timeScale: Double
+    let mask: SIMD3<Double>
+    let minimumSpeed: Double
+    let speedSpan: Double
+    let phaseSpan: Double
+
+    nonisolated init?(_ value: SceneParticleOperator, sceneIsOrthographic: Bool) {
+        guard case .turbulence = value.kind else { return nil }
+        let scale = Float(SceneParticleSimulationMath.scalar(value.scale, fallback: sceneIsOrthographic ? 0.01 : 0.5))
+        let timeScale = value.timeScale ?? (sceneIsOrthographic ? 20 : 1)
+        let mask = SceneParticleSimulationMath.vector(
+            value.mask, fallback: sceneIsOrthographic ? SIMD3(1, 1, 0) : SIMD3(repeating: 1)
+        )
+        let minimumSpeed = value.speedMinimum ?? (sceneIsOrthographic ? 500 : 1)
+        let speedSpan = (value.speedMaximum ?? (sceneIsOrthographic ? 1_000 : 5)) - minimumSpeed
+        let phaseSpan = (value.phaseMaximum ?? 0) - (value.phaseMinimum ?? 0)
+        guard scale.isFinite, timeScale.isFinite, minimumSpeed.isFinite,
+              speedSpan.isFinite, phaseSpan.isFinite else { return nil }
+        self.scale = scale
+        self.timeScale = timeScale
+        self.mask = mask
+        self.minimumSpeed = minimumSpeed
+        self.speedSpan = speedSpan
+        self.phaseSpan = phaseSpan
+    }
+}
+
 /// Launch-stable execution values shared by the operator hot path.
 ///
 /// The authored operator itself remains available to the simulator for
@@ -144,6 +174,7 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
     let positionOscillation: SceneParticlePositionOscillationPlan?
     let positionMask: SIMD3<Double>
     let audioResponse: SceneParticleAudioResponsePlan?
+    let turbulence: SceneParticleTurbulencePlan?
     let boids: SceneParticleBoidsPlan?
     let vortex: SceneParticleVortexPlan?
     let capVelocity: SceneParticleCapVelocityPlan?
@@ -157,6 +188,7 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
     nonisolated init(
         _ value: SceneParticleOperator,
         definition: SceneParticleDefinition,
+        sceneIsOrthographic: Bool = true,
         controlPointForceEnvironment: SceneParticleControlPointForceEnvironment = .unavailable
     ) {
         blend = SceneParticleOperatorBlendPlan(value)
@@ -205,7 +237,8 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
         positionMask = SceneParticleSimulationMath.vector(
             value.mask, fallback: SIMD3(1, 1, 0)
         )
-        audioResponse = SceneParticleAudioResponsePlan(value.audioResponse)
+        turbulence = SceneParticleTurbulencePlan(value, sceneIsOrthographic: sceneIsOrthographic)
+        audioResponse = SceneParticleAudioResponsePlan(value.audioResponse, usesPeakResponse: value.kind == .turbulence)
         if case .boids = value.kind {
             boids = definition.boidsPlan(for: value)
         } else {

@@ -78,7 +78,6 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     private let operatorResetsAlpha: Bool
     private let operatorResetsSize: Bool
     private let operatorResetsColor: Bool
-    let turbulencePlans: [SceneParticleTurbulencePlan?]
     let simulationSeed: UInt64
     private var emitters: [SceneParticleEmitterState]
     var random: SceneParticleRandomGenerator
@@ -117,7 +116,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         initialDynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
         initialPlayback: SceneParticlePlaybackSnapshot = .init(),
         initialAudioInput: SceneParticleAudioInput = .silent,
-        initialSceneTime: Double = 0,
+        initialTiming: SceneParticleFrameTiming = .init(),
+        sceneIsOrthographic: Bool = true,
         seed: UInt64 = 0,
         fixedTimeStep: Double = 1.0 / 60.0,
         particleBudget: Int? = nil,
@@ -158,7 +158,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         operatorExecutionPlans = definition.operators.map {
             SceneParticleOperatorExecutionPlan(
                 $0,
-                definition: definition, controlPointForceEnvironment: controlPointForceEnvironment
+                definition: definition, sceneIsOrthographic: sceneIsOrthographic,
+                controlPointForceEnvironment: controlPointForceEnvironment
             )
         }
         self.controlPointFrame = controlPointFrame
@@ -229,7 +230,6 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         operatorResetsAlpha = resetsAlpha
         operatorResetsSize = resetsSize
         operatorResetsColor = resetsColor
-        turbulencePlans = definition.operators.map(SceneParticleTurbulencePlan.init)
         self.stepSnapshotRecorder = stepSnapshotPolicies.isEmpty ? nil
             : SceneParticleStepSnapshotRecorder(policies: stepSnapshotPolicies)
         self.simulationSeed = seed
@@ -253,7 +253,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         // The init-time warm-up runs the same emit/apply path as advance;
         // prewarmed world-space systems convert through the launch frame.
         activeWorldSpaceFrame = worldSpaceFrame
-        warmUp(duration: definition.startTime ?? 0, stepBudget: prewarmStepBudget, sceneTime: initialSceneTime,
+        warmUp(duration: definition.startTime ?? 0, stepBudget: prewarmStepBudget, timing: initialTiming,
                controlPointParticleSpace: initialControlPointParticleSpace,
                collisionBoundsFrame: collisionBoundsFrame,
                shouldCancel: shouldCancelPrewarm)
@@ -301,7 +301,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 
     nonisolated func advance(
         by duration: Double,
-        sceneTime: Double = 0,
+        timing: SceneParticleFrameTiming = .init(),
         dynamicControlPoints: [Int: SIMD3<Double>] = [:],
         dynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
         dynamicInstanceOverride: SceneParticleInstanceOverride? = nil,
@@ -331,7 +331,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         let rate = max(0, overrideScalar(activeInstanceOverride?.rate))
         let simulationStep = fixedTimeStep * rate
         while accumulator + 1e-12 >= fixedTimeStep {
-            step(by: simulationStep, sceneTime: sceneTime, rate: rate,
+            step(by: simulationStep, timing: timing, rate: rate,
                  controlPointParticleSpace: controlPointParticleSpace,
                  collisionBoundsFrame: collisionBoundsFrame)
             accumulator -= fixedTimeStep
@@ -490,7 +490,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     }
 
     private nonisolated func warmUp(
-        duration: Double, stepBudget: Int?, sceneTime: Double,
+        duration: Double, stepBudget: Int?, timing: SceneParticleFrameTiming,
         controlPointParticleSpace: SceneParticleControlPointParticleSpace?,
         collisionBoundsFrame: SceneParticleCollisionBoundsFrame?,
         shouldCancel: (() -> Bool)?
@@ -526,7 +526,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             for index in emitters.indices { emitters[index].beginFrame() }
             let slice = min(fixedTimeStep, remaining)
             guard slice > 0 else { break }
-            step(by: slice, sceneTime: sceneTime, rate: rate,
+            step(by: slice, timing: timing, rate: rate,
                  controlPointParticleSpace: controlPointParticleSpace,
                  collisionBoundsFrame: collisionBoundsFrame)
             completedSteps += 1
@@ -549,7 +549,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     }
 
     private nonisolated func step(
-        by duration: Double, sceneTime: Double, rate: Double,
+        by duration: Double, timing: SceneParticleFrameTiming, rate: Double,
         controlPointParticleSpace: SceneParticleControlPointParticleSpace?,
         collisionBoundsFrame: SceneParticleCollisionBoundsFrame?
     ) {
@@ -567,7 +567,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         if playback.intent == .playing {
             let emitterWorldFrame = controlPointParticleSpace == nil ? activeWorldSpaceFrame : nil
             for index in definition.emitters.indices {
-                emit(index: index, duration: duration, sceneTime: sceneTime, rate: rate,
+                emit(index: index, duration: duration, sceneTime: timing.sceneTime, rate: rate,
                      worldSpaceFrame: emitterWorldFrame)
             }
         }
@@ -588,7 +588,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             }
         }
         for (operatorIndex, value) in definition.operators.enumerated() {
-            apply(value, operatorIndex: operatorIndex, duration: duration,
+            apply(value, operatorIndex: operatorIndex, duration: duration, timing: timing, rate: rate,
                   existingParticleIDUpperBound: existingParticleIDUpperBound,
                   controlPointParticleSpace: controlPointParticleSpace,
                   collisionBoundsFrame: collisionBoundsFrame)

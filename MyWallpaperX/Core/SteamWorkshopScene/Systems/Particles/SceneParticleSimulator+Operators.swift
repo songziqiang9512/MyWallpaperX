@@ -4,7 +4,7 @@ nonisolated extension SceneParticleSimulator {
     func apply(
         _ value: SceneParticleOperator,
         operatorIndex: Int,
-        duration: Double,
+        duration: Double, timing: SceneParticleFrameTiming, rate: Double,
         existingParticleIDUpperBound: UInt64 = .max,
         controlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil,
         collisionBoundsFrame: SceneParticleCollisionBoundsFrame? = nil
@@ -266,42 +266,40 @@ nonisolated extension SceneParticleSimulator {
             }
 #endif
         case .turbulence:
-            guard let plan = turbulencePlans[operatorIndex] else {
+            guard let plan = operatorExecutionPlans[operatorIndex].turbulence else {
 #if DEBUG
                 componentObservation?.record("operator", operatorIndex, "unavailable", reason: "prepared-plan-unavailable", time: simulationTime)
 #endif
                 break
             }
-            let speedOverride = effectiveSpeedOverride
-            let phaseAudioFactor = plan.audioResponse.map {
-                1 + evaluateAudioResponse(
-                    $0, componentKind: .operator, componentIndex: operatorIndex
-                )
+            guard plan.scale != 0, plan.mask != .zero else { break }
+            let strength = operatorExecutionPlans[operatorIndex].audioResponse.map {
+                evaluateAudioResponse($0, componentKind: .operator, componentIndex: operatorIndex)
             } ?? 1
+            guard strength != 0 else { break }
+            let forceTime = duration * timing.turbulenceForceFactor * effectiveSpeedOverride * strength
+            let clockOffset = timing.sceneTime * (plan.timeScale * rate)
+            let usesParticleRandom = plan.phaseSpan != 0 || plan.speedSpan != 0
             let seed = simulationSeed
-            let time = simulationTime
+            let blend = operatorExecutionPlans[operatorIndex].blend
             let lives = normalizedLives
             particles.withUnsafeMutableBufferPointer { buffer in
                 for index in buffer.indices {
-                    let particleID = buffer[index].id
-                    let phase = Self.turbulenceRandom(
-                        plan.phaseMinimum, plan.phaseMaximum,
-                        particleID: particleID, seed: seed, operatorIndex: operatorIndex, salt: 0
-                    ) * phaseAudioFactor
-                    let speed = Self.turbulenceRandom(
-                        plan.minimumSpeed, plan.maximumSpeed,
-                        particleID: particleID, seed: seed, operatorIndex: operatorIndex, salt: 1
-                    ) * speedOverride
-                    let direction = SceneParticleSimulationMath.turbulenceDirection(
-                        position: buffer[index].position,
-                        time: time,
-                        phase: phase,
-                        scale: plan.scale,
-                        timeScale: plan.timeScale,
-                        mask: plan.mask
+                    let unit: Double
+                    if usesParticleRandom {
+                        var generator = SceneParticleRandomGenerator(
+                            state: seed ^ (buffer[index].id &* 0x9E3779B97F4A7C15)
+                        )
+                        unit = generator.unit()
+                    } else {
+                        unit = 0
+                    }
+                    let point = (SIMD3<Float>(buffer[index].position) + Float(clockOffset + unit * plan.phaseSpan)) * plan.scale
+                    let force = SceneParticleSimulationMath.continuousTurbulence(at: point, mask: plan.mask)
+                    let speed = plan.minimumSpeed + unit * plan.speedSpan
+                    SceneParticleSimulationMath.addFinite(
+                        force * (speed * forceTime * operatorBlend(blend, lives[index])), to: &buffer[index].velocity
                     )
-                    let delta = direction * speed * duration * plan.blendAmount(lives[index])
-                    SceneParticleSimulationMath.addFinite(delta, to: &buffer[index].velocity)
                 }
             }
 #if DEBUG

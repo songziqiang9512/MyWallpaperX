@@ -365,7 +365,7 @@ enum SceneParticleChildGraphExpansion {
 
 extension SceneParticleChildTemplate {
     func simulator(
-        seed: UInt64, sceneTime: Double = 0,
+        seed: UInt64, timing: SceneParticleFrameTiming, sceneIsOrthographic: Bool,
         dynamicInstanceValues: SceneDynamicParticleValues? = nil,
         origin: SIMD3<Double> = .zero,
         controlPointFrame: SceneParticleControlPointFrame? = nil,
@@ -384,7 +384,7 @@ extension SceneParticleChildTemplate {
             initialDynamicControlPoints: initialDynamicControlPoints,
             initialDynamicControlPointAngles: initialDynamicControlPointAngles,
             initialAudioInput: initialAudioInput,
-            initialSceneTime: sceneTime,
+            initialTiming: timing, sceneIsOrthographic: sceneIsOrthographic,
             seed: seed,
             particleBudget: particleBudget,
             maximumEmissionDuration: maximumEmissionDuration,

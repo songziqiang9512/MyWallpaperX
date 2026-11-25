@@ -1,15 +1,9 @@
 #!/usr/bin/env python3
-"""Parsed turbulence mask scaling and atomic Float safety through Simulator.
-
-The unit-mask run supplies the project's existing noise field; comparisons
-test authored axis scaling, not an official noise formula. A frozen support
-source can be selected with MWX_SCENE_TURBULENCE_MASK_SOURCE.
-"""
+"""Exercise the prepared spatial force through the real simulator and particle buffer."""
 from __future__ import annotations
 
 import json
 import math
-import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -21,7 +15,6 @@ from script.tests.scene.test_scene_particle_turbulent_forward import PARTICLE_SO
 
 HARNESS = r'''
 import Foundation
-import Darwin
 
 @main enum Harness {
     static let step = 0.125
@@ -29,10 +22,11 @@ import Darwin
     static func make(_ mask: Any, phase: Double = 0.3, speed: Double = 24,
                      initial: String = "3 -2 1", count: Int = 1,
                      movement: Bool = false, movementFirst: Bool = false,
-                     randomRanges: Bool = false) throws -> SceneParticleSimulator {
+                     randomRanges: Bool = false, spaceScale: Double = 0.002,
+                     origin: String = "128 42 -19", phaseMax: Double? = nil) throws -> SceneParticleSimulator {
         let turbulence: [String: Any] = [
-            "name": "turbulence", "mask": mask, "scale": 0, "timescale": 0,
-            "phasemin": phase, "phasemax": randomRanges ? phase + 0.9 : phase,
+            "name": "turbulence", "mask": mask, "scale": spaceScale, "timescale": 0,
+            "phasemin": phase, "phasemax": phaseMax ?? (randomRanges ? phase + 0.9 : phase),
             "speedmin": speed, "speedmax": randomRanges ? speed * 2 : speed]
         let move: [String: Any] = ["name": "movement", "flags": 0,
                                   "gravity": "0 0 0", "drag": 0]
@@ -41,7 +35,7 @@ import Darwin
         let authored: [String: Any] = [
             "material": "owned.json", "maxcount": count, "starttime": 0, "flags": 0,
             "emitter": [["name": "boxrandom", "rate": 0, "instantaneous": count,
-                         "distancemin": "0 0 0", "distancemax": "0 0 0"]],
+                         "distancemin": "0 0 0", "distancemax": "0 0 0", "origin": origin]],
             "initializer": [["name": "lifetimerandom", "min": 8, "max": 8],
                             ["name": "velocityrandom", "min": initial, "max": initial]],
             "operator": operators]
@@ -83,68 +77,6 @@ import Darwin
         return ["first": first, "final": observe(sim)]
     }
 
-    static func equalRangeSampling() throws -> [String: Any] {
-        var saved = fenv_t()
-        guard fegetenv(&saved) == 0 else { throw NSError(domain: "save-fenv", code: 1) }
-        defer { precondition(fesetenv(&saved) == 0, "restore fenv") }
-        let sim = try make(1.0)
-        sim.advance(by: step)
-        guard sim.particles.count == 1,
-              case let .lifetime(scalar)? = sim.initializerExecutionPlans.first else {
-            throw NSError(domain: "missing-real-birth-sampler", code: 1)
-        }
-        let cases: [(String, Double, Double)] = [
-            ("plus-zero", 0.0, 0.0), ("plus-minus-zero", 0.0, -0.0),
-            ("minus-plus-zero", -0.0, 0.0), ("minus-zero", -0.0, -0.0),
-            ("one", 1, 1), ("minus-one", -1, -1),
-            ("least-subnormal", .leastNonzeroMagnitude, .leastNonzeroMagnitude),
-            ("minus-least-subnormal", -.leastNonzeroMagnitude, -.leastNonzeroMagnitude),
-            ("largest-subnormal", Double.leastNormalMagnitude.nextDown,
-             Double.leastNormalMagnitude.nextDown),
-            ("minus-largest-subnormal", -Double.leastNormalMagnitude.nextDown,
-             -Double.leastNormalMagnitude.nextDown),
-            ("greatest", .greatestFiniteMagnitude, .greatestFiniteMagnitude),
-            ("minus-greatest", -.greatestFiniteMagnitude, -.greatestFiniteMagnitude)]
-        let modes: [(String, Int32)] = [("nearest", FE_TONEAREST),
-            ("downward", FE_DOWNWARD), ("upward", FE_UPWARD), ("toward-zero", FE_TOWARDZERO)]
-        var samples: [[String: Any]] = [], births: [[String: Any]] = []
-        for (name, mode) in modes {
-            guard fesetround(mode) == 0, fegetround() == mode else {
-                throw NSError(domain: "set-rounding-mode", code: Int(mode))
-            }
-            let beforeKeyed = sim.random.state
-            for (label, first, second) in cases {
-                for salt in 0...1 {
-                    var oracle = SceneParticleRandomGenerator(state: sim.simulationSeed)
-                    let expected = oracle.value(first, second)
-                    let actual = SceneParticleSimulator.turbulenceRandom(
-                        first, second, particleID: sim.particles[0].id,
-                        seed: sim.simulationSeed, operatorIndex: 0, salt: salt)
-                    samples.append(["mode": name, "case": label, "salt": salt,
-                        "actual": actual.bitPattern, "expected": expected.bitPattern])
-                }
-            }
-            let afterKeyed = sim.random.state
-            var scalarOracle = sim.random, oneDraw = sim.random
-            let expectedScalar = scalarOracle.value(scalar.minimum, scalar.maximum)
-            _ = oneDraw.unit()
-            let expectedState = oneDraw.state
-            let actualScalar = sim.randomScalar(scalar)
-            let afterScalar = sim.random.state
-            let actualNext = sim.random.value(-7, 13)
-            let expectedNext = oneDraw.value(-7, 13)
-            births.append(["mode": name, "beforeKeyed": beforeKeyed, "afterKeyed": afterKeyed,
-                "scalar": actualScalar.bitPattern, "scalarOracle": expectedScalar.bitPattern,
-                "afterScalar": afterScalar, "oneDrawState": expectedState,
-                "scalarOracleState": scalarOracle.state, "next": actualNext.bitPattern,
-                "nextOracle": expectedNext.bitPattern, "finalState": sim.random.state,
-                "finalOracleState": oneDraw.state])
-        }
-        return ["samples": samples, "births": births,
-                "birthRange": [scalar.minimum, scalar.maximum],
-                "birthExponentAbsent": scalar.exponent == nil]
-    }
-
     static func main() throws {
         var output: [String: Any] = [:]
         output["unit"] = try run(1.0)
@@ -161,6 +93,21 @@ import Darwin
         output["randomUnit"] = try run(1.0, initial: "0 0 0", randomRanges: true, count: 3)
         output["randomQuarter"] = try run(0.25, initial: "0 0 0", randomRanges: true, count: 3)
 
+        let noSpace = try make("1 0 0", spaceScale: 0)
+        let explicitZeroPhase = try make("1 0 0", phase: 0)
+        let explicitNonzeroPhase = try make("1 0 0", phase: 2.5)
+        let shiftedSpan = try make("1 0 0", phase: 2, phaseMax: 3)
+        let baseSpan = try make("1 0 0", phase: 0, phaseMax: 1)
+        let negativeSpace = try make("1 0 0", spaceScale: -0.002, origin: "128 0 0")
+        let lowCadence = try make("1 0 0", phase: 0)
+        for system in [noSpace, explicitZeroPhase, explicitNonzeroPhase, shiftedSpan, baseSpan, negativeSpace] {
+            system.advance(by: step)
+        }
+        lowCadence.advance(by: step, timing: .init(turbulenceForceFactor: 0.7))
+        output["forceInvariants"] = ["zeroSpace": observe(noSpace), "fixedZero": observe(explicitZeroPhase),
+            "fixedNonzero": observe(explicitNonzeroPhase), "shiftedSpan": observe(shiftedSpan),
+            "baseSpan": observe(baseSpan), "negativeSpace": observe(negativeSpace), "lowCadence": observe(lowCadence)]
+
         // Both the old velocity and the masked force increment fit Float.
         // Only their sum on particle 0 is unsafe. Particle 1 shares the actual
         // parsed operator, field position, time, phase and speed but starts at
@@ -169,8 +116,9 @@ import Darwin
         let control = try make("1 1 1", phase: 0, speed: 16, initial: "0 0 0", count: 2)
         control.advance(by: step)
         let unitDelta = control.particles[0].velocity
-        let expectedDelta = unitDelta * SIMD3(1e38, 1, 1)
-        let unsafe = try make("1e38 1 1", phase: 0, speed: 16, initial: "0 0 0", count: 2)
+        let mask = 1.5e38 / unitDelta.x
+        let expectedDelta = unitDelta * SIMD3(mask, 1, 1)
+        let unsafe = try make("\(mask) 1 1", phase: 0, speed: 16, initial: "0 0 0", count: 2)
         unsafe.advance(by: step)
         let prior = SIMD3(2.5e38, 7.0, 9.0)
         var state = unsafe.frameSnapshot()
@@ -185,10 +133,6 @@ import Darwin
                 && SceneParticleSimulationMath.isGPUFinite(expectedDelta),
             "unsafeSumRejectedByFloat": !Float(prior.x + expectedDelta.x).isFinite,
             "otherAxisWouldChange": abs(expectedDelta.z) > 1e-6]
-        let originalRound = fegetround(), originalExceptions = fetestexcept(FE_ALL_EXCEPT)
-        output["equalRangeSampling"] = try equalRangeSampling()
-        output["samplingFenvRestored"] = fegetround() == originalRound
-            && fetestexcept(FE_ALL_EXCEPT) == originalExceptions
         print(String(decoding: try JSONSerialization.data(withJSONObject: output,
             options: [.sortedKeys]), as: UTF8.self))
     }
@@ -203,11 +147,6 @@ class SceneParticleTurbulenceMaskTests(unittest.TestCase):
         if compiler is None:
             raise unittest.SkipTest("requires Swift")
         sources = list(PARTICLE_SOURCES)
-        override = os.environ.get("MWX_SCENE_TURBULENCE_MASK_SOURCE")
-        if override:
-            selected = Path(override).resolve(strict=True)
-            sources = [selected if source.name == "SceneParticleSimulationSupport.swift"
-                       else source for source in sources]
         cls.directory = tempfile.TemporaryDirectory(prefix="mwx-turbulence-mask-")
         cls.addClassCleanup(cls.directory.cleanup)
         directory = Path(cls.directory.name)
@@ -245,33 +184,15 @@ class SceneParticleTurbulenceMaskTests(unittest.TestCase):
         velocity = self.result[key]["first"]["velocities"][0]
         return [v - prior for v, prior in zip(velocity, [3, -2, 1])]
 
-    def test_equal_range_keyed_sampling_matches_scalar_bits_and_preserves_birth_rng(self):
-        result = self.result["equalRangeSampling"]
-        modes = {"nearest", "downward", "upward", "toward-zero"}
-        cases = {"plus-zero", "plus-minus-zero", "minus-plus-zero", "minus-zero",
-                 "one", "minus-one", "least-subnormal", "minus-least-subnormal",
-                 "largest-subnormal", "minus-largest-subnormal", "greatest", "minus-greatest"}
-        expected = {(mode, case, salt) for mode in modes for case in cases for salt in (0, 1)}
-        samples = result["samples"]
-        self.assertEqual({(r["mode"], r["case"], r["salt"]) for r in samples}, expected)
-        self.assertEqual(len(samples), len(expected))
-        for row in samples:
-            with self.subTest(mode=row["mode"], case=row["case"], salt=row["salt"]):
-                self.assertEqual(row["actual"], row["expected"])
-        self.assertEqual(result["birthRange"], [8, 8])
-        self.assertTrue(result["birthExponentAbsent"])
-        self.assertEqual({r["mode"] for r in result["births"]}, modes)
-        self.assertEqual(len(result["births"]), len(modes))
-        for row in result["births"]:
-            with self.subTest(birth_mode=row["mode"]):
-                self.assertEqual(row["beforeKeyed"], row["afterKeyed"])
-                self.assertEqual(row["scalar"], row["scalarOracle"])
-                self.assertNotEqual(row["afterScalar"], row["afterKeyed"])
-                self.assertEqual(row["afterScalar"], row["oneDrawState"])
-                self.assertEqual(row["scalarOracleState"], row["oneDrawState"])
-                self.assertEqual(row["next"], row["nextOracle"])
-                self.assertEqual(row["finalState"], row["finalOracleState"])
-        self.assertTrue(self.result["samplingFenvRestored"])
+    def test_force_uses_position_signed_scale_and_phase_span(self):
+        result = self.result["forceInvariants"]
+        velocity = lambda key: result[key]["velocities"][0]
+        self.assert_vector(velocity("zeroSpace"), [3, -2, 1])
+        self.assert_vector(velocity("fixedZero"), velocity("fixedNonzero"))
+        self.assert_vector(velocity("baseSpan"), velocity("shiftedSpan"))
+        self.assertNotEqual(velocity("baseSpan"), velocity("fixedZero"))
+        self.assertNotEqual(velocity("negativeSpace"), velocity("zeroSpace"))
+        self.assertAlmostEqual(velocity("lowCadence")[0] - 3, (velocity("fixedZero")[0] - 3) * 0.7)
 
     def test_scalar_mask_scales_actual_operator_velocity_increment(self):
         unit = self.delta("unit")
@@ -289,14 +210,14 @@ class SceneParticleTurbulenceMaskTests(unittest.TestCase):
         self.assert_vector(self.delta("negative"), [-unit[0], -unit[1] * 0.5, unit[2]])
         self.assert_vector(self.result["zero"]["first"]["velocities"][0], [3, -2, 1])
 
-    def test_repeated_motion_preserves_mask_ratio_without_spatial_feedback(self):
+    def test_spatial_feedback_changes_the_trajectory_after_the_first_step(self):
         unit = self.result["unitMotion"]["final"]
-        self.assertGreater(sum(v * v for v in unit["positions"][0]), 1)
+        origin = [128, 42, -19]
+        self.assertGreater(sum((v - start) ** 2 for v, start in zip(unit["positions"][0], origin)), 0.01)
         for key, factor in (("quarterMotion", 0.25), ("doubleMotion", 2)):
             with self.subTest(mask=key):
                 current = self.result[key]["final"]
-                self.assert_vector(current["positions"][0], [v * factor for v in unit["positions"][0]])
-                self.assert_vector(current["velocities"][0], [v * factor for v in unit["velocities"][0]])
+                self.assertNotAlmostEqual(current["velocities"][0][0], unit["velocities"][0][0] * factor)
                 self.assertEqual(current["ages"], [1])
                 self.assertEqual(current["time"], 1)
 
@@ -312,8 +233,8 @@ class SceneParticleTurbulenceMaskTests(unittest.TestCase):
         first = self.result["movementFirst"]["first"]
         force_first = self.result["unitMotion"]["first"]
         self.assert_vector(first["velocities"][0], force_first["velocities"][0])
-        self.assert_vector(first["positions"][0], [0, 0, 0])
-        self.assertGreater(sum(v * v for v in force_first["positions"][0]), 0)
+        self.assert_vector(first["positions"][0], [128, 42, -19])
+        self.assertNotEqual(force_first["positions"][0], first["positions"][0])
 
     def test_float_sum_overflow_rejects_one_whole_velocity_and_keeps_safe_sibling(self):
         result = self.result["overflow"]

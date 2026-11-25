@@ -8,6 +8,7 @@ final class SceneParticlePlaybackState {
     let lifecycleIdentity = UUID()
     var pipelineVariants: SceneParticlePipelineVariant.Preparation { runtime.pipelineVariants }
     private let runtime: SceneParticleRuntime
+    private let hasTurbulence: Bool
     private var retainedLayerIDs: Set<Int>
     var preparedLayerIDs: Set<Int> { didTeardown ? [] : retainedLayerIDs }
     var pointerControlPointDemands: Set<Int> {
@@ -70,9 +71,12 @@ final class SceneParticlePlaybackState {
             shouldCancelPrewarm: shouldCancelPrewarm
         )
         self.runtime = runtime
+        self.hasTurbulence = preparedAssets.assetsByPath.values.contains { asset in
+            asset.definition.operators.contains { $0.kind == .turbulence }
+        }
         self.retainedLayerIDs = Set(runtime.activeLayerIDs)
         self.batches = runtime.advance(
-            by: 0, sceneTime: initialSceneTime, dynamicValues: initialDynamicValues,
+            by: 0, timing: .init(sceneTime: initialSceneTime), dynamicValues: initialDynamicValues,
             audioInput: initialAudioInput, layerWorldFrames: initialWorldFrames
         )
 #if DEBUG
@@ -130,8 +134,8 @@ final class SceneParticlePlaybackState {
     }
 
     func advance(
-        by simulationFrameDelta: TimeInterval,
-        sceneTime: Double = 0,
+        by simulationFrameDelta: TimeInterval, sceneTime: Double = 0,
+        rawFrameDelta: TimeInterval? = nil,
         dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
         pointerLocalPositions: [Int: SIMD3<Double>] = [:],
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
@@ -139,9 +143,11 @@ final class SceneParticlePlaybackState {
     ) -> [SceneParticleDrawBatch] {
         guard !didTeardown else { return [] }
         batches.removeAll(keepingCapacity: true)
+        let frameDelta = rawFrameDelta ?? simulationFrameDelta
+        let forceFactor = hasTurbulence && frameDelta > 0.025 ? pow(0.025 / frameDelta, 0.7) : 1
         batches = runtime.advance(
             by: Self.boundedRealtimeSimulationDelta(simulationFrameDelta),
-            sceneTime: sceneTime,
+            timing: .init(sceneTime: sceneTime, turbulenceForceFactor: forceFactor),
             dynamicValues: dynamicValues,
             pointerLocalPositions: pointerLocalPositions,
             audioInput: SceneParticleAudioInput(
