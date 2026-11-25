@@ -132,7 +132,7 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 
 默认播放以完整作者能力为基准；水滴所需的官方后处理超高发光属于当前兼容目标，不等待档位UI。作者General HDR/Bloom开关、各自strength与材质声明继续控制实际贡献，默认不能覆盖关闭或零贡献。材质语义及验收归[HDR发光合同](../capabilities/advanced-object-coverage.md#model-hdr-emissive-gain)，未验证效果仍由开放队列维护，不把目标写成已获官方画面资格。
 
-需冷准备的档由原 Scene 候选读取。直接 AppKit 编辑按冷档差分、显式重试按保存请求进入 [同源重载](../../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift)，两种入口登记同一类候选，复用已提交库票据的作品和播放快照。准备期间的下一次直接编辑按原候选票据撤销过时请求。新会话实际接管后开始新作者时钟，继承最新暂停意图。便携导入将冷档留给下一次准备或显式重试，原活动会话只消费已有的热更字段。 [入口与画面验收](../../development/wallpaper-quality-work-card.md#quality-reapply-current-scene)
+需冷准备的档由原 Scene 候选读取。直接 AppKit 编辑按冷档差分、显式重试按保存请求进入 [同源重载](../../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift)，两种入口登记同一类候选，复用已提交库票据的作品和播放快照。同源重载准备期间的下一次直接编辑按原候选票据撤销过时请求。普通选片的 load 已送出且尚未登记端点时，直接冷档编辑沿同一票据、来源租约和原截止时刻重准备。替换时留同一加载标记，按新 request 身份接受端点和实呈。新会话实际接管后开始新作者时钟，继承最新暂停意图。便携导入将冷档留给下一次准备或显式重试，原活动会话只消费已有的热更字段。 [入口与画面验收](../../development/wallpaper-quality-work-card.md#quality-reapply-current-scene)
 
 候选冻结的冷准备请求随原 `candidatePrepared` 回执交给 [原切换执行](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient+SwitchEndpoint.swift)，只有对应请求完成实呈与接管后才供设置比较。两个超高后处理共用一个准备值。若活动回执与已保存冷档有差分，「重新应用」显示待应用，可用于恢复尝试。帧率与同域显示 HDR 热更沿原回路。提示对应准备的请求，实际每帧及每屏的回退仍由消费者决定。 [接管验收](../../development/wallpaper-quality-work-card.md#scene-cold-quality-receipt)
 

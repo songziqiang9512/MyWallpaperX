@@ -7,7 +7,15 @@ import QuartzCore
     static let shared=PlaybackCommandMultiplexer();var isPlaybackPaused=false
 }
 @MainActor final class SceneDaemonClient {
+    struct Execution {
+        let ticket: PlaybackSwitchTicket
+        let presented: Bool
+        let preparationQuality: SceneRenderQuality?
+    }
     static let shared=SceneDaemonClient()
+    let activeSwitchExecution: Execution? = nil
+    let pendingSwitchExecution: Execution? = nil
+    let activePreparedRenderQuality: SceneRenderQuality? = nil
     func cancelSwitch(ticket:PlaybackSwitchTicket,completion:@escaping()->Void){completion()}
     func stop(){}
 }

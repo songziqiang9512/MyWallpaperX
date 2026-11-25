@@ -517,7 +517,11 @@ final class SceneDaemonClient: PlaybackEngineControlling {
                                              resourceLifetime: incomingLifetime?.lifetime)
             return
         }
-        cancelPreparationForRuntimeSwitch()
+        if let ticket, pendingSwitchTicket == ticket {
+            cancelSwitch(ticket: ticket, reportsCancellation: false, completion: {})
+        } else {
+            cancelPreparationForRuntimeSwitch()
+        }
         pendingResourceLifetime = incomingLifetime
         finishPendingShortcutUpdates(.superseded)
         finishPendingTextureUpdates(.superseded)

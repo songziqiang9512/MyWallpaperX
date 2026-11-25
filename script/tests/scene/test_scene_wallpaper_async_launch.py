@@ -404,6 +404,7 @@ def property_launch_harness(host_source: str) -> str:
 
 PROPERTY_LAUNCH_SUPPORT = r'''
 import CoreFoundation
+import CoreGraphics
 import Foundation
 
 __CONTROL_TYPES__
@@ -450,7 +451,10 @@ struct SceneScreenTopology {
     var calls = 0
     struct PreparedParticleSurface {}
     struct PreparedSurface {}
-    nonisolated static func surfaceScreens(topology: [SceneScreenTopology]) -> [(Int, UInt32)] { [(0, 1)] }
+    nonisolated static func surfaceScreens(topology: [SceneScreenTopology]) -> [(SceneScreenTopology, UInt32)] {
+        topology.map { ($0, $0.displayID) }
+    }
+    nonisolated static func initialSurfaceFrame(for screen: SceneScreenTopology) -> CGRect { screen.frame }
     let acceptsJ: Bool
     let activeRecordID:String?
     nonisolated static func debugInitialSurfaceTopology(_ topology: [SceneScreenTopology]) -> [SceneScreenTopology] { topology }
@@ -502,7 +506,7 @@ struct SceneUserPropertyTextureLoadResult {}
         propertyOverrides: [String: SceneUserPropertyValue], userPropertyTextureURLs: [String: URL],
         requiredUserTextureKeys: Set<String>, logURL: URL?, recordID: String?,
         sceneScriptGeneration: UInt64, textureDecodeCacheBudget: SceneTextureDecodeCacheBudget,
-        surfaceDisplayIDs: [UInt32],
+        surfaceDisplayIDs: [UInt32], automaticDrawableExtent: CGSize?,
         cancellation: SceneWallpaperLaunchCancellation?,
         progress: ((SceneWallpaperLaunchState.Phase, String) -> Void)?) throws -> PreparedLaunch {
         textureDecodeCacheBudget.control.prepare()
@@ -563,7 +567,7 @@ struct SceneUserPropertyTextureLoadResult {}
     var switchVisible:((Int,UUID)->Void)?
     var switchFailed:((Int,String)->Void)?
     var switchLost:((Int,String)->Void)?
-    func cancelSwitch(ticket:Int,completion:()->Void){completion()}
+    func cancelSwitch(ticket:Int,reportsCancellation:Bool=true,completion:()->Void){completion()}
     func resumeCommittedSwitchRecoveryIfPossible(after ticket:Int?){}
     func reportPreparedSwitch(requestID:UUID)->Bool{false}
     struct Lifetime {

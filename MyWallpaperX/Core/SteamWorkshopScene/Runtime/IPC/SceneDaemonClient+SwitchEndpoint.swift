@@ -144,9 +144,15 @@ extension SceneDaemonClient {
         startLaunch(request, ticket: ticket)
     }
 
+    func repreparePendingSwitch(_ ticket: PlaybackSwitchTicket) {
+        guard pendingSwitchTicket == ticket, pendingRequestID != nil, let request = pendingIntent else { return }
+        startLaunch(request, ticket: ticket)
+    }
+
     /// Also works before hello/prepared. Clearing the pending wire identity
     /// prevents replay; completion still waits for child rollback or real exit.
-    func cancelSwitch(ticket: PlaybackSwitchTicket, completion: @escaping () -> Void) {
+    func cancelSwitch(ticket: PlaybackSwitchTicket, reportsCancellation: Bool = true,
+                      completion: @escaping () -> Void) {
         func publishCancellation(for request: ScenePlaybackLoadRequest, requestID: UUID?) {
             let state = SceneWallpaperLaunchState(requestID: requestID ?? UUID(),
                 recordID: request.recordID, phase: .cancelled, message: String(localized: "Scene wallpaper preparation canceled"))
@@ -156,7 +162,7 @@ extension SceneDaemonClient {
 
         if let queued = queuedSwitchPreparation, queued.ticket == ticket {
             queuedSwitchPreparation = nil
-            publishCancellation(for: queued.request, requestID: nil)
+            if reportsCancellation { publishCancellation(for: queued.request, requestID: nil) }
             completion()
             return
         }
@@ -191,7 +197,7 @@ extension SceneDaemonClient {
             // No load command was sent before hello, so no candidate can exist.
             finish()
         }
-        if let pending {
+        if reportsCancellation, let pending {
             publishCancellation(for: pending, requestID: requestID)
         }
     }

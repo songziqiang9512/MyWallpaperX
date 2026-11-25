@@ -90,6 +90,9 @@ extension WallpaperManager {
             reload.quality = quality
             sceneQualityReload = reload
             withdrawSceneQualityReload(reload, continueAfterCancellation: true)
+        } else if let pending = playbackSwitch.pending,
+                  pending.phase == .preparing, pending.selection.ticket.runtime == .scene {
+            SceneDaemonClient.shared.repreparePendingSwitch(pending.selection.ticket)
         } else {
             startSceneQualityReload(quality)
         }

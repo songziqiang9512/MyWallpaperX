@@ -66,6 +66,8 @@ def run_phase(command, environment, directory, phase, timeout):
                     name, window = value["name"], value["window"]
                     if phase == "scene-reapply":
                         names = ("settings-reapply", "settings-reapply-pending", "settings-reapply-applied")
+                    elif phase == "scene-selection-edit":
+                        names = ("selection-edit-video",)
                     elif phase == "quality-import":
                         names = ("video-import-before", "video-import-after")
                     else:
@@ -94,7 +96,7 @@ def run_phase(command, environment, directory, phase, timeout):
             (directory / "processes.json").write_text(json.dumps(cleanup, indent=2) + "\n")
         if cleanup["errors"] or cleanup["remainingOwnedChildren"] or not cleanup["ownedProcessesExited"]:
             raise RuntimeError("normal exit did not drain precisely owned child processes")
-        if phase == "quality-import":
+        if phase in ("quality-import", "scene-selection-edit"):
             return result
         prepared = {}
         marker = "phase=session-candidate "
@@ -195,6 +197,8 @@ def main():
                        help="automatically reapply the current Scene through native Settings")
     phase.add_argument("--scene-reapply-manual", dest="scene_reapply", action="store_const", const="manual",
                        help="supersede a manual Scene retry started after portable quality import")
+    phase.add_argument("--scene-selection-edit", nargs="?", const="cold", choices=("cold", "fps", "portable"),
+                       help="change native Scene quality during an ordinary library selection")
     parser.add_argument("--ui-language", choices=("en", "zh-Hans", "ru", "de", "fr"),
                         help="language of the isolated Settings window")
     args = parser.parse_args()
@@ -246,6 +250,8 @@ def main():
                   "--mwx-debug-coexistence-web", WEB_ID]
         if args.scene_reapply == "manual":
             common.append("--mwx-debug-scene-reapply-manual")
+        if args.scene_selection_edit:
+            common += ["--mwx-debug-scene-selection-edit", args.scene_selection_edit]
         if args.ui_language:
             common += ["-AppleLanguages", f"({args.ui_language})"]
         negative_report = output / "rejected.json"
@@ -258,8 +264,14 @@ def main():
             raise RuntimeError("mismatched isolation token did not fail closed")
         metadata["invalidIsolationTokenRejected"] = True
         phases = {}
-        phase_order = ("scene-reapply",) if args.scene_reapply else (
-            ("quality-import",) if args.quality_import else ("switch", "restore"))
+        if args.scene_reapply:
+            phase_order = ("scene-reapply",)
+        elif args.scene_selection_edit:
+            phase_order = ("scene-selection-edit",)
+        elif args.quality_import:
+            phase_order = ("quality-import",)
+        else:
+            phase_order = ("switch", "restore")
         for name in phase_order:
             directory = output / name
             directory.mkdir()
@@ -273,6 +285,24 @@ def main():
             control = observation["control"]
             if args.ui_language and control["language"] != args.ui_language:
                 raise RuntimeError(f"Settings did not use the requested language: {control}")
+        elif args.scene_selection_edit:
+            observation = phases["scene-selection-edit"]["sceneSelectionEdit"]
+            prepared = observation["prepared"]
+            current = observation["committed"]
+            cold = args.scene_selection_edit == "cold"
+            portable = args.scene_selection_edit == "portable"
+            modes = ["enabled", "disabled"] if cold else ["enabled"]
+            requests = [row["request"] for row in prepared]
+            if not (observation["saved"] and observation["sameSelectionSnapshot"] and observation["markerRetained"]
+                    and [row["postProcessing"] for row in prepared] == modes
+                    and all(row["videoRetained"] and row["ticket"] == current["ticket"] for row in prepared)
+                    and len(set(requests)) == len(modes) and requests[-1] == current["request"]
+                    and observation["presented"] == observation["finalized"] == [current["request"]]
+                    and observation["effectiveFPS"] == (25 if args.scene_selection_edit == "fps" else 15)
+                    and (not portable or observation["importedWhilePreparing"])
+                    and observation["appliedTextures"] == "quality" and observation["applied"] == modes[-1]
+                    and observation["pendingQualityVisible"] is portable):
+                raise RuntimeError("ordinary Scene selection did not settle with the expected quality edit")
         elif args.quality_import:
             metadata["pixels"] = verify_import_pixels(output / "quality-import")
         else:

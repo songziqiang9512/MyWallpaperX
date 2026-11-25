@@ -26,7 +26,7 @@ import Foundation
     var switchVisible: ((Int, UUID) -> Void)?
     var switchFailed: ((Int, String) -> Void)?
     var switchLost: ((Int, String) -> Void)?
-    func cancelSwitch(ticket: Int, completion: () -> Void) { completion() }
+    func cancelSwitch(ticket: Int, reportsCancellation: Bool = true, completion: () -> Void) { completion() }
     func finishSwitchControlsAfterExit(generation: UInt64) {}
     func rememberCommittedSwitchForRecovery(){}
     func adoptQueuedSwitchPreparationForRecovery(){}

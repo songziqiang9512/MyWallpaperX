@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "27ac5ca064dce705dd41a983fd73b5916d688f242cbd244b108bc8fe47f08d08",
+        "sourceSHA256": "a8a3d8ca9e548c5efa6a3eeb0a37fa90c685b27ef67737e89a15289b4728a6af",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本地 Video 轨道显示尺寸的读取与导入职责",
-        "limitations": "源码路径与原始调用链"
+        "scope": "普通 Scene 选片冷准备与同源重载各自源码入口",
+        "limitations": "已提交输出的合同沿原入口"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "909a9006b8455250506be0ac0f6ad3a95d852de76154ae48e6b0c16dab08fab4",
+        "sourceSHA256": "8eb0223121c2dc12aa3ed5cb930daa82e688f75012cb73de24ae663a86c32036",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本地 Video 导入与详情的轨道显示尺寸设计和受控／独立样本",
-        "limitations": "索引和轨道行为，无播放器输出声明"
+        "scope": "签名普通 Scene 选片过程中冷档及相邻行为",
+        "limitations": "单屏及准备端点登记前，无物理逐刷新声明"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e32ee0791a823268a47a78a25bf188f01ad6cd7667c4e83f3af03235eaaded80",
+        "sourceSHA256": "2622c2ccc6e1b70206d5c13d64af40fd1ba4f361594f0a27843bf5b976aaf5a0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Video 质量工作卡链接导入规格职责与证据",
-        "limitations": "实测数字以评估方案为准"
+        "scope": "工作卡链接普通选片冷档实测",
+        "limitations": "画面和实际验收数字仍归评估方案"
       }
     },
     {
@@ -871,10 +871,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "945520c70674ab8c7729451067afde88cd2847d8565ed65fd59614161638196f",
+        "sourceSHA256": "0cebe8bc45b407c2314b57a26e6174f949ef340b4ef79857375f8081623f7798",
         "method": "document_registry --audit + document_health --check",
-        "scope": "显式重试与直接编辑共用现役质量候选",
-        "limitations": "两位作者单内屏"
+        "scope": "普通 Scene 选片准备时的同票据替换及作者画质消费",
+        "limitations": "已登记端点后的切换由原事务结算"
       }
     },
     {

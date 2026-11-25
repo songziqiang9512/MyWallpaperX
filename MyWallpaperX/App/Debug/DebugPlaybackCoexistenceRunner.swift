@@ -72,7 +72,8 @@ enum DebugPlaybackCoexistenceRunner {
     private static func run(sceneID: String?, webID: String?, phase: String?, directory: URL,
                             result: inout [String: Any]) async throws {
         guard let sceneID, let webID, let workspace = MyWallpaperXApplication.libraryWorkspace,
-              phase == "switch" || phase == "restore" || phase == "quality-import" || phase == "scene-reapply"
+              phase == "switch" || phase == "restore" || phase == "quality-import"
+                || phase == "scene-reapply" || phase == "scene-selection-edit"
         else { throw Failure("invalid phase or product library unavailable") }
         let manager = WallpaperManager.shared
         let mux = PlaybackCommandMultiplexer.shared
@@ -121,6 +122,11 @@ enum DebugPlaybackCoexistenceRunner {
         if phase == "scene-reapply" {
             result["sceneReapply"] = try await reapplySceneQuality(scene, web: web, video: videoReference,
                 workspace: workspace, directory: directory)
+            return
+        }
+        if phase == "scene-selection-edit" {
+            result["sceneSelectionEdit"] = try await editQualityDuringSceneSelection(scene, web: web,
+                video: videoReference, workspace: workspace, directory: directory)
             return
         }
         let importsQuality = phase == "quality-import"
@@ -178,6 +184,116 @@ enum DebugPlaybackCoexistenceRunner {
         guard PlaybackQualityPreference.current == preference, mux.isUserPaused,
               SceneQualityPreset.matching(preference) == nil else { throw Failure("custom quality or pause not retained") }
         result["savedPaused"] = true
+    }
+
+    private static func editQualityDuringSceneSelection(_ scene: WallpaperReference, web: WallpaperReference,
+                                                        video: WallpaperReference, workspace: WallpaperLibraryWorkspace,
+                                                        directory: URL) async throws -> [String: Any] {
+        let manager = WallpaperManager.shared
+        let daemon = SceneDaemonClient.shared
+        let controller = SettingsWindowController.shared
+        let edit = DebugScenePlaybackRunner.argumentValue(after: "--mwx-debug-scene-selection-edit") ?? "cold"
+        controller.showWindow()
+        defer { controller.window?.close() }
+        guard let window = controller.window, let root = window.contentView,
+              let settings = root.subviews.compactMap({ $0 as? AppKitSettingsContainerView }).first else {
+            throw Failure("native Scene quality controls unavailable")
+        }
+        workspace.requestSingle(video)
+        let initial = try await receipt(for: video, runtime: .video, after: nil)
+        try await capture("selection-edit-video", receipt: initial, directory: directory)
+        guard workspace.presentation.switchPage(.downloads) else { throw Failure("Downloads page unavailable") }
+        _ = try await wait("Scene and Web in Downloads") {
+            let references = workspace.presentation.queryResult.items.map(\.reference)
+            return references.contains(scene) && references.contains(web) ? true : nil
+        }
+        let popup = settings.scenePostProcessingPopup
+        popup.scrollToVisible(popup.bounds)
+        root.layoutSubtreeIfNeeded()
+        let selected = popup.indexOfItem(withRepresentedObject: ScenePostProcessingMode.disabled.rawValue)
+        guard selected >= 0, popup.visibleRect.height > 0 else { throw Failure("post-processing input unavailable") }
+
+        let previousObserver = daemon.debugStartupObserver
+        let previousWireObserver = daemon.debugStartupWireObserver
+        let previousPrefixObserver = daemon.debugStartupPrefixObserver
+        defer {
+            daemon.debugStartupObserver = previousObserver
+            daemon.debugStartupWireObserver = previousWireObserver
+            daemon.debugStartupPrefixObserver = previousPrefixObserver
+        }
+        var prepared: [[String: Any]] = []
+        var presented: [String] = []
+        var finalized: [String] = []
+        var didSave = false
+        var markerRetained = false
+        var originalSnapshot: WallpaperPlaybackSequence.Snapshot?
+        var portableImport: Task<Bool, Error>?
+        daemon.debugStartupPrefixObserver = { observation in
+            previousPrefixObserver?(observation)
+            guard edit == "portable", observation.phase == .loadEnqueueAttempted, portableImport == nil else { return }
+            portableImport = Task {
+                try await importQuality(["sceneTextureQuality": SceneTextureQuality.performance.rawValue],
+                    to: directory.appendingPathComponent("selection-quality-import.json"))
+                return prepared.isEmpty && manager.playbackSwitch.pending?.phase == .preparing
+                    && manager.playbackSwitch.pending?.selection.ticket.id == observation.ticketID
+            }
+        }
+        daemon.debugStartupObserver = { observation in
+            previousObserver?(observation)
+            if observation.phase == .parentFinalized { finalized.append(observation.requestID.uuidString) }
+            guard observation.phase == .prepared, let pending = manager.playbackSwitch.pending,
+                  pending.phase == .preparing, pending.selection.ticket.runtime == .scene,
+                  let quality = daemon.pendingSwitchExecution?.preparationQuality else { return }
+            let windows = onscreenWindows(requireVisibleAlpha: true)
+            prepared.append([
+                "request": observation.requestID.uuidString, "ticket": pending.selection.ticket.id.uuidString,
+                "postProcessing": quality.postProcessing.rawValue,
+                "textureQuality": quality.textures.rawValue,
+                "videoRetained": manager.playbackSwitch.committed == initial.selection
+                    && initial.windows.allSatisfy { windows[$0] == initial.pid },
+            ])
+            guard prepared.count == 1 else { return }
+            originalSnapshot = manager.libraryPlaybackSequence.pending?.proposal.snapshot
+            let hadMarker = SteamWorkshopService.shared.isLaunchPending(scene.sourceID)
+            if edit == "fps" {
+                let control = settings.sceneFPSControl
+                control.integerValue = 25
+                didSave = control.sendAction(control.action, to: control.target)
+                    && PlaybackQualityPreference.current.animationFrameRate.rawValue == 25
+            } else if edit == "cold" {
+                popup.selectItem(at: selected)
+                didSave = popup.sendAction(popup.action, to: popup.target)
+                    && PlaybackQualityPreference.current.scene.postProcessing == .disabled
+            }
+            markerRetained = hadMarker && SteamWorkshopService.shared.isLaunchPending(scene.sourceID)
+        }
+        daemon.debugStartupWireObserver = { generation, pid, uptime, payload in
+            previousWireObserver?(generation, pid, uptime, payload)
+            if payload["event"] as? String == "firstFramePresented", let request = payload["requestID"] as? String {
+                presented.append(request)
+            }
+        }
+        workspace.play(scene)
+        let current = try await receipt(for: scene, runtime: .scene, after: initial)
+        let importedWhilePreparing = try await portableImport?.value ?? false
+        if edit == "portable" { didSave = PlaybackQualityPreference.current.scene.textures == .performance }
+        let expectedFPS = edit == "fps" ? 25 : 15
+        let cadence = try await wait("Scene cadence after selection") {
+            daemon.activeAnimationCadence.flatMap { $0.requestedFPS.rawValue == expectedFPS ? $0 : nil }
+        }
+        let capture = try await captureScene("selection-edit-scene", receipt: current, directory: directory)
+        settings.refreshFromState()
+        let sequence = manager.libraryPlaybackSequence.committed?.snapshot
+        return [
+            "committed": current.evidence, "prepared": prepared, "finalized": finalized, "presented": presented,
+            "saved": didSave, "capture": capture,
+            "applied": daemon.activePreparedRenderQuality?.postProcessing.rawValue ?? "",
+            "appliedTextures": daemon.activePreparedRenderQuality?.textures.rawValue ?? "",
+            "importedWhilePreparing": importedWhilePreparing,
+            "markerRetained": markerRetained, "effectiveFPS": cadence.effectiveFPS,
+            "pendingQualityVisible": !settings.reapplySceneQualityButton.isHiddenOrHasHiddenAncestor,
+            "sameSelectionSnapshot": originalSnapshot == sequence && sequence?.source == .page(.downloads),
+        ]
     }
 
     private static func reapplySceneQuality(_ scene: WallpaperReference, web: WallpaperReference,

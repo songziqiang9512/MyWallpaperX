@@ -296,6 +296,8 @@ enum SceneDaemonProtocol {
     static func shortcutObject(_ value:ScenePlaybackShortcutConfiguration)->[String:Any]{[:]}
 ''' + '\n'.join(method(protocol, signature) for signature in (
             '    static func sourceObject(', '    static func boolean(_ raw: Any?) -> Bool?',
+            '    static func animationCadenceEvent(', '    private static func animationFrameRate(',
+            '    private static func integer(', '    private static func finiteDouble(',
             '    static func writeRenderQuality(')) + r'''
 }
 struct DaemonPlaybackProcessRegistry {static let shared=Self();let acceptsNewProcesses=true}
@@ -315,7 +317,9 @@ struct Execution {let presented:Bool}
     var pendingSwitchTicket:Ticket?,activeSwitchTicket:Ticket?
     var pendingSwitchExecution:Execution?
     var queuedSwitchPreparation:QueuedSwitchPreparation?
-    var pendingRequestID:UUID?,pendingPresentationRequestID:UUID?,pendingPresentationReachability:Bool?
+    var activeRequestID:UUID?,pendingRequestID:UUID?,pendingPresentationRequestID:UUID?,pendingPresentationReachability:Bool?
+''' + method(client, '    nonisolated struct ActiveAnimationCadence:') + r'''
+    var activeAnimationCadence:ActiveAnimationCadence?
     var pendingPropertyRevisions:[UInt64:String]=[:],latestTextureRevisions:[String:UInt64]=[:]
     var warmSessionPending=false,endpointReady=false
     var sourceSchemaVersion:Int?
@@ -334,6 +338,9 @@ struct Execution {let presented:Bool}
     var sent:[[String:Any]]=[],failures:[[String:Any]]=[]
     func ensureSession()->Bool{true}
     func cancelPreparationForRuntimeSwitch(){pendingIntent=nil;pendingResourceLifetime=nil}
+    func cancelSwitch(ticket:PlaybackSwitchTicket,reportsCancellation:Bool,completion:()->Void){
+        cancelPreparationForRuntimeSwitch();completion()
+    }
     func finishPendingShortcutUpdates(_ value:Outcome){}
     func finishPendingTextureUpdates(_ value:Outcome){}
     func sendDisplayConfiguration(){}

@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 19021
+      "bytes": 19180
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 478,
-      "bytes": 118723
+      "lines": 489,
+      "bytes": 121804
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 136300
+      "bytes": 136407
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -94,7 +94,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 292,
-      "bytes": 58853
+      "bytes": 59078
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,20 +369,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "26b81bfc6174b756d7d3617556386cb8c806f962be232e52c09efc877a79aac9",
-      "after": "abfa10caccdfbb497b2a94b465185a1f77ece6c39c655194a84fa3096a576138",
-      "owner": "Scene 运行架构",
-      "reason": "补共享质量候选及在途编辑归属",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-cold-auto-adoption"
+      "before": "abfa10caccdfbb497b2a94b465185a1f77ece6c39c655194a84fa3096a576138",
+      "after": "3351e18d3142cebece97ec26e376c1665713f2cbbebd3a1ed2db898b96a2535d",
+      "owner": "Scene",
+      "reason": "把同一票据的冷准备和反馈接入现役策略",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-cold-ordinary-preparation"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "5ba52b1fbb3bceb122ee0e6b415ffe41f52367ed19fc298928237b98b207d17c",
-      "after": "a4d1f36834c51645b34c81d52e741e9043664e5b60b37150fb927c1add4ccb4a",
+      "before": "a4d1f36834c51645b34c81d52e741e9043664e5b60b37150fb927c1add4ccb4a",
+      "after": "117295f447b8cd4375749172796caf196d421c545d31f711cb5cff13f6d49082",
       "owner": "架构",
-      "reason": "定位本地 Video 导入规格的原轨道读取和索引写入",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-import-display-size"
+      "reason": "定位普通 Scene 选片和同源调档职责",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-cold-ordinary-preparation"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "e622068e865bc77cea4dfe12152efadc6d21887350121060fe3a1ab5fab24dfa",
-      "after": "a56063b4f285fb761fe7b83fe76dda2598f7405b9c1fe27449d242720d5fbf26",
+      "before": "a56063b4f285fb761fe7b83fe76dda2598f7405b9c1fe27449d242720d5fbf26",
+      "after": "a1694f4c2857661944b5fe39b07342bd4dca148a5a5a4016b41ade661faffb17",
       "owner": "开发",
-      "reason": "记录本地导入和详情共用轨道显示包围盒的设计与实际输入",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-import-display-size"
+      "reason": "记录普通 Scene 选片冷档修改、原生画面和相邻行为证据",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-cold-ordinary-preparation"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "9bfcfb87595bb5b543ca4c1573386ac45a0f0d90b5249e1ad6ca4050a1659c5b",
-      "after": "fe4c081a259feddaa0cd0c596f54d82427bc4b1ccc99ab02eb6c1d377fa056bc",
+      "before": "fe4c081a259feddaa0cd0c596f54d82427bc4b1ccc99ab02eb6c1d377fa056bc",
+      "after": "cd2d8866cd794576b80ff29b241c6d213596e9d9383abb7577111684cb5d3cb3",
       "owner": "开发",
-      "reason": "路由本地 Video 源规格的现役验证",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-import-display-size"
+      "reason": "链接唯一的普通选片准备实测",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-cold-ordinary-preparation"
     },
     {
       "section": "bodies",

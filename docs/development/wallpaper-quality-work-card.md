@@ -460,7 +460,7 @@ AppKit 动作接入 WallpaperManager 的现有 settingsReload。首次自动准�
 
 两组再从准备中的另一纹理档退回已应用档。原 C 请求、窗口、暂停时钟和像素都保留，无附加实呈。随后热改 25 FPS 保相同执行；恢复后作者各前进约 0.57 秒。用实际 Web、Video 各改一项 Scene 设置，原输出仍在。同包走便携导入后 Scene 保原时钟并采纳 25，Web 保原文档收到 30，Video 保原执行且排序改变后的桌面图运动率 26.38%。截图、身份与独立复核归 `.artifacts/wallpaper-quality-scene-auto-apply`。
 
-原生门覆盖准确撤单、过期回包、旧活动恢复、较新选择、已排队取消的终态、直接控件和同域热更。实际 GPU 失败回滚沿[原签名收据](#scene-cold-quality-receipt)及最近端点门。本片两作者为显式操作，未实施同一帧写入导入和实呈的定时注入，未外推当前遮挡、混合屏或官版时序。五语 Help 同成品包逐字节核对。 [当前实施与边界](wallpaper-quality-settings-plan.md#scene-cold-auto-adoption)
+原生门覆盖准确撤单、过期回包、旧活动恢复、较新选择、已排队取消的终态、直接控件和同域热更。实际 GPU 失败回滚沿[原签名收据](#scene-cold-quality-receipt)及最近端点门。本片两作者为显式操作，未实施同一帧写入导入和实呈的定时注入，未外推当前遮挡、混合屏或官版时序。五语 Help 同成品包逐字节核对。 [当前实施与边界](wallpaper-quality-settings-plan.md#scene-cold-auto-adoption) · [普通选片期间的冷档实测](wallpaper-quality-settings-plan.md#scene-cold-ordinary-preparation)
 
 <a id="scene-cold-quality-receipt"></a>
 ### 待重新应用的 Scene 画质

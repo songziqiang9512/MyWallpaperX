@@ -346,6 +346,25 @@ IDLE_TAIL = r'''
         checks["stopClearsCommittedQualityBeforePhysicalExit"]=qualityBeforeStop == preparedQuality
             && rollback.activePreparedRenderQuality == nil && rollbackChild.isRunning
         exit(rollback,rollbackChild)
+        let (reprepare,_,previousRequest,sameChild)=active()
+        let replacementTicket=PlaybackSwitchTicket(epoch:2,id:UUID(),runtime:.scene)
+        let replacementLease=PlaybackResourceLifetime()
+        reprepare.prepareSwitch(.init(recordID:"B"),ticket:replacementTicket,resourceLifetime:replacementLease)
+        let oldCandidate=reprepare.pendingRequestID
+        reprepare.sent=[]
+        reprepare.sceneRenderQuality = .init(postProcessing:.disabled)
+        reprepare.repreparePendingSwitch(replacementTicket)
+        let newCandidate=reprepare.pendingRequestID
+        let cancellation=reprepare.sent.first { $0["cmd"] as? String == "cancelCandidate" }
+        let refreshedLoad=reprepare.sent.first { $0["cmd"] as? String == "loadScene" }
+        checks["sameTicketReprepareKeepsActiveSceneAndRetiresOnlyTheOldWire"] =
+            oldCandidate != nil && newCandidate != nil && oldCandidate != newCandidate
+            && cancellation?["requestID"] as? String == oldCandidate?.uuidString
+            && refreshedLoad?["requestID"] as? String == newCandidate?.uuidString
+            && refreshedLoad?["scenePostProcessing"] as? String == "disabled"
+            && reprepare.pendingSwitchTicket == replacementTicket && reprepare.launchState == nil
+            && reprepare.transport === sameChild && reprepare.activeRequestID == previousRequest
+            && newCandidate.flatMap { reprepare.requestResourceLifetimes[$0] } === replacementLease
         let (invalidated,invalidatedEndpoint,invalidatedRequest,invalidatedChild)=active()
         var invalidatedDone=0
         invalidatedEndpoint.retire(web){invalidatedDone += 1}
