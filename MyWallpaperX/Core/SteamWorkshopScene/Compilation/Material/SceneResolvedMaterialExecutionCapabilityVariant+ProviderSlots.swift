@@ -60,7 +60,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         in template: Template,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         implicitFramebufferIdentity: Graph.TextureIdentity?,
-        graphInputSourceSlotFacts: [Int: SceneResolvedMaterialGraphInputSourceSlotFact]
+        graphInputSourceSlotFacts: [Int: SceneResolvedMaterialGraphInputSourceSlotFact],
+        formatSlots: Set<Int> = []
     ) -> Variant.TextureSelectionFacts {
         let mixed = mixedProviderSlotFacts(in: template, samplers: samplers)
         let isLayerSourceMaterial = template.effectContext == nil
@@ -129,11 +130,13 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             let reference: Template.TextureReference
             var sourceFact: SceneResolvedMaterialGraphInputSourceSlotFact?
             let noiseFallback: Template.TextureReference?
+            let purpose: SceneTextureLoadPurpose?
             switch sampler.defaultTexture {
             case let .asset(path):
                 reference = .asset(path)
+                purpose = SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: sampler)
                 noiseFallback = SceneStockTextureSemanticRegistry.canSubstituteNoise(
-                    path, purpose: SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: sampler)
+                    path, purpose: purpose
                 ) ? .provider(.system(path.value)) : nil
             case let .internalTarget(target):
                 guard let resolved = SceneResolvedMaterialShaderSchema.renderTargetDefault(
@@ -144,6 +147,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     continue
                 }
                 reference = resolved
+                purpose = SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: sampler)
                 noiseFallback = nil
                 if case let .graph(identity) = reference {
                     sourceFact = .init(
@@ -153,11 +157,18 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                         selectionProvenance: .shaderDefault
                     )
                 }
-            case nil: continue
+            case nil:
+                guard graphInputSourceSlotFacts[slot] == nil,
+                      let checker = SceneResolvedMaterialShaderSchema.missingTextureFallback(
+                          template: template, sampler: sampler, hasFormatCombo: formatSlots.contains(slot)
+                      ) else { continue }
+                reference = .provider(.system(checker.name))
+                purpose = checker.purpose
+                noiseFallback = nil
             }
             defaults[slot] = .reference(.init(
                 reference: reference,
-                purpose: SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: sampler),
+                purpose: purpose,
                 graphInputSourceFact: sourceFact,
                 noiseFallback: noiseFallback,
                 requiresPresenceIndependentAllowance: sampler.readinessCombo != nil

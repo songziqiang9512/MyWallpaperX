@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stock-noise distribution, GPU mip readiness, and failed-upload publication."""
+"""Static Scene texture contents, GPU readiness, and failed-upload publication."""
 from __future__ import annotations
 
 import json
@@ -112,7 +112,7 @@ enum Harness {
         var summaries: [String: Any] = [:]
         // Read via GPU blit into shared memory, so managed GPU mip writes are
         // observed without assuming CPU/GPU coherence of the texture storage.
-        func read(_ texture: MTLTexture, level: Int) -> [UInt8] {
+        func read(_ texture: MTLTexture, level: Int, bytesPerPixel: Int = 1) -> [UInt8] {
             let width = max(1, texture.width >> level)
             let height = max(1, texture.height >> level)
             let row = 256
@@ -128,7 +128,7 @@ enum Harness {
             command.commit(); command.waitUntilCompleted()
             precondition(command.status == .completed && command.error == nil)
             let bytes = output.contents().assumingMemoryBound(to: UInt8.self)
-            return (0..<height).flatMap { y in (0..<width).map { bytes[y * row + $0] } }
+            return (0..<height).flatMap { y in (0..<(width * bytesPerPixel)).map { bytes[y * row + $0] } }
         }
         for demand in demands {
             guard case let .ready(first)? = store.states[demand],
@@ -204,6 +204,24 @@ enum Harness {
         let explicit = try SceneStockNoiseTextureStore(
             assetStates: [:], systemDemands: [demand], device: observedDevice)
         preparation["explicitSystemDemand"] = explicit.states.count == 1
+        let checkerName = SceneStockTextureSemanticRegistry.missingTextureProvider
+        let phase = SceneSystemProviderTextureIdentity(name: checkerName, purpose: .phase)
+        let data = SceneSystemProviderTextureIdentity(name: checkerName, purpose: .preservedChannels)
+        noiseResetCounts()
+        let checker = try SceneStockNoiseTextureStore(
+            assetStates: [:], systemDemands: [phase, data], device: observedDevice)
+        guard case let .ready(first)? = checker.states[phase],
+              case let .ready(second)? = checker.states[data] else {
+            throw NSError(domain: "CheckerTextureUnavailable", code: 1)
+        }
+        let texture = first.candidate.texture
+        preparation["checkerOneAllocation"] = texture === second.candidate.texture
+            && noiseTextureCount() == 1 && noiseCommandCount() == 0 && noiseWaitCount() == 0
+        preparation["checkerLayout"] = texture.pixelFormat == .rgba8Unorm && texture.mipmapLevelCount == 1
+            && first.candidate.physicalSize == CGSize(width: 6, height: 6)
+            && first.candidate.mappedSize == first.candidate.physicalSize
+            && first.candidate.sampling.filter == .nearest && first.candidate.sampling.addressMode == .repeatWrap
+        let checkerPixels = read(texture, level: 0, bytesPerPixel: 4)
         enum Cancel: Error { case requested }
         noiseResetCounts()
         do {
@@ -221,7 +239,8 @@ enum Harness {
         } catch Cancel.requested {
             preparation["cancelAfterCompletion"] = noiseWaitCount() == 1
         }
-        let result: [String: Any] = ["textures": summaries, "failures": failures, "preparation": preparation]
+        let result: [String: Any] = ["textures": summaries, "failures": failures, "preparation": preparation,
+                                    "checkerPixels": checkerPixels]
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]))
     }
 }
@@ -287,6 +306,11 @@ class StockNoiseTests(unittest.TestCase):
 
     def test_preparation_is_demand_scoped_shared_and_cancellable(self) -> None:
         self.assertTrue(all(self.result["preparation"].values()), self.result["preparation"])
+
+    def test_missing_texture_matches_the_official_texels(self) -> None:
+        dark_first = bytes.fromhex("000000ff ffff00ff 000000ff ffff00ff 000000ff ffff00ff")
+        yellow_first = bytes.fromhex("ffff00ff 000000ff ffff00ff 000000ff ffff00ff 000000ff")
+        self.assertEqual(bytes(self.result["checkerPixels"]), (dark_first + yellow_first) * 3)
 
     def test_level_zero_matches_deterministic_baseline(self) -> None:
         # Pin packed CPU-generated level zero bytes; GPU-generated mips retain

@@ -441,13 +441,13 @@ CPU探针用原CoreText加载器与原作者127B文本。保存的Jost-Black产�
 因此本窗没有283眼部正控，不启动App或追加频率/时长矩阵，不修改pulse。native一次exit0且stop后无synthetic capture资源；它手动启consumer并绕硬件，不授普通App需求/权限/采集、Scene同generation供值、mask/tail/眼部RGB、官方parity或性能。原字节、9源freeze及独审在`.artifacts/scene-eye-audio-20261108/`，result SHA `59a444ba…3ec2`；重启条件由[队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)维护。
 
 <a id="unbound-sampler-control"></a>
-## 未绑定sampler的官方控制边界
+## 未绑定 sampler 的官方采样
 
-3042492564既有受控media、mclick_interaction=true运行的363/e0首pass同时读hidden sampler0颜色与sampler1.alpha，两者无binding/default；node1才显式绑定FBO0与previous1。当前implicit source规则因slot1无来源，先在slot0拒绝。这解释旧运行的局部旁路，不证明应把任意空sampler绑定源图、白图或零图。
+3042492564/363/e0 的首 pass 实读两个无来源 hidden sampler，旧 2.8.0.42 自有板的执行、空间和取样正控未通过。原失败归`.artifacts/scene-unbound-input-control-20261108/`。hidden、named 与当前画布用途仍各自待证。
 
-固定官方2.8.0.42、receiver8752/Session1，用一套自有四区分别观察slot0、unbound1、explicit previous1、explicit white1，保共同slot0活读及RGB/alpha分区和cyan执行标记。18个loose载荷经完整运输校验，只开一场；原生内联图的唯一label、四标签、绿色peer和RGBM角标完整，Root/独立Xhigh观察tick309→1547。但四格均为深红实心，无cyan框/分隔、顶部空间标记和RGB/alpha分区，A/C/D不合格。因此未进入B的缺省来源裁决，source材质/采样或执行首错仍未知，不开第二版或据红色猜编译原因。
+<a id="missing-ordinary-material-texture-evidence"></a>2026-11-25 官版2.8.0.42（`DAAC1EA7…BDA07`）借3556263543原材、原字形及slot1的实际流图正控，slot2留空显示稳定黄黑交替。显式纯白、纯黑不透明与透明黑均可区分。按6×6像素中心采样读全36格，左上黑、透明度1，四项Resolution均6，边界和跨整周期核为最近点重复。显式不存在的普通文件与留空同类。独立3448845950将作者马赛克属性设为4，官版原包装材显示实际满屏棋盘。
 
-独占窗口已关闭并原生确认原桌面，原receiver保留，guest stage已删、VM回suspended。输入、运输/关闭收据及独审保于`.artifacts/scene-unbound-input-control-20261108/`；无本地PNG、数值RGBA、精确像素或作者恢复资格。stage运输19文件、删除前26文件，新增7文件未先列名/保存，内容不可复核；本包不声称完整guest输出归档，后续方法已改为清理前对比manifest并保新增输出。重启及当前优先级归[队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)。
+3556263543 已修复。签名Debug基线`0b4ac412…4c2a` 的五道文字e0旁路，候选`1ded3364…a9c3` 原包F183均执行，共用棋盘并到终图。日期区Δ≥24的字缘153px，相对显式棋盘仅3px。改槽/变量、VFS确缺、实际资源覆盖和声明格式槽反例通过。3448845950原马赛克180/e3 F182恢复，背景ROI暗像素0→16204。格宽按960宽归一，官/本中位间隔3/8.25px，密度差待查源图Resolution。证据归`.artifacts/scene-missing-material-texture-20261125/evidence.zip`。[合同](render-graph-shader-coverage.md#missing-ordinary-material-texture)
 
 <a id="particle-lighting-control"></a>
 ## REFRACT ambient 与光照边界

@@ -6,6 +6,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         template: Template,
         variantKey: SceneResolvedMaterialVariantKey,
         sourceActiveSamplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        textureFormatSlots: Set<Int>,
         sourceCarriedRGBAFact: SceneAuthoredShaderGeneratedStraightRGBAAnalyzer.SourceCarriedFact?,
         sourceColorTransfer: SceneShaderColorTransfer,
         spatialWeightedColorBlendFact: SceneAuthoredShaderSpatialWeightedColorBlendFact?,
@@ -55,7 +56,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             in: template,
             samplers: sourceActiveSamplers,
             implicitFramebufferIdentity: implicitFramebufferIdentity,
-            graphInputSourceSlotFacts: sourceGraphInputFacts
+            graphInputSourceSlotFacts: sourceGraphInputFacts,
+            formatSlots: textureFormatSlots
         )
         let mixedProviderSlots = Set(textureSelectionFacts.mixedProviderSlots.keys)
         let selectedPurposeSlots = mixedProviderSlots.union(
@@ -182,7 +184,11 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             template: template,
             samplers: sourceActiveSamplers,
             graphInputSlots: graphInputTextureSlots
-        ).subtracting(mixedProviderSlots)
+        ).union(textureSelectionFacts.defaults.compactMap { slot, source in
+            guard case let .reference(prepared) = source, case .provider(.system) = prepared.reference,
+                  prepared.purpose?.isDataPurpose == true else { return nil }
+            return slot
+        }).subtracting(mixedProviderSlots)
         let graphR8TextureSlots = Set(activeGraphTextureIdentities.compactMap {
             graphTextureFormatFacts[$0.value] == .r8 ? $0.key : nil
         })

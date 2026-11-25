@@ -76,15 +76,15 @@ Program仍准备一个数值binding，主身份供原ABI/语义身份、直user�
 原 dead-binding 行为门覆盖改局部/资源/槽位名、等价纯表达式及死值链，同时核两 backend 的 emission 和 ABI；活读、alpha-only、Resolution-only、vertex/varying、branch/discard、坐标副作用及 helper/global 写保持原语义。bounded 不支持的 discard 仍保原边界；非法调用分别核 AST/发射与实际 Metal 库编译，不能以存在接口当完整接纳。签名 App 的 source 与 effect 死采样控制已核可区分像素，活缺资源仍只回退当前 effect 并让健康后继完成。具体作者断点与验证范围由[运行证据](runtime-evidence-current.md#coverage)维护，不授任意控制流 DCE、官方像素或性能。
 
 <a id="unbound-texture-resolution"></a>
-### 未绑定可选纹理的 Resolution
+### 未绑定纹理的尺寸与采样
 
-实现合同：可选 sampler 未设置来源且当前变体不采样时，Resolution 的数值消费不得被当成必需 GPU 纹理。`material` 是作者纹理键，不能按 textbuffer 等名称猜文字或 previous 来源。[官方纹理合同](https://docs.wallpaperengine.io/en/scene/shader/variables.html#optional-visible-texture)只定义绑定资源尺寸；固定客户端的未绑定数值观察及边界归[运行证据](runtime-evidence-current.md)。
+可选 sampler 未绑定且当前变体不采样时，原 Schema 确认无 authored/default/graph 来源及 readiness 关闭，将使用的 Resolution 降为已测 `vec4(2)`。两 backend 共用准备输入。活动采样、缺文件、pending、默认及具名资源保独立语义。[官方声明合同](https://docs.wallpaperengine.io/en/scene/shader/variables.html#optional-visible-texture)
 
-当前修正采用原准备链上的常量降低：原 Schema/Template 一次确认没有 authored candidate、shader default 或 graph/current 来源，真实 readiness 关闭且没有采样后，将该槽的 `vec4 Resolution` 降为已资格的 `vec4(2)`，保留作者后续计算。共同 compiler 输入供 bounded/generic 使用，不建第二 metadata/store/clock，不伪造纹理，也不加普通帧分析或 nil-resource fallback。该规则适用于多个槽及任意合法表达式，不再要求固定 UV 乘除形状。已声明但文件缺失、pending、default、named、graph/current 和真实采样继续原资源选择与失败半径；不能将它们压成“未绑定”。
+<a id="missing-ordinary-material-texture"></a>活动效果的普通可见副槽 `sampler2D` 无来源时，官版按 6×6 不透明黄黑棋盘采样，左上黑，逐像素交替，最近点且重复寻址。物理及映射尺寸均为6。普通显式 TEX 经 VFS 确认缺失也是同一采样。原帧准备采用一个内部系统引用，经现有静态纹理发布，共用一张按需生成的 RGBA8。尺寸、用途、采样器随原 binding publication，下游不根据 nil 猜默认，不新增逐帧合成、缓存或载入路径。
 
-复用现有准备身份和缓存版本退出旧分析，保作者原始源码与诊断身份。被替代的中性 UV AST 许可及无消费者的 fact/cache/frame 透传同批退出；若尚有独立消费者，只保其原范围并明确后续退出条件，不能为新表达式追加白名单。
+冷准备按实际活动槽资格投影到原资源需求、启动与 prepared 默认选择。作者键名由声明引用，非保留键依原数据流证明用途。已解析普通资源优先。隐式/显式图来源、声明默认、格式/显隐组合、专用纹理、pending 及无法解码的资源沿自身合同。只在候选确实耗尽时选择棋盘。未证用途不得冒充已查证文件缺失。
 
-验收使用直接 x/y 与等价表达式、改变量/资源名及多未绑定槽，核两 backend 和实际 Metal/终端像素；真实资源/default/named 尺寸、缺文件与 pending 以及活跃缺采样保反例。作者 1087 的拒绝消除须由原 Program 实际执行与最终命名消费者确认；准备通过不能代替画面恢复，不授全字体、完整圆环或性能一致。
+验收继续覆盖 Resolution-only、默认和真实资源尺寸及改名/等价变体。活动采样另核官版棋盘及槽位留空、显式缺失、存在资源，保 graph、无活动采样与旧作者局部失败反例。原3556263543须有五道作者效果实际编码并改变时钟字缘。另以独立作者的活动效果验证采样和尺寸。[运行证据](runtime-evidence-current.md#missing-ordinary-material-texture-evidence)
 
 <a id="uniform-derived-global-scope"></a>
 ### uniform派生全局值的词法身份

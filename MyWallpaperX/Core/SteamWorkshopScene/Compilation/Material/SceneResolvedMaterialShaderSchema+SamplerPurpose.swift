@@ -310,15 +310,39 @@ extension SceneResolvedMaterialShaderSchema {
     }
 
     nonisolated static func permitsSourceChannelProjection(_ sampler: Sampler) -> Bool {
-        guard sampler.mode == .regular,
-              !sampler.isHidden,
-              sampler.sourceProvenPurpose == nil,
-              declaredPurpose(for: sampler) == nil,
-              !usesGraphInputMaterialAlias(sampler) else { return false }
+        guard permitsOrdinarySourcePurpose(sampler), sampler.sourceProvenPurpose == nil
+        else { return false }
         switch sampler.defaultTexture {
         case nil, .internalTarget: return true
         case let .asset(path):
             return SceneStockTextureSemanticRegistry.purpose(for: path) == nil
+        }
+    }
+
+    nonisolated static func permitsOrdinarySourcePurpose(_ sampler: Sampler) -> Bool {
+        sampler.mode == .regular && !sampler.isHidden
+            && declaredPurpose(for: sampler) == nil && !usesGraphInputMaterialAlias(sampler)
+    }
+
+    nonisolated static func missingTextureFallback(
+        template: Template, sampler: Sampler, hasFormatCombo: Bool
+    ) -> SceneSystemProviderTextureIdentity? {
+        let slot = sampler.slot
+        guard template.effectContext != nil, slot > 0,
+              permitsOrdinarySourcePurpose(sampler),
+              sampler.defaultTexture == nil, sampler.formatKey == nil,
+              sampler.readinessCombo == nil, !hasFormatCombo,
+              !template.graphRole.bindings.contains(where: { $0.slot == slot }),
+              template.textureSlots[slot]?.candidates.allSatisfy({
+                  if case .asset = $0.reference { return true }
+                  return false
+              }) != false else { return nil }
+        let purpose = sampler.sourceProvenPurpose ?? .preservedChannels
+        switch purpose {
+        case .phase, .preservedChannels, .straightAlbedo:
+            return .init(name: SceneStockTextureSemanticRegistry.missingTextureProvider, purpose: purpose)
+        default:
+            return nil
         }
     }
 

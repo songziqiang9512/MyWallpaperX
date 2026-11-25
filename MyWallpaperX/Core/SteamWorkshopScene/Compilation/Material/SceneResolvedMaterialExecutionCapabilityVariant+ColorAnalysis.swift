@@ -359,6 +359,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 implicitFramebufferIdentity: implicitFramebufferIdentity,
                 graphInputSourceSlotFacts:
                     variant.graphInputSourceSlotFacts,
+                preparedDefault: variant.textureSelectionFacts.defaults[binding.slot],
                 assetStates: assetStates,
                 systemProviderStates: systemProviderStates
             ) {
@@ -426,6 +427,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         graphInputSourceSlotFacts: [
             Int: SceneResolvedMaterialGraphInputSourceSlotFact
         ],
+        preparedDefault: Variant.TextureSelectionFacts.DefaultSource?,
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
         systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:]
     ) -> LaunchReference {
@@ -486,6 +488,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 reference,
                 purpose: SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: sampler)
             )
+        }
+        if ready, case let .reference(prepared)? = preparedDefault,
+           case .provider(.system) = prepared.reference {
+            return .selected(prepared.reference, purpose: prepared.purpose)
         }
         return .none
     }

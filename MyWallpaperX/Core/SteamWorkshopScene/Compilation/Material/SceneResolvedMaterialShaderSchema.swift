@@ -362,9 +362,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         )
         guard !facts.isEmpty, facts.allSatisfy({ fact in
             guard let sampler = samplers[fact.slot],
-                  sampler.mode == .regular,
-                  sampler.materialKey == nil,
-                  !sampler.isHidden,
+                  permitsOrdinarySourcePurpose(sampler),
                   sampler.sourceProvenPurpose == nil else { return false }
             if fact.role == .phase { return sampler.channelUse == .redOnly }
             return true

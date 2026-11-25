@@ -354,6 +354,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 switch Self.launchReadinessProjection(
                     template: template, samplers: samplers,
                     implicitFramebufferIdentity: implicitFramebufferIdentity,
+                    formatSlots: textureFormatSlots,
                     assetStates: assetStates,
                     systemProviderStates: systemProviderStates,
                     graphInputSourceSlotFacts: graphInputFacts
@@ -462,6 +463,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 switch Self.launchReadinessProjection(
                     template: template, samplers: variant.activeSamplers,
                     implicitFramebufferIdentity: implicitFramebufferIdentity,
+                    formatSlots: textureFormatSlots,
                     assetStates: assetStates,
                     systemProviderStates: systemProviderStates,
                     graphInputSourceSlotFacts:
@@ -739,6 +741,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 template: template,
                 seedSamplers: seedSamplers,
                 variantKey: key,
+                textureFormatSlots: textureFormatSlots,
                 outputStorage: outputStorage,
                 outputIsRGBA8Unorm: outputIsRGBA8Unorm,
                 implicitFramebufferIdentity: implicitFramebufferIdentity,
