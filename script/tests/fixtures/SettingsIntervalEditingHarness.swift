@@ -6,6 +6,12 @@ struct WallpaperSettings {
     var loopPlayback = true, randomPlayback = false, sequentialPlayback = false, autoSwitchEnabled = false
     var randomInterval = 30
     var timeUnit = TimeUnit.seconds
+    var volume = 50.0, playbackRate = 1.0
+    var playbackRateEnabled = false
+}
+@MainActor final class PlaybackMuteState {
+    static let shared = PlaybackMuteState()
+    let isMuted = false
 }
 struct PersonalSettingsExportSummary {}
 struct PersonalSettingsImportSummary {}
@@ -62,6 +68,9 @@ extension Notification.Name {
     let sceneFPSEffectiveLabel = NSTextField(labelWithString: "")
     let sceneFPSControl = SceneFrameRateSlider(value: 60, minValue: 10, maxValue: 120, target: nil, action: nil)
     let timeUnitPopup = NSPopUpButton()
+    let volumeSlider = NSSlider(), volumeValueLabel = NSTextField(), muteSwitch = NSSwitch()
+    let playbackRateSlider = NSSlider(value: 1, minValue: 0.25, maxValue: 2, target: nil, action: nil)
+    let playbackRateValueLabel = NSTextField(), playbackRateSwitch = NSSwitch()
     var intervalRowView: NSView? = NSView(), autoSwitchRowView: NSView? = NSView()
     let nextField = NSTextField(frame: .init(x: 20, y: 20, width: 160, height: 28))
     init(_ dependency: AppSettingsPanelDependency) {
@@ -73,6 +82,10 @@ extension Notification.Name {
         sceneFPSControl.isContinuous = true
         sceneFPSControl.target = self
         sceneFPSControl.action = #selector(handleSceneFrameRateSlider(_:))
+        playbackRateSlider.target = self
+        playbackRateSlider.action = #selector(handlePlaybackRateChange)
+        playbackRateSwitch.target = self
+        playbackRateSwitch.action = #selector(handlePlaybackRateSwitchToggle)
         addSubview(intervalField); addSubview(nextField)
         addSubview(sceneFPSField); addSubview(sceneFPSControl)
         commitSceneFrameRate(nil)
@@ -138,6 +151,9 @@ extension Notification.Name {
     // ACTUAL_FRAME_RATE_ACTION
     // ACTUAL_INTERVAL_COMMIT
     // ACTUAL_TIME_UNIT_SELECTION
+    // ACTUAL_PLAYBACK_RATE_ACTION
+    // ACTUAL_PLAYBACK_RATE_LABEL
+    // ACTUAL_PLAYBACK_RATE_SWITCH
 }
 
 @main struct SettingsIntervalEditingHarness {
@@ -374,6 +390,36 @@ extension Notification.Name {
         NotificationCenter.default.post(name: .sceneDaemonPreparedQualityDidChange, object: daemon)
         pump()
         checks["native-presented-quality-notification-clears-the-pending-title"] = button.title == standardTitle
+
+        let locale = UserDefaults.standard.string(forKey: "AppleLocale")
+        let separator = locale == "de_DE" ? "," : "."
+        checks["playback-rate-process-uses-requested-region"] =
+            Locale.current.identifier == locale && Locale.current.decimalSeparator == separator
+        let rateSlider = view.playbackRateSlider
+        let rateLabel = view.playbackRateValueLabel
+        dependency.settings.playbackRateEnabled = true
+        let expectedReads = [(0.25, "0.25"), (1, "1"), (1.25, "1.25"), (1.35, "1.35"), (1.95, "1.95"), (2, "2")]
+        for (value, decimal) in expectedReads {
+            dependency.settings.playbackRate = value
+            view.refreshFromState()
+            let expected = decimal.replacingOccurrences(of: ".", with: separator) + "×"
+            checks["playback-rate-native-readback-\(decimal)"] = rateLabel.stringValue == expected
+                && rateSlider.doubleValue == value && dependency.settings.playbackRate == value
+        }
+        dependency.settings.playbackRate = 1.237
+        view.refreshFromState()
+        checks["playback-rate-rounds-only-readout-for-an-existing-non-slider-value"] =
+            rateLabel.stringValue == "1\(separator)24×" && rateSlider.doubleValue == 1.237
+            && dependency.settings.playbackRate == 1.237
+        rateSlider.doubleValue = 1.24
+        let submitted = rateSlider.sendAction(rateSlider.action, to: rateSlider.target)
+        checks["playback-rate-native-drag-saves-and-displays-the-same-step"] = submitted
+            && rateLabel.stringValue == "1\(separator)25×" && dependency.settings.playbackRate == 1.25
+        view.playbackRateSwitch.state = .off
+        _ = view.playbackRateSwitch.sendAction(view.playbackRateSwitch.action, to: view.playbackRateSwitch.target)
+        checks["playback-rate-native-disable-keeps-existing-reset-and-hidden-controls"] =
+            !dependency.settings.playbackRateEnabled && dependency.settings.playbackRate == 1
+            && rateSlider.isHidden && rateLabel.isHidden
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

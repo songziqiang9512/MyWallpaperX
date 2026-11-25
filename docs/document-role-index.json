@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9079870282ac9f8884a30f857673e076df810710294bc638ec7cf3f6e428cf52",
+        "sourceSHA256": "86eb49400980c56dc80888b1a315c0273e7ea9ecd913eba5c6c3590801e14e21",
         "method": "document_registry --audit + document_health --check",
-        "scope": "登记冷档回执设计、实测及清除条件",
-        "limitations": "本批验证冷准备回执与当前请求；Surface 逐帧实际 MSAA 保持原诊断。"
+        "scope": "设置倍速回填与滑杆动作",
+        "limitations": "引擎投影与作者 FPS 各沿原职责。"
       }
     },
     {

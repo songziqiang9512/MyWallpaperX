@@ -94,7 +94,7 @@ final class AppKitSettingsContainerView: NSView {
     let muteSwitch = NSSwitch()
 
     let playbackRateSlider = NSSlider(value: 1.0, minValue: 0.25, maxValue: 2.0, target: nil, action: nil)
-    let playbackRateValueLabel = NSTextField(labelWithString: "1.0x")
+    let playbackRateValueLabel = NSTextField(labelWithString: "")
     let playbackRateSwitch = NSSwitch()
 
     let startOnBootSwitch = NSSwitch()
@@ -231,7 +231,7 @@ final class AppKitSettingsContainerView: NSView {
         let clampedRate = max(0.25, min(2.0, settings.playbackRate))
         playbackRateSwitch.state = settings.playbackRateEnabled ? .on : .off
         playbackRateSlider.doubleValue = clampedRate
-        playbackRateValueLabel.stringValue = String(format: "%.2gx", clampedRate)
+        playbackRateValueLabel.stringValue = playbackRateLabel(clampedRate)
         // 开关关闭时隐藏滑块和数值标签，只保留开关本身。
         playbackRateSlider.isHidden = !settings.playbackRateEnabled
         playbackRateValueLabel.isHidden = !settings.playbackRateEnabled
@@ -617,9 +617,13 @@ final class AppKitSettingsContainerView: NSView {
         // 与滑杆范围一致，步长 0.05，限制在 0.25x 到 2.0x。
         let snapped = (playbackRateSlider.doubleValue * 20).rounded() / 20
         let clamped = max(0.25, min(2.0, snapped))
-        playbackRateValueLabel.stringValue = String(format: "%.2gx", clamped)
+        playbackRateValueLabel.stringValue = playbackRateLabel(clamped)
         // 投影经 manager 的 sink 差分（playbackRate 组）单点下发。
         dependency.settings.playbackRate = clamped
+    }
+
+    private func playbackRateLabel(_ rate: Double) -> String {
+        rate.formatted(.number.precision(.fractionLength(0...2))) + "×"
     }
 
     @objc private func handlePlaybackRateSwitchToggle() {

@@ -31,7 +31,7 @@ class SettingsCacheActionsTests(unittest.TestCase):
         refresh = declaration(source, "    func refreshFromState()")
         # The continuous original playback-control prefix runs with native
         # NSTextField/NSWindow. Unrelated settings groups are outside this gate.
-        refresh = refresh[:refresh.index("        let clampedVolume")] + "        _ = visibilityBefore\n    }"
+        refresh = refresh[:refresh.index("        // 登录项开关")] + "        _ = visibilityBefore\n    }"
         actual = fixture.read_text().replace("// ACTUAL_INTERVAL_REFRESH", refresh)
         layout_source = layout.read_text()
         for marker, signature in (
@@ -53,6 +53,9 @@ class SettingsCacheActionsTests(unittest.TestCase):
             ("// ACTUAL_SETTINGS_OBSERVER", "    private func observeManager()"),
             ("// ACTUAL_INTERVAL_COMMIT", "    func controlTextDidEndEditing("),
             ("// ACTUAL_TIME_UNIT_SELECTION", "    private func selectTimeUnit("),
+            ("// ACTUAL_PLAYBACK_RATE_ACTION", "    @objc private func handlePlaybackRateChange("),
+            ("// ACTUAL_PLAYBACK_RATE_LABEL", "    private func playbackRateLabel("),
+            ("// ACTUAL_PLAYBACK_RATE_SWITCH", "    @objc private func handlePlaybackRateSwitchToggle("),
         ):
             actual = actual.replace(marker, declaration(source, signature))
         with tempfile.TemporaryDirectory(prefix="mwx-settings-interval-", dir="/private/tmp") as temporary:
@@ -63,13 +66,15 @@ class SettingsCacheActionsTests(unittest.TestCase):
                 "-warnings-as-errors", str(dependency), str(quality), str(copied), "-module-cache-path", str(work / "modules"), "-o", str(binary)],
                 capture_output=True, text=True, timeout=100)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
-            run = subprocess.run([str(binary)], env={**os.environ, "CFFIXED_USER_HOME": temporary, "HOME": temporary},
-                                 capture_output=True, text=True, timeout=30)
-            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
-            checks = json.loads(run.stdout)
-            self.assertTrue(checks)
-            for name, value in checks.items():
-                with self.subTest(name=name): self.assertIs(value, True, run.stdout + run.stderr)
+            for region in ("en_US", "de_DE"):
+                run = subprocess.run([str(binary), "-AppleLocale", region],
+                    env={**os.environ, "CFFIXED_USER_HOME": temporary, "HOME": temporary},
+                    capture_output=True, text=True, timeout=30)
+                self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+                checks = json.loads(run.stdout)
+                self.assertTrue(checks)
+                for name, value in checks.items():
+                    with self.subTest(region=region, name=name): self.assertIs(value, True)
         self.assertEqual(hashes, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths})
 
     def test_clear_once_and_report_only_after_all_providers_finish(self):

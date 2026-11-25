@@ -77,8 +77,8 @@
       "bytes": 80337
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 575,
-      "bytes": 121775
+      "lines": 582,
+      "bytes": 122837
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "72d462ade81bd024cee826b0ed50a3151f13636e1c23025b3459cb2a12454df7",
-      "after": "2fa8f78300985531b9a104c3dfe83f678094bdff2bbf310592a1221087991e14",
+      "before": "2fa8f78300985531b9a104c3dfe83f678094bdff2bbf310592a1221087991e14",
+      "after": "e2d61499953547cdc93b17762b8c08866cf22fe1dfd4a0c1d96e8680522f38ee",
       "owner": "wallpaper-quality",
-      "reason": "登记冷档回执设计、实测及清除条件",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-cold-quality-receipt"
+      "reason": "记录倍速显示精度和实测",
+      "decision": "docs/development/wallpaper-quality-work-card.md#playback-rate-readout"
     },
     {
       "section": "bodies",

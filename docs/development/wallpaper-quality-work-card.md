@@ -473,6 +473,13 @@ AppKit 动作接入 WallpaperManager 的现有 settingsReload。只有已提交�
 
 九项原生 Scene 回归核对六字段回执、旧端缺项和非法值、错票错代、取消及同票恢复。实际 GPU 候选拒绝时保留原窗口和时钟，原生 AppKit 夹具核同域 HDR 与 FPS 热更不标待应用。图像、原生窗口记录及验收清单归 `.artifacts/wallpaper-quality-prepared-status`。
 
+<a id="playback-rate-readout"></a>
+### 播放倍速读数
+
+播放倍速沿原设置投影作用于 Video 与支持 HTML 媒体的 Web。素材标称 FPS、Scene 呈现帧率和 Web 建议由各自的入口说明。设置回填和滑杆原用两位有效数字，实际存下的 1.25 倍显示为 1.2 倍。两处共用本地化小数读数，显示精度两位小数，覆盖 0.25 至 2 的所有 0.05 刻度。旧配置和导入中的格点外数值保原值，读数按同一显示精度取舍。设置保存、禁用、引擎命令和导入恢复边界沿原实现。复用原生 Settings 动作验读回、滑动、端点、德语小数逗号及只显示不回写。
+
+macOS 原生 Settings 的两地区控制验证通过。1.25 实际保存后分别显示 1.25× 和 1,25×，1.237 只按两位小数显示，回填仍保原值。关闭动作恢复 1 并隐藏控件。用设置同款字体测量两种小数分隔符的五字符读数为 34 pt，可装入现有 40 pt 数值列。Debug 构建及原生证据归 `.artifacts/wallpaper-quality-rate-label`。
+
 <a id="web-effective-fps-delivery"></a>
 ### Web 建议值的实际绘制与同值投递
 
