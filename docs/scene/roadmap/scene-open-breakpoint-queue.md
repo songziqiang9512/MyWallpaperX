@@ -225,7 +225,7 @@
 | 3603711180 | 已修复。实际媒体标题、艺人与剩余时长已接入文本，真实系统封面已同帧验收。其它画幅另核。[播放器](../capabilities/runtime-evidence-current.md#author-player-text-current-360) |
 | 3228084178 | 已修复音条周期性近熄，静音保无柱。196散景恢复双侧。[音条](../capabilities/runtime-evidence-current.md#author-led-placement-tail-322) · [散景](../capabilities/runtime-evidence-current.md#box-birth-distance) |
 | 2868108515 | 已修复。锁链左侧规则叠影已消除，链条和正常雾层保留。[局部光效](../capabilities/runtime-evidence-current.md#author-chain-godrays-local-grid) |
-| 3141464346 | 部分修复。环形丝雾的工作栅格与弧线曲向已修复，原摆位裁切与官版一致，随音乐变化待核。[双环](../capabilities/runtime-evidence-current.md#ring-cover-314) |
+| 3141464346 | 已修复工作栅格和弧线曲向；原摆位裁切一致。已验证同宽谱双环随声出现、静音退场。若再见细节偏差，须同相位的实际振幅与末端画面，无需复跑已测几何与显隐。[双环](../capabilities/runtime-evidence-current.md#ring-cover-314) · [声音对照](../capabilities/runtime-evidence-current.md#ring-audio-response-314) |
 | 3382111183 | 已修复缺条及普通 SDR 材质增亮过量。原曲六层实绘，已测条纹反差与官版接近。密度与节拍仍开放，续查须同相位图及实际 emitter，不复做出生或增亮矩阵。[出生](../capabilities/runtime-evidence-current.md#floor-beam-continuous-emission) · [材质亮度](../capabilities/runtime-evidence-current.md#particle-material-gain-sdr) |
 | 3673609113 | 部分修复。片头后背景复制6→1，已省两层零覆盖私有图，GPU仍超预算。两级残影与官版同属作者合成。[性能](../capabilities/runtime-evidence-current.md#ordinary-zero-alpha-chain-367) · [残影](../capabilities/runtime-evidence-current.md#author-motion-history-367) |
 | 3187857248 | 部分修复。双Surface拖动失效已修复，物理指针若仍间歇须新输入证据。[拖动](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318) |

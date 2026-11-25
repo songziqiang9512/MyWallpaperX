@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 346719
+      "bytes": 347590
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 243,
-      "bytes": 69694
+      "bytes": 69877
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4788d26e624aea7c1bab9319d76fe488029b06555f0b208e2a490108e98a35d5",
-      "after": "e8e7a6e1cb05d84ccc2ea49f09855306d4c68ef59df29fd5a71a2005a557492f",
-      "owner": "Scene and Web shared media palette",
-      "reason": "登记官版同公开封面、改变四色面积与同直方图两布局的共享提色证据。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#media-palette-size-and-layout-370"
+      "before": "e8e7a6e1cb05d84ccc2ea49f09855306d4c68ef59df29fd5a71a2005a557492f",
+      "after": "656e3ff5344a434a68da221b0482c296a19aaa2e9f462cb8a3b1d54fb7e3470b",
+      "owner": "Scene author ring response",
+      "reason": "登记314同PCM和同画幅下实际两环出退、循环静音反例及作者时钟边界。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ring-audio-response-314"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "2cb6e6f138e85b7b79b3563f514620a3cb80170b4871ae122a584467b4568885",
-      "after": "df8822ab96de8c17c8774cb2b314bd63bba8ec472752bb5d9df9f8a8603020db",
-      "owner": "Scene and Web shared media palette",
-      "reason": "登记官版同公开封面、改变四色面积与同直方图两布局的共享提色证据。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#media-palette-size-and-layout-370"
+      "before": "df8822ab96de8c17c8774cb2b314bd63bba8ec472752bb5d9df9f8a8603020db",
+      "after": "082a46d1f7ece63a85b1069fd20c8136808e262e8dd6a8ce8cf2318c00a719be",
+      "owner": "Scene author ring response",
+      "reason": "登记314同PCM和同画幅下实际两环出退、循环静音反例及作者时钟边界。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ring-audio-response-314"
     },
     {
       "section": "bodies",
