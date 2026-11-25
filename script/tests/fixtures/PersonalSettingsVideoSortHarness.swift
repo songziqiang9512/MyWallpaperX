@@ -9,6 +9,7 @@ extension PersonalSettingsImportHarness {
         let profile = root.appendingPathComponent("sort-profile.json")
         let exportedURL = root.appendingPathComponent("sort-export.json")
         var failViewSave = false, rejectBeforeViewSave = false
+        var playbackBarriers = 0
         func coordinator(_ view: WallpaperLibraryPresentation, recoveryURL: URL? = nil) -> PersonalSettingsImportCoordinator {
             PersonalSettingsImportCoordinator(manager: manager, images: images, collections: controller,
                 recoveryURL: recoveryURL ?? recovery, readVideoSort: { try view.videoSortPreference() },
@@ -18,7 +19,7 @@ extension PersonalSettingsImportHarness {
                     manager.defaults.failSynchronization = failViewSave
                     defer { manager.defaults.failSynchronization = false }
                     try view.applyVideoSortPatch(patch, resetEpoch: epoch)
-                })
+                }, beforeApply: { playbackBarriers += 1 })
         }
         func catalog() -> WallpaperLibraryCatalog {
             .init(videos: manager.wallpapers.map { value in
@@ -91,6 +92,7 @@ extension PersonalSettingsImportHarness {
         let extraFields = try JSONSerialization.data(withJSONObject: settingsObject)
         checks["UnusedSortFieldsCannotOverrideOrRejectCurrentPreferences"] = try JSONDecoder().decode(WallpaperSettings.self, from: extraFields) == settings
 
+        let barriersBeforeSort = playbackBarriers
         for mode in [WallpaperLibraryVideoSortPreference.Mode.sourceOrder, .name, .fileSize, .createdAt, .lastUsed] {
             let preference = WallpaperLibraryVideoSortPreference(mode: mode, ascending: false)
             try writeCurrentSort(preference)
@@ -106,6 +108,7 @@ extension PersonalSettingsImportHarness {
             && presentation.queryState.statuses == videoQuery.statuses
             && presentation.queryState.preferredColumns == videoQuery.preferredColumns && presentation.queryState.scrollAnchor == videoQuery.scrollAnchor
             && presentation.queryState.scrollOffset == videoQuery.scrollOffset && presentation.queryState.scrollAtTop == videoQuery.scrollAtTop
+        checks["SortOnlyImportDoesNotStopPlayback"] = playbackBarriers == barriersBeforeSort
         checks["CurrentSortNeverWritesHistoryOrSourceDates"] = controller.snapshot.recent == initialHistory
             && manager.wallpapers.first { $0.id == "A" }?.lastUsed == original.lastUsed
             && manager.wallpapers.first { $0.id == "A" }?.firstIndexedAt == original.firstIndexedAt
@@ -132,6 +135,7 @@ extension PersonalSettingsImportHarness {
         let observation = restartedView.$state.dropFirst().sink { _ in publications += 1 }
         _ = try await restarted.resumeIfNeeded()
         checks["RestartAcceptsAlreadyDurableTargetWithoutReplayingViewChange"] = try restarted.allowsEditing && publications == 0
+            && playbackBarriers == barriersBeforeSort
             && restartedView.videoSortPreference() == .init(mode: .fileSize, ascending: true)
             && !FileManager.default.fileExists(atPath: recovery.path)
         observation.cancel()
@@ -147,6 +151,7 @@ extension PersonalSettingsImportHarness {
         let actualBefore = try beforeRestartView.videoSortPreference()
         _ = try await beforeRestart.resumeIfNeeded()
         checks["RestartFromBeforeAppliesExactSavedTargetInTheSameEpoch"] = try actualBefore == .init(mode: .name, ascending: false)
+            && playbackBarriers == barriersBeforeSort
             && beforeRestartView.videoSortPreference() == .init(mode: .fileSize, ascending: true)
             && beforeRestart.allowsEditing && !FileManager.default.fileExists(atPath: recovery.path)
         importer = coordinator(presentation)

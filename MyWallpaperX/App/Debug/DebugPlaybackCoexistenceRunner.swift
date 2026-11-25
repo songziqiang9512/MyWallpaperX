@@ -124,12 +124,27 @@ enum DebugPlaybackCoexistenceRunner {
         var previous: Receipt?
         var rows: [[String: Any]] = []
         for (label, reference, runtime) in importsQuality ? references.dropLast() : references[...] {
-            workspace.requestSingle(reference)
+            if importsQuality && runtime == .video {
+                let view = workspace.presentation
+                guard view.switchPage(.videos) else { throw Failure("Videos page unavailable for import") }
+                var query = view.queryState
+                query.sort = .name
+                query.ascending = true
+                guard view.setQueryState(query) else { throw Failure("Video name order unavailable") }
+                _ = try await wait("multiple indexed Videos entries") {
+                    let items = view.queryResult.items
+                    return items.count > 1 && items.contains { $0.reference == reference } ? items.count : nil
+                }
+                workspace.play(reference)
+            } else {
+                workspace.requestSingle(reference)
+            }
             let current = try await receipt(for: reference, runtime: runtime, after: previous)
             rows.append(current.evidence)
             result["switches"] = rows
             if importsQuality {
-                result["import-\(runtime.rawValue)"] = try await qualityImport(runtime, receipt: current, directory: directory)
+                result["import-\(runtime.rawValue)"] = try await qualityImport(runtime, receipt: current,
+                    presentation: workspace.presentation, directory: directory)
                 previous = current
                 continue
             }
@@ -159,7 +174,8 @@ enum DebugPlaybackCoexistenceRunner {
         result["savedPaused"] = true
     }
 
-    private static func qualityImport(_ runtime: WallpaperRuntimeKind, receipt: Receipt, directory: URL) async throws -> [String: Any] {
+    private static func qualityImport(_ runtime: WallpaperRuntimeKind, receipt: Receipt,
+                                      presentation: WallpaperLibraryPresentation, directory: URL) async throws -> [String: Any] {
         guard let coordinator = MyWallpaperXApplication.personalSettings, coordinator.allowsEditing else {
             throw Failure("product import owner unavailable")
         }
@@ -175,6 +191,17 @@ enum DebugPlaybackCoexistenceRunner {
         case .systemStill: throw Failure("quality import requires an active dynamic engine")
         }
         let label = "\(runtime.rawValue)-import"
+        let isVideo = runtime == .video
+        let videoPath = WallpaperEngine.shared.currentContentPath
+        let videoOrder = isVideo ? presentation.queryResult.items.map(\.reference.sourceID) : []
+        let videoSequence = isVideo ? WallpaperManager.shared.libraryPlaybackSequence.committed?.snapshot : nil
+        if isVideo {
+            guard videoSequence?.source == .page(.videos), videoSequence?.sourceQuery?.sort == .name,
+                  videoSequence?.sourceQuery?.ascending == true,
+                  videoSequence?.entries.map(\.reference.sourceID) == videoOrder else {
+                throw Failure("active Video sequence did not capture the ascending page")
+            }
+        }
         let before: [String: Any]
         if isScene {
             before = try await captureScene(label + "-before", receipt: receipt, directory: directory)
@@ -187,6 +214,7 @@ enum DebugPlaybackCoexistenceRunner {
         let file = directory.appendingPathComponent(label + ".json")
         var fields: [String: Any] = [isWeb ? "playbackPerformanceProfile" : "animationFramesPerSecond": fps]
         if isScene { fields["sceneTextureQuality"] = SceneTextureQuality.performance.rawValue }
+        if isVideo { fields["videoLibrarySort"] = ["mode": "name", "ascending": false] }
         try JSONSerialization.data(withJSONObject: [
             "schemaVersion": 8, "exportedAt": "2026-01-01T00:00:00Z",
             "preferences": fields, "sources": [], "collections": ["libraryExclusionStates": []]
@@ -199,7 +227,23 @@ enum DebugPlaybackCoexistenceRunner {
         let preserved = WallpaperManager.shared.playbackSwitch.committed == receipt.selection
             && receipt.windows.allSatisfy { onscreen[$0] == receipt.pid }
         var result: [String: Any] = ["savedFPS": fps, "preserved": preserved, "identity": receipt.evidence]
+        if isVideo {
+            let sorted = presentation.queryResult.items.map(\.reference.sourceID)
+            guard try presentation.videoSortPreference() == .init(mode: .name, ascending: false),
+                  sorted == Array(videoOrder.reversed()) else { throw Failure("imported Videos order did not reverse") }
+            result["orderBefore"] = videoOrder
+            result["orderAfter"] = sorted
+        }
         guard preserved else { return result }
+        if isVideo {
+            let sequence = WallpaperManager.shared.libraryPlaybackSequence.committed?.snapshot
+            guard videoPath != nil, WallpaperEngine.shared.currentContentPath == videoPath,
+                  sequence?.sourceQuery == videoSequence?.sourceQuery,
+                  sequence?.entries.map(\.reference.sourceID) == videoOrder else {
+                throw Failure("Videos sort import changed the active file or captured playback order")
+            }
+            result["playbackOrder"] = videoOrder
+        }
         if isScene {
             let cadence = try await wait("imported Scene cadence") {
                 scene.activeAnimationCadence.flatMap { $0.requestedFPS.rawValue == fps ? $0 : nil }

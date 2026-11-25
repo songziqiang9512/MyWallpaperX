@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a440ecf47d836161cb6bd96cda05e3b8bd22e4e735c5ccadfb5ef300c4089aaa",
+        "sourceSHA256": "fccfccc3464e306aae91051d8f8cfd550d9c12eb98a55bdacb7c0e7f60cf1649",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对纹理选级、实际像素解码和 Auto 拓扑路由",
-        "limitations": "页面保导航，细节归稳定纹理合同。"
+        "scope": "标记 Videos 会话及播放快照入口",
+        "limitations": "导航到原视图状态与捕获顺序以及真实验收，无需新 owner。"
       }
     },
     {
@@ -347,10 +347,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5f6cef037e28dfa79c29ea4ef5fdbc38a8b72f6a8b091f786219221311f5e903",
+        "sourceSHA256": "5602ae28d3a8f0ed14c386fca4801d0b35ef2815092bb711a80edc7c81b6daa6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对设定案中的便携计划及引擎生效范围",
-        "limitations": "仅画质计划，标准完整备份与资源准备各沿原合同。"
+        "scope": "便携导入的活动播放合同",
+        "limitations": "计划按实际来源、关系和非画质设置决定停播，排序继续由原视图入口提交。"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "29f8e14e24a3d96f46720207da307ca58e4642860f2fffb65d36726ef91a8b13",
+        "sourceSHA256": "1453bb967ebe72ae4fee7170ade56fc33eaa5eccab1e336e7c23e251aa5b35f5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对原始读回、原生 GPU 计时及未进入签名的裁决",
-        "limitations": "原生四点孤立阶段，低／中档保持待验证。"
+        "scope": "活动 Video 的画质与视图反序导入",
+        "limitations": "签名双作者实际输出及前后顺序，保留完整备份及自动轮换取证边界。"
       }
     },
     {

@@ -89,10 +89,13 @@ extension PersonalSettingsImportHarness {
         try prepare([image])
         _ = try await importer.importPersonalSettings(from: profile)
         checks["ImageOnlyPlanSkipsVideoWriter"] = writes.counts == (0, 1)
-        try prepare([video, image])
+        let oldSort = try presentation.videoSortPreference()
+        quality.videoLibrarySort = .init(mode: oldSort.mode, ascending: !oldSort.ascending)
+        try prepare([video, image], preferences: quality)
         _ = try await importer.importPersonalSettings(from: profile)
         checks["RelatedEqualPatchesStillAcknowledgeBothWriters"] = writes.counts == (1, 1)
-        checks["RelatedEqualSourcePatchesUseOriginalPlaybackBarrier"] = playbackBarriers == 4
+        checks["RelatedEqualSourcePatchesAndChangedSortUseOriginalPlaybackBarrier"] = try playbackBarriers == 4
+            && presentation.videoSortPreference() == quality.videoLibrarySort
         var startupChange = PersonalSettingsPreferences(from: manager.settings)
         startupChange.startOnBoot = !manager.settings.startOnBoot
         try prepare([], preferences: startupChange)

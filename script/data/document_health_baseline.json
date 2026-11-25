@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 62,
-      "bytes": 16004
+      "bytes": 16298
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 338,
-      "bytes": 79716
+      "bytes": 79900
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 514,
-      "bytes": 109356
+      "lines": 523,
+      "bytes": 111461
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,20 +378,20 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "d33211b52faff548c0076178550a8aa55ef38da55ea912e343155f7cdf74a38f",
-      "after": "b828397f10f67419982441ccfdc245ed0ddbbde5cb15dc809bf0d93d47c29675",
-      "owner": "wallpaper-quality",
-      "reason": "记录全尺寸密度算术四候选的原生停止依据",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-volume-density-arithmetic"
+      "before": "b828397f10f67419982441ccfdc245ed0ddbbde5cb15dc809bf0d93d47c29675",
+      "after": "712f2ac3aebc80e1fae2cf9c48f36c839ffa65a633bf5e31215760e42a83ebaa",
+      "owner": "画质执行路线",
+      "reason": "活动 Video 的画质与视图反序导入",
+      "decision": "docs/development/wallpaper-quality-work-card.md#quality-import-video-sort"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "c3b0f9e49c5c8faff7665445be3c53689a3f23688b39caf8dab13a1f93de0316",
-      "after": "de1c1400407aa2b94fa50c6b707c21cb2c73264386da32087d202d1ca6381a15",
-      "owner": "repository-map",
-      "reason": "补嵌入 mip 像素 owner 到当前源码导航",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-embedded-selected-mip-decode"
+      "before": "de1c1400407aa2b94fa50c6b707c21cb2c73264386da32087d202d1ca6381a15",
+      "after": "a4e5028e5d50ac017fa81d7f9d0e44290e8f2f431a9218a2090d221f508340fd",
+      "owner": "仓库源码地图",
+      "reason": "标记 Videos 会话及播放快照入口",
+      "decision": "docs/development/wallpaper-quality-work-card.md#quality-import-video-sort"
     },
     {
       "section": "bodies",
@@ -684,11 +684,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "ec69477d89287a71a175d95213db8464af2dfc8d2445f1b365de8bdd7193fb20",
-      "after": "5c9aac85a5accb2814a435839da61bd5de5b2bc41fa8af0c5c1f431e3376ee35",
-      "owner": "wallpaper-quality",
-      "reason": "补 v8 便携导入原活动会话行为和已有持久化所有权",
-      "decision": "docs/development/wallpaper-quality-work-card.md#quality-only-import-playback"
+      "before": "5c9aac85a5accb2814a435839da61bd5de5b2bc41fa8af0c5c1f431e3376ee35",
+      "after": "fbd81ed6a35edce77c019cfc1143e8bfd149b456597d740c61056015067b2539",
+      "owner": "三引擎画质评估",
+      "reason": "便携导入的活动播放合同",
+      "decision": "docs/development/wallpaper-quality-work-card.md#quality-import-video-sort"
     }
   ]
 }

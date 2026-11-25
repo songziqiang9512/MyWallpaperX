@@ -231,9 +231,8 @@ import ImageIO
                 throw PersonalSettingsError.preferencesChanged
             }
             if let patch = recovery.videoSortPatch { try validateVideoSort(patch, recovery.plan.resetEpoch) }
-            let changesViewSort = recovery.videoSortPatch.map { $0.before != $0.target } ?? false
             if before != target || !recovery.plan.sourcePatches.isEmpty || recovery.plan.collections.hasEntriesToApply
-                || changesViewSort || externalBefore.sceneMediaInfoEnabled != externalTarget.sceneMediaInfoEnabled {
+                || externalBefore.sceneMediaInfoEnabled != externalTarget.sceneMediaInfoEnabled {
                 beforeApply()
                 try requireGeneration(epoch, resetEpoch: recovery.plan.resetEpoch)
             }
