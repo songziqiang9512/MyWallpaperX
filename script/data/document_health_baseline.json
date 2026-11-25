@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 410,
-      "bytes": 100654
+      "lines": 425,
+      "bytes": 104317
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 134917
+      "bytes": 135209
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "d0f87189f573b185c05d38dfc585242e1da685894bd30b8038aed0112b560b8c",
-      "after": "68ec466f23522b088564ef91e950059e50e82e5b19819c637c89215f0e98e08b",
+      "before": "68ec466f23522b088564ef91e950059e50e82e5b19819c637c89215f0e98e08b",
+      "after": "57b1b4420a5c801309f46cd078efa7c8cb22a6a4a34a02c3dbe329df3293fb07",
       "owner": "壁纸质量评估",
-      "reason": "规定本地 Video 观察版本、同视图换版与发布边界",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-inspector-source-recovery"
+      "reason": "登记独立有声派生的时基、画面与功耗停止门",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-derivative-audio-timing"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "c1c703e3bd914db7cb305630a05f5ed4f979e4d28a50e1b99ee7add0d9944f4e",
-      "after": "5e80d7e45cb2f90724c9fced78806253595018041c287c9d369070ca85042f9f",
+      "before": "5e80d7e45cb2f90724c9fced78806253595018041c287c9d369070ca85042f9f",
+      "after": "3faf3f0ea2439dceeb89d7b24b5ab56ef8656a7b6da7f91ae881463e1e22c7ce",
       "owner": "壁纸质量专项",
-      "reason": "记录真实可读替换、原片和相邻屏保验收",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-inspector-source-recovery"
+      "reason": "同步真实有声原片及派生候选的运行收据",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-derivative-audio-timing"
     },
     {
       "section": "bodies",

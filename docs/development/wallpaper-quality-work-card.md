@@ -540,7 +540,7 @@ Pixabay 以空 URL 和零字节表示缺失 Large。浏览卡、远程详情和�
 
 原片短循环合成的四臂为 2160p60、1080p60、2160p30、1080p30。真实 AVFoundation 解码分别读到 322／322／161／161 帧，同为 161／30 秒、BT.709、无音轨。按相同降尺寸／选帧参考，逐帧 SSIM 的最低亮度值为 0.9878，循环接缝比较最大差异 0.136 个码值。独立 1080p24 负控保原音轨和原片，实际桌面烟测 2.51 秒。真实桌面以同一签名 helper 做两次原片 A/A，再正反两轮比较。每窗约 21.467 秒，约四倍文件时长。原片四窗 CPU 全距为 13.49 ms/s。只有 1080p30 在两轮都超过同源 helper CPU 的噪声线，分别下降 43.3%／44.5%，物理 footprint 约降 12.0%／12.7%。RSS 变化在 A/A 波动内。2160p30 比原片臂大 52.2%，编码和码率差异随实际文件一起影响成本。
 
-实测屏幕为 M4 单内屏 3024×1964 当前 120 Hz，接交流电且无记录的热降频告警。短窗的一分钟系统负载为 2.32–7.65。该筛查统计本 helper CPU 与内存，保留 1080p30 作为下一阶段候选。发布依赖 VideoToolbox／WindowServer 与整机稳态功耗、转码净能量及更长的独立样本。Apple M4 本机的 `xctrace` 模板虽列出 Power Profiler，实际短探针返回该 instrument 不支持 macOS。现有进程数字仅作入围筛查，缺整机瓦数时保留原片播放。 [Apple Power Profiler](https://developer.apple.com/documentation/xcode/measuring-your-app-s-power-use-with-power-profiler) [技术评估](wallpaper-quality-settings-plan.md#video)
+实测屏幕为 M4 单内屏 3024×1964 当前 120 Hz，接交流电且无记录的热降频告警。短窗的一分钟系统负载为 2.32–7.65。该筛查统计本 helper CPU 与内存，保留 1080p30 作为下一阶段候选。两部有声公开 4K 素材的四段复验已确认 AAC、PCM、媒体时间与目标帧率，两部短片均通过原生 Video 循环。强制 CFR 补帧和误写 VFR 末帧停留的候选已退出。 [音轨及时基证据](wallpaper-quality-settings-plan.md#video-derivative-audio-timing)发布依赖 VideoToolbox／WindowServer 与整机稳态功耗、转码净能量及更长的独立样本。Apple M4 本机的 `xctrace` 模板虽列出 Power Profiler，实际短探针返回该 instrument 不支持 macOS。现有进程数字仅作入围筛查，缺整机瓦数时保留原片播放。 [Apple Power Profiler](https://developer.apple.com/documentation/xcode/measuring-your-app-s-power-use-with-power-profiler) [技术评估](wallpaper-quality-settings-plan.md#video)
 
 <a id="video-power-sensor-feasibility"></a>
 #### 同机输入能量的诊断资格

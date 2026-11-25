@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0651077844e471117c35fdf148b71a6fd3335e9064bd05211101cf56453207ca",
+        "sourceSHA256": "23db4b0a2254de96934516ca7b06516f5479bb58845ed638d933e6d33b07a589",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本地 Video 同路径替换和当前屏保部署来源",
-        "limitations": "原探测覆盖与活动播放票据"
+        "scope": "两部有声 4K 样片的媒体时基、解码和播放循环",
+        "limitations": "尚无物理出声、59.94 实片和整机能量"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "241270fae052753497b9f501656b1e31aedb54b78d21e502d7303357c405f39b",
+        "sourceSHA256": "2dc97f91646ee549adab9a1f72ba8b8cacb51b8e6f52c86ed3fa8453b5b3f386",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原生详情真实画幅与帧率替换、目录可见域及发布复验",
-        "limitations": "无系统屏保呈现和功耗结论"
+        "scope": "Video 派生保真、强制帧率错误及候选边界",
+        "limitations": "原片继续现役"
       }
     },
     {
