@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 381,
-      "bytes": 89341
+      "lines": 383,
+      "bytes": 90250
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 128969
+      "bytes": 129039
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,10 +378,10 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "db7ca8be0e0fc80864493335d4af487b9b3eb5f5b7915a98f9414a4ac60615f5",
-      "after": "ee463fcb8af2ab34f76aa58f0bbf5e1a49c09f3f10f27c3fda7db574fd2bb56a",
+      "before": "ee463fcb8af2ab34f76aa58f0bbf5e1a49c09f3f10f27c3fda7db574fd2bb56a",
+      "after": "cb9f45de99f48c6591d593219aa04fbdd4baf97dde452d90e1e87755b7a1e8b8",
       "owner": "壁纸质量改造",
-      "reason": "将阅读到的官版自动刷新路由同步到现役批次",
+      "reason": "更新窗口采样状态及原产品接管的接线顺序",
       "decision": "docs/development/wallpaper-quality-work-card.md#quality-reapply-current-scene"
     },
     {
@@ -684,10 +684,10 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "e5646735754060f200287501cc7259d0a07c508a211d73d3cf43870f9c7ed802",
-      "after": "c57fbac92fb0bcfacd55d85be25d3c943234f43edec336db6626f9d28ae2e495",
+      "before": "c57fbac92fb0bcfacd55d85be25d3c943234f43edec336db6626f9d28ae2e495",
+      "after": "bb5a9db6c429f7a9a0f087219731d022c0e0f2c8ad88a3987431d133cf9bfb5e",
       "owner": "Scene 画质与接管",
-      "reason": "登记固定官版冷档触发证据、现役差异与自动采纳的窗口、取消和退役门",
+      "reason": "登记同一 daemon 两作者的合成像素范围，并明确导入和失败仍可手动重试",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-cold-auto-adoption"
     },
     {

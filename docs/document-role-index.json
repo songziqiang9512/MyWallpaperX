@@ -355,10 +355,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c9d6cc6db116fd04a772ee3cf689142da70821fb95e25186e377ee1d0d8a07c3",
+        "sourceSHA256": "28d2445df62f1c287da97a65061ef415729633eab8d27b118ffb28661ce21fa4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "算法裁决、官版普通桌面冷档静态路径与下一步实施设计",
-        "limitations": "自动采纳设计尚未接入；官版静态路径未验物理画面、预览或作者时钟"
+        "scope": "算法决策、官版静态刷新和本地同 daemon 采样边界",
+        "limitations": "自动采纳尚未接线，采样有限且未验逐刷新及外接屏"
       }
     },
     {
@@ -369,10 +369,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0e4aefe9e42a04a1fa2733250429992e5e89d523b51207eab7d6d3ac272a281d",
+        "sourceSHA256": "f95c318664218e7468e48c816d41f01a8d8b6dfe029636ad91f21ce6add6f78e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役顺序、手动生效和自动刷新待验",
-        "limitations": "混合屏、8×、Windows 画面与持续功耗仍待证"
+        "scope": "现役顺序、窗口采样、自动采纳待开发",
+        "limitations": "外设和长稳功耗待实际候选"
       }
     },
     {

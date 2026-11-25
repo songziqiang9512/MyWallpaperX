@@ -8,7 +8,7 @@
 
 从主工作树 `codex/engine-refactor-program` 的 `b2b80f892` 建 `Fluxo/wallpaper-quality-settings`。评估方案给技术取舍与失败判据，本卡维护唯一执行顺序与当前批。开工核对分支、实际 diff 和上批证据，从原设置行为追到真实运行消费者。 [算法与技术设计](wallpaper-quality-settings-plan.md#decision) · [源码地图](../architecture/repository-map.md#wallpaper-quality) · [验证工作流](repository-workflow.md#设计判定与记录)
 
-M4 单内屏已验证四档预设、10–120 FPS、Scene MSAA 至 4×、泛光和显示 HDR、三种纹理策略、阴影五档、反射启停及真实桌面接管。Scene 冷档可手动重新应用，提示跟随实际准备回执。导入同类画质可连续播放。真实 Web 作者验证 FPS 建议与绘制，Video 保原片并已实测 PQ／HLG／HDR10+ 实窗。体积保禁用、高／超高，低／中仍待有新办法保护细光和遮挡。[本地 Video 原片恢复](wallpaper-quality-settings-plan.md#video-inspector-source-recovery)已在同窗更新实际尺寸和标称帧率。当前核官版冷档自动刷新和本端实呈接管，再处理混合显示拓扑、8× 与长稳功耗的硬件复验。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
+M4 单内屏已验证四档预设、10–120 FPS、Scene MSAA 至 4×、泛光和显示 HDR、三种纹理策略、阴影五档、反射启停及真实桌面接管。Scene 冷档可手动重新应用，提示跟随实际准备回执。导入同类画质可连续播放。真实 Web 作者验证 FPS 建议与绘制，Video 保原片并已实测 PQ／HLG／HDR10+ 实窗。体积保禁用、高／超高，低／中仍待有新办法保护细光和遮挡。[本地 Video 原片恢复](wallpaper-quality-settings-plan.md#video-inspector-source-recovery)已在同窗更新实际尺寸和标称帧率。当前接入直接调档的自动采纳和精确撤单，再处理混合显示拓扑、8× 与长稳功耗的硬件复验。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
 
 每批先冻结输入、画面口径及同机噪声，再改现有职责并走最近门、独立审查和窄提交。轮次完成后保必要证据，退出诊断和已失效的边界。未越过收益门的候选停止推进。 [实测门槛](wallpaper-quality-settings-plan.md#quality-release-gates)
 
@@ -454,7 +454,7 @@ AppKit 动作接入 WallpaperManager 的现有 settingsReload。只有已提交�
 
 重载采用正常候选和可见接管。成功后新 Scene 会话从新作者时钟起步并继承暂停意图。候选失败继续原画面和原播放。打开 Settings、后处理在同域 HDR 热切以及 Web 和 Video 的状态变化沿原实现。
 
-[官版静态路径](wallpaper-quality-settings-plan.md#official-live-quality-refresh)显示 MSAA、后处理和纹理差分进入当前桌面刷新分支，按已选配置恢复。现役 AppKit 仍为手动应用；下一片先核同 daemon 原窗口和新首帧之间的实际呈现，再按[自动采纳设计](wallpaper-quality-settings-plan.md#scene-cold-auto-adoption)接入现有候选。
+[官版静态路径](wallpaper-quality-settings-plan.md#official-live-quality-refresh)显示 MSAA、后处理和纹理差分进入当前桌面刷新分支，按已选配置恢复。本机两作者的实窗合成采样未观察到见证底色，一组跨提升采样间隔达 83.33 ms。保现有 Host，进入[自动采纳设计](wallpaper-quality-settings-plan.md#scene-cold-auto-adoption)接线。收据归 `.artifacts/wallpaper-quality-scene-handoff-coverage`。
 
 沿现有签名产品入口从有至少两个条目的原页面开始 Scene，用实际 AppKit 后处理选单关闭普通泛光。点击重新应用前核同一会话及旧泛光。点击后核原作品及页面快照、已呈现新会话、真实画面及已采纳的冷档。覆盖独立作者、暂停保持并可恢复、候选失败或在途反例、Web 和 Video。补已删除列表在同源重载后的状态，并更新五语帮助及源码地图。
 
