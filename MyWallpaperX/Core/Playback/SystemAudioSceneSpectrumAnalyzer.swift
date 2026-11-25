@@ -358,11 +358,12 @@ private extension SystemAudioSceneSpectrumAnalyzer {
             quietDuration = 0
             let sharedTarget = max(peak / 3, Self.minimumDenominator)
             let rise = 0.12 * dt
+            let release = 1 - exp2(-dt / 0.04)
             normalize(&left, previousBands: lastActiveLevels.left64,
-                      channelOffset: 0, sharedTarget: sharedTarget, rise: rise, fall: fall)
+                      channelOffset: 0, sharedTarget: sharedTarget, rise: rise, fall: fall, release: release)
             if right != nil {
                 normalize(&right!, previousBands: lastActiveLevels.right64,
-                          channelOffset: Self.groupCount, sharedTarget: sharedTarget, rise: rise, fall: fall)
+                          channelOffset: Self.groupCount, sharedTarget: sharedTarget, rise: rise, fall: fall, release: release)
             }
             lastActiveLevels = AuthorLevels(left64: left, right64: right)
             return lastActiveLevels
@@ -378,14 +379,17 @@ private extension SystemAudioSceneSpectrumAnalyzer {
             channelOffset: Int,
             sharedTarget: Float,
             rise: Float,
-            fall: Float
+            fall: Float,
+            release: Float
         ) {
             for group in 0..<Self.groupCount {
                 let samples = (group * 8)..<((group + 1) * 8)
                 let target = max(sharedTarget, bands[samples].max()!)
                 let index = channelOffset + group
                 let previous = denominators[index]
-                let next = max(Self.minimumDenominator, previous + min(rise, max(-fall, target - previous)))
+                let delta = target - previous
+                let change = delta < 0 ? max(-fall, delta * release) : min(rise, delta)
+                let next = max(Self.minimumDenominator, previous + change)
                 denominators[index] = next
                 for band in samples {
                     let previousValue = previousBands[band]

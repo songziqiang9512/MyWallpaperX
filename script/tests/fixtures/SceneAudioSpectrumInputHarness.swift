@@ -268,6 +268,7 @@ enum Harness {
             "reentry": reentryChecks(active: dcFrame, quiet: nearSilentFrame),
             "sharedAttack": sharedAttackChecks(),
             "bandSteps": bandStepChecks(),
+            "groupRelease": groupReleaseChecks(),
             "usesTail": arrays(freshAuthor(sameTail, sampleRate: sampleRate)) == arrays(center),
             "incompleteTailSilent": arrays(freshAuthor(incompleteTail, sampleRate: sampleRate))
                 .joined().allSatisfy { $0 == 0 },
@@ -358,6 +359,27 @@ enum Harness {
             analyzer.resetAuthor()
             return [before, first, repeatTime, second, release, quiet, staleWhileQuiet, resumed, at(high, 4.08)]
         }
+    }
+
+    static func groupReleaseChecks() -> [[Float]] {
+        func stepDown(_ peak: Float, intervals: [Double]) -> [Float] {
+            let before = captured([tone(1_493.537578, amplitude: peak)])
+            let after = captured([tone(1_493.537578, amplitude: peak / 2)])
+            let analyzer = SystemAudioSceneSpectrumAnalyzer()!
+            for tick in 0...75 {
+                _ = analyzer.analyzeAuthor(before, sampleRate: sampleRate, timestamp: Double(tick) / 25)
+            }
+            var time = 3.0
+            return intervals.map { interval in
+                time += interval
+                return analyzer.analyzeAuthor(after, sampleRate: sampleRate, timestamp: time).left64[36]
+            }
+        }
+        let slowTicks = Array(repeating: 0.04, count: 20)
+        let high = stepDown(0.048, intervals: slowTicks)
+        let low = stepDown(0.012, intervals: slowTicks)
+        let split = stepDown(0.012, intervals: [0.04, 0.04, 0.02, 0.02])
+        return [high, low, [low[2], split[3]]]
     }
 
     static func tone(_ frequency: Double, amplitude: Float, at sourceSampleRate: Float = sampleRate) -> [Float] {

@@ -21,8 +21,8 @@
       "bytes": 18243
     },
     "docs/architecture/system-audio-spectrum-design.md": {
-      "lines": 48,
-      "bytes": 8043
+      "lines": 50,
+      "bytes": 8346
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 200,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 337871
+      "bytes": 339420
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 245,
-      "bytes": 69156
+      "bytes": 69090
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -361,10 +361,10 @@
     {
       "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "6b0269f4f69e7ec8d381e1ade36803228a18ff2ba98c6d6b399155024d8079b6",
-      "after": "d33fccee54bc4d4343d09ab4208b0fe50e841b3709acf21ea3eab1ea1ef211ac",
+      "before": "d33fccee54bc4d4343d09ab4208b0fe50e841b3709acf21ea3eab1ea1ef211ac",
+      "after": "aa654dc68242a363c3ac093b2da326052959c279e3fbc8fb6b6a139a6a25827e",
       "owner": "Scene audio normalization",
-      "reason": "Record the prepared per-band steps with separately reset denominator history.",
+      "reason": "Describe bounded near-target group release in the existing capture clock.",
       "decision": "docs/architecture/system-audio-spectrum-design.md"
     },
     {
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "788473acc361e66f546d3ed9ca46c8102e70f6276368b0ffc820b3ef14206ad6",
-      "after": "96b2d307ca70792dcc8a267dcd834c8ece258493bda2eb8858f6cd24247f3367",
+      "before": "96b2d307ca70792dcc8a267dcd834c8ece258493bda2eb8858f6cd24247f3367",
+      "after": "c18693eecfa9327db05b0223514247f16bc397715d787cf5a2a3ebd6fac5c275",
       "owner": "Scene audio normalization",
-      "reason": "Record official per-band steps, exact quiet reentry and the updated authored contour range.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-band-steps"
+      "reason": "Record same-frame Prepared32 attribution, local release, and original and independent runtime evidence.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-near-target-release"
     },
     {
       "section": "bodies",

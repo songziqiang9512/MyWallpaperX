@@ -261,6 +261,17 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
             self.assertAlmostEqual(resumed - release, 1, delta=0.0001)
             self.assertAlmostEqual(reset, 1, delta=0.0001)
 
+    def test_author_group_release_slows_near_target(self) -> None:
+        high, low, split = self.result["analyzer"]["groupRelease"]
+        farther = [1 / value for value in high[:3]]
+        self.assertAlmostEqual(farther[0] - farther[1], farther[1] - farther[2], delta=0.0001)
+        near = [1 / value - 1 for value in low[1:4]]
+        self.assertGreater(near[-1], 0)
+        self.assertAlmostEqual(near[1] / near[0], .5, delta=.005)
+        self.assertAlmostEqual(near[2] / near[1], .5, delta=.005)
+        self.assertTrue(all(.999 < values[-1] <= 1 for values in (high, low)))
+        self.assertAlmostEqual(split[0], split[1], delta=0.0001)
+
 
 class SceneAudioSpectrumWiringTests(unittest.TestCase):
     """静态接线断言：确保采集服务与播放引擎按 A0 合同接线。"""
