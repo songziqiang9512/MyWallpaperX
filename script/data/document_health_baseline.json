@@ -77,8 +77,8 @@
       "bytes": 73674
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 277,
-      "bytes": 55636
+      "lines": 284,
+      "bytes": 56880
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -94,7 +94,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 280,
-      "bytes": 55184
+      "bytes": 55206
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,20 +369,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "e1822c36462e5f48d8b8203dcf5205e6f044139f62cc9f42872f1858fbc71885",
-      "after": "3104c1bbe34040d0ede0b7ff70157242e8bd7f3980f06c41b6f6bfe5e29507cc",
-      "owner": "Scene 运行时",
-      "reason": "记录原点光编码与独立深度回放的作用范围",
-      "decision": "docs/scene/architecture/runtime-architecture.md#scene-volume-lighting-policy"
+      "before": "3104c1bbe34040d0ede0b7ff70157242e8bd7f3980f06c41b6f6bfe5e29507cc",
+      "after": "8c2e717ebf89a40b678a98ac43df84280fd1dc884f5222339142ca899eb49268",
+      "owner": "Scene 运行与资源",
+      "reason": "将帧率与解码租约的现行合同链接实测裁决",
+      "decision": "docs/scene/architecture/runtime-architecture.md#scene-frame-rate-policy"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "b0c1acf215be6c1f090ed55ea693f10a92a8e591ecdb4d1bfca821bb0c7de803",
-      "after": "1aa7ac97bfa4e02aca624874eb3c7fbe44a3ea640b5b4b6bb53dd3fe4d445a48",
-      "owner": "壁纸质量与播放链",
-      "reason": "记录正常产品入口三引擎接管、暂停及冷恢复的实测证据，并维护当前批顺序",
-      "decision": "docs/development/wallpaper-quality-work-card.md#quality-engine-coexistence"
+      "before": "1aa7ac97bfa4e02aca624874eb3c7fbe44a3ea640b5b4b6bb53dd3fe4d445a48",
+      "after": "4c377c99928ce3780cd4f15287b9b1f41170e26290da8686bd75d11ee723f46d",
+      "owner": "壁纸质量与 Scene 准备",
+      "reason": "记录旧配额同 FPS 配对及保留决定",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-decode-budget"
     },
     {
       "section": "bodies",

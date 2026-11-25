@@ -146,7 +146,7 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 <a id="scene-frame-rate-policy"></a>
 App 以 10–120 整数保存动画帧率，Scene 启动和热更新沿原数值 IPC。现有目标屏拓扑同时记录当前显示模式的小数刷新率。单屏和同频屏按当前模式限制，不同频或未知模式采用共同保守上限，最多 60。仅刷新率变化时重排原 timer，保候选身份和原 Surface。设置显示已确认会话的生效值，尚未接管时显示当前配置能预测的上限。 [活动及候选会话](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift) 各接收同一请求，活动会话重排原 timer，不更换作者时钟。过载找下一未来槽，暂停首帧保原有界准入。粒子沿原 1／60 秒固定步进，在正常低帧率期间按该会话有效间隔调节过载上限。
 
-解码租约预算在 Scene host 初始化时定一次，并与帧率分开。升级前使用旧小预算的设备保留本机兼容值，便携导入不传递它；改帧率不会扫描或缩减已有缓存。 [移除旧预算的验证条件](../../development/wallpaper-quality-work-card.md#scene-rate-rollout)
+解码租约预算在 Scene host 初始化时定一次，并与帧率分开。已有旧小预算的设备保留兼容值，便携导入不携带它，改帧率不扫描或缩减缓存。 [资源准入](scene-resource-admission.md#budget) · [实测与保留决定](../../development/wallpaper-quality-work-card.md#scene-decode-budget)
 
 <a id="scene-texture-quality-policy"></a>
 纹理「高质量」沿原物理规格。「高性能」可在冷准备选择普通图像的已验证作者 TEX mip 尾。唯一静态普通颜色采样、无其它需精确像素的消费者和真实无 padding 是首批资格。同一源的布局尺寸、归一 UV、作者颜色／alpha 和采样保持。原解码缓存共享，设备纹理按实际起始 mip 区分。作者材质、具名供货、粒子像素及动态模型独立加载全规格，借用原模型别名时不得把缩小图当作全规格。含 padding、单 mip、数据通道及非适用格式沿原 Loader。偏好与 v8 便携设置沿 Scene 质量快照交付，随原候选重载生效。 [代码入口](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift) · [已验范围](../../development/wallpaper-quality-work-card.md#scene-texture-rollout)

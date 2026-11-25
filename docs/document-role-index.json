@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "31dc6d84d3436e875db1f128fe7f0e075aa073ad69257475c88954bb6d284426",
+        "sourceSHA256": "46efe9f4622781770025c5da69f6c4c84d0dea3362d5460c9925f598590e74e4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "正常库选择、真实窗口及配置冷恢复",
-        "limitations": "导航核查，运行证据与单屏限制见三引擎验收节"
+        "scope": "旧小配额收据、实际画面和保留决定",
+        "limitations": "签名单 M4 与取证边界详见本卡"
       }
     },
     {
@@ -855,10 +855,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0b49cf147eff7415f404a2a423d8d5d0ec66cbeef545e64297f732772c4ddbd3",
+        "sourceSHA256": "5420947109eca47123d09cd6182f028f7e2bedf88de17a746bf94424a91255e6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原点光和聚光的实际准备与编码合同",
-        "limitations": "具体样本在工作卡"
+        "scope": "帧率与资源占用仍由既有各自职责处理",
+        "limitations": "现行合同核对，配对结论见工作卡"
       }
     },
     {
