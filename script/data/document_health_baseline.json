@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 425,
-      "bytes": 104317
+      "lines": 439,
+      "bytes": 108128
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 135209
+      "bytes": 135509
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "68ec466f23522b088564ef91e950059e50e82e5b19819c637c89215f0e98e08b",
-      "after": "57b1b4420a5c801309f46cd078efa7c8cb22a6a4a34a02c3dbe329df3293fb07",
-      "owner": "壁纸质量评估",
-      "reason": "登记独立有声派生的时基、画面与功耗停止门",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-derivative-audio-timing"
+      "before": "57b1b4420a5c801309f46cd078efa7c8cb22a6a4a34a02c3dbe329df3293fb07",
+      "after": "20bdc3ce6aa66043ef5869f38747fb6f58239ad941b14a536624642d16344816",
+      "owner": "Scene rendering",
+      "reason": "记录累积密度查表、守门边界与原生画面和计时结果",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-density-table"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "5e80d7e45cb2f90724c9fced78806253595018041c287c9d369070ca85042f9f",
-      "after": "3faf3f0ea2439dceeb89d7b24b5ab56ef8656a7b6da7f91ae881463e1e22c7ce",
-      "owner": "壁纸质量专项",
-      "reason": "同步真实有声原片及派生候选的运行收据",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-derivative-audio-timing"
+      "before": "3faf3f0ea2439dceeb89d7b24b5ab56ef8656a7b6da7f91ae881463e1e22c7ce",
+      "after": "f15e9d5e2db5149a7a77247b7a2eec8d2d89e2bb57291f9c5b81e6fe8d7ede44",
+      "owner": "声画质量执行路线",
+      "reason": "登记体积查表候选的退出和重启资格",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-volume-density-arithmetic"
     },
     {
       "section": "bodies",

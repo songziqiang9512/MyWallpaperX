@@ -159,7 +159,7 @@ Apple M4 的两臂均在 Metal 完成。宽边中心均为 −0.5 阴影 texel�
 
 固定原像素的单命令缓冲编码四个相同 clear＋光照 pass，报每 pass 的实际 GPU 时间。对称臂在合成完整宽弦约 0.319–0.321→0.267–0.269 ms，省约 16%；眼内高指数却多约 0.012–0.014 ms。已证广覆盖原作者为眼内光，窄光真实作者先前只有 342×342，现无够大的真实完整弦。整数 1／2／10 臂在 176×176 窄指数 1 的约 0.103 ms 内交叠，完整弦指数 10 约 0.320→0.371 ms，眼内指数 16 负控约 0.481→0.578 ms。
 
-单指数 10 独立复验的眼内正控先后为 0.5853／0.5155／0.4946／0.4954／0.4816 ms，末次原路更快。全弦变慢约 0.009 ms，眼内指数 16 负控慢约 0.022–0.024 ms。试验不进入生产签名作者和新档，现役仍全尺寸高／超高。独立复核核对原始像素与计时，证据归 `.artifacts/wallpaper-quality-volume-tiers/density-arithmetic-probe`。本片测现役四点的孤立 GPU 阶段，未审定六点性能、完整 App 稳态或功耗。 [两种光心偏置的二／三点求积](wallpaper-quality-settings-plan.md#scene-volume-reparameterized-quadrature)已在指数 10 的完整和截断弦失守，退出数值筛查。
+单指数 10 独立复验的眼内正控先后为 0.5853／0.5155／0.4946／0.4954／0.4816 ms，末次原路更快。全弦变慢约 0.009 ms，眼内指数 16 负控慢约 0.022–0.024 ms。试验不进入生产签名作者和新档，现役仍全尺寸高／超高。独立复核核对原始像素与计时，证据归 `.artifacts/wallpaper-quality-volume-tiers/density-arithmetic-probe`。本片测现役四点的孤立 GPU 阶段，未审定六点性能、完整 App 稳态或功耗。 [两种光心偏置的二／三点求积](wallpaper-quality-settings-plan.md#scene-volume-reparameterized-quadrature)已在指数 10 的完整和截断弦失守，退出数值筛查。 [原尺寸累积密度查表](wallpaper-quality-settings-plan.md#scene-volume-density-table)的宽域阶段有可复现节省，但全射线近遮挡过亮，限域改动在近／远裁切处有可见跳变，两版均退出。下次先验证候选可保积分连续，再准备独立宽域实物。
 
 <a id="scene-volume-point-coverage"></a>
 ### 按点光球覆盖收紧四点积分的验证
