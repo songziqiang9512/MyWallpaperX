@@ -9,6 +9,10 @@ extension SceneParticleSimulator {
         definition.flags.disablesSpeedOverrides ? 1 : overrideScalar(activeInstanceOverride?.speed)
     }
 
+    nonisolated var effectiveSizeOverride: Double {
+        definition.flags.disablesSizeOverrides ? 1 : overrideScalar(activeInstanceOverride?.size)
+    }
+
     nonisolated func applyInstanceOverride(to particle: inout SceneParticleState) {
         guard let value = activeInstanceOverride else { return }
         let flags = definition.flags
@@ -16,9 +20,7 @@ extension SceneParticleSimulator {
             particle.lifetime *= overrideScalar(value.lifetime)
         }
         particle.alpha *= overrideScalar(value.alpha)
-        if !flags.disablesSizeOverrides {
-            particle.size *= overrideScalar(value.size)
-        }
+        particle.size *= effectiveSizeOverride
         let speed = effectiveSpeedOverride
         particle.velocity *= speed
         particle.angularVelocity *= speed

@@ -47,7 +47,7 @@ Turbulence、Turbulent Velocity、Remap 和 Position Offset 共用梯度噪声�
 | Initializers | 位置、速度、旋转、尺寸、寿命、颜色、sequence 等 typed writer | 后写者及 General override 保作者顺序；未知字段只影响相关组件；HSV/Mirror/Position Around 等仍有未资格组合 |
 | Operators | movement、gravity/力、颜色/alpha/size/旋转、noise、Remap、Vortex、Plane/[Sphere](#sphere-collision)/[Bounds](#bounds-collision) Collision、[单点半径](#control-point-radius)与[双点搬移](#between-control-points)等原计划 | 不支持操作不假装执行；与 child、CP、世界空间和 lifecycle blend 分别限定 |
 | Control Points | 0…7 typed identity、静态/动态位置及 emitter、initializer、force、约束消费者 | 按 authored ID 而非数组位置；CP0/system origin 与其他 world source 不混用，未知 flags/angles/parent 不猜 |
-| Instance overrides | 已有颜色、发射、速度、播放及 typed 动态输入 | 新生 writer 与存量粒子不同；不以新属性自动改写既有粒子 |
+| Instance overrides | 已有颜色、发射、速度、播放及 typed 动态输入 | 出生保各自基值。存量按实际算子消费，尺寸见 [SizeChange](#size-change-instance-override) |
 
 <a id="instance-color"></a>
 ### 实例颜色覆盖
@@ -57,6 +57,13 @@ Turbulence、Turbulent Velocity、Remap 和 Position Offset 共用梯度噪声�
 `instanceoverride.brightness` 在场景装载时由 HDR 与 Bloom 同开选中，强度为0也有效。沿原 typed slider 和 Simulator 出生 writer 给直色乘有限标量，缺省或不可用取1。三类颜色均可乘，保零值、超白、alpha、后继 writer 与材质 `overbright`。热值只供有绑定的根实例，不传 child 模板。父事件颜色仍是实际出生值。禁用颜色覆盖沿原实现，官版 bit8、运行中切换 Bloom、脚本和动画供值待证。[运行对照](runtime-evidence-current.md#hdr-particle-instance-brightness)
 
 <a id="neutral-mask-trail-color"></a>普通无光照、SDR 半透明 SpriteTrail 使用实际 R8 白色覆盖纹理及独立根 `colorn` 时，原普通片元对已有 PMA RGB 限至 `alpha`，等价于先把增亮后的直色限制到1，再乘一次覆盖率。裁幅随已准备绘制状态传入原 uniform，保现有 blend、采样和 PSO。Legacy `color`、HDR、折射、有色纹理、后继颜色写入与子系统的材质裁幅沿原路径。双背景、改名和独立纹理的[验收](runtime-evidence-current.md#neutral-mask-trail-382)。
+
+<a id="size-change-instance-override"></a>
+### SizeChange 的实例尺寸
+
+出生将有效 `instanceoverride.size` 纳入尺寸基值。模拟步从该基值重置，再按作者顺序执行各尺寸算子。每条 `sizechange` 将按寿命进度插值的原曲线值与当前有效尺寸倍率相乘，再乘入粒子尺寸。缺省倍率及禁用位128为1。单条和多条沿同一规则。热倍率随原 typed 输入进入模拟步，存量曲线读取当前值，出生基值继续保留；新生同时取得当时的出生倍率。无 SizeChange 的普通卡和其它尺寸算子沿各自既有规则。
+
+原模拟器统一取得有效倍率，每条 SizeChange 在粒子循环外取值一次。现有曲线、预热、实例载体、GPU 几何和混合路径继续使用。验收覆盖单位值、放大和缩小、禁用位、等价端点、多条顺序、其它 writer、重复步、热重绑，以及原包与独立作者的实际 GPU 帧。脚本 `instance.size` setter 属属性接入，另按实际供货验证。
 
 <a id="control-point-position"></a>
 ### 控制点位置的取值职责

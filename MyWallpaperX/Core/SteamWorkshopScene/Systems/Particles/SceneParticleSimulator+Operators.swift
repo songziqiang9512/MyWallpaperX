@@ -159,8 +159,9 @@ nonisolated extension SceneParticleSimulator {
 #endif
                 break
             }
+            let instanceSize = effectiveSizeOverride
             for index in particles.indices {
-                particles[index].size *= plan.value(at: normalizedLives[index])
+                particles[index].size *= plan.value(at: normalizedLives[index]) * instanceSize
             }
 #if DEBUG
             if observesParticles {

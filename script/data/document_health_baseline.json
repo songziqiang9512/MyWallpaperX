@@ -121,8 +121,8 @@
       "bytes": 7411
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 356,
-      "bytes": 69477
+      "lines": 363,
+      "bytes": 70538
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 461,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 339420
+      "bytes": 339965
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 245,
-      "bytes": 69090
+      "bytes": 69244
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "9c90667ef16f3b0d1bf7ca5ea02d1586e4929a8e9caffc45e7589dc77c07f3ed",
-      "after": "7440a35fac7fc280f70fe41ff72dbc94d43786de4f6f64be7788ab75ce4ac0f6",
-      "owner": "Scene Sphere emitter birth",
-      "reason": "记录出生湍流各自缺省端点、反序取样以及现有实例与RNG职责。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#turbulent-velocity-speed-range"
+      "before": "b531dceb8270dbb67fbdc83284be9fdf3e0f1f8a293443b3a53decf76ae5c46a",
+      "after": "e4594d5da629dfb60eacf1a714d74eb3210a9ab6328a65ca458464c19e6f84a2",
+      "owner": "Scene particle simulation",
+      "reason": "Record authored SizeChange consumption of the live instance size scale.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#size-change-instance-override"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "96b2d307ca70792dcc8a267dcd834c8ece258493bda2eb8858f6cd24247f3367",
-      "after": "c18693eecfa9327db05b0223514247f16bc397715d787cf5a2a3ebd6fac5c275",
-      "owner": "Scene audio normalization",
-      "reason": "Record same-frame Prepared32 attribution, local release, and original and independent runtime evidence.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-near-target-release"
+      "before": "c18693eecfa9327db05b0223514247f16bc397715d787cf5a2a3ebd6fac5c275",
+      "after": "980f96a73f0f8d53312a62f7babd5d0809bc882dd3a0d95613b392fc9b1dc8fd",
+      "owner": "Scene particle simulation",
+      "reason": "Record bounded size, lifecycle, native hot input and original Scene evidence.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-size-change-instance-override"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "3978267e3ac52a4e5eab6646a2cca2a12a2692c44503894f7071f50a6e8a2690",
-      "after": "b016bd1d5d030320828b7692fb57afc2f87a7ccc9649cd7be23517a06201516a",
-      "owner": "Scene author ring",
-      "reason": "Route the corrected group pressure rise and the measured strong-band residual.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+      "before": "8984122e7b5beca857e0dff6c506c9637f6775ae2f6fc202928437518855848d",
+      "after": "7834c8a276d8bddf2a011ce229895e23926ed3ae05472d416360a763385a72f2",
+      "owner": "Scene particle simulation",
+      "reason": "Close the missing diagonal coverage and retain the measured movement and SceneScript setter gaps.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     },
     {
       "section": "bodies",

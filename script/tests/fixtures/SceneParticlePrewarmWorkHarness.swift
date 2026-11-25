@@ -360,6 +360,46 @@ import simd
         return ["rows": rows, "event": event]
     }
 
+    static func sizeChangeInstanceValues() -> [String: [Double]] {
+        let change: [String: Any] = ["id": 31, "name": "sizechange", "starttime": 0.75]
+        let explicit = change.merging(["id": 632, "startvalue": 1, "endvalue": 0]) { _, new in new }
+        let oscillate: [String: Any] = ["name": "oscillatesize", "frequencymin": 0,
+            "frequencymax": 0, "scalemin": 3, "scalemax": 3, "phasemin": 0, "phasemax": 0]
+        let cases: [(name: String, size: Double?, flags: Int, operators: [[String: Any]])] = [
+            ("birthOnly", 2, 0, []),
+            ("unit", nil, 0, [change]),
+            ("smaller", 0.5, 0, [change]),
+            ("larger", 2, 0, [change]),
+            ("renamed", 2, 0, [explicit]),
+            ("twice", 2, 0, [change, explicit]),
+            ("disabled", 2, 128, [change, explicit]),
+            ("withOscillation", 2, 0, [change, oscillate]),
+        ]
+        let hot = parser.parseInstanceOverride(["size": 0.5])
+        var result: [String: [Double]] = [:]
+        for input in cases {
+            var root = source(name: input.name, capacity: 1, start: 1, rate: 0, burst: 1,
+                lifetime: 8, operators: input.operators)
+            root["flags"] = input.flags
+            root["initializer"] = [
+                ["id": 21, "name": "lifetimerandom", "min": 8, "max": 8],
+                ["id": 22, "name": "sizerandom", "min": 8, "max": 8],
+            ]
+            let simulator = SceneParticleSimulator(definition: parser.parse(root: root),
+                instanceOverride: parser.parseInstanceOverride(input.size.map { ["size": $0] }),
+                seed: 73, fixedTimeStep: step)
+            let birth = simulator.particles[0]
+            simulator.advance(by: step, dynamicInstanceOverride: hot)
+            let first = simulator.particles[0]
+            simulator.advance(by: step, dynamicInstanceOverride: hot)
+            let next = simulator.particles[0]
+            simulator.advance(by: step)
+            result[input.name] = [birth.initialSize, birth.size, first.size, next.size,
+                simulator.particles[0].size, simulator.particles[0].initialSize]
+        }
+        return result
+    }
+
     static func orderedDeaths() -> [String: Any] {
         let operatorValue: [String: Any] = ["name": "oscillateposition", "frequencymin": 1,
             "frequencymax": 2, "scalemin": "1 0 0", "scalemax": "3 1 0"]
@@ -502,6 +542,7 @@ import simd
         let result: [String: Any] = ["sparse": sparse(), "workload": workload(),
             "emptySystems": emptySystems(), "bounds": boundaries(),
             "complete": complete(), "cancellation": cancellation(), "fieldWriters": fieldWriterBaselines(),
+            "sizeChangeInstance": sizeChangeInstanceValues(),
             "orderedDeaths": orderedDeaths(), "compaction": leadingDeathCompaction(),
             "liveRenderStorage": liveRenderStorage()]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])

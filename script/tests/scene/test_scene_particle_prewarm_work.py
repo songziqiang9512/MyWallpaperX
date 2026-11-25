@@ -233,6 +233,18 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
                     self.assertEqual((state["initialSize"], state["initialColor"]), (7, [1, 0, 1]))
                     self.assertEqual((state["alpha"], state["initialAlpha"]), (alpha, 0.375))
 
+    def test_each_size_change_consumes_the_current_instance_size(self) -> None:
+        self.assertEqual(self.result["sizeChangeInstance"], {
+            "birthOnly": [16, 16, 16, 16, 16, 16],
+            "unit": [8, 8, 4, 4, 8, 8],
+            "smaller": [4, 2, 2, 2, 2, 4],
+            "larger": [16, 32, 8, 8, 32, 16],
+            "renamed": [16, 32, 8, 8, 32, 16],
+            "twice": [16, 64, 4, 4, 64, 16],
+            "disabled": [8, 8, 8, 8, 8, 8],
+            "withOscillation": [16, 96, 24, 24, 96, 16],
+        })
+
     def test_leading_death_compaction_keeps_live_order_and_history(self) -> None:
         partial = self.result["compaction"]["partial"]
         self.assertEqual(partial["firstDeaths"], list(range(70)))
