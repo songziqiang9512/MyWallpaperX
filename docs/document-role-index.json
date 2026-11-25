@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "06be888a6684c31184546b3a596658887a76b500c9fd091b8b321d384c2f4fd4",
+        "sourceSHA256": "2581e8d74b701901fea16f14808db38f9078f1c242fc7fe37529d71919ca44cb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "从画质控制定位反射帧相序、快照编码和纹理准入",
-        "limitations": "保原入口的同一质量意图"
+        "scope": "定位终端 Bloom、纹理链和显示映射 owner",
+        "limitations": "仅补后处理代码入口"
       }
     },
     {
@@ -347,10 +347,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ce3b72769908bae09616e65f48cd0da85a2534a03f6ce7d4584ea8c72f0d707f",
+        "sourceSHA256": "7b167706bc0b6d3a8bbc861c46345249e083a54c37cd39cb069242a68c20f10e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "反射算法、共享消费者、可选快照与必需累积的不同成本",
-        "limitations": "设备流量与耗电另验"
+        "scope": "校正 Bloom 暖工作集随冷候选退役的有效事实",
+        "limitations": "冷交接的配额再取得仍单独验证"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "90e3ceda254ed6b37401d02fed39cae4c4939593e16172c8c82f57f56ef88e3c",
+        "sourceSHA256": "45170fb260d47d49b9eb177850abee83c400884dd4c15c1d3988f7908f5ece05",
         "method": "document_registry --audit + document_health --check",
-        "scope": "签名两个真实作者和紧预算四臂的真实复制、可见画面、恢复及原生生命周期",
-        "limitations": "短 GPU 窗，未量长稳与功耗"
+        "scope": "登记 HDR 原位重建的真实资源、像素、在途和作者收据",
+        "limitations": "两个 HDR 作者、普通邻例和持久 raw 通过；长稳耗电待验"
       }
     },
     {
@@ -855,10 +855,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "85b771d78f32afcc16d256e8920a51233af889054c0e3252aac10bddb42090d5",
+        "sourceSHA256": "42e9039eb006872c7c03ac6c5225e5561f13becb64d961e3e31dfc6827995c8b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "可选反射的已完成快照、一次 mip 和独立基础材质优先相序",
-        "limitations": "保原必需累积路径；资源预算结论以签名和原生验证为准"
+        "scope": "记录超高工作域的单采样附件重建、回退和终端顺序",
+        "limitations": "设备资格和实际像素、预算由原生与签名门核实"
       }
     },
     {

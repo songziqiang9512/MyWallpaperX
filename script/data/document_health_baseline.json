@@ -13,8 +13,8 @@
       "bytes": 8300
     },
     "docs/architecture/repository-map.md": {
-      "lines": 58,
-      "bytes": 14442
+      "lines": 60,
+      "bytes": 14923
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 333,
-      "bytes": 78094
+      "bytes": 78125
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 329,
-      "bytes": 67408
+      "lines": 344,
+      "bytes": 71091
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -93,8 +93,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 283,
-      "bytes": 55806
+      "lines": 286,
+      "bytes": 56502
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,28 +369,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "cffc57e40de105eea7edb25e03e57b3e83a840c14627529f1f533fe3be149904",
-      "after": "fd06db16b5c5748e2a8be363821e69985e6852aa7219471fc8122a928a9f16e8",
+      "before": "fd06db16b5c5748e2a8be363821e69985e6852aa7219471fc8122a928a9f16e8",
+      "after": "5ed8b41b982b49fc0596bc7bef5f370b0ddf45c1cf2ab5ba822932a18aefad1d",
       "owner": "Scene 运行合同",
-      "reason": "记录双成员、完成收据、派生 mip 及独立材质预算相序",
-      "decision": "docs/scene/architecture/runtime-architecture.md#scene-reflection-quality-policy"
+      "reason": "记录超高工作域的单采样附件重建、回退和终端顺序",
+      "decision": "docs/scene/architecture/runtime-architecture.md#scene-hdr-bloom-reconstruction"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "735b3c2e822fc6dcd68fba794def8f072a7ab24002fc53370c674b6b4d3c5c47",
-      "after": "0f05cd0c2f5ecb05b3de94bd1a9c49ff30b698ffe63d1094834a90aa5e7be772",
+      "before": "0f05cd0c2f5ecb05b3de94bd1a9c49ff30b698ffe63d1094834a90aa5e7be772",
+      "after": "8d288ad2bd5740697b15caf4fc3dc56a04a6f610800fe68edb55f1040e6d295c",
       "owner": "跨引擎画质实施",
-      "reason": "记录可选反射省全尺寸复制的实测、作者色预算反例和回收",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-reflection-snapshot-mips"
+      "reason": "登记 HDR 原位重建的真实资源、像素、在途和作者收据",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-hdr-bloom-attachment"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "efe3b87df09b491067d0745274099a1716f8c33084d2d511ea51db4ece42bf48",
-      "after": "2180933d974f4d63980f48c1efb389e442d97202d19d90484df38df1b18c0243",
+      "before": "2180933d974f4d63980f48c1efb389e442d97202d19d90484df38df1b18c0243",
+      "after": "94521a8c1105cc00850e4938a00888fedd84d9a164dcb60e7e0587d9245dd9f6",
       "owner": "仓库导航",
-      "reason": "连通质量设置、实际反射快照编码和池 owner",
+      "reason": "定位终端 Bloom、纹理链和显示映射 owner",
       "decision": "docs/architecture/repository-map.md#wallpaper-quality"
     },
     {
@@ -684,11 +684,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "a7acbd07bb3b89c12a904f89b9130b8097d44162c0b7306ff1a43062d522dd0d",
-      "after": "ebc20715c169740dac1e6f50f8e9a2bdc51b1a52797d4de62208a999fd254abe",
+      "before": "ebc20715c169740dac1e6f50f8e9a2bdc51b1a52797d4de62208a999fd254abe",
+      "after": "a813c85bbbc414c0083959992d15a553c0e9b833b16915ea71a95d8a2d58099d",
       "owner": "跨引擎画质设计",
-      "reason": "更新可选快照复用与必需持续颜色分界",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-quality"
+      "reason": "校正 Bloom 暖工作集随冷候选退役的有效事实",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-post-processing"
     }
   ]
 }

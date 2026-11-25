@@ -12,23 +12,35 @@ from script.tests.scene.test_scene_property_binding_program import SWIFT_SOURCES
 
 ROOT = Path(__file__).resolve().parents[3]
 SCENE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition'
+HDR_CHECKS = ROOT / 'script/tests/fixtures/SceneHDRBloomAttachmentChecks.swift'
 FAULT_HEADER = r'''
 #import <Metal/Metal.h>
+NS_ASSUME_NONNULL_BEGIN
 void MWXArmEncoderFault(id<MTLCommandBuffer> buffer, NSUInteger index);
 NSUInteger MWXEncoderAttempts(void);
+NSArray<NSArray<NSNumber *> *> *MWXEncoderAttachmentTrace(void);
 void MWXArmPipelineFault(id<MTLDevice> device, NSUInteger index);
 NSUInteger MWXPipelineAttempts(void);
 void MWXArmMissingAttachmentFunction(id<MTLLibrary> library, BOOL armed);
+void MWXArmNamedMissingAttachmentFunction(id<MTLLibrary> library, NSString * _Nullable name);
 NSUInteger MWXMissingFunctionAttempts(void);
+NS_ASSUME_NONNULL_END
 '''
 FAULT_SOURCE = r'''
 #import "Fault.h"
 #import <objc/runtime.h>
-static id faultBuffer;
+static __weak id faultBuffer;
+static NSMutableArray<NSArray<NSNumber *> *> *encoderAttachments;
 static NSUInteger faultIndex, attempts;
 static IMP original;
-static id faultEncoder(id receiver, SEL selector, id descriptor) {
-    if (receiver == faultBuffer && ++attempts == faultIndex) return nil;
+static id faultEncoder(id receiver, SEL selector, MTLRenderPassDescriptor *descriptor) {
+    if (receiver == faultBuffer) {
+        if (++attempts == faultIndex) return nil;
+        MTLRenderPassColorAttachmentDescriptor *color = descriptor.colorAttachments[0];
+        id<MTLTexture> texture = color.texture;
+        [encoderAttachments addObject:@[@(texture.width), @(texture.height), @(texture.pixelFormat),
+            @(texture.sampleCount), @(color.loadAction), @((uintptr_t)(__bridge void *)texture)]];
+    }
     return ((id (*)(id, SEL, id))original)(receiver, selector, descriptor);
 }
 void MWXArmEncoderFault(id<MTLCommandBuffer> buffer, NSUInteger index) {
@@ -40,8 +52,10 @@ void MWXArmEncoderFault(id<MTLCommandBuffer> buffer, NSUInteger index) {
     faultBuffer = buffer;
     faultIndex = index;
     attempts = 0;
+    encoderAttachments = [NSMutableArray array];
 }
 NSUInteger MWXEncoderAttempts(void) { return attempts; }
+NSArray<NSArray<NSNumber *> *> *MWXEncoderAttachmentTrace(void) { return encoderAttachments; }
 static id faultDevice;
 static NSUInteger pipelineIndex, pipelineAttempts;
 static IMP pipelineOriginal;
@@ -63,23 +77,26 @@ void MWXArmPipelineFault(id<MTLDevice> device, NSUInteger index) {
     pipelineAttempts = 0;
 }
 NSUInteger MWXPipelineAttempts(void) { return pipelineAttempts; }
-static BOOL missingAttachment;
+static NSString *missingFunction;
 static NSUInteger missingFunctionAttempts;
 static IMP functionOriginal;
 static id faultFunction(id receiver, SEL selector, NSString *name) {
-    if (missingAttachment && [name isEqualToString:@"sceneDisplayMappingAttachmentFragment"]) {
+    if (missingFunction && [name isEqualToString:missingFunction]) {
         ++missingFunctionAttempts;
         return nil;
     }
     return ((id (*)(id, SEL, id))functionOriginal)(receiver, selector, name);
 }
-void MWXArmMissingAttachmentFunction(id<MTLLibrary> library, BOOL armed) {
+void MWXArmNamedMissingAttachmentFunction(id<MTLLibrary> library, NSString *name) {
     if (!functionOriginal) {
         Method method = class_getInstanceMethod(object_getClass(library), @selector(newFunctionWithName:));
         functionOriginal = method_setImplementation(method, (IMP)faultFunction);
     }
-    missingAttachment = armed;
+    missingFunction = [name copy];
     missingFunctionAttempts = 0;
+}
+void MWXArmMissingAttachmentFunction(id<MTLLibrary> library, BOOL armed) {
+    MWXArmNamedMissingAttachmentFunction(library, armed ? @"sceneDisplayMappingAttachmentFragment" : nil);
 }
 NSUInteger MWXMissingFunctionAttempts(void) { return missingFunctionAttempts; }
 
@@ -331,21 +348,23 @@ enum SceneGPUCensus {
 
     // ===== D2 display mapping (stage B first slice) =====
     let mapping = SceneDisplayMappingPostProcess(device: device, pixelFormat: .rgba16Float, hdrEnabled: true)!
-    func float16Texture(
-      _ width: Int, _ height: Int, _ texels: [[Float16]]
-    ) -> (texture: MTLTexture, bytes: [Float16]) {
+    func float16Texture(_ width: Int, _ height: Int, _ texels: [[Float16]])
+      -> (texture: MTLTexture, bytes: [Float16]) {
+      float16Texture(width, height, rgba: texels.flatMap { $0 })
+    }
+    func float16Texture(_ width: Int, _ height: Int, rgba: [Float16])
+      -> (texture: MTLTexture, bytes: [Float16]) {
       let descriptor = MTLTextureDescriptor.texture2DDescriptor(
         pixelFormat: .rgba16Float, width: width, height: height, mipmapped: false)
       descriptor.usage = [.shaderRead, .renderTarget]
       descriptor.storageMode = .shared
       let texture = device.makeTexture(descriptor: descriptor)!
-      let flat = texels.flatMap { $0 }
-      flat.withUnsafeBytes {
+      rgba.withUnsafeBytes {
         texture.replace(
           region: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0,
           withBytes: $0.baseAddress!, bytesPerRow: width * 8)
       }
-      return (texture, flat)
+      return (texture, rgba)
     }
     func readFloat16(_ texture: MTLTexture, _ width: Int, _ height: Int) -> [Float16] {
       var output = [Float16](repeating: 0, count: width * height * 4)
@@ -442,6 +461,8 @@ enum SceneGPUCensus {
       "sourceUnchanged": readFloat16(glow.texture, 32, 16) == beforeDisplay,
     ]
 
+    results["hdrAttachment"] = SceneHDRBloomAttachmentChecks.run(device: device, queue: queue,
+      makeTexture: float16Texture(_:_:rgba:), readTexture: readFloat16)
 
     // Five neutral blocks match the official black-box input. Read actual 16F
     // GPU output before display clipping; this is behavior, not a CPU oracle.
@@ -517,9 +538,6 @@ enum SceneGPUCensus {
       results["hdrGPUrecover\(index)"] = renderHDR(hdrConfig())
     }
 
-
-
-
     func uniformHDR(_ value: Float16, _ scatter: Float, _ levels: Float,
                     _ strength: Float = 1, _ threshold: Float = 0) -> Int {
       let source = float16Texture(640, 256,
@@ -585,7 +603,6 @@ enum SceneGPUCensus {
     // retired cache still pinned, neither its prepare nor next-frame retry fits.
     results["hdrBudgetReplacement"] = autoreleasepool { renderHDR(hdrConfig()) }
     budget.release(held, kind: .gpu)
-
     // Non-HDR (bgra8Unorm) source must be refused with zero GPU work.
     var gatedBytes = [UInt8](repeating: 0, count: 8 * 2 * 4)
     for i in gatedBytes.indices { gatedBytes[i] = UInt8((i * 31) % 256) }
@@ -736,7 +753,7 @@ enum SceneGPUCensus {
 class SceneBloomPostProcessTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        identity_paths = [Path(__file__), *SWIFT_SOURCES,
+        identity_paths = [Path(__file__), HDR_CHECKS, *SWIFT_SOURCES,
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift",
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
             *(SCENE / name for name in ("SceneBloomPostProcess.swift", "SceneBloomPostProcess.metal",
@@ -761,7 +778,7 @@ class SceneBloomPostProcessTests(unittest.TestCase):
                 ["xcrun", "-sdk", "macosx", "metallib", str(folder / "bloom.air"),
                  str(folder / "display-mapping.air"),
                  "-o", str(folder / "default.metallib")],
-                ["swiftc","-import-objc-header",str(folder / "Fault.h"),str(folder / "fault.o"),*map(str, SWIFT_SOURCES),str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift"),str(SCENE / "SceneBloomPostProcess.swift"),str(SCENE / "SceneDisplayMappingPostProcess.swift"),str(SCENE / "SceneMainPassEncoder.swift"),str(folder / "Main.swift"),"-module-cache-path",str(folder / "module-cache"),"-o",str(folder / "run"),Path(__file__).resolve().parents[3] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift"],
+                ["swiftc","-import-objc-header",str(folder / "Fault.h"),str(folder / "fault.o"),*map(str, SWIFT_SOURCES),str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift"),str(SCENE / "SceneBloomPostProcess.swift"),str(SCENE / "SceneDisplayMappingPostProcess.swift"),str(SCENE / "SceneMainPassEncoder.swift"),str(folder / "Main.swift"),str(HDR_CHECKS),"-module-cache-path",str(folder / "module-cache"),"-o",str(folder / "run"),Path(__file__).resolve().parents[3] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift"],
             ]
             for index, command in enumerate(commands):
                 compiled = subprocess.run(command, capture_output=True, text=True, timeout=120)
@@ -855,6 +872,12 @@ class SceneBloomPostProcessTests(unittest.TestCase):
             row = self.result[name]
             self.assertTrue(row["encoded"] and row["completed"] and row["alpha"] and row["finite"], name)
             self.assertGreater(row["excess"], 0, name)
+
+    def test_hdr_attachment_and_sampled_reconstruction_agree(self):
+        result = self.result["hdrAttachment"]
+        if not result["supported"]:
+            self.skipTest("HDR Bloom attachment input requires Metal Apple family 2")
+        self.assertEqual(result["failures"], [], result)
 
     def test_hdr_gpu_failure_is_local_and_next_frame_recovers(self):
         for key in ("zero", "invalid", "unsupportedZeroLevels", "unsupportedOneLevel"):

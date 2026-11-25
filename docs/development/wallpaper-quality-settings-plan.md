@@ -119,7 +119,7 @@ Scene FPS 在下一排帧边界采纳，Web 在当前文档回调，能原位采
 
 普通参数缺省在 General 已补为 1／0.65／白色。先用固定官版对照仅配置 HDR、显式普通参数等于默认、以及有动态普通绑定的场景。「启用」如适用普通缺省就直接用现有值。如果仅显式配置时才生效，在现有 General 解码保留消费所需的最少声明或绑定信息，沿当前 descriptor 投影。该语义通过黑盒与原 App 夹具后再开放「启用／禁用」。 [General 解码](../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument+General.swift) · [摄像机配置](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift)
 
-当前禁用／零贡献早退会留下原 `SceneBloomPostProcess` 对暖纹理的引用。用户改档停用一条链时由该 owner 在帧边释去该链的缓存引用，保在途 command buffer 的资源直到完成。作者动画短暂经过零只跳过当前帧工作，沿原容量规则复用。退出暖占用须以同进程里的实际配额可再次取得验证，必要附件优先。
+禁用／启用改变工作域或 Bloom 资格，在下次应用的原候选准备时采用。禁用的候选没有 Bloom owner，其旧工作集随已呈现候选接管、旧会话排空和原 Surface 退役释放。两个超高档只热更显示 EDR，复用同一 Bloom 链。作者强度短暂为零时跳过当帧，保同一 owner 的有界暖复用。真实新旧会话交接的配额重新取得仍需同进程取证。
 
 **实测验收**用单亮像素、多相位细线、偶／奇数边界、宽亮斑、彩色过亮和零强度输入。在原工作域比较 `开 − 关`。需报告线性输出时对开、关各施同一终端变换再取差，记录两组实际 headroom。量近／中／远光晕剖面、RGB 贡献积分、alpha 和基础颜色，验仅普通／仅 HDR／两者皆有及动态开关。再跑含体积加光、反射和 `clear=false` 的作品，确认 Bloom 读取完成主色、累积历史保持 raw，验证预算失败后恢复和完成后可再取得配额。记录各级 pass、实际尺寸和读写、首次切档时间、暖／在途峰值、P95、呈现与 SDR／EDR 换屏。
 

@@ -180,14 +180,29 @@ struct SceneBloomHDRReconstructionUniforms {
     float coarseWeight;
 };
 
+static float4 sceneBloomHDRReconstruct(
+    float3 fine, texture2d<float> smaller, float2 uv,
+    constant SceneBloomHDRReconstructionUniforms &uniforms
+) {
+    float3 coarse = sceneBloomHDRTent(smaller, uv);
+    return float4(clamp(fine * uniforms.fineWeight + coarse * uniforms.coarseWeight, 0.0, 65504.0), 1.0);
+}
+
 fragment float4 sceneBloomHDRUpsampleFragment(
     SceneBloomVaryings input [[stage_in]], texture2d<float> smaller [[texture(0)]],
     texture2d<float> current [[texture(1)]],
     constant SceneBloomHDRReconstructionUniforms &uniforms [[buffer(0)]]
 ) {
     float3 fine = current.sample(sceneBloomHDRSampler, input.texcoord).rgb;
-    float3 coarse = sceneBloomHDRTent(smaller, input.texcoord);
-    return float4(clamp(fine * uniforms.fineWeight + coarse * uniforms.coarseWeight, 0.0, 65504.0), 1.0);
+    return sceneBloomHDRReconstruct(fine, smaller, input.texcoord, uniforms);
+}
+
+fragment float4 sceneBloomHDRUpsampleAttachmentFragment(
+    SceneBloomVaryings input [[stage_in]], texture2d<float> smaller [[texture(0)]],
+    float4 fine [[color(0)]],
+    constant SceneBloomHDRReconstructionUniforms &uniforms [[buffer(0)]]
+) {
+    return sceneBloomHDRReconstruct(fine.rgb, smaller, input.texcoord, uniforms);
 }
 
 fragment float4 sceneBloomHDRCombineFragment(

@@ -82,7 +82,7 @@ final class SceneBloomPostProcess {
     private let brightPipeline: MTLRenderPipelineState
     private let blurPipeline: MTLRenderPipelineState
     private let combinePipeline: MTLRenderPipelineState
-    private let hdrUpsamplePipeline: MTLRenderPipelineState?
+    private let hdrUpsample: (pipeline: MTLRenderPipelineState, readsAttachment: Bool)?
     private var hdrTargets: HDRTargets?
     private var textureFailureLogged = false
     private var cachedTexturesBySize: [SIMD2<Int>: (mip1: MTLTexture, mip2: MTLTexture)] = [:]
@@ -124,13 +124,19 @@ final class SceneBloomPostProcess {
         }
         do {
             if hdrEnabled {
-                guard pixelFormat == .rgba16Float,
-                      let upsample = library.makeFunction(name: "sceneBloomHDRUpsampleFragment") else {
-                    return nil
+                guard pixelFormat == .rgba16Float else { return nil }
+                if device.supportsFamily(.apple2),
+                   let fragment = library.makeFunction(name: "sceneBloomHDRUpsampleAttachmentFragment"),
+                   let pipeline = try? device.makeRenderPipelineState(descriptor: descriptor(fragment)) {
+                    hdrUpsample = (pipeline, true)
+                } else {
+                    guard let fragment = library.makeFunction(name: "sceneBloomHDRUpsampleFragment") else {
+                        return nil
+                    }
+                    hdrUpsample = (try device.makeRenderPipelineState(descriptor: descriptor(fragment)), false)
                 }
-                hdrUpsamplePipeline = try device.makeRenderPipelineState(descriptor: descriptor(upsample))
             } else {
-                hdrUpsamplePipeline = nil
+                hdrUpsample = nil
             }
             brightPipeline = try device.makeRenderPipelineState(
                 descriptor: descriptor(bright)
@@ -157,7 +163,7 @@ final class SceneBloomPostProcess {
     func prepareCapacity(configuration: SceneBloomConfiguration, source: MTLTexture) -> Bool {
         guard configuration.enabled else { return true }
         guard source.pixelFormat == pixelFormat, source.device === device else { return false }
-        if hdrUpsamplePipeline != nil {
+        if hdrUpsample != nil {
             guard let hdr = configuration.hdr, hdr.strength != 0 else { return true }
             guard let dimensions = hdrDimensions(hdr, source: source) else { return true }
             return prepareHDRTargets(dimensions) != nil
@@ -222,11 +228,12 @@ final class SceneBloomPostProcess {
         _ pipeline: MTLRenderPipelineState,
         target: MTLTexture,
         commandBuffer: MTLCommandBuffer,
+        loadAction: MTLLoadAction = .dontCare,
         bind: (MTLRenderCommandEncoder) -> Void
     ) -> Bool {
         let descriptor = MTLRenderPassDescriptor()
         descriptor.colorAttachments[0].texture = target
-        descriptor.colorAttachments[0].loadAction = .dontCare
+        descriptor.colorAttachments[0].loadAction = loadAction
         descriptor.colorAttachments[0].storeAction = .store
         #if DEBUG
         let timestampEncoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: "bloom-quad")
@@ -256,7 +263,7 @@ final class SceneBloomPostProcess {
         source: MTLTexture,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
-        if hdrUpsamplePipeline != nil {
+        if hdrUpsample != nil {
             return encodeHDR(configuration: configuration, source: source, commandBuffer: commandBuffer)
         }
         // Zero strength contributes no RGB and combine preserves source alpha.
@@ -364,11 +371,12 @@ final class SceneBloomPostProcess {
             descriptor.storageMode = .private
             return device.makeSceneTexture(descriptor: descriptor)
         }
+        let storesReconstructionSeparately = hdrUpsample?.readsAttachment == false
         var down: [MTLTexture] = [], up: [MTLTexture] = []
         for (index, size) in dimensions.enumerated() {
             guard let target = texture(size) else { return nil }
             down.append(target)
-            if index + 1 < dimensions.count {
+            if storesReconstructionSeparately, index + 1 < dimensions.count {
                 guard let target = texture(size) else { return nil }
                 up.append(target)
             }
@@ -421,7 +429,7 @@ final class SceneBloomPostProcess {
     ) -> Bool {
         guard configuration.enabled, let hdr = configuration.hdr,
               source.pixelFormat == pixelFormat, source.device === device,
-              let upsample = hdrUpsamplePipeline,
+              let upsample = hdrUpsample,
               let dimensions = hdrDimensions(hdr, source: source),
               let targets = prepareHDRTargets(dimensions) else { return false }
         var uniforms = HDRUniforms(threshold: hdr.threshold, feather: hdr.feather,
@@ -439,16 +447,22 @@ final class SceneBloomPostProcess {
         let weights = reconstruction.weights
         uniforms.reconstructionScale = reconstruction.scale
         var reconstructed = targets.down[targets.down.count - 1]
-        for index in targets.up.indices.reversed() {
+        // All smaller levels have read the fine pixels before reconstruction
+        // overwrites those pixels in reverse order.
+        for index in targets.down.indices.dropLast().reversed() {
+            let target = upsample.readsAttachment ? targets.down[index] : targets.up[index]
             var reconstruction = HDRReconstructionUniforms(fineWeight: weights[index],
                 coarseWeight: index == targets.down.count - 2 ? weights[index + 1] : 1)
-            guard encodeQuad(upsample, target: targets.up[index], commandBuffer: commandBuffer, bind: {
+            guard encodeQuad(upsample.pipeline, target: target, commandBuffer: commandBuffer,
+                             loadAction: upsample.readsAttachment ? .load : .dontCare, bind: {
                 $0.setFragmentTexture(reconstructed, index: 0)
-                $0.setFragmentTexture(targets.down[index], index: 1)
+                if !upsample.readsAttachment {
+                    $0.setFragmentTexture(targets.down[index], index: 1)
+                }
                 $0.setFragmentBytes(&reconstruction,
                     length: MemoryLayout<HDRReconstructionUniforms>.stride, index: 0)
             }) else { return false }
-            reconstructed = targets.up[index]
+            reconstructed = target
         }
         let descriptor = MTLRenderPassDescriptor()
         descriptor.colorAttachments[0].texture = source
