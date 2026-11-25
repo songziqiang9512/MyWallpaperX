@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 348525
+      "bytes": 349221
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 243,
-      "bytes": 69990
+      "lines": 242,
+      "bytes": 69541
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -185,8 +185,8 @@
       "bytes": 19598
     },
     "docs/web/mediaremote-nowplaying-design.md": {
-      "lines": 76,
-      "bytes": 12651
+      "lines": 82,
+      "bytes": 13537
     },
     "docs/web/steam-downloads-failed-items-visibility-design.md": {
       "lines": 60,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "656e3ff5344a434a68da221b0482c296a19aaa2e9f462cb8a3b1d54fb7e3470b",
-      "after": "aca7e7255d2b414fa50d39ec4cb9cebb29a7dc174c46dc8a157f1e4b54dbd698",
-      "owner": "SceneScript particle instance values",
-      "reason": "沿原实例事务接入尺寸并登记官版、本机及独立作者的发射证据。",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#particle-instance-scalars"
+      "before": "aca7e7255d2b414fa50d39ec4cb9cebb29a7dc174c46dc8a157f1e4b54dbd698",
+      "after": "b9e51351fd06da705aaf982cff2b4ce69ff80ea3f4e3b9a5ac95bd066108a55e",
+      "owner": "Shared system media artwork palette",
+      "reason": "补齐主色对照、边界采集、相同PNG精确数值及两个原包GPU验证。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#media-palette-hue-ranking"
     },
     {
       "section": "bodies",
@@ -667,11 +667,11 @@
     {
       "section": "bodies",
       "path": "docs/web/mediaremote-nowplaying-design.md",
-      "before": "dfde33030a243053bc732aaf6d8aeb4b2946185098b536409d39d95b0f3662bf",
-      "after": "3e0e3fe97206f466b3569297094aef79a768d0f2e07320d2b81abf944a0ee6c5",
-      "owner": "Shared artwork palette",
-      "reason": "Define the shared palette semantics for a missing color role.",
-      "decision": "docs/web/mediaremote-nowplaying-design.md"
+      "before": "3e0e3fe97206f466b3569297094aef79a768d0f2e07320d2b81abf944a0ee6c5",
+      "after": "3ef727f95c0086706ca1574543c1b3f8a07f37eb3c8a1fd09fbfb5f9f72b7223",
+      "owner": "Shared system media artwork palette",
+      "reason": "登记共享封面色相排序、缺位及对比职责。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#media-palette-hue-ranking"
     }
   ]
 }

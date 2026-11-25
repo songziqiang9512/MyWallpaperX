@@ -52,11 +52,17 @@ D5 frame 定向推送      SceneMediaThumbnailInbox
 | `wallpaperRegisterMediaPlaybackListener` | 显式映射 STOPPED/PLAYING/PAUSED，维持现有作者常量兼容，不靠真假值判断数字枚举 |
 | `wallpaperRegisterMediaTimelineListener` | 已确认的 position/duration 秒数；来源不支持时保持缺失，不假造进度 |
 
-官方正文称封面为 base64 PNG，示例直接赋给 img.src，因此采用完整 PNG data URL；不能误传裸 base64、file URL 或 JPEG。共享服务在后台另按 artwork identity 缓存 Web PNG（最长边至多 512px、编码至多 1MiB），不重复转码或降低 Scene 原图质量；颜色复用共享 `SystemMediaArtworkPalette`，Web 只转换 CSS 表示。有效封面的实际色簇写入各自角色，缺失的次色或第三色发布黑色向量。文字对比只从实际色簇和原黑白对比回退选择。角色值随同一封面身份发布，完整排序见已测范围。
+官方正文称封面为 base64 PNG，示例直接赋给 img.src，因此采用完整 PNG data URL；不能误传裸 base64、file URL 或 JPEG。共享服务在后台另按 artwork identity 缓存 Web PNG（最长边至多 512px、编码至多 1MiB），不重复转码或降低 Scene 原图质量；颜色复用共享 `SystemMediaArtworkPalette`，Web 只转换 CSS 表示。角色值随同一封面身份发布。
 
 Web 独立播放进程按 request UUID 接收主 App 的完整快照，不在子进程另建采集；宿主通过既有 D5 endpoint/token、定向 evaluateJavaScript 和 push sequence 投递，主 frame、同源及跨源子 frame 都按各自有效文档消费。监听注册上报独立 media 需求，不能借用频谱需求；只有 status 监听时仅订阅开关，无需启动歌曲采集；legacy `updateMedia*` 兼容回调也通过同一 reducer 分发。初始化、晚注册、导航后的 hello snapshot 都包含开关和最新媒体状态；endpoint 注销、导航、WebContent 退出与 teardown 同步撤需求。每 endpoint 只保留一个在途投递和最新待发 snapshot，合并时保留最新完整状态，不能丢掉清空或封面变更。最后一个 Scene/Web 需求退出即停止共享观察和轮询，开关关闭时仅保留轻量设置状态同步。
 
 先一次替换 JS 中的完整会话，再差分派发各事件，保证回调读取其他字段时属于同一曲目。迟到图片、旧导航投递与 A→B→A 曲目回包按 epoch/曲目 generation 拒收。壁纸暂停不等于播放器暂停：页面冻结期间合并更新，恢复先重放最新 snapshot，不制造曲目时间。timeline 复用来源的更新节奏，不为每根柱、每个 frame 或每块屏幕另建计时器。
+
+### 共享封面配色
+
+`SystemMediaArtworkPalette` 在封面变更时按 sRGB 取样，受控分析栅格的最长边为150。透明度达到16/255的像素进入360个整数色相桶。每像素权重取 `100×饱和度×明度` 的整数部分；桶内饱和度与明度按样本数求均值。主色取最大权重，次色按权重乘到主色的归一化色相圆距取胜，第三色按权重乘到两个已选色的圆距乘积平方取胜。次色和第三色按色相升序，用新分数与已保留分数的整数部分比较。输出用桶色相与均值还原RGB8，未取得正分的角色发布黑色。只有灰阶时三个颜色角色均为黑色。
+
+文字色和黑白角色由同一组颜色计算线性sRGB亮度。对主色的黑色对比达到2.5时黑白角色为黑，否则为白。文字在达到2.5的次色和第三色中取对比更高者，平局取第三色，余下沿黑白角色回退。实际输入、客户端范围与大图重采样边界归[运行证据](../scene/capabilities/runtime-evidence-current.md#media-palette-hue-ranking)。
 
 ## 来源、授权与失败
 

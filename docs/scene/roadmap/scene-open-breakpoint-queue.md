@@ -125,7 +125,6 @@
 | Puppet 后置标量轨 | [384与独立377的普通骨轨已恢复](../capabilities/runtime-evidence-current.md#puppet-post-bounds-trs)。同相位标量替换未证主要遮挡差。重启须有单骨/同位置的可见交叠对照，再分纯绘制顺序、骨权重或几何作用。 |
 | 3383210272 / 3463406101 | [338321 同输入持续音](../capabilities/runtime-evidence-current.md#floor-beam-continuous-emission)已恢复主束实际发射，原曲的扫射角度、色相和节拍仍待同相位对照。[346 作者域](../capabilities/runtime-evidence-current.md#author-spectrum-capture-live-361)已恢复前景音频变化，慢尾接近官版，尚待核弱起音及强段时序。 |
 | 2814167871 /2835398595 | 眼部为132/e1与98/e0的pulse RGB增亮，16档band0/1均值跨.5才响应；281强度属性默认1、283常量.51。[默认PCM前5秒](../capabilities/runtime-evidence-current.md#eye-audio-input)无跨线正控；后续同作者WAV的281两App静帧已有真实16档消费，但不能判眼部闪动或闪烁。粗档候选已撤回，283不追加矩阵。重启须可裁决实际供值/首错，再核同帧pulse→tail→眼RGB；不调gain/作者参数、不强注入1，不由bus非零关闭。 |
-| 3708363772 · 多色配色 | [同PNG与布局对照](../capabilities/runtime-evidence-current.md#media-palette-size-and-layout-370)已定位共享提色首错：缩小蓝绿使官版次色蓝换紫，第三色仍绿；同直方图两布局不影响这组选择。停止重做同图/缩略图与这组布局。继续先取得能区分颜色距离、面积与候选准入的证据，再改公共排序；暗色与文字对比仍开放。 |
 | 3603711180 | [播放媒体的原包与两端实帧](../capabilities/runtime-evidence-current.md#author-player-text-current-360)恢复标题、艺人、剩余时间和实际封面。已测画幅首行同在左框外，观察其他比例/第二行与字体差异须用同视口同媒体复取；按原屏幕锚与字形范围核对。 |
 | 2887099508 · 图5 | [黑纹](../capabilities/runtime-evidence-current.md#basic-interaction-288)未重现，待同相位ROI或具体版本。原生持续悬停待合格输入，仅在出现可重复的命中问题时复核。 |
 | 2999907577 | 旧终端主体完整，大片背景灰与有效默认tint相符；876e6流体的执行不授像素贡献。后续只在需要时用现有selector7→8(None)定位白弧/流体贡献，不按preview判缺纹理。 |
@@ -231,7 +230,7 @@
 | 3187857248 | 部分修复。双Surface拖动失效已修复，物理指针若仍间歇须新输入证据。[拖动](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318) |
 | 3766299002 | 已修复。面具属性正确选择纹理并保持眼部同步，两主题均验。[面具和眼部](../capabilities/runtime-evidence-current.md#author-conditional-mask-376) |
 | 3586705329 | 已修复。拼贴右缘错误回卷，两档镜头缩放均验。[拼贴](../capabilities/runtime-evidence-current.md#author-collage-edge-358) |
-| 3708363772 | 已修复[封面与实体错动](../capabilities/model-runtime-evidence.md#model-composition-cover-370)、[同色壳体受光](../capabilities/model-runtime-evidence.md#legacy-generic2-model-lighting)及[单色缺位重复主色](../capabilities/runtime-evidence-current.md#media-palette-empty-slots-370)。[多色排序](../capabilities/runtime-evidence-current.md#media-palette-size-and-layout-370)已确认共享提色偏差，仍开放。 |
+| 3708363772 | 已修复[封面与实体错动](../capabilities/model-runtime-evidence.md#model-composition-cover-370)、[同色壳体受光](../capabilities/model-runtime-evidence.md#legacy-generic2-model-lighting)及[封面多色排序与缺位](../capabilities/runtime-evidence-current.md#media-palette-hue-ranking)。同PNG五角色和原包156消费已核，独立作者状态字变蓝。重启须有解码/重采样引起的新可见差异。 |
 | 3337494481 | 已修复。盒体侧背文字不再错误透出。[文字遮挡](../capabilities/runtime-evidence-current.md#author-box-text-occlusion-333) |
 | 3509243656 | 已修复。轨迹打开后进入原作者发射和绘制，关后停止，再开恢复。[属性热切](../capabilities/runtime-evidence-current.md#author-normal-depth-trails-350) |
 | 3769761761 | 部分修复。已修复斜光主要缺失、预热、缺省初速和缺省相位。成熟群下坠与右带覆盖仍开放，出生方向已单独定位。[画面复验](../capabilities/runtime-evidence-current.md#particle-size-change-instance-override) · [方向对照](../capabilities/runtime-evidence-current.md#ember-birth-clock-and-position) |

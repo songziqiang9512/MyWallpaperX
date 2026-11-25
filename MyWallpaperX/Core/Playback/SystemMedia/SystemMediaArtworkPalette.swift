@@ -14,10 +14,40 @@ nonisolated struct SystemMediaArtworkPalette: Equatable, Sendable {
     private static let maximumEncodedByteCount = 16 * 1_024 * 1_024
     private static let maximumDimension = 8_192
     private static let maximumPixelCount = 16_777_216
+    private static let analysisEdge = 150
+    private static let minimumRoleContrast = 2.5
 
-    private struct Bucket {
+    private struct HueBucket {
         var weight = 0
-        var weightedColor = SIMD3<Double>.zero
+        var count = 0
+        var saturationSum: Float = 0
+        var valueSum: Float = 0
+
+        mutating func add(saturation: Float, value: Float) {
+            weight += Int(value * saturation * 100)
+            count += 1
+            saturationSum += saturation
+            valueSum += value
+        }
+
+        func color(hue: Int) -> SIMD3<Double> {
+            let saturation = Double(saturationSum / Float(count))
+            let value = Double(valueSum / Float(count))
+            let chroma = saturation * value
+            let position = Double(hue) / 60
+            let intermediate = chroma * (1 - abs(position.truncatingRemainder(dividingBy: 2) - 1))
+            let components: SIMD3<Double>
+            switch hue / 60 {
+            case 0: components = .init(chroma, intermediate, 0)
+            case 1: components = .init(intermediate, chroma, 0)
+            case 2: components = .init(0, chroma, intermediate)
+            case 3: components = .init(0, intermediate, chroma)
+            case 4: components = .init(intermediate, 0, chroma)
+            default: components = .init(chroma, 0, intermediate)
+            }
+            let rgb = (components + (value - chroma)) * 255
+            return .init(rgb.x.rounded(.down) / 255, rgb.y.rounded(.down) / 255, rgb.z.rounded(.down) / 255)
+        }
     }
 
     static func extract(from data: Data) -> Self? {
@@ -32,12 +62,12 @@ nonisolated struct SystemMediaArtworkPalette: Equatable, Sendable {
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: 32,
+            kCGImageSourceThumbnailMaxPixelSize: analysisEdge,
             kCGImageSourceShouldCacheImmediately: true
         ]
         guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary),
-              thumbnail.width > 0, thumbnail.width <= 32,
-              thumbnail.height > 0, thumbnail.height <= 32,
+              thumbnail.width > 0, thumbnail.width <= analysisEdge,
+              thumbnail.height > 0, thumbnail.height <= analysisEdge,
               let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
 
         let bytesPerRow = thumbnail.width * 4
@@ -54,41 +84,78 @@ nonisolated struct SystemMediaArtworkPalette: Equatable, Sendable {
         }
         guard drawn else { return nil }
 
-        var buckets: [Int: Bucket] = [:]
-        for offset in stride(from: 0, to: pixels.count, by: 4) {
-            let alpha = Int(pixels[offset + 3])
-            guard alpha > 0 else { continue }
-            // The context writes premultiplied RGBA8. Recover straight RGB
-            // before quantizing so translucent colors retain their hue/value.
-            let color = SIMD3<Double>(
-                min(1, Double(pixels[offset]) / Double(alpha)),
-                min(1, Double(pixels[offset + 1]) / Double(alpha)),
-                min(1, Double(pixels[offset + 2]) / Double(alpha))
-            )
-            let key = (min(15, Int(color.x * 16)) << 8)
-                | (min(15, Int(color.y * 16)) << 4)
-                | min(15, Int(color.z * 16))
-            var bucket = buckets[key, default: Bucket()]
-            bucket.weight += alpha
-            bucket.weightedColor += color * Double(alpha)
-            buckets[key] = bucket
+        var buckets = Array(repeating: HueBucket(), count: 360)
+        for x in 0..<thumbnail.width {
+            for offset in stride(from: x * 4, to: pixels.count, by: bytesPerRow) {
+                let alpha = pixels[offset + 3]
+                guard alpha >= 16 else { continue }
+                // The bitmap context stores premultiplied channels.
+                let rgb = SIMD3<Float>(Float(pixels[offset]), Float(pixels[offset + 1]),
+                                       Float(pixels[offset + 2])) / Float(alpha)
+                let value = max(rgb.x, rgb.y, rgb.z)
+                let chroma = value - min(rgb.x, rgb.y, rgb.z)
+                let hue = hueBin(rgb, value: value, chroma: chroma)
+                buckets[hue].add(saturation: chroma > 0 ? chroma / value : 0, value: value)
+            }
         }
 
-        let ranked = buckets.sorted { lhs, rhs in
-            lhs.value.weight == rhs.value.weight
-                ? lhs.key < rhs.key : lhs.value.weight > rhs.value.weight
-        }.prefix(3).map { $0.value.weightedColor / Double($0.value.weight) }
-        // A decoded, fully transparent image is valid artwork. An explicit
-        // black/white palette keeps the contrast contract valid in this case.
-        let primary = ranked.first ?? .zero
-        let secondary = ranked.count > 1 ? ranked[1] : .zero
-        let tertiary = ranked.count > 2 ? ranked[2] : .zero
-        let black = SIMD3<Double>.zero
-        let white = SIMD3<Double>(repeating: 1)
-        let highContrast = contrast(primary, white) > contrast(primary, black) ? white : black
-        let text = ranked.dropFirst().first { contrast(primary, $0) >= 4.5 } ?? highContrast
+        let primaryHue = buckets.indices.max { buckets[$0].weight < buckets[$1].weight } ?? 0
+        let secondaryHue = accent(in: buckets) { hueDistance($0, primaryHue) }
+        let tertiaryHue = accent(in: buckets) {
+            let distance = hueDistance($0, primaryHue) * hueDistance($0, secondaryHue ?? 0)
+            return distance * distance
+        }
+        let primary = buckets[primaryHue].weight > 0 ? buckets[primaryHue].color(hue: primaryHue) : .zero
+        let secondary = secondaryHue.map { buckets[$0].color(hue: $0) } ?? .zero
+        let tertiary = tertiaryHue.map { buckets[$0].color(hue: $0) } ?? .zero
+        let primaryLuminance = luminance(primary)
+        let highContrast: SIMD3<Double> = contrast(primaryLuminance, 0) >= minimumRoleContrast
+            ? .zero : .init(repeating: 1)
+        let secondaryContrast = contrast(primaryLuminance, luminance(secondary))
+        let tertiaryContrast = contrast(primaryLuminance, luminance(tertiary))
+        let text: SIMD3<Double>
+        if secondaryContrast >= minimumRoleContrast, secondaryContrast > tertiaryContrast {
+            text = secondary
+        } else if tertiaryContrast >= minimumRoleContrast {
+            text = tertiary
+        } else {
+            text = highContrast
+        }
         return Self(primaryColor: primary, secondaryColor: secondary, tertiaryColor: tertiary,
                     textColor: text, highContrastColor: highContrast)
+    }
+
+    private static func hueBin(_ rgb: SIMD3<Float>, value: Float, chroma: Float) -> Int {
+        guard chroma > 0 else { return 0 }
+        let section: Float
+        if value == rgb.x {
+            section = (rgb.y - rgb.z) / chroma
+        } else if value == rgb.y {
+            section = (rgb.z - rgb.x) / chroma + 2
+        } else {
+            section = (rgb.x - rgb.y) / chroma + 4
+        }
+        let fraction = section / 6
+        return min(359, Int((fraction < 0 ? fraction + 1 : fraction) * 360))
+    }
+
+    private static func hueDistance(_ lhs: Int, _ rhs: Int) -> Float {
+        let degrees = abs(lhs - rhs)
+        return Float(min(degrees, 360 - degrees)) / 180
+    }
+
+    private static func accent(in buckets: [HueBucket], separation: (Int) -> Float) -> Int? {
+        var bestScore = 0
+        var bestHue: Int?
+        for hue in buckets.indices {
+            let score = Float(buckets[hue].weight) * separation(hue)
+            if score > Float(bestScore) {
+                // The observed ranking compares the new score with the prior truncated score.
+                bestScore = Int(score)
+                bestHue = hue
+            }
+        }
+        return bestHue
     }
 
     private static func dimension(_ value: Any?) -> Int? {
@@ -99,14 +166,13 @@ nonisolated struct SystemMediaArtworkPalette: Equatable, Sendable {
         return Int(dimension)
     }
 
-    private static func contrast(_ lhs: SIMD3<Double>, _ rhs: SIMD3<Double>) -> Double {
-        let first = luminance(lhs), second = luminance(rhs)
-        return (max(first, second) + 0.05) / (min(first, second) + 0.05)
+    private static func contrast(_ lhs: Double, _ rhs: Double) -> Double {
+        (max(lhs, rhs) + 0.05) / (min(lhs, rhs) + 0.05)
     }
 
     private static func luminance(_ color: SIMD3<Double>) -> Double {
         func linear(_ channel: Double) -> Double {
-            channel <= 0.04045 ? channel / 12.92 : pow((channel + 0.055) / 1.055, 2.4)
+            channel <= 0.03928 ? channel / 12.92 : pow((channel + 0.055) / 1.055, 2.4)
         }
         return linear(color.x) * 0.2126 + linear(color.y) * 0.7152 + linear(color.z) * 0.0722
     }
