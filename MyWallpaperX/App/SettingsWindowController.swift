@@ -144,7 +144,6 @@ private final class SettingsContentViewController: NSViewController {
                 return try await coordinator.exportPersonalSettings(to: url)
             },
             importPersonalSettings: { [weak self] url in
-                ScreenSaverCoordinator.shared.cancel()
                 guard let coordinator = self?.personalSettings else { throw PersonalSettingsError.recoveryRequired(String(localized: "Settings import isn’t ready yet")) }
                 return try await coordinator.importPersonalSettings(from: url)
             },

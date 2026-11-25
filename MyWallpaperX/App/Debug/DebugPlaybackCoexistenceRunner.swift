@@ -72,7 +72,7 @@ enum DebugPlaybackCoexistenceRunner {
     private static func run(sceneID: String?, webID: String?, phase: String?, directory: URL,
                             result: inout [String: Any]) async throws {
         guard let sceneID, let webID, let workspace = MyWallpaperXApplication.libraryWorkspace,
-              phase == "switch" || phase == "restore" else { throw Failure("invalid phase or product library unavailable") }
+              phase == "switch" || phase == "restore" || phase == "quality-import" else { throw Failure("invalid phase or product library unavailable") }
         let manager = WallpaperManager.shared
         let mux = PlaybackCommandMultiplexer.shared
         let scene = WallpaperReference(provider: .steamWorkshop, sourceID: sceneID)
@@ -116,17 +116,23 @@ enum DebugPlaybackCoexistenceRunner {
         let video = try await wait("real bundled video index") {
             manager.wallpapers.first { URL(fileURLWithPath: $0.path).standardizedFileURL == videoURL.standardizedFileURL }
         }
+        let importsQuality = phase == "quality-import"
         let references: [(String, WallpaperReference, WallpaperRuntimeKind)] = [
             ("scene-in", scene, .scene), ("web", web, .web),
             ("video", .init(provider: .videoLibrary, sourceID: video.id), .video), ("scene-back", scene, .scene)
         ]
         var previous: Receipt?
         var rows: [[String: Any]] = []
-        for (label, reference, runtime) in references {
+        for (label, reference, runtime) in importsQuality ? references.dropLast() : references[...] {
             workspace.requestSingle(reference)
             let current = try await receipt(for: reference, runtime: runtime, after: previous)
             rows.append(current.evidence)
             result["switches"] = rows
+            if importsQuality {
+                result["import-\(runtime.rawValue)"] = try await qualityImport(runtime, receipt: current, directory: directory)
+                previous = current
+                continue
+            }
             switch runtime {
             case .scene:
                 result[label] = try await scenePauseResume(label, receipt: current, fps: selectedFPS,
@@ -140,12 +146,82 @@ enum DebugPlaybackCoexistenceRunner {
             }
             previous = current
         }
+        if importsQuality {
+            guard references.dropLast().allSatisfy({ (result["import-\($0.2.rawValue)"] as? [String: Any])?["preserved"] as? Bool == true })
+            else { throw Failure("quality import interrupted active playback") }
+            return
+        }
         preference.scene.postProcessing = .disabled
         mux.applyQualityPreference(preference)
         mux.dispatch(.pause)
         guard PlaybackQualityPreference.current == preference, mux.isUserPaused,
               SceneQualityPreset.matching(preference) == nil else { throw Failure("custom quality or pause not retained") }
         result["savedPaused"] = true
+    }
+
+    private static func qualityImport(_ runtime: WallpaperRuntimeKind, receipt: Receipt, directory: URL) async throws -> [String: Any] {
+        guard let coordinator = MyWallpaperXApplication.personalSettings, coordinator.allowsEditing else {
+            throw Failure("product import owner unavailable")
+        }
+        let mux = PlaybackCommandMultiplexer.shared
+        let scene = SceneDaemonClient.shared
+        let isScene = runtime == .scene
+        let isWeb = runtime == .web
+        let fps: Int
+        switch runtime {
+        case .scene: fps = 25
+        case .web: fps = 30
+        case .video: fps = 24
+        case .systemStill: throw Failure("quality import requires an active dynamic engine")
+        }
+        let label = "\(runtime.rawValue)-import"
+        let before: [String: Any]
+        if isScene {
+            before = try await captureScene(label + "-before", receipt: receipt, directory: directory)
+        } else {
+            before = [:]
+            try await capture(label + "-before", receipt: receipt, directory: directory)
+        }
+        if isWeb { mux.dispatch(.pause) }
+        defer { if isWeb && mux.isUserPaused { mux.dispatch(.resume) } }
+        let file = directory.appendingPathComponent(label + ".json")
+        var fields: [String: Any] = [isWeb ? "playbackPerformanceProfile" : "animationFramesPerSecond": fps]
+        if isScene { fields["sceneTextureQuality"] = SceneTextureQuality.performance.rawValue }
+        try JSONSerialization.data(withJSONObject: [
+            "schemaVersion": 8, "exportedAt": "2026-01-01T00:00:00Z",
+            "preferences": fields, "sources": [], "collections": ["libraryExclusionStates": []]
+        ]).write(to: file)
+        _ = try await coordinator.importPersonalSettings(from: file)
+        let applied = PlaybackQualityPreference.current
+        guard applied.animationFrameRate.rawValue == fps,
+              !isScene || applied.scene.textures == .performance else { throw Failure("portable quality was not saved") }
+        let onscreen = onscreenWindows()
+        let preserved = WallpaperManager.shared.playbackSwitch.committed == receipt.selection
+            && receipt.windows.allSatisfy { onscreen[$0] == receipt.pid }
+        var result: [String: Any] = ["savedFPS": fps, "preserved": preserved, "identity": receipt.evidence]
+        guard preserved else { return result }
+        if isScene {
+            let cadence = try await wait("imported Scene cadence") {
+                scene.activeAnimationCadence.flatMap { $0.requestedFPS.rawValue == fps ? $0 : nil }
+            }
+            let after = try await captureScene(label + "-after", receipt: receipt, directory: directory)
+            guard cadence.effectiveFPS == Double(fps),
+                  let start = before["sceneTime"] as? Double, let end = after["sceneTime"] as? Double,
+                  end > start, before["sessionID"] as? String == after["sessionID"] as? String else {
+                throw Failure("live Scene did not preserve its session and clock")
+            }
+            result["sceneBefore"] = before
+            result["sceneAfter"] = after
+            result["effectiveFPS"] = cadence.effectiveFPS
+        } else {
+            if isWeb {
+                guard mux.isPlaybackPaused, mux.isUserPaused else { throw Failure("quality import cleared the Web pause") }
+                mux.dispatch(.resume)
+            }
+            try await Task.sleep(for: .milliseconds(550))
+            try await capture(label + "-after", receipt: receipt, directory: directory)
+        }
+        return result
     }
 
     private static func receipt(for reference: WallpaperReference, runtime: WallpaperRuntimeKind,

@@ -29,7 +29,7 @@
 
 发给用户的设置说明写在五语 [内置帮助](../../MyWallpaperXHelp/zh-Hans.lproj/index.html)，按正文的 Video、Web、Scene 章节随适用范围变动更新。 [帮助书检查](../../script/governance/check_help_bundle.py)
 
-三引擎交接和冷恢复用 [签名产品验收](../../script/web/playback_quality_coexistence.py) 从正常库选择入口核实会话、实际窗口和已保存的 Scene 质量。 [验收范围](../development/wallpaper-quality-work-card.md#quality-engine-coexistence)
+三引擎交接、冷恢复和便携画质导入用同一 [签名产品验收](../../script/web/playback_quality_coexistence.py) 核实原库选择、活动窗口及实际消费。 [交接](../development/wallpaper-quality-work-card.md#quality-engine-coexistence) · [导入](../development/wallpaper-quality-work-card.md#quality-only-import-playback)
 
 Scene 的 [显示模式与目标屏](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneScreenTopology.swift) 进入原 daemon 拓扑入口。请求、生效上限及解码配额见 [帧率合同](../scene/architecture/runtime-architecture.md#scene-frame-rate-policy)。Scene 稳态节律用 [原产品启动基准](../../script/web/wallpaper_startup_benchmark.py) 对实际接管的 daemon 采集逐屏呈现与 GPU 完成。参数、观测边界和当前 A/A 见[工作卡](../development/wallpaper-quality-work-card.md#连续帧率的产品测量与接管)。
 

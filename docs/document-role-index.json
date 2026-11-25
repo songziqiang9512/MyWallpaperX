@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3dc715f9b93eafbcdbe3be106b7b37c133229d01121c9ae1f6a48006aceec22b",
+        "sourceSHA256": "2829883d44da03d9a785a7bd365c24844360fc92c250d647d3856e31d7797186",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对 Scene 包读取与使用期的导航目标",
-        "limitations": "地图不重复包 reader 的行为和证据。"
+        "scope": "核对三引擎验证入口、导入装配和播放持久化的导航",
+        "limitations": "地图保导航，实测口径归工作卡。"
       }
     },
     {
@@ -347,10 +347,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "11c933114b29a563bb6a35b7dd9510988bae6ef167a746a7b95e58b847845292",
+        "sourceSHA256": "5f6cef037e28dfa79c29ea4ef5fdbc38a8b72f6a8b091f786219221311f5e903",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Metal quad 求积与窄峰、真实深度及 helper 约束",
-        "limitations": "已有 SDK 编译，未引入产品路径或发布档"
+        "scope": "核对设定案中的便携计划及引擎生效范围",
+        "limitations": "仅画质计划，标准完整备份与资源准备各沿原合同。"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bd3f06c4a20f3bb74ae77996e76491d110d0ba8cbfe46ad87b4349094ade8d9e",
+        "sourceSHA256": "1cccf795d738d7eea3bfdc09aa9ec396beca3f0d57ed797286c7ff055ea47445",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对原生读成本、同源绑定和签名实呈入口",
-        "limitations": "热文件缓存原生度量；未测 App 首帧与整机功耗。"
+        "scope": "核对导入 live window、日志和恢复验证入口",
+        "limitations": "范围为隔离签名 Debug 同一单屏；AppKit 文件对话和真实登录注册未作自动化。"
       }
     },
     {

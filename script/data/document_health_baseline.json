@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 62,
-      "bytes": 15680
+      "bytes": 15758
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 337,
-      "bytes": 79291
+      "lines": 338,
+      "bytes": 79716
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 443,
-      "bytes": 93463
+      "lines": 460,
+      "bytes": 97373
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,20 +378,20 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "cbcaabc0d004d86f145d94ba43ee8bfa82fe08ef2c2f6a19e33d66346444459d",
-      "after": "c066994aefea13a8efb210097f2b73d133057f20a57bd4e2a0d605f55dfa6384",
+      "before": "c066994aefea13a8efb210097f2b73d133057f20a57bd4e2a0d605f55dfa6384",
+      "after": "e0058b6c1538ca377896a4af0c862a67018bd30907385a8a5330ae148e13052c",
       "owner": "wallpaper-quality",
-      "reason": "登记去除包中间复制的原生配对和签名画面",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-package-read-copy"
+      "reason": "登记真实画质导入连续性、旧版故障、登录项与恢复边界",
+      "decision": "docs/development/wallpaper-quality-work-card.md#quality-only-import-playback"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "1be47582fa02862516a48b6e90f184e2c38d6e001680c106ec711dab9ca7d7c3",
-      "after": "831e6c76ee96f8fa4c75a9dadc465f5a9a047b8bde466e500ebebc6409664deb",
+      "before": "831e6c76ee96f8fa4c75a9dadc465f5a9a047b8bde466e500ebebc6409664deb",
+      "after": "017ea358808196dd07dede6b9d80082bbca35ddd0e3b1f8b8014709593792211",
       "owner": "repository-map",
-      "reason": "补 Scene 包读取与消费的权威路由",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-package-read-copy"
+      "reason": "补签名实际画质导入验收入口",
+      "decision": "docs/development/wallpaper-quality-work-card.md#quality-only-import-playback"
     },
     {
       "section": "bodies",
@@ -684,11 +684,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "56896768e817712aad31bb9178f66d0ec814ca6939ac106c58cecdfe4bfc4a10",
-      "after": "ec69477d89287a71a175d95213db8464af2dfc8d2445f1b365de8bdd7193fb20",
-      "owner": "跨引擎画质设计",
-      "reason": "登记四 lane 代表射线和 helper 机制无法达到当前准入的依据",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-quality"
+      "before": "ec69477d89287a71a175d95213db8464af2dfc8d2445f1b365de8bdd7193fb20",
+      "after": "5c9aac85a5accb2814a435839da61bd5de5b2bc41fa8af0c5c1f431e3376ee35",
+      "owner": "wallpaper-quality",
+      "reason": "补 v8 便携导入原活动会话行为和已有持久化所有权",
+      "decision": "docs/development/wallpaper-quality-work-card.md#quality-only-import-playback"
     }
   ]
 }

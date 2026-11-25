@@ -350,6 +350,11 @@ nonisolated struct LibraryCollectionsPersonalSettingsImport: Codable, Equatable,
         self.libraryExclusionStates = libraryExclusionStates; self.expectedLibraryExclusions = expectedLibraryExclusions
     }
 
+    var hasEntriesToApply: Bool {
+        !playlists.isEmpty || !members.isEmpty || !favoriteStates.isEmpty || !locators.isEmpty
+            || !aliases.isEmpty || !coverAssets.isEmpty || !libraryExclusionStates.isEmpty
+    }
+
     private enum CodingKeys: String, CodingKey {
         case playlists, members, favoriteStates, locators, aliases
         case coverAssets, libraryExclusionStates, expectedLibraryExclusions

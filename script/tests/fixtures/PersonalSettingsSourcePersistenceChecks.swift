@@ -28,22 +28,56 @@ extension PersonalSettingsImportHarness {
             "Original image", .staticImageLibrary)
         try images.applyPersonalSettingsSources([.init(before: nil, target: image)], at: date)
         let originalImages = images.wallpapers
+        var playbackBarriers = 0
         func coordinator() -> PersonalSettingsImportCoordinator {
             PersonalSettingsImportCoordinator(manager: manager, images: images, collections: controller, recoveryURL: recovery,
                 readVideoSort: { try presentation.videoSortPreference() },
                 validateVideoSort: { try presentation.validateVideoSortPatch($0, resetEpoch: $1) },
-                applyVideoSort: { try presentation.applyVideoSortPatch($0, resetEpoch: $1) })
+                applyVideoSort: { try presentation.applyVideoSortPatch($0, resetEpoch: $1) },
+                beforeApply: { playbackBarriers += 1 })
         }
-        func prepare(_ sources: [PersonalSettingsLocalSource], collections: LibraryCollectionsPersonalSettingsImport = .init()) throws {
-            try write(.init(exportedAt: date, preferences: .init(from: manager.settings),
+        func prepare(_ sources: [PersonalSettingsLocalSource], collections: LibraryCollectionsPersonalSettingsImport = .init(),
+                     preferences: PersonalSettingsPreferences? = nil) throws {
+            try write(.init(exportedAt: date, preferences: preferences ?? .init(from: manager.settings),
                 sources: sources, collections: collections), to: profile)
             writes.reset()
         }
-        let importer = coordinator()
+        var importer = coordinator()
+        let loginChanges = manager.loginChanges
+        let policyUpdates = PlaybackPolicyController.shared.updates
+        var quality = PersonalSettingsPreferences(from: manager.settings)
+        let fps = PlaybackQualityPreference.current.animationFrameRate.rawValue == 25 ? 24 : 25
+        quality.animationFramesPerSecond = fps
+        quality.videoLibrarySort = try presentation.videoSortPreference()
+        try prepare([], preferences: quality)
+        _ = try await importer.importPersonalSettings(from: profile)
+        _ = try await importer.importPersonalSettings(from: profile)
+        checks["QualityOnlyAndEqualViewSortDoNotStopPlayback"] = playbackBarriers == 0
+            && PlaybackQualityPreference.current.animationFrameRate.rawValue == fps && writes.counts == (0, 0)
+        checks["EqualWallpaperSettingsDoNotRepublishOrTouchLoginItems"] = manager.loginChanges == loginChanges
+            && PlaybackPolicyController.shared.updates == policyUpdates
+
+        quality.animationFramesPerSecond = 29
+        try prepare([], preferences: quality)
+        manager.defaults.failSynchronization = true
+        do {
+            _ = try await importer.importPersonalSettings(from: profile)
+            checks["QualityOnlyFailureRetainsRecoveryWithoutStoppingPlayback"] = false
+        } catch {
+            checks["QualityOnlyFailureRetainsRecoveryWithoutStoppingPlayback"] = playbackBarriers == 0
+                && !importer.allowsEditing && FileManager.default.fileExists(atPath: recovery.path)
+        }
+        manager.defaults.failSynchronization = false
+        importer = coordinator()
+        _ = try await importer.resumeIfNeeded()
+        checks["QualityOnlyRecoveryAlsoPreservesPlayback"] = playbackBarriers == 0 && importer.allowsEditing
+            && PlaybackQualityPreference.current.animationFrameRate.rawValue == 29
+
         let unavailable = ref("undeclared-offline-video")
         try prepare([], collections: .init(favoriteStates: [.init(reference: unavailable, isFavorite: true, favoritedAt: date)]))
         _ = try await importer.importPersonalSettings(from: profile)
         checks["EmptySourcePlanSkipsBothWriters"] = writes.counts == (0, 0)
+        checks["RelationshipImportUsesOriginalPlaybackBarrier"] = playbackBarriers == 1
         checks["UndeclaredUnavailableRelationCommitsWithoutSourceFlush"] = controller.snapshot.favorites.contains { $0.reference == unavailable }
             && importer.allowsEditing && !FileManager.default.fileExists(atPath: recovery.path)
         checks["EmptySourcePlanPreservesExistingDurableSources"] = try WallpaperIndexStore.shared.loadWallpapers() == manager.wallpapers
@@ -58,6 +92,31 @@ extension PersonalSettingsImportHarness {
         try prepare([video, image])
         _ = try await importer.importPersonalSettings(from: profile)
         checks["RelatedEqualPatchesStillAcknowledgeBothWriters"] = writes.counts == (1, 1)
+        checks["RelatedEqualSourcePatchesUseOriginalPlaybackBarrier"] = playbackBarriers == 4
+        var startupChange = PersonalSettingsPreferences(from: manager.settings)
+        startupChange.startOnBoot = !manager.settings.startOnBoot
+        try prepare([], preferences: startupChange)
+        _ = try await importer.importPersonalSettings(from: profile)
+        checks["ExplicitLoginItemChangeUsesOriginalBarrierAndSync"] = playbackBarriers == 5
+            && manager.loginChanges == loginChanges + 1 && manager.settings.startOnBoot == startupChange.startOnBoot
+
+        startupChange.startOnBoot = !manager.settings.startOnBoot
+        try prepare([], preferences: startupChange)
+        manager.defaults.failSynchronization = true
+        var retainedPlannedLoginItem = false
+        do { _ = try await importer.importPersonalSettings(from: profile) }
+        catch {
+            retainedPlannedLoginItem = manager.loginChanges == loginChanges + 1
+                && FileManager.default.fileExists(atPath: recovery.path)
+        }
+        manager.defaults.failSynchronization = false
+        manager.settings = try JSONDecoder().decode(WallpaperSettings.self,
+            from: manager.defaults.data(forKey: manager.settingsKey)!)
+        let targetAlreadyLoaded = manager.settings.startOnBoot == startupChange.startOnBoot
+        importer = coordinator()
+        _ = try await importer.resumeIfNeeded()
+        checks["RecoveryRetriesPlannedLoginSyncWhenTheTargetIsAlreadyLoaded"] = retainedPlannedLoginItem
+            && targetAlreadyLoaded && manager.loginChanges == loginChanges + 2 && importer.allowsEditing
         let renamedVideo = source(video.reference.sourceID, video.path, "Renamed video", firstIndexedAt: video.firstIndexedAt)
         let renamedImage = source(image.reference.sourceID, image.path, "Renamed image", .staticImageLibrary)
         try prepare([renamedVideo, renamedImage])

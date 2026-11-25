@@ -212,7 +212,9 @@ import ImageIO
             try requireGeneration(epoch, resetEpoch: recovery.plan.resetEpoch)
             try validateSources(recovery.plan)
             let current = PersonalSettingsPreferences(from: manager.settings)
-            var before = recovery.plan.beforePreferences, target = recovery.plan.targetPreferences
+            let externalBefore = recovery.plan.beforePreferences
+            let externalTarget = recovery.plan.targetPreferences
+            var before = externalBefore, target = externalTarget
             // Only the WallpaperSettings fields cross into its original owner.
             before.sceneHDRDisplayEnabled = nil; target.sceneHDRDisplayEnabled = nil
             before.scenePostProcessingMode = nil; target.scenePostProcessingMode = nil
@@ -229,8 +231,12 @@ import ImageIO
                 throw PersonalSettingsError.preferencesChanged
             }
             if let patch = recovery.videoSortPatch { try validateVideoSort(patch, recovery.plan.resetEpoch) }
-            beforeApply()
-            try requireGeneration(epoch, resetEpoch: recovery.plan.resetEpoch)
+            let changesViewSort = recovery.videoSortPatch.map { $0.before != $0.target } ?? false
+            if before != target || !recovery.plan.sourcePatches.isEmpty || recovery.plan.collections.hasEntriesToApply
+                || changesViewSort || externalBefore.sceneMediaInfoEnabled != externalTarget.sceneMediaInfoEnabled {
+                beforeApply()
+                try requireGeneration(epoch, resetEpoch: recovery.plan.resetEpoch)
+            }
             if recovery.stage.rawValue < Stage.videos.rawValue {
                 try manager.applyPersonalSettingsSources(recovery.plan.sourcePatches)
                 recovery.stage = .videos; try writeRecovery(recovery)
@@ -248,17 +254,16 @@ import ImageIO
             if recovery.stage.rawValue < Stage.preferences.rawValue {
                 // Relationship persistence above may have yielded to an edit
                 // in Settings; check each owner once at this consumption point.
-                let externalBefore = recovery.plan.beforePreferences
-                var externalTarget = recovery.plan.targetPreferences
+                var projectedTarget = externalTarget
                 // Old journals materialized the implicit HDR-on default in
                 // both snapshots, even when the import never edited it.
-                if externalBefore.scenePostProcessingMode == nil, externalTarget.scenePostProcessingMode == nil,
-                   externalBefore.sceneHDRDisplayEnabled == externalTarget.sceneHDRDisplayEnabled {
-                    externalTarget.sceneHDRDisplayEnabled = nil
+                if externalBefore.scenePostProcessingMode == nil, projectedTarget.scenePostProcessingMode == nil,
+                   externalBefore.sceneHDRDisplayEnabled == projectedTarget.sceneHDRDisplayEnabled {
+                    projectedTarget.sceneHDRDisplayEnabled = nil
                 }
-                try validateExternalPreferences(before: externalBefore, target: externalTarget)
+                try validateExternalPreferences(before: externalBefore, target: projectedTarget)
                 try manager.applyPersonalSettingsPreferences(expected: before, target: target)
-                applyExternalPreferences(externalTarget)
+                applyExternalPreferences(projectedTarget)
                 recovery.stage = .preferences; try writeRecovery(recovery)
             }
             try requireGeneration(epoch, resetEpoch: recovery.plan.resetEpoch)
@@ -351,6 +356,7 @@ import ImageIO
     }
 
     private func validateSources(_ plan: LibraryPersonalSettingsPlan) throws {
+        guard !plan.sourcePatches.isEmpty else { return }
         let sources = manager.personalSettingsSources + images.personalSettingsSources
         let current = Dictionary(sources.map { ($0.reference, $0) }, uniquingKeysWith: { first, _ in first })
         for patch in plan.sourcePatches {

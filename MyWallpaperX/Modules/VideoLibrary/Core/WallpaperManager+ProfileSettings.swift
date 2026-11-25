@@ -54,10 +54,12 @@ extension WallpaperManager {
         guard expected == current || target == current else { throw PersonalSettingsError.preferencesChanged }
         let updated = target.applying(to: settings)
         try persistSettingsNow(updated)
-        settings = updated
-        PlaybackPolicyController.shared.updateSettings(updated)
-        // The settings sink handles engine field diffs; no timer, playback
-        // source or recent event is created by importing preferences.
-        updateLoginItemStatus()
+        if settings != updated {
+            settings = updated
+            PlaybackPolicyController.shared.updateSettings(updated)
+        }
+        if let startOnBoot = target.startOnBoot, expected.startOnBoot != startOnBoot {
+            updateLoginItemStatus()
+        }
     }
 }

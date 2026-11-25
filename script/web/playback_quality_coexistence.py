@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Signed same-product Scene/Web/Video handoff and cold library restoration."""
+"""Signed Scene/Web/Video handoff, cold restoration, or portable quality import."""
 
 import argparse
 import json
@@ -33,6 +33,7 @@ const fpsMarker = document.getElementById("fps");
 window.wallpaperPropertyListener = {
   applyGeneralProperties(p) {
     fpsMarker.style.background = p.fps === 15 ? "rgb(12,190,38)"
+      : p.fps === 25 ? "rgb(196,40,210)"
       : p.fps === 60 ? "rgb(22,34,215)"
       : typeof p.fps === "number" ? "rgb(25,185,215)" : "rgb(223,175,7)";
   }
@@ -63,7 +64,9 @@ def run_phase(command, environment, directory, phase, timeout):
                 if request.is_file():
                     value = json.loads(request.read_text())
                     name, window = value["name"], value["window"]
-                    if name not in ("video-paused", "video-still", "video-resumed", "video-running"):
+                    names = (("video-import-before", "video-import-after") if phase == "quality-import"
+                             else ("video-paused", "video-still", "video-resumed", "video-running"))
+                    if name not in names:
                         raise RuntimeError("unexpected Video capture request")
                     if name not in captured:
                         temporary = directory / f"{name}-inflight.png"
@@ -87,6 +90,8 @@ def run_phase(command, environment, directory, phase, timeout):
             (directory / "processes.json").write_text(json.dumps(cleanup, indent=2) + "\n")
         if cleanup["errors"] or cleanup["remainingOwnedChildren"] or not cleanup["ownedProcessesExited"]:
             raise RuntimeError("normal exit did not drain precisely owned child processes")
+        if phase == "quality-import":
+            return result
         prepared = {}
         marker = "phase=session-candidate "
         for line in (directory / "app.log").read_text().splitlines():
@@ -113,14 +118,30 @@ def verify_pixels(root):
         if (not all((frozen, resumed, running)) or frozen["changed_ratio"] > .001
                 or min(resumed["changed_ratio"], running["changed_ratio"]) < .01):
             raise RuntimeError(f"{kind} pixels did not freeze and advance: {checks[kind]}")
-    decoded = png_rgb_pixels(root / "web-running.png")
+    checks["webGeneralFPSMarkerRGB"] = web_fps_marker(root / "web-running.png")
+    return checks
+
+
+def web_fps_marker(path):
+    decoded = png_rgb_pixels(path)
     if decoded is None:
         raise RuntimeError("could not decode the author fps marker")
     width, height, rows = decoded
     start = int(.1 * width) * 3
-    red, green, blue = rows[int(.1 * height)][start:start + 3]
-    checks["webGeneralFPSMarkerRGB"] = [red, green, blue]
-    return checks
+    return list(rows[int(.1 * height)][start:start + 3])
+
+
+def verify_import_pixels(root):
+    before = web_fps_marker(root / "web-import-before.png")
+    after = web_fps_marker(root / "web-import-after.png")
+    if min(before[0] - before[1], before[2] - before[1],
+           after[1] - after[0], after[2] - after[0]) < 60:
+        raise RuntimeError(f"Web did not keep its author document and adopt the imported fps: {before}, {after}")
+    video_paths = [root / f"video-import-{label}.png" for label in ("before", "after")]
+    motion = png_motion_metrics(*video_paths, threshold=3, region=(.1, .1, .9, .9))
+    if not motion or motion["changed_ratio"] < .01:
+        raise RuntimeError(f"Video did not keep producing real frames over the import: {motion}")
+    return {"webFPSBeforeRGB": before, "webFPSAfterRGB": after, "videoMotion": motion}
 
 
 def verify_restore(first, second):
@@ -141,6 +162,7 @@ def main():
     parser.add_argument("--scene-root", type=Path, required=True, help="isolated small dynamic numeric Workshop item copy")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--timeout", type=float, default=120, help="per native phase")
+    parser.add_argument("--quality-import", action="store_true", help="run the portable quality-only live import")
     args = parser.parse_args()
     scene, output = isolated_path(args.scene_root), isolated_path(args.output_dir)
     library = (Path(pwd.getpwuid(os.getuid()).pw_dir) / "Library").resolve()
@@ -198,17 +220,21 @@ def main():
             raise RuntimeError("mismatched isolation token did not fail closed")
         metadata["invalidIsolationTokenRejected"] = True
         phases = {}
-        for name in ("switch", "restore"):
+        phase_order = ("quality-import",) if args.quality_import else ("switch", "restore")
+        for name in phase_order:
             directory = output / name
             directory.mkdir()
             phases[name] = run_phase([*common, "--mwx-debug-startup-defaults-token", token],
                                      environment, directory, name, args.timeout)
-        verify_restore(phases["switch"], phases["restore"])
-        metadata["pixels"] = verify_pixels(output / "switch")
-        red, green, blue = metadata["pixels"]["webGeneralFPSMarkerRGB"]
-        # The WindowServer capture can encode the authored sRGB colors in the display profile.
-        if green - max(red, blue) < 60:
-            raise RuntimeError(f"real Web author page did not receive follow-animation fps=15, marker RGB {[red, green, blue]}")
+        if args.quality_import:
+            metadata["pixels"] = verify_import_pixels(output / "quality-import")
+        else:
+            verify_restore(phases["switch"], phases["restore"])
+            metadata["pixels"] = verify_pixels(output / "switch")
+            red, green, blue = metadata["pixels"]["webGeneralFPSMarkerRGB"]
+            # The WindowServer capture can encode the authored sRGB colors in the display profile.
+            if green - max(red, blue) < 60:
+                raise RuntimeError(f"real Web author page did not receive follow-animation fps=15, marker RGB {[red, green, blue]}")
         metadata["passed"] = source == tree_identity(scene)
         if not metadata["passed"]:
             raise RuntimeError("isolated input source changed")
