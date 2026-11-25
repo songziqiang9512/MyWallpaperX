@@ -18,7 +18,7 @@
 | 定位 | 当前事实与下一步 |
 |---|---|
 | Sphere 全零方向的出生可见性（待证） | [固定零半径初速](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)已恢复。显式全零 Directions 的隔离 Sprite 在官版窗内无像素，本机可见且静止。需分出生资格与可见条件，先找活动作者或单轴逐步归零的反例，保零速度和非零轴的正常出生。 |
-| 音频供值 · 3612940332 | [同画幅交换32档](../capabilities/runtime-evidence-current.md#author-ring-shape-same-spectrum-361)将红环变细与形状偏差定位到供值。[早段和成熟段实绘](../capabilities/runtime-evidence-current.md#author-spectrum-reentry-slew-361)已有同目标轮廓改善的候选。沿[共享设计](../../architecture/system-audio-spectrum-design.md)验低信号与捕获时钟、44.1kHz、实时原包环线及Bloom，并复验独立346多音。 |
+| 音频供值 · 3612940332 | [共用采集的作者域与原包实绘](../capabilities/runtime-evidence-current.md#author-spectrum-capture-live-361)已改善48kHz有声红环的轮廓与线宽。同源官版对照仍有亮度、早段及部分角度差，沿[共享设计](../../architecture/system-audio-spectrum-design.md)核同相位时序、44.1kHz及合成残差。 |
 | 粒子外圈 · 3653620838 | [近轴与像素相位](../capabilities/runtime-evidence-current.md#vortex-outer-pixel-phase-365)的静卡一致。继续须运动同亚像素或重复成熟群组，区分出光与覆盖。 |
 | 普通粒子材质增亮的裁幅 | 平面 RG88 同窗对照测得材质 gain1.4 的官版 `(0,144,144)`、本机新 `(0,163,202)`。先找实际作者消费，并用有色 texel、半透明底和双层加色区分 tint、采样与裁幅顺序。已验证的中性 R8 半透明 Trail 裁幅另有原证据。 [运行证据](../capabilities/runtime-evidence-current.md#particle-instance-tint-native) |
 | 3454689854 的相邻丝层 | [同画幅单丝、原包和实际预算](../capabilities/runtime-evidence-current.md#silk-capture-density-345)已闭两条SDR根丝密度。子层及多阶段保持原工作域，只有取得可归属的同相位残差再重启。原默认绕身文字两端均隐藏，条件另见[原包对照](../capabilities/runtime-evidence-current.md#author-silk-raster-345)。 |
@@ -126,7 +126,7 @@
 | 3781003282 | 中央白方[未重现](../capabilities/runtime-evidence-current.md#pointer-halo-378)。重启须可复现位置、画幅或桌面版本，再判888采样与独立395/e16。 |
 | Puppet 后置标量轨 | [384与独立377的普通骨轨已恢复](../capabilities/runtime-evidence-current.md#puppet-post-bounds-trs)。同相位标量替换未证主要遮挡差。重启须有单骨/同位置的可见交叠对照，再分纯绘制顺序、骨权重或几何作用。 |
 | 3382111183 | [官版曲线及原曲实机](../capabilities/runtime-evidence-current.md#floor-beam-emitter-338211)已测同档左右均值取峰、smoothstep后取幂和越1供值。待共享准备值合格后接普通发射器，验原包出生和运动。 |
-| 3383210272 / 3463406101 | [原曲](../capabilities/runtime-evidence-current.md#beam-shared-pcm)官版成双束、本机各2颗。[同PCM前景](../capabilities/runtime-evidence-current.md#author-low-band-pulse-346)定位准备64档分叉。[起音与慢尾实绘](../capabilities/runtime-evidence-current.md#author-spectrum-silence-onset-361)已有弱段及慢尾候选，强段仍有相位残差。沿[共享设计](../../architecture/system-audio-spectrum-design.md)核实时输出、强段及原曲宽束，复用已测作者阈值。 |
+| 3383210272 / 3463406101 | [原曲](../capabilities/runtime-evidence-current.md#beam-shared-pcm)官版成双束、本机各2颗。[作者域接线](../capabilities/runtime-evidence-current.md#author-spectrum-capture-live-361)已使346原包出现前景音频变化，慢尾接近官版。待核弱起音及强段时间，再按[共享设计](../../architecture/system-audio-spectrum-design.md)验主束及独立消费者。 |
 | 2814167871 /2835398595 | 眼部为132/e1与98/e0的pulse RGB增亮，16档band0/1均值跨.5才响应；281强度属性默认1、283常量.51。[默认PCM前5秒](../capabilities/runtime-evidence-current.md#eye-audio-input)无跨线正控；后续同作者WAV的281两App静帧已有真实16档消费，但不能判眼部闪动或闪烁。粗档候选已撤回，283不追加矩阵。重启须可裁决实际供值/首错，再核同帧pulse→tail→眼RGB；不调gain/作者参数、不强注入1，不由bus非零关闭。 |
 | 3708363772 · 配色 | [共享次色](../capabilities/runtime-evidence-current.md#media-palette-official-370)仍有差异，续核排序与暗色过滤。 |
 | 3603711180 | [播放媒体的原包与两端实帧](../capabilities/runtime-evidence-current.md#author-player-text-current-360)恢复标题、艺人、剩余时间和实际封面。已测画幅首行同在左框外，观察其他比例/第二行与字体差异须用同视口同媒体复取；按原屏幕锚与字形范围核对。 |
@@ -218,7 +218,7 @@
 | 样本 | 状态与已验证范围 |
 |---|---|
 | 3653620838 | 已修复内圈运动、轴向/半径、初速、尾迹、HDR出生亮度及 Project 光效栅格。外围和时相仍开。[运动](../capabilities/runtime-evidence-current.md#vortex-axis-world-365) · [合成](../capabilities/runtime-evidence-current.md#project-framebuffer-resolution-365) |
-| 3612940332 | 部分修复。已修复静态几何宽度、末材密度及背景采样。[静态](../capabilities/runtime-evidence-current.md#solid-background-same-pixel-native) · [有声轮廓回放及实时待验](../capabilities/runtime-evidence-current.md#author-spectrum-reentry-slew-361) |
+| 3612940332 | 部分修复。静态几何宽度、末材密度及背景采样已修复，48kHz有声红环轮廓与线宽已改善。[静态](../capabilities/runtime-evidence-current.md#solid-background-same-pixel-native) · [原包实绘与亮度、时序待验](../capabilities/runtime-evidence-current.md#author-spectrum-capture-live-361) |
 | 3822067395 | 已修复。原包可启动，首帧及相关效果已实绘。[首帧](../capabilities/runtime-evidence-current.md#tex-alpha-channel-priority-author) |
 | 3174321827 | 已修复。部件回到正确组装姿态，双臂和武器在胸前，细微姿态残差有独立证据。[组装](../capabilities/runtime-evidence-current.md#puppet-counted-reference-317) |
 | 3823864170 | 已修复。拖尾跟随鼠标，默认与可选尾迹通过跟踪、颜色对照。[运动](../capabilities/runtime-evidence-current.md#pointer-zero-angles-author) · [颜色](../capabilities/runtime-evidence-current.md#neutral-mask-trail-382) |

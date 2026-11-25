@@ -28,6 +28,12 @@ class SystemAudioSpectrumTests(unittest.TestCase):
         source = (ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift").read_text()
         start = source.index("  window.__myWallpaperPushAudioSpectrum = function(levels) {")
         end = source.index("  window.__myWallpaperSetGlobalVolume", start)
+        bridge = source[start:end]
+        for name in ("webAudioSpectrumDeliveryDiagnostic", "webAudioSpectrumErrorDiagnostic"):
+            declaration = f'private let {name} = #"""\n'
+            start = source.index(declaration) + len(declaration)
+            diagnostic = source[start:source.index('\n"""#', start)]
+            bridge = bridge.replace(r"\#(" + name + ")", diagnostic)
         harness = """
 const assert = require('node:assert/strict');
 const received = [];
@@ -40,7 +46,7 @@ let firstDeliveredAudioSpectrum = [];
 let failedAudioListeners = new WeakSet();
 const loggedEvents = [];
 const hostLogger = { post(name) { loggedEvents.push(name); } };
-""" + source[start:end] + """
+""" + bridge + """
 window.__myWallpaperPushAudioSpectrum([0.2, 1.5, -1, NaN, Infinity]);
 assert.deepEqual(received[0], [0.2, 1.5, 0, 0, 0]);
 window.__myWallpaperPushAudioSpectrum([0, 0, 0, 0, 0]);
@@ -347,7 +353,7 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
             }
 
             func arrays(_ levels: SystemAudioSceneSpectrumAnalyzer.Levels) -> [[Float]] {
-                [levels.left, levels.right, levels.left32, levels.right32, levels.left64, levels.right64]
+                [levels.left64, levels.right64]
             }
             let pcmLeft = sine(frequency: 750)
             let pcmRight = sine(frequency: 4_000, phase: .pi)
@@ -540,15 +546,13 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
                 sampleRate: sampleRate
             )
             expect(
-                canonicalAttack.left.count == 16
-                    && canonicalAttack.left32.count == 32
-                    && canonicalAttack.left64.count == 64,
-                "Producer must expose 16/32/64 projections"
+                canonicalAttack.left64.count == 64 && canonicalAttack.right64.count == 64,
+                "Display analysis must supply independent 64-band heights to Video and Web"
             )
             expect(
-                (canonicalAttack.left + canonicalAttack.left32 + canonicalAttack.left64)
+                (canonicalAttack.left64 + canonicalAttack.right64)
                     .allSatisfy { $0.isFinite && $0 >= 0 },
-                "Author projections must preserve finite positive spikes"
+                "Display heights must remain finite and nonnegative"
             )
             // Project final heights with fractional area means, preserving
             // the scale even at non-divisor Video bar counts.
@@ -610,8 +614,8 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
             )
             let balanced = overlay.analyze(overlayLevels)
             expect(balanced.count == 16, "Overlay must preserve configured bar count")
-            expectArrayNear(balanced, overlayLevels.left, tolerance: 0.000001,
-                "Default mono Video projection must match the same Scene height resolution")
+            expectArrayNear(balanced, SystemAudioSceneSpectrumAnalyzer.resample(overlayLevels.left64, count: 16),
+                tolerance: 0.000001, "Default mono Video retains the area-mean display projection")
             expect(balanced.allSatisfy { $0.isFinite && $0 >= 0 && $0 <= 1 }, "balanced overlay range")
             let shapedInput = [Float](repeating: 0.1, count: 16)
                 + [Float](repeating: 0.3, count: 16)

@@ -69,11 +69,6 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                 func analyze(_ levels: SystemAudioSceneSpectrumAnalyzer.Levels) -> [Float] { [] }
             }
 
-            final class SystemAudioWebSpectrumAnalyzer {
-                static let outputLevelCount = 128
-                func analyze(_ levels: SystemAudioSceneSpectrumAnalyzer.Levels) -> [Float] { [] }
-            }
-
             final class SystemAudioCaptureConfigurationMonitor {
                 init(queue: DispatchQueue) {}
                 func install(
@@ -130,21 +125,27 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
             // describe the latest contiguous PCM, regardless of callback size.
             for chunkSize in [128, 512, 1024, 8192] {
                 let published = Observation<[[Float]]>([])
-                let stream = SystemAudioSpectrumService(barCount: 16, onSceneLevels: {
+                let publishedWeb = Observation<[[Float]]>([])
+                let includesWeb = chunkSize == 512
+                let stream = SystemAudioSpectrumService(barCount: 16, onWebLevels: { levels in
+                    publishedWeb.update { $0.append(levels) }
+                }, onSceneLevels: {
                     _,_,_,_,left,right,_ in published.update { $0.append(left + right) }
                 })
                 stream.debugEnableRecoveryTesting()
-                stream.setConsumers(overlayEnabled:false,webEnabled:false,sceneEnabled:true)
+                stream.setConsumers(overlayEnabled:false,webEnabled:includesWeb,sceneEnabled:true)
                 _ = stream.debugRecoverySnapshot()
                 expect(published.value.count == 1 && published.value[0].allSatisfy { $0 == 0 },
                     "initial activation must clear the endpoint exactly once")
                 published.value = []
+                publishedWeb.value = []
                 let reference = SystemAudioSceneSpectrumAnalyzer()!
                 let rate: Float = 48_000
                 let windowCount = SystemAudioSceneSpectrumAnalyzer.analysisWindowCount(sampleRate:rate)
                 let total = chunkSize * (chunkSize == 8192 ? 40 : 600)
                 var maxError: Float = 0
                 var lateError: Float = 0
+                var sceneActive = true
                 let pcm = (0..<total).map { index in
                     Float(0.5) * sin(2 * Float.pi * 733 * Float(index) / rate)
                 }
@@ -152,24 +153,44 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                     mFormatID:kAudioFormatLinearPCM,mFormatFlags:kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked,
                     mBytesPerPacket:4,mFramesPerPacket:1,mBytesPerFrame:4,mChannelsPerFrame:1,mBitsPerChannel:32,mReserved:0)
                 for start in stride(from:0,to:total,by:chunkSize) {
+                    if includesWeb && start == total - chunkSize * 40 {
+                        stream.setConsumers(overlayEnabled: false, webEnabled: true, sceneEnabled: false)
+                        _ = stream.debugRecoverySnapshot()
+                        expect(published.value.last?.allSatisfy { $0 == 0 } == true,
+                            "Scene revocation must clear just the author endpoint")
+                        sceneActive = false
+                    }
                     var block = Array(pcm[start..<(start+chunkSize)])
                     let before = published.value.count
+                    let beforeWeb = publishedWeb.value.count
+                    let now = 1 + Double(start + chunkSize) / Double(rate)
                     block.withUnsafeMutableBufferPointer { pointer in
                         var list = AudioBufferList(mNumberBuffers:1,mBuffers:AudioBuffer(
                             mNumberChannels:1,mDataByteSize:UInt32(chunkSize*4),mData:pointer.baseAddress))
                         stream.debugProcessPCMForTesting(&list,format:format,
-                            now:1+Double(start+chunkSize)/Double(rate),
-                            workerBusy:(start/chunkSize)%5 == 3)
+                            now:now,workerBusy:(start/chunkSize)%5 == 3)
                     }
-                    if published.value.count > before {
-                        expect(start+chunkSize >= windowCount,"partial windows must not be published")
-                        expect((start/chunkSize)%5 != 3,"busy worker must not receive a snapshot")
-                        let latest = Array(pcm[(start+chunkSize-windowCount)..<(start+chunkSize)])
-                        let expected = reference.analyze(SystemAudioCapturedFrame(signedChannels:[latest]),sampleRate:rate,
-                            timestamp:1+Double(start+chunkSize)/Double(rate))
+                    let scenePublished = published.value.count > before
+                    let webPublished = publishedWeb.value.count > beforeWeb
+                    if includesWeb && sceneActive {
+                        expect(scenePublished == webPublished, "both domains must use the same capture handoff")
+                    }
+                    expect(sceneActive || !scenePublished, "revoked Scene endpoint must not receive new spectra")
+                    guard scenePublished || webPublished else { continue }
+                    expect(start + chunkSize >= windowCount, "partial windows must not be published")
+                    expect((start / chunkSize) % 5 != 3, "busy worker must not receive a snapshot")
+                    let latest = Array(pcm[(start + chunkSize - windowCount)..<(start + chunkSize)])
+                    let expectedFrame = SystemAudioCapturedFrame(signedChannels: [latest])
+                    if scenePublished {
+                        let expected = reference.analyzeAuthor(expectedFrame, sampleRate: rate, timestamp: now)
                         let error = zip(published.value.last!,expected.left64+expected.right64).map { abs($0-$1) }.max()!
                         maxError = max(maxError,error)
                         if published.value.count > 12 { lateError = max(lateError,error) }
+                    }
+                    if webPublished {
+                        let expected = reference.analyze(expectedFrame, sampleRate: rate, timestamp: now)
+                        expect(publishedWeb.value.last! == expected.left64 + expected.right64,
+                            "Web must retain display heights and history across Scene revocation")
                     }
                 }
                 print("continuity chunk=\(chunkSize) publications=\(published.value.count) max=\(maxError) settled=\(lateError)")
@@ -657,6 +678,7 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                     str(DEBUG_RECOVERY_SOURCE),
                     str(ROOT / "MyWallpaperX/Core/Playback/SystemAudioCaptureBuffer.swift"),
                     str(ROOT / "MyWallpaperX/Core/Playback/SystemAudioSceneSpectrumAnalyzer.swift"),
+                    str(ROOT / "MyWallpaperX/Core/Playback/SystemAudioWebSpectrumAnalyzer.swift"),
                     str(harness_path),
                     "-o",
                     str(binary_path),
@@ -696,6 +718,7 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                     str(DEBUG_RECOVERY_SOURCE),
                     str(ROOT / "MyWallpaperX/Core/Playback/SystemAudioCaptureBuffer.swift"),
                     str(ROOT / "MyWallpaperX/Core/Playback/SystemAudioSceneSpectrumAnalyzer.swift"),
+                    str(ROOT / "MyWallpaperX/Core/Playback/SystemAudioWebSpectrumAnalyzer.swift"),
                     str(harness_path),
                     "-o",
                     str(release_binary_path),

@@ -51,7 +51,6 @@ class AudioSpectrumResponseTests(unittest.TestCase):
         self.assertGreater(self.result["lowResponseDelta"], 0.2)
 
     def test_projection_keeps_scale_and_canonical_height_semantics(self) -> None:
-        self.assertTrue(self.result["coarseMatchesCanonical"])
         self.assertLess(self.result["projectionMeanError"], 1e-6)
         for value in self.result["projectionConstant"]:
             self.assertAlmostEqual(value, 0.6, places=6)

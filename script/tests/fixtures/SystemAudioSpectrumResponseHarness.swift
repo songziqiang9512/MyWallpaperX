@@ -41,7 +41,7 @@ struct SpectrumResponseHarness {
         return [attack, release]
     }
     static func arrays(_ levels: SystemAudioSceneSpectrumAnalyzer.Levels) -> [[Float]] {
-        [levels.left, levels.right, levels.left32, levels.right32, levels.left64, levels.right64]
+        [levels.left64, levels.right64]
     }
     static func scratchReuseChecks() -> [String: Bool] {
         let reused = SystemAudioSceneSpectrumAnalyzer()!
@@ -172,7 +172,6 @@ struct SpectrumResponseHarness {
             "envelope30":envelope(fps:30),"envelope60":envelope(fps:60),
             "projectionConstant":projection,
             "projectionMeanError":abs(projected.reduce(0,+)/28-asymmetric.reduce(0,+)/64),
-            "coarseMatchesCanonical":SystemAudioSceneSpectrumAnalyzer.resample(before.left64,count:16)==before.left,
             "silenceClears":tail.left64.allSatisfy { $0 == 0 } && dc.left64.allSatisfy { $0 == 0 } && dcResult.left64.allSatisfy { $0 == 0 },
             "staleUnchanged":before.left64==stale.left64 && before.left64==staleFormat.left64,
             "staleStateUnchanged":nextClock.left64==nextReference.left64,

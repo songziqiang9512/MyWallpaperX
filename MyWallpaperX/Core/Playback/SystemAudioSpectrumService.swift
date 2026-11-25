@@ -137,11 +137,12 @@ nonisolated final class SystemAudioSpectrumService: NSObject, @unchecked Sendabl
             if self.webEnabled != webEnabled {
                 self.onWebLevels?(Self.clearedWebLevels)
             }
+            if (self.overlayEnabled || self.webEnabled) && !(overlayEnabled || webEnabled) {
+                self.sceneAnalyzer?.resetDisplay()
+            }
             if self.sceneEnabled != sceneEnabled {
-                // A Scene endpoint can be revoked while Web/Video is still using
-                // the same canonical rolling producer. Clear only the endpoint;
-                // do not discard the shared capture window for another consumer.
-                self.clearSceneLevels(resetAnalyzer: false)
+                self.sceneAnalyzer?.resetAuthor()
+                self.clearSceneLevels()
             }
             self.overlayEnabled = overlayEnabled
             self.webEnabled = webEnabled
@@ -518,7 +519,8 @@ nonisolated final class SystemAudioSpectrumService: NSObject, @unchecked Sendabl
         }
         onLevels?(overlayAnalyzer.reset())
         onWebLevels?(Self.clearedWebLevels)
-        clearSceneLevels(resetAnalyzer: true)
+        sceneAnalyzer?.reset()
+        clearSceneLevels()
         if hasCaptureResources {
             if allowRetry {
                 scheduleCaptureTeardownRetryIfNeeded()
@@ -719,17 +721,16 @@ nonisolated final class SystemAudioSpectrumService: NSObject, @unchecked Sendabl
         guard let sceneAnalyzer else {
             if overlayEnabled { onLevels?(overlayAnalyzer.reset()) }
             if webEnabled { onWebLevels?(Self.clearedWebLevels) }
-            if sceneEnabled { clearSceneLevels(resetAnalyzer: true) }
+            if sceneEnabled { clearSceneLevels() }
             return
         }
-        let bands = sceneAnalyzer.analyze(frame, sampleRate: sampleRate, timestamp: pendingCaptureTimestamp)
-        if overlayEnabled {
-            onLevels?(overlayAnalyzer.analyze(bands))
-        }
-        if webEnabled {
-            onWebLevels?(webAnalyzer.analyze(bands))
+        if overlayEnabled || webEnabled {
+            let heights = sceneAnalyzer.analyze(frame, sampleRate: sampleRate, timestamp: pendingCaptureTimestamp)
+            if overlayEnabled { onLevels?(overlayAnalyzer.analyze(heights)) }
+            if webEnabled { onWebLevels?(webAnalyzer.analyze(heights)) }
         }
         if sceneEnabled {
+            let bands = sceneAnalyzer.analyzeAuthor(frame, sampleRate: sampleRate, timestamp: pendingCaptureTimestamp)
             onSceneLevels?(
                 bands.left,
                 bands.right,
@@ -742,10 +743,7 @@ nonisolated final class SystemAudioSpectrumService: NSObject, @unchecked Sendabl
         }
     }
 
-    private func clearSceneLevels(resetAnalyzer: Bool = false) {
-        if resetAnalyzer {
-            sceneAnalyzer?.reset()
-        }
+    private func clearSceneLevels() {
         onSceneLevels?(
             Self.clearedSceneLevels,
             Self.clearedSceneLevels,
