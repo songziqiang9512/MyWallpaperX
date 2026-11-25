@@ -125,12 +125,12 @@
       "bytes": 69477
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 454,
-      "bytes": 91450
+      "lines": 461,
+      "bytes": 92392
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 333045
+      "bytes": 334464
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 245,
-      "bytes": 69155
+      "bytes": 69206
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -460,11 +460,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "e398ecc9c475c75e54331783223e5a68ed173c678cd5acd942b32569040d120d",
-      "after": "9d8d0007ae697cf2231b5d662fe424394a986bae6ae22de7eed076cf2b951472",
-      "owner": "Scene private material coverage",
-      "reason": "Specify alpha-preserving private graph and dynamic passthrough before implementation.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#zero-alpha-private-graph"
+      "before": "9d8d0007ae697cf2231b5d662fe424394a986bae6ae22de7eed076cf2b951472",
+      "after": "feb74fd563a26e329e0553f977b90ef053e243072ca1936ef39db41c9b36c70b",
+      "owner": "Utility layer color compositor",
+      "reason": "Define the existing author-cut capture and color blend for a project layer without effects.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#plain-project-color-blend"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2441cce071e9497c018cc8d713b9b762cb14271b352a57968fa2607de8de711d",
-      "after": "a3572bb20422500dfe8094c525b72ef4f17d3e8fae0cb9094f6a7f925084edb3",
-      "owner": "Scene author spectrum",
-      "reason": "Record actual signed original and official matched PCM render, crop, negative Bloom/sound controls and remaining phase differences.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-capture-live-361"
+      "before": "a3572bb20422500dfe8094c525b72ef4f17d3e8fae0cb9094f6a7f925084edb3",
+      "after": "ec4bcefa4e8043893255c169fdb2d4f492b9e8662e420b7a58e72ecdf8416a14",
+      "owner": "Scene Project color output",
+      "reason": "Record paired official and native project blend, controlled original author contrast and an independent real author.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-ring-project-prefix-blend-361"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "6d98d9cbbbd1619d257600e68abf4696ba6f94e0f44b35a17fa26bfb5c31f1bc",
-      "after": "bd2fef4a267c9aaa645d638aa656560992ba15da05bdab28274b5970d11ec987",
-      "owner": "Scene author spectrum",
-      "reason": "Distinguish frozen visual progress from shared live input qualification.",
+      "before": "cea991a8f221148a01e61675eaa0d6850c8d798af2490913d4a86b4991bbe5bc",
+      "after": "7eb645af840592c6fcd389da8490e9d6110d6873f55b3f27312d459a3cf7ef6a",
+      "owner": "Scene author ring",
+      "reason": "Route the recovered original background and preserve open timing and format validation.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {

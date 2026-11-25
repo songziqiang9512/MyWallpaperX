@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from script.tests.scene.test_scene_dependency_render_plan import SWIFT_SOURCES as DEPENDENCY_PLANNER_SOURCES
 from script.tests.support.source_family import read_source_family
 import json
 import os
@@ -420,6 +421,108 @@ enum Harness {
     }
 }
 '''
+
+PROJECT_COLOR_BLEND_HARNESS = r'''
+import Foundation
+
+@main
+enum ProjectColorBlendProbe {
+    static func probe(_ id: Int = 41,
+                      kind: SceneUtilityLayer.Kind = .project,
+                      mode: Int = 30, copyBackground: Bool = true,
+                      alpha: Double? = nil, hasEffect: Bool = false,
+                      ortho: Bool = true, perspective: Bool = false) -> [String: Any] {
+        var utility = SceneUtilityLayer(kind: kind)
+        utility.copyBackground = copyBackground
+        var layer = SceneRenderDescriptor.Layer(
+            id: id, contentKind: kind.rawValue, utilityLayer: utility,
+            dependencyLayerIDs: [], childLayerIDs: [], visible: true,
+            effects: hasEffect ? [.init(id: "opacity", file: "effects/opacity/effect.json",
+                                        visible: true, passes: [])] : []
+        )
+        layer.alpha = alpha
+        layer.colorBlendMode = mode
+        layer.usesPerspective = perspective
+        let before = SceneRenderDescriptor.Layer(id: 12, contentKind: "solid",
+            utilityLayer: nil, dependencyLayerIDs: [], childLayerIDs: [], visible: true, effects: [])
+        let after = SceneRenderDescriptor.Layer(id: 77, contentKind: "image",
+            utilityLayer: nil, dependencyLayerIDs: [], childLayerIDs: [], visible: true, effects: [])
+        var descriptor = SceneRenderDescriptor(layers: [layer, before, after],
+            renderOrderLayerIDs: [before.id, id, after.id])
+        descriptor.camera.authoredOrthographicProjectionActive = ortho
+        descriptor.camera.orthoWidth = 128
+        descriptor.camera.orthoHeight = 64
+        let plans = SceneUtilityLayerRuntimePlanner.plans(in: descriptor,
+            resolvedMaterialLayerIDs: hasEffect ? [id] : [])
+        let execution = SceneUtilityLayerRuntimePlanner.execution(in: descriptor, plans: plans)
+        return ["disposition": plans[id]!.disposition.rawValue,
+                "triggers": execution.plansByTriggerLayerID[id]?.map(\.layerID) ?? [],
+                "order": execution.orderedLayerIDs,
+                "captureIDs": execution.captureLayerIDs.sorted()]
+    }
+
+    static func main() throws {
+        let rows = [
+            "project": probe(),
+            "renamed-half-alpha": probe(503, alpha: 0.5),
+            "difference": probe(mode: 18),
+            "normal": probe(mode: 0),
+            "no-copy": probe(copyBackground: false),
+            "composition": probe(kind: .composition),
+            "fullscreen": probe(kind: .fullscreen),
+            "native-perspective": probe(ortho: false),
+            "explicit-perspective": probe(perspective: true),
+            "prepared-opacity": probe(hasEffect: true),
+        ]
+        let data = try JSONSerialization.data(withJSONObject: rows)
+        print(String(decoding: data, as: UTF8.self))
+    }
+}
+'''
+
+
+class SceneProjectColorBlendPlanTests(unittest.TestCase):
+    def test_stock_project_tint_has_its_authored_cut_without_a_material_program(self) -> None:
+        if shutil.which("swiftc") is None:
+            self.skipTest("swiftc is unavailable")
+        support = next(path for path in DEPENDENCY_PLANNER_SOURCES
+                       if path.name == "SceneDependencyRenderPlanTestSupport.swift")
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-project-color-blend-") as directory:
+            root = Path(directory)
+            harness = root / "ProjectColorBlend.swift"
+            harness.write_text(PROJECT_COLOR_BLEND_HARNESS, encoding="utf-8")
+            layer_support = root / support.name
+            layer_support.write_text(support.read_text(encoding="utf-8").replace(
+                "var colorBlendMode: Int? = nil",
+                "var colorBlendMode: Int? = nil\n        var alpha: Double? = nil",
+            ), encoding="utf-8")
+            binary = root / "project-color-blend"
+            compiled = subprocess.run(
+                ["xcrun", "--sdk", "macosx", "swiftc", "-D", "SCENE_ACTUAL_COMPOSITION_SOURCE_ROUTE",
+                 *(str(path) for path in DEPENDENCY_PLANNER_SOURCES if path != support),
+                 str(SOURCE_ROUTE_SOURCE), str(layer_support), str(harness), "-o", str(binary)],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            result = json.loads(subprocess.check_output([str(binary)], text=True))
+
+        for name, layer_id, disposition, captures in (
+            ("project", 41, "projectColorBlend", [41]),
+            ("renamed-half-alpha", 503, "projectColorBlend", [503]),
+            ("difference", 41, "projectColorBlend", [41]),
+            ("normal", 41, "skippedNoEffect", []),
+            ("no-copy", 41, "skippedNoEffect", []),
+            ("composition", 41, "skippedNoEffect", []),
+            ("fullscreen", 41, "skippedNoEffect", []),
+            ("native-perspective", 41, "skippedNoEffect", []),
+            ("explicit-perspective", 41, "skippedNoEffect", []),
+            ("prepared-opacity", 41, "capture", [41]),
+        ):
+            with self.subTest(route=name):
+                self.assertEqual(result[name], {
+                    "disposition": disposition, "triggers": captures,
+                    "captureIDs": captures, "order": [12, layer_id, 77],
+                })
 
 
 class SceneUtilityLayerTests(unittest.TestCase):
