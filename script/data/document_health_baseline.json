@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 18152
+      "bytes": 18286
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 410,
-      "bytes": 99336
+      "bytes": 99889
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 133648
+      "bytes": 134328
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -186,7 +186,7 @@
     },
     "docs/web/current-state.md": {
       "lines": 141,
-      "bytes": 52949
+      "bytes": 53163
     },
     "docs/web/dedicated-host-process-design.md": {
       "lines": 92,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "5a0af76f3b1a5bb78d438daa25cd7c64d2e9c1c29ea1932470969e8150171fc2",
-      "after": "db342e3e0d9087579b3d9b46be82eb6fd32fe784b055c1e96be4e7acb39112ab",
+      "before": "db342e3e0d9087579b3d9b46be82eb6fd32fe784b055c1e96be4e7acb39112ab",
+      "after": "35562c748c1b5032bf95e90508f132d67d5c7cfb1cbcffa6696c92a2ef90cde3",
       "owner": "仓库源码导航",
-      "reason": "定位显式按钮与直接编辑共享的候选入口",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-cold-auto-adoption"
+      "reason": "补 Web 质量首投及回放挂载入口",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
     },
     {
       "section": "bodies",
@@ -405,11 +405,11 @@
     {
       "section": "bodies",
       "path": "docs/web/current-state.md",
-      "before": "666673acc05e88f29fba62026dc9b75a6eb12deb8145eb266d0d2df6d6370346",
-      "after": "324121140ef2e8e693575ddeb7b27f598599acca3b3405d96ef682fbc0045266",
-      "owner": "web-runtime",
-      "reason": "从现役帧率合同定位真实作者实窗验收",
-      "decision": "docs/development/wallpaper-quality-work-card.md#web-authored-live-draw"
+      "before": "324121140ef2e8e693575ddeb7b27f598599acca3b3405d96ef682fbc0045266",
+      "after": "3543ced972ac36ec9abb6dcde4d4ea31d8d4dd2e844b9850b493edaea577016d",
+      "owner": "Web 宿主",
+      "reason": "补每文档属性包回放与作者可写值的现役合同",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "1f8ca48b9b2976784c3d53113c44b1965bd1ca62c67893da38ba8de930b5e951",
-      "after": "89b0ed28007203f92a4eed71b1fe5333c84862b11b741d8f875378da00a5b39b",
+      "before": "89b0ed28007203f92a4eed71b1fe5333c84862b11b741d8f875378da00a5b39b",
+      "after": "d0f87189f573b185c05d38dfc585242e1da685894bd30b8038aed0112b560b8c",
       "owner": "壁纸质量评估",
-      "reason": "补导入后显式重试的同源撤单及验收规则",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-cold-auto-adoption"
+      "reason": "规定 Web 首次环境包及晚注册回放，以及可复现验收顺序",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "11f39f9c51681e452c6232e707715bcdd755f286187ffcc964a077c67a25816e",
-      "after": "e13ccb5f3b3509dae220f205b4d6eb8e347bc8b8784ed5c3a7d26eb6d0cd3097",
-      "owner": "wallpaper-quality",
-      "reason": "L1 本机真实画面结果",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-one-level-texture-trial"
+      "before": "9ea24c3ec54e0c504acb329b2b6493e3e91b27312c30b4364f215f258d2d1348",
+      "after": "c1c703e3bd914db7cb305630a05f5ed4f979e4d28a50e1b99ee7add0d9944f4e",
+      "owner": "壁纸质量专项",
+      "reason": "录入 Web 基线重复绘制、回归反例和签名作品结果",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
     }
   ]
 }

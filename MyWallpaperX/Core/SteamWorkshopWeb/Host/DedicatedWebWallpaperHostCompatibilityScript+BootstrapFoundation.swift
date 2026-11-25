@@ -271,7 +271,8 @@ let webCompatibilityScriptBootstrapFoundation = #"""
   };
   window.__myWallpaperDirectoryState = window.__myWallpaperDirectoryState || {};
   window.__myWallpaperLastUserProperties = window.__myWallpaperInitialUserProperties || window.__myWallpaperLastUserProperties || {};
-  window.__myWallpaperLastGeneralProperties = window.__myWallpaperInitialGeneralProperties || window.__myWallpaperLastGeneralProperties || {};
+  let latestGeneralProperties = window.__myWallpaperInitialGeneralProperties || {};
+  delete window.__myWallpaperInitialGeneralProperties;
   window.wallpaperEngine_paused = !!window.__myWallpaperInitialPaused;
   let wallpaperPropertyListenerValue = window.wallpaperPropertyListener && typeof window.wallpaperPropertyListener === 'object'
     ? window.wallpaperPropertyListener
@@ -667,11 +668,7 @@ let webCompatibilityScriptBootstrapFoundation = #"""
       } catch (_) {}
     }
     try {
-      if (typeof window.__myWallpaperApplyGeneralProperties === 'function') {
-        window.__myWallpaperApplyGeneralProperties(window.__myWallpaperLastGeneralProperties || {});
-      } else if (typeof window.wallpaperPropertyListener.applyGeneralProperties === 'function') {
-        window.wallpaperPropertyListener.applyGeneralProperties(window.__myWallpaperLastGeneralProperties || {});
-      }
+      window.__myWallpaperApplyGeneralProperties();
     } catch (_) {}
     try {
       if (typeof window.__myWallpaperApplyInitialPausedState === 'function') {

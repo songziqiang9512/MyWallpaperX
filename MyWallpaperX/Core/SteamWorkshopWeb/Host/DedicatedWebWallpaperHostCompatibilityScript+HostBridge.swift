@@ -503,25 +503,23 @@ let webCompatibilityScriptHostBridge = #"""
     myWallpaperPropertyReplayState.attempt = 0;
     myWallpaperSchedulePendingPropertyApply(0);
   };
-  let generalPropertiesSeedDelivery = null;
-  window.__myWallpaperApplyGeneralProperties = function(properties) {
+  let lastGeneralPropertiesDelivery;
+  let deliveredGeneralPropertiesSeed = false;
+  window.__myWallpaperApplyGeneralProperties = function() {
     if (window.__myWallpaperAwaitingGeneralProperties) return;
-    const normalizedProperties = window.__myWallpaperNormalizePropertyBag(properties || {});
-    window.__myWallpaperLastGeneralProperties = normalizedProperties;
     try {
       const listener = window.wallpaperPropertyListener;
       const callback = listener && listener.applyGeneralProperties;
-      if (generalPropertiesSeedDelivery) {
-        const signature = window.__myWallpaperStablePropertySignature(normalizedProperties);
-        if (generalPropertiesSeedDelivery.signature === signature &&
-            generalPropertiesSeedDelivery.listener === listener &&
-            generalPropertiesSeedDelivery.callback === callback) return;
-        generalPropertiesSeedDelivery = { signature, listener, callback };
-      }
+      const properties = latestGeneralProperties;
+      if (lastGeneralPropertiesDelivery?.properties === properties &&
+          lastGeneralPropertiesDelivery.listener === listener &&
+          lastGeneralPropertiesDelivery.callback === callback) return;
+      const authorProperties = window.__myWallpaperNormalizePropertyBag(properties);
+      lastGeneralPropertiesDelivery = { properties, listener, callback };
       if (typeof callback === 'function') {
-        callback.call(listener, normalizedProperties);
+        callback.call(listener, authorProperties);
       }
-      window.dispatchEvent(new CustomEvent('wallpaper-general-properties-applied', { detail: normalizedProperties }));
+      window.dispatchEvent(new CustomEvent('wallpaper-general-properties-applied', { detail: authorProperties }));
     } catch (error) {
       hostLogger?.post('general-properties.error', error && error.message ? error.message : error);
     }
@@ -530,24 +528,28 @@ let webCompatibilityScriptHostBridge = #"""
   // Let the live frame hello supply the first author-visible general properties.
   window.__myWallpaperReceiveGeneralProperties = function(properties, beforeResume) {
     window.__myWallpaperAwaitingGeneralProperties = false;
-    if (document.readyState === 'loading' && !beforeResume) {
-      window.__myWallpaperLastGeneralProperties = properties;
-    } else {
-      window.__myWallpaperApplyGeneralProperties(properties);
-      generalPropertiesSeedDelivery = null;
+    // Only a seed and its first live replacement need a content comparison.
+    if (!deliveredGeneralPropertiesSeed ||
+        window.__myWallpaperStablePropertySignature(latestGeneralProperties) !==
+          window.__myWallpaperStablePropertySignature(properties)) {
+      latestGeneralProperties = properties;
+    }
+    deliveredGeneralPropertiesSeed = false;
+    if (beforeResume || document.readyState !== 'loading') {
+      window.__myWallpaperApplyGeneralProperties();
     }
   };
   if (window.__myWallpaperAwaitingGeneralProperties) {
     document.addEventListener('DOMContentLoaded', function() {
       if (!window.__myWallpaperAwaitingGeneralProperties) {
-        window.__myWallpaperApplyGeneralProperties(window.__myWallpaperLastGeneralProperties);
+        window.__myWallpaperApplyGeneralProperties();
         return;
       }
       const useSeed = () => {
         if (!window.__myWallpaperAwaitingGeneralProperties) return;
         window.__myWallpaperAwaitingGeneralProperties = false;
-        generalPropertiesSeedDelivery = {};
-        window.__myWallpaperApplyGeneralProperties(window.__myWallpaperLastGeneralProperties);
+        deliveredGeneralPropertiesSeed = true;
+        window.__myWallpaperApplyGeneralProperties();
       };
       // A paused document cannot run the settled-frame scheduler's page timers.
       if (window.wallpaperEngine_paused) useSeed();

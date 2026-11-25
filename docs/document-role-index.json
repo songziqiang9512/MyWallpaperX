@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "473bfd6c7d79904af57200d026ac337a84404e1db0a4421997cf4cc366ded8a0",
+        "sourceSHA256": "e1d079b86a659b3adb587d92fd37bfde605f4bb86809ee8ef78f2ca67e69ff37",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene 质量重载与待应用提示入口",
-        "limitations": "按原切换与回执职责"
+        "scope": "Web 宿主投影及文档属性消费者",
+        "limitations": "沿现有进程与 frame 入口"
       }
     },
     {
@@ -355,10 +355,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "82a16e65a3a2ece90f524b0120275d8503981570c249d254ac83d7c7243097be",
+        "sourceSHA256": "438d1df394448429ac7311626ea867722a91fd1e61d24ef07b3d2cc328d6e170",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene 显式冷档重试接管规则与直接编辑交互",
-        "limitations": "沿原候选事务；混合显示边界未重测"
+        "scope": "Web 文档首次属性投递和首个实时值回退规则",
+        "limitations": "按原 frame endpoint 归属"
       }
     },
     {
@@ -369,10 +369,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7991d6d1cd4c6aeb01a574f2469dec47f992f49dcb43f4e5296e032c24ad9cf9",
+        "sourceSHA256": "b11a90df1bc7c4cdfd2161ec06f8c13cdc91240aa3cf1c0051367d3d929e7bf2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原生按钮、真实导入与两作者单内屏撤销实测",
-        "limitations": "阶段窗口及截图证据"
+        "scope": "WKWebView 首投红绿、Canvas 像素和实际作品接管",
+        "limitations": "回调计数与产品激活分开观测"
       }
     },
     {
@@ -1109,10 +1109,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "53043842aa9a486b3f1dca9a9ff8d520368e30702003ba2829280e243b9bb14f",
+        "sourceSHA256": "29711f57875f03aa48ce483a07daad62ee9eead80357740d165ec7b2738181b8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "从现役帧率合同定位真实作者实窗验收",
-        "limitations": "真实作者绘制、画面运动、物理呈现与功耗分开。"
+        "scope": "Web 建议及首投、重放的文档执行合同",
+        "limitations": "按当前全量原生属性包"
       }
     },
     {

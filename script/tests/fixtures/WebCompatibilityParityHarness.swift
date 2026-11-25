@@ -176,6 +176,7 @@ final class HostProbeRecorder: NSObject, WKScriptMessageHandler {
 /// 的请求回落原生，而不是落进只会等桥超时的代理路径。
 final class ProbeChildSchemeHandler: NSObject, WKURLSchemeHandler {
     private let html: String
+    private(set) var pendingParserScript: WKURLSchemeTask?
 
     init(html: String) {
         self.html = html
@@ -186,25 +187,44 @@ final class ProbeChildSchemeHandler: NSObject, WKURLSchemeHandler {
             urlSchemeTask.didFailWithError(NSError(domain: "WebCompatibilityParity", code: 3))
             return
         }
-        let body = Data(html.utf8)
+        if url.path == "/hold.js" {
+            pendingParserScript = urlSchemeTask
+            return
+        }
+        finish(urlSchemeTask, url: url, content: html, mimeType: "text/html")
+    }
+
+    func releaseParser() {
+        guard let task = pendingParserScript, let url = task.request.url else { return }
+        pendingParserScript = nil
+        finish(task, url: url, content: "", mimeType: "text/javascript")
+    }
+
+    private func finish(_ task: WKURLSchemeTask, url: URL, content: String, mimeType: String) {
+        let body = Data(content.utf8)
         guard let response = HTTPURLResponse(
             url: url,
             statusCode: 200,
             httpVersion: "HTTP/1.1",
             headerFields: [
-                "Content-Type": "text/html; charset=utf-8",
+                "Content-Type": "\(mimeType); charset=utf-8",
+                "Cache-Control": "no-store",
                 "Content-Length": String(body.count)
             ]
         ) else {
-            urlSchemeTask.didFailWithError(NSError(domain: "WebCompatibilityParity", code: 3))
+            task.didFailWithError(NSError(domain: "WebCompatibilityParity", code: 3))
             return
         }
-        urlSchemeTask.didReceive(response)
-        urlSchemeTask.didReceive(body)
-        urlSchemeTask.didFinish()
+        task.didReceive(response)
+        task.didReceive(body)
+        task.didFinish()
     }
 
-    func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) {}
+    func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) {
+        if let script = pendingParserScript, script === urlSchemeTask {
+            pendingParserScript = nil
+        }
+    }
 }
 
 @MainActor
@@ -213,7 +233,7 @@ final class PageHost {
     let adapter: Adapter
     let recorder = HostProbeRecorder()
     /// 方案处理器由配置持有的是弱引用不可依赖：这里显式持有，避免子 frame 加载失败。
-    private let crossOriginSchemeHandler: ProbeChildSchemeHandler?
+    let crossOriginSchemeHandler: ProbeChildSchemeHandler?
     let endpointStub = FrameEndpointHelloStub()
     private let window: NSWindow
     /// 新文档代际哨兵（document-start 注入）：`loadHTMLString` 是异步导航，旧文档

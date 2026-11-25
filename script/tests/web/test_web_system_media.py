@@ -133,8 +133,9 @@ SCENARIOS = r'''
         case "frames": try await framesAndNavigation()
         case "general-fps": try await generalFPSAcrossDocuments()
         case "general-fps-no-hello":
-            try await generalFPSWithoutHello(initiallyPaused: false)
-            try await generalFPSWithoutHello(initiallyPaused: true)
+            try await generalFPSWithoutHello(initiallyPaused: false, lateFPS: 60)
+            try await generalFPSWithoutHello(initiallyPaused: true, lateFPS: 60)
+            try await generalFPSWithoutHello(initiallyPaused: false, lateFPS: 25)
         case "backpressure": try await backpressureAndRevocation()
         default: fatalError("unknown scenario")
         }
@@ -354,22 +355,43 @@ SCENARIOS = r'''
     }
     static func generalFPSAcrossDocuments() async throws {
         let author = """
+        <canvas id="delivery" width="1" height="1"></canvas>
         <script>
         window.suggestions = [];
+        window.deliveryCanvas = document.getElementById("delivery").getContext("2d");
         wallpaperPropertyListener = {
-          applyGeneralProperties: properties => suggestions.push(properties.fps)
+          applyGeneralProperties(properties) {
+            suggestions.push(properties.fps);
+            deliveryCanvas.fillStyle = "rgb(" + (suggestions.length * 40) + ", 0, 0)";
+            deliveryCanvas.fillRect(0, 0, 1, 1);
+          }
         };
         </script>
         """
         let adapter = Adapter()
         adapter.applyFrameRateSuggestion(30)
-        let host = PageHost(html: author + "<iframe srcdoc='\(author)'></iframe><iframe src='mwx-probe://remote/index'></iframe>",
-                            crossOriginChildHTML: author, adapter: adapter,
+        let hold = "<script src='mwx-probe://remote/hold.js'></script>"
+        let frames = "<iframe srcdoc='\(author)'></iframe><iframe src='mwx-probe://remote/index'></iframe>"
+        let host = PageHost(html: author + hold + frames, crossOriginChildHTML: author, adapter: adapter,
                             initialGeneralPropertiesJSON: #"{"fps":60}"#, awaitCurrentGeneralProperties: true)
         defer { host.close() }
+        let scheme = host.crossOriginSchemeHandler!
+        let parsingWithHello =
+            "document.readyState === 'loading' && suggestions.length === 0 && __myWallpaperHostFrameEndpointAck === true"
+        try await host.waitUntil(parsingWithHello, label: "live hello while the author document is parsing")
+        expect(scheme.pendingParserScript != nil, "fixture holds the parser before DOMContentLoaded")
+        scheme.releaseParser()
         try await host.open()
-        try await host.waitUntil("Array.isArray(frames[0].suggestions)", label: "same-origin author registered")
-        try await host.waitUntil("suggestions[0] === 30 && frames[0].suggestions[0] === 30", label: "first local frame suggestions")
+        let settled = "window.__myWallpaperPropertyReplayQueued !== true && window.__myWallpaperDeferredPropertyReplayScheduled !== true"
+        try await host.waitUntil(settled, label: "settled listener replay")
+        let initialSuggestions = try await host.script("suggestions.slice()") as? [Int]
+        expect(initialSuggestions == [30], "initial document expected exactly [30], received \(String(describing: initialSuggestions))")
+        let deliveryPixel = try await host.script("deliveryCanvas.getImageData(0, 0, 1, 1).data[0]") as? Int
+        expect(deliveryPixel == 40, "one author callback drew the initial canvas marker")
+        try await host.waitUntil("frames[0].eval(\(WebWallpaperHostSupport.javaScriptQuotedString(settled)))",
+                                 label: "same-origin listener replay settled")
+        let child = try await host.script("frames[0].suggestions.slice()") as? [Int]
+        expect(child == [30], "same-origin document gets exactly one initial suggestion")
         let endpoints = adapter.frameEndpointRegistry.endpoints(in: host.view)
         expect(endpoints.count == 3, "main, same-origin and cross-origin author frames register independently")
         let main = endpoints.first { $0.frameInfo.isMainFrame }!
@@ -381,31 +403,64 @@ SCENARIOS = r'''
                 }
             }
         }
-        let remoteFirst = try await remoteValue("suggestions[0]") as? Int
-        expect(remoteFirst == 30, "cross-origin author gets current FPS as its first callback")
+        for _ in 0..<20 {
+            if (try await remoteValue(settled) as? Bool) == true { break }
+            try await host.wait(0.1)
+        }
+        let remoteSettled = try await remoteValue(settled) as? Bool
+        let remoteFirst = try await remoteValue("suggestions.slice()") as? [Int]
+        expect(remoteSettled == true && remoteFirst == [30], "cross-origin author gets one current FPS callback")
         adapter.applyFrameRateSuggestion(60)
         try await host.waitUntil("suggestions.at(-1) === 60 && frames[0].suggestions.at(-1) === 60", label: "live local-frame FPS changes")
         let remoteLast = try await remoteValue("suggestions.at(-1)") as? Int
         expect(remoteLast == 60, "cross-origin author gets the live update")
-        _ = try await host.script("window.lateFPS = []; wallpaperPropertyListener = {applyGeneralProperties: p => lateFPS.push(p.fps)}; true")
-        try await host.waitUntil("lateFPS[0] === 60", label: "late registration mirrors latest FPS")
+        _ = try await host.script("""
+        wallpaperPropertyListener = {applyGeneralProperties(properties) {
+            window.originalWidth = properties.display.width;
+            properties.fps = -1;
+            properties.display.width = -2;
+        }};
+        true
+        """)
+        try await host.waitUntil("window.originalWidth > 0", label: "late listener receives and mutates its copy")
+        _ = try await host.script("""
+        window.replacementProperties = [];
+        wallpaperPropertyListener.applyGeneralProperties = properties => {
+          replacementProperties.push([properties.fps, properties.display.width, properties.volume.value]);
+        };
+        wallpaperRegisterPropertyListener(wallpaperPropertyListener);
+        true
+        """)
+        try await host.waitUntil("replacementProperties.length === 1 && replacementProperties[0][0] === 60 && replacementProperties[0][1] === originalWidth",
+                                 label: "replacement callback receives the original values")
+        adapter.effectiveVolume = 0.75
+        adapter.applyGeneralProperties(to: host.view)
+        try await host.waitUntil("replacementProperties.length === 2 && replacementProperties[1][0] === 60 && replacementProperties[1][2] === 0.75",
+                                 label: "changed volume is delivered at the same FPS")
 
         adapter.applyFrameRateSuggestion(30)
         adapter.frameEndpointRegistry.revokeAll(in: host.view)
-        host.view.loadHTMLString(author + "<body id='replacement'></body>", baseURL: nil)
-        try await host.waitUntil("document.body?.id === 'replacement'", label: "replacement document in same view")
-        try await host.waitUntil("suggestions[0] === 30", label: "replacement first suggestion")
-        let late = adapter.sequencedPushScript("window.__myWallpaperReceiveGeneralProperties({fps: 60});",
-            sequence: 1000, documentNonce: main.documentNonce)
-        _ = try await host.script(late + " true")
-        let observed = try await host.script("suggestions.at(-1)") as? Int
-        expect(observed == 30, "an evaluation queued for the old document cannot overwrite the new hint")
+        host.view.loadHTMLString(author + hold + "<div id='replacement'></div>", baseURL: nil)
+        try await host.waitUntil(parsingWithHello, label: "replacement document gets a fresh hello while parsing")
+        expect(scheme.pendingParserScript != nil, "replacement document waits for its own parser script")
         _ = try await host.script("""
         wallpaperPropertyListener.setPaused = paused => {
           if (!paused) window.resumeObservation = [document.readyState, suggestions.at(-1)];
         };
         true
         """)
+        adapter.applyPausedState(false, to: host.view, frameRateChanged: true)
+        try await host.waitUntil("JSON.stringify(resumeObservation) === '[\"loading\",30]'", label: "pre-DOM resume gets current FPS")
+        scheme.releaseParser()
+        try await host.waitUntil("document.getElementById('replacement') !== null && (\(settled))",
+                                 label: "same view replacement replay settled")
+        let replacement = try await host.script("suggestions.slice()") as? [Int]
+        expect(replacement == [30], "replacement resume, DOM and listener replay share the first suggestion")
+        let late = adapter.sequencedPushScript("window.__myWallpaperReceiveGeneralProperties({fps: 60});",
+            sequence: 1000, documentNonce: main.documentNonce)
+        _ = try await host.script(late + " true")
+        let observed = try await host.script("suggestions.at(-1)") as? Int
+        expect(observed == 30, "an evaluation queued for the old document cannot overwrite the new hint")
         adapter.paused = true
         adapter.applyPausedState(true, to: host.view)
         try await host.waitUntil("wallpaperEngine_paused === true", label: "author pause")
@@ -446,7 +501,7 @@ SCENARIOS = r'''
                "expected only changed suggestions \([differentFPS, displayFPS]), received \(modeChangeCallbacks)")
     }
 
-    static func generalFPSWithoutHello(initiallyPaused: Bool) async throws {
+    static func generalFPSWithoutHello(initiallyPaused: Bool, lateFPS: Int) async throws {
         let adapter = Adapter()
         adapter.appliedFrameRateSuggestion = 60
         adapter.defersFrameHello = true
@@ -455,7 +510,10 @@ SCENARIOS = r'''
         let host = PageHost(html: """
             <script>
               window.suggestions = [];
-              window.recordFPS = p => suggestions.push(p.fps);
+              window.recordFPS = p => {
+                suggestions.push(p.fps);
+                if (\(initiallyPaused) && p.fps === 60) throw new Error('side effect before author error');
+              };
               wallpaperRegisterPropertyListener({ applyGeneralProperties: recordFPS });
             </script>
             """, adapter: adapter, initialGeneralPropertiesJSON: seed, awaitCurrentGeneralProperties: true,
@@ -463,11 +521,13 @@ SCENARIOS = r'''
         defer { host.close() }
         try await host.open()
         try await host.waitUntil("suggestions.length === 1 && suggestions[0] === 60", label: "unacknowledged document gets the seed")
-        _ = try await host.script("__myWallpaperApplyGeneralProperties(__myWallpaperLastGeneralProperties); true")
+        _ = try await host.script("__myWallpaperApplyGeneralProperties(); true")
+        adapter.appliedFrameRateSuggestion = lateFPS
         host.endpointStub.releaseHellos()
         try await host.waitUntil("__myWallpaperHostFrameEndpointAck === true", label: "late hello recovers")
-        let identicalDeliveries = try await host.script("suggestions.length") as? Int
-        expect(identicalDeliveries == 1, "identical seed replay and late live state must not repeat the author callback")
+        let expected = lateFPS == 60 ? [60] : [60, lateFPS]
+        let helloSuggestions = try await host.script("suggestions.slice()") as? [Int]
+        expect(helloSuggestions == expected, "only a changed live value supersedes the fallback seed")
         adapter.appliedFrameRateSuggestion = 30
         if initiallyPaused {
             adapter.paused = false
@@ -475,7 +535,8 @@ SCENARIOS = r'''
         } else {
             adapter.applyGeneralProperties(to: host.view)
         }
-        try await host.waitUntil("JSON.stringify(suggestions) === '[60,30]'", label: "live state supersedes seed after hello recovers")
+        let finalFPS = (expected + [30]).map(String.init).joined(separator: ",")
+        try await host.waitUntil("JSON.stringify(suggestions) === '[\(finalFPS)]'", label: "live state applies after hello recovers")
     }
 
     static func backpressureAndRevocation() async throws {
