@@ -18,7 +18,7 @@
 | 定位 | 当前事实与下一步 |
 |---|---|
 | Sphere 全零方向的出生可见性（待证） | [固定零半径初速](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)已恢复。显式全零 Directions 的隔离 Sprite 官版无像素、本机有静点。现库860可读包及松散/库存的1,834个显式声明未见全零。重启须活动输入或子事件/占槽证据区分出生与可见性，保零速度和非零轴。 |
-| 音频环形变 · 3612940332 | [分组末段缓释](../capabilities/runtime-evidence-current.md#author-spectrum-near-target-release)已恢复已测音乐左弧的主要形变。小残差和全环跨画幅仍开放，有新可见证据再核相位或构图。[44.1kHz](../capabilities/runtime-evidence-current.md#author-spectrum-endpoint-44100)需实际协商端点，当前复核仍48kHz。 |
+| 音频环形变 · 3612940332 | [分组末段缓释](../capabilities/runtime-evidence-current.md#author-spectrum-near-target-release)已恢复已测音乐左弧的主要形变。[1512×818 全环静态](../capabilities/runtime-evidence-current.md#author-ring-wide-fixed-361)同帧线宽与轮廓一致，无需复跑。原包人物/Bloom下动态右弧、小残差及其他画幅待有新可见证据再核。[44.1kHz](../capabilities/runtime-evidence-current.md#author-spectrum-endpoint-44100)需实际协商端点，当前复核仍48kHz。 |
 | 粒子外圈 · 3653620838 | [近轴与像素相位](../capabilities/runtime-evidence-current.md#vortex-outer-pixel-phase-365)的静卡一致。继续须运动同亚像素或重复成熟群组，区分出光与覆盖。 |
 | 3454689854 的相邻丝层 | [同画幅单丝、原包和实际预算](../capabilities/runtime-evidence-current.md#silk-capture-density-345)已闭两条SDR根丝密度。子层及多阶段保持原工作域，只有取得可归属的同相位残差再重启。原默认绕身文字两端均隐藏，条件另见[原包对照](../capabilities/runtime-evidence-current.md#author-silk-raster-345)。 |
 | Puppet 约束的剩余时序与组合 | [原317和313已恢复主要播放](../capabilities/runtime-evidence-current.md#puppet-planar-constraints-native)。固定根解析投影在317额外+96对照的肘误差约2.17px，313极近伸直时官版定槽后仍收敛。待有原包可见差异再核有效根位移与收敛。复杂链、挂点及同链脚本与物理后写按实际消费者验证。 |
@@ -215,7 +215,7 @@
 | 样本 | 状态与已验证范围 |
 |---|---|
 | 3653620838 | 已修复内圈运动、轴向/半径、初速、尾迹、HDR出生亮度及 Project 光效栅格。外围和时相仍开。[运动](../capabilities/runtime-evidence-current.md#vortex-axis-world-365) · [合成](../capabilities/runtime-evidence-current.md#project-framebuffer-resolution-365) |
-| 3612940332 | 部分修复。已修复静态几何宽度、末材密度、已测环周反差、共同起音、强档限步及所测音乐左弧的主要形变。余量与复验范围见上方。[合成](../capabilities/runtime-evidence-current.md#author-ring-project-prefix-blend-361) · [供值](../capabilities/runtime-evidence-current.md#author-spectrum-near-target-release) |
+| 3612940332 | 部分修复。已修复静态几何宽度、末材密度、已测环周反差、共同起音、强档限步及所测音乐左弧的主要形变，已核1512×818固定输入全环。余量与复验范围见上方。[合成](../capabilities/runtime-evidence-current.md#author-ring-project-prefix-blend-361) · [供值](../capabilities/runtime-evidence-current.md#author-spectrum-near-target-release) |
 | 3822067395 | 已修复。原包可启动，首帧及相关效果已实绘。[首帧](../capabilities/runtime-evidence-current.md#tex-alpha-channel-priority-author) |
 | 3174321827 | 已修复。部件回到正确组装姿态，双臂和武器在胸前，细微姿态残差有独立证据。[组装](../capabilities/runtime-evidence-current.md#puppet-counted-reference-317) |
 | 3823864170 | 已修复。拖尾跟随鼠标，默认与可选尾迹通过跟踪、颜色对照。[运动](../capabilities/runtime-evidence-current.md#pointer-zero-angles-author) · [颜色](../capabilities/runtime-evidence-current.md#neutral-mask-trail-382) |

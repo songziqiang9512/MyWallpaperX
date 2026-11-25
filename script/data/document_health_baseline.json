@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 345101
+      "bytes": 345918
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 243,
-      "bytes": 69339
+      "bytes": 69525
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9b4860d6303ca51b2de5aa5e980da2f469d7777d7aa5ee8377ecafc8b29b6c0b",
-      "after": "cf366f8071596062e5738c1fcfad23335c9d6ad6172d9f9c24d5d56b61ec22dc",
-      "owner": "Scene author audio coverage",
-      "reason": "登记同一端点可选44100Hz但实际混音仍48000Hz的已恢复试验。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-endpoint-44100"
+      "before": "cf366f8071596062e5738c1fcfad23335c9d6ad6172d9f9c24d5d56b61ec22dc",
+      "after": "4788d26e624aea7c1bab9319d76fe488029b06555f0b208e2a490108e98a35d5",
+      "owner": "Scene author ring compositing",
+      "reason": "登记同一宽幅同供值全环及停绘的官版与产品实际画面。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-ring-wide-fixed-361"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a78a856807911196e1cd7ca384c17c3acbc5dbc4ab050d2299620970e1be3763",
-      "after": "e513384b2eddc984faa6c2823a507dfb2d0608af3c6680130388394a7bca71da",
-      "owner": "Scene author audio coverage",
-      "reason": "登记同一端点可选44100Hz但实际混音仍48000Hz的已恢复试验。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-endpoint-44100"
+      "before": "e513384b2eddc984faa6c2823a507dfb2d0608af3c6680130388394a7bca71da",
+      "after": "2cb6e6f138e85b7b79b3563f514620a3cb80170b4871ae122a584467b4568885",
+      "owner": "Scene author ring compositing",
+      "reason": "登记同一宽幅同供值全环及停绘的官版与产品实际画面。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-ring-wide-fixed-361"
     },
     {
       "section": "bodies",
