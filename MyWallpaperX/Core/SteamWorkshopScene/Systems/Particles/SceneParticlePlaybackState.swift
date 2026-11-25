@@ -44,6 +44,7 @@ final class SceneParticlePlaybackState {
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
         initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:],
         initialAudioInput: SceneParticleAudioInput = .silent,
+        initialSceneTime: Double = 0,
         destroyedAuthoredLayerIDs: Set<Int> = [],
         shouldCancelPrewarm: (() -> Bool)? = nil
     ) {
@@ -64,14 +65,14 @@ final class SceneParticlePlaybackState {
             initialDynamicValues: initialDynamicValues,
             initialWorldFrames: initialWorldFrames,
             initialPlayback: initialPlayback,
-            initialAudioInput: initialAudioInput,
+            initialAudioInput: initialAudioInput, initialSceneTime: initialSceneTime,
             destroyedAuthoredLayerIDs: destroyedAuthoredLayerIDs,
             shouldCancelPrewarm: shouldCancelPrewarm
         )
         self.runtime = runtime
         self.retainedLayerIDs = Set(runtime.activeLayerIDs)
         self.batches = runtime.advance(
-            by: 0, dynamicValues: initialDynamicValues,
+            by: 0, sceneTime: initialSceneTime, dynamicValues: initialDynamicValues,
             audioInput: initialAudioInput, layerWorldFrames: initialWorldFrames
         )
 #if DEBUG
@@ -91,11 +92,11 @@ final class SceneParticlePlaybackState {
                                   visibility: SceneParticlePlaybackVisibility?) {
         runtime.installPlaybackCandidate(layerID: layerID, state: state, visibility: visibility)
     }
-    func emissionContext(layerID: Int, dynamicValues: SceneDynamicSnapshot,
+    func emissionContext(layerID: Int, sceneTime: Double, dynamicValues: SceneDynamicSnapshot,
                          pointerLocalPosition: SIMD3<Double>?, audio: SceneParticleAudioInput,
                          worldFrame: simd_float4x4?) throws -> SceneParticleSimulator.EmissionContext {
         guard !didTeardown else { throw SceneParticleEmissionFailure.unavailable }
-        return try runtime.emissionContext(layerID: layerID, dynamicValues: dynamicValues,
+        return try runtime.emissionContext(layerID: layerID, sceneTime: sceneTime, dynamicValues: dynamicValues,
             pointerLocalPosition: pointerLocalPosition, audio: audio, worldFrame: worldFrame)
     }
     func clearStoppedPlaybackCaches(_ layerIDs: Set<Int>) {
@@ -130,6 +131,7 @@ final class SceneParticlePlaybackState {
 
     func advance(
         by simulationFrameDelta: TimeInterval,
+        sceneTime: Double = 0,
         dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
         pointerLocalPositions: [Int: SIMD3<Double>] = [:],
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
@@ -139,6 +141,7 @@ final class SceneParticlePlaybackState {
         batches.removeAll(keepingCapacity: true)
         batches = runtime.advance(
             by: Self.boundedRealtimeSimulationDelta(simulationFrameDelta),
+            sceneTime: sceneTime,
             dynamicValues: dynamicValues,
             pointerLocalPositions: pointerLocalPositions,
             audioInput: SceneParticleAudioInput(

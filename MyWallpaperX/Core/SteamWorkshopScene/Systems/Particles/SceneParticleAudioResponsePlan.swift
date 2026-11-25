@@ -33,8 +33,7 @@ nonisolated struct SceneParticleAudioInput: Equatable, Sendable {
     }
 }
 
-/// Continuous emission uses the measured peak and smoothstep response.
-/// Initializers and operators retain the existing mean and linear response.
+/// The prepared response chooses peak/smoothstep or mean/linear sampling.
 nonisolated struct SceneParticleAudioResponsePlan: Equatable, Sendable {
     nonisolated enum Channel: Int, Equatable, Sendable {
         case left = 1
@@ -46,9 +45,9 @@ nonisolated struct SceneParticleAudioResponsePlan: Equatable, Sendable {
     let bounds: ClosedRange<Double>
     let exponent: Double
     let frequencies: ClosedRange<Int>
-    private let forContinuousEmission: Bool
+    private let usesPeakResponse: Bool
 
-    nonisolated init?(_ declaration: SceneParticleAudioResponse, forContinuousEmission: Bool = false) {
+    nonisolated init?(_ declaration: SceneParticleAudioResponse, usesPeakResponse: Bool = false) {
         guard let mode = declaration.mode,
               let channel = Channel(rawValue: mode) else { return nil }
 
@@ -70,7 +69,7 @@ nonisolated struct SceneParticleAudioResponsePlan: Equatable, Sendable {
 
         let exponent = declaration.exponent ?? 2
         guard exponent.isFinite, exponent > 0,
-              forContinuousEmission || exponent <= 16 else { return nil }
+              usesPeakResponse || exponent <= 16 else { return nil }
 
         let first = declaration.frequencyStart ?? 0
         let last = declaration.frequencyEnd ?? 1
@@ -81,7 +80,7 @@ nonisolated struct SceneParticleAudioResponsePlan: Equatable, Sendable {
         self.bounds = bounds
         self.exponent = exponent
         self.frequencies = min(first, last) ... max(first, last)
-        self.forContinuousEmission = forContinuousEmission
+        self.usesPeakResponse = usesPeakResponse
     }
 
     nonisolated func evaluate(_ input: SceneParticleAudioInput) -> Double {
@@ -122,15 +121,15 @@ nonisolated struct SceneParticleAudioResponsePlan: Equatable, Sendable {
                     if right > 0 { selectedNonZeroInputCount += 1 }
                 }
             }
-            level = forContinuousEmission ? max(level, band) : level + band
+            level = usesPeakResponse ? max(level, band) : level + band
         }
         let channelCount = channel == .center ? 2 : 1
-        let count = forContinuousEmission ? channelCount : frequencies.count * channelCount
+        let count = usesPeakResponse ? channelCount : frequencies.count * channelCount
         let normalized = min(max(
             (level / Double(count) - bounds.lowerBound) / (bounds.upperBound - bounds.lowerBound),
             0
         ), 1)
-        let base = forContinuousEmission ? min(normalized * normalized * (3 - 2 * normalized), 1) : normalized
+        let base = usesPeakResponse ? min(normalized * normalized * (3 - 2 * normalized), 1) : normalized
         return (pow(base, exponent), selectedNonZeroInputCount)
     }
 }
@@ -231,7 +230,7 @@ nonisolated extension SceneParticleEmitter {
     /// Delay, duration, periodic, burst, Layer Image and unknown flag interactions remain
     /// fail closed until they receive their own timing contracts.
     var boundedAudioResponsePlan: SceneParticleAudioResponsePlan? {
-        guard let plan = SceneParticleAudioResponsePlan(audioResponse, forContinuousEmission: true) else { return nil }
+        guard let plan = SceneParticleAudioResponsePlan(audioResponse, usesPeakResponse: true) else { return nil }
         let supportedKind: Bool = switch kind {
         case .sphereRandom, .boxRandom: true
         case .layerImage, .unsupported: false
@@ -247,12 +246,18 @@ nonisolated extension SceneParticleEmitter {
     }
 }
 
+nonisolated extension SceneParticleTurbulentVelocity {
+    var peakAudioResponsePlan: SceneParticleAudioResponsePlan? {
+        SceneParticleAudioResponsePlan(audioResponse, usesPeakResponse: true)
+    }
+}
+
 nonisolated extension SceneParticleDefinition {
     var hasBoundedAudioConsumer: Bool {
         emitters.contains { $0.boundedAudioResponsePlan != nil }
             || initializers.contains {
                 $0.turbulentVelocity.flatMap {
-                    SceneParticleAudioResponsePlan($0.audioResponse)
+                    $0.peakAudioResponsePlan
                 } != nil
             }
             || operators.contains { value in
@@ -309,7 +314,7 @@ nonisolated extension SceneParticleSimulationMath {
         for initializer in definition.initializers
         where initializer.turbulentVelocity?.audioResponse.isEnabled == true {
             let supported = initializer.turbulentVelocity.flatMap {
-                SceneParticleAudioResponsePlan($0.audioResponse)
+                $0.peakAudioResponsePlan
             } != nil
             add(
                 supported ? .audioResponseBounded : .audioResponseIgnored,

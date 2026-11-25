@@ -1914,17 +1914,19 @@ enum Harness {
         turbulentRepeat.advance(by: 0.1)
         turbulentDifferent.advance(by: 0.1)
         let turbulentVelocity = turbulentFirst.particles[0].velocity
+        let shiftedTurbulent = simulator(turbulentJSON, seed: 71, step: 0.1)
+        shiftedTurbulent.advance(by: 0.1, sceneTime: 2)
         let turbulentDefinition = try SceneParticleDefinitionParser().parse(
             root: object(turbulentJSON)
         )
-        let turbulentValue = turbulentDefinition.initializers[1].turbulentVelocity
+        let turbulentPlan = turbulentDefinition.initializers[1].turbulentVelocity.map(SceneParticleTurbulentVelocityPlan.init)
         var earlyRandom = SceneParticleRandomGenerator(state: 91)
         var lateRandom = SceneParticleRandomGenerator(state: 91)
         let earlyVelocity = SceneParticleSimulationMath.turbulentVelocity(
-            turbulentValue, SIMD3(4, 8, 0), 0, &earlyRandom
+            turbulentPlan, sceneTime: 0, rate: 1, random: &earlyRandom
         )
         let lateVelocity = SceneParticleSimulationMath.turbulentVelocity(
-            turbulentValue, SIMD3(4, 8, 0), 2, &lateRandom
+            turbulentPlan, sceneTime: 2, rate: 1, random: &lateRandom
         )
         var zeroScaleTurbulent = simulator(zeroScaleTurbulentJSON, seed: 71, step: 0.1)
         zeroScaleTurbulent.advance(by: 0.1)
@@ -2553,6 +2555,7 @@ enum Harness {
             "turbulentDifferentTime": earlyVelocity != lateVelocity,
             "turbulentSpeed": length(turbulentVelocity),
             "turbulentPlanar": abs(turbulentVelocity.z) < 1e-12,
+            "turbulentFrameClockChangesBirth": shiftedTurbulent.particles[0].velocity != turbulentVelocity,
             "zeroScaleTurbulentVelocity": vector(zeroScaleTurbulent.particles[0].velocity),
             "offsetTurbulentVelocity": vector(offsetTurbulent.particles[0].velocity),
             "turbulentDiagnostics": turbulentFirst.diagnostics.map(\.kind.rawValue),
@@ -4429,6 +4432,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertAlmostEqual(self.results["turbulentSpeed"], 25)
         self.assertTrue(self.results["turbulentPlanar"])
         self.assertEqual(self.results["zeroScaleTurbulentVelocity"], [0, 50, 0])
+        self.assertTrue(self.results["turbulentFrameClockChangesBirth"])
         offset_velocity = self.results["offsetTurbulentVelocity"]
         self.assertAlmostEqual(offset_velocity[0], -25 * math.sin(3), places=10)
         self.assertAlmostEqual(offset_velocity[1], 25 * math.cos(3), places=10)
@@ -4436,7 +4440,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertNotIn("unsupportedInitializer", self.results["turbulentDiagnostics"])
 
     def test_audio_turbulent_velocity_uses_silent_base_phase(self) -> None:
-        self.assertNotEqual(self.results["audioTurbulentVelocity"], [0, 0, 0])
+        self.assertEqual(self.results["audioTurbulentVelocity"], [0, 25, 0])
         self.assertEqual(
             self.results["audioTurbulentDiagnostics"],
             ["audioResponseBounded"],

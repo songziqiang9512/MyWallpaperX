@@ -19,7 +19,7 @@ extension SceneDesktopWallpaperSession.Surface {
                     descriptor: projection.descriptor, layersByID: projection.layersByID,
                     worldFrames: projection.worldFrames), frameProjection: projection,
                 demands: CollectionOfOne(layerID)) : [:]
-        return try particlePlayback.emissionContext(layerID: layerID, dynamicValues: dynamicValues,
+        return try particlePlayback.emissionContext(layerID: layerID, sceneTime: timing.sceneTime, dynamicValues: dynamicValues,
             pointerLocalPosition: pointers[layerID],
             audio: .init(left: audio.left, right: audio.right, generation: audio.generation),
             worldFrame: projection.worldFrames[layerID])
@@ -54,6 +54,7 @@ extension SceneDesktopWallpaperSession.Surface {
 
         let batches = particlePlayback.advance(
             by: timing.simulationFrameTime,
+            sceneTime: timing.sceneTime,
             dynamicValues: dynamicValues,
             pointerLocalPositions: pointerLocalPositions,
             audioSpectrum: frameContext.audioSpectrum,

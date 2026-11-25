@@ -112,10 +112,10 @@ enum Harness {
         var activeInitializer = simulator(turbulentInitializerJSON, seed: 7, step: 0.1)
         silentInitializer.advance(by: 0.1, audioInput: silence)
         activeInitializer.advance(by: 0.1, audioInput: active)
-        var zeroPhaseSilent = simulator(zeroPhaseInitializerJSON, seed: 7, step: 0.1)
-        var zeroPhaseActive = simulator(zeroPhaseInitializerJSON, seed: 7, step: 0.1)
-        zeroPhaseSilent.advance(by: 0.1, audioInput: silence)
-        zeroPhaseActive.advance(by: 0.1, audioInput: active)
+        var fixedPhaseSilent = simulator(fixedPhaseInitializerJSON, seed: 7, step: 0.1)
+        var fixedPhaseActive = simulator(fixedPhaseInitializerJSON, seed: 7, step: 0.1)
+        fixedPhaseSilent.advance(by: 0.1, audioInput: silence)
+        fixedPhaseActive.advance(by: 0.1, audioInput: active)
         var publishedSilenceInitializer = simulator(
             repeatingTurbulentInitializerJSON, seed: 7, step: 0.1
         )
@@ -166,7 +166,7 @@ enum Harness {
             "invalidEmitterCount": invalidEmitter.particles.count,
             "initializerSilent": vector(silentInitializer.particles[0].velocity),
             "initializerActive": vector(activeInitializer.particles[0].velocity),
-            "zeroPhaseStable": zeroPhaseSilent.particles == zeroPhaseActive.particles,
+            "fixedPhaseStable": fixedPhaseSilent.particles == fixedPhaseActive.particles,
             "publishedSilenceInitializerCount": publishedSilenceInitializer.particles.count,
             "turbulenceSilent": vector(silentTurbulence.particles[0].velocity),
             "turbulenceActive": vector(activeTurbulence.particles[0].velocity),
@@ -322,12 +322,12 @@ enum Harness {
     private static let turbulentInitializerJSON = #"""
     {"material":"p.json","maxcount":1,
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
-     "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"turbulentvelocityrandom","forward":"0 1 0","right":"1 0 0","phasemin":0.7,"phasemax":0.7,"scale":0.2,"speedmin":25,"speedmax":25,"audioprocessingmode":3}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"turbulentvelocityrandom","forward":"0 1 0","right":"1 0 0","phasemin":0.7,"phasemax":1.4,"scale":0.2,"speedmin":25,"speedmax":25,"audioprocessingmode":3}],
      "renderer":[{"name":"sprite"}]}
     """#
-    private static let zeroPhaseInitializerJSON = turbulentInitializerJSON
-        .replacingOccurrences(of: #""phasemin":0.7,"phasemax":0.7"#,
-                              with: #""phasemin":0,"phasemax":0"#)
+    private static let fixedPhaseInitializerJSON = turbulentInitializerJSON
+        .replacingOccurrences(of: #""phasemin":0.7,"phasemax":1.4"#,
+                              with: #""phasemin":0.7,"phasemax":0.7"#)
     private static let repeatingTurbulentInitializerJSON = #"""
     {"material":"p.json","maxcount":100,
      "emitter":[{"name":"boxrandom","rate":60,"distancemax":0}],
@@ -425,7 +425,7 @@ class SceneParticleAudioResponseTests(unittest.TestCase):
 
     def test_phase_consumers_change_only_for_nonzero_response(self) -> None:
         self.assertNotEqual(self.result["initializerSilent"], self.result["initializerActive"])
-        self.assertTrue(self.result["zeroPhaseStable"])
+        self.assertTrue(self.result["fixedPhaseStable"])
         self.assertNotEqual(self.result["turbulenceSilent"], self.result["turbulenceActive"])
         self.assertEqual(self.result["publishedSilenceInitializerCount"], 60)
         self.assertEqual(self.result["publishedSilenceObservationCount"], 0)

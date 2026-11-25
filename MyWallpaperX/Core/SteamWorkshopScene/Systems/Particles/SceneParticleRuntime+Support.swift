@@ -13,7 +13,7 @@ extension SceneParticleRuntime {
         return .init(isVisible: visible, resetsPopulation: !visible
             || (layers[index].wasVisible != nil && layers[index].wasVisible != visible))
     }
-    func emissionContext(layerID: Int, dynamicValues: SceneDynamicSnapshot,
+    func emissionContext(layerID: Int, sceneTime: Double = 0, dynamicValues: SceneDynamicSnapshot,
                          pointerLocalPosition: SIMD3<Double>?, audio: SceneParticleAudioInput,
                          worldFrame: simd_float4x4?) throws -> SceneParticleSimulator.EmissionContext {
         guard let layer = layers.first(where: { $0.layerID == layerID }), let root = layer.rootRender else {
@@ -32,7 +32,7 @@ extension SceneParticleRuntime {
             throw SceneParticleEmissionFailure.unavailable
         }
         let authoredOverride = root.simulator.instanceOverride
-        return .init(controlPoints: points,
+        return .init(sceneTime: sceneTime, controlPoints: points,
             controlPointAngles: dynamicValues.particleControlPointAngles(layerID: layerID),
             instanceOverride: SceneParticleInstanceOverride.resolving(authored: authoredOverride,
                 dynamic: dynamicValues.particleInstanceValues(layerID: layerID),

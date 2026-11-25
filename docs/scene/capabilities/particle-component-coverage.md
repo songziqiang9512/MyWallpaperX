@@ -24,13 +24,16 @@ LayerImage 继续使用原 compiler：原 base-image owner 将 provider 缺 outc
 
 存量基线、Movement、AlphaFade 和 Turbulence 各一次同步借用原粒子数组，保算子及逐粒顺序、半衰积分、Vortex 半径和局部失败。AlphaFade 复用当步归一寿命，保淡入后淡出两次乘法的原次序及边界。Turbulence 的 keyed 随机只取已借用的实例 ID、系统 seed 与算子键，复用当步时间和音频输入，保原噪声、速度范围与有限值写入。指针不逃逸。见[基线](runtime-evidence-current.md#particle-baseline-borrow)与[Movement](runtime-evidence-current.md#particle-movement-borrow)。同一 Simulator 按原序收集死亡事件并清振荡缓存。粒子存储的连续 live 区间是死亡前缀之后的后缀：队首死亡只前移区间起点（O(1)），累计前缀达到 64 时做一次摊销压缩；遇到首个非队首死亡仍按原 read/write 压紧已读存活段。reset、operator、事件与快照只观察连续 live 区间；renderer 和 child 的 live-range 交接直接共享 ArraySlice，保留视图时由原 Array COW 隔离后续写入；Sprite 当前回调仅在合并 transient births 时物化并排序样本。Rope/RopeTrail 的既有几何准备保持，顺序、payload 与 rollback 不变。死亡扫描仅为 live 事件或振荡缓存复制死亡 payload；预热不生成事件，见[死亡移除证据](runtime-evidence-current.md#particle-death-compaction)、[前缀存储证据](runtime-evidence-current.md#particle-lead-death-buffer)与[预热证据](runtime-evidence-current.md#particle-prewarm-hotpath)。reset 仅写实际算子改变的 alpha/size/color，其余属性自出生保持初值。步进内 GPU 有限性接受与拒绝边界不变，仅把逐 lane 转换合为一次 `SIMD3<Float>` 转换。两者都不改算子次序、固定步进、RNG、出生/死亡、快照与 live handoff；实测与限制见[预热热路径](runtime-evidence-current.md#particle-prewarm-hotpath)。
 
-Turbulence、Turbulent Velocity、Remap 和 Position Offset 共用梯度噪声。格点先选两个带符号偏移，再按原操作数顺序求一次和，保 hash、八角、插值、时间及 mask。用原生状态位值和首屏计时验收。`prewarmStepBudget` 只截断本次模拟，Snapshot 无续热游标。默认隐藏 root 在零步初始 advance 清人口和轨迹，保 RNG、ID、模拟时间及已完成 emitter，未完成者沿原 rearm。
+持续 Turbulence、Remap 和 Position Offset 共用三维梯度噪声。格点先选两个带符号偏移，再按原操作数顺序求一次和，保 hash、八角、插值、时间及 mask。用原生状态位值和首屏计时验收。`prewarmStepBudget` 只截断本次模拟，Snapshot 无续热游标。默认隐藏 root 在零步初始 advance 清人口和轨迹，保 RNG、ID、模拟时间及已完成 emitter，未完成者沿原 rearm。
 
 <a id="initializer-execution"></a>
 初始化分派继续由原 `SceneParticleInitializerExecutionPlan` 冷准备，按作者顺序为每个 initializer 保留一个带对应 payload 的 enum case。出生只枚举这一个执行序列，退出每次复制完整 raw initializer、再索引九组 optional 聚合计划的双链。Scalar/Vector/Color 的必备 payload 由 case 直接持有，退役不可能缺失的热 guard；原 Definition 仍拥有作者事实、冷准入和诊断名称，不另存 kind 镜像、计划表或缓存。CP 需求收集和显式发射工作量同样消费原有序计划；原预算值和失败半径保持。
 
 <a id="turbulent-velocity-speed-range"></a>
-出生 `turbulentvelocityrandom` 的速度端点独立缺省为 100/250，相位端点独立缺省为 0。保显式值、非负速度域、反序取样及原 RNG 顺序。幅值沿 Forward 长度、绕轴转向和实例速度进入 Movement。持续 Turbulence 由其自身计划供值。[速度对照](runtime-evidence-current.md#ember-turbulent-birth-speed) · [相位对照](runtime-evidence-current.md#ember-turbulent-birth-phase)
+<a id="turbulent-birth-clock"></a>
+出生 `turbulentvelocityrandom` 沿当前 Scene 帧时钟采样一维 simplex 梯度噪声。相位端点独立缺省为 0/.1，音频响应作用于相位跨度。采样输入为 `(Scene 秒 + 相位) × (作者时钟尺度 × 实例 rate)`，预热在当前 Scene 时刻采样，内部年龄仍逐步推进。按有符号的角尺度乘 π 加方向偏移，绕单位化的作者 Right 旋转整个 Forward，保留其长度。固定位置、同场不同年龄、负尺度和零时钟分别验收。随机速度沿原采样及 Movement，正交速度缺省已核 100/250，其他投影待独立验证。
+
+冷准备形成旋转基，出生只消费帧时间、实例 rate、音频及两次原顺序随机取样。位置和第二路方向噪声退出；显式发射和事件建立的子实例接同帧 typed 时间，子预热复用同帧频谱。持续 Turbulence 保自身位置、相位与作用力合同。[速度对照](runtime-evidence-current.md#ember-turbulent-birth-speed) · [出生方向与预热对照](runtime-evidence-current.md#ember-birth-scene-simplex)
 
 真正不可用的 HSV/list、Turbulent、Offset、Around/Between payload 仍保原 case、ordinal 和原诊断：HSV/list nil 只 attempted；Turbulent/Offset 即使 nil 仍 unknown，Turbulent nil 保 helper 的普通零/strict NaN；Around/Between nil 只局部 break，已具计划但本次 CP 不可用时 strict 才拒当前出生。事件继承只准备 operation，本次 parent context、audio、位置和时间继续由原 live 消费者供给。不得借本批前移随机区间减法、消耗或省略 RNG、改变 pow/乘加顺序、浮点环境、writer 顺序、快照和后继 live 状态。
 

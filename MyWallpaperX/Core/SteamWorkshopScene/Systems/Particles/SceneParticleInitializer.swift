@@ -127,7 +127,6 @@ nonisolated struct SceneParticleHSVColorPlan: Equatable, Sendable {
 nonisolated struct SceneParticleTurbulentVelocity: Equatable, Sendable {
     let forward: SceneParticleNumericValue?
     let right: SceneParticleNumericValue?
-    let up: SceneParticleNumericValue?
     let offset: Double?
     let phaseMinimum: Double?
     let phaseMaximum: Double?

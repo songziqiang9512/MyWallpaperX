@@ -117,6 +117,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         initialDynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
         initialPlayback: SceneParticlePlaybackSnapshot = .init(),
         initialAudioInput: SceneParticleAudioInput = .silent,
+        initialSceneTime: Double = 0,
         seed: UInt64 = 0,
         fixedTimeStep: Double = 1.0 / 60.0,
         particleBudget: Int? = nil,
@@ -252,7 +253,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         // The init-time warm-up runs the same emit/apply path as advance;
         // prewarmed world-space systems convert through the launch frame.
         activeWorldSpaceFrame = worldSpaceFrame
-        warmUp(duration: definition.startTime ?? 0, stepBudget: prewarmStepBudget,
+        warmUp(duration: definition.startTime ?? 0, stepBudget: prewarmStepBudget, sceneTime: initialSceneTime,
                controlPointParticleSpace: initialControlPointParticleSpace,
                collisionBoundsFrame: collisionBoundsFrame,
                shouldCancel: shouldCancelPrewarm)
@@ -300,6 +301,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 
     nonisolated func advance(
         by duration: Double,
+        sceneTime: Double = 0,
         dynamicControlPoints: [Int: SIMD3<Double>] = [:],
         dynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
         dynamicInstanceOverride: SceneParticleInstanceOverride? = nil,
@@ -326,9 +328,11 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         let deathEventStart = deathEvents.count
         for index in emitters.indices { emitters[index].beginFrame() }
         accumulator += duration
-        let simulationStep = fixedTimeStep * max(0, overrideScalar(activeInstanceOverride?.rate))
+        let rate = max(0, overrideScalar(activeInstanceOverride?.rate))
+        let simulationStep = fixedTimeStep * rate
         while accumulator + 1e-12 >= fixedTimeStep {
-            step(by: simulationStep, controlPointParticleSpace: controlPointParticleSpace,
+            step(by: simulationStep, sceneTime: sceneTime, rate: rate,
+                 controlPointParticleSpace: controlPointParticleSpace,
                  collisionBoundsFrame: collisionBoundsFrame)
             accumulator -= fixedTimeStep
         }
@@ -486,7 +490,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     }
 
     private nonisolated func warmUp(
-        duration: Double, stepBudget: Int?,
+        duration: Double, stepBudget: Int?, sceneTime: Double,
         controlPointParticleSpace: SceneParticleControlPointParticleSpace?,
         collisionBoundsFrame: SceneParticleCollisionBoundsFrame?,
         shouldCancel: (() -> Bool)?
@@ -511,6 +515,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 #endif
         isPrewarming = true
         defer { isPrewarming = false }
+        let rate = max(0, overrideScalar(activeInstanceOverride?.rate))
         for _ in 0..<count {
             if shouldCancel?() == true {
 #if DEBUG
@@ -521,7 +526,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             for index in emitters.indices { emitters[index].beginFrame() }
             let slice = min(fixedTimeStep, remaining)
             guard slice > 0 else { break }
-            step(by: slice, controlPointParticleSpace: controlPointParticleSpace,
+            step(by: slice, sceneTime: sceneTime, rate: rate,
+                 controlPointParticleSpace: controlPointParticleSpace,
                  collisionBoundsFrame: collisionBoundsFrame)
             completedSteps += 1
             // These events have never been replayed to children after warmup.
@@ -543,7 +549,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     }
 
     private nonisolated func step(
-        by duration: Double,
+        by duration: Double, sceneTime: Double, rate: Double,
         controlPointParticleSpace: SceneParticleControlPointParticleSpace?,
         collisionBoundsFrame: SceneParticleCollisionBoundsFrame?
     ) {
@@ -561,7 +567,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         if playback.intent == .playing {
             let emitterWorldFrame = controlPointParticleSpace == nil ? activeWorldSpaceFrame : nil
             for index in definition.emitters.indices {
-                emit(index: index, duration: duration, worldSpaceFrame: emitterWorldFrame)
+                emit(index: index, duration: duration, sceneTime: sceneTime, rate: rate,
+                     worldSpaceFrame: emitterWorldFrame)
             }
         }
         normalizedLives.removeAll(keepingCapacity: true)
@@ -635,7 +642,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         stepSnapshotRecorder?.record(duration: duration, particles: particles)
     }
 
-    private nonisolated func emit(index: Int, duration: Double, worldSpaceFrame: SceneParticleWorldSpaceFrame?) {
+    private nonisolated func emit(
+        index: Int, duration: Double, sceneTime: Double, rate: Double,
+        worldSpaceFrame: SceneParticleWorldSpaceFrame?
+    ) {
         let emitter = definition.emitters[index]
 #if DEBUG
         componentObservation?.record("emitter", index, "attempted", reason: "natural-emission-dispatch", time: simulationTime)
@@ -715,7 +725,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         let worldSpeedBasis = emitterFrame.usesWorldSphereBasis && !hasWorldSpaceMovement ? worldSpaceFrame : nil
         for _ in 0..<count {
             if let particle = makeParticle(
-                emitter, spawnPlan: spawnPlan, frame: emitterFrame, worldSpeedBasis: worldSpeedBasis
+                emitter, spawnPlan: spawnPlan, frame: emitterFrame, sceneTime: sceneTime, rate: rate,
+                worldSpeedBasis: worldSpeedBasis
             ) {
                 appendBirth(particle)
 #if DEBUG
@@ -765,9 +776,11 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             throw SceneParticleEmissionFailure.unavailable
         }
         if explicitBirthEventStart == nil { explicitBirthEventStart = birthEvents.count }
+        let rate = max(0, overrideScalar(activeInstanceOverride?.rate))
         for _ in 0..<count {
             try chargeWork(1 + 8 + initializerWork)
-            guard let particle = makeParticle(emitter, spawnPlan: emitterSpawnPlans[0], frame: frame, strict: true) else {
+            guard let particle = makeParticle(emitter, spawnPlan: emitterSpawnPlans[0], frame: frame,
+                sceneTime: context.sceneTime, rate: rate, strict: true) else {
                 throw SceneParticleEmissionFailure.unavailable
             }
             appendBirth(particle)
@@ -781,6 +794,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         _ emitter: SceneParticleEmitter,
         spawnPlan: SceneParticleEmitterSpawnPlan,
         frame: SceneParticleEmitterControlPointFrame,
+        sceneTime: Double, rate: Double,
         worldSpeedBasis: SceneParticleWorldSpaceFrame? = nil,
         strict: Bool = false
     ) -> SceneParticleState? {
@@ -822,7 +836,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             initialColor: SIMD3(repeating: 1), initialAlpha: 1, initialSize: birthSizeSeed
         )
         nextParticleID &+= 1
-        guard applyInitializers(to: &particle, strict: strict,
+        guard applyInitializers(to: &particle, sceneTime: sceneTime, rate: rate, strict: strict,
                                 emitterControlPointOrigin: frame.controlPointOrigin) else { return nil }
         particle.velocity = frame.direction(for: particle.velocity)
         applyInstanceOverride(to: &particle)

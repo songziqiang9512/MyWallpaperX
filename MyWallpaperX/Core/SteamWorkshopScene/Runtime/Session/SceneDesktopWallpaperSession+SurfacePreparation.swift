@@ -71,7 +71,8 @@ extension SceneDesktopWallpaperSession {
         let topology = context.sceneScriptDynamicLayerRuntime.snapshot()
         let audio = SceneAudioSpectrumInbox.shared.prepareFrame().snapshot
         let input = context.makeSurfacePreparationInput(dynamicValues: values, topology: topology,
-            audioInput: .init(left: audio.left, right: audio.right, generation: audio.generation))
+            audioInput: .init(left: audio.left, right: audio.right, generation: audio.generation),
+            sceneTime: sceneClock.currentSceneTime(hostTime: CACurrentMediaTime()))
         let work = PendingSurfacePreparation(displayIDs: Set(screens.map(\.1)))
         pendingSurfacePreparation = work
         retiringSurfaceDrain.enter()

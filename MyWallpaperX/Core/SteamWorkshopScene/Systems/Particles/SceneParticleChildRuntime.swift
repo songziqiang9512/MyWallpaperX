@@ -125,7 +125,8 @@ final class SceneParticleChildRuntime {
         rootTranslationOffset: SIMD3<Double> = .zero,
         initialDynamicControlPoints: [Int: SIMD3<Double>] = [:],
         initialDynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
-        initialAudioInput: SceneParticleAudioInput = .silent
+        initialAudioInput: SceneParticleAudioInput = .silent,
+        initialSceneTime: Double = 0
     ) {
         self.layerID = layerID
         let expansion = SceneParticleChildGraphExpansion.expand(
@@ -189,7 +190,7 @@ final class SceneParticleChildRuntime {
             let simulator = template.simulator(
                 seed: UInt64(bitPattern: Int64(layerID))
                     ^ UInt64(template.index &+ 1) &* 0xBF58_476D_1CE4_E5B9
-                    ^ UInt64(offset),
+                    ^ UInt64(offset), sceneTime: initialSceneTime,
                 dynamicInstanceValues: initialDynamicInstanceValues,
                 origin: origin,
                 controlPointFrame: controlPointFrame,
@@ -272,7 +273,7 @@ final class SceneParticleChildRuntime {
     }
 
     func advance(
-        by frameDelta: TimeInterval,
+        by frameDelta: TimeInterval, sceneTime: Double = 0,
         spawnEvents: [SceneParticleState],
         deathEvents: [SceneParticleState],
         parentParticles: some Collection<SceneParticleState>,
@@ -294,7 +295,7 @@ final class SceneParticleChildRuntime {
         var retiredRenderSystems: [SceneParticleChildSystem] = []
         if !isFrozen {
             let parentFrames = advanceDepthOne(
-                by: frameDelta,
+                by: frameDelta, sceneTime: sceneTime,
                 rootParticles: parentParticles,
                 dynamicInstanceValues: dynamicInstanceValues,
                 pointerLocalPosition: pointerLocalPosition,
@@ -309,27 +310,27 @@ final class SceneParticleChildRuntime {
             retireCompletedSystems(depth: 1, into: &retiredRenderSystems)
             spawn(
                 from: spawnEvents, trigger: .spawn, depth: 1, parentPath: nil,
-                scopeID: nil, parentFrame: nil, dynamicInstanceValues: dynamicInstanceValues,
+                scopeID: nil, parentFrame: nil, sceneTime: sceneTime, audioInput: audioInput, dynamicInstanceValues: dynamicInstanceValues,
                 pointerLocalPosition: pointerLocalPosition, dynamicControlPoints: dynamicControlPoints,
                 dynamicControlPointAngles: dynamicControlPointAngles, controlPointFrame: controlPointFrame,
                 worldSpaceFrameOverride: worldSpaceFrameOverride, rootTranslationOffset: rootTranslationOffset
             )
             spawn(
                 from: deathEvents, trigger: .death, depth: 1, parentPath: nil,
-                scopeID: nil, parentFrame: nil, dynamicInstanceValues: dynamicInstanceValues,
+                scopeID: nil, parentFrame: nil, sceneTime: sceneTime, audioInput: audioInput, dynamicInstanceValues: dynamicInstanceValues,
                 pointerLocalPosition: pointerLocalPosition, dynamicControlPoints: dynamicControlPoints,
                 dynamicControlPointAngles: dynamicControlPointAngles, controlPointFrame: controlPointFrame,
                 worldSpaceFrameOverride: worldSpaceFrameOverride, rootTranslationOffset: rootTranslationOffset
             )
             reconcileFollowers(
                 parentParticles, depth: 1, parentPath: nil,
-                scopeID: nil, parentFrame: nil, dynamicInstanceValues: dynamicInstanceValues,
+                scopeID: nil, parentFrame: nil, sceneTime: sceneTime, audioInput: audioInput, dynamicInstanceValues: dynamicInstanceValues,
                 pointerLocalPosition: pointerLocalPosition, dynamicControlPoints: dynamicControlPoints,
                 dynamicControlPointAngles: dynamicControlPointAngles, controlPointFrame: controlPointFrame,
                 worldSpaceFrameOverride: worldSpaceFrameOverride, rootTranslationOffset: rootTranslationOffset
             )
             advanceDepthTwo(
-                by: frameDelta,
+                by: frameDelta, sceneTime: sceneTime,
                 parentFrames: parentFrames,
                 dynamicInstanceValues: dynamicInstanceValues,
                 pointerLocalPosition: pointerLocalPosition,
@@ -488,7 +489,7 @@ final class SceneParticleChildRuntime {
     /// Advances depth-one systems against the root simulator and collects the per-system
     /// event frames that feed nested children, before completed systems are recycled.
     private func advanceDepthOne(
-        by frameDelta: TimeInterval,
+        by frameDelta: TimeInterval, sceneTime: Double,
         rootParticles: some Collection<SceneParticleState>,
         dynamicInstanceValues: SceneDynamicParticleValues?,
         pointerLocalPosition: SIMD3<Double>?,
@@ -525,7 +526,7 @@ final class SceneParticleChildRuntime {
             if template.trigger == .staticChild && systems[index].isWorldSpace {
                 systems[index].origin = template.transform.origin + rootTranslationOffset
             }
-            advanceSystem(at: index, template: template, by: frameDelta,
+            advanceSystem(at: index, template: template, by: frameDelta, sceneTime: sceneTime,
                 dynamicInstanceValues: dynamicInstanceValues, pointerLocalPosition: pointerLocalPosition,
                 dynamicControlPoints: dynamicControlPoints, dynamicControlPointAngles: dynamicControlPointAngles,
                 audioInput: audioInput, worldSpaceFrameOverride: worldSpaceFrameOverride,
@@ -555,7 +556,7 @@ final class SceneParticleChildRuntime {
     }
 
     private func advanceDepthTwo(
-        by frameDelta: TimeInterval,
+        by frameDelta: TimeInterval, sceneTime: Double,
         parentFrames: [SceneParticleChildParentFrame],
         dynamicInstanceValues: SceneDynamicParticleValues?,
         pointerLocalPosition: SIMD3<Double>?,
@@ -601,7 +602,7 @@ final class SceneParticleChildRuntime {
                 ))
             }
             guard let template = templatesByIndex[systems[index].templateIndex] else { continue }
-            advanceSystem(at: index, template: template, by: frameDelta,
+            advanceSystem(at: index, template: template, by: frameDelta, sceneTime: sceneTime,
                 dynamicInstanceValues: dynamicInstanceValues, pointerLocalPosition: pointerLocalPosition,
                 dynamicControlPoints: dynamicControlPoints, dynamicControlPointAngles: dynamicControlPointAngles,
                 audioInput: audioInput, worldSpaceFrameOverride: worldSpaceFrameOverride,
@@ -622,7 +623,7 @@ final class SceneParticleChildRuntime {
             spawn(
                 from: frame.births, trigger: .spawn, depth: 2, parentPath: frame.path,
                 scopeID: frame.systemID, parentFrame: frame,
-                dynamicInstanceValues: dynamicInstanceValues,
+                sceneTime: sceneTime, audioInput: audioInput, dynamicInstanceValues: dynamicInstanceValues,
                 pointerLocalPosition: pointerLocalPosition, dynamicControlPoints: dynamicControlPoints,
                 dynamicControlPointAngles: dynamicControlPointAngles, controlPointFrame: controlPointFrame,
                 worldSpaceFrameOverride: worldSpaceFrameOverride, rootTranslationOffset: rootTranslationOffset
@@ -630,7 +631,7 @@ final class SceneParticleChildRuntime {
             spawn(
                 from: frame.deaths, trigger: .death, depth: 2, parentPath: frame.path,
                 scopeID: frame.systemID, parentFrame: frame,
-                dynamicInstanceValues: dynamicInstanceValues,
+                sceneTime: sceneTime, audioInput: audioInput, dynamicInstanceValues: dynamicInstanceValues,
                 pointerLocalPosition: pointerLocalPosition, dynamicControlPoints: dynamicControlPoints,
                 dynamicControlPointAngles: dynamicControlPointAngles, controlPointFrame: controlPointFrame,
                 worldSpaceFrameOverride: worldSpaceFrameOverride, rootTranslationOffset: rootTranslationOffset
@@ -638,7 +639,7 @@ final class SceneParticleChildRuntime {
             reconcileFollowers(
                 frame.particles, depth: 2, parentPath: frame.path,
                 scopeID: frame.systemID, parentFrame: frame,
-                dynamicInstanceValues: dynamicInstanceValues,
+                sceneTime: sceneTime, audioInput: audioInput, dynamicInstanceValues: dynamicInstanceValues,
                 pointerLocalPosition: pointerLocalPosition, dynamicControlPoints: dynamicControlPoints,
                 dynamicControlPointAngles: dynamicControlPointAngles, controlPointFrame: controlPointFrame,
                 worldSpaceFrameOverride: worldSpaceFrameOverride, rootTranslationOffset: rootTranslationOffset
@@ -647,7 +648,7 @@ final class SceneParticleChildRuntime {
     }
 
     private func advanceSystem(
-        at index: Int, template: SceneParticleChildTemplate, by frameDelta: TimeInterval,
+        at index: Int, template: SceneParticleChildTemplate, by frameDelta: TimeInterval, sceneTime: Double,
         dynamicInstanceValues: SceneDynamicParticleValues?, pointerLocalPosition: SIMD3<Double>?,
         dynamicControlPoints: [Int: SIMD3<Double>], dynamicControlPointAngles: [Int: SIMD3<Double>],
         audioInput: SceneParticleAudioInput, worldSpaceFrameOverride: SceneParticleWorldSpaceFrame?,
@@ -655,7 +656,7 @@ final class SceneParticleChildRuntime {
         allowsEmission: Bool
     ) {
         systems[index].simulator.advance(
-            by: frameDelta,
+            by: frameDelta, sceneTime: sceneTime,
             dynamicControlPoints: Self.controlPointValues(
                 for: template, origin: systems[index].origin,
                 pointerLocalPosition: pointerLocalPosition,
@@ -775,6 +776,7 @@ final class SceneParticleChildRuntime {
         parentPath: String?,
         scopeID: UInt64?,
         parentFrame: SceneParticleChildParentFrame?,
+        sceneTime: Double, audioInput: SceneParticleAudioInput,
         dynamicInstanceValues: SceneDynamicParticleValues?,
         pointerLocalPosition: SIMD3<Double>?,
         dynamicControlPoints: [Int: SIMD3<Double>],
@@ -814,7 +816,7 @@ final class SceneParticleChildRuntime {
                     parentParticleID: nil,
                     origin: parentFrame?.position(for: event) ?? event.position,
                     parentParticle: event,
-                    dynamicInstanceValues: dynamicInstanceValues,
+                    sceneTime: sceneTime, audioInput: audioInput, dynamicInstanceValues: dynamicInstanceValues,
                     pointerLocalPosition: pointerLocalPosition, dynamicControlPoints: dynamicControlPoints,
                     dynamicControlPointAngles: dynamicControlPointAngles, controlPointFrame: controlPointFrame,
                 worldSpaceFrameOverride: worldSpaceFrameOverride, rootTranslationOffset: rootTranslationOffset
@@ -832,6 +834,7 @@ final class SceneParticleChildRuntime {
         parentPath: String?,
         scopeID: UInt64?,
         parentFrame: SceneParticleChildParentFrame?,
+        sceneTime: Double, audioInput: SceneParticleAudioInput,
         dynamicInstanceValues: SceneDynamicParticleValues?,
         pointerLocalPosition: SIMD3<Double>?,
         dynamicControlPoints: [Int: SIMD3<Double>],
@@ -870,7 +873,7 @@ final class SceneParticleChildRuntime {
                     parentParticleID: parent.id,
                     origin: parentFrame?.position(for: parent) ?? parent.position,
                     parentParticle: parent,
-                    dynamicInstanceValues: dynamicInstanceValues,
+                    sceneTime: sceneTime, audioInput: audioInput, dynamicInstanceValues: dynamicInstanceValues,
                     pointerLocalPosition: pointerLocalPosition, dynamicControlPoints: dynamicControlPoints,
                     dynamicControlPointAngles: dynamicControlPointAngles, controlPointFrame: controlPointFrame,
                 worldSpaceFrameOverride: worldSpaceFrameOverride, rootTranslationOffset: rootTranslationOffset
@@ -887,6 +890,7 @@ final class SceneParticleChildRuntime {
         parentParticleID: UInt64?,
         origin: SIMD3<Double>,
         parentParticle: SceneParticleState,
+        sceneTime: Double, audioInput: SceneParticleAudioInput,
         dynamicInstanceValues: SceneDynamicParticleValues?,
         pointerLocalPosition: SIMD3<Double>?,
         dynamicControlPoints: [Int: SIMD3<Double>],
@@ -903,7 +907,7 @@ final class SceneParticleChildRuntime {
         nextSeed &+= 1
         let origin = origin - (template.definition.flags.isWorldSpace ? .zero : rootTranslationOffset)
         let simulator = template.simulator(
-            seed: seed,
+            seed: seed, sceneTime: sceneTime,
             dynamicInstanceValues: dynamicInstanceValues,
             origin: origin,
             controlPointFrame: controlPointFrame,
@@ -914,7 +918,7 @@ final class SceneParticleChildRuntime {
                 pointerLocalPosition: pointerLocalPosition, dynamicControlPoints: dynamicControlPoints,
                 rootTranslationOffset: rootTranslationOffset
             ),
-            initialDynamicControlPointAngles: dynamicControlPointAngles,
+            initialDynamicControlPointAngles: dynamicControlPointAngles, initialAudioInput: audioInput,
             maximumEmissionDuration: template.trigger == .follow ? nil
                 : SceneParticleChildLifecycle.maximumParticleLifetime(template.definition),
             eventValueContext: template.eventValueContext(for: parentParticle)

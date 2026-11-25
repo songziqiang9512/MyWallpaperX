@@ -182,7 +182,6 @@ nonisolated struct SceneParticleDefinitionParser {
         let turbulence: SceneParticleTurbulentVelocity? = kind == .turbulentVelocity ? .init(
             forward: Self.numericValue(root["forward"]),
             right: Self.numericValue(root["right"]),
-            up: Self.numericValue(root["up"]),
             offset: Self.number(root["offset"]),
             phaseMinimum: Self.number(root["phasemin"]),
             phaseMaximum: Self.number(root["phasemax"]),

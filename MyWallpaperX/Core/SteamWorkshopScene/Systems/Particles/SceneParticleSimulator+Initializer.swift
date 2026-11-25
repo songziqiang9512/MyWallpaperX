@@ -108,7 +108,7 @@ nonisolated enum SceneParticleInitializerExecutionPlan: Sendable {
 
 extension SceneParticleSimulator {
     nonisolated func applyInitializers(
-        to particle: inout SceneParticleState, strict: Bool = false,
+        to particle: inout SceneParticleState, sceneTime: Double, rate: Double, strict: Bool,
         emitterControlPointOrigin: SIMD3<Double> = .zero
     ) -> Bool {
         for (initializerIndex, executionPlan) in initializerExecutionPlans.enumerated() {
@@ -176,16 +176,15 @@ extension SceneParticleSimulator {
                 componentObservation?.record("initializer", initializerIndex, "unknown", reason: "helper-evaluation-witness-unavailable", time: simulationTime, particleID: particle.id)
 #endif
                 let audioFactor = plan?.audioResponsePlan.map {
-                    1 + evaluateAudioResponse(
+                    evaluateAudioResponse(
                         $0,
                         componentKind: .initializer,
                         componentIndex: initializerIndex
                     )
                 }
                 particle.velocity += SceneParticleSimulationMath.turbulentVelocity(
-                    plan, particle.position, simulationTime,
-                    &random, audioInput: audioInput,
-                    preparedAudioFactor: audioFactor, strict: strict
+                    plan, sceneTime: sceneTime, rate: rate, random: &random,
+                    audioFactor: audioFactor, strict: strict
                 )
             case let .positionOffset(plan):
 #if DEBUG

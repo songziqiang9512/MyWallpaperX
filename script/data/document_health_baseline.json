@@ -86,7 +86,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 259,
-      "bytes": 48377
+      "bytes": 48516
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -121,8 +121,8 @@
       "bytes": 7411
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 379,
-      "bytes": 72545
+      "lines": 382,
+      "bytes": 73208
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 463,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 349885
+      "bytes": 350835
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 243,
-      "bytes": 69853
+      "bytes": 69824
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "095e97593c8086b43abc011ecbc5f335b22aaf635df3ecc68cfa93a629e908e3",
-      "after": "e528641340afbccefbd8530627eb56b0852a7d80ac1049dd7539253f170cee4c",
-      "owner": "SceneScript particle instance values",
-      "reason": "沿原实例事务接入尺寸并登记官版、本机及独立作者的发射证据。",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#particle-instance-scalars"
+      "before": "e528641340afbccefbd8530627eb56b0852a7d80ac1049dd7539253f170cee4c",
+      "after": "d2bb8892be670ebbd50b7c057c30d0c24a30f66dc130e827a712c4cb4ef4f727",
+      "owner": "Scene particle initializer plan",
+      "reason": "替换旧出生方向合同并登记位置、实例速率与预热验收。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#turbulent-birth-clock"
     },
     {
       "section": "bodies",
@@ -478,11 +478,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "465fe388dd1d88a203936e8d2f1006e6f808007f2b1d685bfc5fd99a54aeaf83",
-      "after": "41638a6833e265b374af91cb9c3b3b6af536fd4dbb53a9d51b153e248929ea7c",
-      "owner": "Scene shared pointer, Script and Puppet frame owner",
-      "reason": "Link the shared frame order to its one cursor-selected surface contract.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#frame-order"
+      "before": "41638a6833e265b374af91cb9c3b3b6af536fd4dbb53a9d51b153e248929ea7c",
+      "after": "a51c46e0c1cf55f289a4372b0c362d7e141e9c63f0ce89420e17d19e2c5c6e42",
+      "owner": "Scene particle Surface preparation",
+      "reason": "说明增量 Surface 的 Scene 采样时刻及固定步预热边界。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#display-reconciliation"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b9e51351fd06da705aaf982cff2b4ce69ff80ea3f4e3b9a5ac95bd066108a55e",
-      "after": "753ec610c0740109b5c3a103f76dcfb11443af6f85ec616ca6af0716075b93d8",
-      "owner": "Scene conditional texture preparation and publication",
-      "reason": "记录官版与本机原包画面、附属图代次、改名和独立基图。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-conditional-material-xray-374"
+      "before": "753ec610c0740109b5c3a103f76dcfb11443af6f85ec616ca6af0716075b93d8",
+      "after": "94a39932fcf179a5fc527ae04d98b768641ce55bb6a8e8f91fb7a33d6253af35",
+      "owner": "Scene particle birth evidence",
+      "reason": "登记固定相位、预热及两个真实作者的画面证据。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ember-birth-scene-simplex"
     },
     {
       "section": "bodies",

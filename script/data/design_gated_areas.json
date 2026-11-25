@@ -685,6 +685,24 @@
       ]
     },
     {
+      "id": "scene-particle-turbulent-birth-clock",
+      "title": "Scene-clock sampled turbulent birth velocity",
+      "owner": "Scene particle initialization and existing Scene frame clock",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/particle-component-coverage.md",
+      "design_notes": "Use the current Scene time for timed turbulent birth velocity, retained across the prewarm invocation while particle ages advance. Replace position-based noise and per-birth axis preparation with the measured one-dimensional kernel and prepared rotation basis. Qualify the rate and prewarm boards, retained phase and speed RNG, narrow explicit emission and separate continuous operator, and real author content.",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationSupport.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Initializer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceParticles.swift"
+      ],
+      "contentPatterns": [
+        "turbulentNoise",
+        "turbulentVelocity",
+        "particleEmissionContext"
+      ]
+    },
+    {
       "id": "scene-conditional-material-atlas",
       "title": "Property-selected material atlas publication",
       "owner": "Scene condition atlas resource transaction and material asset catalog",
