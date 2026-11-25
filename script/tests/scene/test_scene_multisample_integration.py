@@ -145,7 +145,7 @@ class SceneMultisampleIntegrationTests(unittest.TestCase):
         subprocess.run(["/usr/bin/codesign", "--verify", "--deep", "--strict", str(cls.app)],
                        check=True, capture_output=True)
         if any(sha256(Path(path)) != digest for path, digest in cls.identity.items()):
-            raise AssertionError("signed App changed between the 1× and 2× observations")
+            raise AssertionError("signed App changed between the paired observations")
 
     def run_arm(self, folder, content, samples):
         home = folder / "home"
@@ -160,12 +160,13 @@ class SceneMultisampleIntegrationTests(unittest.TestCase):
                            MWX_SCENE_DEBUG_SURFACE_COUNT="1",
                            MYWALLPAPERX_SCENE_DEBUG_SCENE_TIME="3.25",
                            MYWALLPAPERX_SCENE_DEBUG_WALL_DATE="2026-11-25T10:00:00Z")
+        mode = {1: "none", 2: "msaa2", 4: "msaa4"}[samples]
         command = [str(self.exe), "--mwx-debug-scene-root", str(content),
                    "--mwx-debug-scene-evidence-dir", str(evidence), "--mwx-debug-scene-duration", "7",
                    "--mwx-debug-scene-after-snapshot-delay", "3.25", "--mwx-debug-scene-audio-silence-fixture",
                    "--mwx-debug-scene-performance-warmup", "1",
                    "-mwx.playback.quality",
-                   f"{{ sceneAntiAliasingMode = {'msaa2' if samples == 2 else 'none'}; }}"]
+                   f"{{ sceneAntiAliasingMode = {mode}; }}"]
         log_file = folder / "app.log"
         with log_file.open("w") as sink:
             process = subprocess.run(command, env=environment, stdout=sink, stderr=subprocess.STDOUT, timeout=90)
@@ -200,11 +201,11 @@ class SceneMultisampleIntegrationTests(unittest.TestCase):
         project.write_text(json.dumps({"type": "scene", "file": "scene.json"}))
         package.write_bytes(make_package(list(entries.items())))
         before = (sha256(project), sha256(package))
-        baseline = self.run_arm(folder / "requested-1", content, 1)
-        experiment = self.run_arm(folder / "requested-2", content, 2)
+        arms = [(samples, self.run_arm(folder / f"requested-{samples}", content, samples))
+                for samples in (1, 2, 4)]
         self.assertEqual((sha256(project), sha256(package)), before)
-        self.assertEqual(baseline[0].size, experiment[0].size)
-        return baseline, experiment, model_ids
+        self.assertEqual(len({image.size for _, (image, _) in arms}), 1)
+        return arms, model_ids
 
     def assert_model_pass(self, rows, expected_samples, model_ids, *, mixed=False):
         openings = [row for row in rows if row["kind"] == "main-raster-open"]
@@ -220,9 +221,10 @@ class SceneMultisampleIntegrationTests(unittest.TestCase):
         self.assertEqual(opening["details"]["depthSamples"], str(expected_samples), opening)
         self.assertEqual(opening["details"]["depthClear"], "0.0", opening)
         self.assertEqual(opening["details"]["colorLoad"], "1" if mixed_single_sample else "2", opening)
-        self.assertEqual(opening["details"]["colorStore"], str(expected_samples), opening)
-        self.assertEqual(opening["details"]["depthStore"], "0" if expected_samples == 2 else "1", opening)
-        if expected_samples == 2:
+        multisampled = expected_samples > 1
+        self.assertEqual(opening["details"]["colorStore"], "2" if multisampled else "1", opening)
+        self.assertEqual(opening["details"]["depthStore"], "0" if multisampled else "1", opening)
+        if multisampled:
             source, target = opening["source"], opening["target"]
             self.assertEqual(source["role"], "multisample-color")
             self.assertNotEqual(source["textureToken"], target["textureToken"])
@@ -279,11 +281,11 @@ class SceneMultisampleIntegrationTests(unittest.TestCase):
         self.check_model_resolve("suffix")
 
     def check_model_resolve(self, name):
-        baseline, experiment, model_ids = self.comparison(name)
+        arms, model_ids = self.comparison(name)
         edge_count = []
         text_count = []
         mixed = name == "suffix"
-        for samples, (image, rows) in enumerate((baseline, experiment), 1):
+        for samples, (image, rows) in arms:
             last_draw, seal = self.assert_model_pass(rows, samples, model_ids, mixed=mixed)
             if name == "renamed-hdr":
                 self.assertTrue(any(row["kind"] == "export" and row["outcome"] == "exported"
@@ -303,20 +305,23 @@ class SceneMultisampleIntegrationTests(unittest.TestCase):
             edge_count.append(sum(count for count, (r, g, b) in image.crop(box).getcolors(100_000)
                                   if r <= 2 and b <= (66 if mixed else 2) and 32 <= g <= 224))
         self.assertEqual(edge_count[0], 0, edge_count)
-        self.assertGreater(edge_count[1], 24, edge_count)
-        self.assertLess(edge_count[1], 3 * sum(experiment[0].size), edge_count)
+        for count in edge_count[1:]:
+            self.assertGreater(count, 24, edge_count)
+            self.assertLess(count, 3 * sum(arms[0][1][0].size), edge_count)
         (self.work / name / "edge-pixels.json").write_text(json.dumps(edge_count) + "\n")
         if mixed:
             self.assertGreater(min(text_count), 24, text_count)
-            self.assertAlmostEqual(text_count[1], text_count[0], delta=0.05 * text_count[0])
+            for count in text_count[1:]:
+                self.assertAlmostEqual(count, text_count[0], delta=0.05 * text_count[0])
             (self.work / name / "glyph-pixels.json").write_text(json.dumps(text_count) + "\n")
 
     def test_authored_consumers_preserve_the_original_single_sample_output(self):
         for name in ("color-blend", "current-color", "named", "history"):
             with self.subTest(case=name):
-                baseline, experiment, _ = self.comparison(name)
-                self.assertEqual(baseline[0].tobytes(), experiment[0].tobytes())
-                for _, rows in (baseline, experiment):
+                arms, _ = self.comparison(name)
+                baseline = arms[0][1][0].tobytes()
+                for _, (image, rows) in arms:
+                    self.assertEqual(image.tobytes(), baseline)
                     openings = [row for row in rows if row["kind"] == "main-raster-open"]
                     self.assertTrue(openings and all(row["details"]["sampleCount"] == "1" for row in openings))
                     if name == "color-blend":

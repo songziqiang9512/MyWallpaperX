@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 315,
-      "bytes": 73397
+      "bytes": 73413
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 227,
-      "bytes": 44762
+      "lines": 240,
+      "bytes": 47726
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -94,7 +94,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 278,
-      "bytes": 54123
+      "bytes": 54192
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,20 +369,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "1cb9cdf19069a2dcc0ffa45a871ee7e4d5174d9d7a05343db605c0297edece5e",
-      "after": "28ec67d178800799285aa3440de0eab6c7d74463949f52481de4cfc517347507",
+      "before": "28ec67d178800799285aa3440de0eab6c7d74463949f52481de4cfc517347507",
+      "after": "91067c18b5f13a6531ef8954f5e94a8a59a5395ccabb1172b36e83aa1d6fb64f",
       "owner": "Scene 运行时",
-      "reason": "同步普通色层和模型共用原采样域合同",
+      "reason": "确认当前单域按请求选择匹配的样本数",
       "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "f9398921592a6d87834c3956d277b714e3600571a98c7d4179c04726366c7cd5",
-      "after": "169cafe6e34901ff7d6ea595ff458066501f40ec9d498d2b8f55924c67daab9a",
+      "before": "169cafe6e34901ff7d6ea595ff458066501f40ec9d498d2b8f55924c67daab9a",
+      "after": "51462b8ace80bc2e3b7a41fb5cdcb6f9040467027bdb0dfb0990840cdf145e08",
       "owner": "壁纸质量工作卡",
-      "reason": "补预设、AppKit 恢复与签名 15 FPS 实验",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-quality-presets"
+      "reason": "记录 4× 原生覆盖、签名作者、实际节奏和 8× 设备负控",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-aa-four"
     },
     {
       "section": "bodies",
@@ -684,10 +684,10 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "89b781d9726271f73fd22083ccac13ed9c4ffac2ac18a43ee7f213f6d60df034",
-      "after": "6fe69e73c8069c88dfe02efbddbe6cabdc9cdf1533cfe847a9d30346000485c3",
+      "before": "9004052309c67fb6dbc42792854c042de88d98d0adbd4e88e8abded398a50a05",
+      "after": "a658c2eb748fba03b0fcbc1f895ff4a4fbf207ec282c94dac211549fcb0f590c",
       "owner": "壁纸质量设计",
-      "reason": "校准实际 MSAA 请求范围与后续设备资格",
+      "reason": "同步经本机验证的两种多采样请求",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa"
     }
   ]

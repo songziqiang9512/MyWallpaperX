@@ -26,7 +26,7 @@
 |---|---|---|
 | 预设 | 低／中／高／超高 | 现有 30／60 同时绑定帧率与缓存，尚缺可编辑的质量组合 |
 | 帧率 | 下限 10，客户端由运行端提供上限。用户观察到 120 档，图中当前值 25 FPS | Scene 首批 30／60，缺省 60，分别关联 512 MiB／1 GiB 解码缓存。Web 取目标屏建议并封顶 60，Video 按素材播放 |
-| 抗锯齿 | 无／MSAA ×2／×4／×8 | 兼容默认 1×。连续合格主域提供可选 2×，后续样本数在真机取证。 |
+| 抗锯齿 | 无／MSAA ×2／×4／×8 | 兼容默认 1×。连续合格主域可请求 2×／4×，8× 等支持设备的正向验收。 |
 | 后处理 | 禁用／启用／超高。符合显示资格时另有「超高（显示 HDR）」 | Scene 有普通／HDR Bloom、作者动态参数和单独的 EDR 显示。缺用户后处理档 |
 | 纹理分辨率 | 自动／高质量／高性能 | Loader 保用途、来源版本和设备缓存。帧率绑定的缓存额度只影响驻留，缺可以改变解码／上传规格的用户档 |
 | 阴影 | 禁用／低／中／高／超高 | Scene 按定向、点、聚光的实际 caster／receiver 编码，有定向分配降级。缺用户开关与预算档 |
@@ -98,7 +98,7 @@ Scene FPS 在下一排帧边界采纳，Web 在当前文档回调，能原位采
 | TAA／MetalFX Temporal | 可针对运动亚像素闪烁。接线需可信的运动向量、深度、抖动、历史重置和透明效果的有效输入。当前 Scene 缺可覆盖作者材质、骨骼、粒子和具名图的共同运动输入。仅在真实输入能闭合的 3D 场景重开。 [Apple MetalFX 时域接线](https://developer.apple.com/videos/play/wwdc2022/10103/) · [透明效果与拖影](https://developer.apple.com/videos/play/wwdc2025/211/?time=406) |
 | 超采样／纹理过滤 | 两轴 2× 超采样会产生 4 倍渲染像素，适合离线边缘参考。缩小纹理产生的摩尔纹由其 mip 与过滤处理，保作者的 nearest／图集合同。 [Apple mip 采样](https://developer.apple.com/documentation/metal/improving-texture-sampling-quality-and-performance-with-mipmaps) |
 
-**设备级别**。Apple 当前能力表中，M1／M2／M3–M4 对应 Apple7／8／9，原生 render pass 的 MSAA 上限为 4×。8× 列在 Apple10（含 M5）和 Apple11。Apple7 已列出 `rgba16Float` 过滤、混合及 MSAA／resolve，`depth32Float` 的过滤资格单独看设备。档位仍由实际 device sample count、格式／PSO 和预算决定。当前请求只有无与 2×。将来开放 8× 时按实测设备和实际输出格式判断，跨设备导入保留已交付的请求意图。 [Apple GPU 映射、采样上限与像素格式表](https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf)
+**设备级别**。Apple 当前能力表中，M1／M2／M3–M4 对应 Apple7／8／9，原生 render pass 的 MSAA 上限为 4×。8× 列在 Apple10（含 M5）和 Apple11。Apple7 已列出 `rgba16Float` 过滤、混合及 MSAA／resolve，`depth32Float` 的过滤资格单独看设备。档位仍由实际 device sample count、格式／PSO 和预算决定。当前请求为无、2× 和 4×。8× 要在实际支持的设备和格式取得正向画面及预算证据。跨设备导入保有已交付的意图。 [Apple GPU 映射、采样上限与像素格式表](https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf)
 
 **实现和生效**由原 `SceneMainPassEncoder` 准备实际颜色和相机深度的共同采样域。设备、附件格式、PSO 和当前资源预算在准备期接纳 2×／4×／8×。共用附件的模型、文字、图像与粒子使用匹配的 pipeline（含 alpha-to-coverage 和深度状态）。连续段用 `.multisampleResolve`，中间读色后续画须保逐样本色深和原顺序。非线性 attachment-read、无法匹配 PSO 或紧预算时该域采用原 1×，界面保请求并显示有效值。独立阴影、VolumeOccluder、compute、真实具名离屏仍按自身附件合同。高采样数独立验证每档收益，低档不可用时按 1× 回退。 [采样域合同](../scene/architecture/runtime-architecture.md#raster-sample-domain) · [粒子 PSO](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalPipeline.swift) · [设备采样数查询](https://developer.apple.com/documentation/metal/mtldevice/supportstexturesamplecount%28_%3A%29)
 

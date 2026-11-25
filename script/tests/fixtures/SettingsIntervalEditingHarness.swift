@@ -73,7 +73,10 @@ extension Notification.Name {
             scenePostProcessingPopup.addItem(withTitle: mode.rawValue)
             scenePostProcessingPopup.lastItem?.representedObject = mode.rawValue
         }
-        sceneAntiAliasingPopup.addItems(withTitles: ["None", "MSAA ×2"])
+        for mode in SceneAntiAliasingMode.allCases {
+            sceneAntiAliasingPopup.addItem(withTitle: mode.rawValue)
+            sceneAntiAliasingPopup.lastItem?.representedObject = mode.rawValue
+        }
         sceneTextureQualityPopup.addItems(withTitles: ["Quality", "Performance"])
         sceneVolumeLightingPopup.addItems(withTitles: ["Disabled", "Enabled"])
         webFrameRatePopup.addItems(withTitles: ["Display", "Follow"])
@@ -257,10 +260,10 @@ extension Notification.Name {
             && view.sceneShadowsPopup.selectedItem?.representedObject as? String == "medium"
             && view.scenePostProcessingPopup.selectedItem?.representedObject as? String == "enabled"
             && view.sceneReflectionsSwitch.state == .on
-        view.sceneAntiAliasingPopup.selectItem(at: 1)
+        view.sceneAntiAliasingPopup.selectItem(at: view.sceneAntiAliasingPopup.indexOfItem(withRepresentedObject: "msaa4"))
         _ = view.sceneAntiAliasingPopup.sendAction(view.sceneAntiAliasingPopup.action, to: view)
         checks["native-aa-setting-persists-and-leaves-derived-preset"] =
-            requests.requests.count == 5 && PlaybackQualityPreference.current.scene.antiAliasing == .msaa2
+            requests.requests.count == 5 && PlaybackQualityPreference.current.scene.antiAliasing == .msaa4
             && view.sceneQualityPresetPopup.indexOfSelectedItem == 0 && view.sceneFPSField.stringValue == "15"
         _ = try draft("88", in: view.sceneFPSField)
         let restore = NSButton()

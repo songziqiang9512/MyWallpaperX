@@ -128,16 +128,16 @@ import Foundation
             textureLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, textures: .performance)
         } else { textureLoadValid = false }
         var antiAliasLoad = hdrLoadPayload
-        antiAliasLoad["antiAliasingMode"] = "msaa2"
+        antiAliasLoad["antiAliasingMode"] = "msaa4"
         let antiAliasLoadValid: Bool
         if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(antiAliasLoad) {
-            antiAliasLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, antiAliasing: .msaa2)
+            antiAliasLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, antiAliasing: .msaa4)
         } else { antiAliasLoadValid = false }
         var antiAliasQuality = requestedQuality
-        antiAliasQuality.antiAliasing = .msaa2
+        antiAliasQuality.antiAliasing = .msaa4
         var antiAliasUpdate = qualityChangePayload
         SceneDaemonProtocol.writeRenderQuality(antiAliasQuality, to: &antiAliasUpdate)
-        let antiAliasUpdateValid = antiAliasUpdate["antiAliasingMode"] as? String == "msaa2"
+        let antiAliasUpdateValid = antiAliasUpdate["antiAliasingMode"] as? String == "msaa4"
             && decode(antiAliasUpdate) == .success(.setSceneRenderQuality(antiAliasQuality))
         let invalidQualityValues: [Any] = [true, "unknown", NSNull()]
         let qualityKeys = ["scenePostProcessing", "shadowQuality", "pointVolumeQuality", "reflectionQuality"]

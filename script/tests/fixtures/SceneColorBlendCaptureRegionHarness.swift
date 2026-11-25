@@ -172,9 +172,14 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
             }
             return value
         }
-        let color = device.makeTexture(descriptor: descriptor(.bgra8Unorm, samples: 2))!
-        let depth = device.makeTexture(descriptor: descriptor(.depth32Float, samples: 2))!
-        let pair = SceneMainPassEncoder.MultisampleAttachments(color: color, depth: depth)!
+        let supportsFour = device.supportsTextureSampleCount(4)
+        let multisampleCounts = supportsFour ? [2, 4] : [2]
+        let pairs = Dictionary(uniqueKeysWithValues: multisampleCounts.map { samples in
+            let color = device.makeTexture(descriptor: descriptor(.bgra8Unorm, samples: samples))!
+            let depth = device.makeTexture(descriptor: descriptor(.depth32Float, samples: samples))!
+            return (samples, SceneMainPassEncoder.MultisampleAttachments(color: color, depth: depth)!)
+        })
+        let pair = pairs[2]!
         let library = try device.makeLibrary(source: """
             #include <metal_stdlib>
             using namespace metal;
@@ -201,7 +206,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
             SIMD4(0.81, -0.51, 0.8, 1), SIMD4(-0.27, 0.83, 0.8, 1)]
         let far: [SIMD4<Float>] = [SIMD4(-1, -1, 0.2, 1), SIMD4(3, -1, 0.2, 1), SIMD4(-1, 3, 0.2, 1)]
         var rows: [[String: Any]] = []
-        for samples in [1, 2] {
+        for samples in [1] + multisampleCounts {
             let output = target(device, width: width, height: height, format: .bgra8Unorm, seed: 9)
             let command = queue.makeCommandBuffer()!
             let zero = MTLClearColorMake(0, 0, 0, 0)
@@ -214,7 +219,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
                 encoder.endEncoding()
                 return trace.frozenCompositionObservation()?.rows.isEmpty == true
             }
-            if samples == 2 { precondition(pass.prepareMultisampling(pair)) }
+            if let attachments = pairs[samples] { precondition(pass.prepareMultisampling(attachments)) }
             pipeline.rasterSampleCount = pass.rasterSampleCount
             let state = try device.makeRenderPipelineState(descriptor: pipeline)
             let attachment = pass.multisampleAttachments?.depth
@@ -233,14 +238,9 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
             let second = pass.encoder(depthTexture: attachment, clearsDepth: false)!
             draw(far, SIMD4(0, 1, 0, 1), on: second)
             pass.closeForOffscreen()
-            let reopened = samples == 2 && pass.encoder(required: false) != nil
+            let reopened = samples > 1 && pass.encoder(required: false) != nil
             let finished = pass.finishEnsuringClear()
             command.commit(); command.waitUntilCompleted()
-            let bytes = pixels(output)
-            let values = stride(from: 0, to: bytes.count, by: 4).map { i in
-                [bytes[i + 2], bytes[i + 1], bytes[i], bytes[i + 3]]
-            }
-            let mixed = values.filter { $0[0] > 0 && $0[1] > 0 }
             let opens = trace.frozenCompositionObservation()!.rows.filter { $0.kind == "main-raster-open" }
             rows.append(["samples": pass.rasterSampleCount, "targetSamples": output.sampleCount,
                 "finished": finished, "completed": command.status == .completed, "reused": first === second,
@@ -248,8 +248,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
                 "lateSelectionRejected": lateSelectionRejected,
                 "passDetails": opens.first?.details ?? [:], "actualResolveTarget": opens.first?.target?.textureToken
                     == String(UInt(bitPattern: ObjectIdentifier(output))),
-                "hasNear": values.contains([128, 0, 0, 128]), "hasFar": values.contains([0, 255, 0, 255]),
-                "mixedCount": mixed.count, "mixedAlphaCorrect": mixed.allSatisfy { (190...192).contains($0[3]) }])
+                "resolvedBGRA": Data(pixels(output)).base64EncodedString()])
         }
         let output = target(device, width: width, height: height, format: .bgra8Unorm, seed: 9)
         let noClear = SceneMainPassEncoder(commandBuffer: queue.makeCommandBuffer()!, target: output,
@@ -260,11 +259,46 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
         let blockedRead = SceneMainPassEncoder(commandBuffer: queue.makeCommandBuffer()!, target: output,
             clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
         precondition(blockedRead.prepareMultisampling(pair))
-        return ["supported": true, "rows": rows,
+        return ["supported": true, "supportsFour": supportsFour, "rows": rows,
+                "size": [width, height], "triangleClipXY": near.map { [$0.x, $0.y] },
                 "historyRejected": !noClear.prepareMultisampling(pair) && noClear.rasterSampleCount == 1,
                 "differentSizeRejected": !wrongSize.prepareMultisampling(pair) && wrongSize.rasterSampleCount == 1,
-                "singleColorRejected": SceneMainPassEncoder.MultisampleAttachments(color: output, depth: depth) == nil,
+                "singleColorRejected": SceneMainPassEncoder.MultisampleAttachments(color: output, depth: pair.depth) == nil,
                 "readRejected": blockedRead.withReadableTarget { _, _ in true } == nil]
+    }
+
+    static func unsupportedEight(_ device: MTLDevice, _ queue: MTLCommandQueue,
+                                 _ library: MTLLibrary) -> [String: Any] {
+        let supported = device.supportsTextureSampleCount(8)
+        var result: [String: Any] = ["device": device.name, "supported": supported]
+        guard !supported else { return result }
+        let color = target(device, width: 1, height: 1, format: .bgra8Unorm, seed: 128)
+        let uniforms = SceneLayerFragmentUniforms(time: 0, alpha: 1,
+            dependencyBlendMode: 0, usesDependencyBlend: 0, cursorUV: .zero,
+            sourceSampling: SIMD2(0, 1), tint: SIMD4(repeating: 1),
+            textureFrame0: SIMD4(0, 0, 1, 0), textureFrame1: SIMD4(0, 1, 0, 0))
+        var outputs: [[UInt8]] = []
+        result["rows"] = [1, 8].map { requested -> [String: Any] in
+            let pipeline = SceneImageLayerPipeline(device: device, library: library, rasterSampleCount: requested)!
+            let output = target(device, width: 4, height: 4, format: .bgra8Unorm, seed: 9)
+            let command = queue.makeCommandBuffer()!
+            let pass = SceneMainPassEncoder(commandBuffer: command, target: output,
+                clearColor: MTLClearColorMake(0, 0, 0, 0), clearEnabled: true)
+            let encoder = pass.encoder()!
+            let bound = pipeline.bind(encoder: encoder, rasterSampleCount: pass.rasterSampleCount)
+            if bound {
+                pipeline.drawLayer(texture: color, mvp: transformed(2, 2, 0, 0), uniforms: uniforms, encoder: encoder)
+            }
+            let finished = pass.finishEnsuringClear()
+            command.commit(); command.waitUntilCompleted()
+            outputs.append(pixels(output))
+            return ["requested": requested, "preparedSamples": pipeline.multisampleRasterSampleCount,
+                "attachmentSamples": pass.rasterSampleCount, "outputSamples": output.sampleCount,
+                "bound": bound, "finished": finished, "completed": command.status == .completed]
+        }
+        result["matchesSingleSample"] = outputs[0] == outputs[1]
+        result["visible"] = outputs[0] == Array(repeating: pixels(color), count: 16).flatMap { $0 }
+        return result
     }
 
     static func customQuad() -> SceneGeometryProduct {
@@ -771,6 +805,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
         print(String(decoding: try JSONSerialization.data(withJSONObject:
             ["rows": rows, "attachmentRows": attachmentRows, "terminalDepth": terminalDepth(device, queue, library),
              "multisampleResolve": multisampleResolve(device, queue),
+             "unsupportedEight": unsupportedEight(device, queue, library),
              "repeatedAttachmentReads": repeatedAttachmentReads(device, queue),
              "largeGroupBlend": autoreleasepool { largeGroupBlend(device, queue, library, fog) }]), as: UTF8.self))
     }

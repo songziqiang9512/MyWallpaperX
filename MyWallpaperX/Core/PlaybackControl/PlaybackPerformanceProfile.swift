@@ -58,11 +58,18 @@ nonisolated enum SceneTextureQuality: String, Sendable {
     var ordinaryColorMipLongEdge: Int? { self == .performance ? 2_048 : nil }
 }
 
-nonisolated enum SceneAntiAliasingMode: String, Sendable {
+nonisolated enum SceneAntiAliasingMode: String, CaseIterable, Sendable {
     case none
     case msaa2
+    case msaa4
 
-    var sampleCount: Int { self == .msaa2 ? 2 : 1 }
+    var sampleCount: Int {
+        switch self {
+        case .none: 1
+        case .msaa2: 2
+        case .msaa4: 4
+        }
+    }
 }
 
 nonisolated struct SceneRenderQuality: Equatable, Sendable {

@@ -4,6 +4,7 @@ The reference routes an identical unit quad through the actual custom-geometry
 full capture. This proves renderer pixels and logical copy bytes, not App GPU
 time, physical bandwidth, memory savings or official compatibility.
 """
+import base64
 import hashlib
 import json
 import os
@@ -36,6 +37,36 @@ SHADER = SCENE / "Rendering/Composition/SceneImageLayer.metal"
 FOG = SHADER.with_name("SceneDistanceFog.metalh")
 
 
+def triangle_edge_coverages(clip_xy, width, height):
+    # Exact pixel-square intersection area, independent of Metal's sample positions.
+    triangle = [((x + 1) * width / 2, (1 - y) * height / 2) for x, y in clip_xy]
+    edges = []
+    for y in range(height):
+        for x in range(width):
+            polygon = triangle
+            for axis, bound, sign in ((0, x, 1), (0, x + 1, -1),
+                                      (1, y, 1), (1, y + 1, -1)):
+                clipped = []
+                for a, b in zip(polygon, polygon[1:] + polygon[:1]):
+                    da, db = (a[axis] - bound) * sign, (b[axis] - bound) * sign
+                    if (da >= 0) != (db >= 0):
+                        fraction = da / (da - db)
+                        clipped.append(tuple(u + fraction * (v - u) for u, v in zip(a, b)))
+                    if db >= 0:
+                        clipped.append(b)
+                polygon = clipped
+            area = abs(sum(a[0] * b[1] - a[1] * b[0]
+                           for a, b in zip(polygon, polygon[1:] + polygon[:1]))) / 2
+            if 1e-9 < area < 1 - 1e-9:
+                edges.append((y * width + x, area))
+    return edges
+
+
+def resolved_pixels(row):
+    data = base64.b64decode(row["resolvedBGRA"])
+    return [(data[i + 2], data[i + 1], data[i], data[i + 3]) for i in range(0, len(data), 4)]
+
+
 class SceneColorBlendCaptureRegionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -66,6 +97,14 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
                     raise AssertionError(ran.stdout + ran.stderr)
             cls.result = json.loads(outputs[-1])
             assert identity == {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}, "source identity drift"
+        resolve = cls.result.get("multisampleResolve", {})
+        if resolve.get("supported"):
+            edges = triangle_edge_coverages(resolve["triangleClipXY"], *resolve["size"])
+            resolve["analyticEdgePixels"] = len(edges)
+            for row in resolve["rows"]:
+                pixels = resolved_pixels(row)
+                row["edgeCoverageMAE"] = sum(abs(pixels[index][0] / 128 - area)
+                                             for index, area in edges) / len(edges)
         (parent / "source-identity.json").write_text(json.dumps(identity, indent=2))
         (parent / "report.json").write_text(json.dumps(cls.result, indent=2))
         if cls.result.get("metalUnavailable"):
@@ -151,22 +190,66 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
         result = self.result["multisampleResolve"]
         if not result["supported"]:
             self.skipTest("the device does not support Apple memoryless 2× attachments")
+        if self.result["unsupportedEight"]["device"].split()[:2] == ["Apple", "M4"]:
+            self.assertTrue(result["supportsFour"])
         for check in ("historyRejected", "differentSizeRejected", "singleColorRejected", "readRejected"):
-            self.assertTrue(result[check], (check, result))
-        single, multisample = result["rows"]
-        self.assertEqual([single["samples"], multisample["samples"]], [1, 2])
-        for row in (single, multisample):
-            for check in ("finished", "completed", "reused", "offscreenBeforeClear", "hasNear", "hasFar",
-                          "actualResolveTarget", "mixedAlphaCorrect", "lateSelectionRejected"):
-                self.assertTrue(row[check], (check, row))
-            self.assertFalse(row["reopened"], row)
-            self.assertEqual((row["opens"], row["targetSamples"]), (1, 1))
-        self.assertEqual(single["mixedCount"], 0)
-        self.assertGreater(multisample["mixedCount"], 8)
-        self.assertEqual(multisample["passDetails"]["depthSamples"], "2")
-        self.assertEqual(multisample["passDetails"]["depthClear"], "0.0")
-        self.assertEqual(multisample["passDetails"]["depthStore"], "0")
-        self.assertEqual(multisample["passDetails"]["colorStore"], "2")
+            self.assertTrue(result[check], check)
+        rows = result["rows"]
+        self.assertEqual([row["samples"] for row in rows], [1, 2, 4] if result["supportsFour"] else [1, 2])
+        self.assertEqual(result["analyticEdgePixels"], 102)
+        width, height = result["size"]
+        for row in rows:
+            samples = row["samples"]
+            with self.subTest(samples=samples):
+                for check in ("finished", "completed", "reused", "offscreenBeforeClear",
+                              "actualResolveTarget", "lateSelectionRejected"):
+                    self.assertTrue(row[check], check)
+                self.assertFalse(row["reopened"])
+                self.assertEqual((row["opens"], row["targetSamples"]), (1, 1))
+                self.assertEqual(row["passDetails"]["depthSamples"], str(samples))
+                self.assertEqual(row["passDetails"]["depthClear"], "0.0")
+                if samples > 1:
+                    self.assertEqual(row["passDetails"]["depthStore"], "0")
+                    self.assertEqual(row["passDetails"]["colorStore"], "2")
+                pixels = resolved_pixels(row)
+                self.assertEqual(len(pixels), width * height)
+                self.assertIn((128, 0, 0, 128), pixels)
+                self.assertIn((0, 255, 0, 255), pixels)
+                mixed = 0
+                for index, rgba in enumerate(pixels):
+                    near = round(rgba[0] * samples / 128) / samples
+                    far = 1 - near
+                    # Each nearer covered sample keeps its red PMA value and occludes green.
+                    expected = (128 * near, 255 * far, 0, 128 * near + 255 * far)
+                    error = max(abs(a - b) for a, b in zip(rgba, expected))
+                    self.assertLessEqual(error, 1.5, (index % width, index // width, rgba, expected))
+                    mixed += 0 < near < 1
+                if samples == 1:
+                    self.assertEqual(mixed, 0)
+                else:
+                    self.assertGreater(mixed, 8)
+                if samples == 4:
+                    for x, y, expected in ((11, 24, (32, 191, 0, 223)), (16, 23, (96, 64, 0, 159))):
+                        actual = pixels[y * width + x]
+                        self.assertLessEqual(max(abs(a - b) for a, b in zip(actual, expected)), 1,
+                                             (x, y, actual, expected))
+        single, double, *four = [row["edgeCoverageMAE"] for row in rows]
+        self.assertLess(double, single)
+        if four:
+            self.assertLessEqual(four[0], double * 0.9)
+
+    def test_unsupported_eight_sample_request_renders_the_single_sample_pipeline(self):
+        result = self.result["unsupportedEight"]
+        if result["device"].split()[:2] == ["Apple", "M4"]:
+            self.assertFalse(result["supported"], result)
+        if result["supported"]:
+            self.skipTest("the Metal device supports 8×")
+        self.assertEqual([row["requested"] for row in result["rows"]], [1, 8])
+        for row in result["rows"]:
+            self.assertEqual((row["preparedSamples"], row["attachmentSamples"], row["outputSamples"]),
+                             (1, 1, 1), row)
+            self.assertTrue(row["bound"] and row["finished"] and row["completed"], row)
+        self.assertTrue(result["matchesSingleSample"] and result["visible"], result)
 
     def test_large_group_target_mode_31_draws_visible_pixels(self):
         result = self.result.get("largeGroupBlend", {})

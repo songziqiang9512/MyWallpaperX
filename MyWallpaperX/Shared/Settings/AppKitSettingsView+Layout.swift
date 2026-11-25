@@ -382,7 +382,15 @@ extension AppKitSettingsContainerView {
         qualitySection.addRow(makeSettingRow(
             title: String(localized: "Animation Frame Rate"), iconSystemName: "gauge.with.needle",
             subtitle: String(localized: "Sets the frame rate cap for Scene wallpapers"), trailing: sceneFPSControls))
-        sceneAntiAliasingPopup.addItems(withTitles: [String(localized: "None"), String(localized: "MSAA ×2")])
+        for mode in SceneAntiAliasingMode.allCases {
+            let title = switch mode {
+            case .none: String(localized: "None")
+            case .msaa2: String(localized: "MSAA ×2")
+            case .msaa4: String(localized: "MSAA ×4")
+            }
+            sceneAntiAliasingPopup.addItem(withTitle: title)
+            sceneAntiAliasingPopup.lastItem?.representedObject = mode.rawValue
+        }
         sceneAntiAliasingPopup.setAccessibilityLabel(String(localized: "Scene Anti-Aliasing"))
         qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Anti-Aliasing"),
             iconSystemName: "viewfinder",
@@ -452,7 +460,7 @@ extension AppKitSettingsContainerView {
             updateSceneFrameRateLabels(request)
         }
         webFrameRatePopup.selectItem(at: quality.webFrameRateMode == .display ? 0 : 1)
-        sceneAntiAliasingPopup.selectItem(at: quality.scene.antiAliasing == .msaa2 ? 1 : 0)
+        sceneAntiAliasingPopup.selectItem(at: sceneAntiAliasingPopup.indexOfItem(withRepresentedObject: quality.scene.antiAliasing.rawValue))
         refreshScenePostProcessingMenu(quality.scene.postProcessing)
         sceneTextureQualityPopup.selectItem(at: quality.scene.textures == .performance ? 1 : 0)
         sceneShadowsPopup.selectItem(at: sceneShadowsPopup.indexOfItem(withRepresentedObject: quality.scene.shadows.rawValue))
@@ -525,8 +533,6 @@ extension AppKitSettingsContainerView {
         }
         if sender === webFrameRatePopup {
             quality.webFrameRateMode = webFrameRatePopup.indexOfSelectedItem == 1 ? .followAnimationFrameRate : .display
-        } else if sender === sceneAntiAliasingPopup {
-            quality.scene.antiAliasing = sceneAntiAliasingPopup.indexOfSelectedItem == 1 ? .msaa2 : .none
         } else if sender === sceneTextureQualityPopup {
             quality.scene.textures = sceneTextureQualityPopup.indexOfSelectedItem == 1 ? .performance : .full
         } else if sender === sceneReflectionsSwitch {
@@ -534,7 +540,9 @@ extension AppKitSettingsContainerView {
         } else if sender === sceneVolumeLightingPopup {
             quality.scene.volumeLighting = sceneVolumeLightingPopup.indexOfSelectedItem == 0 ? .disabled : .enabled
         } else if let mode = (sender as? NSPopUpButton)?.selectedItem?.representedObject as? String {
-            if sender === sceneShadowsPopup, let selected = SceneShadowQuality(rawValue: mode) {
+            if sender === sceneAntiAliasingPopup, let selected = SceneAntiAliasingMode(rawValue: mode) {
+                quality.scene.antiAliasing = selected
+            } else if sender === sceneShadowsPopup, let selected = SceneShadowQuality(rawValue: mode) {
                 quality.scene.shadows = selected
             } else if sender === scenePostProcessingPopup, let selected = ScenePostProcessingMode(rawValue: mode) {
                 quality.scene.postProcessing = selected

@@ -347,10 +347,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "15dd5c146ff918d6b922a5b4464f961697d80e967f08a7657d21a13a77e9428f",
+        "sourceSHA256": "c94bf1c43a6bfa3790d5b0fc3cc2f2d285b4b911e6f8a3dcb71fe132796cd454",
         "method": "document_registry --audit + document_health --check",
-        "scope": "官版四预设的实际支持组合",
-        "limitations": "体积开放档仍为禁用／启用"
+        "scope": "可用的实际 MSAA 档及设备门",
+        "limitations": "不具备支持 8× 的物理设备"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1cf295a53f4995b2d5ebfa26a7f7962c48584846debb4cc4d1da431ff7c276e9",
+        "sourceSHA256": "8f6e53a79ecb6664b3db618603aa37cfae3eb908f9bbb1a074f6987784c347ef",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原生预设、恢复与实际 15 FPS 呈现",
-        "limitations": "物理菜单点击和多屏随 Q4 验证"
+        "scope": "精确覆盖、真实作者、SDR/HDR、4× 长窗",
+        "limitations": "多屏功耗及 8× 保待验"
       }
     },
     {
@@ -855,10 +855,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "beedbcd6a210e4189ee3c7583d2dac83878d0104ff948ecb1c7bc67a025c1c51",
+        "sourceSHA256": "c42b0fa6dcc533db5d792b8e293b10fa63c11b02e6811d0d04ab21ef3b23718d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原主域准备、准入与 resolve 合同",
-        "limitations": "实际档位成本由独立工作卡验收"
+        "scope": "原采样域及一致样本数",
+        "limitations": "实际帧时归工作卡"
       }
     },
     {

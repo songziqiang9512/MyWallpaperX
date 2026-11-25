@@ -22543,6 +22543,40 @@
         }
       }
     },
+    "MSAA ×4" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MSAA ×4"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MSAA ×4"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MSAA ×4"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MSAA ×4"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MSAA ×4"
+          }
+        }
+      }
+    },
     "Make Cards Smaller": {
       "localizations": {
         "en": {
