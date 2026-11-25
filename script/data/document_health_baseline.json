@@ -22,7 +22,7 @@
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 44,
-      "bytes": 7433
+      "bytes": 7507
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 200,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 330050
+      "bytes": 331564
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 245,
-      "bytes": 69483
+      "bytes": 69341
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -361,10 +361,10 @@
     {
       "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "eee31f7aa6e204b0b3b405a8a382730351369b0b6b46f9d2ba1e65d4da9a4351",
-      "after": "41998c3961708531d0338131940529bf561a695bfa16ee189943bf2274772834",
+      "before": "41998c3961708531d0338131940529bf561a695bfa16ee189943bf2274772834",
+      "after": "baa291f0f937d126b0c52bb172780c28d0b1201286336009d1e6979740ea6ad2",
       "owner": "Shared Scene author spectrum",
-      "reason": "Keep decision boundaries for finite-window response, effective onset and capture publication.",
+      "reason": "Use measured finite-window, reentry and slew evidence to bound the shared capture integration.",
       "decision": "docs/architecture/system-audio-spectrum-design.md"
     },
     {
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0f79fca084785add84974c59a1ed9aa8aefd302853ec7e72d87f316e6b78562d",
-      "after": "8c5910eb498d7723003ce2d4d3a0695b1944ea9195ff74fa3ec4bbe520af24b6",
+      "before": "8c5910eb498d7723003ce2d4d3a0695b1944ea9195ff74fa3ec4bbe520af24b6",
+      "after": "2441cce071e9497c018cc8d713b9b762cb14271b352a57968fa2607de8de711d",
       "owner": "Scene author spectrum",
-      "reason": "Record the four endpoint controls and the independently reviewed native foreground replay.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-silence-onset-361"
+      "reason": "Keep cross-checked endpoint thresholds, held-out frequency and local state controls and native weak ring output.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-reentry-slew-361"
     },
     {
       "section": "bodies",
