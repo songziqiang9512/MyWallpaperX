@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 344575
+      "bytes": 345101
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 243,
-      "bytes": 69217
+      "bytes": 69339
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "c88595e7aada8711ab2da4c32a01ce74bd7e79c7868b3a4d089580abfe9377e6",
-      "after": "9b4860d6303ca51b2de5aa5e980da2f469d7777d7aa5ee8377ecafc8b29b6c0b",
-      "owner": "Scene material coverage and compositing",
-      "reason": "记录透明图链终端合同、HDR覆盖反例及两场同条件实测。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#zero-alpha-private-graph"
+      "before": "9b4860d6303ca51b2de5aa5e980da2f469d7777d7aa5ee8377ecafc8b29b6c0b",
+      "after": "cf366f8071596062e5738c1fcfad23335c9d6ad6172d9f9c24d5d56b61ec22dc",
+      "owner": "Scene author audio coverage",
+      "reason": "登记同一端点可选44100Hz但实际混音仍48000Hz的已恢复试验。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-endpoint-44100"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e65d2c85f9b6b537fbf9cd5455669169dca1c1aa5ed62b8efd4cd9a45dc710e5",
-      "after": "a78a856807911196e1cd7ca384c17c3acbc5dbc4ab050d2299620970e1be3763",
-      "owner": "Scene material coverage and compositing",
-      "reason": "记录透明图链终端合同、HDR覆盖反例及两场同条件实测。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#zero-alpha-private-graph"
+      "before": "a78a856807911196e1cd7ca384c17c3acbc5dbc4ab050d2299620970e1be3763",
+      "after": "e513384b2eddc984faa6c2823a507dfb2d0608af3c6680130388394a7bca71da",
+      "owner": "Scene author audio coverage",
+      "reason": "登记同一端点可选44100Hz但实际混音仍48000Hz的已恢复试验。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-endpoint-44100"
     },
     {
       "section": "bodies",
