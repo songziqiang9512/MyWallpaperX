@@ -195,17 +195,18 @@ nonisolated struct ScenePkgReader {
 
     private static func readRange(descriptor: Int32, offset: Int, count: Int,
                                   checkCancellation: (() throws -> Void)?) throws -> Data {
-        var result = Data()
-        result.reserveCapacity(count)
-        var bytes = [UInt8](repeating: 0, count: min(64 * 1_024, count))
-        while result.count < count {
-            try checkCancellation?()
-            let amount = min(bytes.count, count - result.count)
-            let n = pread(descriptor, &bytes, amount, off_t(offset + result.count))
-            if n < 0 && errno == EINTR { continue }
-            if n < 0 { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
-            guard n > 0 else { throw ReadError.sourceChanged }
-            bytes.withUnsafeBufferPointer { result.append($0.baseAddress!, count: n) }
+        var result = Data(count: count)
+        try result.withUnsafeMutableBytes { (buffer: UnsafeMutableRawBufferPointer) in
+            var filled = 0
+            while filled < count {
+                try checkCancellation?()
+                let amount = min(64 * 1_024, count - filled)
+                let n = pread(descriptor, buffer.baseAddress! + filled, amount, off_t(offset + filled))
+                if n < 0 && errno == EINTR { continue }
+                if n < 0 { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+                guard n > 0 else { throw ReadError.sourceChanged }
+                filled += n
+            }
         }
         return result
     }

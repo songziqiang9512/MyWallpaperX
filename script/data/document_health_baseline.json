@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 62,
-      "bytes": 15589
+      "bytes": 15680
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -77,8 +77,8 @@
       "bytes": 79291
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 428,
-      "bytes": 90082
+      "lines": 443,
+      "bytes": 93463
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -105,8 +105,8 @@
       "bytes": 9092
     },
     "docs/scene/architecture/scene-resource-admission.md": {
-      "lines": 92,
-      "bytes": 13050
+      "lines": 94,
+      "bytes": 13569
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 73,
@@ -378,20 +378,20 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "2b654d7e30017ff54ccbb6c36c4162beac0c17540099abbc6e2ec3cdb70abb7d",
-      "after": "cbcaabc0d004d86f145d94ba43ee8bfa82fe08ef2c2f6a19e33d66346444459d",
+      "before": "cbcaabc0d004d86f145d94ba43ee8bfa82fe08ef2c2f6a19e33d66346444459d",
+      "after": "c066994aefea13a8efb210097f2b73d133057f20a57bd4e2a0d605f55dfa6384",
       "owner": "wallpaper-quality",
-      "reason": "记录内嵌视频去重的版本、画面、输入和限额验收",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-video-tex-redundant-load"
+      "reason": "登记去除包中间复制的原生配对和签名画面",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-package-read-copy"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "b43a03306c1c54f4b6e4cf6b59b9e27298b6d3f5c5e122fd373619d1803494cd",
-      "after": "1be47582fa02862516a48b6e90f184e2c38d6e001680c106ec711dab9ca7d7c3",
+      "before": "1be47582fa02862516a48b6e90f184e2c38d6e001680c106ec711dab9ca7d7c3",
+      "after": "831e6c76ee96f8fa4c75a9dadc465f5a9a047b8bde466e500ebebc6409664deb",
       "owner": "repository-map",
-      "reason": "为基础图与 TEX 加载补充内嵌视频的权威位置",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-video-tex-redundant-load"
+      "reason": "补 Scene 包读取与消费的权威路由",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-package-read-copy"
     },
     {
       "section": "bodies",
@@ -522,11 +522,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/scene-resource-admission.md",
-      "before": "d080bbd9a3bda80b3236976e01d5c8a419f5ec4d96ca8563562a538a7fcd6bf9",
-      "after": "2731b347d82b356ce22a39188d370970d18be4f973545a00ac6671c88f8647cb",
-      "owner": "Scene authored texture and property preparation",
-      "reason": "Record exact transparent replacement, baseline budget priority and authored publication scope.",
-      "decision": "docs/scene/architecture/scene-resource-admission.md#conditional-tex-atlas"
+      "before": "2731b347d82b356ce22a39188d370970d18be4f973545a00ac6671c88f8647cb",
+      "after": "c17e1d29b9b63e736288a7c60ecdd6987d81060aed754028b52dea60e94e6a65",
+      "owner": "scene-resource-admission",
+      "reason": "明确原包 reader 直接填充分块与原范围和失败职责",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-package-read-copy"
     },
     {
       "section": "bodies",

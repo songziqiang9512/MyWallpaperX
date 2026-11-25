@@ -78,6 +78,8 @@ TEXB0004 的条件声明和 mip 内图块由原容器入口读取。各 mip 的�
 
 资源 reader 对文件、数组、索引及工作量有自己的输入预算。当前静态 MDL reader 限总 vertex bytes 256 MiB、index bytes 32 MiB，并检查实际索引/范围；这是解析与工作预算，不是样本白名单。父 resident 账另在实际分配时准入。模型/材质/纹理路径沿同一 ResourceView 根解析，不新增模型专属来源或借无关资源改变资格。
 
+PKGV 同一已打开包的索引字段与所选条目由 [包 reader](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkgReader.swift) 以至多 64 KiB 的单次读取直接填入返回块。正短读按实际字节推进，取消、提前 EOF 或 revision 改变沿原入口拒绝。ResourceView 负责条目范围和消费，完整 snapshot 仍等待原读循环成功，流式消费者按原事务暂存。 [范围与性能证据](../../development/wallpaper-quality-work-card.md#scene-package-read-copy)
+
 不可变 bind 顶点可共享；skinning 完整成功才发布当前顶点，失败使用完整 bind，不发布半写 scratch。精确 bounds、device、generation、command buffer 与 storage lease 留在实际消费者。具体格式、几何与动画范围归[模型合同](../capabilities/advanced-object-coverage.md#models)。
 
 源码：[MDL reader](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlStaticModelReader.swift)、[准备设备资源](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift)。

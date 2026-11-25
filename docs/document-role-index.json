@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1c737181363ffa31762b6f7f0445a6225d987b3514e26da892f744a118cd95b5",
+        "sourceSHA256": "3dc715f9b93eafbcdbe3be106b7b37c133229d01121c9ae1f6a48006aceec22b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对 Scene 纹理档位与内嵌视频来源的入口",
-        "limitations": "入口指向各自职责说明，运行证据见质量工作卡。"
+        "scope": "核对 Scene 包读取与使用期的导航目标",
+        "limitations": "地图不重复包 reader 的行为和证据。"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2fa0daa8ff85059629709b426b2ce30f4320ff4f17a4f041796f0ad5332ea7cb",
+        "sourceSHA256": "bd3f06c4a20f3bb74ae77996e76491d110d0ba8cbfe46ad87b4349094ade8d9e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "记录真实作者、用实像素核对的静态对照及准备门",
-        "limitations": "已测范围为本机签名 Debug；字节是读取给解析器的载荷。"
+        "scope": "核对原生读成本、同源绑定和签名实呈入口",
+        "limitations": "热文件缓存原生度量；未测 App 首帧与整机功耗。"
       }
     },
     {
@@ -897,13 +897,13 @@
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene 资源计费与使用期",
       "currentStateAuthority": "docs/scene/capabilities/advanced-object-coverage.md",
-      "lastReviewed": "2026-11-24",
+      "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4089b1162a27d8f211c91b31b808debd919866b624525e62423d93341399158b",
+        "sourceSHA256": "e812a804c4bc8d42e3bb2ca3330c1923b9fd3561396c74341d001b1f64536a25",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对资源准备、发布、预算与条件 TEX 图集的现行职责。",
-        "limitations": "导航复核。作者基图与Puppet热接入的实机范围由运行证据记载，附属消费者仍在开放队列。"
+        "scope": "核对包 reader 的同 FD 生命周期与原 Root 地址边界",
+        "limitations": "只涉及包路径；资源准入与其他 backing 沿其合同。"
       }
     },
     {

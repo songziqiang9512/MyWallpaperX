@@ -87,7 +87,8 @@ nonisolated final class Results: @unchecked Sendable {
             print(String(decoding: try JSONSerialization.data(withJSONObject: result), as: UTF8.self))
             return
         }
-        let package = try reader.openPackage(packageURL: url)
+        let limits: ScenePkgReader.IndexLimits = mode == "compatibility-equivalence" ? .compatibility : .bounded
+        let package = try reader.openPackage(packageURL: url, limits: limits)
         let index = package.index
         let original = try Data(contentsOf: url)
         let entry = index.entries[0]
@@ -110,8 +111,8 @@ nonisolated final class Results: @unchecked Sendable {
             result["invalidCallerDescriptorFailsWithoutLeak"] = rejects({
                 _ = try reader.openPackage(duplicatingFileDescriptor: -1)
             }) && descriptorCount() == count
-        case "equivalence":
-            let second = try reader.openPackage(packageURL: url)
+        case "equivalence", "compatibility-equivalence":
+            let second = try reader.openPackage(packageURL: url, limits: limits)
             result["newFDParsesSameTableAndRevision"] = second.index == index
                 && second.fileRevision == package.fileRevision
             result["actualFileSize"] = index.fileSize == original.count
@@ -187,6 +188,20 @@ nonisolated final class Results: @unchecked Sendable {
                     }
             }, matching: { if case ScenePkgReader.ReadError.sourceChanged = $0 { return true }; return false })
             result["mutationReachedActualChunkConsumer"] = chunks > 0
+        case "short-during-read":
+            var chunks = 0
+            result["shortReadFollowedByEOFRejected"] = rejects({
+                try package.readEntryChunks(entry) { chunk in
+                    chunks += 1
+                    if chunks == 1 {
+                        let file = try FileHandle(forWritingTo: url)
+                        defer { try? file.close() }
+                        let size = index.dataStartOffset + Int(entry.offset) + chunk.count + 11
+                        try file.truncate(atOffset: UInt64(size))
+                    }
+                }
+            }, matching: { if case ScenePkgReader.ReadError.sourceChanged = $0 { return true }; return false })
+            result["partialChunkNeverReachedConsumer"] = chunks == 1
         case "parallel":
             let results = Results()
             DispatchQueue.concurrentPerform(iterations: 64) { number in
@@ -255,10 +270,17 @@ class ScenePkgReaderTests(unittest.TestCase):
         entries = [("Scene.json", b"uppercase"), ("scene.json", b"lowercase"),
                    ("textures/e\u0301.tex", b"decomposed"), ("textures/é.tex", b"composed"),
                    ("materials\\space .tex", b"backslash"), ("images/empty.png", b"")]
-        result = self.run_case("equivalence", entries=entries)
-        self.assertEqual(result.pop("paths"), [path for path, _ in entries])
-        self.assertEqual(result.pop("payloads"), [base64.b64encode(payload).decode() for _, payload in entries])
-        self.assertTrue(all(result.values()), result)
+        boundary_sizes = (65535, 65536, 65537)
+        payload = bytes(range(251)) * (max(boundary_sizes) // 251 + 1)
+        boundary_entries = [("p" * (size - 3) + "qé", payload[:size]) for size in boundary_sizes]
+        for mode, selected in [("equivalence", entries), ("compatibility-equivalence", boundary_entries)]:
+            with self.subTest(mode=mode):
+                result = self.run_case(mode, entries=selected)
+                self.assertEqual(result.pop("paths"), [path for path, _ in selected])
+                self.assertEqual(result.pop("payloads"), [
+                    base64.b64encode(payload).decode() for _, payload in selected
+                ])
+                self.assertTrue(all(result.values()), result)
 
     def test_current_fd_zero_length_and_cancellation(self):
         self.assert_case("verification")
@@ -273,7 +295,10 @@ class ScenePkgReaderTests(unittest.TestCase):
         self.assert_case("replace")
 
     def test_mutation_during_chunked_read_is_rejected(self):
-        self.assert_case("during-read", entries=[("images/large.png", b"a" * (256 * 1024))])
+        entries = [("images/large.png", b"a" * (256 * 1024))]
+        for mode in ("during-read", "short-during-read"):
+            with self.subTest(mode=mode):
+                self.assert_case(mode, entries=entries)
 
     def test_cancellation_after_one_chunk_does_not_poison_retry(self):
         self.assert_case("cancel-during-read", entries=[("images/large.png", b"a" * (256 * 1024))])
