@@ -22,7 +22,7 @@
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 42,
-      "bytes": 6681
+      "bytes": 6825
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 200,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 596,
-      "bytes": 325406
+      "bytes": 325965
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 245,
-      "bytes": 69473
+      "bytes": 69611
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -361,11 +361,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "4327d1f54340afb434803d0afb213a285dedab1a5ddb8dee51c1c582929d8ed2",
-      "after": "528cae877612ae0c90714a60b2f26ef3138c948e4c562eeb47a62a0a23c0239f",
+      "before": "0f97e9b5a2c838bce4f1da34d1942806ebd4996291ebedc7a57591a9e47f5981",
+      "after": "ac6515e455ceb1b2a747d357d81333086fb427e64f654c7145e27ac82c4ece56",
       "owner": "Shared Scene author spectrum",
-      "reason": "Preserves the exact PCM history distinction, static boundary, and measured accuracy and work of the short transform candidate.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361"
+      "reason": "Record the qualified candidate for amplitude-domain release and remaining design evidence.",
+      "decision": "docs/architecture/system-audio-spectrum-design.md"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0846de22d1d6adc5b44b525ed639210b22b26bf5001ecccc92dee8f1ffcdc496",
-      "after": "2783517b5b345542c62b31d062956059d6c467a00f9deb2ea640109855d89576",
+      "before": "2783517b5b345542c62b31d062956059d6c467a00f9deb2ea640109855d89576",
+      "after": "b076900b9837b3ba39e26b30e32a86db36610498ba942825a9f5bb3a7fb8689d",
       "owner": "Scene author spectrum",
-      "reason": "Bind equal-extent spectrum replay and independently checked gain response across strength and frequency.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-ring-shape-same-spectrum-361"
+      "reason": "Record actual amplitude-scale holdout and independent decay measurement.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-physical-release-361"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "8fa7a28cace3170d1bb591f85394543bb6ef5b401c8815adf5934eb7a9bf854e",
-      "after": "652bc75034283cbe7bc5213ee83c16018f7f7f13985381ece463ee472c25b8d7",
-      "owner": "Scene author sample feedback",
-      "reason": "Separate the verified static ring repair from the open live shape and keep the next cross-domain evidence target.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#resolved-user-feedback"
+      "before": "652bc75034283cbe7bc5213ee83c16018f7f7f13985381ece463ee472c25b8d7",
+      "after": "dbf18c05999fe93ebe04911c1bbcc05efb58fbb8a4dda8a5467ed33e40aa710b",
+      "owner": "Scene author spectrum",
+      "reason": "Point open work to pressure calibration and isolate the closed scale comparison.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
       "section": "bodies",

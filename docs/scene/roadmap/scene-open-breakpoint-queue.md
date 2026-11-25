@@ -18,7 +18,7 @@
 | 定位 | 当前事实与下一步 |
 |---|---|
 | Sphere 全零方向的出生可见性（待证） | [固定零半径初速](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)已恢复。显式全零 Directions 的隔离 Sprite 在官版窗内无像素，本机可见且静止。需分出生资格与可见条件，先找活动作者或单轴逐步归零的反例，保零速度和非零轴的正常出生。 |
-| 音频供值 · 3612940332 | [同1538×998、交换32档](../capabilities/runtime-evidence-current.md#author-ring-shape-same-spectrum-361)复现有声红环变细及形状偏差，首个已证差异在供值。[异幅及异频脉冲](../capabilities/runtime-evidence-current.md#author-spectrum-strength-groups-361)约束快慢恢复和分组倍率。沿[共享设计](../../architecture/system-audio-spectrum-design.md)核同比缩放与频段权重，再验原包有声与Bloom。旧64档只改取峰已有反例。 |
+| 音频供值 · 3612940332 | [同1538×998、交换32档](../capabilities/runtime-evidence-current.md#author-ring-shape-same-spectrum-361)复现有声红环变细及形状偏差，首个已证差异在供值。[异幅及异频脉冲](../capabilities/runtime-evidence-current.md#author-spectrum-strength-groups-361)约束快慢恢复和分组倍率。[同比缩放](../capabilities/runtime-evidence-current.md#author-spectrum-physical-release-361)支持近似绝对线性衰减。沿[共享设计](../../architecture/system-audio-spectrum-design.md)核频段权重、压力合成及攻击，再验原包有声与Bloom。旧64档只改取峰已有反例。 |
 | 粒子外圈 · 3653620838 | [近轴与像素相位](../capabilities/runtime-evidence-current.md#vortex-outer-pixel-phase-365)的静卡一致。继续须运动同亚像素或重复成熟群组，区分出光与覆盖。 |
 | 普通粒子材质增亮的裁幅 | 平面 RG88 同窗对照测得材质 gain1.4 的官版 `(0,144,144)`、本机新 `(0,163,202)`。先找实际作者消费，并用有色 texel、半透明底和双层加色区分 tint、采样与裁幅顺序。已验证的中性 R8 半透明 Trail 裁幅另有原证据。 [运行证据](../capabilities/runtime-evidence-current.md#particle-instance-tint-native) |
 | 3454689854 的相邻丝层 | [同画幅单丝、原包和实际预算](../capabilities/runtime-evidence-current.md#silk-capture-density-345)已闭两条SDR根丝密度。子层及多阶段保持原工作域，只有取得可归属的同相位残差再重启。原默认绕身文字两端均隐藏，条件另见[原包对照](../capabilities/runtime-evidence-current.md#author-silk-raster-345)。 |

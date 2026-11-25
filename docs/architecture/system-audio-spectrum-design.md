@@ -3,7 +3,7 @@
 
 # 共享音频分析与消费域设计
 
-> 状态：仍共用显示响应。[粒子16档](../scene/capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)、[前景16档](../scene/capabilities/runtime-evidence-current.md#author-low-band-pulse-346)和[shader 32档](../scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361)在已测档取准备64档组峰。[同PCM脉冲](../scene/capabilities/runtime-evidence-current.md#author-spectrum-pulse-361)及前景区分快影响与慢恢复。48kHz有短窗候选，44.1kHz、运行原谱及更新律待证。再验作者画面。
+> 状态：仍共用显示响应。[粒子16档](../scene/capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)、[前景16档](../scene/capabilities/runtime-evidence-current.md#author-low-band-pulse-346)和[shader 32档](../scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361)在已测档取准备64档组峰。[同PCM脉冲](../scene/capabilities/runtime-evidence-current.md#author-spectrum-pulse-361)及前景区分快影响与慢恢复。48kHz有短窗及[近似绝对线性衰减](../scene/capabilities/runtime-evidence-current.md#author-spectrum-physical-release-361)候选。压力合成、攻击、绝对校准、44.1kHz及运行原谱待证。再验作者画面。
 
 ## 目标与职责
 
