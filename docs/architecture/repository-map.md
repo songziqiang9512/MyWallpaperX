@@ -27,6 +27,8 @@
 <a id="wallpaper-quality"></a>
 壁纸质量从 [AppKit 设置](../../MyWallpaperX/Shared/Settings/AppKitSettingsView.swift)、[播放偏好](../../MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift)与[导入恢复](../../MyWallpaperX/App/PersonalSettingsImportCoordinator.swift)进入。Scene 跟 [daemon 控制面](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient.swift)、[帧驱动](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift)及[有效策略](../scene/architecture/runtime-architecture.md#effective-quality-policy)。Web 跟 [宿主投影](../../MyWallpaperX/Core/SteamWorkshopWeb/Process/WebDaemonHostAdapter.swift)，Video 跟 [原片执行](../../WallpaperDaemonSources/Daemon/Playback/WallpaperDaemon+Video.swift)。Scene 预设与手改共用同一偏好和 [命令 mux](../../MyWallpaperX/Core/PlaybackControl/PlaybackCommandMultiplexer.swift)，按已保存请求派生。新启动或重建路径沿各端种子检查，执行工作见[现役工作卡](../development/wallpaper-quality-work-card.md#execution)。
 
+发给用户的设置说明写在五语 [内置帮助](../../MyWallpaperXHelp/zh-Hans.lproj/index.html)，按正文的 Video、Web、Scene 章节随适用范围变动更新。 [帮助书检查](../../script/governance/check_help_bundle.py)
+
 三引擎交接和冷恢复用 [签名产品验收](../../script/web/playback_quality_coexistence.py) 从正常库选择入口核实会话、实际窗口和已保存的 Scene 质量。 [验收范围](../development/wallpaper-quality-work-card.md#quality-engine-coexistence)
 
 Scene 的 [显示模式与目标屏](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneScreenTopology.swift) 进入原 daemon 拓扑入口。请求、生效上限及解码配额见 [帧率合同](../scene/architecture/runtime-architecture.md#scene-frame-rate-policy)。Scene 稳态节律用 [原产品启动基准](../../script/web/wallpaper_startup_benchmark.py) 对实际接管的 daemon 采集逐屏呈现与 GPU 完成。参数、观测边界和当前 A/A 见[工作卡](../development/wallpaper-quality-work-card.md#连续帧率的产品测量与接管)。

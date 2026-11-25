@@ -1,5 +1,5 @@
 /* Search is an enhancement; all chapters and anchors work without JavaScript. */
-(() => {
+document.addEventListener('DOMContentLoaded', () => {
   const search = document.querySelector('#help-search');
   const chapters = [...document.querySelectorAll('.guide-section')];
   const status = document.querySelector('#search-status');
@@ -53,4 +53,4 @@
       });
     });
   });
-})();
+});

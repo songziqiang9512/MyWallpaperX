@@ -100,7 +100,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 }
 </style><script defer>
 /* Search is an enhancement; all chapters and anchors work without JavaScript. */
-(() => {
+document.addEventListener('DOMContentLoaded', () => {
   const search = document.querySelector('#help-search');
   const chapters = [...document.querySelectorAll('.guide-section')];
   const status = document.querySelector('#search-status');
@@ -154,7 +154,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
       });
     });
   });
-})();
+});
 </script></head>
 <body id="top"><a class="skip" href="#main">Zum Inhalt springen</a><div class="layout">
 <aside class="sidebar">
@@ -183,6 +183,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 <div class="section-heading"><h2>Video · Ein bewegtes Bild</h2><span class="tag">VIDEO-WALLPAPERS</span></div>
 <p class="lead">Landschaften, Animationsclips und nahtlose Schleifen. Eine Videodatei liefert das Bild – der direkteste Einstieg.</p>
 <div class="two-column"><div><h3>Was du tun kannst</h3><ul><li>Importiere lokale Dateien in Meine Videos und ordne sie mit Favoriten, Wiedergabelisten und Zuletzt verwendet.</li><li>Wähle in den Einstellungen Endlosschleife, sequenzielle Wiedergabe oder Zufallswiedergabe, bei Bedarf mit automatischem Wechsel.</li><li>Passe die Wiedergabegeschwindigkeit an und wähle, ob das Video in das Display passt oder es ausfüllt.</li></ul></div><div><h3>So klappt es gut</h3><ul><li>Passe das Seitenverhältnis des Videos an dein Display an. Ausfüllen kann Ränder beschneiden; Einpassen kann leere Ränder lassen.</li><li>Wähle Clips mit einem natürlichen Übergang zwischen letztem und erstem Bild für eine flüssigere Schleife.</li><li>Der Codec in einer MP4- oder MOV-Datei muss auch von macOS unterstützt werden. Öffne die Datei in einem systemeigenen Videoplayer, wenn sie nicht abgespielt wird.</li></ul></div></div>
+<p>Unter „Einstellungen › Hintergrundbildqualität“ steht bei „Videoqualität“ der Wert „Originalvideo“. Vorhandene Videos werden in der Qualität der gespeicherten Datei abgespielt. Wenn ein neuer Pixabay-Download in mehreren Größen verfügbar ist, kannst du eine davon auswählen. Die größte verfügbare Variante ist vorausgewählt. Abgespielt wird die heruntergeladene Datei.</p>
 <aside class="tip">
 <strong>Wiedergabeeinstellungen statt Eigenschaften des Autors</strong>Videos nutzen die Lautstärke-, Geschwindigkeits- und Wiedergabemodus-Einstellungen der App. Sie haben keine vom Autor definierten Eigenschaftsfelder wie Web- und Scene-Projekte. Video-Geschwindigkeit und Füllmodus gelten nur für Videos.
 </aside>
@@ -193,6 +194,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 <div class="section-heading"><h2>Web · Ein Desktop mit Live-Ansicht</h2><span class="tag web">WEB-WALLPAPERS</span></div>
 <p class="lead">Uhren, Informationsanzeigen, Web-Animationen und interaktive Layouts. Jedes Projekt verbindet eine Webseite mit ihren Ressourcen; der Autor bestimmt, was sie tut.</p>
 <div class="two-column"><div><h3>Was du tun kannst</h3><ul><li>Filtere Workshop-Inhalte nach Web, lade ein Projekt herunter und spiele es aus „Meine Downloads“ ab.</li><li>Öffne in den Artikeldetails die Eigenschaften, um Farben, Text, Schalter und andere bereitgestellte Optionen des Autors zu ändern.</li><li>Unterstützte Projekte können auf Zeiger oder Audio reagieren, wenn der Autor diese Verhaltensweisen eingebaut hat.</li></ul></div><div><h3>Bewährte Vorgehensweisen</h3><ul><li>Beginne mit den Standardeigenschaften und ändere dann jeweils eine Einstellung.</li><li>Wetter, entfernte Bilder und andere Online-Inhalte können eine Verbindung benötigen, auch nachdem das Projekt heruntergeladen wurde.</li><li>Bei einer leeren oder unvollständigen Seite prüfe die Download-Aufgaben und etwaige Fehlermeldungen oder Meldungen zu fehlenden Abhängigkeiten in der Liste. Halte beim Melden eines Problems den Artikel-Link und die Symptome fest.</li></ul></div></div>
+<p>Unter „Einstellungen › Hintergrundbildqualität“ kannst du bei „Empfohlene Bildrate für Web-Hintergrundbilder“ dem Display bis 60 FPS folgen oder die eingestellte Animationsbildrate verwenden. Die Empfehlung wirkt nur, wenn der Code des Web-Hintergrundbilds sie berücksichtigt.</p>
 <aside class="tip">
 <strong>Halte das ganze Projekt zusammen</strong>Ein Web-Wallpaper besteht meist aus mehr als einer HTML-Datei. Verschiebe einzelne Seiten, Bilder oder Skripte nicht aus ihrem Ordner. Presets, die von einem anderen Projekt abhängen, brauchen auch dessen Basisinhalt. Die Kompatibilität variiert je nach Projekt.
 </aside>
@@ -202,7 +204,13 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 <section class="guide-section" id="scene">
 <div class="section-heading"><h2>Scene · Eine Welt in Echtzeit</h2><span class="tag scene">ECHTZEIT-SCENES</span></div>
 <p class="lead">Ebenen, Materialien und Animation werden beim Laufen des Wallpapers zusammengesetzt. Unterstützte Projekte können Tiefe, Partikel, dynamischen Text und reaktive Effekte statt eines vorab aufgezeichneten Videos enthalten.</p>
-<div class="two-column"><div><h3>Was du tun kannst</h3><ul><li>Filtere Workshop-Inhalte nach Scene, lade einen Eintrag herunter und wende ihn auf den Desktop an.</li><li>Nutze die Eigenschaften, um vom Autor bereitgestellte Farben, Schalter, Werte, Text- oder Bildoptionen zu ändern.</li><li>Steuere Wiedergabe, Pause und Lautstärke über die gemeinsamen Bedienelemente, bei Bedarf mit Energiesparregeln.</li></ul></div><div><h3>Bewährte Vorgehensweisen</h3><ul><li>Wähle unter „Scene-Bildratenlimit“ den Wert 30, um das Laufzeitbudget zu senken; 60 erlaubt eine höhere Bildraten-Obergrenze.</li><li>Probiere die Standarddarstellung, bevor du Effekte anpasst. Die Leistung hängt auch von der Komplexität des Projekts ab.</li><li>Bei fehlenden Ebenen oder unerwarteten Effekten vergleiche die Standardeigenschaften und halte beim Melden des Problems Artikel-Link, Screenshot und Symptome fest.</li></ul></div></div>
+<div class="two-column"><div><h3>Was du tun kannst</h3><ul><li>Filtere Workshop-Inhalte nach Scene, lade einen Eintrag herunter und wende ihn auf den Desktop an.</li><li>Nutze die Eigenschaften, um vom Autor bereitgestellte Farben, Schalter, Werte, Text- oder Bildoptionen zu ändern.</li><li>Steuere Wiedergabe, Pause und Lautstärke über die gemeinsamen Bedienelemente, bei Bedarf mit Energiesparregeln.</li></ul></div><div><h3>Bewährte Vorgehensweisen</h3><ul><li>Passe die <a href="#wallpaper-quality">Qualität und Bildrate von Szenen</a> unter „Einstellungen › Hintergrundbildqualität“ an.</li><li>Probiere die Standarddarstellung, bevor du Effekte anpasst. Die Leistung hängt auch von der Komplexität des Projekts ab.</li><li>Bei fehlenden Ebenen oder unerwarteten Effekten vergleiche die Standardeigenschaften und halte beim Melden des Problems Artikel-Link, Screenshot und Symptome fest.</li></ul></div></div>
+<h3 class="subheading" id="wallpaper-quality">Hintergrundbildqualität für Szenen</h3>
+<p><strong>Qualitätsvorgabe für Szenen und Animationsbildrate.</strong> Niedrig, Mittel, Hoch und Ultra setzen die Szenenqualität und fordern jeweils 10, 15, 25 und 30 FPS an. Du kannst eine ganze Zahl von 10 bis 120 FPS eingeben. Weichen die Werte von allen Vorgaben ab, erscheint „Benutzerdefiniert“. „Standardqualität wiederherstellen“ setzt den angeforderten Wert auf 60 FPS zurück. Bildwiederholraten und Szenenaufwand können die Ausgabe begrenzen. Displays mit verschiedenen Bildwiederholraten haben eine gemeinsame Obergrenze von höchstens 60 FPS.</p>
+<p><strong>Kantenglättung für Szenen.</strong> Wähle „Keine“, MSAA ×2 oder MSAA ×4. Wende das Hintergrundbild erneut an, damit der gewählte Modus auf unterstützten Geräten in Szenen mit kompatiblen 3D-Modellen greift. Kompatible 2D-Ebenen können denselben Modus nutzen. Rein zweidimensionale Szenen und andere nicht unterstützte Kombinationen verwenden ein Sample pro Pixel.</p>
+<p><strong>Scene-Nachbearbeitung.</strong> „Deaktiviert“ schaltet den Bloom-Effekt der gesamten Szene aus. „Aktiviert“ behält den normalen Bloom-Effekt bei. „Ultra“ erhält die HDR-Effekte des Hintergrundbilds und zeigt sie in SDR an. Wenn mindestens ein HDR-fähiges Display angeschlossen ist, kannst du für hellere Spitzlichter „Ultra (HDR-Ausgabe)“ wählen. Das Hintergrundbild muss HDR aktiviert haben. Die Helligkeit hängt von der aktuell verfügbaren Reserve des jeweiligen Displays ab. Displays ohne nutzbares HDR zeigen weiterhin SDR. Zwischen den beiden Ultra-Modi kannst du direkt wechseln. Bei anderen Änderungen musst du das Hintergrundbild gegebenenfalls erneut anwenden.</p>
+<p><strong>Texturen, Beleuchtung und Reflexionen.</strong> Die Texturauflösung bietet „Automatisch“, „Hohe Qualität“ und „Hohe Leistung“ für Texturen mit geeigneten Größen. „Scene-Schatten“ wirkt auf unterstützte Schatten im Hintergrundbild. Die volumetrische Beleuchtung lässt sich deaktivieren oder auf Hoch oder Ultra stellen. Hoch und Ultra steuern die Genauigkeit des volumetrischen Lichts von Punktlichtern. Wenn du „Scene-Reflexionen“ ausschaltest, entfallen optionale Echtzeitreflexionen. Ausdrücklich im Motiv angelegte Umgebungseffekte können erhalten bleiben.</p>
+
 <aside class="tip">
 <strong>Kompatibilität ist projektspezifisch</strong>Die Scene-Kompatibilität wird noch entwickelt. Ein abgeschlossener Download garantiert nicht jeden Effekt, jedes Skript oder jede Interaktion und keine exakte Übereinstimmung mit Wallpaper Engine. Eine fehlende Eigenschaft kann einfach bedeuten, dass der Autor sie nicht bereitgestellt hat.
 </aside>
@@ -437,7 +445,7 @@ Alle Wiedergabelisten
 </div>
 <div class="two-column"><div><h3>Wiedergabe fortsetzen</h3><p>Die Wiedergabe bleibt pausiert, solange eine aktivierte Bedingung zutrifft. Sie kann automatisch fortgesetzt werden, sobald diese Bedingungen entfallen. Ein manuell pausiertes Wallpaper musst du weiterhin manuell fortsetzen.</p></div><div><h3>Ton und Audioreaktion</h3><p>Die Lautstärke steuert den eigenen Ton des Wallpapers; sie kann einem stummen Projekt keine Audiospur hinzufügen. Reaktionen auf Systemaudio erfordern zudem ein kompatibles Wallpaper, die passende Einstellung und macOS-Berechtigungen.</p></div></div>
 <aside class="tip">
-<strong>Beginne mit einem einfachen Energiespar-Setup</strong>Wenn du oft im Vollbild arbeitest, aktiviere zuerst die Vollbild-Pause. Auf einem Laptop ergänze bei Bedarf die Akku-Pause. Die Einstellung Scene 30/60 wirkt nur auf Scene; sie ändert nicht die ursprüngliche Bildrate von Videos.
+<strong>Beginne mit einem einfachen Energiespar-Setup</strong>Wenn du oft im Vollbild arbeitest, aktiviere zuerst die Vollbild-Pause. Auf einem Laptop ergänze bei Bedarf die Akku-Pause. Mit einer niedrigeren <a href="#wallpaper-quality">Animationsbildrate</a> kannst du die Last weiter senken.
 </aside>
 
 </section>
@@ -469,9 +477,6 @@ Alle Wiedergabelisten
 
 <h3 class="subheading">Songinfo</h3>
 <p><strong>Songinfo im Wallpaper</strong> zeigt den aktuellen Titel und das Coverbild bei unterstützten Scene- und Web-Wallpapers. macOS fragt beim ersten Mal nach dem Zugriff auf Apple Music über Automation; bis du ihn erlaubst, bleibt die Einstellung aus. Wenn du ihn abgelehnt hast, aktiviere ihn unter <strong>Datenschutz &amp; Sicherheit › Automation</strong> erneut und schalte den Schalter wieder ein.</p>
-
-<h3 class="subheading">Scene HDR</h3>
-<p><strong>Scene-HDR</strong> rendert in ein Ziel mit erweitertem Dynamikumfang, wenn das Projekt es unterstützt. Es ist nur auf einem HDR-Display sinnvoll und erhöht den Stromverbrauch deutlich; die App warnt einmal beim Aktivieren und schaltet es nie von selbst aus.</p>
 </section>
 
 <section class="guide-section" id="shortcuts">

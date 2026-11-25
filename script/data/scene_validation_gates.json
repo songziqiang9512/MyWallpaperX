@@ -170,11 +170,11 @@
       "retirement": "Replace only with an equivalent mandatory gate that still proves source/catalog synchronization, placeholder safety and absence of unlocalized interface text."
     },
     "help-book": {
-      "risk": "The system Help menu loses the book identity or the five language pages drift from the shared sources.",
+      "risk": "The system Help menu loses the book identity, localized pages drift, or search and chapter links stop working in WebKit.",
       "trigger": "Help bundle, shared assets, registration metadata, or Help checker changes.",
       "cost": "low",
       "serialized": false,
-      "retirement": "Replace only with equivalent coverage of help registration, localized pages and shared assets."
+      "retirement": "Replace only with equivalent coverage of help registration, localized assets, and browser search and navigation."
     }
   },
   "path_groups": [
@@ -6797,8 +6797,12 @@
         "script/help-assets/**",
         "script/governance/check_help_bundle.py",
         "script/governance/inline_help_assets.py",
+        "script/tests/governance/test_help_book.py",
         "MyWallpaperX/Info.plist",
         "MyWallpaperX/Resources/InfoPlist.xcstrings"
+      ],
+      "modules": [
+        "test_help_book"
       ]
     }
   ],

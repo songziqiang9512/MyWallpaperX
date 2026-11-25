@@ -100,7 +100,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 }
 </style><script defer>
 /* Search is an enhancement; all chapters and anchors work without JavaScript. */
-(() => {
+document.addEventListener('DOMContentLoaded', () => {
   const search = document.querySelector('#help-search');
   const chapters = [...document.querySelectorAll('.guide-section')];
   const status = document.querySelector('#search-status');
@@ -154,7 +154,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
       });
     });
   });
-})();
+});
 </script></head>
 <body id="top"><a class="skip" href="#main">Aller au contenu</a><div class="layout">
 <aside class="sidebar">
@@ -183,6 +183,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 <div class="section-heading"><h2>Video · Une image en mouvement</h2><span class="tag">FONDS D’ÉCRAN VIDEO</span></div>
 <p class="lead">Paysages, animations et boucles sans coupure. Un fichier vidéo fournit l’image : c’est le moyen le plus direct de commencer.</p>
 <div class="two-column"><div><h3>Ce que vous pouvez faire</h3><ul><li>Importez des fichiers locaux dans Mes vidéos, puis organisez-les avec les Favoris, les listes de lecture et Utilisés récemment.</li><li>Choisissez une lecture en boucle, séquentielle ou aléatoire dans les Réglages, avec un changement automatique si nécessaire.</li><li>Réglez la vitesse de lecture et choisissez si la vidéo s’adapte à l’écran ou le remplit.</li></ul></div><div><h3>Pour un bon résultat</h3><ul><li>Adaptez les proportions de la vidéo à votre écran. Remplir peut rogner les bords ; Ajuster peut laisser des bandes vides.</li><li>Choisissez des clips dont la transition entre la dernière et la première image est naturelle, pour une boucle plus fluide.</li><li>Le codec contenu dans un MP4 ou MOV doit aussi être pris en charge par macOS. Essayez le fichier dans un lecteur vidéo du système s’il ne se lit pas.</li></ul></div></div>
+<p>Dans Réglages › Qualité du fond d’écran, la ligne « Qualité vidéo » indique « Vidéo d’origine ». Les vidéos existantes sont lues dans la qualité du fichier enregistré. Si un nouveau téléchargement Pixabay propose plusieurs tailles, choisissez-en une avant le téléchargement. La taille la plus élevée disponible est présélectionnée. La lecture utilise le fichier téléchargé.</p>
 <aside class="tip">
 <strong>Des réglages de lecture, pas des propriétés d’auteur</strong>Les vidéos utilisent les réglages de volume, de vitesse et de mode de lecture de l’app. Elles n’ont pas les panneaux de propriétés définis par l’auteur des projets Web et Scene. La vitesse et le mode de remplissage sont spécifiques à la vidéo.
 </aside>
@@ -193,6 +194,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 <div class="section-heading"><h2>Web · Un bureau avec une vue en direct</h2><span class="tag web">FONDS D’ÉCRAN WEB</span></div>
 <p class="lead">Horloges, affichages d’informations, animations web et mises en page interactives. Chaque projet associe une page web à ses ressources ; l’auteur décide de son comportement.</p>
 <div class="two-column"><div><h3>Ce que vous pouvez faire</h3><ul><li>Filtrez le contenu de l’Atelier par Web, téléchargez un projet, puis lancez-le depuis Mes téléchargements.</li><li>Ouvrez Propriétés dans les détails de l’élément pour modifier les couleurs, le texte, les interrupteurs et les autres options proposées par l’auteur.</li><li>Les projets compatibles peuvent réagir au pointeur ou à l’audio, lorsque l’auteur a prévu ces comportements.</li></ul></div><div><h3>Bonnes habitudes</h3><ul><li>Commencez avec les propriétés par défaut, puis modifiez un réglage à la fois.</li><li>La météo, les images distantes et d’autres contenus en ligne peuvent nécessiter une connexion, même une fois le projet téléchargé.</li><li>Si la page est vide ou incomplète, vérifiez les tâches de téléchargement ainsi que tout message d’échec ou de dépendance manquante dans la liste. Conservez le lien de l’élément et les symptômes lorsque vous signalez un problème.</li></ul></div></div>
+<p>Dans Réglages › Qualité du fond d’écran, la « Fréquence conseillée pour les fonds d’écran Web » peut suivre l’écran jusqu’à 60 i/s ou suivre la fréquence d’animation définie dans les réglages. Elle agit uniquement si le code de l’auteur utilise cette recommandation.</p>
 <aside class="tip">
 <strong>Gardez le projet complet ensemble</strong>Un fond d’écran Web est généralement composé de plusieurs fichiers HTML. Ne déplacez pas les pages, images ou scripts individuellement hors de son dossier. Les préréglages qui dépendent d’un autre projet ont aussi besoin de ce contenu de base. La compatibilité varie d’un projet à l’autre.
 </aside>
@@ -202,7 +204,13 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 <section class="guide-section" id="scene">
 <div class="section-heading"><h2>Scene · Un monde construit en temps réel</h2><span class="tag scene">SCÈNES EN TEMPS RÉEL</span></div>
 <p class="lead">Les calques, matériaux et animations sont composés pendant l’exécution du fond d’écran. Les projets compatibles peuvent inclure de la profondeur, des particules, du texte dynamique et des effets réactifs au lieu d’une vidéo préenregistrée.</p>
-<div class="two-column"><div><h3>Ce que vous pouvez faire</h3><ul><li>Filtrez le contenu de l’Atelier par Scene, téléchargez un élément et appliquez-le au bureau.</li><li>Utilisez Propriétés pour modifier les couleurs, interrupteurs, valeurs, textes ou options d’image fournis par l’auteur.</li><li>Contrôlez la lecture, la pause et le volume avec les commandes communes, avec des règles d’économie d’énergie si nécessaire.</li></ul></div><div><h3>Bonnes habitudes</h3><ul><li>Sous Limite de fréquence d’images Scene, choisissez 30 pour réduire la charge ; 60 autorise un plafond plus élevé.</li><li>Essayez l’apparence par défaut avant de modifier les effets. Les performances dépendent aussi de la complexité du projet.</li><li>En cas de calques manquants ou d’effets inattendus, comparez avec les propriétés par défaut et conservez le lien de l’élément, une capture d’écran et les symptômes lorsque vous signalez le problème.</li></ul></div></div>
+<div class="two-column"><div><h3>Ce que vous pouvez faire</h3><ul><li>Filtrez le contenu de l’Atelier par Scene, téléchargez un élément et appliquez-le au bureau.</li><li>Utilisez Propriétés pour modifier les couleurs, interrupteurs, valeurs, textes ou options d’image fournis par l’auteur.</li><li>Contrôlez la lecture, la pause et le volume avec les commandes communes, avec des règles d’économie d’énergie si nécessaire.</li></ul></div><div><h3>Bonnes habitudes</h3><ul><li>Ajustez la <a href="#wallpaper-quality">qualité et la fréquence d’animation des scènes</a> dans Réglages › Qualité du fond d’écran.</li><li>Essayez l’apparence par défaut avant de modifier les effets. Les performances dépendent aussi de la complexité du projet.</li><li>En cas de calques manquants ou d’effets inattendus, comparez avec les propriétés par défaut et conservez le lien de l’élément, une capture d’écran et les symptômes lorsque vous signalez le problème.</li></ul></div></div>
+<h3 class="subheading" id="wallpaper-quality">Qualité des fonds d’écran Scene</h3>
+<p><strong>Préréglage de qualité de scène et fréquence d’animation.</strong> Faible, Moyen, Élevé et Ultra règlent les options de qualité de la scène et demandent respectivement 10, 15, 25 et 30 i/s. Vous pouvez saisir un nombre entier de 10 à 120 i/s. Une combinaison qui diffère de tous les préréglages est indiquée comme « Personnalisé ». « Rétablir la qualité par défaut » rétablit la demande de 60 i/s. La fréquence des écrans et la charge de rendu peuvent limiter la cadence d’affichage. Des écrans de fréquences différentes partagent un plafond de 60 i/s ou moins.</p>
+<p><strong>Anticrénelage des scènes.</strong> Choisissez le mode sans anticrénelage, MSAA ×2 ou MSAA ×4. Réappliquez le fond d’écran pour utiliser le mode choisi sur un appareil pris en charge, dans une scène comportant des modèles 3D compatibles. Les calques 2D compatibles peuvent utiliser le même mode. Les scènes purement 2D et les autres combinaisons non compatibles utilisent un seul échantillon par pixel.</p>
+<p><strong>Post-traitement des scènes.</strong> « Désactivé » coupe le halo lumineux global et « Activé » conserve le halo standard. « Ultra » préserve les effets HDR du fond d’écran et les affiche en SDR. Si au moins un écran compatible HDR est connecté, choisissez « Ultra (affichage HDR) » pour des hautes lumières plus intenses. Le HDR doit être activé dans le fond d’écran, et la luminosité dépend de la marge disponible sur chaque écran. Les écrans qui ne peuvent pas utiliser le HDR continuent d’afficher en SDR. Le passage entre les deux modes Ultra est immédiat. Les autres changements peuvent nécessiter de réappliquer le fond d’écran.</p>
+<p><strong>Textures, éclairage et reflets.</strong> La résolution des textures offre les modes Automatique, Qualité élevée et Performances élevées pour les textures disposant de tailles adaptées. Le réglage « Ombres de scène » concerne les ombres prises en charge dans le fond d’écran. L’éclairage volumétrique peut être désactivé ou réglé sur Élevé ou Ultra pour ajuster la précision de l’éclairage volumétrique des sources ponctuelles. Désactiver les reflets de scène retire les reflets optionnels en temps réel. Les effets d’environnement définis par l’auteur peuvent rester visibles.</p>
+
 <aside class="tip">
 <strong>La compatibilité dépend du projet</strong>La compatibilité Scene est encore en cours de développement. Un téléchargement terminé ne garantit pas chaque effet, script ou interaction, ni une correspondance exacte avec Wallpaper Engine. Une propriété absente peut simplement signifier que l’auteur ne l’a pas exposée.
 </aside>
@@ -437,7 +445,7 @@ Toutes les listes de lecture
 </div>
 <div class="two-column"><div><h3>Reprise de la lecture</h3><p>La lecture reste en pause tant qu’une condition activée est remplie. Elle peut reprendre automatiquement une fois ces conditions levées. Un fond d’écran mis en pause manuellement doit toujours être relancé manuellement.</p></div><div><h3>Son et réaction audio</h3><p>Le volume contrôle le son propre du fond d’écran ; il ne peut pas ajouter de piste audio à un projet silencieux. Les réactions au son du système exigent aussi un fond d’écran compatible, le réglage correspondant et les autorisations macOS.</p></div></div>
 <aside class="tip">
-<strong>Commencez par une configuration d’économie d’énergie simple</strong>Si vous travaillez souvent en plein écran, activez d’abord la pause en plein écran. Sur un portable, ajoutez la pause sur batterie selon vos besoins. Le réglage 30/60 de Scene ne concerne que Scene ; il ne change pas la fréquence d’images d’origine des vidéos.
+<strong>Commencez par une configuration d’économie d’énergie simple</strong>Si vous travaillez souvent en plein écran, activez d’abord la pause en plein écran. Sur un portable, ajoutez la pause sur batterie selon vos besoins. Réduisez la <a href="#wallpaper-quality">fréquence d’animation</a> pour alléger davantage le rendu de Scene.
 </aside>
 
 </section>
@@ -469,9 +477,6 @@ Toutes les listes de lecture
 
 <h3 class="subheading">Infos morceau sur le fond d’écran</h3>
 <p><strong>Infos morceau sur le fond d’écran</strong> affiche le morceau et la pochette en cours sur les fonds d’écran Scene et Web compatibles. macOS demande l’accès à l’automatisation d’Apple Music la première fois ; tant que vous n’autorisez pas cet accès, le réglage reste désactivé. Si vous l’avez refusé, réactivez-le dans <strong>Confidentialité et sécurité → Automatisation</strong> et rallumez l’interrupteur.</p>
-
-<h3 class="subheading">HDR pour Scene</h3>
-<p><strong>HDR pour Scene</strong> effectue le rendu dans une cible à plage étendue lorsque le projet le prend en charge. Cela n’a de sens que sur un écran HDR et augmente sensiblement la consommation ; l’app avertit une fois lorsque vous l’activez et ne le désactive jamais d’elle-même.</p>
 </section>
 
 <section class="guide-section" id="shortcuts">

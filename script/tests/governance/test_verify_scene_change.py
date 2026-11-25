@@ -881,6 +881,7 @@ class ProductTestMappingTests(unittest.TestCase):
             "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+ImportProcessing.swift": "test_imported_video_autoplay_gate",
             "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+WallpaperApplication.swift": "test_imported_video_autoplay_gate",
             "MyWallpaperX/Core/PlaybackControl/WallpaperRuntimeSwitch.swift": "test_imported_video_autoplay_gate",
+            "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift": "test_playback_command_multiplexer",
             "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Persistence.swift": "test_playback_policy",
             "MyWallpaperX/Modules/VideoLibrary/Core/BundledVideoLibrary.swift": "test_bundled_video_library",
             "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryPublication.swift": "test_steam_library_publication",
@@ -918,8 +919,7 @@ class ProductTestMappingTests(unittest.TestCase):
         # Explicit hypothetical neighbors keep this negative control independent
         # of real owners becoming covered or being retired.
         paths = ["MyWallpaperX/Modules/StaticImageLibrary/UI/UnmappedStaticImageNeighborFixture.swift",
-                 "MyWallpaperX/Shell/UnmappedShellNeighborFixture.swift",
-                 "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift"]
+                 "MyWallpaperX/Shell/UnmappedShellNeighborFixture.swift"]
         report = verify.product_test_mapping(paths, self.registry, self.available)
         self.assertEqual(report["unmapped_paths"], sorted(paths))
         self.assertEqual(report["mapped_paths"], [])

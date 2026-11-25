@@ -100,7 +100,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 }
 </style><script defer>
 /* Search is an enhancement; all chapters and anchors work without JavaScript. */
-(() => {
+document.addEventListener('DOMContentLoaded', () => {
   const search = document.querySelector('#help-search');
   const chapters = [...document.querySelectorAll('.guide-section')];
   const status = document.querySelector('#search-status');
@@ -154,7 +154,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
       });
     });
   });
-})();
+});
 </script></head>
 <body id="top"><a class="skip" href="#main">跳转到正文</a><div class="layout">
 <aside class="sidebar">
@@ -183,6 +183,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 <div class="section-heading"><h2>Video · 让影像留在桌面</h2><span class="tag">视频壁纸</span></div>
 <p class="lead">适合风景、动画片段和循环影像。画面来自视频文件，使用方式最直接。</p>
 <div class="two-column"><div><h3>可以做什么</h3><ul><li>在「我的视频」导入本地视频，使用「特别喜爱」、播放列表和「最近使用」整理素材。</li><li>在播放设置中选择循环、顺序或随机播放，按需要设置自动切换。</li><li>调整播放速率；通过「视频填充模式」选择完整显示或铺满屏幕。</li></ul></div><div><h3>用得更舒服</h3><ul><li>优先选择与屏幕比例接近的视频。铺满可能裁切边缘，完整显示可能留有黑边。</li><li>挑选首尾衔接自然的短片，循环时更连贯。</li><li>MP4、MOV 等容器里的编码也要能被 macOS 解码；不能播放时先用系统播放器检查文件。</li></ul></div></div>
+<p>「设置 › 壁纸质量」中的「视频画质」为「原片」，播放已有文件的规格。Pixabay 新下载有多个可用规格时会让你选择，默认选最高的可用规格。播放时使用下载的文件。</p>
 <aside class="tip">
 <strong>视频设置与作者属性的区别</strong>视频使用应用的音量、速率和播放模式，没有 Web、Scene 那样的作者自定义属性面板。播放速率、视频填充也不是三种引擎的通用设置。
 </aside>
@@ -193,6 +194,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 <div class="section-heading"><h2>Web · 把网页变成桌面</h2><span class="tag web">网页壁纸</span></div>
 <p class="lead">时钟、信息面板、网页动画与交互画面。内容由网页及其资源组成，具体表现取决于作者的设计。</p>
 <div class="two-column"><div><h3>可以做什么</h3><ul><li>在创意工坊选择 Web 类型，下载完成后从「我的下载」播放。</li><li>打开详情中的「属性调节」，修改作者开放的颜色、文字、开关或其他选项。</li><li>支持的作品可以响应鼠标或音频；只有作品本身提供这些行为时才会生效。</li></ul></div><div><h3>使用技巧</h3><ul><li>先按默认属性播放，再逐项修改，方便判断某个选项的作用。</li><li>天气、在线图片等远程内容可能需要网络；下载完成不代表全部内容都能离线运行。</li><li>遇到空白或缺少内容，先查看下载任务或列表中的失败、缺少依赖提示；反馈时保留作品链接和现象。</li></ul></div></div>
+<p>在「设置 › 壁纸质量」的「网页壁纸帧率建议」中，可选「随显示器（最高 60 FPS）」或「跟随动画帧率」。后者采用你设置的动画帧率。只有作者代码使用此建议时，它才会影响网页动画。</p>
 <aside class="tip">
 <strong>保留完整项目</strong>Web 壁纸通常不只是一个 HTML 文件。不要从下载目录里单独搬走网页、图片或脚本；依赖其他作品的预设也需要对应基础内容。不同作品的兼容情况可能不同。
 </aside>
@@ -202,7 +204,13 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 <section class="guide-section" id="scene">
 <div class="section-heading"><h2>Scene · 让场景实时生长</h2><span class="tag scene">实时场景</span></div>
 <p class="lead">场景由图层、材质和动画实时组合，不是一段预先录好的视频。支持的作品可以呈现景深层次、粒子、动态文字及响应效果。</p>
-<div class="two-column"><div><h3>可以做什么</h3><ul><li>在创意工坊选择 Scene 类型，下载后设为桌面。</li><li>在「属性调节」中更改作者开放的颜色、开关、数值、文字或图片选项。</li><li>使用统一的播放、暂停和音量控制，按需开启节能策略。</li></ul></div><div><h3>使用技巧</h3><ul><li>想降低运行开销，可在设置中选择「最高帧率（Scene 引擎）」的 30 档；60 档提供更高的帧率上限。</li><li>先测试默认效果，再调整特效相关属性；复杂作品的流畅程度也取决于内容本身。</li><li>画面缺层、效果异常时，对照默认属性，保留作品链接、截图和现象以便反馈。</li></ul></div></div>
+<div class="two-column"><div><h3>可以做什么</h3><ul><li>在创意工坊选择 Scene 类型，下载后设为桌面。</li><li>在「属性调节」中更改作者开放的颜色、开关、数值、文字或图片选项。</li><li>使用统一的播放、暂停和音量控制，按需开启节能策略。</li></ul></div><div><h3>使用技巧</h3><ul><li>在「设置 › 壁纸质量」调整<a href="#wallpaper-quality">场景质量和帧率</a>。</li><li>先测试默认效果，再调整特效相关属性；复杂作品的流畅程度也取决于内容本身。</li><li>画面缺层、效果异常时，对照默认属性，保留作品链接、截图和现象以便反馈。</li></ul></div></div>
+<h3 class="subheading" id="wallpaper-quality">Scene 壁纸质量</h3>
+<p><strong>场景品质预设与动画帧率。</strong>低、中、高、超高预设分别请求 10、15、25、30 FPS，并一起调整 Scene 画质。动画帧率可单独输入 10–120 的整数。手改后的组合与预设不同时显示「自定」，「恢复默认画质」把请求值恢复为 60 FPS。显示刷新率和作品负载会限制实呈帧率，混合刷新率的显示器共用至多 60 FPS 的上限。</p>
+<p><strong>场景抗锯齿。</strong>可选无、MSAA ×2 或 MSAA ×4。重新应用壁纸后，受支持设备上的兼容 3D 模型场景可采用所选档位，并可包含兼容的二维图层。纯二维或其它不满足条件的情况沿用单采样。</p>
+<p><strong>场景后处理。</strong>「禁用」关闭全景泛光，「启用」保留普通泛光，「超高」保留作品的 HDR 效果并以 SDR 显示。至少连接一台支持 HDR 的显示器时，可选「超高（显示 HDR）」以输出更亮的高光。它需要作品启用 HDR，亮度受各屏幕当前余量限制。条件不满足的屏幕继续按 SDR 显示。两种超高之间可即时切换。其他效果调整可能需要重新应用壁纸。</p>
+<p><strong>纹理、光照与反射。</strong>纹理分辨率可选自动、高质量、高性能，只调整有合适规格的纹理。阴影档位作用于作品中受支持的阴影。体积照明可禁用，也可选高或超高来调整点光体积的精度。关闭场景反射会移除可选实时反射，作者明确编排的环境效果可能保留。</p>
+
 <aside class="tip">
 <strong>兼容程度因作品而异</strong>Scene 兼容仍在持续完善。下载成功不等于每种特效、脚本或交互都能完整呈现，也不保证与 Wallpaper Engine 的画面完全一致。没有显示的属性，不一定是应用遗漏，也可能是作者未开放。
 </aside>
@@ -407,7 +415,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 </div>
 <div class="two-column"><div><h3>暂停后怎样恢复</h3><p>只要仍有一项已启用的暂停条件成立，壁纸就会保持暂停。条件解除后才能自动继续；你手动暂停的壁纸仍需手动恢复。</p></div><div><h3>声音与音频响应</h3><p>音量控制壁纸自身的声音，不会凭空给无声作品添加音轨。跟随系统声音变化的效果，还需要作品支持、对应设置及 macOS 权限。</p></div></div>
 <aside class="tip">
-<strong>先从简单的节能组合开始</strong>经常全屏工作，可先打开“其他应用全屏时暂停”；笔记本再按需要开启电池暂停。Scene 的 30／60 帧率档位只影响 Scene，不会更改视频原始帧率。
+<strong>先从简单的节能组合开始</strong>经常全屏工作，可先打开“其他应用全屏时暂停”；笔记本再按需要开启电池暂停。需要进一步降低 Scene 的运行开销时，可调低<a href="#wallpaper-quality">动画帧率</a>。
 </aside>
 
 </section>
@@ -439,9 +447,6 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 
 <h3 class="subheading">歌曲信息</h3>
 <p><strong>壁纸歌曲信息</strong>在支持的 Scene 和 Web 壁纸上显示当前曲目与封面。macOS 第一次会请求访问 Apple Music 的「自动化」权限；在授权之前开关不会生效。如果你拒绝过，去<strong>隐私与安全性 › 自动化</strong>重新允许，再把开关打开。</p>
-
-<h3 class="subheading">场景壁纸HDR</h3>
-<p><strong>场景壁纸HDR</strong>在项目支持时渲染到扩展亮度范围。它只在 HDR 显示器上有意义，功耗会明显上升；开启时应用提醒一次，之后不会自己关掉。</p>
 </section>
 
 <section class="guide-section" id="shortcuts">

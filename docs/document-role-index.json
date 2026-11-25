@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2581e8d74b701901fea16f14808db38f9078f1c242fc7fe37529d71919ca44cb",
+        "sourceSHA256": "959fe8566303ef30923450fc9042bb780a724ed5f9b6323607a87dd9ab0b34a8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定位终端 Bloom、纹理链和显示映射 owner",
-        "limitations": "仅补后处理代码入口"
+        "scope": "从质量行为变更定位实际设置、执行端和本地五语帮助入口",
+        "limitations": "Help Checker 校验发布结构，浏览器交互由实际 WebKit 行为门验证"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a0dfe4984de73df1b80d22dbdc8a64308f427d2bc108d1fd3bc0811e2a6a7be0",
+        "sourceSHA256": "960059f8aa244992aa3e1f6d0960f5543982e6fdf8509f0e70150d1375ed7cca",
         "method": "document_registry --audit + document_health --check",
-        "scope": "三引擎专项执行顺序、原生粗格点光否证及下一批用户帮助",
-        "limitations": "粗格仅单线性上采样原生试验；没有 GPU 计时、签名作品或产品接线"
+        "scope": "三引擎质量执行顺序、当前原生粗格否证及五语内置帮助交互",
+        "limitations": "帮助实测为成品内的本地 WKWebView；未启动系统 Help Viewer"
       }
     },
     {

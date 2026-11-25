@@ -100,7 +100,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 }
 </style><script defer>
 /* Search is an enhancement; all chapters and anchors work without JavaScript. */
-(() => {
+document.addEventListener('DOMContentLoaded', () => {
   const search = document.querySelector('#help-search');
   const chapters = [...document.querySelectorAll('.guide-section')];
   const status = document.querySelector('#search-status');
@@ -154,7 +154,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
       });
     });
   });
-})();
+});
 </script></head>
 <body id="top"><a class="skip" href="#main">Skip to content</a><div class="layout">
 <aside class="sidebar">
@@ -183,6 +183,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 <div class="section-heading"><h2>Video · A moving picture</h2><span class="tag">VIDEO WALLPAPERS</span></div>
 <p class="lead">Landscapes, animation clips and seamless loops. A video file supplies the picture, making this the most direct way to get started.</p>
 <div class="two-column"><div><h3>What you can do</h3><ul><li>Import local files in My Videos, then organize them with Favorites, playlists and Recently Used.</li><li>Choose loop, sequential or random playback in settings, with automatic switching when needed.</li><li>Adjust playback speed and choose whether the video fits inside or fills the display.</li></ul></div><div><h3>Make it work well</h3><ul><li>Match the video’s proportions to your display. Fill can crop the edges; Fit can leave empty borders.</li><li>Pick clips with a natural transition between the last and first frames for a smoother loop.</li><li>The codec inside an MP4 or MOV must also be supported by macOS. Try the file in a system video player if it will not play.</li></ul></div></div>
+<p>In Settings › Wallpaper Quality, <strong>Video Quality</strong> shows <strong>Original Video</strong>. Existing videos play at the quality of the stored file. When a new Pixabay download has several available sizes, choose one before downloading. The highest available size is selected initially. Playback uses the downloaded file.</p>
 <aside class="tip">
 <strong>Playback settings, rather than author properties</strong>Videos use the app’s volume, speed and playback mode settings. They do not have the author-defined property panels found in Web and Scene projects. Video speed and fill mode are specific to video.
 </aside>
@@ -193,6 +194,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 <div class="section-heading"><h2>Web · A desktop with a live view</h2><span class="tag web">WEB WALLPAPERS</span></div>
 <p class="lead">Clocks, information displays, web animations and interactive layouts. Each project combines a web page with its resources; the author decides what it does.</p>
 <div class="two-column"><div><h3>What you can do</h3><ul><li>Filter Workshop content by Web, download a project, then play it from My Downloads.</li><li>Open Properties in the item details to change the colors, text, switches and other options the author exposes.</li><li>Supported projects can respond to the pointer or audio, when the author has included those behaviors.</li></ul></div><div><h3>Useful habits</h3><ul><li>Start with the default properties, then change one setting at a time.</li><li>Weather, remote images and other online content may need a connection, even after the project has downloaded.</li><li>For a blank or incomplete page, check download tasks and any failure or missing-dependency message in the list. Keep the item link and symptoms when reporting a problem.</li></ul></div></div>
+<p>In Settings › Wallpaper Quality, <strong>Web Frame Rate Suggestion</strong> can match the display up to 60 FPS or follow the animation frame rate you set. It affects a Web wallpaper only if the author’s code uses the suggestion.</p>
 <aside class="tip">
 <strong>Keep the whole project together</strong>A Web wallpaper is usually more than one HTML file. Do not move individual pages, images or scripts out of its folder. Presets that depend on another project need that base content too. Compatibility varies between projects.
 </aside>
@@ -202,7 +204,13 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 <section class="guide-section" id="scene">
 <div class="section-heading"><h2>Scene · A world built in real time</h2><span class="tag scene">REAL-TIME SCENES</span></div>
 <p class="lead">Layers, materials and animation are composed as the wallpaper runs. Supported projects can include depth, particles, dynamic text and reactive effects instead of a prerecorded video.</p>
-<div class="two-column"><div><h3>What you can do</h3><ul><li>Filter Workshop content by Scene, download an item and apply it to the desktop.</li><li>Use Properties to change author-provided colors, switches, values, text or image options.</li><li>Control playback, pause and volume through the shared controls, with energy-saving policies when needed.</li></ul></div><div><h3>Useful habits</h3><ul><li>Choose 30 under Scene Frame Rate Cap to reduce the runtime budget; 60 allows a higher frame-rate ceiling.</li><li>Try the default appearance before adjusting effects. Performance also depends on the complexity of the project.</li><li>For missing layers or unexpected effects, compare the default properties and keep the item link, screenshot and symptoms when reporting the issue.</li></ul></div></div>
+<div class="two-column"><div><h3>What you can do</h3><ul><li>Filter Workshop content by Scene, download an item and apply it to the desktop.</li><li>Use Properties to change author-provided colors, switches, values, text or image options.</li><li>Control playback, pause and volume through the shared controls, with energy-saving policies when needed.</li></ul></div><div><h3>Useful habits</h3><ul><li>Use Settings › Wallpaper Quality to adjust <a href="#wallpaper-quality">Scene quality and frame rate</a>.</li><li>Try the default appearance before adjusting effects. Performance also depends on the complexity of the project.</li><li>For missing layers or unexpected effects, compare the default properties and keep the item link, screenshot and symptoms when reporting the issue.</li></ul></div></div>
+<h3 class="subheading" id="wallpaper-quality">Scene wallpaper quality</h3>
+<p><strong>Scene Quality Preset and Animation Frame Rate.</strong> Low, Medium, High and Ultra set the Scene quality options and request 10, 15, 25 and 30 FPS respectively. You can enter any whole number from 10 to 120 FPS. A combination that differs from every preset shows as Custom. Restore Default Quality returns the request to 60 FPS. Display refresh rates and scene workload can limit presentation. Displays with different refresh rates share a cap of 60 FPS or less.</p>
+<p><strong>Scene Anti-Aliasing.</strong> Choose None, MSAA ×2 or MSAA ×4. Reapply the wallpaper to use the selected mode on supported devices in scenes with compatible 3D models. Compatible 2D layers can share the same mode. Purely 2D scenes and other unsupported combinations use single-sample rendering.</p>
+<p><strong>Scene Post-Processing.</strong> Disabled turns off scene-wide bloom. Enabled keeps standard bloom. Ultra preserves the wallpaper’s HDR effects and displays them in SDR. With at least one HDR-capable display connected, choose Ultra (Display HDR) for brighter highlights. It requires HDR in the wallpaper, and brightness depends on each screen’s current headroom. Displays that cannot use HDR continue to show SDR. You can switch between the two Ultra modes immediately. Other effect changes may require reapplying the wallpaper.</p>
+<p><strong>Textures, lighting and reflections.</strong> Texture Resolution offers Automatic, High Quality and High Performance for textures with suitable sizes. Scene Shadows affects supported shadows in the wallpaper. Volumetric Lighting offers Disabled, High and Ultra, with High and Ultra adjusting the precision of point-light volumes. Turning off Scene Reflections removes optional real-time reflections. Explicit environment effects authored in the wallpaper may remain.</p>
+
 <aside class="tip">
 <strong>Compatibility is project-specific</strong>Scene compatibility is still being developed. A completed download does not guarantee every effect, script or interaction, or an exact match with Wallpaper Engine. An absent property may simply mean the author did not expose it.
 </aside>
@@ -437,7 +445,7 @@ All Playlists
 </div>
 <div class="two-column"><div><h3>Resuming playback</h3><p>Playback stays paused while any enabled condition is still true. It can resume automatically once those conditions clear. A wallpaper you paused manually still needs to be resumed manually.</p></div><div><h3>Sound and audio response</h3><p>Volume controls the wallpaper’s own sound; it cannot add an audio track to a silent project. System-audio reactions also require a compatible wallpaper, the relevant setting and macOS permissions.</p></div></div>
 <aside class="tip">
-<strong>Start with a simple energy-saving setup</strong>If you often work full screen, enable full-screen pause first. On a laptop, add battery pause as needed. The Scene 30/60 setting only affects Scene; it does not change the original frame rate of videos.
+<strong>Start with a simple energy-saving setup</strong>If you often work full screen, enable full-screen pause first. On a laptop, add battery pause as needed. Lower the <a href="#wallpaper-quality">animation frame rate</a> to further reduce Scene workload.
 </aside>
 
 </section>
@@ -469,9 +477,6 @@ All Playlists
 
 <h3 class="subheading">Song info</h3>
 <p><strong>Wallpaper Song Info</strong> shows the current track and artwork on supported Scene and Web wallpapers. macOS asks for Automation access to Apple Music the first time; until you allow it, the setting stays off. If you denied it, re-enable it in <strong>Privacy &amp; Security › Automation</strong> and turn the switch back on.</p>
-
-<h3 class="subheading">Scene HDR</h3>
-<p><strong>Scene HDR</strong> renders into an extended-range target when the project supports it. It only makes sense on an HDR display and raises power draw noticeably; the app warns once when you enable it and never turns it off by itself.</p>
 </section>
 
 <section class="guide-section" id="shortcuts">

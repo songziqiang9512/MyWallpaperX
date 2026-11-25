@@ -13,8 +13,8 @@
       "bytes": 8300
     },
     "docs/architecture/repository-map.md": {
-      "lines": 60,
-      "bytes": 14923
+      "lines": 62,
+      "bytes": 15164
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -77,8 +77,8 @@
       "bytes": 79291
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 373,
-      "bytes": 76665
+      "lines": 382,
+      "bytes": 78319
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,19 +378,19 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "436167702bff284c1bf057175aea1213c2adfe2389961d2ca8a850987040325f",
-      "after": "9d762265673b436bf7ee3998736cb53f8adfedc08a6b56bc840fc6ff355c0e80",
+      "before": "9d762265673b436bf7ee3998736cb53f8adfedc08a6b56bc840fc6ff355c0e80",
+      "after": "a53ea0139af68ed690572589221e03b712faaa8977ce078ec23ee05209bf11d9",
       "owner": "wallpaper-quality",
-      "reason": "保留低分辨率原生被拒证据及需要更换的路线",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-volume-low-resolution-probe"
+      "reason": "同步产品帮助退役项及真实的五语帮助交互证据",
+      "decision": "docs/development/wallpaper-quality-work-card.md#quality-user-help"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "2180933d974f4d63980f48c1efb389e442d97202d19d90484df38df1b18c0243",
-      "after": "94521a8c1105cc00850e4938a00888fedd84d9a164dcb60e7e0587d9245dd9f6",
-      "owner": "仓库导航",
-      "reason": "定位终端 Bloom、纹理链和显示映射 owner",
+      "before": "94521a8c1105cc00850e4938a00888fedd84d9a164dcb60e7e0587d9245dd9f6",
+      "after": "ca8fc7fdfcdef37de4814c8f42beb79601fa72fc4059422e34a159a9d3659f46",
+      "owner": "wallpaper-quality",
+      "reason": "定位同改生效范围时需要更新的产品帮助与已有检查",
       "decision": "docs/architecture/repository-map.md#wallpaper-quality"
     },
     {
