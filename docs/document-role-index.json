@@ -126,13 +126,13 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "三引擎退出、可见交接与唯一产品事务实施且有界验收完成，稳定合同接管后归档。",
-      "lastReviewed": "2026-11-03",
+      "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "029c6fa71618694c4230e6839688901f6022672617b547ea8e164135b19704db",
+        "sourceSHA256": "e9abadb4a44eb90901240417fb2ed69fc194c09a1d48ec60a420ffefb2b149ea",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。 合并UI主窗口职责、图片方格及显式Stop回执条款；仅正文与导航复核，不代替专项产品验收。",
-        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
+        "scope": "Scene 冷档直接提交与原精确撤单",
+        "limitations": "端点回执与单内屏实窗验证"
       }
     },
     {
@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e6879ec7fa349bffba3dadbcc6cebb563c2942a1031ceb45b2dd8b50de97ef1f",
+        "sourceSHA256": "1a5620d6cf1484117a80c63c1134bd19c39e218f27fa76219149e967b7257159",
         "method": "document_registry --audit + document_health --check",
-        "scope": "三引擎画质、原片规格与同源恢复入口",
-        "limitations": "源码导航及局部原生验证；无事件替换未验证"
+        "scope": "冷档直接提交、精确撤单、原实呈回执",
+        "limitations": "源码路由及单内屏原生取证"
       }
     },
     {
@@ -355,10 +355,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "28d2445df62f1c287da97a65061ef415729633eab8d27b118ffb28661ce21fa4",
+        "sourceSHA256": "90c50462d6c3059a29d1bf74f6cdc684e584f0654190e35e72840419658a392f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "算法决策、官版静态刷新和本地同 daemon 采样边界",
-        "limitations": "自动采纳尚未接线，采样有限且未验逐刷新及外接屏"
+        "scope": "Scene 冷档直接提交与官版静态分支",
+        "limitations": "单内屏当前方案，未覆盖外接屏或 Windows 首帧"
       }
     },
     {
@@ -369,10 +369,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f95c318664218e7468e48c816d41f01a8d8b6dfe029636ad91f21ce6add6f78e",
+        "sourceSHA256": "e7060fb797eeac524484479cafeaa569610da1a980000c86b0ea4bcbbd0be74e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役顺序、窗口采样、自动采纳待开发",
-        "limitations": "外设和长稳功耗待实际候选"
+        "scope": "现役顺序、自动采纳、同源撤销与真机结果",
+        "limitations": "两作者单屏通过，Windows 时序、外接屏以及长稳功耗仍待证"
       }
     },
     {
@@ -863,10 +863,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d3014e2e3f2fdcf32e50c0c438d3f267eeb50bc6d4d7a9ccd7e91d33714bd61a",
+        "sourceSHA256": "54ec9f7709c952088c3910dda9d97b7c7e41191cd4ca5f4de1676878985d0b55",
         "method": "document_registry --audit + document_health --check",
-        "scope": "说明冻结准备向量沿原候选和提交边界交付",
-        "limitations": "本批验证冷准备回执与当前请求；Surface 逐帧实际 MSAA 保持原诊断。"
+        "scope": "Scene 冷档直接提交与准备回执",
+        "limitations": "两位作者单内屏；混合拓扑及其他硬件待证"
       }
     },
     {

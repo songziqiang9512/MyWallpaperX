@@ -24,8 +24,9 @@ class SettingsCacheActionsTests(unittest.TestCase):
         layout = ROOT / "MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift"
         dependency = ROOT / "MyWallpaperX/Shared/Settings/AppSettingsPanelDependency.swift"
         quality = ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift"
+        settings_components = ROOT / "MyWallpaperX/Shared/Components/AppKitSettingsComponents.swift"
         fixture = ROOT / "script/tests/fixtures/SettingsIntervalEditingHarness.swift"
-        paths = [settings, layout, dependency, quality, fixture, Path(__file__).resolve()]
+        paths = [settings, layout, dependency, quality, settings_components, fixture, Path(__file__).resolve()]
         hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
         source = settings.read_text()
         refresh = declaration(source, "    func refreshFromState()")
@@ -33,6 +34,7 @@ class SettingsCacheActionsTests(unittest.TestCase):
         # NSTextField/NSWindow. Unrelated settings groups are outside this gate.
         refresh = refresh[:refresh.index("        // 登录项开关")] + "        _ = visibilityBefore\n    }"
         actual = fixture.read_text().replace("// ACTUAL_INTERVAL_REFRESH", refresh)
+        actual += "\n" + declaration(settings_components.read_text(), "final class SettingsGroupView:") + "\n"
         layout_source = layout.read_text()
         for marker, signature in (
             ("// ACTUAL_SCENE_POST_PROCESSING_MENU", "    func refreshScenePostProcessingMenu("),
@@ -41,6 +43,7 @@ class SettingsCacheActionsTests(unittest.TestCase):
             ("// ACTUAL_REFRESH_SCENE_QUALITY_PRESET", "    private func refreshSceneQualityPreset("),
             ("// ACTUAL_QUALITY_ACTION", "    @objc private func handleQualityChange("),
             ("// ACTUAL_RESTORE_DEFAULT_QUALITY_ACTION", "    @objc private func restoreDefaultQuality("),
+            ("// ACTUAL_SAVE_EDITED_QUALITY", "    private func saveEditedQuality("),
             ("// ACTUAL_FRAME_RATE_LABELS", "    private func updateSceneFrameRateLabels("),
             ("// ACTUAL_REFRESH_FRAME_RATE_READOUT", "    func refreshSceneFrameRateReadout("),
             ("// ACTUAL_FRAME_RATE_READOUT", "    private func updateSceneFrameRateReadout("),

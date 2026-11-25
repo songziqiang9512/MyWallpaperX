@@ -21,7 +21,10 @@ class DesignGateEvidenceTests(unittest.TestCase):
 
     def test_existing_settings_fields_and_immersive_window_have_distinct_designs(self):
         registry = gate.load_registry()
-        violations, advisory = gate.evaluate(["MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift"], registry)
+        violations, advisory = gate.evaluate([
+            "MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift",
+            "MyWallpaperX/App/SettingsWindowController.swift",
+        ], registry)
         self.assertEqual(violations, [])
         self.assertTrue(any(entry.startswith("wallpaper-quality-settings:") for entry in advisory))
         violations, advisory = gate.evaluate([
@@ -41,7 +44,7 @@ class DesignGateEvidenceTests(unittest.TestCase):
         self.assertTrue(any(entry.startswith("immersive-main-window-ui:") for entry in violations))
         violations, _ = gate.evaluate(["MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridItemView.swift"], registry)
         self.assertTrue(any(entry.startswith("immersive-main-window-ui:") for entry in violations))
-        violations, _ = gate.evaluate(["MyWallpaperX/App/SettingsWindowController.swift"], registry)
+        violations, _ = gate.evaluate(["MyWallpaperX/App/WallpaperLibraryWindowComposition.swift"], registry)
         self.assertTrue(any(entry.startswith("immersive-main-window-ui:") for entry in violations))
 
 

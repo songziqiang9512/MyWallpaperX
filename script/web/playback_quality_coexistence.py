@@ -65,7 +65,7 @@ def run_phase(command, environment, directory, phase, timeout):
                     value = json.loads(request.read_text())
                     name, window = value["name"], value["window"]
                     if phase == "scene-reapply":
-                        names = ("settings-reapply", "settings-reapply-pending")
+                        names = ("settings-reapply", "settings-reapply-applied")
                     elif phase == "quality-import":
                         names = ("video-import-before", "video-import-after")
                     else:
@@ -101,15 +101,21 @@ def run_phase(command, environment, directory, phase, timeout):
         for line in (directory / "app.log").read_text().splitlines():
             if marker in line:
                 values = dict(word.split("=", 1) for word in line.split(marker, 1)[1].split() if "=" in word)
-                prepared[values["session"]] = values["postProcessing"]
+                prepared[values["session"]] = values
         if phase == "scene-reapply":
             observations = result["sceneReapply"]
-            applied = {key: prepared.get(observations[key]["sessionID"]) for key in ("before", "after")}
-            if applied != {"before": "enabled", "after": "disabled"}:
-                raise RuntimeError(f"Scene did not prepare the chosen modes: {applied}")
+            sessions = {key: prepared.get(observations[key]["sessionID"], {})
+                        for key in ("before", "after", "reverted")}
+            applied = {key: values.get("postProcessing") for key, values in sessions.items()}
+            textures = {key: values.get("textureQuality") for key, values in sessions.items()}
+            if (applied != {"before": "enabled", "after": "disabled", "reverted": "disabled"}
+                    or textures != {"before": "quality", "after": "performance", "reverted": "performance"}):
+                raise RuntimeError(f"Scene did not prepare the chosen modes and textures: {applied}, {textures}")
+            result["preparedSceneTextures"] = textures
         else:
             keys, expected = (("scene-in", "scene-back"), "enabled") if phase == "switch" else (("scene",), "disabled")
-            applied = {key: prepared.get(result[key]["resumed"]["sessionID"]) for key in keys}
+            applied = {key: prepared.get(result[key]["resumed"]["sessionID"], {}).get("postProcessing")
+                       for key in keys}
             if any(mode != expected for mode in applied.values()):
                 raise RuntimeError(f"{phase} Scene did not prepare the saved post-processing mode: {applied}")
         result["preparedScenePostProcessing"] = applied
@@ -155,14 +161,14 @@ def verify_import_pixels(root):
 
 
 def verify_reapply_pixels(root):
-    paths = [root / f"scene-reapply-{name}.jpg" for name in ("before", "held", "after", "still")]
-    held = png_motion_metrics(paths[0], paths[1], threshold=3, region=(.1, .1, .9, .9))
-    changed = png_motion_metrics(paths[1], paths[2], threshold=3, region=(.1, .1, .9, .9))
-    frozen = png_motion_metrics(paths[2], paths[3], threshold=3, region=(.1, .1, .9, .9))
-    if (not all((held, changed, frozen)) or max(held["changed_ratio"], frozen["changed_ratio"]) > .001
+    paths = [root / f"scene-reapply-{name}.jpg" for name in ("before", "after", "still", "reverted")]
+    changed = png_motion_metrics(paths[0], paths[1], threshold=3, region=(.1, .1, .9, .9))
+    frozen = png_motion_metrics(paths[1], paths[2], threshold=3, region=(.1, .1, .9, .9))
+    returned = png_motion_metrics(paths[2], paths[3], threshold=3, region=(.1, .1, .9, .9))
+    if (not all((changed, frozen, returned)) or max(frozen["changed_ratio"], returned["changed_ratio"]) > .001
             or changed["changed_ratio"] < .001):
-        raise RuntimeError(f"Scene did not visibly change only with reapply: {held}, {changed}, {frozen}")
-    return {"savedOnly": held, "reapplied": changed, "stillPaused": frozen}
+        raise RuntimeError(f"Scene pixels did not change and then remain paused: {changed}, {frozen}, {returned}")
+    return {"automaticallyReapplied": changed, "stillPaused": frozen, "returnedToApplied": returned}
 
 
 def verify_restore(first, second):
@@ -185,7 +191,7 @@ def main():
     parser.add_argument("--timeout", type=float, default=120, help="per native phase")
     phase = parser.add_mutually_exclusive_group()
     phase.add_argument("--quality-import", action="store_true", help="run the portable quality-only live import")
-    phase.add_argument("--scene-reapply", action="store_true", help="reapply the current Scene through native Settings")
+    phase.add_argument("--scene-reapply", action="store_true", help="automatically reapply the current Scene through native Settings")
     parser.add_argument("--ui-language", choices=("en", "zh-Hans", "ru", "de", "fr"),
                         help="language of the isolated Settings window")
     args = parser.parse_args()

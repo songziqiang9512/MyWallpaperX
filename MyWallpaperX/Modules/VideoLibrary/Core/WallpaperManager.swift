@@ -56,6 +56,7 @@ class WallpaperManager: ObservableObject {
     // 递增；runtime adapter 以单调采纳作为执行事实镜像（只读注入，
     // 不改变任何提交点）。
     var playbackSwitch = PlaybackSwitchTransaction()
+    var sceneQualityReload: SceneQualityReload?
     var switchEndpoints: [UUID: PlaybackSwitchEndpoint] = [:]
     var switchSelections: [UUID: RuntimeSwitchSelection] = [:]
     var switchDeadline: DispatchWorkItem?
@@ -81,6 +82,7 @@ class WallpaperManager: ObservableObject {
 
     @discardableResult
     func beginPlaybackIntent(runtime: WallpaperRuntimeKind? = nil) -> UInt64 {
+        sceneQualityReload = nil
         // Cancellation callbacks may synchronously accept a newer selection.
         // Revoke the old import gate before any such callback can claim it.
         if runtime == nil {

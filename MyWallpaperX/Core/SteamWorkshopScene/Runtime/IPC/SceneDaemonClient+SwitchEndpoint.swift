@@ -147,8 +147,16 @@ extension SceneDaemonClient {
     /// Also works before hello/prepared. Clearing the pending wire identity
     /// prevents replay; completion still waits for child rollback or real exit.
     func cancelSwitch(ticket: PlaybackSwitchTicket, completion: @escaping () -> Void) {
-        if queuedSwitchPreparation?.ticket == ticket {
+        func publishCancellation(for request: ScenePlaybackLoadRequest, requestID: UUID?) {
+            let state = SceneWallpaperLaunchState(requestID: requestID ?? UUID(),
+                recordID: request.recordID, phase: .cancelled, message: String(localized: "Scene wallpaper preparation canceled"))
+            launchState = state
+            NotificationCenter.default.post(name: .sceneWallpaperLaunchStateDidChange, object: state)
+        }
+
+        if let queued = queuedSwitchPreparation, queued.ticket == ticket {
             queuedSwitchPreparation = nil
+            publishCancellation(for: queued.request, requestID: nil)
             completion()
             return
         }
@@ -184,10 +192,7 @@ extension SceneDaemonClient {
             finish()
         }
         if let pending {
-            let state = SceneWallpaperLaunchState(requestID: requestID ?? UUID(),
-                recordID: pending.recordID, phase: .cancelled, message: String(localized: "Scene wallpaper preparation canceled"))
-            launchState = state
-            NotificationCenter.default.post(name: .sceneWallpaperLaunchStateDidChange, object: state)
+            publishCancellation(for: pending, requestID: requestID)
         }
     }
 
@@ -221,6 +226,8 @@ extension SceneDaemonClient {
             })
 #if DEBUG
         observeDebugStartup(.prepared, execution: execution)
+        // A debug interaction can withdraw this request before the event is relayed.
+        guard pendingSwitchExecution === execution else { return true }
 #endif
         prepared(ticket, endpoint)
         return true

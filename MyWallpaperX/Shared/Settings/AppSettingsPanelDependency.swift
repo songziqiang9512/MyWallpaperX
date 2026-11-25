@@ -6,6 +6,7 @@ import Foundation
 struct AppSettingsActions {
     var applyEngineSettings: (_ reloadWallpaper: Bool) -> Void = { _ in }
     var reapplySceneQuality: () -> Void = {}
+    var reapplyEditedSceneQuality: () -> Void = {}
     var clearAllCaches: () async -> Void = {}
     var exportPersonalSettings: (_ url: URL) async throws -> PersonalSettingsExportSummary = { _ in
         throw PersonalSettingsError.recoveryRequired(String(localized: "Settings export isn’t ready yet"))

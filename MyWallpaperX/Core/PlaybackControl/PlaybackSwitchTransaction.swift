@@ -134,6 +134,15 @@ nonisolated struct PlaybackSwitchTransaction {
         return effects
     }
 
+    mutating func withdraw(_ ticket: PlaybackSwitchTicket) -> [Effect] {
+        guard let candidate = pending, candidate.selection.ticket == ticket else { return [] }
+        var effects: [Effect] = []
+        cancel(candidate.selection, into: &effects)
+        pending = nil
+        advance(into: &effects)
+        return effects
+    }
+
     /// Native recovery exhaustion is an output loss, not a new selection and
     /// not a reason to cancel a newer pending user request.
     mutating func lost(_ ticket: PlaybackSwitchTicket, reason: String) -> [Effect] {

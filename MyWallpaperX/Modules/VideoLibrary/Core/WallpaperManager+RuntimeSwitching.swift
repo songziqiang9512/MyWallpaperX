@@ -273,11 +273,13 @@ extension WallpaperManager {
     }
 
     func switchPrepared(_ ticket: PlaybackSwitchTicket, endpoint: PlaybackSwitchEndpoint) {
+        guard acceptsSceneQualityReload(ticket) else { return }
         switchEndpoints[endpoint.id] = endpoint
         runSwitchEffects(playbackSwitch.prepared(ticket, executionID: endpoint.id))
     }
 
     func switchVisible(_ ticket: PlaybackSwitchTicket, executionID: UUID) {
+        guard acceptsSceneQualityReload(ticket) else { return }
         let effects = playbackSwitch.visible(ticket, executionID: executionID)
         runSwitchEffects(effects)
     }
@@ -385,6 +387,7 @@ extension WallpaperManager {
                 // Use the enqueue provenance, not ticket.epoch: a native recovery
                 // legitimately reuses an older committed ticket after a failed intent.
                 guard playbackIntentEpoch == queued.originEpoch else { continue }
+                if sceneQualityReload?.candidate == ticket { sceneQualityReload = nil }
                 switchDeadline?.cancel()
                 pendingWallpaper = nil
                 NotificationCenter.default.post(name: .wallpaperSwitchDidFail, object: nil,
@@ -437,6 +440,7 @@ extension WallpaperManager {
               selection.executionID?.uuidString ?? "none", recovery)
 #endif
         guard let value = switchSelections[selection.ticket.id] else { return }
+        if sceneQualityReload?.candidate == selection.ticket { sceneQualityReload = nil }
         let libraryCommit = libraryPlaybackSequence.commit(selection.ticket, recovery: recovery)
         if let libraryCommit, libraryCommit.cause == .userSelection, case let .video(wallpaper) = value {
             // Retain the initial-index merge protection, after real success.

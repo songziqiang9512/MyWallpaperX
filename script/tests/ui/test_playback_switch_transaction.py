@@ -9,7 +9,118 @@ ROOT = Path(__file__).resolve().parents[3]
 HARNESS = r'''
 import Foundation
 @main enum Harness {
+    static func verifyWithdrawal(newUserSelection: Bool) {
+        var state = PlaybackSwitchTransaction()
+        let (a, _) = state.begin(.scene)
+        let aid = UUID()
+        let active = PlaybackSwitchTransaction.Selection(ticket: a, executionID: aid)
+        _ = state.prepared(a, executionID: aid)
+        _ = state.visible(a, executionID: aid)
+
+        let (b, _) = state.begin(.scene)
+        let bid = UUID()
+        let candidate = PlaybackSwitchTransaction.Selection(ticket: b, executionID: bid)
+        guard case let .output(off)? = state.prepared(b, executionID: bid).first else { fatalError() }
+        precondition(state.activityCompleted(off, succeeded: true) == [.activate(candidate)])
+        let wrongTicket = PlaybackSwitchTicket(epoch: b.epoch, id: UUID(), runtime: b.runtime)
+        precondition(state.withdraw(a).isEmpty && state.withdraw(wrongTicket).isEmpty,
+            "Only the exact pending ticket can be withdrawn")
+        precondition(state.pending?.selection == candidate)
+
+        let effects = state.withdraw(b)
+        guard effects.count == 1, case let .cancel(barrier, withdrawn)? = effects.first else {
+            fatalError("Withdrawal must emit only an exact cancellation")
+        }
+        precondition(withdrawn == candidate && state.committed == active && state.pending == nil)
+        precondition(state.cancellations[barrier] == candidate && !state.committedOutputActive)
+        precondition(state.withdraw(b).isEmpty)
+        precondition(state.cancelled(UUID()).isEmpty)
+        precondition(state.prepared(b, executionID: bid).isEmpty)
+        precondition(state.visible(b, executionID: bid).isEmpty)
+        precondition(state.failed(b, reason: "late failure").isEmpty)
+        precondition(state.activity == nil, "Old output must wait for the exact cancellation acknowledgment")
+
+        if newUserSelection {
+            let (d, newerEffects) = state.begin(.web)
+            let did = UUID()
+            let newer = PlaybackSwitchTransaction.Selection(ticket: d, executionID: did)
+            precondition(newerEffects.isEmpty && state.withdraw(b).isEmpty)
+            precondition(state.prepared(d, executionID: did).isEmpty)
+            precondition(state.visible(d, executionID: did).isEmpty)
+            precondition(state.cancelled(barrier) == [.activate(newer)],
+                "A prepared newer user selection must win when the old cancellation settles")
+            let commit = state.visible(d, executionID: did)
+            guard commit.first == .commit(newer, recovery: false),
+                  case let .handoff(retirement, previous, replacement)? = commit.last else { fatalError() }
+            precondition(previous == active && replacement == newer)
+            precondition(state.retired(retirement) == [.finalize(newer)])
+            precondition(state.committed == newer && state.pending == nil)
+        } else {
+            let restoration = state.cancelled(barrier)
+            guard restoration.count == 1, case let .output(on)? = restoration.first else {
+                fatalError("Acknowledged withdrawal must restore the committed output")
+            }
+            precondition(on.active && on.executionID == active.executionID)
+            precondition(state.activityCompleted(on, succeeded: true).isEmpty)
+            precondition(state.committedOutputActive && state.committed == active && state.pending == nil)
+        }
+        precondition(state.cancelled(barrier).isEmpty)
+    }
+
+    static func verifyWithdrawalBeforePreparation() {
+        var state = PlaybackSwitchTransaction()
+        let (a, _) = state.begin(.scene)
+        let aid = UUID()
+        let active = PlaybackSwitchTransaction.Selection(ticket: a, executionID: aid)
+        _ = state.prepared(a, executionID: aid)
+        _ = state.visible(a, executionID: aid)
+
+        let (b, _) = state.begin(.scene)
+        let effects = state.withdraw(b)
+        guard effects.count == 1, case let .cancel(barrier, withdrawn)? = effects.first else {
+            fatalError("A preparing ticket must be withdrawn before it has an execution")
+        }
+        precondition(withdrawn == .init(ticket: b) && state.pending == nil)
+        precondition(state.cancelled(barrier).isEmpty, "An active incumbent needs no restoration")
+        let bid = UUID()
+        let late = state.prepared(b, executionID: bid)
+        guard late.count == 1, case let .cancel(lateBarrier, endpoint)? = late.first else {
+            fatalError("A late native endpoint must be canceled instead of admitted")
+        }
+        precondition(endpoint == .init(ticket: b, executionID: bid))
+        precondition(state.cancelled(lateBarrier).isEmpty)
+        precondition(state.committed == active && state.committedOutputActive && state.pending == nil)
+    }
+
+    static func verifyWithdrawalDuringDeactivation() {
+        var state = PlaybackSwitchTransaction()
+        let (a, _) = state.begin(.scene)
+        let aid = UUID()
+        _ = state.prepared(a, executionID: aid)
+        _ = state.visible(a, executionID: aid)
+
+        let (b, _) = state.begin(.scene)
+        let bid = UUID()
+        guard case let .output(off)? = state.prepared(b, executionID: bid).first,
+              case let .cancel(barrier, withdrawn)? = state.withdraw(b).first else { fatalError() }
+        precondition(withdrawn.ticket == b && withdrawn.executionID == bid)
+        precondition(state.cancelled(barrier).isEmpty,
+            "Cancellation acknowledgment cannot bypass the in-flight deactivation")
+        let restoration = state.activityCompleted(off, succeeded: true)
+        guard restoration.count == 1, case let .output(on)? = restoration.first else {
+            fatalError("Late deactivation must restore A without activating the withdrawn candidate")
+        }
+        precondition(on.active && on.executionID == aid)
+        precondition(state.activityCompleted(on, succeeded: true).isEmpty)
+        precondition(state.committed == .init(ticket: a, executionID: aid) && state.pending == nil
+            && state.committedOutputActive)
+    }
+
     static func main() {
+        verifyWithdrawal(newUserSelection: false)
+        verifyWithdrawal(newUserSelection: true)
+        verifyWithdrawalBeforePreparation()
+        verifyWithdrawalDuringDeactivation()
         for source in [WallpaperRuntimeKind.video, .web, .scene] {
             for target in [WallpaperRuntimeKind.video, .web, .scene, .systemStill] {
                 var state = PlaybackSwitchTransaction()

@@ -121,6 +121,7 @@ private final class SettingsContentViewController: NSViewController {
         return AppSettingsActions(
             applyEngineSettings: { manager.applyEngineSettings(reloadWallpaper: $0) },
             reapplySceneQuality: { manager.reapplySceneQuality() },
+            reapplyEditedSceneQuality: { manager.reapplyEditedSceneQuality() },
             clearAllCaches: {
                 await withCheckedContinuation { continuation in
                     manager.clearAllCaches { continuation.resume() }

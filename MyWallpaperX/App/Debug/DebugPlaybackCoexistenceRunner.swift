@@ -185,12 +185,13 @@ enum DebugPlaybackCoexistenceRunner {
                                             directory: URL) async throws -> [String: Any] {
         let manager = WallpaperManager.shared
         let mux = PlaybackCommandMultiplexer.shared
+        let daemon = SceneDaemonClient.shared
         let controller = SettingsWindowController.shared
         controller.showWindow()
         defer { controller.window?.close() }
         guard let window = controller.window, let root = window.contentView,
               let settings = root.subviews.compactMap({ $0 as? AppKitSettingsContainerView }).first,
-              !settings.reapplySceneQualityButton.isEnabled, workspace.presentation.switchPage(.downloads)
+              settings.reapplySceneQualityButton.isHiddenOrHasHiddenAncestor, workspace.presentation.switchPage(.downloads)
         else { throw Failure("native Scene quality control or Downloads page unavailable") }
         _ = try await wait("Scene and Web in Downloads") {
             let references = workspace.presentation.queryResult.items.map(\.reference)
@@ -198,112 +199,220 @@ enum DebugPlaybackCoexistenceRunner {
         }
         workspace.play(scene)
         let initial = try await receipt(for: scene, runtime: .scene, after: nil)
+        let originalQuality = PlaybackQualityPreference.current.scene.preparationQuality
         guard let original = manager.libraryPlaybackSequence.committed?.snapshot,
               original.source == .page(.downloads), original.entries.count > 1,
-              settings.reapplySceneQualityButton.isEnabled else { throw Failure("Scene page reapply unavailable") }
-        let button = settings.reapplySceneQualityButton
-        let standardTitle = button.title
-        let originalTextures = PlaybackQualityPreference.current.scene.textures
+              daemon.activePreparedRenderQuality == originalQuality,
+              originalQuality.postProcessing == .enabled, originalQuality.textures == .full,
+              settings.reapplySceneQualityButton.isHiddenOrHasHiddenAncestor else {
+            throw Failure("Scene did not start with the original quality or library scope")
+        }
+
+        let post = settings.scenePostProcessingPopup
+        let texture = settings.sceneTextureQualityPopup
+        func choose(_ value: String, in popup: NSPopUpButton) -> Bool {
+            let index = popup.indexOfItem(withRepresentedObject: value)
+            guard index >= 0 else { return false }
+            popup.selectItem(at: index)
+            return popup.sendAction(popup.action, to: popup.target)
+        }
+        func windowsStillOwnOutput(_ receipt: Receipt) -> Bool {
+            let visible = onscreenWindows(requireVisibleAlpha: true)
+            return receipt.windows.allSatisfy { visible[$0] == receipt.pid }
+        }
+
         root.layoutSubtreeIfNeeded()
-        button.scrollToVisible(button.bounds)
+        post.scrollToVisible(post.bounds)
         root.layoutSubtreeIfNeeded()
-        guard button.visibleRect.width + 1 >= button.intrinsicContentSize.width,
-              button.visibleRect.height > 0 else { throw Failure("Scene reapply control was clipped") }
+        guard post.visibleRect.width + 1 >= post.intrinsicContentSize.width, post.visibleRect.height > 0 else {
+            throw Failure("Scene post-processing control was clipped")
+        }
         try await captureWindow("settings-reapply", id: window.windowNumber, directory: directory)
         mux.dispatch(.pause)
         try await Task.sleep(for: .milliseconds(350))
         let before = try await captureScene("scene-reapply-before", receipt: initial, directory: directory)
-        let post = settings.scenePostProcessingPopup
-        post.selectItem(at: post.indexOfItem(withRepresentedObject: ScenePostProcessingMode.disabled.rawValue))
-        guard post.sendAction(post.action, to: post.target), PlaybackQualityPreference.current.scene.postProcessing == .disabled
-        else { throw Failure("native quality choice did not save") }
-        let pendingTitle = button.title
-        guard pendingTitle != standardTitle else { throw Failure("saved cold quality did not show a pending change") }
-        root.layoutSubtreeIfNeeded()
-        button.scrollToVisible(button.bounds)
-        guard button.visibleRect.width + 1 >= button.intrinsicContentSize.width else {
-            throw Failure("pending quality title was clipped")
-        }
-        try await captureWindow("settings-reapply-pending", id: window.windowNumber, directory: directory)
-        let held = try await captureScene("scene-reapply-held", receipt: initial, directory: directory)
-        guard held["sessionID"] as? String == before["sessionID"] as? String,
-              held["sceneTime"] as? Double == before["sceneTime"] as? Double else {
-            throw Failure("quality selection changed the frozen active Scene")
-        }
+        var intermediateQuality = originalQuality
+        intermediateQuality.postProcessing = .disabled
+        var finalQuality = intermediateQuality
+        finalQuality.textures = .performance
+        var abandonedQuality = finalQuality
+        abandonedQuality.textures = .full
 
-        let daemon = SceneDaemonClient.shared
         let observer = daemon.debugStartupObserver
-        let texture = settings.sceneTextureQualityPopup
-        var newerQualitySaved = false
+        let wireObserver = daemon.debugStartupWireObserver
+        let prefixObserver = daemon.debugStartupPrefixObserver
+        defer {
+            daemon.debugStartupObserver = observer
+            daemon.debugStartupWireObserver = wireObserver
+            daemon.debugStartupPrefixObserver = prefixObserver
+        }
+        var loads: [String] = []
+        var prepared: [SceneDaemonStartupObservation] = []
+        var finalized: [String] = []
+        var presented: [String] = []
+        var oldWindowSamples: [[String: Any]] = []
+        var newPresentationUptime: Double?
+        var originalCommittedAtPresentation = false
+        var supersedingEditSaved = false
+        var revertingToApplied = false
+        var revertedEditSaved = false
+        func sampleOriginalWindows(at phase: String) {
+            let visible = windowsStillOwnOutput(initial)
+            let uptime = ProcessInfo.processInfo.systemUptime * 1_000
+            oldWindowSamples.append(["phase": phase, "uptimeMs": uptime,
+                "visible": visible,
+                "committed": manager.playbackSwitch.committed == initial.selection])
+        }
+        daemon.debugStartupPrefixObserver = { observation in
+            prefixObserver?(observation)
+            if observation.phase == .loadEnqueueAttempted, let request = observation.requestID {
+                loads.append(request.uuidString)
+            }
+        }
+        daemon.debugStartupWireObserver = { generation, pid, uptime, payload in
+            wireObserver?(generation, pid, uptime, payload)
+            guard let request = payload["requestID"] as? String else { return }
+            switch payload["event"] as? String {
+            case "launchStateChanged":
+                if prepared.count == 2, request == prepared[1].requestID.uuidString,
+                   payload["phase"] as? String == "launched", newPresentationUptime == nil {
+                    sampleOriginalWindows(at: "latest-launched")
+                }
+            case "firstFramePresented":
+                presented.append(request)
+                if prepared.count == 2, request == prepared[1].requestID.uuidString {
+                    newPresentationUptime = payload["uptimeMs"] as? Double
+                    originalCommittedAtPresentation = manager.playbackSwitch.committed == initial.selection
+                }
+            default: break
+            }
+        }
         daemon.debugStartupObserver = { observation in
             observer?(observation)
-            guard observation.phase == .prepared, !newerQualitySaved else { return }
-            texture.selectItem(at: texture.indexOfItem(withRepresentedObject: SceneTextureQuality.performance.rawValue))
-            newerQualitySaved = texture.sendAction(texture.action, to: texture.target)
-                && PlaybackQualityPreference.current.scene.textures == .performance
+            switch observation.phase {
+            case .parentFinalized:
+                finalized.append(observation.requestID.uuidString)
+            case .prepared:
+                prepared.append(observation)
+                if prepared.count == 1,
+                   daemon.pendingSwitchExecution?.preparationQuality == intermediateQuality {
+                    sampleOriginalWindows(at: "superseded-prepared")
+                    supersedingEditSaved = choose(SceneTextureQuality.performance.rawValue, in: texture)
+                        && PlaybackQualityPreference.current.scene.preparationQuality == finalQuality
+                } else if prepared.count == 2,
+                          daemon.pendingSwitchExecution?.preparationQuality == finalQuality {
+                    sampleOriginalWindows(at: "latest-prepared")
+                } else if revertingToApplied, prepared.count == 3,
+                          daemon.pendingSwitchExecution?.preparationQuality == abandonedQuality {
+                    revertedEditSaved = choose(SceneTextureQuality.performance.rawValue, in: texture)
+                        && PlaybackQualityPreference.current.scene.preparationQuality == finalQuality
+                }
+            }
         }
-        defer { daemon.debugStartupObserver = observer }
-        button.performClick(nil)
-        guard let pending = manager.libraryPlaybackSequence.pending, pending.proposal.cause == .settingsReload,
-              manager.playbackSwitch.committed == initial.selection,
-              initial.windows.allSatisfy({ onscreenWindows()[$0] == initial.pid }),
-              !button.isEnabled else { throw Failure("Scene reapply did not stage behind the old window") }
-        let updated = try await receipt(for: scene, runtime: .scene, after: initial)
-        daemon.debugStartupObserver = observer
-        guard let session = manager.libraryPlaybackSequence.committed, session.ticket == pending.ticket,
-              session.snapshot.source == original.source, session.snapshot.sourceQuery == original.sourceQuery,
-              session.snapshot.entries.map(\.reference) == original.entries.map(\.reference),
-              mux.isUserPaused, button.isEnabled else {
-            throw Failure("Scene reapply lost its playback scope or pause intent")
+
+        guard choose(ScenePostProcessingMode.disabled.rawValue, in: post),
+              PlaybackQualityPreference.current.scene.preparationQuality == intermediateQuality else {
+            throw Failure("native post-processing action did not save the cold change")
         }
-        let after = try await captureScene("scene-reapply-after", receipt: updated, directory: directory)
+        let latest = try await receipt(for: scene, runtime: .scene, after: initial)
+        guard let superseded = prepared.first, prepared.count == 2, supersedingEditSaved,
+              let expectedPresentation = newPresentationUptime, originalCommittedAtPresentation,
+              let latestRequest = latest.evidence["request"] as? String,
+              latestRequest == prepared[1].requestID.uuidString,
+              latest.selection.ticket.id == prepared[1].ticketID,
+              superseded.requestID != prepared[1].requestID,
+              presented == [latestRequest], finalized == [latestRequest],
+              loads == prepared.map({ $0.requestID.uuidString }),
+              daemon.activePreparedRenderQuality == finalQuality else {
+            throw Failure("superseded Scene quality presented or the latest prepared quality did not commit")
+        }
+        let oldSamplesBeforePresent = oldWindowSamples.filter {
+            guard let phase = $0["phase"] as? String, phase.hasSuffix("-prepared") else { return false }
+            return ($0["uptimeMs"] as? Double ?? .infinity) < expectedPresentation
+        }
+        guard oldSamplesBeforePresent.contains(where: { $0["phase"] as? String == "superseded-prepared" }),
+              oldSamplesBeforePresent.contains(where: { $0["phase"] as? String == "latest-prepared" }),
+              oldSamplesBeforePresent.allSatisfy({ $0["visible"] as? Bool == true && $0["committed"] as? Bool == true }) else {
+            throw Failure("original Scene window or selection disappeared before the latest presentation")
+        }
+        guard let session = manager.libraryPlaybackSequence.committed,
+              session.ticket == latest.selection.ticket, session.snapshot == original,
+              mux.isUserPaused else {
+            throw Failure("automatic Scene quality change lost its playback scope or pause intent")
+        }
+        _ = try await wait("no pending Scene quality after adoption") {
+            settings.reapplySceneQualityButton.isHiddenOrHasHiddenAncestor ? true : nil
+        }
+        try await captureWindow("settings-reapply-applied", id: window.windowNumber, directory: directory)
+        let after = try await captureScene("scene-reapply-after", receipt: latest, directory: directory)
         try await Task.sleep(for: .milliseconds(350))
-        let still = try await captureScene("scene-reapply-still", receipt: updated, directory: directory)
-        guard still["isPlaybackPaused"] as? Bool == true, still["isFrameDriverActive"] as? Bool == false,
+        let still = try await captureScene("scene-reapply-still", receipt: latest, directory: directory)
+        guard after["sceneTime"] as? Double == 0, still["isPlaybackPaused"] as? Bool == true,
+              still["isFrameDriverActive"] as? Bool == false,
               still["sceneTime"] as? Double == after["sceneTime"] as? Double,
               still["sessionID"] as? String != before["sessionID"] as? String else {
-            throw Failure("reapplied Scene did not remain frozen in its new session")
+            throw Failure("automatically reapplied Scene did not keep the new session paused")
         }
-        let intermediateTitle = button.title
-        guard newerQualitySaved, intermediateTitle == pendingTitle,
-              daemon.activePreparedRenderQuality?.textures == originalTextures else {
-            throw Failure("a newer saved texture setting was confused with the presented candidate")
+
+        revertingToApplied = true
+        guard choose(SceneTextureQuality.full.rawValue, in: texture) else {
+            throw Failure("native texture action did not start the return-to-applied scenario")
         }
-        button.performClick(nil)
-        let latest = try await receipt(for: scene, runtime: .scene, after: updated)
-        _ = try await wait("latest cold quality confirmed") {
-            button.title == standardTitle && daemon.activePreparedRenderQuality?.textures == .performance ? true : nil
+        _ = try await wait("return to applied quality settles without replacement") {
+            revertedEditSaved && manager.playbackSwitch.pending == nil && manager.playbackSwitch.cancellations.isEmpty
+                && daemon.pendingSwitchTicket == nil && settings.reapplySceneQualityButton.isHiddenOrHasHiddenAncestor ? true : nil
         }
-        let latestFrame = try await captureScene("scene-reapply-latest", receipt: latest, directory: directory)
-        guard latestFrame["sceneTime"] as? Double == 0, latestFrame["isPlaybackPaused"] as? Bool == true else {
-            throw Failure("the latest cold quality did not preserve pause")
+        let rate = settings.sceneFPSControl
+        rate.integerValue = 25
+        guard rate.sendAction(rate.action, to: rate.target) else { throw Failure("native frame rate action unavailable") }
+        let cadence = try await wait("Scene hot frame-rate change on the same execution") {
+            daemon.activeAnimationCadence.flatMap { $0.requestedFPS.rawValue == 25 ? $0 : nil }
         }
-        let latestTitle = button.title
+        let reverted = try await captureScene("scene-reapply-reverted", receipt: latest, directory: directory)
+        guard prepared.count == 3, loads == prepared.map({ $0.requestID.uuidString }),
+              presented == [latestRequest], finalized == [latestRequest],
+              daemon.activeSwitchTicket == latest.selection.ticket, daemon.activePreparedRenderQuality == finalQuality,
+              cadence.effectiveFPS == 25, windowsStillOwnOutput(latest), mux.isUserPaused,
+              reverted["sessionID"] as? String == still["sessionID"] as? String,
+              reverted["sceneTime"] as? Double == still["sceneTime"] as? Double,
+              reverted["isFrameDriverActive"] as? Bool == false else {
+            throw Failure("return-to-applied or hot edit disturbed the adopted Scene")
+        }
+
         mux.dispatch(.resume)
         try await Task.sleep(for: .milliseconds(500))
         let resumed = try await captureScene("scene-reapply-resumed", receipt: latest, directory: directory)
-        guard let frozen = latestFrame["sceneTime"] as? Double, let time = resumed["sceneTime"] as? Double, time > frozen
-        else { throw Failure("reapplied Scene clock did not resume") }
+        guard let frozen = still["sceneTime"] as? Double, let time = resumed["sceneTime"] as? Double,
+              time > frozen, resumed["isFrameDriverActive"] as? Bool == true else {
+            throw Failure("automatically reapplied Scene clock did not resume")
+        }
 
         var previous = latest
         for (reference, kind) in [(web, WallpaperRuntimeKind.web), (video, .video)] {
             workspace.requestSingle(reference)
             previous = try await receipt(for: reference, runtime: kind, after: previous)
-            button.performClick(nil)
-            guard !button.isEnabled, manager.playbackSwitch.pending == nil,
-                  manager.playbackSwitch.committed == previous.selection else {
-                throw Failure("a non-Scene wallpaper accepted the Scene control")
+            let mode: ScenePostProcessingMode = kind == .web ? .enabled : .disabled
+            guard choose(mode.rawValue, in: post),
+                  PlaybackQualityPreference.current.scene.postProcessing == mode,
+                  settings.reapplySceneQualityButton.isHiddenOrHasHiddenAncestor,
+                  manager.playbackSwitch.pending == nil, manager.playbackSwitch.committed == previous.selection,
+                  windowsStillOwnOutput(previous) else {
+                throw Failure("a Scene quality edit interrupted or reloaded \(kind.rawValue)")
             }
         }
-        return ["before": before, "held": held, "after": after, "still": still, "resumed": resumed,
-                "original": initial.evidence, "reapplied": updated.evidence,
-                "latest": latest.evidence, "latestFrame": latestFrame,
-                "qualityTitles": ["original": standardTitle, "pending": pendingTitle,
-                                  "intermediate": intermediateTitle, "latest": latestTitle],
-                "entryCount": original.entries.count, "nonSceneActionsRejected": true,
+        guard loads.count == 3, presented == [latestRequest], finalized == [latestRequest] else {
+            throw Failure("a non-Scene quality edit started another Scene candidate")
+        }
+        return ["before": before, "after": after, "still": still, "reverted": reverted, "resumed": resumed,
+                "original": initial.evidence, "latest": latest.evidence, "entryCount": original.entries.count,
+                "preparedRequests": loads, "presentedRequests": presented, "finalizedRequests": finalized,
+                "oldWindowSamples": oldSamplesBeforePresent, "latestPresentationUptimeMs": expectedPresentation,
+                "previousCommittedAtPresentation": originalCommittedAtPresentation,
+                "requestedFPSAfterHotEdit": cadence.requestedFPS.rawValue, "nonSceneActionsPreserved": true,
                 "control": ["language": Bundle.main.preferredLocalizations.first ?? "",
-                            "title": button.title, "visibleWidth": Double(button.visibleRect.width),
-                            "intrinsicWidth": Double(button.intrinsicContentSize.width)]]
+                            "title": post.titleOfSelectedItem ?? "",
+                            "visibleWidth": Double(post.visibleRect.width),
+                            "intrinsicWidth": Double(post.intrinsicContentSize.width)]]
     }
 
     private static func qualityImport(_ runtime: WallpaperRuntimeKind, receipt: Receipt,
@@ -539,18 +648,19 @@ enum DebugPlaybackCoexistenceRunner {
         try JSONSerialization.data(withJSONObject: request)
             .write(to: directory.appendingPathComponent("capture-request.json"), options: .atomic)
         let image = directory.appendingPathComponent(name + ".png")
-        try await wait("physical window capture \(name)") {
+        _ = try await wait("physical window capture \(name)") {
             FileManager.default.fileExists(atPath: image.path) ? true : nil
         }
     }
 
-    private static func onscreenWindows() -> [Int: Int32] {
+    private static func onscreenWindows(requireVisibleAlpha: Bool = false) -> [Int: Int32] {
         let info = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
         let level = Int(CGWindowLevelForKey(.desktopWindow))
         return info.reduce(into: [:]) { windows, row in
             guard let number = row[kCGWindowNumber as String] as? Int,
                   let pid = row[kCGWindowOwnerPID as String] as? Int32,
-                  let layer = row[kCGWindowLayer as String] as? Int, (level...level + 2).contains(layer) else { return }
+                  let layer = row[kCGWindowLayer as String] as? Int, (level...level + 2).contains(layer),
+                  !requireVisibleAlpha || (row[kCGWindowAlpha as String] as? Double ?? 0) > 0 else { return }
             windows[number] = pid
         }
     }

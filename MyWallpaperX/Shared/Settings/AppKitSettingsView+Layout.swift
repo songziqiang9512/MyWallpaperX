@@ -540,6 +540,10 @@ extension AppKitSettingsContainerView {
         let title = pending ? String(localized: "Reapply Current Scene (Pending Changes)")
                             : String(localized: "Reapply Current Scene")
         let button = reapplySceneQualityButton
+        if let row = button.superview, row.isHidden == pending {
+            row.isHidden = !pending
+            qualitySection.refreshSeparators()
+        }
         guard button.title != title else { return }
         let style = button.attributedTitle.attributes(at: 0, effectiveRange: nil)
         button.attributedTitle = NSAttributedString(string: title, attributes: style)
@@ -558,12 +562,13 @@ extension AppKitSettingsContainerView {
     @objc private func handleQualityChange(_ sender: NSControl) {
         guard !isUpdatingUI else { return }
         var quality = PlaybackQualityPreference.current
+        let previousPreparation = quality.scene.preparationQuality
         if sender === sceneQualityPresetPopup {
             guard let rawValue = sceneQualityPresetPopup.selectedItem?.representedObject as? String,
                   let preset = SceneQualityPreset(rawValue: rawValue) else { return }
             sceneFPSField.abortEditing()
             preset.apply(to: &quality)
-            PlaybackCommandMultiplexer.shared.applyQualityPreference(quality)
+            saveEditedQuality(quality, previousPreparation: previousPreparation)
             refreshQualityControls()
             return
         }
@@ -585,7 +590,7 @@ extension AppKitSettingsContainerView {
                 refreshScenePostProcessingMenu(selected)
             }
         }
-        PlaybackCommandMultiplexer.shared.applyQualityPreference(quality)
+        saveEditedQuality(quality, previousPreparation: previousPreparation)
         refreshSceneQualityPreset(quality)
         refreshSceneQualityReapplyTitle(quality.scene)
     }
@@ -596,8 +601,15 @@ extension AppKitSettingsContainerView {
 
     @objc private func restoreDefaultQuality() {
         sceneFPSField.abortEditing()
-        PlaybackCommandMultiplexer.shared.applyQualityPreference(.defaults)
+        saveEditedQuality(.defaults, previousPreparation: PlaybackQualityPreference.current.scene.preparationQuality)
         refreshQualityControls()
+    }
+
+    private func saveEditedQuality(_ quality: PlaybackQualityPreference, previousPreparation: SceneRenderQuality) {
+        PlaybackCommandMultiplexer.shared.applyQualityPreference(quality)
+        if previousPreparation != quality.scene.preparationQuality {
+            dependency.actions.reapplyEditedSceneQuality()
+        }
     }
 
     func refreshScenePostProcessingMenu(_ mode: ScenePostProcessingMode) {

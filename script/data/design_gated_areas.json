@@ -882,6 +882,7 @@
       "matchPatterns": [
         "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift",
         "MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift",
+        "MyWallpaperX/App/SettingsWindowController.swift",
         "MyWallpaperX/App/PersonalSettingsImportCoordinator.swift",
         "MyWallpaperX/App/WallpaperLibraryInspectorCoordinator.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonProtocol.swift",
@@ -2264,6 +2265,7 @@
       ],
       "contentPatterns": [],
       "excludeMatchPatterns": [
+        "MyWallpaperX/App/SettingsWindowController.swift",
         "MyWallpaperX/Modules/Pixabay/UI/PixabayBrowserView.swift",
         "MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadQualityPrompt.swift",
         "MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadsInspectorView.swift",

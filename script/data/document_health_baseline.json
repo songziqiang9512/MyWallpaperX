@@ -9,12 +9,12 @@
       "bytes": 25405
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
-      "lines": 50,
-      "bytes": 8300
+      "lines": 51,
+      "bytes": 8722
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 17567
+      "bytes": 17689
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 383,
-      "bytes": 90250
+      "bytes": 90563
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 129039
+      "bytes": 129008
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -94,7 +94,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 292,
-      "bytes": 58696
+      "bytes": 58712
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,28 +369,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "47f3c5e7a930c80211216e925bfad7a290ab8f43dc9e86d5a0053edd4426043f",
-      "after": "3388135745d3337fcd42d34cc39c8a055d8b3b398143087b2e6e1079858640f0",
-      "owner": "scene-runtime",
-      "reason": "说明冻结准备向量沿原候选和提交边界交付",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-cold-quality-receipt"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "ee463fcb8af2ab34f76aa58f0bbf5e1a49c09f3f10f27c3fda7db574fd2bb56a",
-      "after": "cb9f45de99f48c6591d593219aa04fbdd4baf97dde452d90e1e87755b7a1e8b8",
-      "owner": "壁纸质量改造",
-      "reason": "更新窗口采样状态及原产品接管的接线顺序",
-      "decision": "docs/development/wallpaper-quality-work-card.md#quality-reapply-current-scene"
+      "before": "3388135745d3337fcd42d34cc39c8a055d8b3b398143087b2e6e1079858640f0",
+      "after": "26b81bfc6174b756d7d3617556386cb8c806f962be232e52c09efc877a79aac9",
+      "owner": "Scene 冷准备",
+      "reason": "同步直接调节和手动重试的采用边界",
+      "decision": "docs/scene/architecture/runtime-architecture.md#effective-quality-policy"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "79fc267a2b9a809159866d367fc6e5ac00611842ceed6473d96afa7ba6c1eff1",
-      "after": "5bbfd7e285cbcca2f51e3a88caf9ed14764f3be54ffc3df674b38e7531c5712e",
-      "owner": "Video 质量入口",
-      "reason": "补可用性发布到原轨道回显的现役源码入口",
+      "before": "5bbfd7e285cbcca2f51e3a88caf9ed14764f3be54ffc3df674b38e7531c5712e",
+      "after": "e9cff0ce8190204b0d2b6bd511fe0b087cad2395f21c3f87d0f4c8c68d7ccfb5",
+      "owner": "源码导航",
+      "reason": "登记原切换事务的应用与撤销入口",
       "decision": "docs/architecture/repository-map.md#wallpaper-quality"
     },
     {
@@ -684,10 +675,10 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "c57fbac92fb0bcfacd55d85be25d3c943234f43edec336db6626f9d28ae2e495",
-      "after": "bb5a9db6c429f7a9a0f087219731d022c0e0f2c8ad88a3987431d133cf9bfb5e",
-      "owner": "Scene 画质与接管",
-      "reason": "登记同一 daemon 两作者的合成像素范围，并明确导入和失败仍可手动重试",
+      "before": "bb5a9db6c429f7a9a0f087219731d022c0e0f2c8ad88a3987431d133cf9bfb5e",
+      "after": "b089f1216ddbacb60e2e074cbebbdaf132b2038fb221bc208ee961357cc1a063",
+      "owner": "Scene 画质",
+      "reason": "同步冷档直接调节、精确撤销、真实窗口及重试边界",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-cold-auto-adoption"
     },
     {
@@ -698,6 +689,15 @@
       "owner": "原生详情合同",
       "reason": "校正同视图恢复的现役元数据与目录发布职责",
       "decision": "docs/architecture/appkit-migration.md#inspector"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/playback-lifecycle-transaction-design.md",
+      "before": "ca8ccfeccda9fe17176547e17ddcbc7898a38e6386adadaa8a3e0db743a5f768",
+      "after": "df4cbf01b297d9976787c561f172336c8686f3500b60ae18a8689b24a8096355",
+      "owner": "Manager 播放事务",
+      "reason": "登记精确撤回保提交输出及取消确认合同",
+      "decision": "docs/architecture/playback-lifecycle-transaction-design.md#三唯一产品事务"
     }
   ]
 }

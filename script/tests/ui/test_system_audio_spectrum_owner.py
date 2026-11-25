@@ -317,6 +317,7 @@ extension Notification.Name {
     var libraryPlaybackDispatcher: ((WallpaperPlaybackSequence.Pending) -> Bool)?
     var libraryPlaybackPendingChanged: (() -> Void)?
     var playbackSwitch = PlaybackSwitchTransaction()
+    var sceneQualityReload: PlaybackSwitchTicket?
     var playbackIntentEpoch: UInt64 { playbackSwitch.epoch }
     var playbackIntentDidAdvance: ((WallpaperRuntimeKind?) -> Void)?
     var switchSelections: [UUID: RuntimeSwitchSelection] = [:]
@@ -445,7 +446,7 @@ extension Notification.Name {
         methods = '\n'.join(method(settings, signature) for signature in [
             '    func applyPlaybackRateToEngine(', '    func applySystemAudioSpectrumToEngine(',
             '    func seedEngineProjectionFromPersistedSettings(', '    func projectEngineSettingsIfChanged(',
-            '    func projectLoopPolicyToEngine(', '    func applyEngineSettings(',
+            '    func projectLoopPolicyToEngine(', '    func applyEngineSettings(', '    private func reloadLibrarySession(',
         ]) + '\n' + '\n'.join(method(switching, signature) for signature in [
             '    func configureRuntimeSwitching(', '    enum RuntimeSwitchSelection',
             '    func requestLibraryPlayback(reference: WallpaperReference, from snapshot:',

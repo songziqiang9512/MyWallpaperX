@@ -74,18 +74,84 @@ extension WallpaperManager {
 
     var canReapplySceneQuality: Bool { sceneQualityReloadSession != nil }
 
+    struct SceneQualityReload {
+        let base: PlaybackSwitchTicket
+        let candidate: PlaybackSwitchTicket
+        var quality: SceneRenderQuality?
+    }
+
     func reapplySceneQuality() {
         guard let session = sceneQualityReloadSession else { return }
         reloadLibrarySession(session)
     }
 
+    func reapplyEditedSceneQuality() {
+        let quality = PlaybackQualityPreference.current.scene.preparationQuality
+        if var reload = sceneQualityReload {
+            reload.quality = quality
+            sceneQualityReload = reload
+            withdrawSceneQualityReload(reload, continueAfterCancellation: true)
+        } else {
+            startSceneQualityReload(quality)
+        }
+    }
+
+    private func startSceneQualityReload(_ quality: SceneRenderQuality) {
+        guard let session = sceneQualityReloadSession else { return }
+        let daemon = SceneDaemonClient.shared
+        let prepared = daemon.activeSwitchExecution?.ticket == session.ticket ? daemon.activePreparedRenderQuality
+            : daemon.pendingSwitchExecution.flatMap { $0.ticket == session.ticket && $0.presented ? $0.preparationQuality : nil }
+        guard prepared != quality else { return }
+        if let ticket = reloadLibrarySession(session), playbackSwitch.pending?.selection.ticket == ticket {
+            sceneQualityReload = .init(base: session.ticket, candidate: ticket, quality: quality)
+        }
+    }
+
+    func acceptsSceneQualityReload(_ ticket: PlaybackSwitchTicket) -> Bool {
+        guard let reload = sceneQualityReload, reload.candidate == ticket,
+              playbackSwitch.pending?.selection.ticket == ticket else { return true }
+        let prepared = SceneDaemonClient.shared.pendingSwitchExecution?.preparationQuality
+        guard let quality = reload.quality, quality == PlaybackQualityPreference.current.scene.preparationQuality,
+              prepared == nil || prepared == quality else {
+            withdrawSceneQualityReload(reload, continueAfterCancellation: false)
+            return false
+        }
+        return true
+    }
+
+    private func withdrawSceneQualityReload(_ reload: SceneQualityReload, continueAfterCancellation: Bool) {
+        let effects = playbackSwitch.withdraw(reload.candidate)
+        guard !effects.isEmpty else { return }
+        _ = libraryPlaybackSequence.cancel(reload.candidate)
+        switchDeadline?.cancel()
+        if !continueAfterCancellation { sceneQualityReload?.quality = nil }
+        switchSettlementObservers[reload.candidate, default: []].append { [weak self] in
+            guard let self, self.playbackIntentEpoch == reload.candidate.epoch else { return }
+            if let latest = self.sceneQualityReload, latest.candidate == reload.candidate {
+                self.sceneQualityReload = nil
+                if let quality = latest.quality, self.playbackSwitch.committed?.ticket == latest.base,
+                   PlaybackQualityPreference.current.scene.preparationQuality == quality {
+                    self.startSceneQualityReload(quality)
+                }
+            }
+            if self.playbackIntentEpoch == reload.candidate.epoch,
+               self.playbackSwitch.committed?.ticket == reload.base, self.playbackSwitch.pending == nil {
+                self.libraryRotationDeadline.preparationFailed(now: CACurrentMediaTime())
+                self.refreshAutoSwitchTimerIfNeeded()
+                self.libraryPlaybackPendingChanged?()
+            }
+        }
+        runSwitchEffects(effects)
+    }
+
     private var sceneQualityReloadSession: WallpaperPlaybackSequence.Session? {
-        guard playbackSwitch.pending == nil, let session = libraryPlaybackSequence.committed,
+        guard sceneQualityReload == nil, playbackSwitch.pending == nil, let session = libraryPlaybackSequence.committed,
               session.ticket.runtime == .scene, playbackSwitch.committed?.ticket == session.ticket else { return nil }
         return session
     }
 
-    private func reloadLibrarySession(_ session: WallpaperPlaybackSequence.Session) {
+    @discardableResult
+    private func reloadLibrarySession(_ session: WallpaperPlaybackSequence.Session) -> PlaybackSwitchTicket? {
         requestLibraryPlayback(reference: session.reference, from: session.snapshot, cause: .settingsReload)
     }
 

@@ -206,6 +206,7 @@ protocol PlaybackResourceLifetime: AnyObject {}
 @MainActor final class WallpaperManager {
     static let shared = WallpaperManager()
     var playbackSwitch = PlaybackSwitchTransaction()
+    var sceneQualityReload: PlaybackSwitchTicket?
     var libraryPlaybackSequence = WallpaperPlaybackSequence()
     var libraryRotationDeadline = WallpaperRotationDeadline()
     var playbackIntentDidAdvance: ((WallpaperRuntimeKind?) -> Void)?

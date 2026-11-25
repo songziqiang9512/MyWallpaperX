@@ -12,7 +12,7 @@ MANAGER = REPO_ROOT / "MyWallpaperX/Modules/VideoLibrary/Core"
 GATE_SOURCES = [CONTROL / name for name in (
     "PlaybackResourceLifetime.swift", "ImportedVideoAutoplayGate.swift", "WallpaperRuntimeSwitch.swift",
     "PlaybackSwitchTransaction.swift", "ImportedVideoPlaybackAdmission.swift",
-    "WallpaperPlaybackSequence.swift", "WallpaperRotationDeadline.swift",
+    "WallpaperPlaybackSequence.swift", "WallpaperRotationDeadline.swift", "PlaybackPerformanceProfile.swift",
 )] + [REPO_ROOT / "MyWallpaperX/Models/WallpaperReference.swift",
      REPO_ROOT / "MyWallpaperX/Models/WallpaperLibraryPage.swift"]
 
@@ -30,6 +30,9 @@ struct VideoWallpaper {let path:String;var id:String{path}}
 @MainActor final class WebDaemonHostAdapter {var hasPendingRequest=false}
 @MainActor final class SceneDaemonClient {
     static let shared=SceneDaemonClient()
+    struct Execution { let ticket: PlaybackSwitchTicket; let preparationQuality: SceneRenderQuality?; let presented: Bool }
+    var activeSwitchExecution: Execution?, pendingSwitchExecution: Execution?
+    var activePreparedRenderQuality: SceneRenderQuality? { activeSwitchExecution?.preparationQuality }
     func cancelSwitch(ticket:PlaybackSwitchTicket,completion:@escaping()->Void){completion()}
 }
 @MainActor final class WallpaperEngine {
@@ -86,6 +89,7 @@ extension Notification.Name {static let wallpaperSwitchDidFail=Self("switch-fail
     var libraryPlaybackStopped:(()->Void)?
     var libraryPlaybackFailed:((WallpaperPlaybackSequence.Pending)->Void)?
     var playbackSwitch=PlaybackSwitchTransaction()
+    var sceneQualityReload: SceneQualityReload?
     var switchEndpoints:[UUID:PlaybackSwitchEndpoint]=[:]
     var switchSelections:[UUID:RuntimeSwitchSelection]=[:]
     var switchDeadline:DispatchWorkItem?,pendingSystemWallpaperSyncWorkItem:DispatchWorkItem?
@@ -190,6 +194,9 @@ def product_harness():
         "var libraryRotationInterval:", "var libraryRotationEligible:", "func rescheduleLibraryRotationTimer()",
         "func startAutoSwitchTimer()", "func stopAutoSwitchTimer()",
         "func refreshAutoSwitchTimerIfNeeded(",
+        "struct SceneQualityReload", "func acceptsSceneQualityReload(",
+        "private func withdrawSceneQualityReload(", "private func startSceneQualityReload(",
+        "private var sceneQualityReloadSession:", "private func reloadLibrarySession(",
     )]
     methods += [method(events, signature) for signature in (
         "func observePlaybackEvents(",

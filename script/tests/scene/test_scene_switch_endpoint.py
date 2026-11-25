@@ -259,7 +259,11 @@ HARNESS = r'''
         precondition(client.queuedSwitchPreparation?.ticket == queuedTicket && client.pendingRequestID == thirdID,
             "new Scene preparation cannot cancel already visible execution before product finalize")
         var queueCancelled=false
-        client.cancelSwitch(ticket:queuedTicket){queueCancelled=true}
+        client.cancelSwitch(ticket:queuedTicket){
+            if case .cancelled? = client.launchState?.phase {
+                queueCancelled = client.launchState?.recordID == "queued"
+            }
+        }
         precondition(queueCancelled && client.queuedSwitchPreparation == nil && client.pendingRequestID == thirdID)
         client.prepareSwitch(.init(recordID:"after-finalize"),ticket:queuedTicket,resourceLifetime:nil)
         NSScreen.modeRefreshRate=59.94

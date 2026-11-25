@@ -62,6 +62,7 @@ extension Notification.Name {
     let sceneShadowsPopup = NSPopUpButton(), sceneVolumeLightingPopup = NSPopUpButton()
     let sceneReflectionsSwitch = NSSwitch(), webFrameRatePopup = NSPopUpButton()
     let reapplySceneQualityButton = NSButton(title: "Reapply Current Scene", target: nil, action: nil)
+    let qualitySection = SettingsGroupView(title: nil)
     let loopSwitch = NSSwitch(), randomSwitch = NSSwitch(), sequentialSwitch = NSSwitch(), autoSwitchSwitch = NSSwitch()
     let intervalField = NSTextField(frame: .init(x: 20, y: 70, width: 160, height: 28))
     let sceneFPSField = NSTextField(frame: .init(x: 198, y: 70, width: 40, height: 28))
@@ -76,6 +77,9 @@ extension Notification.Name {
     init(_ dependency: AppSettingsPanelDependency) {
         self.dependency = dependency
         super.init(frame: .init(x: 0, y: 0, width: 360, height: 160))
+        let qualityRetryRow = NSView()
+        qualityRetryRow.addSubview(reapplySceneQualityButton)
+        qualitySection.addRow(qualityRetryRow)
         intervalField.delegate = self
         sceneFPSField.delegate = self
         sceneFPSControl.frame = .init(x: 188, y: 20, width: 148, height: 28)
@@ -144,6 +148,7 @@ extension Notification.Name {
     // ACTUAL_REFRESH_SCENE_QUALITY_PRESET
     // ACTUAL_QUALITY_ACTION
     // ACTUAL_RESTORE_DEFAULT_QUALITY_ACTION
+    // ACTUAL_SAVE_EDITED_QUALITY
     // ACTUAL_FRAME_RATE_LABELS
     // ACTUAL_REFRESH_FRAME_RATE_READOUT
     // ACTUAL_FRAME_RATE_READOUT
@@ -163,8 +168,10 @@ extension Notification.Name {
         var settings = WallpaperSettings()
         settings.loopPlayback = false; settings.sequentialPlayback = true; settings.autoSwitchEnabled = true
         var timerRefreshes = 0
+        var coldEdits: [SceneRenderQuality] = []
         var actions = AppSettingsActions()
         actions.refreshAutoSwitchTimerIfNeeded = { timerRefreshes += 1 }
+        actions.reapplyEditedSceneQuality = { coldEdits.append(PlaybackQualityPreference.current.scene.preparationQuality) }
         let dependency = AppSettingsPanelDependency(settings: settings, actions: actions)
         let view = AppKitSettingsContainerView(dependency)
         let window = NSWindow(contentRect: .init(x: 14000, y: 14000, width: 360, height: 160),
@@ -306,6 +313,9 @@ extension Notification.Name {
             && PlaybackQualityPreference.current == .defaults
             && view.sceneQualityPresetPopup.indexOfSelectedItem == 0 && view.sceneFPSField.stringValue == "60"
             && view.sceneVolumeLightingPopup.selectedItem?.representedObject as? String == "enabled"
+        checks["native-cold-preset-field-and-reset-apply-once-after-saving"] = coldEdits.count == 3
+            && coldEdits[0].postProcessing == .enabled && coldEdits[0].shadows == .medium
+            && coldEdits[1].antiAliasing == .msaa4 && coldEdits[2] == PlaybackQualityPreference.defaults.scene.preparationQuality
         view.sceneTextureQualityPopup.selectItem(at: view.sceneTextureQualityPopup.indexOfItem(withRepresentedObject: "auto"))
         _ = view.sceneTextureQualityPopup.sendAction(view.sceneTextureQualityPopup.action, to: view)
         view.refreshQualityControls()
@@ -372,6 +382,7 @@ extension Notification.Name {
         let button = view.reapplySceneQualityButton
         let standardTitle = button.title
         let daemon = SceneDaemonClient.shared
+        let editsBeforeHotControls = coldEdits.count
         daemon.activePreparedRenderQuality = PlaybackQualityPreference.current.scene.preparationQuality
         NSScreen.screens.append(.init(maximumPotentialExtendedDynamicRangeColorComponentValue: 3))
         view.refreshQualityControls()
@@ -379,17 +390,22 @@ extension Notification.Name {
         _ = post.sendAction(post.action, to: view)
         view.commitSceneFrameRate(AnimationFrameRate(rawValue: 25))
         checks["native-hot-hdr-and-fps-do-not-show-a-pending-cold-quality-title"] =
-            button.title == standardTitle && PlaybackQualityPreference.current.scene.postProcessing == .ultraDisplayHDR
+            button.title == standardTitle && button.isHiddenOrHasHiddenAncestor && coldEdits.count == editsBeforeHotControls
+            && PlaybackQualityPreference.current.scene.postProcessing == .ultraDisplayHDR
             && PlaybackQualityPreference.current.animationFrameRate.rawValue == 25
         let shadows = view.sceneShadowsPopup
         shadows.selectItem(at: shadows.indexOfItem(withRepresentedObject: SceneShadowQuality.low.rawValue))
         _ = shadows.sendAction(shadows.action, to: view)
         checks["native-saved-shadow-shows-the-pending-cold-quality-title"] =
-            button.title != standardTitle && PlaybackQualityPreference.current.scene.shadows == .low
+            button.title != standardTitle && !button.isHiddenOrHasHiddenAncestor && PlaybackQualityPreference.current.scene.shadows == .low
+            && coldEdits.count == editsBeforeHotControls + 1 && coldEdits.last?.shadows == .low
+        _ = shadows.sendAction(shadows.action, to: view)
+        checks["native-unchanged-cold-selection-does-not-apply-again"] = coldEdits.count == editsBeforeHotControls + 1
         daemon.activePreparedRenderQuality = PlaybackQualityPreference.current.scene.preparationQuality
         NotificationCenter.default.post(name: .sceneDaemonPreparedQualityDidChange, object: daemon)
         pump()
-        checks["native-presented-quality-notification-clears-the-pending-title"] = button.title == standardTitle
+        checks["native-presented-quality-notification-clears-the-pending-title"] =
+            button.title == standardTitle && button.isHiddenOrHasHiddenAncestor
 
         let locale = UserDefaults.standard.string(forKey: "AppleLocale")
         let separator = locale == "de_DE" ? "," : "."
