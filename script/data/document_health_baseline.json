@@ -77,8 +77,8 @@
       "bytes": 79291
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 391,
-      "bytes": 80740
+      "lines": 400,
+      "bytes": 82889
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -186,7 +186,7 @@
     },
     "docs/web/current-state.md": {
       "lines": 141,
-      "bytes": 52703
+      "bytes": 52855
     },
     "docs/web/dedicated-host-process-design.md": {
       "lines": 92,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "a53ea0139af68ed690572589221e03b712faaa8977ce078ec23ee05209bf11d9",
-      "after": "24e9c41bf876ee1023daa1ddb019bd4561f9803a1b39f96d22c4e506299a405e",
+      "before": "24e9c41bf876ee1023daa1ddb019bd4561f9803a1b39f96d22c4e506299a405e",
+      "after": "54aae9f5c1a23acb2993f3ee8aa2ca726688c2f77666731f43da9dc436a8ab33",
       "owner": "wallpaper-quality",
-      "reason": "记录 Pixabay 实际本地原片详情及缩略图回归，核对本机功耗工具能力边界",
-      "decision": "docs/development/wallpaper-quality-work-card.md#pixabay-downloaded-track"
+      "reason": "记录真实作者 Canvas 节律与活动态相同建议去重的正反例",
+      "decision": "docs/development/wallpaper-quality-work-card.md#web-effective-fps-delivery"
     },
     {
       "section": "bodies",
@@ -414,11 +414,11 @@
     {
       "section": "bodies",
       "path": "docs/web/current-state.md",
-      "before": "2b243b0a9204f19ec3f87d8d3009266e2dbdfe0c09517fdaecc6ded709fcfe5f",
-      "after": "f8eae8d4712d85ffbadbbf22bb03fb71f102afd5ce08c2e2082631cd4a38e199",
-      "owner": "播放偏好和对应执行端",
-      "reason": "记录 Web 启动、热更新和暂停恢复的实际帧率建议责任。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+      "before": "f8eae8d4712d85ffbadbbf22bb03fb71f102afd5ce08c2e2082631cd4a38e199",
+      "after": "666673acc05e88f29fba62026dc9b75a6eb12deb8145eb266d0d2df6d6370346",
+      "owner": "web-runtime",
+      "reason": "将仅变化的建议数值投递写入现役作者桥合同",
+      "decision": "docs/web/current-state.md#2-稳定实现合同"
     },
     {
       "section": "bodies",

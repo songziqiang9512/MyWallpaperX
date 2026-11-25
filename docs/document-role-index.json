@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0a0f962f3f3b4329ce840042abc6a5e55add974a8835e845563380f7b1b0749b",
+        "sourceSHA256": "6aa2c28003814caff4c45d33e4a4b73e63bad1ab5c8d224055a46f202f7279af",
         "method": "document_registry --audit + document_health --check",
-        "scope": "三引擎执行顺序、原生粗格否证、Help、同版本 Pixabay 实际纹理和文件读取",
-        "limitations": "明确只统计显式 AV 轨道查询和移动后的源，不把尺寸复用当整机功耗"
+        "scope": "三引擎现役执行顺序、Web 真 WKWebView 实绘与活动重复建议退役",
+        "limitations": "实际 Canvas 次数不是 WindowServer 呈现、功耗或签名端到端"
       }
     },
     {
@@ -1090,13 +1090,13 @@
       "role": "current-state",
       "entrypoint": "docs/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-11-23",
+      "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "86ade0cb6dec3e86fa10be5fbe097594e775b59f2ef120f4d3e46faab188c870",
+        "sourceSHA256": "ebb6e44b5d808e7506deb4f98cec1a9ddd9c329a9d05b759a3f3ea167e590810",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Retire eight unused non-Scene entry/state groups and obsolete route assertions; preserve current navigation, ticketed playback, page sorting and audio recovery owners.",
-        "limitations": "Current source/caller and document audit; runtime and build results have separate bounded evidence. No real user-library, live account or actual system-host parity claim."
+        "scope": "作者 FPS 建议按目标屏数值投影，活动、冷恢复、暂停与文档路径分界",
+        "limitations": "真实 WKWebView 和一个原作者；没有声明相同数字的官版回调次数"
       }
     },
     {

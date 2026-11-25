@@ -278,9 +278,11 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     func resolvedGeneralFPSValue(for screen: NSScreen?) -> Int {
-        if let appliedFrameRateSuggestion { return appliedFrameRateSuggestion }
-        guard let screen else { return 60 }
-        return max(1, min(60, screen.maximumFramesPerSecond))
+        appliedFrameRateSuggestion ?? displayFrameRate(for: screen)
+    }
+
+    func displayFrameRate(for screen: NSScreen?) -> Int {
+        max(1, min(60, screen?.maximumFramesPerSecond ?? 60))
     }
 
     func currentGeneralPropertiesJSON(for screen: NSScreen?, screenID: CGDirectDisplayID?) -> String {
@@ -471,12 +473,24 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         }
     }
 
-    func applyGeneralProperties(to webView: WKWebView) {
-        let body = generalPropertiesPushBody(for: webView)
+    func applyGeneralProperties(to webView: WKWebView, skipIfDisplayFPS: Int? = nil) {
+        let screenID = screenID(for: webView)
+        let screen = screenForGeneralProperties(screenID)
+        if let skipIfDisplayFPS, skipIfDisplayFPS == displayFrameRate(for: screen) { return }
+        let body = generalPropertiesPushBody(for: screen, screenID: screenID)
         deliverStatePush(to: webView) { endpoint in
             sequencedPushScript(body, sequence: endpoint.advancePushSequence(),
                                 documentNonce: endpoint.documentNonce)
         }
+    }
+
+    func applyFrameRateSuggestion(_ suggestion: Int?) {
+        currentFrameRateSuggestion = suggestion
+        let previous = appliedFrameRateSuggestion
+        guard !paused, previous != suggestion else { return }
+        appliedFrameRateSuggestion = suggestion
+        let displayComparison = previous == nil || suggestion == nil ? (previous ?? suggestion) : nil
+        forEachWebView { self.applyGeneralProperties(to: $0, skipIfDisplayFPS: displayComparison) }
     }
 
     func applyVolume(_ volume: Float, to webView: WKWebView) {

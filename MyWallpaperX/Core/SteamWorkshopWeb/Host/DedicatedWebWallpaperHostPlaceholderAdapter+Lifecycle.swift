@@ -270,11 +270,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 currentPlaybackRate = playbackRate
                 forEachWebView { self.applyPlaybackRate(playbackRate, to: $0) }
             case let .setFrameRateSuggestion(suggestion):
-                currentFrameRateSuggestion = suggestion
-                if !paused {
-                    appliedFrameRateSuggestion = suggestion
-                    forEachWebView { self.applyGeneralProperties(to: $0) }
-                }
+                applyFrameRateSuggestion(suggestion)
             case let .applyProperties(update):
                 guard let request = currentRequest, update.requestID == request.id,
                       update.revision > request.propertyRevision,

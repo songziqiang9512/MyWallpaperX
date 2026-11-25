@@ -142,11 +142,19 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         """
     }
 
+    func screenForGeneralProperties(_ screenID: CGDirectDisplayID?) -> NSScreen? {
+        screenID.flatMap { targetID in
+            NSScreen.screens.first { Self.screenID(for: $0) == targetID }
+        } ?? NSScreen.main
+    }
+
     func generalPropertiesPushBody(for webView: WKWebView, beforeResume: Bool = false) -> String {
         let screenID = screenID(for: webView)
-        let screen = screenID.flatMap { targetID in
-            NSScreen.screens.first { Self.screenID(for: $0) == targetID }
-        }
+        return generalPropertiesPushBody(for: screenForGeneralProperties(screenID), screenID: screenID,
+                                         beforeResume: beforeResume)
+    }
+
+    func generalPropertiesPushBody(for screen: NSScreen?, screenID: CGDirectDisplayID?, beforeResume: Bool = false) -> String {
         let properties = WebWallpaperHostSupport.javaScriptQuotedString(
             currentGeneralPropertiesJSON(for: screen, screenID: screenID))
         let delivery = beforeResume ? ", true" : ""

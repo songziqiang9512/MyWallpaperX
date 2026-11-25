@@ -42,6 +42,7 @@ ADAPTER = r'''
     var currentRequest: Request? = Request()
     var paused = false
     var effectiveMediaSuspended: Bool { paused }
+    var currentFrameRateSuggestion: Int?
     var appliedFrameRateSuggestion: Int?
     var defersFrameHello = false
     var effectiveVolume: Float = 0.4
@@ -361,7 +362,7 @@ SCENARIOS = r'''
         </script>
         """
         let adapter = Adapter()
-        adapter.appliedFrameRateSuggestion = 30
+        adapter.applyFrameRateSuggestion(30)
         let host = PageHost(html: author + "<iframe srcdoc='\(author)'></iframe><iframe src='mwx-probe://remote/index'></iframe>",
                             crossOriginChildHTML: author, adapter: adapter,
                             initialGeneralPropertiesJSON: #"{"fps":60}"#, awaitCurrentGeneralProperties: true)
@@ -382,15 +383,14 @@ SCENARIOS = r'''
         }
         let remoteFirst = try await remoteValue("suggestions[0]") as? Int
         expect(remoteFirst == 30, "cross-origin author gets current FPS as its first callback")
-        adapter.appliedFrameRateSuggestion = 60
-        adapter.applyGeneralProperties(to: host.view)
+        adapter.applyFrameRateSuggestion(60)
         try await host.waitUntil("suggestions.at(-1) === 60 && frames[0].suggestions.at(-1) === 60", label: "live local-frame FPS changes")
         let remoteLast = try await remoteValue("suggestions.at(-1)") as? Int
         expect(remoteLast == 60, "cross-origin author gets the live update")
         _ = try await host.script("window.lateFPS = []; wallpaperPropertyListener = {applyGeneralProperties: p => lateFPS.push(p.fps)}; true")
         try await host.waitUntil("lateFPS[0] === 60", label: "late registration mirrors latest FPS")
 
-        adapter.appliedFrameRateSuggestion = 30
+        adapter.applyFrameRateSuggestion(30)
         adapter.frameEndpointRegistry.revokeAll(in: host.view)
         host.view.loadHTMLString(author + "<body id='replacement'></body>", baseURL: nil)
         try await host.waitUntil("document.body?.id === 'replacement'", label: "replacement document in same view")
@@ -409,20 +409,41 @@ SCENARIOS = r'''
         adapter.paused = true
         adapter.applyPausedState(true, to: host.view)
         try await host.waitUntil("wallpaperEngine_paused === true", label: "author pause")
+        let pausedSuggestions = try await host.script("suggestions.slice()") as! [Int]
+        adapter.applyFrameRateSuggestion(nil)
+        expect(adapter.currentFrameRateSuggestion == nil && adapter.appliedFrameRateSuggestion == 30,
+               "paused mode change stores the request without applying it")
+        adapter.applyFrameRateSuggestion(60)
+        expect(adapter.currentFrameRateSuggestion == 60 && adapter.appliedFrameRateSuggestion == 30,
+               "paused session retains the newest request")
+        let afterPausedChanges = try await host.script("suggestions.slice()") as! [Int]
+        expect(afterPausedChanges == pausedSuggestions, "paused mode changes send no author callbacks")
         _ = try await host.script("Object.defineProperty(document, 'readyState', {configurable:true, value:'loading'}); true")
-        adapter.appliedFrameRateSuggestion = 60
+        adapter.appliedFrameRateSuggestion = adapter.currentFrameRateSuggestion
         adapter.paused = false
         adapter.applyPausedState(false, to: host.view, frameRateChanged: true)
         try await host.waitUntil("JSON.stringify(resumeObservation) === '[\"loading\",60]'", label: "synchronous resume sees the new FPS during document load")
         _ = try await host.script("delete document.readyState; true")
-        let displayFPS = NSScreen.main.map { max(1, min(60, $0.maximumFramesPerSecond)) } ?? 60
-        let differentFPS = displayFPS == 30 ? 60 : 30
-        adapter.appliedFrameRateSuggestion = differentFPS
-        adapter.applyGeneralProperties(to: host.view)
-        try await host.waitUntil("suggestions.at(-1) === \(differentFPS)", label: "explicit suggestion differs from display")
-        adapter.appliedFrameRateSuggestion = nil
-        adapter.applyGeneralProperties(to: host.view)
+        let targetScreen = adapter.screenForGeneralProperties(adapter.screenID(for: host.view))
+        let displayFPS = adapter.displayFrameRate(for: targetScreen)
+        expect(adapter.displayFrameRate(for: nil) == 60, "missing screen retains the display suggestion fallback")
+        adapter.applyFrameRateSuggestion(nil)
         try await host.waitUntil("suggestions.at(-1) === \(displayFPS)", label: "return to the display suggestion")
+        _ = try await host.script("suggestions.length = 0; true")
+        adapter.applyFrameRateSuggestion(displayFPS)
+        expect(adapter.currentFrameRateSuggestion == displayFPS && adapter.appliedFrameRateSuggestion == displayFPS,
+               "same visible value still adopts explicit mode")
+        adapter.applyFrameRateSuggestion(nil)
+        expect(adapter.currentFrameRateSuggestion == nil && adapter.appliedFrameRateSuggestion == nil,
+               "same visible value still adopts display mode")
+        let differentFPS = displayFPS == 30 ? 60 : 30
+        adapter.applyFrameRateSuggestion(differentFPS)
+        try await host.waitUntil("suggestions.at(-1) === \(differentFPS)", label: "explicit suggestion differs from display")
+        adapter.applyFrameRateSuggestion(nil)
+        try await host.waitUntil("suggestions.at(-1) === \(displayFPS)", label: "changed suggestion returns to display")
+        let modeChangeCallbacks = try await host.script("suggestions.slice()") as! [Int]
+        expect(modeChangeCallbacks == [differentFPS, displayFPS],
+               "expected only changed suggestions \([differentFPS, displayFPS]), received \(modeChangeCallbacks)")
     }
 
     static func generalFPSWithoutHello(initiallyPaused: Bool) async throws {
@@ -571,11 +592,13 @@ class WebSystemMediaTests(unittest.TestCase):
         runtime = (HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+RuntimeBridge.swift").read_text()
         methods += "\n" + "\n".join(method(runtime, name) for name in (
             "func currentGeneralProperties(", "func resolvedGeneralFPSValue(", "func currentGeneralPropertiesJSON(",
+            "func displayFrameRate(", "func applyFrameRateSuggestion(",
             "func applyGeneralProperties(", "func applyPausedState("))
         reply = (HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+FrameReply.swift").read_text()
         methods += "\n" + "\n".join(method(reply, name) for name in (
-            "func resolveNetworkRequest(", "func sequencedPushScript(", "func generalPropertiesPushBody(",
-            "func deliverStatePush("))
+            "func resolveNetworkRequest(", "func sequencedPushScript(",
+            "func generalPropertiesPushBody(for webView:", "func generalPropertiesPushBody(for screen:",
+            "func screenForGeneralProperties(", "func deliverStatePush("))
         base = base.replace("// ADAPTER_METHODS", methods)
         base = base.replace("        endpointStub.webView = view", "        self.adapter.surfaces[1] = .init(webView: view)\n        endpointStub.webView = view")
         base = base.replace("    func close() { window.orderOut(nil) }", """    func close() {
