@@ -456,6 +456,7 @@ class SceneMetalView: NSView {
         report.append(
             "prepared static model layers: \(renderer.staticModelResources.preparedLayerIDs)"
         )
+        report.append("prepared model shadow limit: \(renderer.staticModelResources.directionalShadowDimensionLimit ?? 0)")
 #endif
 
 #if DEBUG

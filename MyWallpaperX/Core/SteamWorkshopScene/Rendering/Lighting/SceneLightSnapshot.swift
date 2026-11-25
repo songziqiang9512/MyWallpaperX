@@ -433,7 +433,7 @@ struct SceneLightSnapshot {
               let position = position(of: frame) else { return nil }
         return Point(
             layerID: layer.id, castsShadow: definition.castsShadow == true,
-            illuminatesStaticModels: definition.kind != "point",
+            illuminatesStaticModels: definition.illuminatesStaticModels,
             position: position,
             color: dynamicColor
                 ?? color(definition.colorRGB, fallback: SIMD3(1, 1, 1)),

@@ -631,7 +631,11 @@ class ScenePointModelShadowOptionalPipelineTests(unittest.TestCase):
     source=root/'StaticModel.metal'
     for header in (model.FOG_HEADER, model.SURFACE_HEADER):
      (root/header.name).write_bytes(header.read_bytes())
-    source.write_text(model.METAL_SOURCE.read_text().replace(entry+'(', 'testUnavailableShadowEntry('))
+    metal = model.METAL_SOURCE.read_text().replace(entry+'(', 'testUnavailableShadowEntry(')
+    if name == 'directional':
+     # Barycentric-capable devices select the covered entry instead.
+     metal = metal.replace('sceneStaticModelCoveredShadowFragment(', 'testUnavailableCoveredShadowEntry(')
+    source.write_text(metal)
     harness=point_frame_harness().replace('["original","full","four-points","quota0","quota1","quota2","quota3","logical","gap","flight"]','["original","full","four-points"]')
     report=run_point(spot.f.SOURCES,harness,label='point-optional-pso-'+name,metal_sources=[source],input_value={'missingEntry':entry,'expectedMixedIDs':expected,'expectedFourPointIDs':four})
     rows={r['mode']:r for r in report['rows']}

@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6b5b7245120ee476331558b8b7c063e37f157f889b48c85818334d6e144da6de",
+        "sourceSHA256": "eb17a43780a554ac14ec2817e362e966daf40171d93f57279a751416f7a5e1bc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "质量应用与报告、共用原片轨道读取、Pixabay 同版缩略图",
-        "limitations": "源码 owner 和验证路由，发布行为与媒体条件详见各能力合同"
+        "scope": "质量选择和生效路由，模型阴影准备和每帧消费者",
+        "limitations": "导航与源码是真的，完整运行结果由专项收据记录"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6aa2c28003814caff4c45d33e4a4b73e63bad1ab5c8d224055a46f202f7279af",
+        "sourceSHA256": "604be950b530c68cb014bb09c229ef15a09140ea9527063c54d0b3f6b65a20fc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "三引擎现役执行顺序、Web 真 WKWebView 实绘与活动重复建议退役",
-        "limitations": "实际 Canvas 次数不是 WindowServer 呈现、功耗或签名端到端"
+        "scope": "质量专项执行顺序、四部签名原作者与实际阴影启动试验、缺失片元负例",
+        "limitations": "PSO 实际调用少三次；未量毫秒或整机功耗，阳性动画相位不同"
       }
     },
     {
@@ -855,10 +855,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2c66ef94303706371cee5f52a0e01acb333db28e060e03f2682ab96dba885bf2",
+        "sourceSHA256": "685b69db22f3c080d84b9a7195896f36ab43584a8dc99850a5bd6cdada5e8b86",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通和 HDR 的原单 owner、工作纹理预算及命令在途阶段",
-        "limitations": "实际容量与像素见工作卡"
+        "scope": "稳定 Scene 画质合同与冷准备适用边界",
+        "limitations": "允许初始隐藏投影者；真实验证限 M4，保帧时／功耗口径"
       }
     },
     {

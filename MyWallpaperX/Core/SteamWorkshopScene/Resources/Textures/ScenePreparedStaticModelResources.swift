@@ -355,17 +355,23 @@ struct ScenePreparedStaticModelResources {
             let reflectiveLayerIDs: Set<Int> = modelReflectionsEnabled ? Set(entries.compactMap { id, parts in
                 parts.contains { ($0.material.surfaceProfile?.reflectivity ?? 0) > 0 } ? id : nil
             }) : []
+            let shadowDimensionLimit: Int? = directionalShadowDimensionLimit.flatMap { limit in
+                descriptor.layers.contains { layer in
+                    layer.directionalLight?.shadowCastIntent == .enabled || layer.spotLight?.castsShadow == true
+                        || layer.pointLight.map { $0.illuminatesStaticModels && $0.castsShadow == true } == true
+                } ? limit : nil
+            }
             guard let pipeline = SceneStaticModelPipeline(
                 device: device, colorPixelFormat: descriptor.colorTargetFormat.metalPixelFormat,
                 preparesReflection: !reflectiveLayerIDs.isEmpty,
                 preparesAdditive: entries.values.contains { $0.contains { $0.materialBlending == .additive } },
                 preparesCameraDepth: pointVolumeEnabled && descriptor.camera.clearEnabled && descriptor.layers.contains {
                     $0.pointLight?.unshadowedVolume != nil
-                }, preparesShadows: directionalShadowDimensionLimit != nil,
+                }, preparesShadows: shadowDimensionLimit != nil,
                 rasterSampleCount: rasterSampleCount) else { return .empty }
             return ScenePreparedStaticModelResources(
                 pipeline: pipeline,
-                directionalShadowDimensionLimit: directionalShadowDimensionLimit,
+                directionalShadowDimensionLimit: shadowDimensionLimit,
                 entriesByLayerID: entries,
                 animationsByLayerID: animations.filter { entries[$0.key]?.count == 1 },
                 reflectiveLayerIDs: pipeline.supportsReflection ? reflectiveLayerIDs : [],

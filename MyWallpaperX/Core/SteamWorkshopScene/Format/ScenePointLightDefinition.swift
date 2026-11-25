@@ -21,6 +21,8 @@ struct ScenePointLightDefinition: Codable, Equatable {
     var exponent: Float? = nil
     var volume: Volume? = nil
 
+    nonisolated var illuminatesStaticModels: Bool { kind != "point" }
+
     nonisolated var unshadowedVolume: Volume? {
         guard kind == "lpoint", castsVolumetrics == true, castsShadow != true,
               let volume, volume.density > 0 else { return nil }

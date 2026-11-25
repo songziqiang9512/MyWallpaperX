@@ -43,7 +43,10 @@ def quad(x0, x1, y0, y1, z, material):
 def fixture_entries(*, cast=True, light_cast=True, caster=True, caster_lit=True,
                     layer_alpha=1, texture_alpha=255, tint_mask=False,
                     caster_x=70, caster_z=20, angle=2.35619449019,
-                    caster_first=False, moving=False, bloom=False, healthy_effect=False, singular_caster=False, extra_valid_caster=False, perspective=False, parent_offset=0, moving_light=False, color_blend=0, healthy_visible=True, named_source=None):
+                    caster_first=False, moving=False, bloom=False, healthy_effect=False,
+                    singular_caster=False, extra_valid_caster=False, perspective=False, parent_offset=0,
+                    moving_light=False, color_blend=0, healthy_visible=True, named_source=None,
+                    reveal_light=False, legacy_point=False):
     receiver = {'id': 1, 'model': 'models/receiver.mdl', 'origin': '0 96 0',
                 'perspective': False, 'castshadow': False}
     occluder = {'id': 2, 'model': 'models/caster.mdl', 'origin': '0 96 0',
@@ -70,11 +73,17 @@ def fixture_entries(*, cast=True, light_cast=True, caster=True, caster_lit=True,
             'color': '1 1 1', 'intensity': 2, 'castshadow': light_cast}
     if moving_light:
         lamp['angles'] = {'value': '0 2.35619449019 0', 'script': 'export function update(v) { return new Vec3(0, engine.runtime >= 2.5 && engine.runtime < 5.5 ? 45 : 135, 0); }'}
+    if reveal_light:
+        lamp['visible'] = {'value': False, 'script': 'export function update(v) { return engine.runtime >= 2.5; }'}
     objects = ([occluder, receiver] if caster_first else [receiver, occluder]) if caster else [receiver]
     scene = {'version': 3, 'general': {'orthogonalprojection': {'width': 160, 'height': 96},
              'clearcolor': '0 0 0', 'ambientcolor': '0.05 0.05 0.05', 'skylightcolor': '0 0 0',
              'lightconfig': {'directional': 1}},
              'objects': objects + [lamp]}
+    if legacy_point:
+        scene['general']['lightconfig']['point'] = 1
+        scene['objects'].append({'id': 7, 'light': 'point', 'origin': '60 48 40', 'color': '0 0 1',
+                                 'intensity': 2, 'radius': 180, 'castshadow': True})
     if parent_offset:
         scene['objects'].insert(0, {'id': 6, 'name': 'transform-parent', 'origin': f'{parent_offset} 0 0'})
     if perspective:
@@ -167,6 +176,7 @@ class SceneDirectionalShadowIntegrationTests(unittest.TestCase):
         (work / 'content/project.json').write_text(json.dumps({'type': 'scene', 'file': 'scene.json'}))
         (work / 'scene-input.json').write_text(json.dumps(scene, indent=2))
         moving = options.get('moving', False) or options.get('moving_light', False)
+        reveal_light = options.get('reveal_light', False)
         command = [str(self.executable), '--mwx-debug-scene-root', str(work / 'content'),
                    '--mwx-debug-scene-duration', '9' if moving else '6',
                    '--mwx-debug-scene-evidence-dir', str(work / 'evidence')]
@@ -176,6 +186,8 @@ class SceneDirectionalShadowIntegrationTests(unittest.TestCase):
         if moving:
             command += ['--mwx-debug-scene-periodic-snapshot-interval', '1.5',
                         '--mwx-debug-scene-after-snapshot-delay', '7.2']
+        elif reveal_light:
+            command += ['--mwx-debug-scene-after-snapshot-delay', '4']
         sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
         (work / 'prerun.json').write_text(json.dumps({'app': self.identity, 'command': command,
             'inputs': {p.name: sha(p) for p in (work / 'content').iterdir()},
@@ -212,7 +224,9 @@ class SceneDirectionalShadowIntegrationTests(unittest.TestCase):
             key = f'{epoch}:{light}:{generation}'
             events.setdefault(key, {}).setdefault(phase, []).append(detail)
         (work/'shadow-events.json').write_text(json.dumps(events, indent=2))
+        prepared_shadow = re.search(r'prepared model shadow limit: (\d+)', preview)
         report = {'shadowEvents': events, 'pixels': pixels, 'shadowEdgeX': shadow_edges, 'exit': result.returncode,
+                  'preparedShadowLimit': int(prepared_shadow.group(1)) if prepared_shadow else None,
                   'completion': 'state=completed frame=1 ' in log, 'drained': 'gpuDrained=true' in log,
                   'prepared': set(map(int, re.search(r'prepared static model layers: \[([^\]]*)\]', preview).group(1).replace(' ', '').split(','))) == (({1, 2} if options.get('caster', True) else {1}) | ({5} if options.get('extra_valid_caster') else set())),
                   'immutable': all(sha(Path(k)) == v for k, v in self.identity.items()), 'work': str(work)}
@@ -222,7 +236,7 @@ class SceneDirectionalShadowIntegrationTests(unittest.TestCase):
             self.assertTrue(report[key], (key, report))
         self.assertIn('scene-ready-window.png', pixels)
         self.assertIn('scene-after-window.png', pixels)
-        if not moving:
+        if not moving and not reveal_light:
             ready = Image.open(work / 'evidence/scene-ready-window.png').convert('RGB')
             after = Image.open(work / 'evidence/scene-after-window.png').convert('RGB')
             self.assertIsNone(ImageChops.difference(ready, after).getbbox(), report)
@@ -287,6 +301,32 @@ class SceneDirectionalShadowIntegrationTests(unittest.TestCase):
             self.assertAlmostEqual(no_maps['healthy'][1], 100, delta=3)
             self.assertGreater(min(no_maps['shadow']), 50)
             self.assertLess(max(base['shadow']), min(no_maps['shadow']) * 0.3)
+
+    def test_shadow_preparation_survives_authored_light_reveal(self):
+        result = self.run_case('shadow-light-revealed', shadow_quality='low', reveal_light=True, caster_lit=False)
+        self.assertEqual(result['preparedShadowLimit'], 512, result)
+        ready = result['pixels']['scene-ready-window.png']
+        after = result['pixels']['scene-after-window.png']
+        self.assertFalse(any(key.startswith('1:') for key in result['shadowEvents']), result)
+        self.assertLess(max(ready['control']), 25, result)
+        for a, b in zip(ready['shadow'], ready['control']):
+            self.assertAlmostEqual(a, b, delta=3, msg=result)
+        self.assertGreater(min(after['control']), 50, result)
+        self.assertGreater(min(after['shadow']), 2, result)
+        self.assertLess(max(after['shadow']), min(after['control']) * .3, result)
+        red, green, blue = after['caster']
+        self.assertGreater(green, max(red, blue) + 20, result)
+
+    def test_legacy_point_leaves_visible_models_without_shadow_maps(self):
+        result = self.run_case('shadow-legacy-point', shadow_quality='low', light_cast=False, legacy_point=True)
+        self.assertEqual(result['preparedShadowLimit'], 0, result)
+        self.assertEqual(result['shadowEvents'], {}, result)
+        for capture in ('scene-ready-window.png', 'scene-after-window.png'):
+            pixels = result['pixels'][capture]
+            self.assertGreater(min(pixels['shadow']), 50, result)
+            for a, b in zip(pixels['shadow'], pixels['control']):
+                self.assertAlmostEqual(a, b, delta=3, msg=result)
+            self.assertLess(max(pixels['shadow']) - min(pixels['shadow']), 3, result)
 
     def test_user_shadow_resolution_tiers_change_native_maps_and_keep_author_casters(self):
         options = {"named_source": "ready", "caster_first": True, "healthy_effect": True}

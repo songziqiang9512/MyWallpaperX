@@ -41,7 +41,7 @@ Scene 反射从 [帧相序](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering
 
 Scene MSAA 请求经 [主域准入](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+SceneDrawing.swift) 交给 [唯一主合成编码器](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneMainPassEncoder.swift)。普通图像、纯色与文字用 [同采样 Quad PSO](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift)。 [实际采样与回退](../scene/architecture/runtime-architecture.md#raster-sample-domain)
 
-Scene 阴影档经冷准备进入 [光空间贴图与受光绘制](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift)。 [尺寸与回退合同](../scene/capabilities/advanced-object-coverage.md#model-directional-shadow-density)
+Scene 阴影档经 [模型资源冷准备](../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift) 交给 [光空间贴图与受光绘制](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift)。 [尺寸与回退合同](../scene/capabilities/advanced-object-coverage.md#model-directional-shadow-density)
 
 Scene 体积开关从同一准备请求进入 [根域点光与有序聚光绘制](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift)。 [点光管线](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/ScenePointVolumePipeline.swift) 负责实际光球覆盖与同一积分编码。积分阶数沿 [PSO 槽](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneImageEffectPipelineRepository.swift) 冷选。 [生效合同](../scene/architecture/runtime-architecture.md#scene-volume-lighting-policy)
 

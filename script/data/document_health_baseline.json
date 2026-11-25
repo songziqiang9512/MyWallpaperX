@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 62,
-      "bytes": 15390
+      "bytes": 15509
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -77,8 +77,8 @@
       "bytes": 79291
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 400,
-      "bytes": 82889
+      "lines": 413,
+      "bytes": 86356
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -94,7 +94,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 288,
-      "bytes": 56936
+      "bytes": 57077
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,28 +369,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "5ed8b41b982b49fc0596bc7bef5f370b0ddf45c1cf2ab5ba822932a18aefad1d",
-      "after": "2180a33dc388573d95cb71709e65d2e5335f2530a0f4d338899ff4630b60b871",
-      "owner": "Scene 运行合同",
-      "reason": "记录普通 Bloom 的实际目标规格键和暖引用受控退出",
-      "decision": "docs/scene/architecture/runtime-architecture.md#scene-hdr-bloom-reconstruction"
+      "before": "2180a33dc388573d95cb71709e65d2e5335f2530a0f4d338899ff4630b60b871",
+      "after": "29fa86556ddbc64b5564bbe1a96737ec22f249e11e76f157196a5da1f9cfbb38",
+      "owner": "scene-runtime",
+      "reason": "固定冷准备跳过未使用阴影管线的范围以及原表示与新发布资格",
+      "decision": "docs/scene/architecture/runtime-architecture.md#effective-quality-policy"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "24e9c41bf876ee1023daa1ddb019bd4561f9803a1b39f96d22c4e506299a405e",
-      "after": "54aae9f5c1a23acb2993f3ee8aa2ca726688c2f77666731f43da9dc436a8ab33",
+      "before": "54aae9f5c1a23acb2993f3ee8aa2ca726688c2f77666731f43da9dc436a8ab33",
+      "after": "2b654d7e30017ff54ccbb6c36c4162beac0c17540099abbc6e2ec3cdb70abb7d",
       "owner": "wallpaper-quality",
-      "reason": "记录真实作者 Canvas 节律与活动态相同建议去重的正反例",
-      "decision": "docs/development/wallpaper-quality-work-card.md#web-effective-fps-delivery"
+      "reason": "保留真实无投影作者的减少创建次数、阳性阴影与初始隐藏反证",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-shadow-unused-preparation"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "ca8fc7fdfcdef37de4814c8f42beb79601fa72fc4059422e34a159a9d3659f46",
-      "after": "70aaf84a8ca7ad1cfe2fe8c2688024b0d5f9ff10d561a3f747e45d8b7793fe8d",
+      "before": "70aaf84a8ca7ad1cfe2fe8c2688024b0d5f9ff10d561a3f747e45d8b7793fe8d",
+      "after": "b43a03306c1c54f4b6e4cf6b59b9e27298b6d3f5c5e122fd373619d1803494cd",
       "owner": "wallpaper-quality",
-      "reason": "原片轨道读取迁至真实共享 owner，同时定位 Pixabay 同版尺寸的消费者",
+      "reason": "将阴影质量导航到模型资源准备和消费者两个原 owner",
       "decision": "docs/architecture/repository-map.md#wallpaper-quality"
     },
     {
