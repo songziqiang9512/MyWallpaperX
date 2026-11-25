@@ -349,6 +349,23 @@ extension AppKitSettingsContainerView {
         let sceneFPSControls = NSStackView(views: [rateInput, sceneFPSEffectiveLabel])
         sceneFPSControls.orientation = .vertical
         sceneFPSControls.alignment = .trailing
+        sceneQualityPresetPopup.autoenablesItems = false
+        sceneQualityPresetPopup.addItem(withTitle: String(localized: "Custom"))
+        sceneQualityPresetPopup.lastItem?.isEnabled = false
+        for preset in SceneQualityPreset.allCases {
+            let title = switch preset {
+            case .low: String(localized: "Low")
+            case .medium: String(localized: "Medium")
+            case .high: String(localized: "High")
+            case .ultra: String(localized: "Ultra")
+            }
+            sceneQualityPresetPopup.addItem(withTitle: title)
+            sceneQualityPresetPopup.lastItem?.representedObject = preset.rawValue
+        }
+        sceneQualityPresetPopup.setAccessibilityLabel(String(localized: "Scene Quality Preset"))
+        qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Quality Preset"),
+            iconSystemName: "slider.horizontal.3", trailing: sceneQualityPresetPopup))
+
         sceneFPSControls.spacing = 2
         sceneFPSField.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
         sceneFPSField.alignment = .right
@@ -414,7 +431,7 @@ extension AppKitSettingsContainerView {
         qualitySection.addRow(makeSettingRow(
             title: String(localized: "Video Quality"), iconSystemName: "film",
             trailing: NSTextField(labelWithString: String(localized: "Original Video"))))
-        let controls: [NSControl] = [sceneAntiAliasingPopup, scenePostProcessingPopup, sceneTextureQualityPopup,
+        let controls: [NSControl] = [sceneQualityPresetPopup, sceneAntiAliasingPopup, scenePostProcessingPopup, sceneTextureQualityPopup,
                                      sceneShadowsPopup, sceneVolumeLightingPopup, sceneReflectionsSwitch, webFrameRatePopup]
         for control in controls {
             control.target = self
@@ -428,6 +445,7 @@ extension AppKitSettingsContainerView {
 
     func refreshQualityControls() {
         let quality = PlaybackQualityPreference.current
+        refreshSceneQualityPreset(quality)
         if !sceneFPSControl.isTracking, sceneFPSField.currentEditor() == nil {
             let request = quality.animationFrameRate.rawValue
             sceneFPSControl.integerValue = request
@@ -440,6 +458,13 @@ extension AppKitSettingsContainerView {
         sceneShadowsPopup.selectItem(at: sceneShadowsPopup.indexOfItem(withRepresentedObject: quality.scene.shadows.rawValue))
         sceneVolumeLightingPopup.selectItem(at: quality.scene.volumeLighting == .disabled ? 0 : 1)
         sceneReflectionsSwitch.state = quality.scene.reflections == .enabled ? .on : .off
+    }
+
+    private func refreshSceneQualityPreset(_ quality: PlaybackQualityPreference) {
+        let index = SceneQualityPreset.matching(quality).map {
+            sceneQualityPresetPopup.indexOfItem(withRepresentedObject: $0.rawValue)
+        } ?? 0
+        sceneQualityPresetPopup.selectItem(at: index)
     }
 
     private func updateSceneFrameRateLabels(_ requested: Int) {
@@ -473,6 +498,7 @@ extension AppKitSettingsContainerView {
         guard request != quality.animationFrameRate else { return }
         quality.animationFrameRate = request
         PlaybackCommandMultiplexer.shared.applyQualityPreference(quality)
+        refreshSceneQualityPreset(quality)
     }
 
     @objc private func handleSceneFrameRateSlider(_ sender: SceneFrameRateSlider) {
@@ -488,6 +514,15 @@ extension AppKitSettingsContainerView {
     @objc private func handleQualityChange(_ sender: NSControl) {
         guard !isUpdatingUI else { return }
         var quality = PlaybackQualityPreference.current
+        if sender === sceneQualityPresetPopup {
+            guard let rawValue = sceneQualityPresetPopup.selectedItem?.representedObject as? String,
+                  let preset = SceneQualityPreset(rawValue: rawValue) else { return }
+            sceneFPSField.abortEditing()
+            preset.apply(to: &quality)
+            PlaybackCommandMultiplexer.shared.applyQualityPreference(quality)
+            refreshQualityControls()
+            return
+        }
         if sender === webFrameRatePopup {
             quality.webFrameRateMode = webFrameRatePopup.indexOfSelectedItem == 1 ? .followAnimationFrameRate : .display
         } else if sender === sceneAntiAliasingPopup {
@@ -506,11 +541,13 @@ extension AppKitSettingsContainerView {
             }
         }
         PlaybackCommandMultiplexer.shared.applyQualityPreference(quality)
+        refreshSceneQualityPreset(quality)
     }
 
     @objc private func restoreDefaultQuality() {
+        sceneFPSField.abortEditing()
         PlaybackCommandMultiplexer.shared.applyQualityPreference(.defaults)
-        refreshFromState()
+        refreshQualityControls()
     }
 
     func refreshScenePostProcessingMenu(_ mode: ScenePostProcessingMode) {
@@ -547,7 +584,7 @@ extension AppKitSettingsContainerView {
         hotkeyEnableSwitches.values.forEach { $0.controlSize = .mini }
 
         let popups: [NSPopUpButton] = [timeUnitPopup, idleTimeoutPopup, libraryBackgroundPopup, libraryCardClickPopup, webFrameRatePopup, scenePostProcessingPopup] + hotkeyPopups.values
-            + [sceneAntiAliasingPopup, sceneShadowsPopup, sceneVolumeLightingPopup, sceneTextureQualityPopup, systemAudioSpectrumBarCountPopup]
+            + [sceneQualityPresetPopup, sceneAntiAliasingPopup, sceneShadowsPopup, sceneVolumeLightingPopup, sceneTextureQualityPopup, systemAudioSpectrumBarCountPopup]
         popups.forEach { $0.controlSize = .small }
 
         intervalField.controlSize = .small

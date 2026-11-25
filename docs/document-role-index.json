@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9329670e762a1d4ad3705ebf0b77943465bbadd79d791ab3981db745fbad6534",
+        "sourceSHA256": "e700600df94bef5a85e284bf16d82b3f3b2d10a733014b835a40267f8a35b016",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene MSAA 原准备和编码入口",
-        "limitations": "一般导航校验"
+        "scope": "质量预设与手改共用的设置入口",
+        "limitations": "源码导航"
       }
     },
     {
@@ -347,10 +347,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7e603c3f624c26282198f7a1a0859d42f6be39cda62e4dd6b9161a4ba621911a",
+        "sourceSHA256": "15dd5c146ff918d6b922a5b4464f961697d80e967f08a7657d21a13a77e9428f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "2× 实施范围和设备门",
-        "limitations": "4×、8× 尚未产品验证"
+        "scope": "官版四预设的实际支持组合",
+        "limitations": "体积开放档仍为禁用／启用"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6764b792f466ba9cf040e129f1c1dd5dca742464d9ce0df6b07e60f7d9d76d4a",
+        "sourceSHA256": "1cf295a53f4995b2d5ebfa26a7f7962c48584846debb4cc4d1da431ff7c276e9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "连续混合域实现、签名像素和短窗",
-        "limitations": "缺混合域长窗及整机功耗"
+        "scope": "原生预设、恢复与实际 15 FPS 呈现",
+        "limitations": "物理菜单点击和多屏随 Q4 验证"
       }
     },
     {

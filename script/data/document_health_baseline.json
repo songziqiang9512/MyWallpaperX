@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 54,
-      "bytes": 13051
+      "bytes": 13210
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 315,
-      "bytes": 73451
+      "bytes": 73397
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 218,
-      "bytes": 43126
+      "lines": 227,
+      "bytes": 44762
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,19 +378,19 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "27f5045cf19c10fb5969fc72786eb9a6972ae7a13711a6bca16180074e5a5af1",
-      "after": "f9398921592a6d87834c3956d277b714e3600571a98c7d4179c04726366c7cd5",
+      "before": "f9398921592a6d87834c3956d277b714e3600571a98c7d4179c04726366c7cd5",
+      "after": "169cafe6e34901ff7d6ea595ff458066501f40ec9d498d2b8f55924c67daab9a",
       "owner": "壁纸质量工作卡",
-      "reason": "记录混合主域真实签名验收和回退边界",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-aa-mixed-main"
+      "reason": "补预设、AppKit 恢复与签名 15 FPS 实验",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-quality-presets"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "821bce7ced1a50404b2231f6fdb2469152a5c90875fe82c2101a4b08f1241a9c",
-      "after": "5ee405b5fe86b3e7dc477a83f06ef1a732efc67348216dc1860a77dcda88d77f",
+      "before": "5ee405b5fe86b3e7dc477a83f06ef1a732efc67348216dc1860a77dcda88d77f",
+      "after": "dcf8bd3f6757e7fd4405bf65f56962ec5ce237aee8c120ec83cd172a02a0ffe4",
       "owner": "源码地图",
-      "reason": "登记普通图像、纯色与文字的同采样 PSO owner",
+      "reason": "登记预设与手改的唯一命令通路",
       "decision": "docs/architecture/repository-map.md#wallpaper-quality"
     },
     {

@@ -116,6 +116,7 @@ final class Handler: PlaybackEngineControlling {
         mux.applyQualityPreference(updated, defaults: suite)
         precondition(PlaybackQualityPreference.read(from: suite) == updated && updated.keepsLegacySceneDecodeLimit)
         precondition(scene.qualityCommands.last == .setAnimationFrameRate(rate25))
+        verifyScenePresetDispatch(defaults: suite)
         suite.removePersistentDomain(forName: suiteName)
         video.volume = 0
         let previousVolumeCommands = video.volumeCommands
@@ -207,6 +208,64 @@ final class Handler: PlaybackEngineControlling {
             first.cancel(); second.cancel()
         }
         print("playback-dispatch-pass")
+    }
+
+    static func verifyScenePresetDispatch(defaults: UserDefaults) {
+        let mux = PlaybackCommandMultiplexer()
+        let scene = Handler(.scene, playing: true)
+        let web = Handler(.web, playing: true)
+        let video = Handler(.video, playing: true)
+        mux.register(scene); mux.register(web); mux.register(video)
+        precondition(SceneQualityPreset.matching(.defaults) == nil)
+
+        let vectors: [(SceneQualityPreset, Int, ScenePostProcessingMode, SceneShadowQuality, SceneReflectionQuality, SceneAntiAliasingMode)] = [
+            (.low, 10, .disabled, .low, .disabled, .none),
+            (.medium, 15, .enabled, .medium, .enabled, .none),
+            (.high, 25, .enabled, .high, .enabled, .msaa2),
+            (.ultra, 30, .ultra, .adaptive, .enabled, .msaa2)
+        ]
+        var quality = PlaybackQualityPreference.read(from: defaults)
+        for (preset, fps, postProcessing, shadows, reflections, antiAliasing) in vectors {
+            let frameRate = AnimationFrameRate(rawValue: fps)!
+            let expected = SceneRenderQuality(postProcessing: postProcessing, shadows: shadows,
+                volumeLighting: .enabled, reflections: reflections, textures: .full, antiAliasing: antiAliasing)
+            scene.qualityCommands.removeAll()
+            preset.apply(to: &quality)
+            mux.applyQualityPreference(quality, defaults: defaults)
+            mux.applyQualityPreference(quality, defaults: defaults)
+            let persisted = PlaybackQualityPreference.read(from: defaults)
+            precondition(persisted == quality && SceneQualityPreset.matching(persisted) == preset)
+            precondition(persisted.keepsLegacySceneDecodeLimit && persisted.webFrameRateMode == .display)
+            precondition(scene.qualityCommands == [.setAnimationFrameRate(frameRate), .setSceneRenderQuality(expected)])
+        }
+        precondition(web.qualityCommands.isEmpty && video.qualityCommands.isEmpty)
+
+        var manualRate = quality
+        manualRate.animationFrameRate = .standard
+        precondition(SceneQualityPreset.matching(manualRate) == nil)
+        quality.webFrameRateMode = .followAnimationFrameRate
+        precondition(SceneQualityPreset.matching(quality) == .ultra)
+        mux.applyQualityPreference(quality, defaults: defaults)
+        web.qualityCommands.removeAll()
+        scene.qualityCommands.removeAll()
+        SceneQualityPreset.medium.apply(to: &quality)
+        mux.applyQualityPreference(quality, defaults: defaults)
+        precondition(quality.webFrameRateMode == .followAnimationFrameRate && quality.keepsLegacySceneDecodeLimit)
+        precondition(scene.qualityCommands == [.setAnimationFrameRate(quality.animationFrameRate),
+            .setSceneRenderQuality(quality.scene)])
+        precondition(web.qualityCommands == [.setWebFrameRateSuggestion(15)] && video.qualityCommands.isEmpty)
+
+        scene.qualityCommands.removeAll()
+        quality.scene.textures = .performance
+        mux.applyQualityPreference(quality, defaults: defaults)
+        precondition(SceneQualityPreset.matching(PlaybackQualityPreference.read(from: defaults)) == nil)
+        precondition(scene.qualityCommands == [.setSceneRenderQuality(quality.scene)])
+        precondition(web.qualityCommands == [.setWebFrameRateSuggestion(15)] && video.qualityCommands.isEmpty)
+
+        var fresh = PlaybackQualityPreference.defaults
+        SceneQualityPreset.ultra.apply(to: &fresh)
+        mux.applyQualityPreference(fresh, defaults: defaults)
+        precondition(!fresh.keepsLegacySceneDecodeLimit && PlaybackQualityPreference.read(from: defaults) == fresh)
     }
 }
 '''

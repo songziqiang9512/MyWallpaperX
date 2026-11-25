@@ -36,6 +36,10 @@ class SettingsCacheActionsTests(unittest.TestCase):
         layout_source = layout.read_text()
         for marker, signature in (
             ("// ACTUAL_SCENE_POST_PROCESSING_MENU", "    func refreshScenePostProcessingMenu("),
+            ("// ACTUAL_RESTORE_QUALITY_CONTROLS", "    func refreshQualityControls("),
+            ("// ACTUAL_REFRESH_SCENE_QUALITY_PRESET", "    private func refreshSceneQualityPreset("),
+            ("// ACTUAL_QUALITY_ACTION", "    @objc private func handleQualityChange("),
+            ("// ACTUAL_RESTORE_DEFAULT_QUALITY_ACTION", "    @objc private func restoreDefaultQuality("),
             ("// ACTUAL_FRAME_RATE_LABELS", "    private func updateSceneFrameRateLabels("),
             ("// ACTUAL_REFRESH_FRAME_RATE_READOUT", "    func refreshSceneFrameRateReadout("),
             ("// ACTUAL_FRAME_RATE_READOUT", "    private func updateSceneFrameRateReadout("),

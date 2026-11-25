@@ -45,7 +45,10 @@ extension Notification.Name {
     var cancellables = Set<AnyCancellable>()
     var muteStateObserver: NSObjectProtocol?, loginItemSyncFailureObserver: NSObjectProtocol?
     let sceneMediaInfoSwitch = NSSwitch()
-    let scenePostProcessingPopup = NSPopUpButton()
+    let sceneQualityPresetPopup = NSPopUpButton(), sceneAntiAliasingPopup = NSPopUpButton()
+    let scenePostProcessingPopup = NSPopUpButton(), sceneTextureQualityPopup = NSPopUpButton()
+    let sceneShadowsPopup = NSPopUpButton(), sceneVolumeLightingPopup = NSPopUpButton()
+    let sceneReflectionsSwitch = NSSwitch(), webFrameRatePopup = NSPopUpButton()
     let loopSwitch = NSSwitch(), randomSwitch = NSSwitch(), sequentialSwitch = NSSwitch(), autoSwitchSwitch = NSSwitch()
     let intervalField = NSTextField(frame: .init(x: 20, y: 70, width: 160, height: 28))
     let sceneFPSField = NSTextField(frame: .init(x: 198, y: 70, width: 40, height: 28))
@@ -70,6 +73,25 @@ extension Notification.Name {
             scenePostProcessingPopup.addItem(withTitle: mode.rawValue)
             scenePostProcessingPopup.lastItem?.representedObject = mode.rawValue
         }
+        sceneAntiAliasingPopup.addItems(withTitles: ["None", "MSAA ×2"])
+        sceneTextureQualityPopup.addItems(withTitles: ["Quality", "Performance"])
+        sceneVolumeLightingPopup.addItems(withTitles: ["Disabled", "Enabled"])
+        webFrameRatePopup.addItems(withTitles: ["Display", "Follow"])
+        sceneQualityPresetPopup.autoenablesItems = false
+        sceneQualityPresetPopup.addItem(withTitle: "Custom")
+        sceneQualityPresetPopup.lastItem?.isEnabled = false
+        for preset in SceneQualityPreset.allCases {
+            sceneQualityPresetPopup.addItem(withTitle: preset.rawValue)
+            sceneQualityPresetPopup.lastItem?.representedObject = preset.rawValue
+        }
+        for shadow in [SceneShadowQuality.disabled, .low, .medium, .high, .adaptive] {
+            sceneShadowsPopup.addItem(withTitle: shadow.rawValue)
+            sceneShadowsPopup.lastItem?.representedObject = shadow.rawValue
+        }
+        for control in [sceneQualityPresetPopup, sceneAntiAliasingPopup] {
+            control.target = self
+            control.action = #selector(handleQualityChange(_:))
+        }
         for unit in TimeUnit.allCases {
             timeUnitPopup.addItem(withTitle: unit.rawValue)
             timeUnitPopup.lastItem?.representedObject = unit
@@ -86,6 +108,10 @@ extension Notification.Name {
     // ACTUAL_INTERVAL_REFRESH
     // ACTUAL_SETTINGS_OBSERVER
     // ACTUAL_SCENE_POST_PROCESSING_MENU
+    // ACTUAL_RESTORE_QUALITY_CONTROLS
+    // ACTUAL_REFRESH_SCENE_QUALITY_PRESET
+    // ACTUAL_QUALITY_ACTION
+    // ACTUAL_RESTORE_DEFAULT_QUALITY_ACTION
     // ACTUAL_FRAME_RATE_LABELS
     // ACTUAL_REFRESH_FRAME_RATE_READOUT
     // ACTUAL_FRAME_RATE_READOUT
@@ -219,6 +245,31 @@ extension Notification.Name {
         checks["frame-rate-native-drag-sends-only-one-request-on-release"] = requests.requests.count == 3
             && slider.integerValue == requests.requests.last && (50...60).contains(slider.integerValue)
             && view.sceneFPSEffectiveLabel.isHidden
+        view.refreshQualityControls()
+        checks["manual-frame-rate-shows-custom"] = view.sceneQualityPresetPopup.indexOfSelectedItem == 0
+        _ = try draft("88", in: view.sceneFPSField)
+        view.sceneQualityPresetPopup.selectItem(at: view.sceneQualityPresetPopup.indexOfItem(withRepresentedObject: "medium"))
+        _ = view.sceneQualityPresetPopup.sendAction(view.sceneQualityPresetPopup.action, to: view)
+        window.makeFirstResponder(view.nextField); pump()
+        checks["native-preset-replaces-unsubmitted-draft-and-refreshes-rows-in-one-write"] =
+            requests.requests.count == 4 && requests.requests.last == 15
+            && view.sceneFPSField.stringValue == "15"
+            && view.sceneShadowsPopup.selectedItem?.representedObject as? String == "medium"
+            && view.scenePostProcessingPopup.selectedItem?.representedObject as? String == "enabled"
+            && view.sceneReflectionsSwitch.state == .on
+        view.sceneAntiAliasingPopup.selectItem(at: 1)
+        _ = view.sceneAntiAliasingPopup.sendAction(view.sceneAntiAliasingPopup.action, to: view)
+        checks["native-aa-setting-persists-and-leaves-derived-preset"] =
+            requests.requests.count == 5 && PlaybackQualityPreference.current.scene.antiAliasing == .msaa2
+            && view.sceneQualityPresetPopup.indexOfSelectedItem == 0 && view.sceneFPSField.stringValue == "15"
+        _ = try draft("88", in: view.sceneFPSField)
+        let restore = NSButton()
+        _ = restore.sendAction(NSSelectorFromString("restoreDefaultQuality"), to: view)
+        window.makeFirstResponder(view.nextField); pump()
+        checks["native-restore-quality-replaces-unsubmitted-draft-with-compatible-defaults"] =
+            requests.requests.count == 6 && requests.requests.last == 60
+            && PlaybackQualityPreference.current == .defaults
+            && view.sceneQualityPresetPopup.indexOfSelectedItem == 0 && view.sceneFPSField.stringValue == "60"
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

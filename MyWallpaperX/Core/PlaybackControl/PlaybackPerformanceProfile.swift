@@ -74,6 +74,39 @@ nonisolated struct SceneRenderQuality: Equatable, Sendable {
     var antiAliasing: SceneAntiAliasingMode = .none
 }
 
+nonisolated enum SceneQualityPreset: String, CaseIterable, Sendable {
+    case low
+    case medium
+    case high
+    case ultra
+
+    func apply(to preference: inout PlaybackQualityPreference) {
+        let settings = projection
+        preference.animationFrameRate = settings.animationFrameRate
+        preference.scene = settings.scene
+    }
+
+    static func matching(_ preference: PlaybackQualityPreference) -> Self? {
+        allCases.first { preset in
+            let settings = preset.projection
+            return settings.animationFrameRate == preference.animationFrameRate && settings.scene == preference.scene
+        }
+    }
+
+    private var projection: (animationFrameRate: AnimationFrameRate, scene: SceneRenderQuality) {
+        let (fps, postProcessing, shadows, reflections, antiAliasing): (
+            Int, ScenePostProcessingMode, SceneShadowQuality, SceneReflectionQuality, SceneAntiAliasingMode
+        ) = switch self {
+        case .low: (10, .disabled, .low, .disabled, .none)
+        case .medium: (15, .enabled, .medium, .enabled, .none)
+        case .high: (25, .enabled, .high, .enabled, .msaa2)
+        case .ultra: (30, .ultra, .adaptive, .enabled, .msaa2)
+        }
+        return (AnimationFrameRate(rawValue: fps)!, .init(postProcessing: postProcessing, shadows: shadows,
+            volumeLighting: .enabled, reflections: reflections, textures: .full, antiAliasing: antiAliasing))
+    }
+}
+
 nonisolated struct PlaybackQualityPreference: Equatable, Sendable {
     static let userDefaultsKey = "mwx.playback.quality"
     static let defaults = Self(animationFrameRate: .standard, webFrameRateMode: .display)
