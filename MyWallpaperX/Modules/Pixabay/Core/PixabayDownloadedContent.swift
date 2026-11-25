@@ -1,4 +1,5 @@
 import AVFoundation
+import Darwin
 import Foundation
 
 /// Source-owned local publication. File dates describe the file itself; there
@@ -79,19 +80,25 @@ nonisolated struct PixabayDownloadedAssetMetadata: Sendable {
     }
 }
 
-/// The same path/size/mtime key is used by scanning and by the thumbnail
-/// producer's before/after read checks. It is not another media/cache owner.
+/// Scanning and thumbnail generation use the same observed file revision.
 nonisolated enum PixabayDownloadedFileIdentity {
-    // Preserve existing disk-cache keys across the module rename.
-    static func key(url: URL, fileSize: Int, modificationDate: Date?) -> String {
-        "ol-downloaded-preview:\(url.standardizedFileURL.path):\(fileSize):\(modificationDate?.timeIntervalSince1970 ?? 0)"
+    static func observe(path: String) throws -> stat {
+        var file = stat()
+        if stat(path, &file) == 0 { return file }
+        let code = errno
+        // Preserve the row for a symlink whose target is unavailable.
+        if lstat(path, &file) == 0, file.st_mode & S_IFMT == S_IFLNK { return file }
+        throw NSError(domain: NSPOSIXErrorDomain, code: Int(code), userInfo: [NSFilePathErrorKey: path])
+    }
+
+    static func key(path: String, file: stat) -> String {
+        "ol-downloaded-preview:\(path):\(file.st_dev):\(file.st_ino):\(file.st_size):\(file.st_mtimespec.tv_sec):\(file.st_mtimespec.tv_nsec)"
     }
 
     static func key(for url: URL) -> String {
-        var fileURL = url.standardizedFileURL
-        fileURL.removeAllCachedResourceValues()
-        let values = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
-        return key(url: fileURL, fileSize: values?.fileSize ?? 0, modificationDate: values?.contentModificationDate)
+        let path = url.standardizedFileURL.path
+        guard let file = try? observe(path: path) else { return "ol-downloaded-preview:\(path):missing" }
+        return key(path: path, file: file)
     }
 }
 
@@ -118,13 +125,11 @@ nonisolated enum PixabayDownloadedContent {
         var entries: [PixabayDownloadedEntry] = []
         for (id, url) in candidates {
             try Task.checkCancellation()
-            var freshURL = url
-            freshURL.removeAllCachedResourceValues()
-            // A failed per-file read is not an empty successful library scan.
-            let values = try freshURL.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey, .creationDateKey, .isDirectoryKey])
-            let size = values.fileSize ?? 0
-            let key = PixabayDownloadedFileIdentity.key(url: url, fileSize: size, modificationDate: values.contentModificationDate)
-            let available = values.isDirectory != true && FileManager.default.isReadableFile(atPath: url.path)
+            let path = url.standardizedFileURL.path
+            let file = try PixabayDownloadedFileIdentity.observe(path: path)
+            let key = PixabayDownloadedFileIdentity.key(path: path, file: file)
+            let kind = file.st_mode & S_IFMT
+            let available = kind != S_IFDIR && kind != S_IFLNK && FileManager.default.isReadableFile(atPath: path)
             let metadata: PixabayDownloadedAssetMetadata?
             // Restoring read permission can preserve size/mtime even though the
             // unavailable prior publication never had its AV metadata read.
@@ -137,12 +142,18 @@ nonisolated enum PixabayDownloadedContent {
                 throw CocoaError(.fileReadUnknown, userInfo: [NSLocalizedDescriptionKey: String(localized: "The file changed while its metadata was being read. Refresh and try again.")])
             }
             let reused = prior[id].flatMap { $0.thumbnailSourceKey == key ? $0 : nil }
-            entries.append(PixabayDownloadedEntry(id: id, localURL: url, fileSize: size,
+            let birth = file.st_birthtimespec
+            let creationDate = birth.tv_sec == 0 && birth.tv_nsec == 0 ? nil : date(from: birth)
+            entries.append(PixabayDownloadedEntry(id: id, localURL: url, fileSize: Int(file.st_size),
                 duration: metadata.map { $0.durationSeconds > 0 ? $0.durationSeconds : nil } ?? reused?.duration,
                 displaySize: metadata?.displaySize ?? reused?.displaySize,
                 nominalFrameRateText: metadata?.nominalFrameRateText ?? reused?.nominalFrameRateText, thumbnailSourceKey: key,
-                creationDate: values.creationDate, modificationDate: values.contentModificationDate, isAvailable: available))
+                creationDate: creationDate, modificationDate: date(from: file.st_mtimespec), isAvailable: available))
         }
         return entries
+    }
+
+    private static func date(from time: timespec) -> Date {
+        Date(timeIntervalSince1970: Double(time.tv_sec) + Double(time.tv_nsec) / 1_000_000_000)
     }
 }

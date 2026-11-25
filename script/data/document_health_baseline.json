@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 18616
+      "bytes": 18856
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 455,
-      "bytes": 112407
+      "lines": 462,
+      "bytes": 114082
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 135895
+      "bytes": 136067
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,10 +378,10 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "4a239edc8017eddda2a31bfdf155c6b950b4b3024bd58660076fd4f95e42f920",
-      "after": "af2403be6059a1a9d38bae01d24492be1547d327bd50fb9367b393189b733d3e",
+      "before": "af2403be6059a1a9d38bae01d24492be1547d327bd50fb9367b393189b733d3e",
+      "after": "5ba52b1fbb3bceb122ee0e6b415ffe41f52367ed19fc298928237b98b207d17c",
       "owner": "Architecture source map",
-      "reason": "登记原 Video helper 的显示职责及合同入口",
+      "reason": "同步已下载原片的当前身份、规格和各自消费者",
       "decision": "docs/architecture/repository-map.md#wallpaper-quality"
     },
     {
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "b0563ae348b42847bc029b9318094d88b7d9a1c9c51dcd7ca9a75d9654576265",
-      "after": "7203229c31d261950917d5cab2262a840c367c2eb157ca8008e0c2630c4d0069",
-      "owner": "Video playback",
-      "reason": "登记实际同窗海报遮挡、候选失败和原生回归",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-candidate-poster"
+      "before": "7203229c31d261950917d5cab2262a840c367c2eb157ca8008e0c2630c4d0069",
+      "after": "7dc9216164fb025312c825ac31df161b8613dad3bb6638275047f5f94189ad8a",
+      "owner": "Pixabay playback sources",
+      "reason": "登记等长等时原子替换、可用性和原生媒体实证",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#pixabay-same-path-source-revision"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "5b4a26c9d20fbe0fd8f70b9f9756fdbd15c59698f2309f1f8462603e08bbe467",
-      "after": "d656136623cdd80d665ad27e72bfeb04b06058fc2e14c2b07cf2307731e51239",
+      "before": "d656136623cdd80d665ad27e72bfeb04b06058fc2e14c2b07cf2307731e51239",
+      "after": "8e1bbd2858fb19e1200922fa031013faf5fb1c4bbfacea6d1bc6f9af3c02ee1c",
       "owner": "声画质量执行路线",
-      "reason": "接入 Video 同窗画面回归与现役领路链接",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+      "reason": "替换旧 path 版本说明并接入实际文件身份",
+      "decision": "docs/development/wallpaper-quality-work-card.md#pixabay-downloaded-track"
     },
     {
       "section": "bodies",

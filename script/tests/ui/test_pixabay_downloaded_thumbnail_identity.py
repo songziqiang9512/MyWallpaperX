@@ -2,7 +2,7 @@
 
 The full store and its prioritized load method are extracted unchanged; only the AV frame
 leaf is replaced by a deterministic gate. Fingerprint entry is instrumented to
-observe its calling thread, preserving the real URL metadata query. Real shared
+observe its calling thread, preserving the real file revision observation. Real shared
 cache, cancellation, publication and generation scheduling run in an isolated HOME.
 """
 import hashlib
@@ -42,7 +42,7 @@ class PixabayDownloadedThumbnailIdentityTests(unittest.TestCase):
             commands = []
             for name, size in [('landscape', '3840x2160'), ('rotatable', '1280x720'), ('tiny', '160x90')]:
                 command = ['ffmpeg', '-nostdin', '-v', 'error', '-f', 'lavfi', '-i',
-                    'testsrc2=size=' + size + ':rate=2', '-t', '2', '-c:v', 'libx264',
+                    f'testsrc2=size={size}:rate={4 if name == "landscape" else 2}', '-t', '2', '-c:v', 'libx264',
                     '-pix_fmt', 'yuv420p', '-preset', 'fast', '-threads', '1', str(media / (name + '.mp4'))]
                 commands.append(command)
                 made = subprocess.run(command, capture_output=True, text=True, timeout=30)
@@ -69,7 +69,7 @@ class PixabayDownloadedThumbnailIdentityTests(unittest.TestCase):
             observed = generator.replace(call,
                 'generator.generateCGImageAsynchronously(for: PixabayAVProbe.time(CMTime(seconds: 0.5, preferredTimescale: 600), generator: generator))')
             harness = work / 'Harness.swift'
-            harness.write_text('import AppKit\nimport AVFoundation\n' + '\n'.join([
+            harness.write_text('import AppKit\nimport AVFoundation\nimport Darwin\n' + '\n'.join([
                 declaration(core, 'nonisolated struct PixabayDownloadedEntry'),
                 metadata,
                 declaration(core, 'nonisolated enum PixabayDownloadedFileIdentity'),
@@ -112,12 +112,12 @@ class PixabayDownloadedThumbnailIdentityTests(unittest.TestCase):
             leaf = 'await PixabayThumbnailVideoGeneration(url: url, request: request).image(knownSize: knownSize)'
             self.assertEqual(store.count(leaf), 1)
             store = store.replace(leaf, 'await IdentityMediaGate.shared.input(request: request)')
-            observe = 'var fileURL = url.standardizedFileURL'
+            observe = '    static func key(for url: URL) -> String {'
             identity = declaration(CORE.read_text(), 'nonisolated enum PixabayDownloadedFileIdentity')
             self.assertEqual(identity.count(observe), 1)
-            identity = identity.replace(observe, 'IdentityProbe.shared.record(url.path)\n        ' + observe)
+            identity = identity.replace(observe, observe + '\n        IdentityProbe.shared.record(url.path)')
             harness = work / 'Harness.swift'
-            harness.write_text('import AppKit\nimport Foundation\n' + identity + '\n' + store + '\n' + FIXTURE.read_text())
+            harness.write_text('import AppKit\nimport Foundation\nimport Darwin\n' + identity + '\n' + store + '\n' + FIXTURE.read_text())
             decoder = MEMORY.with_name("GridThumbnailDecoder.swift")
             sources = [SOURCE, CORE, FIXTURE, CACHE, MEMORY, decoder]
             sources.append(ROOT / "MyWallpaperX/Shared/ThumbnailRequest.swift")

@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "09b37f2cc3d2e5752cff6a22d0a610617ca2859ea9a376e3a2079a4ac29addd0",
+        "sourceSHA256": "f5f1fed883004d88ee7822c095b1eaa9576867545d30b1776ba11b73ca0c7f7d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Video 窗口静帧和同窗接管的源码导航",
-        "limitations": "导航审计，不重复运行所有引擎"
+        "scope": "Pixabay 下载原片规格、文件身份和消费点",
+        "limitations": "导航审计，不重测无关模块"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7b8944fc1080c9b8e4275c67480bd7ba4f1c8a025418bffc6cf696c60208f121",
+        "sourceSHA256": "ab2c8e2b0a5eb2e31f6b6fd1c129748e5af2d232180d65850c52b1b92122c367",
         "method": "document_registry --audit + document_health --check",
-        "scope": "三引擎质量方案与 Video 同窗海报的真实窗口验证",
-        "limitations": "隔离原生 helper 与固定原片，未测物理显示时序或长期功耗"
+        "scope": "三引擎质量评估与 Pixabay 本地原片换版",
+        "limitations": "实片原生 AV、下载条目与缩略图，非完整网络推荐或功耗实测"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cba023653d878aa572005d64672c95ce6a7e83509852864960318c1567e96739",
+        "sourceSHA256": "f5963d7f680a07ed427ce7e73ef67d15293d69a9aae77569738763995e7c9605",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役画质路线与 Video 同窗候选保持原画入口",
-        "limitations": "其余官版、硬件依工作卡另验"
+        "scope": "现役质量路线，接入本地下载同路径等时更换",
+        "limitations": "其余硬件与官版继续按工作卡"
       }
     },
     {

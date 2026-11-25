@@ -85,11 +85,11 @@ def original_inspector_gate_source(path, tree=ROOT):
         content = content.replace("// ACTUAL_CACHE_IMAGE_DELIVERY", delivery)
         store = downloaded_store.read_text()
         actual = declaration(downloaded_identity.read_text(), "nonisolated enum PixabayDownloadedFileIdentity")
-        fingerprint = "        var fileURL = url.standardizedFileURL"
+        fingerprint = "    static func key(for url: URL) -> String {"
         if actual.count(fingerprint) != 1:
             raise ValueError("expected one real downloaded fingerprint read")
         actual = actual.replace(fingerprint,
-            "        DownloadedInspectorCacheProbe.shared.fingerprintRegistered(url.path)\n" + fingerprint, 1)
+            fingerprint + "\n        DownloadedInspectorCacheProbe.shared.fingerprintRegistered(url.path)", 1)
         actual += "\n" + declaration(store, "enum PixabayDownloadedThumbnailStore")
         actual += "\n" + declaration(store, "extension PixabayDownloadedThumbnailStore")
         method = declaration(actual, "    static func loadThumbnail(")

@@ -111,7 +111,27 @@ nonisolated final class PixabayAVProbe: @unchecked Sendable {
         checks["preferred-track-rotation-controls-the-requested-native-size"] = abs(portraitPixels.width - 180) <= 1
             && abs(portraitPixels.height - 320) <= 1 && PixabayAVProbe.shared.count("portrait.mp4") == 1
         let publishedURL = root.appendingPathComponent("online_9004.mp4")
-        try FileManager.default.copyItem(at: root.appendingPathComponent("portrait.mp4"), to: publishedURL)
+        let portraitBytes = try Data(contentsOf: root.appendingPathComponent("portrait.mp4"))
+        let landscapeBytes = try Data(contentsOf: root.appendingPathComponent("landscape.mp4"))
+        let fileSize = max(portraitBytes.count, landscapeBytes.count) + 8
+        func paddedMovie(_ bytes: Data) -> Data {
+            var result = bytes
+            let paddingSize = fileSize - bytes.count
+            var boxSize = UInt32(paddingSize).bigEndian
+            withUnsafeBytes(of: &boxSize) { result.append(contentsOf: $0) }
+            result.append(Data("free".utf8))
+            result.append(Data(count: paddingSize - 8))
+            return result
+        }
+        let fixedModificationTime = Date(timeIntervalSince1970: 1_700_000_000)
+        func publish(_ bytes: Data) throws {
+            try paddedMovie(bytes).write(to: publishedURL, options: .atomic)
+            try FileManager.default.setAttributes([.modificationDate: fixedModificationTime], ofItemAtPath: publishedURL.path)
+        }
+        try publish(portraitBytes)
+        let link = root.appendingPathComponent("online_9006.mp4")
+        let linkTarget = root.appendingPathComponent("restored-link-target.mp4")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: linkTarget)
         let entries = try await PixabayDownloadedContent.scan(in: root, reusing: [])
         let published = entries.first { $0.id == 9004 }!
         let noTrack = entries.first { $0.id == 9005 }!
@@ -125,8 +145,23 @@ nonisolated final class PixabayAVProbe: @unchecked Sendable {
             && PixabayAVProbe.shared.count("online_9004.mp4") == 1
             && PixabayAVProbe.shared.trackCount("online_9004.mp4") == 0
             && PixabayAVProbe.shared.trackCount("portrait.mp4") == 1
-        let replacement = try Data(contentsOf: root.appendingPathComponent("landscape.mp4"))
-        try replacement.write(to: publishedURL, options: .atomic)
+        try publish(landscapeBytes)
+        try FileManager.default.copyItem(at: root.appendingPathComponent("portrait.mp4"), to: linkTarget)
+        let rescanned = try await PixabayDownloadedContent.scan(in: root, reusing: entries)
+        let current = rescanned.first { $0.id == 9004 }!
+        let missingLink = entries.first { $0.id == 9006 }
+        let restoredLink = rescanned.first { $0.id == 9006 }
+        checks["unavailable-link-does-not-block-other-rows-and-recovers-with-its-target"] =
+            missingLink?.isAvailable == false && missingLink?.displaySize == nil
+            && restoredLink?.isAvailable == true && restoredLink?.displaySize == published.displaySize
+            && restoredLink?.thumbnailSourceKey != missingLink?.thumbnailSourceKey
+        checks["equal-length-and-time-replacement-updates-the-published-source"] =
+            current.fileSize == fileSize && current.fileSize == published.fileSize
+            && current.modificationDate == fixedModificationTime && current.modificationDate == published.modificationDate
+            && current.localURL == published.localURL
+            && current.thumbnailSourceKey != published.thumbnailSourceKey
+            && current.displaySize == CGSize(width: 3840, height: 2160)
+            && current.nominalFrameRateText == "4 FPS"
         let changed = try await load("online_9004.mp4", portraitRequest, entry: published)
         let changedPixels = pixels(changed, "replaced")
         checks["same-path-replacement-reloads-current-dimensions-and-pixels"] =
