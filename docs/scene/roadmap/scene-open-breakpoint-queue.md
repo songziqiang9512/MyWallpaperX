@@ -18,7 +18,7 @@
 | 定位 | 当前事实与下一步 |
 |---|---|
 | Sphere 全零方向的出生可见性（待证） | [固定零半径初速](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)已恢复。显式全零 Directions 的隔离 Sprite 在官版窗内无像素，本机可见且静止。需分出生资格与可见条件，先找活动作者或单轴逐步归零的反例，保零速度和非零轴的正常出生。 |
-| 音频供值 · 3612940332 | 红弧几何及合成已修。跨声道快影响与声道分组恢复已由[同PCM脉冲](../capabilities/runtime-evidence-current.md#author-spectrum-pulse-361)区分。待异幅能判更新律或取得运行中原值，再沿[共享设计](../../architecture/system-audio-spectrum-design.md)接分域并验原包有声弧。 |
+| 音频供值 · 3612940332 | [同1538×998、交换32档](../capabilities/runtime-evidence-current.md#author-ring-shape-same-spectrum-361)复现有声红环变细及形状偏差，首个已证差异在供值。[异幅及异频脉冲](../capabilities/runtime-evidence-current.md#author-spectrum-strength-groups-361)约束快慢恢复和分组倍率。沿[共享设计](../../architecture/system-audio-spectrum-design.md)核同比缩放与频段权重，再验原包有声与Bloom。旧64档只改取峰已有反例。 |
 | 粒子外圈 · 3653620838 | [近轴与像素相位](../capabilities/runtime-evidence-current.md#vortex-outer-pixel-phase-365)的静卡一致。继续须运动同亚像素或重复成熟群组，区分出光与覆盖。 |
 | 普通粒子材质增亮的裁幅 | 平面 RG88 同窗对照测得材质 gain1.4 的官版 `(0,144,144)`、本机新 `(0,163,202)`。先找实际作者消费，并用有色 texel、半透明底和双层加色区分 tint、采样与裁幅顺序。已验证的中性 R8 半透明 Trail 裁幅另有原证据。 [运行证据](../capabilities/runtime-evidence-current.md#particle-instance-tint-native) |
 | 3454689854 的相邻丝层 | [同画幅单丝、原包和实际预算](../capabilities/runtime-evidence-current.md#silk-capture-density-345)已闭两条SDR根丝密度。子层及多阶段保持原工作域，只有取得可归属的同相位残差再重启。原默认绕身文字两端均隐藏，条件另见[原包对照](../capabilities/runtime-evidence-current.md#author-silk-raster-345)。 |
@@ -218,7 +218,7 @@
 | 样本 | 状态与已验证范围 |
 |---|---|
 | 3653620838 | 已修复内圈运动、轴向/半径、初速、尾迹、HDR出生亮度及 Project 光效栅格。外围和时相仍开。[运动](../capabilities/runtime-evidence-current.md#vortex-axis-world-365) · [合成](../capabilities/runtime-evidence-current.md#project-framebuffer-resolution-365) |
-| 3612940332 | 部分修复。人物后红弧的宽度、断线和背景采样已修复，音乐驱动的幅值和时变仍开放。[红弧](../capabilities/runtime-evidence-current.md#solid-background-same-pixel-native) |
+| 3612940332 | 部分修复。已修复静态几何宽度、末材密度及背景采样。[静态](../capabilities/runtime-evidence-current.md#solid-background-same-pixel-native) · [仍开放的有声线宽与形状](../capabilities/runtime-evidence-current.md#author-ring-shape-same-spectrum-361) |
 | 3822067395 | 已修复。原包可启动，首帧及相关效果已实绘。[首帧](../capabilities/runtime-evidence-current.md#tex-alpha-channel-priority-author) |
 | 3174321827 | 已修复。部件回到正确组装姿态，双臂和武器在胸前，细微姿态残差有独立证据。[组装](../capabilities/runtime-evidence-current.md#puppet-counted-reference-317) |
 | 3823864170 | 已修复。拖尾跟随鼠标，默认与可选尾迹通过跟踪、颜色对照。[运动](../capabilities/runtime-evidence-current.md#pointer-zero-angles-author) · [颜色](../capabilities/runtime-evidence-current.md#neutral-mask-trail-382) |

@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 596,
-      "bytes": 323407
+      "bytes": 325406
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 245,
-      "bytes": 69233
+      "bytes": 69473
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f08552c04e6c0069580cdb4e99ffaaadd2207454647e0c65e51e72df1f22af5b",
-      "after": "28bc1a358cdd60176c7db9afc75198170fa5d0c3bd634d7cfbc37cbb00689646",
-      "owner": "Scene native and official rendering",
-      "reason": "Bind isolated source coverage, final playback and budget evidence",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#silk-capture-density-345"
+      "before": "0846de22d1d6adc5b44b525ed639210b22b26bf5001ecccc92dee8f1ffcdc496",
+      "after": "2783517b5b345542c62b31d062956059d6c467a00f9deb2ea640109855d89576",
+      "owner": "Scene author spectrum",
+      "reason": "Bind equal-extent spectrum replay and independently checked gain response across strength and frequency.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-ring-shape-same-spectrum-361"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "ea838c2f5c00ca8f85ddfb2fa4be0df76c2ca89990c58e4206a2e17a32777334",
-      "after": "8fa7a28cace3170d1bb591f85394543bb6ef5b401c8815adf5934eb7a9bf854e",
-      "owner": "Scene sample screening",
-      "reason": "Record the newly discovered input range and the observed short-window presentation qualification.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#properties"
+      "before": "8fa7a28cace3170d1bb591f85394543bb6ef5b401c8815adf5934eb7a9bf854e",
+      "after": "652bc75034283cbe7bc5213ee83c16018f7f7f13985381ece463ee472c25b8d7",
+      "owner": "Scene author sample feedback",
+      "reason": "Separate the verified static ring repair from the open live shape and keep the next cross-domain evidence target.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#resolved-user-feedback"
     },
     {
       "section": "bodies",
