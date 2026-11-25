@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 353980
+      "bytes": 354974
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 243,
-      "bytes": 69910
+      "bytes": 69868
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "254d5bac2fc2b3c88e01917a67561f516b11ebd18f88373bc800a9aa6c894503",
-      "after": "ea7f613346b839f0a7f28fb7c23ed7778d6e3c6ec762c2cbef2061f9dfcd1658",
-      "owner": "Scene GPU frame admission evidence",
-      "reason": "记录可复现的真实播放节奏、独立样本和剩余 GPU 预算。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#gpu-admission-timeout-367"
+      "before": "ea7f613346b839f0a7f28fb7c23ed7778d6e3c6ec762c2cbef2061f9dfcd1658",
+      "after": "6993dfe07b511f790a3969397bc7ea1e8dc481ff7d924dade71b14a6b1c2fd3f",
+      "owner": "Scene mature particle evidence",
+      "reason": "记录真实横向亮段与同龄轨迹的可区分结论，标明复验停止线。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ember-mature-trail-luminance"
     },
     {
       "section": "bodies",
