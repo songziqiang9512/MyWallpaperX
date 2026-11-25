@@ -202,6 +202,8 @@ enum DebugPlaybackCoexistenceRunner {
               original.source == .page(.downloads), original.entries.count > 1,
               settings.reapplySceneQualityButton.isEnabled else { throw Failure("Scene page reapply unavailable") }
         let button = settings.reapplySceneQualityButton
+        let standardTitle = button.title
+        let originalTextures = PlaybackQualityPreference.current.scene.textures
         root.layoutSubtreeIfNeeded()
         button.scrollToVisible(button.bounds)
         root.layoutSubtreeIfNeeded()
@@ -215,18 +217,39 @@ enum DebugPlaybackCoexistenceRunner {
         post.selectItem(at: post.indexOfItem(withRepresentedObject: ScenePostProcessingMode.disabled.rawValue))
         guard post.sendAction(post.action, to: post.target), PlaybackQualityPreference.current.scene.postProcessing == .disabled
         else { throw Failure("native quality choice did not save") }
+        let pendingTitle = button.title
+        guard pendingTitle != standardTitle else { throw Failure("saved cold quality did not show a pending change") }
+        root.layoutSubtreeIfNeeded()
+        button.scrollToVisible(button.bounds)
+        guard button.visibleRect.width + 1 >= button.intrinsicContentSize.width else {
+            throw Failure("pending quality title was clipped")
+        }
+        try await captureWindow("settings-reapply-pending", id: window.windowNumber, directory: directory)
         let held = try await captureScene("scene-reapply-held", receipt: initial, directory: directory)
         guard held["sessionID"] as? String == before["sessionID"] as? String,
               held["sceneTime"] as? Double == before["sceneTime"] as? Double else {
             throw Failure("quality selection changed the frozen active Scene")
         }
 
+        let daemon = SceneDaemonClient.shared
+        let observer = daemon.debugStartupObserver
+        let texture = settings.sceneTextureQualityPopup
+        var newerQualitySaved = false
+        daemon.debugStartupObserver = { observation in
+            observer?(observation)
+            guard observation.phase == .prepared, !newerQualitySaved else { return }
+            texture.selectItem(at: texture.indexOfItem(withRepresentedObject: SceneTextureQuality.performance.rawValue))
+            newerQualitySaved = texture.sendAction(texture.action, to: texture.target)
+                && PlaybackQualityPreference.current.scene.textures == .performance
+        }
+        defer { daemon.debugStartupObserver = observer }
         button.performClick(nil)
         guard let pending = manager.libraryPlaybackSequence.pending, pending.proposal.cause == .settingsReload,
               manager.playbackSwitch.committed == initial.selection,
               initial.windows.allSatisfy({ onscreenWindows()[$0] == initial.pid }),
               !button.isEnabled else { throw Failure("Scene reapply did not stage behind the old window") }
         let updated = try await receipt(for: scene, runtime: .scene, after: initial)
+        daemon.debugStartupObserver = observer
         guard let session = manager.libraryPlaybackSequence.committed, session.ticket == pending.ticket,
               session.snapshot.source == original.source, session.snapshot.sourceQuery == original.sourceQuery,
               session.snapshot.entries.map(\.reference) == original.entries.map(\.reference),
@@ -241,13 +264,28 @@ enum DebugPlaybackCoexistenceRunner {
               still["sessionID"] as? String != before["sessionID"] as? String else {
             throw Failure("reapplied Scene did not remain frozen in its new session")
         }
+        let intermediateTitle = button.title
+        guard newerQualitySaved, intermediateTitle == pendingTitle,
+              daemon.activePreparedRenderQuality?.textures == originalTextures else {
+            throw Failure("a newer saved texture setting was confused with the presented candidate")
+        }
+        button.performClick(nil)
+        let latest = try await receipt(for: scene, runtime: .scene, after: updated)
+        _ = try await wait("latest cold quality confirmed") {
+            button.title == standardTitle && daemon.activePreparedRenderQuality?.textures == .performance ? true : nil
+        }
+        let latestFrame = try await captureScene("scene-reapply-latest", receipt: latest, directory: directory)
+        guard latestFrame["sceneTime"] as? Double == 0, latestFrame["isPlaybackPaused"] as? Bool == true else {
+            throw Failure("the latest cold quality did not preserve pause")
+        }
+        let latestTitle = button.title
         mux.dispatch(.resume)
         try await Task.sleep(for: .milliseconds(500))
-        let resumed = try await captureScene("scene-reapply-resumed", receipt: updated, directory: directory)
-        guard let frozen = after["sceneTime"] as? Double, let time = resumed["sceneTime"] as? Double, time > frozen
+        let resumed = try await captureScene("scene-reapply-resumed", receipt: latest, directory: directory)
+        guard let frozen = latestFrame["sceneTime"] as? Double, let time = resumed["sceneTime"] as? Double, time > frozen
         else { throw Failure("reapplied Scene clock did not resume") }
 
-        var previous = updated
+        var previous = latest
         for (reference, kind) in [(web, WallpaperRuntimeKind.web), (video, .video)] {
             workspace.requestSingle(reference)
             previous = try await receipt(for: reference, runtime: kind, after: previous)
@@ -259,6 +297,9 @@ enum DebugPlaybackCoexistenceRunner {
         }
         return ["before": before, "held": held, "after": after, "still": still, "resumed": resumed,
                 "original": initial.evidence, "reapplied": updated.evidence,
+                "latest": latest.evidence, "latestFrame": latestFrame,
+                "qualityTitles": ["original": standardTitle, "pending": pendingTitle,
+                                  "intermediate": intermediateTitle, "latest": latestTitle],
                 "entryCount": original.entries.count, "nonSceneActionsRejected": true,
                 "control": ["language": Bundle.main.preferredLocalizations.first ?? "",
                             "title": button.title, "visibleWidth": Double(button.visibleRect.width),

@@ -32773,6 +32773,40 @@
         }
       }
     },
+    "Reapply Current Scene (Pending Changes)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reapply Current Scene (Pending Changes)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新应用当前场景（有改动待应用）"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Применить текущую сцену заново (есть изменения)"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktuelle Szene erneut anwenden (ausstehende Änderungen)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réappliquer la scène actuelle (modifications en attente)"
+          }
+        }
+      }
+    },
     "Restore Default Quality": {
       "localizations": {
         "en": {

@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 16809
+      "bytes": 16958
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 340,
-      "bytes": 80310
+      "bytes": 80337
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 562,
-      "bytes": 119401
+      "lines": 575,
+      "bytes": 121775
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -93,8 +93,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 290,
-      "bytes": 58094
+      "lines": 292,
+      "bytes": 58696
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,29 +369,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "8607c82ebf7a0e4891695406f5e7ec125b3808ce5372b024324947b262cbd9d3",
-      "after": "47f3c5e7a930c80211216e925bfad7a290ab8f43dc9e86d5a0053edd4426043f",
-      "owner": "Scene 运行合同",
-      "reason": "同源重载的会话和质量权威",
-      "decision": "docs/development/wallpaper-quality-work-card.md#quality-reapply-current-scene"
+      "before": "47f3c5e7a930c80211216e925bfad7a290ab8f43dc9e86d5a0053edd4426043f",
+      "after": "3388135745d3337fcd42d34cc39c8a055d8b3b398143087b2e6e1079858640f0",
+      "owner": "scene-runtime",
+      "reason": "说明冻结准备向量沿原候选和提交边界交付",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-cold-quality-receipt"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "123e960b3e3afd57192b5387c87972f6649bee3c52ecdef2949bc714f657b7cd",
-      "after": "72d462ade81bd024cee826b0ed50a3151f13636e1c23025b3459cb2a12454df7",
-      "owner": "画质执行路线",
-      "reason": "已保存显示 HDR 的原生可用状态",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-hdr-saved-selection"
+      "before": "72d462ade81bd024cee826b0ed50a3151f13636e1c23025b3459cb2a12454df7",
+      "after": "2fa8f78300985531b9a104c3dfe83f678094bdff2bbf310592a1221087991e14",
+      "owner": "wallpaper-quality",
+      "reason": "登记冷档回执设计、实测及清除条件",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-cold-quality-receipt"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "4e81fe13b53a1a3f3ce0a93e669e766b775d4366cc43f0313d19646c3d88d38c",
-      "after": "e36aa2aff9b62485c225fa4ff85db9b7f8c9ca22deaa5d515aa0fd9aa27e9a83",
-      "owner": "仓库源码地图",
-      "reason": "指向设置的显示 HDR 原菜单",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-hdr-saved-selection"
+      "before": "e36aa2aff9b62485c225fa4ff85db9b7f8c9ca22deaa5d515aa0fd9aa27e9a83",
+      "after": "72be8f6e40639a45f01d9d417d5b1bda63125c9b877d5be116e57d4a4269dbff",
+      "owner": "repository-map",
+      "reason": "在画质所有权地图定位冻结回执及实际接管",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-cold-quality-receipt"
     },
     {
       "section": "bodies",
@@ -684,11 +684,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "f2a83949ff59299e5f9e9909901335e0a215851c18249133d18244d39abd3c72",
-      "after": "9a96f495e3f8a1b5d06229bf55108b02723a239538e5572d59b80a2d86c1be6a",
-      "owner": "三引擎画质评估",
-      "reason": "保存的显示 HDR 在无资格下的投影",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-hdr-saved-selection"
+      "before": "9a96f495e3f8a1b5d06229bf55108b02723a239538e5572d59b80a2d86c1be6a",
+      "after": "b8d8d32adf5819537b991000aeb7452a58b39016def00d36e9a1f845171a2e12",
+      "owner": "wallpaper-quality",
+      "reason": "同步冷档待应用状态的采纳边界",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-cold-quality-receipt"
     }
   ]
 }

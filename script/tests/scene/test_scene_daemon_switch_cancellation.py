@@ -55,6 +55,7 @@ enum SceneDaemonProtocol {
     static func shortcutObject(_ value:Int)->[String:Any]{[:]}
     // PROTOCOL_BOOLEAN
     // PROTOCOL_QUALITY
+    // PROTOCOL_CADENCE
 }
 @MainActor final class SceneDaemonClient {
     struct Lifetime {
@@ -214,7 +215,7 @@ TAIL = r'''
         queuedClient.pendingIntent = .init(recordID:"B");queuedClient.pendingSwitchTicket=visibleTicket
         queuedClient.pendingRequestID=b
         let execution=SceneDaemonClient.SwitchExecution(ticket:visibleTicket,requestID:b,
-            generation:queuedClient.sessionGeneration,transport:queuedClient.transport!)
+            generation:queuedClient.sessionGeneration,transport:queuedClient.transport!,quality:nil)
         execution.presented=true;queuedClient.pendingSwitchExecution=execution
         queuedClient.prepareSwitch(.init(recordID:"C"),ticket:newerTicket,resourceLifetime:nil)
         queuedClient.requestLaunch(.init(recordID:"B"))
@@ -307,6 +308,7 @@ IDLE_TAIL = r'''
         let registry=DaemonPlaybackProcessRegistry.shared
         let web=PlaybackSwitchTicket(epoch:2,id:UUID(),runtime:.web)
         let next=PlaybackSwitchTicket(epoch:3,id:UUID(),runtime:.scene)
+        let preparedQuality=SceneRenderQuality(shadows:.medium,textures:.performance,antiAliasing:.msaa2)
         func active()->(SceneDaemonClient,PlaybackSwitchEndpoint,UUID,DaemonProcessTransport) {
             let client=SceneDaemonClient(),request=UUID(),child=DaemonProcessTransport()
             let ticket=PlaybackSwitchTicket(epoch:1,id:UUID(),runtime:.scene)
@@ -316,7 +318,7 @@ IDLE_TAIL = r'''
             client.requestResourceLifetimes[request]=client.pendingResourceLifetime!.lifetime
             var endpoint:PlaybackSwitchEndpoint?
             client.switchPrepared={_,value in endpoint=value}
-            _=client.reportPreparedSwitch(requestID:request)
+            _=client.reportPreparedSwitch(requestID:request,quality:preparedQuality)
             client.pendingSwitchExecution!.presented=true;endpoint!.finalize();client.sent=[]
             return (client,endpoint!,request,child)
         }
@@ -339,7 +341,11 @@ IDLE_TAIL = r'''
         checks["newNonSceneIntentPreservesCommittedRollbackOutput"]=rollback.activeIntent?.recordID == "A"
             && rollback.transport === rollbackChild && rollbackChild.gracefulStops == 0
             && !rollback.hasRetainedOrRetiringTransport
-        rollback.stop();exit(rollback,rollbackChild)
+        let qualityBeforeStop=rollback.activePreparedRenderQuality
+        rollback.stop()
+        checks["stopClearsCommittedQualityBeforePhysicalExit"]=qualityBeforeStop == preparedQuality
+            && rollback.activePreparedRenderQuality == nil && rollbackChild.isRunning
+        exit(rollback,rollbackChild)
         let (invalidated,invalidatedEndpoint,invalidatedRequest,invalidatedChild)=active()
         var invalidatedDone=0
         invalidatedEndpoint.retire(web){invalidatedDone += 1}
@@ -526,6 +532,18 @@ class SceneDaemonSwitchCancellationTests(unittest.TestCase):
         support = SUPPORT.replace("// PROTOCOL_BOOLEAN", method(protocol, "static func boolean(_ raw: Any?) -> Bool?"))
         support = support.replace("// PROTOCOL_QUALITY",
             method(protocol, "static func writeRenderQuality(_ quality: SceneRenderQuality, to payload: inout [String: Any])"))
+        support = support.replace("// PROTOCOL_CADENCE", "\n".join(method(protocol, signature) for signature in (
+            "static func animationCadenceEvent(_ payload: [String: Any]) -> (\n"
+            "        requestID: UUID, requestedFPS: AnimationFrameRate, effectiveFPS: Double\n    )?",
+            "private static func animationFrameRate(_ raw: Any?) -> AnimationFrameRate?",
+            "private static func finiteDouble(_ raw: Any?) -> Double?",
+            "private static func integer(_ raw: Any?) -> Int?",
+        )))
+        support = support.replace("    var activeRequestID:UUID?", "\n".join((
+            "    var activeRequestID:UUID?",
+            method(client, "nonisolated struct ActiveAnimationCadence: Equatable, Sendable"),
+            "    var activeAnimationCadence:ActiveAnimationCadence?",
+        )))
         for signature in ("func ensureSession()->Bool", "func replayPendingIntent()"):
             support = support.replace(signature + " " + function_body(support, signature), "")
         support = support.replace("func stop() " + function_body(support, "func stop()"),
@@ -619,10 +637,14 @@ extension Notification.Name {
             source = root / "Harness.swift"
             protocol = (IPC / "SceneDaemonProtocol.swift").read_text()
             support = SUPPORT.replace("// PROTOCOL_BOOLEAN", method(protocol, "static func boolean(_ raw: Any?) -> Bool?"))
+            support = support.replace("// PROTOCOL_QUALITY", "\n".join(method(protocol, signature) for signature in (
+                "static func preparedRenderQuality(_ payload: [String: Any]) -> SceneRenderQuality?",
+                "private static func renderQuality(_ payload: [String: Any], fallback: SceneRenderQuality? = nil) -> SceneRenderQuality?",
+            )))
             source.write_text(support + "\n".join(methods) + TAIL)
             binary = root / "harness"
             shared = []
-            for name in ("WallpaperRuntimeSwitch.swift", "PlaybackSwitchTransaction.swift"):
+            for name in ("WallpaperRuntimeSwitch.swift", "PlaybackSwitchTransaction.swift", "PlaybackPerformanceProfile.swift"):
                 path = root / name
                 path.write_bytes((ROOT / "MyWallpaperX/Core/PlaybackControl" / name).read_bytes())
                 shared.append(str(path))

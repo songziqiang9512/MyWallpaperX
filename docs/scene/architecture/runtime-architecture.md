@@ -134,6 +134,8 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 
 需冷准备的档由原 Scene 候选读取。设置中的「重新应用当前场景」经 [同源重载](../../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift) 复用已提交库票据的作品和播放快照，沿可见接管和回滚。成功的新会话采用已保存质量并开始新作者时钟，继承最新暂停意图。用户仍在调档时，当前会话只消费已有的热更字段。 [入口与画面验收](../../development/wallpaper-quality-work-card.md#quality-reapply-current-scene)
 
+候选冻结的冷准备请求随原 `candidatePrepared` 回执交给 [原切换执行](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient+SwitchEndpoint.swift)，只有对应请求完成实呈与接管后才供设置比较。两个超高后处理共用一个准备值。若活动回执与已保存冷档有差分，「重新应用」显示待应用。帧率与同域显示 HDR 热更沿原回路。提示对应准备的请求，实际每帧及每屏的回退仍由消费者决定。 [接管验收](../../development/wallpaper-quality-work-card.md#scene-cold-quality-receipt)
+
 后处理的「超高」和「超高（显示 HDR）」共用作者工作域、资源、颜色传递函数与终端映射。App 保存选择，Scene daemon 将同一意愿交给活动、候选及以后安装的 Surface；Metal View 只消费显示意愿和当前屏有效 headroom。普通超高始终使用 SDR 范围，显示 HDR 按屏申请 EDR。切换这两档不重建 Program、附件、作者时钟或 raw history。已暂停的活动 Surface 用原冻结帧刷新，候选继续按原接管状态。当前余量若在开启后变化，原屏幕参数通知进入同一 Surface 的暂停输出失效。这条类型化路径接管后退出独立 HDR 偏好通知及跨进程强制同步。 [单内屏暂停热切验收](../../development/wallpaper-quality-work-card.md#scene-paused-display-hdr-live)
 
 <a id="scene-hdr-bloom-reconstruction"></a>

@@ -19,6 +19,7 @@ extension Notification.Name {
     static let playbackMuteStateDidChange = Self("fixture.mute")
     static let wallpaperManagerLoginItemSyncFailed = Self("fixture.login-item")
     static let sceneDaemonAnimationCadenceDidChange = Self("fixture.cadence")
+    static let sceneDaemonPreparedQualityDidChange = Self("fixture.preparation-quality")
 }
 
 @MainActor final class PlaybackCommandMultiplexer {
@@ -39,6 +40,7 @@ extension Notification.Name {
     static let shared = SceneDaemonClient()
     var configuredAnimationCadenceLimit: Double = 60
     var activeAnimationCadence: ActiveAnimationCadence?
+    var activePreparedRenderQuality: SceneRenderQuality?
 }
 
 // ACTUAL_FRAME_RATE_SLIDER
@@ -53,6 +55,7 @@ extension Notification.Name {
     let scenePostProcessingPopup = NSPopUpButton(), sceneTextureQualityPopup = NSPopUpButton()
     let sceneShadowsPopup = NSPopUpButton(), sceneVolumeLightingPopup = NSPopUpButton()
     let sceneReflectionsSwitch = NSSwitch(), webFrameRatePopup = NSPopUpButton()
+    let reapplySceneQualityButton = NSButton(title: "Reapply Current Scene", target: nil, action: nil)
     let loopSwitch = NSSwitch(), randomSwitch = NSSwitch(), sequentialSwitch = NSSwitch(), autoSwitchSwitch = NSSwitch()
     let intervalField = NSTextField(frame: .init(x: 20, y: 70, width: 160, height: 28))
     let sceneFPSField = NSTextField(frame: .init(x: 198, y: 70, width: 40, height: 28))
@@ -103,7 +106,7 @@ extension Notification.Name {
             sceneShadowsPopup.lastItem?.representedObject = shadow.rawValue
         }
         for control in [sceneQualityPresetPopup, sceneAntiAliasingPopup, sceneTextureQualityPopup,
-                        sceneVolumeLightingPopup, scenePostProcessingPopup] {
+                        sceneVolumeLightingPopup, scenePostProcessingPopup, sceneShadowsPopup] {
             control.target = self
             control.action = #selector(handleQualityChange(_:))
         }
@@ -123,6 +126,7 @@ extension Notification.Name {
     // ACTUAL_INTERVAL_REFRESH
     // ACTUAL_SETTINGS_OBSERVER
     // ACTUAL_SCENE_POST_PROCESSING_MENU
+    // ACTUAL_SCENE_REAPPLY_TITLE
     // ACTUAL_RESTORE_QUALITY_CONTROLS
     // ACTUAL_REFRESH_SCENE_QUALITY_PRESET
     // ACTUAL_QUALITY_ACTION
@@ -348,6 +352,28 @@ extension Notification.Name {
         checks["native-default-reset-clears-saved-hdr-under-sdr-capability"] =
             PlaybackQualityPreference.current == .defaults && post.indexOfSelectedItem == ordinaryUltraIndex
             && hdrItem.isHidden && !hdrItem.isEnabled && requests.requests.count == 12
+
+        let button = view.reapplySceneQualityButton
+        let standardTitle = button.title
+        let daemon = SceneDaemonClient.shared
+        daemon.activePreparedRenderQuality = PlaybackQualityPreference.current.scene.preparationQuality
+        NSScreen.screens.append(.init(maximumPotentialExtendedDynamicRangeColorComponentValue: 3))
+        view.refreshQualityControls()
+        post.selectItem(at: hdrIndex)
+        _ = post.sendAction(post.action, to: view)
+        view.commitSceneFrameRate(AnimationFrameRate(rawValue: 25))
+        checks["native-hot-hdr-and-fps-do-not-show-a-pending-cold-quality-title"] =
+            button.title == standardTitle && PlaybackQualityPreference.current.scene.postProcessing == .ultraDisplayHDR
+            && PlaybackQualityPreference.current.animationFrameRate.rawValue == 25
+        let shadows = view.sceneShadowsPopup
+        shadows.selectItem(at: shadows.indexOfItem(withRepresentedObject: SceneShadowQuality.low.rawValue))
+        _ = shadows.sendAction(shadows.action, to: view)
+        checks["native-saved-shadow-shows-the-pending-cold-quality-title"] =
+            button.title != standardTitle && PlaybackQualityPreference.current.scene.shadows == .low
+        daemon.activePreparedRenderQuality = PlaybackQualityPreference.current.scene.preparationQuality
+        NotificationCenter.default.post(name: .sceneDaemonPreparedQualityDidChange, object: daemon)
+        pump()
+        checks["native-presented-quality-notification-clears-the-pending-title"] = button.title == standardTitle
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

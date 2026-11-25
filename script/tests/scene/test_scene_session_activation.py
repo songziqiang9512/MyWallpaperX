@@ -100,7 +100,7 @@ final class SceneDesktopWallpaperSession {
     var presentationDeadline:DispatchWorkItem?
     var candidateCompletion:((Result<Void,Error>)->Void)?
     let launchPreparationQueue=DispatchQueue(label:"test-preparation")
-    var candidatePreparedHandler:((UUID)->Void)?
+    var candidatePreparedHandler:((UUID,SceneRenderQuality)->Void)?
     var requestResourcesReleasedHandler:((UUID,Bool)->Void)?
     var launchCancellation:Bool?
     var pendingLaunchCompletion:(()->Void)?
@@ -118,13 +118,15 @@ final class SceneDesktopWallpaperSession {
         var outcomes:[Bool]=[]
         let preparedTextures=SceneUserPropertyTextureLoadResult()
         var preparedSurfaces:[SceneDesktopWallpaperSession.PreparedSurface]=[]
-        func begin() throws -> SceneDesktopWallpaperSession {
+        let preparedQuality=SceneRenderQuality(postProcessing:.ultraDisplayHDR,shadows:.medium,
+            volumeLighting:.ultra,reflections:.disabled,textures:.performance,antiAliasing:.msaa4)
+        func begin(quality:SceneRenderQuality = .init(postProcessing:.enabled,shadows:.medium)) throws -> SceneDesktopWallpaperSession {
             let presentation=SceneFirstFramePresentationRegistration()
             preparedSurfaces = ([1,2] as [CGDirectDisplayID]).map {
                 .init(displayID:$0,playback:.init(),materialRuntime:.init())
             }
             host.launchState = .init(requestID:presentation.requestID,recordID:nil,phase:.preparingModel,message:"")
-            try host.beginCandidate(.init(),sceneRenderQuality:.init(postProcessing:.enabled,shadows:.medium),preparedSurfaces:preparedSurfaces,
+            try host.beginCandidate(.init(),sceneRenderQuality:quality,preparedSurfaces:preparedSurfaces,
                 userPropertyTextureLoad:preparedTextures,firstPresentation:presentation) { result in
                 if case .success=result {outcomes.append(true)} else {outcomes.append(false)}
             }
@@ -205,14 +207,17 @@ final class SceneDesktopWallpaperSession {
         host.discardCandidate();late(1,true);late(2,true)
         result["cancelCannotLaterReplaceCurrent"] = host.activeSession === c && c.visible && cancelled.stopped
         cancelled.finishDrain()
-        var admitted:[UUID]=[]
+        var admitted:[(id:UUID,quality:SceneRenderQuality)]=[]
         var released:[UUID]=[]
-        host.candidatePreparedHandler={admitted.append($0)}
+        host.candidatePreparedHandler={admitted.append(($0,$1))}
         host.requestResourcesReleasedHandler={if $1 {released.append($0)}}
-        let revoked=try begin()
-        revoked.onFirstFrameCompletion?(1,true);revoked.onFirstFrameCompletion?(2,true)
+        let revoked=try begin(quality:preparedQuality)
+        revoked.onFirstFrameCompletion?(1,true)
+        result["PreparedQualityWaitsForEverySurface"] = admitted.isEmpty
+        revoked.onFirstFrameCompletion?(2,true)
         let revokedID=revoked.launchRequestID!
-        result["GPUReadyWaitsForParentAdmission"] = admitted == [revokedID] && host.activeSession === c && !revoked.visible
+        result["GPUReadyWaitsForParentAdmission"] = admitted.map(\.id) == [revokedID] && host.activeSession === c && !revoked.visible
+        result["PreparedReceiptCarriesCandidateQuality"] = admitted.map(\.quality) == [preparedQuality]
         host.commitCandidate(requestID:UUID())
         result["WrongRequestCannotCommit"] = host.activeSession === c && !revoked.visible
         host.cancelCandidate(requestID:revokedID)
@@ -284,7 +289,7 @@ final class SceneDesktopWallpaperSession {
             var delayedOutcomes:[Bool]=[]
             var prepared:[UUID]=[]
             var delayedReleased:[UUID]=[]
-            delayedHost.candidatePreparedHandler={prepared.append($0)}
+            delayedHost.candidatePreparedHandler={id,_ in prepared.append(id)}
             delayedHost.requestResourcesReleasedHandler={if $1 {delayedReleased.append($0)}}
             let presentation=SceneFirstFramePresentationRegistration()
             let requestID=presentation.requestID

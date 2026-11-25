@@ -50,16 +50,18 @@ extension SceneDaemonClient {
         let requestID: UUID
         let generation: UInt64
         let transport: DaemonProcessTransport
+        let preparationQuality: SceneRenderQuality?
         var activated = false
         var presented = false
         var outputActive = true
 
         init(ticket: PlaybackSwitchTicket, requestID: UUID, generation: UInt64,
-             transport: DaemonProcessTransport) {
+             transport: DaemonProcessTransport, quality: SceneRenderQuality?) {
             self.ticket = ticket
             self.requestID = requestID
             self.generation = generation
             self.transport = transport
+            preparationQuality = quality?.preparationQuality
         }
     }
 
@@ -189,12 +191,18 @@ extension SceneDaemonClient {
         }
     }
 
-    func reportPreparedSwitch(requestID: UUID) -> Bool {
+    var activePreparedRenderQuality: SceneRenderQuality? {
+        guard let execution = activeSwitchExecution, activeRequestID == execution.requestID,
+              sessionGeneration == execution.generation else { return nil }
+        return execution.preparationQuality
+    }
+
+    func reportPreparedSwitch(requestID: UUID, quality: SceneRenderQuality? = nil) -> Bool {
         guard let ticket = pendingSwitchTicket, let prepared = switchPrepared,
               let transport else { return false }
         guard pendingSwitchExecution == nil else { return true }
         let execution = SwitchExecution(ticket: ticket, requestID: requestID,
-                                        generation: sessionGeneration, transport: transport)
+                                        generation: sessionGeneration, transport: transport, quality: quality)
         pendingSwitchExecution = execution
         let endpoint = PlaybackSwitchEndpoint(id: execution.id,
             activate: { [weak self] in self?.activateSwitch(execution) },

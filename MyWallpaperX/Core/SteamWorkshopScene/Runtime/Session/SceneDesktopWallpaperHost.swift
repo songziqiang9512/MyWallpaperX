@@ -65,7 +65,7 @@ final class SceneDesktopWallpaperHost {
     var candidateCompletion: ((Result<Void, Error>) -> Void)?
     /// The daemon requests admission after every candidate GPU surface is ready.
     /// Direct DEBUG hosts leave this nil and preserve their local transaction.
-    var candidatePreparedHandler: ((UUID) -> Void)?
+    var candidatePreparedHandler: ((UUID, SceneRenderQuality) -> Void)?
     var requestResourcesReleasedHandler: ((UUID, Bool) -> Void)?
     var candidatePromotion: (requestID: UUID, promote: () -> Void)?
     var unconfirmedPromotion: (requestID: UUID, previous: SceneDesktopWallpaperSession?)?

@@ -297,9 +297,11 @@ final class SceneDaemonRuntime {
             // first-present transaction. Standalone legacy diagnostics retain
             // the direct Host behavior when no request identity was supplied.
             host.candidatePreparedHandler = requestID.map { _ in
-                { [weak self] preparedID in
-                    self?.emit(["v": SceneDaemonProtocol.version,
-                        "event": "candidatePrepared", "requestID": preparedID.uuidString])
+                { [weak self] preparedID, quality in
+                    var payload: [String: Any] = ["v": SceneDaemonProtocol.version,
+                        "event": "candidatePrepared", "requestID": preparedID.uuidString]
+                    SceneDaemonProtocol.writeRenderQuality(quality, to: &payload)
+                    self?.emit(payload)
                 }
             }
             applyAnimationFrameRate(frameRate)

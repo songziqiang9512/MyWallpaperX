@@ -65,7 +65,7 @@ def run_phase(command, environment, directory, phase, timeout):
                     value = json.loads(request.read_text())
                     name, window = value["name"], value["window"]
                     if phase == "scene-reapply":
-                        names = ("settings-reapply",)
+                        names = ("settings-reapply", "settings-reapply-pending")
                     elif phase == "quality-import":
                         names = ("video-import-before", "video-import-after")
                     else:

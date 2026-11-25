@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "521f5ea91ee194a7e02223c3f4fb7f48a1e832ef373a5090adb01e55ceaa3fec",
+        "sourceSHA256": "738989a2a9765f8a16a8a883c69416e7b9c98c4768758f7be03358d21f875991",
         "method": "document_registry --audit + document_health --check",
-        "scope": "指向设置的显示 HDR 原菜单",
-        "limitations": "显示能力与保存档回显由原 AppKit 布局维护。"
+        "scope": "在画质所有权地图定位冻结回执及实际接管",
+        "limitations": "本批验证冷准备回执与当前请求；Surface 逐帧实际 MSAA 保持原诊断。"
       }
     },
     {
@@ -347,10 +347,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "95329ebf5ae82ab5ee226ca95cf7413802978639815681aeb4db802b75680883",
+        "sourceSHA256": "4b25b581fa997c9729e5958e1a6f8505f08bffb33448fccb2fb07a6fc8909da1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "保存的显示 HDR 在无资格下的投影",
-        "limitations": "按原显示能力恢复新选择，保存意愿通过原菜单表示。"
+        "scope": "同步冷档待应用状态的采纳边界",
+        "limitations": "本批验证冷准备回执与当前请求；Surface 逐帧实际 MSAA 保持原诊断。"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "220eeb44a5875bf007c20888e4d5c3a693bc9e5334ef803887daaff67e63230c",
+        "sourceSHA256": "9079870282ac9f8884a30f857673e076df810710294bc638ec7cf3f6e428cf52",
         "method": "document_registry --audit + document_health --check",
-        "scope": "已保存显示 HDR 的原生可用状态",
-        "limitations": "真实原生控件受控能力，两真实作者验证支持侧相邻普通档。"
+        "scope": "登记冷档回执设计、实测及清除条件",
+        "limitations": "本批验证冷准备回执与当前请求；Surface 逐帧实际 MSAA 保持原诊断。"
       }
     },
     {
@@ -855,10 +855,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4ccd3e93377c43d12942f377d22653df9f64858d56ce2f6b68d3dad41d2de4ca",
+        "sourceSHA256": "d3014e2e3f2fdcf32e50c0c438d3f267eeb50bc6d4d7a9ccd7e91d33714bd61a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同源重载的会话和质量权威",
-        "limitations": "新会话采用已保存质量并继承暂停意图，原作者动画时钟重启。"
+        "scope": "说明冻结准备向量沿原候选和提交边界交付",
+        "limitations": "本批验证冷准备回执与当前请求；Surface 逐帧实际 MSAA 保持原诊断。"
       }
     },
     {

@@ -94,7 +94,7 @@ extension SceneDaemonClient {
         guard let raw = payload["requestID"] as? String,
               let requestID = UUID(uuidString: raw),
               requestID == pendingRequestID, pendingIntent != nil else { return }
-        if reportPreparedSwitch(requestID: requestID) { return }
+        if reportPreparedSwitch(requestID: requestID, quality: SceneDaemonProtocol.preparedRenderQuality(payload)) { return }
 #if DEBUG
         guard switchPrepared == nil else { return }
         send(["v": SceneDaemonProtocol.version, "cmd": "commitCandidate",

@@ -83,6 +83,12 @@ nonisolated struct SceneRenderQuality: Equatable, Sendable {
     var reflections: SceneReflectionQuality = .enabled
     var textures: SceneTextureQuality = .full
     var antiAliasing: SceneAntiAliasingMode = .none
+
+    var preparationQuality: Self {
+        var quality = self
+        if quality.postProcessing == .ultraDisplayHDR { quality.postProcessing = .ultra }
+        return quality
+    }
 }
 
 nonisolated enum SceneQualityPreset: String, CaseIterable, Sendable {

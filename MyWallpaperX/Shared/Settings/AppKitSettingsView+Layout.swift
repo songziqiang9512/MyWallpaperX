@@ -490,6 +490,7 @@ extension AppKitSettingsContainerView {
         sceneVolumeLightingPopup.selectItem(at: sceneVolumeLightingPopup.indexOfItem(
             withRepresentedObject: quality.scene.volumeLighting.rawValue))
         sceneReflectionsSwitch.state = quality.scene.reflections == .enabled ? .on : .off
+        refreshSceneQualityReapplyTitle(quality.scene)
     }
 
     private func refreshSceneQualityPreset(_ quality: PlaybackQualityPreference) {
@@ -531,6 +532,17 @@ extension AppKitSettingsContainerView {
         quality.animationFrameRate = request
         PlaybackCommandMultiplexer.shared.applyQualityPreference(quality)
         refreshSceneQualityPreset(quality)
+    }
+
+    func refreshSceneQualityReapplyTitle(_ requested: SceneRenderQuality) {
+        let pending = SceneDaemonClient.shared.activePreparedRenderQuality
+            .map { $0 != requested.preparationQuality } ?? false
+        let title = pending ? String(localized: "Reapply Current Scene (Pending Changes)")
+                            : String(localized: "Reapply Current Scene")
+        let button = reapplySceneQualityButton
+        guard button.title != title else { return }
+        let style = button.attributedTitle.attributes(at: 0, effectiveRange: nil)
+        button.attributedTitle = NSAttributedString(string: title, attributes: style)
     }
 
     @objc private func handleSceneFrameRateSlider(_ sender: SceneFrameRateSlider) {
@@ -575,6 +587,7 @@ extension AppKitSettingsContainerView {
         }
         PlaybackCommandMultiplexer.shared.applyQualityPreference(quality)
         refreshSceneQualityPreset(quality)
+        refreshSceneQualityReapplyTitle(quality.scene)
     }
 
     @objc private func reapplySceneQuality() {

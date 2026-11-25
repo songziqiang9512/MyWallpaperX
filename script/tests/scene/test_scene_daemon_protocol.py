@@ -150,10 +150,11 @@ import Foundation
             && decode(antiAliasUpdate) == .success(.setSceneRenderQuality(antiAliasQuality))
         let invalidQualityValues: [Any] = [true, "unknown", NSNull()]
         let qualityKeys = ["scenePostProcessing", "shadowQuality", "pointVolumeQuality", "reflectionQuality"]
+        let allQualityKeys = qualityKeys + ["textureQuality", "antiAliasingMode"]
         let malformedQualityRejected = legacyTextureDefaults && textureLoadValid
             && antiAliasLoadValid && antiAliasUpdateValid
             && [hdrLoadPayload, qualityChangePayload].allSatisfy { payload in
-            (qualityKeys + ["textureQuality", "antiAliasingMode"]).allSatisfy { key in
+            allQualityKeys.allSatisfy { key in
                 invalidQualityValues.allSatisfy { value in
                     var invalid = payload
                     invalid[key] = value
@@ -165,6 +166,21 @@ import Foundation
             var invalid = qualityChangePayload
             invalid.removeValue(forKey: key)
             return decode(invalid) == .failure(.invalidPayload("setSceneRenderQuality"))
+        }
+        var preparedPayload: [String: Any] = ["event": "candidatePrepared", "requestID": UUID().uuidString]
+        SceneDaemonProtocol.writeRenderQuality(antiAliasQuality, to: &preparedPayload)
+        let preparedQualityRoundTrips = SceneDaemonProtocol.preparedRenderQuality(preparedPayload) == antiAliasQuality
+        let allPreparedQualityFieldsRequired = allQualityKeys.allSatisfy { key in
+            var incomplete = preparedPayload
+            incomplete.removeValue(forKey: key)
+            return SceneDaemonProtocol.preparedRenderQuality(incomplete) == nil
+        }
+        let malformedPreparedQualityRejected = allQualityKeys.allSatisfy { key in
+            invalidQualityValues.allSatisfy { value in
+                var invalid = preparedPayload
+                invalid[key] = value
+                return SceneDaemonProtocol.preparedRenderQuality(invalid) == nil
+            }
         }
         let generation = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
         let storageIdentity = "v2:scene:123-" + generation
@@ -602,6 +618,9 @@ import Foundation
             "qualityChangeValid": qualityChangeValid,
             "malformedQualityRejected": malformedQualityRejected,
             "incompleteQualityUpdateRejected": incompleteQualityUpdateRejected,
+            "preparedQualityRoundTrips": preparedQualityRoundTrips,
+            "allPreparedQualityFieldsRequired": allPreparedQualityFieldsRequired,
+            "malformedPreparedQualityRejected": malformedPreparedQualityRejected,
             "shortcutLoadValid": shortcutLoadValid,
             "shortcutUpdateValid": shortcutUpdateValid,
             "invalidShortcutConfigurationRejected": invalidShortcutConfigurationRejected,

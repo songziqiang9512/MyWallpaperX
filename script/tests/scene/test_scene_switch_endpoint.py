@@ -38,7 +38,7 @@ typealias ScenePreparedCallbackPropertyReachability=Reachability
 enum Outcome {case superseded,failed(String)}
 struct Backoff {mutating func reset(){}}
 enum SceneDaemonProtocol {static let version=2
-// PROTOCOL_BOOLEAN
+// PROTOCOL_METHODS
 }
 @MainActor enum NSScreen {static let screens=[1,2];static var modeRefreshRate: Double = 120}
 struct SceneScreenTopology:Equatable {
@@ -147,6 +147,12 @@ extension Notification.Name {
 
 HARNESS = r'''
 @main enum Harness {
+    static func preparedPayload(_ request:UUID,_ quality:SceneRenderQuality)->[String:Any] {
+        var payload:[String:Any]=["requestID":request.uuidString]
+        SceneDaemonProtocol.writeRenderQuality(quality,to:&payload)
+        return payload
+    }
+
     @MainActor static func main() {
         let ticket=PlaybackSwitchTicket(epoch:1,id:UUID(),runtime:.scene)
         let next=PlaybackSwitchTicket(epoch:2,id:UUID(),runtime:.scene)
@@ -167,11 +173,17 @@ HARNESS = r'''
         var endpoint:PlaybackSwitchEndpoint?
         var observed=0
         client.switchPrepared={observed += 1;precondition($0 == ticket);endpoint=$1}
-        client.handleCandidatePrepared(["requestID":UUID().uuidString])
-        precondition(endpoint == nil && client.sent.isEmpty)
-        client.handleCandidatePrepared(["requestID":id.uuidString])
+        let sdrQuality=SceneRenderQuality(shadows:.medium,volumeLighting:.ultra,
+            reflections:.disabled,textures:.performance,antiAliasing:.msaa4)
+        var hdrQuality=sdrQuality;hdrQuality.postProcessing = .ultraDisplayHDR
+        client.handleCandidatePrepared(preparedPayload(UUID(),hdrQuality))
+        precondition(endpoint == nil && client.pendingSwitchExecution == nil && client.sent.isEmpty)
+        client.handleCandidatePrepared(preparedPayload(id,hdrQuality))
         let first=endpoint!
+        client.handleCandidatePrepared(preparedPayload(id,.init()))
         precondition(observed == 1 && client.sent.isEmpty,"prepared cannot activate itself")
+        precondition(client.pendingSwitchExecution?.preparationQuality == sdrQuality
+            && client.activePreparedRenderQuality == nil,"first prepared fact is frozen and HDR shares the SDR Ultra domain")
         first.finalize()
         precondition(client.sent.isEmpty,"finalize before actual presentation is rejected")
         first.activate();first.activate()
@@ -184,11 +196,16 @@ HARNESS = r'''
             && client.pendingRequestID == id && client.sent.count == 1,
             "wrong request must not publish candidate visibility")
         client.handleFirstFrame(["requestID":id.uuidString,"recordID":"new","uptimeMs":1.0])
-        precondition(visible == 1 && client.activeRequestID == oldID && client.sent.count == 1,
+        precondition(visible == 1 && client.activeRequestID == oldID && client.sent.count == 1
+            && client.activePreparedRenderQuality == nil,
                      "drawable proof reports visibility but cannot commit/finalize product state")
         first.finalize()
         precondition(client.activeRequestID == id && client.activeSwitchTicket == ticket
-            && client.pendingIntent == nil && client.sent.last?["cmd"] as? String == "finalizeCandidate")
+            && client.pendingIntent == nil && client.sent.last?["cmd"] as? String == "finalizeCandidate"
+            && client.activePreparedRenderQuality == sdrQuality)
+        client.activeRequestID=oldID
+        precondition(client.activePreparedRenderQuality == nil,"another request cannot inherit a quality fact")
+        client.activeRequestID=id
 
         var activity:Bool?
         first.setOutputActive(false){activity=$0}
@@ -208,18 +225,24 @@ HARNESS = r'''
         client.pendingIntent = .init(recordID:"second");client.pendingRequestID=secondID
         client.pendingSwitchTicket=next
         client.switchPrepared={_,value in endpoint=value}
-        client.handleCandidatePrepared(["requestID":secondID.uuidString])
+        client.handleCandidatePrepared(preparedPayload(secondID,.init()))
         let second=endpoint!
+        precondition(client.activePreparedRenderQuality == sdrQuality,"pending replacement does not own active quality")
         second.activate()
         var cancelled=0
         second.cancel{cancelled += 1}
         let cancellation=client.sent.last!
         precondition(cancelled == 0 && client.pendingRequestID == nil && client.activeRequestID == id)
+        precondition(client.activePreparedRenderQuality == sdrQuality)
         let thirdID=UUID()
         client.pendingIntent = .init(recordID:"third");client.pendingRequestID=thirdID
         client.pendingSwitchTicket=next // same product, newer native execution
-        client.handleCandidatePrepared(["requestID":thirdID.uuidString])
+        var legacyPrepared=preparedPayload(thirdID,.init())
+        legacyPrepared.removeValue(forKey:"antiAliasingMode")
+        client.handleCandidatePrepared(legacyPrepared)
         let third=endpoint!
+        precondition(client.pendingSwitchExecution?.preparationQuality == nil
+            && client.activePreparedRenderQuality == sdrQuality)
         second.cancel{cancelled += 1}
         let repeated=client.sent.last!
         precondition(repeated["requestID"] as? String == secondID.uuidString
@@ -257,6 +280,8 @@ HARNESS = r'''
         third.finalize()
         precondition(client.queuedSwitchPreparation == nil && client.pendingSwitchTicket == queuedTicket
             && client.pendingIntent?.recordID == "after-finalize", "finalize releases queued native preparation")
+        precondition(client.activeRequestID == thirdID && client.activePreparedRenderQuality == nil,
+            "an old daemon can finalize without synthesizing an active quality fact")
         precondition(!client.deferredDisplayConfigurationUpdate && client.displayUpdates == 2
             && client.displayConfiguration.count == 2,"finalize flushes latest display policy before queued prepare")
         client.pendingIntent=nil;client.pendingSwitchTicket=nil // leaf startLaunch in this harness does no IPC
@@ -306,7 +331,8 @@ HARNESS = r'''
                 storageIdentity:"v2:scene:123-11111111-1111-4111-8111-111111111111",
                 generation:"11111111-1111-4111-8111-111111111111"))
             let sourceClient=SceneDaemonClient()
-            let visible=SceneDaemonClient.SwitchExecution(ticket:a,requestID:UUID(),generation:1,transport:sourceClient.transport!)
+            let visible=SceneDaemonClient.SwitchExecution(ticket:a,requestID:UUID(),generation:1,
+                transport:sourceClient.transport!,quality:nil)
             visible.presented=true;sourceClient.pendingSwitchExecution=visible
             var selected=ScenePlaybackLoadRequest(recordID:"same-path");selected.source=capturedSource
             sourceClient.prepareSwitch(selected,ticket:b,resourceLifetime:lease)
@@ -328,14 +354,17 @@ HARNESS = r'''
         let b=PlaybackSwitchTicket(epoch:11,id:UUID(),runtime:.scene)
         let c=PlaybackSwitchTicket(epoch:12,id:UUID(),runtime:.scene)
         let lease=PlaybackResourceLifetime()
+        let initialQuality=SceneRenderQuality(shadows:.high,textures:.automatic)
+        let recoveryQuality=SceneRenderQuality(shadows:.medium,textures:.performance,antiAliasing:.msaa2)
         func active() -> (SceneDaemonClient,PlaybackSwitchEndpoint,DaemonProcessTransport) {
             let client=SceneDaemonClient(),id=UUID()
             client.pendingIntent = .init(recordID:"A");client.pendingSwitchTicket=a;client.pendingRequestID=id
             client.pendingResourceLifetime = .init(lifetime:lease)
             var endpoint:PlaybackSwitchEndpoint?
             client.switchPrepared={_,value in endpoint=value}
-            _=client.reportPreparedSwitch(requestID:id)
+            client.handleCandidatePrepared(preparedPayload(id,initialQuality))
             client.pendingSwitchExecution!.presented=true;endpoint!.finalize()
+            precondition(client.activePreparedRenderQuality == initialQuality)
             return (client,endpoint!,client.transport!)
         }
         func crashWithPendingB(_ client:SceneDaemonClient,_ child:DaemonProcessTransport) {
@@ -343,7 +372,8 @@ HARNESS = r'''
             child.isRunning=false;client.handleTermination(status:1,generation:1)
             precondition(client.pendingSwitchTicket == b && client.activeIntent == nil
                 && client.committedSwitchRecovery?.ticket == a
-                && client.committedSwitchRecovery?.resourceLifetime === lease,
+                && client.committedSwitchRecovery?.resourceLifetime === lease
+                && client.activePreparedRenderQuality == nil,
                 "crash preserves committed authored input and lease while pending B is retried")
             client.sessionGeneration=2;client.transport=DaemonProcessTransport();client.endpointReady=true
             client.pendingRequestID=UUID()
@@ -352,21 +382,34 @@ HARNESS = r'''
             client.handleLaunchState(["phase":"failed","requestID":client.pendingRequestID!.uuidString,
                 "recordID":record,"message":"candidate failed"])
         }
+        let (newGeneration,_,_)=active()
+        newGeneration.sessionGeneration += 1
+        precondition(newGeneration.activeRequestID != nil && newGeneration.activeSwitchExecution != nil
+            && newGeneration.activePreparedRenderQuality == nil,"a new transport generation invalidates the old fact before termination")
+
         let (restored,oldA,dead)=active()
-        crashWithPendingB(restored,dead);failPending(restored,"B")
+        let deadRequest=restored.activeRequestID!
+        crashWithPendingB(restored,dead)
+        restored.handleCandidatePrepared(preparedPayload(restored.pendingRequestID!,.init()))
+        precondition(restored.pendingSwitchExecution != nil && restored.activePreparedRenderQuality == nil)
+        failPending(restored,"B")
         precondition(restored.pendingSwitchTicket == a && restored.pendingIntent?.recordID == "A"
-            && restored.pendingResourceLifetime?.lifetime === lease,"failed B recovers A with original product ticket")
+            && restored.pendingResourceLifetime?.lifetime === lease && restored.pendingSwitchExecution == nil
+            && restored.activePreparedRenderQuality == nil,"failed B recovers A with original product ticket")
         let recoveredID=UUID();restored.pendingRequestID=recoveredID
         var recovered:PlaybackSwitchEndpoint?
         restored.switchPrepared={ticket,value in precondition(ticket == a);recovered=value}
-        _=restored.reportPreparedSwitch(requestID:recoveredID)
+        restored.handleCandidatePrepared(preparedPayload(deadRequest,initialQuality))
+        precondition(recovered == nil && restored.activePreparedRenderQuality == nil)
+        restored.handleCandidatePrepared(preparedPayload(recoveredID,recoveryQuality))
         recovered!.activate();restored.pendingPresentationRequestID=recoveredID;restored.switchVisible={_,_ in}
         restored.handleFirstFrame(["requestID":recoveredID.uuidString,"recordID":"A","uptimeMs":3.0])
         var oldRetired=false;oldA.retire(nil) {oldRetired=true}
-        precondition(oldRetired && restored.pendingRequestID == recoveredID,
+        precondition(oldRetired && restored.pendingRequestID == recoveredID && restored.activePreparedRenderQuality == nil,
             "retiring dead old endpoint cannot cancel already visible recovery accepted by product")
         recovered!.finalize()
-        precondition(restored.activeSwitchTicket == a && restored.committedSwitchRecovery == nil)
+        precondition(restored.activeSwitchTicket == a && restored.committedSwitchRecovery == nil
+            && restored.activeRequestID == recoveredID && restored.activePreparedRenderQuality == recoveryQuality)
 
         let (revoked,oldRevoked,deadRevoked)=active()
         crashWithPendingB(revoked,deadRevoked);failPending(revoked,"B")
@@ -416,7 +459,8 @@ HARNESS = r'''
 
         let (queued,_,queuedChild)=active(),visibleID=UUID(),queuedLease=PlaybackResourceLifetime()
         queued.pendingIntent = .init(recordID:"B");queued.pendingSwitchTicket=b;queued.pendingRequestID=visibleID
-        let visible=SceneDaemonClient.SwitchExecution(ticket:b,requestID:visibleID,generation:1,transport:queuedChild)
+        let visible=SceneDaemonClient.SwitchExecution(ticket:b,requestID:visibleID,generation:1,
+            transport:queuedChild,quality:nil)
         visible.presented=true;queued.pendingSwitchExecution=visible
         queued.prepareSwitch(.init(recordID:"C"),ticket:c,resourceLifetime:queuedLease)
         queuedChild.isRunning=false;queued.handleTermination(status:1,generation:1)
@@ -439,7 +483,12 @@ class SceneSwitchEndpointTests(unittest.TestCase):
     def test_native_identity_receipts_cancellation_and_explicit_commit(self):
         events = (IPC / "SceneDaemonClient+Events.swift").read_text()
         protocol = (IPC / "SceneDaemonProtocol.swift").read_text()
-        support = SUPPORT.replace("// PROTOCOL_BOOLEAN", method(protocol, "static func boolean(_ raw: Any?) -> Bool?"))
+        support = SUPPORT.replace("// PROTOCOL_METHODS", "\n".join(method(protocol, signature) for signature in (
+            "static func boolean(_ raw: Any?) -> Bool?",
+            "static func preparedRenderQuality(_ payload: [String: Any]) -> SceneRenderQuality?",
+            "private static func renderQuality(_ payload: [String: Any], fallback: SceneRenderQuality? = nil) -> SceneRenderQuality?",
+            "static func writeRenderQuality(_ quality: SceneRenderQuality, to payload: inout [String: Any])",
+        )))
         screen = (IPC.parent / "Frame/SceneScreenTopology.swift").read_text()
         support = support.replace("// DISPLAY_CADENCE_METHODS", "\n".join([
             next(line for line in screen.splitlines() if "static let conservativeCadenceLimit:" in line),
@@ -463,7 +512,7 @@ class SceneSwitchEndpointTests(unittest.TestCase):
             harness = directory / "Harness.swift"
             harness.write_text(source)
             shared = []
-            for name in ("WallpaperRuntimeSwitch.swift", "PlaybackSwitchTransaction.swift"):
+            for name in ("WallpaperRuntimeSwitch.swift", "PlaybackSwitchTransaction.swift", "PlaybackPerformanceProfile.swift"):
                 path = directory / name
                 path.write_bytes((ROOT / "MyWallpaperX/Core/PlaybackControl" / name).read_bytes())
                 shared.append(str(path))

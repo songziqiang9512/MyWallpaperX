@@ -71,7 +71,7 @@ extension SceneDesktopWallpaperHost {
             }
             if let handler = self.candidatePreparedHandler {
                 self.candidatePromotion = (firstPresentation.requestID, promote)
-                handler(firstPresentation.requestID)
+                handler(firstPresentation.requestID, sceneRenderQuality)
             } else { promote() }
         }
         do {

@@ -431,6 +431,11 @@ nonisolated enum SceneDaemonProtocol {
         payload["antiAliasingMode"] = quality.antiAliasing.rawValue
     }
 
+    static func preparedRenderQuality(_ payload: [String: Any]) -> SceneRenderQuality? {
+        guard payload["textureQuality"] != nil, payload["antiAliasingMode"] != nil else { return nil }
+        return renderQuality(payload)
+    }
+
     private static func renderQuality(_ payload: [String: Any], fallback: SceneRenderQuality? = nil) -> SceneRenderQuality? {
         let postProcessingRaw = payload["scenePostProcessing"] ?? fallback.map { $0.postProcessing.rawValue as Any }
         let shadowRaw = payload["shadowQuality"] ?? fallback.map { $0.shadows.rawValue as Any }

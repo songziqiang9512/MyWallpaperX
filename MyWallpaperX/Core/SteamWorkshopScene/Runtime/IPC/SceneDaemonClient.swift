@@ -34,6 +34,7 @@ nonisolated struct SceneDaemonActiveSessionFactsChange: Sendable {
 
 extension Notification.Name {
     static let sceneDaemonAnimationCadenceDidChange = Notification.Name("SceneDaemonAnimationCadenceDidChange")
+    static let sceneDaemonPreparedQualityDidChange = Notification.Name("SceneDaemonPreparedQualityDidChange")
     static let sceneDaemonActiveSessionFactsDidChange = Notification.Name(
         "SceneDaemonActiveSessionFactsDidChange"
     )
@@ -93,7 +94,12 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var stopPlaybackRequested: (() -> Void)?
     var activeSwitchTicket: PlaybackSwitchTicket?
     var pendingSwitchTicket: PlaybackSwitchTicket?
-    var activeSwitchExecution: SwitchExecution?
+    var activeSwitchExecution: SwitchExecution? {
+        didSet {
+            let previous = oldValue?.generation == sessionGeneration ? oldValue?.preparationQuality : nil
+            if previous != activePreparedRenderQuality { notifyPreparedQualityChanged() }
+        }
+    }
     var pendingSwitchExecution: SwitchExecution?
     var switchControls: [UUID: SwitchControl] = [:]
     var queuedSwitchPreparation: QueuedSwitchPreparation?
@@ -167,6 +173,10 @@ final class SceneDaemonClient: PlaybackEngineControlling {
 
     func notifyAnimationCadenceChanged() {
         NotificationCenter.default.post(name: .sceneDaemonAnimationCadenceDidChange, object: self)
+    }
+
+    private func notifyPreparedQualityChanged() {
+        NotificationCenter.default.post(name: .sceneDaemonPreparedQualityDidChange, object: self)
     }
     /// 多屏语义与 video/web 对齐：开=全部显示器，关=仅首屏。主 App 是
     /// 显示集的唯一裁决者，daemon 按收到的拓扑建表面。
@@ -603,7 +613,9 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             return false
         }
 
+        let hadPreparedQuality = activePreparedRenderQuality != nil
         sessionGeneration &+= 1
+        if hadPreparedQuality { notifyPreparedQualityChanged() }
         activeAnimationCadence = nil
         activeCallbackPropertyFacts = nil
         let generation = sessionGeneration
