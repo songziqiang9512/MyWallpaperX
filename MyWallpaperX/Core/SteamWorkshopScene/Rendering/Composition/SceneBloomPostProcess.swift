@@ -85,7 +85,7 @@ final class SceneBloomPostProcess {
     private let hdrUpsample: (pipeline: MTLRenderPipelineState, readsAttachment: Bool)?
     private var hdrTargets: HDRTargets?
     private var textureFailureLogged = false
-    private var cachedTexturesBySize: [SIMD2<Int>: (mip1: MTLTexture, mip2: MTLTexture)] = [:]
+    private var standardTargets: (mip1: MTLTexture, mip2: MTLTexture)?
 
     private let pixelFormat: MTLPixelFormat
 
@@ -169,34 +169,27 @@ final class SceneBloomPostProcess {
             return prepareHDRTargets(dimensions) != nil
         }
         guard configuration.strength != 0 else { return true }
-        return intermediateTargets(on: device, matching: source) != nil
+        return intermediateTargets(matching: source) != nil
     }
 
-    private func intermediateTargets(
-        on device: MTLDevice,
-        matching source: MTLTexture
-    ) -> (mip1: MTLTexture, mip2: MTLTexture)? {
-        let key = SIMD2(Int(source.width), Int(source.height))
-        if let cached = cachedTexturesBySize[key] {
-            return cached
+    private func intermediateTargets(matching source: MTLTexture) -> (mip1: MTLTexture, mip2: MTLTexture)? {
+        let quarter = SIMD2(max(1, source.width / 4), max(1, source.height / 4))
+        if let standardTargets,
+           standardTargets.mip1.width == quarter.x, standardTargets.mip1.height == quarter.y {
+            return standardTargets
         }
+        // Only in-flight commands still need the previous size. Its completed
+        // textures must yield their budget before we allocate the replacement.
+        standardTargets = nil
         func makeTexture(width: Int, height: Int) -> MTLTexture? {
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-                pixelFormat: pixelFormat,
-                width: max(1, width),
-                height: max(1, height),
-                mipmapped: false
+                pixelFormat: pixelFormat, width: width, height: height, mipmapped: false
             )
             descriptor.usage = [.renderTarget, .shaderRead]
             descriptor.storageMode = .private
             return device.makeSceneTexture(descriptor: descriptor)
         }
-        let quarter = SIMD2(
-            max(1, source.width / 4), max(1, source.height / 4)
-        )
-        let eighth = SIMD2(
-            max(1, quarter.x / 2), max(1, quarter.y / 2)
-        )
+        let eighth = SIMD2(max(1, quarter.x / 2), max(1, quarter.y / 2))
         guard let mip1 = makeTexture(width: quarter.x, height: quarter.y),
               let mip2 = makeTexture(width: eighth.x, height: eighth.y)
         else {
@@ -209,7 +202,7 @@ final class SceneBloomPostProcess {
             return nil
         }
         let entry = (mip1: mip1, mip2: mip2)
-        cachedTexturesBySize = [key: entry]
+        standardTargets = entry
         return entry
     }
 
@@ -271,7 +264,7 @@ final class SceneBloomPostProcess {
         guard configuration.enabled, configuration.strength != 0,
               source.pixelFormat == pixelFormat,
               source.device === device,
-              let targets = intermediateTargets(on: device, matching: source)
+              let targets = intermediateTargets(matching: source)
         else { return false }
 
         var brightUniforms = BrightUniforms(

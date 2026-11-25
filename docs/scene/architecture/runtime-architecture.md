@@ -137,6 +137,8 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 <a id="scene-hdr-bloom-reconstruction"></a>
 超高工作域的 [HDR Bloom](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneBloomPostProcess.swift) 在 Apple 支持的单采样 RGBA16Float 路径冷选颜色附件输入。完整下采样后，逆序加载细级当前像素，按原权重重建到同一附件，最后合成到原显示侧。只持一份纹理链和一个重建 PSO。附件 PSO 准备失败走旧分离纹理实现。中途编码失败保原主色，后续帧从下采样重新写入。同一已准备 HDR 工作域的显示热切复用该工作集。 [真实尺寸与验收](../../development/wallpaper-quality-work-card.md#scene-hdr-bloom-attachment)
 
+普通 Bloom 在同一 owner 保留一对四分之一／八分之一缓冲，按实际目标尺寸复用，模糊步距取当前物理源。当前目标尺寸变化时，先释放暖引用，再请求新链。在途纹理由原 Metal 提交保留。预算冲突暂缺泛光，容量归还后按该 Surface 的真实规格恢复。 [换尺寸预算证据](../../development/wallpaper-quality-work-card.md#scene-standard-bloom-resize)
+
 兼容降低 HDR 工作域时，带 `clear=false` 的作者场景继续通过原 `sceneColor` 保存跨帧 raw。用当前 SDR 附件描述建立资源，终端把完成 raw 复制到当前 drawable，普通 Bloom 在显示副本上执行。暂停重导出及 GPU 完成保持原身份规则。普通作者 SDR 的 `clear=false` 仍沿其原合成路径。
 
 质量请求在 [Scene 冷准备](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift)将阴影档投影给原静态模型和光空间深度图。全部作者灯仍由现有状态供直接灯、体积及几何消费者读取，「禁用」只撤可选阴影绘制和实际贴图采样。定向阴影的低／中／高／超高实际封顶分别为 512／1024／2048／4096。低档点光和聚光用 512 单面，其余档用 1024 单面。沿原 PCF、受光域拟合和预算回退，每次新准备在候选中固定阴影档，旧会话持续用已准备资源。重新应用、属性重载和 daemon 恢复会采用新意图。 [阴影密度合同](../capabilities/advanced-object-coverage.md#model-directional-shadow-density)

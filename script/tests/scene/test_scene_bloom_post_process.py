@@ -12,7 +12,8 @@ from script.tests.scene.test_scene_property_binding_program import SWIFT_SOURCES
 
 ROOT = Path(__file__).resolve().parents[3]
 SCENE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition'
-HDR_CHECKS = ROOT / 'script/tests/fixtures/SceneHDRBloomAttachmentChecks.swift'
+BLOOM_CHECKS = tuple(ROOT / 'script/tests/fixtures' / name for name in (
+    'SceneHDRBloomAttachmentChecks.swift', 'SceneStandardBloomResizeChecks.swift'))
 FAULT_HEADER = r'''
 #import <Metal/Metal.h>
 NS_ASSUME_NONNULL_BEGIN
@@ -744,7 +745,7 @@ enum SceneGPUCensus {
     let recoveryReadback = readFloat16(noopCase.texture, 1, 1)
     results["dmPipelineRecovery1"] = recoveredMapping != nil && recoveryEncoded
       && recoveryReadback[0] == 1
-
+    results["standardResize"] = SceneStandardBloomResizeChecks.run(device: device, queue: queue)
     print(String(data: try JSONSerialization.data(withJSONObject: results), encoding: .utf8)!)
   }
 }
@@ -753,7 +754,7 @@ enum SceneGPUCensus {
 class SceneBloomPostProcessTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        identity_paths = [Path(__file__), HDR_CHECKS, *SWIFT_SOURCES,
+        identity_paths = [Path(__file__), *BLOOM_CHECKS, *SWIFT_SOURCES,
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift",
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
             *(SCENE / name for name in ("SceneBloomPostProcess.swift", "SceneBloomPostProcess.metal",
@@ -778,7 +779,7 @@ class SceneBloomPostProcessTests(unittest.TestCase):
                 ["xcrun", "-sdk", "macosx", "metallib", str(folder / "bloom.air"),
                  str(folder / "display-mapping.air"),
                  "-o", str(folder / "default.metallib")],
-                ["swiftc","-import-objc-header",str(folder / "Fault.h"),str(folder / "fault.o"),*map(str, SWIFT_SOURCES),str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift"),str(SCENE / "SceneBloomPostProcess.swift"),str(SCENE / "SceneDisplayMappingPostProcess.swift"),str(SCENE / "SceneMainPassEncoder.swift"),str(folder / "Main.swift"),str(HDR_CHECKS),"-module-cache-path",str(folder / "module-cache"),"-o",str(folder / "run"),Path(__file__).resolve().parents[3] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift"],
+                ["swiftc","-import-objc-header",str(folder / "Fault.h"),str(folder / "fault.o"),*map(str, SWIFT_SOURCES),str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift"),str(SCENE / "SceneBloomPostProcess.swift"),str(SCENE / "SceneDisplayMappingPostProcess.swift"),str(SCENE / "SceneMainPassEncoder.swift"),str(folder / "Main.swift"),*map(str, BLOOM_CHECKS),"-module-cache-path",str(folder / "module-cache"),"-o",str(folder / "run"),Path(__file__).resolve().parents[3] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift"],
             ]
             for index, command in enumerate(commands):
                 compiled = subprocess.run(command, capture_output=True, text=True, timeout=120)
@@ -947,6 +948,8 @@ class SceneBloomPostProcessTests(unittest.TestCase):
                     self.assertEqual(values["changedAlpha"], 0)
 
     def test_positive_bloom_and_reuse_add_light_without_changing_alpha(self):
+        resize = self.result["standardResize"]
+        self.assertEqual(resize["failures"], [], resize)
         self.assertTrue(self.result["floatBloom"])
         for name in ["positive", "reusePositive"]:
             self.assertTrue(self.result[name]["encoded"])
@@ -992,7 +995,6 @@ class SceneBloomPostProcessTests(unittest.TestCase):
         recovery = self.result["dmEncoderRecovery"]
         self.assertTrue(recovery["encoded"])
         self.assertTrue(recovery["mapped"])
-
 
 if __name__ == "__main__":
     unittest.main()

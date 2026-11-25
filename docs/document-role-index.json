@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "45170fb260d47d49b9eb177850abee83c400884dd4c15c1d3988f7908f5ece05",
+        "sourceSHA256": "939f87aea9e89ace1f4232e0ceb21defda205dae3fa10aee03e1fcc98d5cb12f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "登记 HDR 原位重建的真实资源、像素、在途和作者收据",
-        "limitations": "两个 HDR 作者、普通邻例和持久 raw 通过；长稳耗电待验"
+        "scope": "普通泛光换尺寸时真实预算、在途拒绝和像素恢复",
+        "limitations": "签名作者验证正常窗口与恢复原尺寸后的实绘，压力使用原生夹具"
       }
     },
     {
@@ -855,10 +855,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "42e9039eb006872c7c03ac6c5225e5561f13becb64d961e3e31dfc6827995c8b",
+        "sourceSHA256": "2c66ef94303706371cee5f52a0e01acb333db28e060e03f2682ab96dba885bf2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "记录超高工作域的单采样附件重建、回退和终端顺序",
-        "limitations": "设备资格和实际像素、预算由原生与签名门核实"
+        "scope": "普通和 HDR 的原单 owner、工作纹理预算及命令在途阶段",
+        "limitations": "实际容量与像素见工作卡"
       }
     },
     {

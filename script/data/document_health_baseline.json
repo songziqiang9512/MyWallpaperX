@@ -77,8 +77,8 @@
       "bytes": 78125
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 344,
-      "bytes": 71091
+      "lines": 355,
+      "bytes": 73485
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -93,8 +93,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 286,
-      "bytes": 56502
+      "lines": 288,
+      "bytes": 56936
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,20 +369,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "fd06db16b5c5748e2a8be363821e69985e6852aa7219471fc8122a928a9f16e8",
-      "after": "5ed8b41b982b49fc0596bc7bef5f370b0ddf45c1cf2ab5ba822932a18aefad1d",
+      "before": "5ed8b41b982b49fc0596bc7bef5f370b0ddf45c1cf2ab5ba822932a18aefad1d",
+      "after": "2180a33dc388573d95cb71709e65d2e5335f2530a0f4d338899ff4630b60b871",
       "owner": "Scene 运行合同",
-      "reason": "记录超高工作域的单采样附件重建、回退和终端顺序",
+      "reason": "记录普通 Bloom 的实际目标规格键和暖引用受控退出",
       "decision": "docs/scene/architecture/runtime-architecture.md#scene-hdr-bloom-reconstruction"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "0f05cd0c2f5ecb05b3de94bd1a9c49ff30b698ffe63d1094834a90aa5e7be772",
-      "after": "8d288ad2bd5740697b15caf4fc3dc56a04a6f610800fe68edb55f1040e6d295c",
+      "before": "8d288ad2bd5740697b15caf4fc3dc56a04a6f610800fe68edb55f1040e6d295c",
+      "after": "f9ea75359a02fec187008f150f46f67b461e53d391ea9e639b62263f18f769dc",
       "owner": "跨引擎画质实施",
-      "reason": "登记 HDR 原位重建的真实资源、像素、在途和作者收据",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-hdr-bloom-attachment"
+      "reason": "记录普通 Bloom 换尺寸旧红新绿及真实作者画面",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-standard-bloom-resize"
     },
     {
       "section": "bodies",
