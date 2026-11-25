@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "08e7ba32d051b231e6e07e7f5f6614c9da24f8e81232e3cb8f21d3eb94b67125",
+        "sourceSHA256": "b32ed8458eafa7c23e092dd2a2ab15ad2d514d07a973e46b32b0d157a7273181",
         "method": "document_registry --audit + document_health --check",
-        "scope": "登记超高档的真实画面、长窗、兼容性和已验证实际入口",
-        "limitations": "单 M4 的签名 Debug、取证限制在现役工作卡"
+        "scope": "聚光锥两项试验的 Metal 像素否决与退出",
+        "limitations": "候选未进入签名作者成本阶段"
       }
     },
     {
