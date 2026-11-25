@@ -158,6 +158,7 @@ enum Harness {
             "silentEmitterCount": silentEmitter.particles.count,
             "activeEmitterCount": activeEmitter.particles.count,
             "emitterPartitioned": activeEmitter.particles == partitionedEmitter.particles,
+            "continuousEmitterCurve": continuousEmitterCurve(),
             "authorOffEmitterCount": authorOffEmitter.particles.count,
             "residualEmitterCount": residualSilent.particles.count,
             "residualEmitterMatchesOff": residualSilent.particles == residualOff.particles,
@@ -193,6 +194,51 @@ enum Harness {
 #endif
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
+    }
+
+    private static func continuousEmitterCurve() -> [String: [Int]] {
+        func input(_ left: [Float], _ right: [Float]) -> SceneParticleAudioInput {
+            .init(left: left + Array(repeating: 0, count: 16 - left.count),
+                right: right + Array(repeating: 0, count: 16 - right.count), generation: 8)
+        }
+        func counts(
+            _ source: SceneParticleAudioInput, exponent: Double = 1, mode: Int = 3,
+            bounds: String = "0.25 0.75", first: Int = 1, last: Int = 3,
+            name: String = "boxrandom", instantaneous: Int = 0
+        ) -> [Int] {
+            let json = """
+            {"material":"renamed.json","maxcount":100,
+             "emitter":[{"id":72,"name":"\(name)","rate":64,"instantaneous":\(instantaneous),
+                 "distancemax":0,"audioprocessingmode":\(mode),"audioprocessingexponent":\(exponent),
+                 "audioprocessingbounds":"\(bounds)","audioprocessingfrequencystart":\(first),
+                 "audioprocessingfrequencyend":\(last)}],
+             "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+             "renderer":[{"name":"sprite"}]}
+            """
+            let particles = simulator(json, seed: 1, step: 0.125)
+            particles.advance(by: 1, audioInput: source)
+            let during = particles.particles.count
+            particles.advance(by: 1, audioInput: .silent)
+            return [during, particles.particles.count]
+        }
+        let soft = input([0, 0.375], [0, 0.375])
+        let split = input([0, 1.25], [0, 0, 0, 1.25])
+        let loud = input([0, 1.25], [0, 1.25])
+        let nearTop = input([0, 0.71875], [0, 0.71875])
+        return [
+            "cubic": counts(soft),
+            "renamedReversedSphere": counts(soft, first: 3, last: 1, name: "sphererandom"),
+            "wrongBand": counts(loud, first: 2, last: 3),
+            "left": counts(split, mode: 1, bounds: "0.65 0.85"),
+            "right": counts(split, mode: 2, bounds: "0.65 0.85"),
+            "quietLeft": counts(input([], [0, 1.25]), mode: 1),
+            "quietRight": counts(input([0, 1.25], []), mode: 2),
+            "sameBandCenter": counts(split, bounds: "0.65 0.85"),
+            "highExponent": counts(loud, exponent: 100),
+            "cubicBeforeHighExponent": counts(nearTop, exponent: 100),
+            "invalidExponent": counts(loud, exponent: 0),
+            "outOfScopeBurst": counts(loud, exponent: 100, instantaneous: 1),
+        ]
     }
 
     private static func plan(
@@ -367,6 +413,15 @@ class SceneParticleAudioResponseTests(unittest.TestCase):
         self.assertTrue(self.result["residualEmitterMatchesOff"])
         self.assertTrue(self.result["residualEmitterIgnoresAudio"])
         self.assertEqual(self.result["rightActiveResponse"], 1)
+
+    def test_continuous_emission_uses_inclusive_peak_and_smoothstep_before_power(self) -> None:
+        self.assertEqual(self.result["continuousEmitterCurve"], {
+            "cubic": [10, 10], "renamedReversedSphere": [10, 10],
+            "wrongBand": [0, 0], "left": [64, 64], "right": [64, 64], "sameBandCenter": [0, 0],
+            "quietLeft": [0, 0], "quietRight": [0, 0],
+            "highExponent": [64, 64], "cubicBeforeHighExponent": [20, 20],
+            "invalidExponent": [0, 0], "outOfScopeBurst": [0, 0],
+        })
 
     def test_phase_consumers_change_only_for_nonzero_response(self) -> None:
         self.assertNotEqual(self.result["initializerSilent"], self.result["initializerActive"])

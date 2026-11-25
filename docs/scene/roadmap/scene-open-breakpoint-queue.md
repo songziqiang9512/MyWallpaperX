@@ -125,8 +125,7 @@
 | 3187857248 | [原包单/双Surface拖动](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318)已恢复双Surface脚本拖动，作者命中范围与小幅变形保持。若物理单屏仍间歇失败，先取原生真实按下点/当前骨位置、持有与释放，再核命中、骨写与末端。官版按键传输未获资格。 |
 | 3781003282 | 中央白方[未重现](../capabilities/runtime-evidence-current.md#pointer-halo-378)。重启须可复现位置、画幅或桌面版本，再判888采样与独立395/e16。 |
 | Puppet 后置标量轨 | [384与独立377的普通骨轨已恢复](../capabilities/runtime-evidence-current.md#puppet-post-bounds-trs)。同相位标量替换未证主要遮挡差。重启须有单骨/同位置的可见交叠对照，再分纯绘制顺序、骨权重或几何作用。 |
-| 3382111183 | [官版曲线及原曲实机](../capabilities/runtime-evidence-current.md#floor-beam-emitter-338211)已测同档左右均值取峰、smoothstep后取幂和越1供值。待共享准备值合格后接普通发射器，验原包出生和运动。 |
-| 3383210272 / 3463406101 | [原曲](../capabilities/runtime-evidence-current.md#beam-shared-pcm)官版成双束、本机各2颗。[作者域接线](../capabilities/runtime-evidence-current.md#author-spectrum-capture-live-361)已使346原包出现前景音频变化，慢尾接近官版。待核弱起音及强段时间，再按[共享设计](../../architecture/system-audio-spectrum-design.md)验主束及独立消费者。 |
+| 3383210272 / 3463406101 | [338321 同输入持续音](../capabilities/runtime-evidence-current.md#floor-beam-continuous-emission)已恢复主束实际发射，原曲的扫射角度、色相和节拍仍待同相位对照。[346 作者域](../capabilities/runtime-evidence-current.md#author-spectrum-capture-live-361)已恢复前景音频变化，慢尾接近官版，尚待核弱起音及强段时序。 |
 | 2814167871 /2835398595 | 眼部为132/e1与98/e0的pulse RGB增亮，16档band0/1均值跨.5才响应；281强度属性默认1、283常量.51。[默认PCM前5秒](../capabilities/runtime-evidence-current.md#eye-audio-input)无跨线正控；后续同作者WAV的281两App静帧已有真实16档消费，但不能判眼部闪动或闪烁。粗档候选已撤回，283不追加矩阵。重启须可裁决实际供值/首错，再核同帧pulse→tail→眼RGB；不调gain/作者参数、不强注入1，不由bus非零关闭。 |
 | 3708363772 · 配色 | [共享次色](../capabilities/runtime-evidence-current.md#media-palette-official-370)仍有差异，续核排序与暗色过滤。 |
 | 3603711180 | [播放媒体的原包与两端实帧](../capabilities/runtime-evidence-current.md#author-player-text-current-360)恢复标题、艺人、剩余时间和实际封面。已测画幅首行同在左框外，观察其他比例/第二行与字体差异须用同视口同媒体复取；按原屏幕锚与字形范围核对。 |
@@ -229,6 +228,7 @@
 | 3228084178 | 已修复音条周期性近熄，静音保无柱。196散景恢复双侧。[音条](../capabilities/runtime-evidence-current.md#author-led-placement-tail-322) · [散景](../capabilities/runtime-evidence-current.md#box-birth-distance) |
 | 2868108515 | 已修复。锁链左侧规则叠影已消除，链条和正常雾层保留。[局部光效](../capabilities/runtime-evidence-current.md#author-chain-godrays-local-grid) |
 | 3141464346 | 部分修复。环形丝雾的工作栅格与弧线曲向已修复，原摆位裁切与官版一致，随音乐变化待核。[双环](../capabilities/runtime-evidence-current.md#ring-cover-314) |
+| 3382111183 | 已修复缺条。原曲驱动六层脚边彩条实际出生并入图。密度与节拍需要同相位证据再查。[原包与官版](../capabilities/runtime-evidence-current.md#floor-beam-continuous-emission) |
 | 3673609113 | 部分修复。片头后背景复制6→1，剩约0.66 MB/帧，GPU仍超预算。两级残影与官版同属作者合成。[性能](../capabilities/runtime-evidence-current.md#puppet-zero-alpha-private-frame-367) · [残影](../capabilities/runtime-evidence-current.md#author-motion-history-367) |
 | 3187857248 | 部分修复。双Surface拖动失效已修复，物理指针若仍间歇须新输入证据。[拖动](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318) |
 | 3766299002 | 已修复。面具属性正确选择纹理并保持眼部同步，两主题均验。[面具和眼部](../capabilities/runtime-evidence-current.md#author-conditional-mask-376) |

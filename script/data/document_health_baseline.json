@@ -22,7 +22,7 @@
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 50,
-      "bytes": 8346
+      "bytes": 8480
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 200,
@@ -121,8 +121,8 @@
       "bytes": 7411
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 363,
-      "bytes": 70538
+      "lines": 372,
+      "bytes": 71746
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 461,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 339965
+      "bytes": 340487
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 245,
-      "bytes": 69244
+      "bytes": 69191
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -361,10 +361,10 @@
     {
       "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "d33fccee54bc4d4343d09ab4208b0fe50e841b3709acf21ea3eab1ea1ef211ac",
-      "after": "aa654dc68242a363c3ac093b2da326052959c279e3fbc8fb6b6a139a6a25827e",
-      "owner": "Scene audio normalization",
-      "reason": "Describe bounded near-target group release in the existing capture clock.",
+      "before": "aa654dc68242a363c3ac093b2da326052959c279e3fbc8fb6b6a139a6a25827e",
+      "after": "8c8b1f7d01bd30b9a3b63c4e033381801c49f93aca56aa85ee09710bcf10efd1",
+      "owner": "Scene particle audio",
+      "reason": "Report steady-emitter use of the shared author bands.",
       "decision": "docs/architecture/system-audio-spectrum-design.md"
     },
     {
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "b531dceb8270dbb67fbdc83284be9fdf3e0f1f8a293443b3a53decf76ae5c46a",
-      "after": "e4594d5da629dfb60eacf1a714d74eb3210a9ab6328a65ca458464c19e6f84a2",
-      "owner": "Scene particle simulation",
-      "reason": "Record authored SizeChange consumption of the live instance size scale.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#size-change-instance-override"
+      "before": "e4594d5da629dfb60eacf1a714d74eb3210a9ab6328a65ca458464c19e6f84a2",
+      "after": "0d5d2bcc0c871cdfc8515667d97211af5dae54868878afffcd02d0304ea17256",
+      "owner": "Scene particle audio",
+      "reason": "Describe the measured continuous-emission band reduction and curve.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#continuous-emitter-audio-response"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "c18693eecfa9327db05b0223514247f16bc397715d787cf5a2a3ebd6fac5c275",
-      "after": "980f96a73f0f8d53312a62f7babd5d0809bc882dd3a0d95613b392fc9b1dc8fd",
-      "owner": "Scene particle simulation",
-      "reason": "Record bounded size, lifecycle, native hot input and original Scene evidence.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-size-change-instance-override"
+      "before": "980f96a73f0f8d53312a62f7babd5d0809bc882dd3a0d95613b392fc9b1dc8fd",
+      "after": "34f16b6be914d81db07ba241928e327780d0a049f426e8d40257c0e77d7b929a",
+      "owner": "Scene particle audio",
+      "reason": "Record official side selection, real author bars and independent GPU receipts.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#floor-beam-continuous-emission"
     },
     {
       "section": "bodies",

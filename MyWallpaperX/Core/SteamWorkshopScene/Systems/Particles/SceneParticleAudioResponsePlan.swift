@@ -33,13 +33,8 @@ nonisolated struct SceneParticleAudioInput: Equatable, Sendable {
     }
 }
 
-/// Project-owned clean-room approximation of particle audio response.
-///
-/// Public author documentation defines channel selection, 16 frequency bands, bounds and
-/// exponent behavior, but does not publish the particle runtime formula. This plan therefore
-/// uses a deliberately simple contract: mean the selected bands, normalize linearly inside
-/// the authored bounds, then apply the exponent. It is independent from the stock effect
-/// shader evaluator and does not claim Wallpaper Engine numeric parity.
+/// Continuous emission uses the measured peak and smoothstep response.
+/// Initializers and operators retain the existing mean and linear response.
 nonisolated struct SceneParticleAudioResponsePlan: Equatable, Sendable {
     nonisolated enum Channel: Int, Equatable, Sendable {
         case left = 1
@@ -51,8 +46,9 @@ nonisolated struct SceneParticleAudioResponsePlan: Equatable, Sendable {
     let bounds: ClosedRange<Double>
     let exponent: Double
     let frequencies: ClosedRange<Int>
+    private let forContinuousEmission: Bool
 
-    nonisolated init?(_ declaration: SceneParticleAudioResponse) {
+    nonisolated init?(_ declaration: SceneParticleAudioResponse, forContinuousEmission: Bool = false) {
         guard let mode = declaration.mode,
               let channel = Channel(rawValue: mode) else { return nil }
 
@@ -73,7 +69,8 @@ nonisolated struct SceneParticleAudioResponsePlan: Equatable, Sendable {
         }
 
         let exponent = declaration.exponent ?? 2
-        guard exponent.isFinite, exponent > 0, exponent <= 16 else { return nil }
+        guard exponent.isFinite, exponent > 0,
+              forContinuousEmission || exponent <= 16 else { return nil }
 
         let first = declaration.frequencyStart ?? 0
         let last = declaration.frequencyEnd ?? 1
@@ -84,68 +81,57 @@ nonisolated struct SceneParticleAudioResponsePlan: Equatable, Sendable {
         self.bounds = bounds
         self.exponent = exponent
         self.frequencies = min(first, last) ... max(first, last)
+        self.forContinuousEmission = forContinuousEmission
     }
 
     nonisolated func evaluate(_ input: SceneParticleAudioInput) -> Double {
-        var total = 0.0
-        for index in frequencies {
-            switch channel {
-            case .left:
-                total += Double(input.left[index])
-            case .right:
-                total += Double(input.right[index])
-            case .center:
-                total += Double(input.left[index]) + Double(input.right[index])
-            }
-        }
-        return boundedResponse(total: total)
+        evaluate(input, countSelected: false).response
     }
 
 #if DEBUG
-    /// Evaluates the authored response and counts positive selected inputs in
-    /// the same ordered traversal. Execution observation calls this only while
-    /// an identity is still unreported, avoiding a second scan of the bands.
     nonisolated func evaluateForExecutionObservation(
         _ input: SceneParticleAudioInput
     ) -> (response: Double, selectedNonZeroInputCount: Int) {
-        var total = 0.0
-        var selectedNonZeroInputCount = 0
-        for index in frequencies {
-            switch channel {
-            case .left:
-                let value = input.left[index]
-                total += Double(value)
-                if value > 0 { selectedNonZeroInputCount += 1 }
-            case .right:
-                let value = input.right[index]
-                total += Double(value)
-                if value > 0 { selectedNonZeroInputCount += 1 }
-            case .center:
-                let left = input.left[index]
-                let right = input.right[index]
-                total += Double(left) + Double(right)
-                if left > 0 { selectedNonZeroInputCount += 1 }
-                if right > 0 { selectedNonZeroInputCount += 1 }
-            }
-        }
-        return (
-            boundedResponse(total: total),
-            selectedNonZeroInputCount
-        )
+        evaluate(input, countSelected: true)
     }
 #endif
 
-    private nonisolated func boundedResponse(total: Double) -> Double {
+    @inline(__always)
+    private nonisolated func evaluate(
+        _ input: SceneParticleAudioInput, countSelected: Bool
+    ) -> (response: Double, selectedNonZeroInputCount: Int) {
+        var level = 0.0
+        var selectedNonZeroInputCount = 0
+        for index in frequencies {
+            let band: Double
+            switch channel {
+            case .left:
+                let value = input.left[index]
+                band = Double(value)
+                if countSelected && value > 0 { selectedNonZeroInputCount += 1 }
+            case .right:
+                let value = input.right[index]
+                band = Double(value)
+                if countSelected && value > 0 { selectedNonZeroInputCount += 1 }
+            case .center:
+                let left = input.left[index]
+                let right = input.right[index]
+                band = Double(left) + Double(right)
+                if countSelected {
+                    if left > 0 { selectedNonZeroInputCount += 1 }
+                    if right > 0 { selectedNonZeroInputCount += 1 }
+                }
+            }
+            level = forContinuousEmission ? max(level, band) : level + band
+        }
         let channelCount = channel == .center ? 2 : 1
-        let count = Double(frequencies.count * channelCount)
-        guard count > 0 else { return 0 }
-        let mean = total / count
+        let count = forContinuousEmission ? channelCount : frequencies.count * channelCount
         let normalized = min(max(
-            (mean - bounds.lowerBound) / (bounds.upperBound - bounds.lowerBound),
+            (level / Double(count) - bounds.lowerBound) / (bounds.upperBound - bounds.lowerBound),
             0
         ), 1)
-        let response = pow(normalized, exponent)
-        return response.isFinite ? min(max(response, 0), 1) : 0
+        let base = forContinuousEmission ? min(normalized * normalized * (3 - 2 * normalized), 1) : normalized
+        return (pow(base, exponent), selectedNonZeroInputCount)
     }
 }
 
@@ -245,7 +231,7 @@ nonisolated extension SceneParticleEmitter {
     /// Delay, duration, periodic, burst, Layer Image and unknown flag interactions remain
     /// fail closed until they receive their own timing contracts.
     var boundedAudioResponsePlan: SceneParticleAudioResponsePlan? {
-        guard let plan = SceneParticleAudioResponsePlan(audioResponse) else { return nil }
+        guard let plan = SceneParticleAudioResponsePlan(audioResponse, forContinuousEmission: true) else { return nil }
         let supportedKind: Bool = switch kind {
         case .sphereRandom, .boxRandom: true
         case .layerImage, .unsupported: false

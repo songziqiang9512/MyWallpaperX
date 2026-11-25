@@ -3,7 +3,7 @@
 
 # 共享音频分析与消费域设计
 
-> 状态：Scene 已由原采集服务发布独立作者域。原采集回调和Metal验证了48kHz可比频谱、[361原包亮弧与Bloom](../scene/capabilities/runtime-evidence-current.md#author-spectrum-capture-live-361)及独立346前景。44.1kHz通过本机物理轴行为门，官版该格式、首起音、强弱交接与整段时序待验。
+> Scene 已由原采集服务发布独立作者域。原采集回调和Metal验证了48kHz可比频谱、[361原包亮弧与Bloom](../scene/capabilities/runtime-evidence-current.md#author-spectrum-capture-live-361)及独立346前景。普通持续发射器沿同一作者16档，见[338原包](../scene/capabilities/runtime-evidence-current.md#floor-beam-continuous-emission)。44.1kHz通过本机物理轴行为门，官版该格式、首起音、强弱交接与整段时序待验。
 
 ## 目标与职责
 
