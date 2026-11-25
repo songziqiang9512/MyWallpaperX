@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 342777
+      "bytes": 343356
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 244,
-      "bytes": 69536
+      "lines": 243,
+      "bytes": 69211
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f64aa565fd6a6896c06871a00f782c613430e3f434174af75c66f2d2ee6c85f2",
-      "after": "589169c1fc07d993db7c6aca4b2b16fa040ebd152821a66aae77bb2f6326c9de",
-      "owner": "Scene particle material",
-      "reason": "更换旧白掩码许可为附件域公式，并记录官版色块、原包及独立作者的可核范围。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#ordinary-particle-sdr-material-gain"
+      "before": "589169c1fc07d993db7c6aca4b2b16fa040ebd152821a66aae77bb2f6326c9de",
+      "after": "c88595e7aada8711ab2da4c32a01ce74bd7e79c7868b3a4d089580abfe9377e6",
+      "owner": "Scene playback evidence",
+      "reason": "记录独立复核的首次已呈现视频和未命中全零方向边界。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#initial-material-video-ready-298"
     },
     {
       "section": "bodies",

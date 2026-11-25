@@ -17,12 +17,11 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| Sphere 全零方向的出生可见性（待证） | [固定零半径初速](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)已恢复。显式全零 Directions 的隔离 Sprite 在官版窗内无像素，本机可见且静止。需分出生资格与可见条件，先找活动作者或单轴逐步归零的反例，保零速度和非零轴的正常出生。 |
+| Sphere 全零方向的出生可见性（待证） | [固定零半径初速](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)已恢复。显式全零 Directions 的隔离 Sprite 官版无像素、本机有静点。现库860可读包及松散/库存的1,834个显式声明未见全零。重启须活动输入或子事件/占槽证据区分出生与可见性，保零速度和非零轴。 |
 | 音频环形变 · 3612940332 | [分组末段缓释](../capabilities/runtime-evidence-current.md#author-spectrum-near-target-release)已恢复已测音乐左弧的主要形变。小残差、44.1kHz和全环跨画幅仍开放，有新可见证据再核相位或构图。 |
 | 粒子外圈 · 3653620838 | [近轴与像素相位](../capabilities/runtime-evidence-current.md#vortex-outer-pixel-phase-365)的静卡一致。继续须运动同亚像素或重复成熟群组，区分出光与覆盖。 |
 | 3454689854 的相邻丝层 | [同画幅单丝、原包和实际预算](../capabilities/runtime-evidence-current.md#silk-capture-density-345)已闭两条SDR根丝密度。子层及多阶段保持原工作域，只有取得可归属的同相位残差再重启。原默认绕身文字两端均隐藏，条件另见[原包对照](../capabilities/runtime-evidence-current.md#author-silk-raster-345)。 |
 | Puppet 约束的剩余时序与组合 | [原317和313已恢复主要播放](../capabilities/runtime-evidence-current.md#puppet-planar-constraints-native)。固定根解析投影在317额外+96对照的肘误差约2.17px，313极近伸直时官版定槽后仍收敛。待有原包可见差异再核有效根位移与收敛。复杂链、挂点及同链脚本与物理后写按实际消费者验证。 |
-| 初始组合源未解析 · 2982559622 | 两次原包的111/e0在开头三次 preflight 读到 `resourceSnapshotUnresolved`，随后整景 Ready 且有终端 GPU 回执。保独立的103属性脚本 bad-return。先核111所需视频或命名源、显隐与首次可用时刻，再查目标 Program 有无恢复。 |
 | 筛查分母 · 3843644227 | 288作者自身 true，但父20使有效可见为 false，默认仅雾层298实际绘制。两次报告1/2、终端GPU正常，候选计数包含隐藏项。点击切换父层后再核288的实际绘制。 |
 | 3589454154 环黑点/快速闪烁（持续开放） | [全投影部件的实际足迹](../capabilities/model-runtime-evidence.md#model-shadow-fragment-taps)确认一处暗跳由共同接收三角形以外的真实阴影 tap 引起；直接收窄在另一处放大阶跃。再改滤波须先补实际子像素获胜域、相邻反例、宽主影与可比播放成本；颜色覆盖保原N2停止线。旧728848与官方关影待查。 |
 | 同输入天空背景点位差异（观察） | 3589454154原生/官方对照中的天空点位差异尚未归因，未认定产品缺陷。保留已有同输入画面，待环闪主问题收稳后再定位；本轮不开展新矩阵或按星点位置改算法。 |
@@ -133,7 +132,7 @@
 | 3436945972 /3463406101 /3443450456 | 分别偏暗、暗绿配色及灰白底黑字；同亮度、遮罩、配色/时段与音频输入后定位writer。 |
 | 3498814983 /3605722997 /3827673174 | 前后两项当前目录已移除，保原反馈为输入不可用；360572当前可运行。头脸取景仍须固定横屏camera/cover/平移与作者画布，portrait preview不能证明投影错误。 |
 | <a id="puppet-morph-peer-fallback"></a>3504669359 | 默认四秒旧强白圆未重现，固定圆核及材质/终端边界见[运行证据](../capabilities/runtime-evidence-current.md#coverage)。身体166的三个普通叠加槽已从共同解析失败中恢复实际骨骼动作，见[原包与固定相位对照](../capabilities/runtime-evidence-current.md#puppet-prebounds-curve-evidence)。clip700接入后已在实际合成重现闭眼与睁眼，[固定相位和独立作者](../capabilities/runtime-evidence-current.md#puppet-mdmp-oracle)通过。形变扩域按[能力边界](../capabilities/advanced-object-coverage.md#puppet-mdmp-morph)等活动输入。 |
-| 2982559622 | [竹林→池塘](../capabilities/runtime-evidence-current.md#coverage)已实际出图，退出该条件切换待核。103.alpha确为Vec3错误返回；111/94的条件+Script包装仍有冷准入边界，视频属于effect slot1。重启须合法附着回调/视频句柄及具体可见失败，不先放包装、不重跑默认或0→1。初始111短暂纹理未供与正常切换分开。 |
+| 2982559622 | [竹林→池塘](../capabilities/runtime-evidence-current.md#coverage)已出图。两次[首次激活](../capabilities/runtime-evidence-current.md#initial-material-video-ready-298)都已消费111的原视频，早期未供退出待办。103.alpha的Vec3错误返回及111/94冷准入仍开放，重启须合法附着回调/视频句柄或新可见失败。 |
 | 3034166869 /3223543799 | 其余 effect、媒体与完整画面；常开音条与条件隐藏分开，不凭短窗结构状态实施。 |
 | 2957870426 | PCM/静音已供，目标audio消费者仍未资格。中央竖光、birth Color Random/colorn与ROI须真实出生及颜色单位，不凭bus非零关闭；3383210272并入本次主要效果可见性优先项。 |
 | 3586308277 | SDR原色已恢复，扫描方向/可见度仍未知。[原作者两阶段](../capabilities/runtime-evidence-current.md#shimmer-phase)的Day430主字形均浅绿，未见可归属扫描变化；不能由所选4814近稳像素判冻结。冷常量/时钟链未见首错，g_Time实际上传未读回；现有两图不覆盖完整周期。此项收口，转其他基础播放；重启须可归属扫描ROI/实际phase或明确首错，不第三场延时、调方向/速度/颜色、重跑SDR或新增钩子。 |
