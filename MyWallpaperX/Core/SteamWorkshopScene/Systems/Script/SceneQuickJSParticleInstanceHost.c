@@ -8,6 +8,7 @@ static const struct { const char *name; uint32_t field; } instance_scalars[] = {
     { "alpha", MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA },
     { "rate", MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_RATE },
     { "count", MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_COUNT },
+    { "size", MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_SIZE },
 };
 
 // The instance object borrows the ordinary layer identity. Its scalar writes
@@ -42,6 +43,8 @@ static double particle_scalar_projection(
         return staged ? mutation->particle_alpha : record->particle_alpha;
     case MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_RATE:
         return staged ? mutation->particle_rate : record->particle_rate;
+    case MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_SIZE:
+        return staged ? mutation->particle_size : record->particle_size;
     default:
         return staged ? mutation->particle_count : record->particle_count;
     }
@@ -84,6 +87,8 @@ static JSValue instance_scalar_set(
         mutation->particle_alpha = value;
     else if (field == MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_RATE)
         mutation->particle_rate = value;
+    else if (field == MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_SIZE)
+        mutation->particle_size = value;
     else
         mutation->particle_count = value;
     mutation->fields |= field;

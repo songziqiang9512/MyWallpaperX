@@ -16,6 +16,7 @@ import simd
     static let alpha = SceneDynamicTarget.particle(layerID:42,field:.alpha)
     static let rate = SceneDynamicTarget.particle(layerID:42,field:.rate)
     static let count = SceneDynamicTarget.particle(layerID:42,field:.count)
+    static let size = SceneDynamicTarget.particle(layerID:42,field:.size)
     static let frame = SceneScriptFrameInput(timing:.init(wallDate:Date(timeIntervalSince1970:0),simulationFrameTime:0.25,sceneTime:1))
     static func main() throws {
         var results:[String:Bool]=[:]
@@ -25,7 +26,7 @@ import simd
             let emitter:[String:Any] = ["name":"boxrandom","rate":4,"distancemin":0,"distancemax":0]
             let root:[String:Any] = ["material":"own.json","maxcount":100,"starttime":0,"flags":0,
                 "emitter":multi ? [emitter,emitter] : [emitter],
-                "initializer":[["name":"lifetimerandom","min":60,"max":60]],"renderer":[["name":"sprite"]]]
+                "initializer":[["name":"lifetimerandom","min":60,"max":60],["name":"sizerandom","min":40,"max":40]],"renderer":[["name":"sprite"]]]
             return SceneParticleSimulator(definition:try SceneParticleDefinitionParser().parse(root:root),
                 instanceOverride:override,seed:91,fixedTimeStep:0.25)
         }
@@ -44,20 +45,28 @@ import simd
             result.append(value);return result
         }
         struct Values {let values:[SceneDynamicTarget:SceneDynamicValue]}
-        let sceneScriptStringResult = Values(values:[:]), sceneScriptVectorResult = Values(values:[:])
+        let sceneScriptStringResult = Values(values:[:])
+        let sceneScriptVectorResult = SceneScriptVectorFrameResult(values:[:], failures:[:],
+            materialFunctionMutations:[], animationMutations:[], layerMutations:[],
+            mediaPlaybackCommands:[], videoCommandTargets:[])
         let emptyScalarResult = SceneScriptScalarFrameResult(values:[:], failures:[:],
             materialFunctionMutations:[], animationMutations:[], layerMutations:[])
         var sceneScriptResult = emptyScalarResult
         // PRODUCTION_FRAME_SCRIPT_VALUES
         func resolution(_ runtime:SceneScriptDynamicLayerRuntime,_ admitted:[SceneScriptOwnerEffects],
                         plan:SceneScriptLayerMutationPlan? = nil,
-                        returned:[SceneDynamicTarget:SceneDynamicValue] = [:]) -> SceneDynamicSnapshot {
+                        returned:[SceneDynamicTarget:SceneDynamicValue] = [:],
+                        prepared:[SceneDynamicTargetDefinition] = []) -> SceneDynamicSnapshot {
             sceneScriptResult = .init(values:returned,failures:[:],materialFunctionMutations:[],
                 animationMutations:[],layerMutations:[])
             defer {sceneScriptResult = emptyScalarResult}
-            return SceneDynamicSnapshotResolver().resolve(frameIndex:0,generation:1,
-                definitions:runtime.authoredLayerDefinitions,
-                sceneScriptValues:frameScriptValues(admitted,layerPlan:plan ?? runtime.preflightOwnerEffects(admitted).layerPlan,excluding:[],timelineValues:[:])).snapshot
+            let plan = plan ?? runtime.preflightOwnerEffects(admitted).layerPlan
+            let resolver = SceneDynamicSnapshotResolver()
+            let index = SceneDynamicSnapshotResolver.prepare(definitions:runtime.authoredLayerDefinitions + prepared)
+            let preliminary = resolver.resolve(frameIndex:0,generation:1,index:index)
+            return resolver.resolve(frameIndex:0,generation:1,index:index,base:preliminary,
+                sceneScriptValues:frameScriptValues(admitted,layerPlan:plan,excluding:[],timelineValues:[:]),
+                candidateDefinitions:plan.authoredDefinitionsByTarget).snapshot
         }
         func override(_ snapshot:SceneDynamicSnapshot,_ authored:SceneParticleInstanceOverride? = nil) -> SceneParticleInstanceOverride? {
             SceneParticleInstanceOverride.resolving(authored:authored,dynamic:snapshot.particleInstanceValues(layerID:42))
@@ -90,7 +99,7 @@ import simd
             results["next-callback-reads-committed-mirror"] = next[alpha]?.value == .scalar(0.25)
         }
         // Return-only, aligned return/setter and another target's setter use the real frame merge.
-        for (field,target) in [("rate",rate),("count",count)] {
+        for (field,target) in [("rate",rate),("count",count),("size",size)] {
             for (amount,births) in [(0.0,0),(0.5,2),(1.0,4),(2.0,8)] {
                 for mode in ["return-only","aligned","other-target"] {
                     let runtime = SceneScriptDynamicLayerRuntime(descriptor:descriptor,authoredMutationLayerIDs:[])
@@ -103,8 +112,10 @@ import simd
                         valueType:scalarOwner ? .scalar : .vector3)
                     let value = try evaluate(owner,scalarOwner ? .scalar(1) : .vector3(0,0,0))
                     let admission = runtime.preflightOwnerEffects([effects(owner,value)])
+                    let prepared = field == "size" && mode == "return-only"
+                        ? [SceneScriptDynamicLayerRuntime.definition(for:target,layer:descriptor.layers[0])!] : []
                     let current = resolution(runtime,admission.admittedEffects,
-                        returned:scalarOwner ? [target:value.value] : [:])
+                        returned:scalarOwner ? [target:value.value] : [:],prepared:prepared)
                     let key = "\(field)-\(mode)-\(amount)"
                     results["typed-frame-\(key)"] = admission.rejectedOwners.isEmpty
                         && current[target]?.value == .scalar(amount) && current.authoredValue(for:target) == .scalar(1)
@@ -112,7 +123,7 @@ import simd
                     simulation.advance(by:1,dynamicInstanceOverride:override(current))
                     let authored = SceneParticleDefinitionParser().parseInstanceOverride([field:amount])!
                     let control = try sim(authored);control.advance(by:1)
-                    results["natural-consumer-\(key)"] = simulation.particles.count == births
+                    results["natural-consumer-\(key)"] = simulation.particles.count == (field == "size" ? 4 : births)
                         && simulation.particles == control.particles && simulation.simulationTime == control.simulationTime
                         && simulation.simulationTime == (field == "rate" ? amount : 1)
                     let existing = try sim();existing.advance(by:1)
@@ -121,7 +132,7 @@ import simd
                     let elapsed = field == "rate" ? amount : 1
                     results["old-population-time-\(key)"] = !old.isEmpty && existing.simulationTime == 1 + elapsed
                         && old.allSatisfy{prior in existing.particles.contains{
-                            $0.id == prior.id && $0.age == prior.age + elapsed && $0.alpha == prior.alpha}}
+                            $0.id == prior.id && $0.age == prior.age + elapsed && $0.alpha == prior.alpha && $0.size == prior.size}}
                     if mode != "return-only" {
                         runtime.commit(admission.layerPlan);owner.commitLayerMutations()
                         let next = SceneDynamicSnapshotResolver().resolve(frameIndex:1,generation:1,
@@ -133,7 +144,7 @@ import simd
             }
         }
         // Explicit read baselines transport real journals without changing the frozen publication.
-        for (field,target) in [("alpha",alpha),("rate",rate),("count",count)] {
+        for (field,target) in [("alpha",alpha),("rate",rate),("count",count),("size",size)] {
             let runtime = SceneScriptDynamicLayerRuntime(descriptor:descriptor,authoredMutationLayerIDs:[])
             let domain = try SceneScriptQuickJSDomain()
             try domain.publishLayerSnapshot(resolution(runtime,[]),descriptor:descriptor,particleInstanceLayerIDs:[42])
@@ -164,7 +175,7 @@ import simd
             let runtime = SceneScriptDynamicLayerRuntime(descriptor:renamed,authoredMutationLayerIDs:[])
             let domain = try SceneScriptQuickJSDomain()
             try domain.publishLayerSnapshot(resolution(runtime,[]),descriptor:renamed,particleInstanceLayerIDs:[id])
-            let owner = try author(domain,"let h;let n=0;export function update(v){if(!h)h=thisScene.getLayer('\(name)').instance;let expected=n++===0?1:.5;if(h.rate!==expected||h.count!==(n===1?1:2))throw Error('cached mirror');h.alpha=.25;h.rate=.5;h.count=2;return v;}",
+            let owner = try author(domain,"let h;let n=0;export function update(v){if(!h)h=thisScene.getLayer('\(name)').instance;let expected=n++===0?1:.5;if(h.rate!==expected||h.count!==(n===1?1:2)||h.size!==expected)throw Error('cached mirror');h.alpha=.25;h.rate=.5;h.count=2;h['size']=1/2;return v;}",
                 target:.layer(layerID:id,field:.origin))
             let first = try evaluate(owner)
             let admission = runtime.preflightOwnerEffects([effects(owner,first)])
@@ -175,6 +186,7 @@ import simd
             results["cached-renamed-instance-mirror-\(id)"] = current[.particle(layerID:id,field:.alpha)]?.value == .scalar(0.25)
                 && current[.particle(layerID:id,field:.rate)]?.value == .scalar(0.5)
                 && current[.particle(layerID:id,field:.count)]?.value == .scalar(2)
+                && current[.particle(layerID:id,field:.size)]?.value == .scalar(0.5)
         }
         // Instance availability is independent of the stricter playback profile.
         do {
@@ -196,7 +208,8 @@ import simd
             results["ordinary-layer-has-no-particle-definition"] = !runtime.authoredLayerDefinitions.contains{
                 $0.target == .particle(layerID:99,field:.alpha)
                     || $0.target == .particle(layerID:99,field:.rate)
-                    || $0.target == .particle(layerID:99,field:.count)}
+                    || $0.target == .particle(layerID:99,field:.count)
+                    || $0.target == .particle(layerID:99,field:.size)}
             let ordinary = try author(domain,"export function update(v){thisScene.getLayer('parent').instance.rate=.5;return v;}",
                 target:.layer(layerID:42,field:.scale))
             do {_ = try evaluate(ordinary);results["ordinary-layer-instance-rejected"]=false}
@@ -273,28 +286,30 @@ import simd
             let runtime = SceneScriptDynamicLayerRuntime(descriptor:descriptor,authoredMutationLayerIDs:[])
             let domain = try SceneScriptQuickJSDomain()
             try domain.publishLayerSnapshot(resolution(runtime,[]),descriptor:descriptor,particleInstanceLayerIDs:[42])
-            let failing = try author(domain,"export function update(v){thisLayer.instance.alpha=.25;thisLayer.instance.rate=2;thisLayer.instance.count=0;thisLayer.origin.x=7;throw Error('rollback');}")
+            let failing = try author(domain,"export function update(v){thisLayer.instance.alpha=.25;thisLayer.instance.rate=2;thisLayer.instance.count=0;thisLayer.instance.size=2;thisLayer.origin.x=7;throw Error('rollback');}")
             do {_ = try evaluate(failing);results["throw-rejects-owner"]=false} catch {results["throw-rejects-owner"]=true}
-            let healthy = try author(domain,"export function update(v){if(thisLayer.instance.alpha!==1||thisLayer.instance.rate!==1||thisLayer.instance.count!==1||thisLayer.origin.x!==0)throw Error('leak');thisLayer.instance.alpha=.75;thisLayer.instance.rate=.5;thisLayer.instance.count=2;return v;}",target:.layer(layerID:42,field:.scale))
+            let healthy = try author(domain,"export function update(v){if(thisLayer.instance.alpha!==1||thisLayer.instance.rate!==1||thisLayer.instance.count!==1||thisLayer.instance.size!==1||thisLayer.origin.x!==0)throw Error('leak');thisLayer.instance.alpha=.75;thisLayer.instance.rate=.5;thisLayer.instance.count=2;thisLayer.instance.size=.5;return v;}",target:.layer(layerID:42,field:.scale))
             let value = try evaluate(healthy)
             let admission = runtime.preflightOwnerEffects([effects(healthy,value)])
             results["failed-owner-keeps-healthy-peer"] = admission.rejectedOwners.isEmpty
                 && resolution(runtime,admission.admittedEffects)[alpha]?.value == .scalar(0.75)
                 && resolution(runtime,admission.admittedEffects)[rate]?.value == .scalar(0.5)
                 && resolution(runtime,admission.admittedEffects)[count]?.value == .scalar(2)
+                && resolution(runtime,admission.admittedEffects)[size]?.value == .scalar(0.5)
             let mutation = value.layerMutations.first!
             let copies = [mutation.owned(by:origin),mutation.resolvingAssetPath(to:"own"),mutation.selectingAuthoredFields(.particleInstance)]
             results["mutation-copies-preserve-independent-instance-fields"] = copies.allSatisfy{
-                $0.particleAlpha==0.75 && $0.particleRate==0.5 && $0.particleCount==2}
+                $0.particleAlpha==0.75 && $0.particleRate==0.5 && $0.particleCount==2 && $0.particleSize==0.5}
             let coalesced = SceneScriptLayerMutation.coalescing([mutation,mutation.selectingAuthoredFields(.origin)]).first
             results["mutation-coalescing-preserves-independent-instance-fields"] = coalesced?.particleAlpha == 0.75
-                && coalesced?.particleRate == 0.5 && coalesced?.particleCount == 2
+                && coalesced?.particleRate == 0.5 && coalesced?.particleCount == 2 && coalesced?.particleSize == 0.5
             runtime.commit(admission.layerPlan);healthy.commitLayerMutations()
             let destroy = SceneScriptLayerMutation(kind:.destroy,isDynamic:false,fields:[],layerID:42,orderIndex:0,
                 visible:false,alpha:1,origin:.zero,scale:.init(repeating:1),angles:.zero,color:.init(repeating:1),pointSize:32,text:"",font:"",assetPath:nil)
             _ = try runtime.apply([destroy]).get()
             results["destroy-clears-particle-instance-values"] = runtime.snapshot().authoredLayerValues[alpha] == nil
                 && runtime.snapshot().authoredLayerValues[rate] == nil && runtime.snapshot().authoredLayerValues[count] == nil
+                && runtime.snapshot().authoredLayerValues[size] == nil
         }
         // Interleaved callbacks must publish the same winner now and after commit.
         for rejectPeerWrite in [false,true] {
@@ -344,7 +359,7 @@ import simd
                 && settled.admission.layerPlan.particleTransitions.contains{$0.action == .play}
         }
         // Missing actual instance resource and non-finite Number cannot become successful values.
-        for field in ["alpha","rate","count"] {
+        for field in ["alpha","rate","count","size"] {
             for available in [false,true] {
                 for invalid in available ? ["Infinity","NaN","'0.5'","true","null"] : ["0.5"] {
                     let runtime = SceneScriptDynamicLayerRuntime(descriptor:descriptor,authoredMutationLayerIDs:[])
@@ -371,8 +386,9 @@ class ParticleInstanceAlphaTests(unittest.TestCase):
         preamble = SWIFT_PREAMBLE[:start] + SWIFT_PREAMBLE[end:]
         source = (SCENE / "Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift").read_text()
         start = source.index("        func frameScriptValues(")
-        end = source.index("        func timelineProjection(", start)
-        harness = HARNESS.replace("        // PRODUCTION_FRAME_SCRIPT_VALUES", source[start:end])
+        end = source.index("        var settledTimelineValues:", start)
+        projection = source[start:end].replace("launchContext.runtimeInput.renderDescriptor", "descriptor")
+        harness = HARNESS.replace("        // PRODUCTION_FRAME_SCRIPT_VALUES", projection)
         with tempfile.TemporaryDirectory(prefix="mwx-particle-instance-alpha-") as raw:
             binary = compile_vector_harness(Path(raw), harness, "particle-instance-alpha", preamble=preamble,
                 extra_swift_sources=tuple(PARTICLE_SOURCES) + (SCENE / "Systems/Particles/SceneParticleInstanceOverride+Dynamic.swift",),
@@ -384,7 +400,7 @@ class ParticleInstanceAlphaTests(unittest.TestCase):
             self.assertTrue(result)
             for name, passed in result.items():
                 with self.subTest(name=name):
-                    self.assertTrue(passed, run.stdout + run.stderr)
+                    self.assertTrue(passed)
 
 
 if __name__ == "__main__":

@@ -162,6 +162,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
         pending[index].particle_alpha = record->particle_alpha;
         pending[index].particle_rate = record->particle_rate;
         pending[index].particle_count = record->particle_count;
+        pending[index].particle_size = record->particle_size;
         pending[index].point_size = record->point_size;
         pending[index].video_source_index = record->video_source_index;
         pending[index].sound_available = record->sound_available;
@@ -336,6 +337,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
     staged->particle_alpha = 1;
     staged->particle_rate = 1;
     staged->particle_count = 1;
+    staged->particle_size = 1;
     staged->texture_animation_available = false;
     staged->texture_animation_frame_count = 0;
     staged->texture_animation_duration = 0;
@@ -619,6 +621,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         const double previous_particle_alpha = record->particle_alpha;
         const double previous_particle_rate = record->particle_rate;
         const double previous_particle_count = record->particle_count;
+        const double previous_particle_size = record->particle_size;
         const double previous_point_size = record->point_size;
         const uint32_t previous_video_source_index = record->video_source_index;
         const bool previous_sound_available = record->sound_available;
@@ -675,6 +678,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         record->particle_alpha = staged->particle_alpha;
         record->particle_rate = staged->particle_rate;
         record->particle_count = staged->particle_count;
+        record->particle_size = staged->particle_size;
         record->point_size = staged->point_size;
         record->video_source_index = staged->video_source_index;
         record->sound_available = staged->sound_available;
@@ -717,6 +721,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         staged->particle_alpha = previous_particle_alpha;
         staged->particle_rate = previous_particle_rate;
         staged->particle_count = previous_particle_count;
+        staged->particle_size = previous_particle_size;
         staged->point_size = previous_point_size;
         staged->video_source_index = previous_video_source_index;
         staged->sound_available = previous_sound_available;
@@ -819,6 +824,7 @@ bool mwx_scene_quickjs_domain_rollback_layer_snapshot(
         record->particle_alpha = saved->particle_alpha;
         record->particle_rate = saved->particle_rate;
         record->particle_count = saved->particle_count;
+        record->particle_size = saved->particle_size;
         record->point_size = saved->point_size;
         record->video_source_index = saved->video_source_index;
         record->sound_available = saved->sound_available;
@@ -903,12 +909,12 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_particle_playback(
 
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_particle_instance(
     MWXSceneQuickJSDomain *domain, uint32_t layer_index, uint32_t available,
-    double alpha, double rate, double count, char *diagnostic, size_t diagnostic_capacity
+    double alpha, double rate, double count, double size, char *diagnostic, size_t diagnostic_capacity
 ) {
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
     if (domain == NULL || domain->callback_active || domain->pending_layer_snapshot == NULL ||
         layer_index >= domain->authored_layer_count || !domain->layers[layer_index].configured ||
-        available > 1 || !isfinite(alpha) || !isfinite(rate) || !isfinite(count)) {
+        available > 1 || !isfinite(alpha) || !isfinite(rate) || !isfinite(count) || !isfinite(size)) {
         mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "invalid particle instance projection");
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
@@ -917,5 +923,6 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_particle_instance(
     staged->particle_alpha = alpha;
     staged->particle_rate = rate;
     staged->particle_count = count;
+    staged->particle_size = size;
     return MWX_SCENE_QUICKJS_OK;
 }

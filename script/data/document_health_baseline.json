@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 379,
-      "bytes": 72468
+      "bytes": 72545
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 463,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 347590
+      "bytes": 348525
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 228,
-      "bytes": 42173
+      "bytes": 42375
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 120,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 243,
-      "bytes": 69877
+      "bytes": 69990
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "0d5d2bcc0c871cdfc8515667d97211af5dae54868878afffcd02d0304ea17256",
-      "after": "095e97593c8086b43abc011ecbc5f335b22aaf635df3ecc68cfa93a629e908e3",
-      "owner": "Scene particle material",
-      "reason": "更换旧白掩码许可为附件域公式，并记录官版色块、原包及独立作者的可核范围。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#ordinary-particle-sdr-material-gain"
+      "before": "095e97593c8086b43abc011ecbc5f335b22aaf635df3ecc68cfa93a629e908e3",
+      "after": "e528641340afbccefbd8530627eb56b0852a7d80ac1049dd7539253f170cee4c",
+      "owner": "SceneScript particle instance values",
+      "reason": "沿原实例事务接入尺寸并登记官版、本机及独立作者的发射证据。",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#particle-instance-scalars"
     },
     {
       "section": "bodies",
@@ -451,11 +451,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "7076c0ae38699743dde2c6b4416677034c84e9cccb43b194483082541c92a235",
-      "after": "d743c1063933128347643129a1bedbe254aa0a249fbd1ac7e0221bd86b6cfd05",
-      "owner": "Scene text and media presentation",
-      "reason": "Define the authored text setter handoff to the published stateful string value.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#authored-text-current-value"
+      "before": "61e7f4971701b0676f80ba1d87404913bf6d997c62b572dd55464ea0366cc305",
+      "after": "92d33df161f754b65e4878ecc1770cf2c241ab5939611b7cdb1f48f2d0751032",
+      "owner": "SceneScript particle instance values",
+      "reason": "沿原实例事务接入尺寸并登记官版、本机及独立作者的发射证据。",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#particle-instance-scalars"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e8e7a6e1cb05d84ccc2ea49f09855306d4c68ef59df29fd5a71a2005a557492f",
-      "after": "656e3ff5344a434a68da221b0482c296a19aaa2e9f462cb8a3b1d54fb7e3470b",
-      "owner": "Scene author ring response",
-      "reason": "登记314同PCM和同画幅下实际两环出退、循环静音反例及作者时钟边界。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ring-audio-response-314"
+      "before": "656e3ff5344a434a68da221b0482c296a19aaa2e9f462cb8a3b1d54fb7e3470b",
+      "after": "aca7e7255d2b414fa50d39ec4cb9cebb29a7dc174c46dc8a157f1e4b54dbd698",
+      "owner": "SceneScript particle instance values",
+      "reason": "沿原实例事务接入尺寸并登记官版、本机及独立作者的发射证据。",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#particle-instance-scalars"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "df8822ab96de8c17c8774cb2b314bd63bba8ec472752bb5d9df9f8a8603020db",
-      "after": "082a46d1f7ece63a85b1069fd20c8136808e262e8dd6a8ce8cf2318c00a719be",
-      "owner": "Scene author ring response",
-      "reason": "登记314同PCM和同画幅下实际两环出退、循环静音反例及作者时钟边界。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ring-audio-response-314"
+      "before": "082a46d1f7ece63a85b1069fd20c8136808e262e8dd6a8ce8cf2318c00a719be",
+      "after": "f54e711dd7849cfec40012ff77fe1a49e0e31608694cbcd2274feafc6a371408",
+      "owner": "SceneScript particle instance values",
+      "reason": "沿原实例事务接入尺寸并登记官版、本机及独立作者的发射证据。",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#particle-instance-scalars"
     },
     {
       "section": "bodies",

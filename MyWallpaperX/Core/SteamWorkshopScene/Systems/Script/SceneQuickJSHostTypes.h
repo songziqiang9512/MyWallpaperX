@@ -160,6 +160,7 @@ typedef enum MWXSceneQuickJSLayerMutationField {
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VOLUME = 1u << 14,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_RATE = 1u << 15,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_COUNT = 1u << 16,
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_SIZE = 1u << 17,
 } MWXSceneQuickJSLayerMutationField;
 
 typedef struct MWXSceneQuickJSLayerMutation {
@@ -179,6 +180,7 @@ typedef struct MWXSceneQuickJSLayerMutation {
     double particle_alpha;
     double particle_rate;
     double particle_count;
+    double particle_size;
     double volume;
     double origin[3];
     double scale[3];

@@ -588,6 +588,7 @@ nonisolated enum SceneScriptLayerMutationBridge {
                 assetPath: assetPath.nilIfEmpty,
                 ownerTarget: ownerTarget, effectVisibilities: effectVisibilities, solid: raw.solid != 0,
                 particleAlpha: raw.particle_alpha, particleRate: raw.particle_rate, particleCount: raw.particle_count,
+                particleSize: raw.particle_size,
                 volume: raw.volume,
                 perspective: raw.perspective == 2 ? nil : raw.perspective != 0,
                 size: raw.size_available == 0 ? nil : .init(raw.size.0, raw.size.1),

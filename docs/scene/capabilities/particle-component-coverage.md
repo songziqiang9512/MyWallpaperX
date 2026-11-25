@@ -70,7 +70,7 @@ Turbulence、Turbulent Velocity、Remap 和 Position Offset 共用梯度噪声�
 
 出生将有效 `instanceoverride.size` 纳入尺寸基值。模拟步从该基值重置，再按作者顺序执行各尺寸算子。每条 `sizechange` 将按寿命进度插值的原曲线值与当前有效尺寸倍率相乘，再乘入粒子尺寸。缺省倍率及禁用位128为1。单条和多条沿同一规则。热倍率随原 typed 输入进入模拟步，存量曲线读取当前值，出生基值继续保留；新生同时取得当时的出生倍率。无 SizeChange 的普通卡和其它尺寸算子沿各自既有规则。
 
-原模拟器统一取得有效倍率，每条 SizeChange 在粒子循环外取值一次。现有曲线、预热、实例载体、GPU 几何和混合路径继续使用。验收覆盖单位值、放大和缩小、禁用位、等价端点、多条顺序、其它 writer、重复步、热重绑，以及原包与独立作者的实际 GPU 帧。脚本 `instance.size` setter 属属性接入，另按实际供货验证。
+原模拟器统一取得有效倍率，每条 SizeChange 在粒子循环外取值一次。现有曲线、预热、实例载体、GPU 几何和混合路径继续使用。验收覆盖单位值、放大和缩小、禁用位、等价端点、多条顺序、其它 writer、重复步、热重绑，以及原包与独立作者的实际 GPU 帧。脚本 `instance.size` 沿[原句柄事务](scenescript-api-coverage.md#particle-instance-scalars)供同一倍率，显式出生使用已发布快照。
 
 <a id="control-point-position"></a>
 ### 控制点位置的取值职责

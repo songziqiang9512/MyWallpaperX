@@ -50,7 +50,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_particle_playback(
 // The instance projection is independent of playback-command admission.
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_particle_instance(
     MWXSceneQuickJSDomain *domain, uint32_t layer_index, uint32_t available,
-    double alpha, double rate, double count, char *diagnostic, size_t diagnostic_capacity);
+    double alpha, double rate, double count, double size, char *diagnostic, size_t diagnostic_capacity);
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_particle_instance_alpha(
     MWXSceneQuickJSOwner *owner, int64_t layer_id, double *alpha);
 size_t mwx_scene_quickjs_owner_particle_playback_command_count(const MWXSceneQuickJSOwner *owner);
@@ -555,6 +555,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     double particle_alpha,
     double particle_rate,
     double particle_count,
+    double particle_size,
     double volume,
     double point_size,
     const double color[3],

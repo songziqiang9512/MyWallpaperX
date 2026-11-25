@@ -641,7 +641,8 @@ extension SceneDesktopWallpaperSession {
                 }
                 if !mutation.fields.intersection(.particleInstance).isEmpty {
                     let fields: [(SceneScriptLayerMutation.Fields, SceneDynamicParticleField)] = [
-                        (.particleAlpha, .alpha), (.particleRate, .rate), (.particleCount, .count),
+                        (.particleAlpha, .alpha), (.particleRate, .rate),
+                        (.particleCount, .count), (.particleSize, .size),
                     ]
                     for (field, targetField) in fields where mutation.fields.contains(field) {
                         let target = SceneDynamicTarget.particle(layerID: mutation.layerID, field: targetField)

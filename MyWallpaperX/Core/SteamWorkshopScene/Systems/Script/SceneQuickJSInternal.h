@@ -151,6 +151,7 @@ typedef struct MWXSceneQuickJSLayerRecord {
     double particle_alpha;
     double particle_rate;
     double particle_count;
+    double particle_size;
     double volume;
     double point_size;
     int32_t order_index;
@@ -218,6 +219,7 @@ typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     double particle_alpha;
     double particle_rate;
     double particle_count;
+    double particle_size;
     double volume;
     double point_size;
     bool visible;
@@ -254,6 +256,7 @@ typedef struct MWXSceneQuickJSAuthoredLayerMutationRecord {
     double particle_alpha;
     double particle_rate;
     double particle_count;
+    double particle_size;
     double volume;
     double point_size;
     double color[3];
