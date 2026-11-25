@@ -122,7 +122,7 @@
 | 3187857248 | [原包单/双Surface拖动](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318)已恢复双Surface脚本拖动，作者命中范围与小幅变形保持。若物理单屏仍间歇失败，先取原生真实按下点/当前骨位置、持有与释放，再核命中、骨写与末端。官版按键传输未获资格。 |
 | 3781003282 | 中央白方[未重现](../capabilities/runtime-evidence-current.md#pointer-halo-378)。重启须可复现位置、画幅或桌面版本，再判888采样与独立395/e16。 |
 | Puppet 后置标量轨 | [384与独立377的普通骨轨已恢复](../capabilities/runtime-evidence-current.md#puppet-post-bounds-trs)。同相位标量替换未证主要遮挡差。重启须有单骨/同位置的可见交叠对照，再分纯绘制顺序、骨权重或几何作用。 |
-| 3383210272 / 3463406101 | [338321 同输入持续音](../capabilities/runtime-evidence-current.md#floor-beam-continuous-emission)已恢复主束实际发射，原曲的扫射角度、色相和节拍仍待同相位对照。[346 作者域](../capabilities/runtime-evidence-current.md#author-spectrum-capture-live-361)已恢复前景音频变化，慢尾接近官版，尚待核弱起音及强段时序。 |
+| 3383210272 / 3463406101 | [338321 主束已出](../capabilities/runtime-evidence-current.md#floor-beam-continuous-emission)，扫射角度、色相及节拍待同相位。346前景已响应，[同窗回亮仍慢](../capabilities/runtime-evidence-current.md#forefront-recovery-346)。先取可区分分析代次的音频对照；不从两音固定相位调释放。 |
 | 2814167871 /2835398595 | 眼部为132/e1与98/e0的pulse RGB增亮，16档band0/1均值跨.5才响应；281强度属性默认1、283常量.51。[默认PCM前5秒](../capabilities/runtime-evidence-current.md#eye-audio-input)无跨线正控；后续同作者WAV的281两App静帧已有真实16档消费，但不能判眼部闪动或闪烁。粗档候选已撤回，283不追加矩阵。重启须可裁决实际供值/首错，再核同帧pulse→tail→眼RGB；不调gain/作者参数、不强注入1，不由bus非零关闭。 |
 | 3603711180 | [播放媒体的原包与两端实帧](../capabilities/runtime-evidence-current.md#author-player-text-current-360)恢复标题、艺人、剩余时间和实际封面。已测画幅首行同在左框外，观察其他比例/第二行与字体差异须用同视口同媒体复取；按原屏幕锚与字形范围核对。 |
 | 2887099508 · 图5 | [黑纹](../capabilities/runtime-evidence-current.md#basic-interaction-288)未重现，待同相位ROI或具体版本。原生持续悬停待合格输入，仅在出现可重复的命中问题时复核。 |
@@ -181,7 +181,7 @@
 | 密集预热 · 3337494481 | [原包交错实测](../capabilities/runtime-evidence-current.md#particle-turbulence-borrow)确认签名优化态可启动，普通Debug超时仅限该取证配置。单root去隐藏轨迹的隔离计时重叠，候选退出。实际首屏仍以完整预热为主；继续依据可移除的工作，保作者时序、随机、历史和首帧。 |
 | 3749463715 | [现役历史结算唤醒](../capabilities/runtime-evidence-current.md#gpu-admission-wake-374)已降低等待。[末端消融](../capabilities/runtime-evidence-current.md#terminal-main-ablation)每帧去掉五个离屏材质，实呈与GPU时间持平，候选已撤回。后续只追有新证据的显著成本，保跨帧历史与回滚；不重跑末端消融、不放宽容量或按重叠时戳删材质。 |
 | 3420215721 | [同包实测](../capabilities/runtime-evidence-current.md#scene-playback-triage-342)确认 GPU 超预算，稳定帧 history split 已减少 seed copy。[运行时失败反例](../capabilities/runtime-evidence-current.md#stale-history-seed)补查历史保持；后续只补同 scene-time 像素 A/B、真实 descriptor/reset 与 activation 切换的未覆盖范围，不重复已有效的构建和稳定帧测量，不增 pin 或 history owner。 |
-| 3673609113 | [GPU等待超时空跑已修复](../capabilities/runtime-evidence-current.md#gpu-admission-timeout-367)，实呈约19.4→25.9fps。GPU仍约30ms/帧，续查须有默认播放的可移除成本。关散景变体须保两级历史及终端。片头后[两层零覆盖私有图](../capabilities/runtime-evidence-current.md#ordinary-zero-alpha-chain-367)已省。 |
+| 3673609113 | [GPU续等已修复](../capabilities/runtime-evidence-current.md#gpu-admission-timeout-367)，实呈19.4→25.9fps，GPU仍约30ms。[零覆盖图](../capabilities/runtime-evidence-current.md#ordinary-zero-alpha-chain-367)已省。HDR末段合并台架逐位同图，GPU约省0.3ms；待整景，保两级历史。归`.artifacts/scene-hdr-terminal-probe-20261125`。 |
 
 测量与退出规则只归[性能方法](performance-convergence-card.md)，本表不沿用旧实验数值或认领收益。
 
