@@ -347,10 +347,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "13b035703d767dc33100b773452eca0cafe5d38c62ae83e5ad0045f4af60e5a8",
+        "sourceSHA256": "3875e75f243305d5050d0c787990863e111cde744171e0bcd925cbded5bef471",
         "method": "document_registry --audit + document_health --check",
-        "scope": "区分 Video 播放捕获和片源封装的 HDR 证据",
-        "limitations": "填充保两种原模式。实际 HDR 捕获边界见 Video 的实窗记录。"
+        "scope": "评估路线、数值基线和重参数化求积退出证据",
+        "limitations": "CPU 归一化视线证据，未进入生产 shader、真机画面或功耗"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "486687adaa8e9a6cb70ee0c41b4c9faf84c918a0a52436bd083fd81c742f054c",
+        "sourceSHA256": "e9f4d8f0233c7d4ed8d6e77154ef94a3a28c9748b605907561a91359015e7a45",
         "method": "document_registry --audit + document_health --check",
-        "scope": "登记完整重置的登录项语义与原生验证",
-        "limitations": "仅完整重置读取系统状态。原服务错误继续上报。"
+        "scope": "三引擎当前批、执行顺序和候选退出入口",
+        "limitations": "低／中体积未开放，物理混合显示、支持 8× 的设备和长稳功耗待验"
       }
     },
     {

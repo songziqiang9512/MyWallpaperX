@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 349,
-      "bytes": 82814
+      "lines": 358,
+      "bytes": 84619
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 128465
+      "bytes": 128650
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "290c01eb96b87be7529558c89f24ad02e61cdde2edd2ee5633160e88a2708cf8",
-      "after": "e51eca615e222947e72f00a3e0fdcb1531a48e15b283233aafef3cfd4620d168",
-      "owner": "wallpaper-quality",
-      "reason": "登记完整重置的登录项语义与原生验证",
-      "decision": "docs/development/wallpaper-quality-work-card.md#quality-only-import-playback"
+      "before": "e51eca615e222947e72f00a3e0fdcb1531a48e15b283233aafef3cfd4620d168",
+      "after": "7af63b4bc09275d15276743c99330437da7bc825a3929d703b2846be3c54c5a1",
+      "owner": "壁纸质量改造",
+      "reason": "同步体积求积数值退出与当前档位",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-volume-density-arithmetic"
     },
     {
       "section": "bodies",
@@ -684,11 +684,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "e84a6996abfad7b80f7b0deb6a9506dcd0b496bd53f5b0d77c84eccd4a006dc1",
-      "after": "3e8ba781ef18a69b38874d7c10e6aa39c72d460a1efda1b3157c0c85cd80d4bc",
-      "owner": "wallpaper-quality",
-      "reason": "区分 Video 播放捕获和片源封装的 HDR 证据",
-      "decision": "docs/development/wallpaper-quality-work-card.md#quality-user-help"
+      "before": "3e8ba781ef18a69b38874d7c10e6aa39c72d460a1efda1b3157c0c85cd80d4bc",
+      "after": "8dd1fbc850238b6f92d705586abbbcd0f9d74f8aa9b2590f3c99a68873c8e739",
+      "owner": "Scene 画质算法",
+      "reason": "记录四种固定重参数化求积的数值退出及独立复算",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-reparameterized-quadrature"
     }
   ]
 }
