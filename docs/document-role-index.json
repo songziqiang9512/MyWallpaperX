@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ef4dfcfbcaa971445ae2c50a264ab4faac8bbb851a817ce34fdaf3db18dcd367",
+        "sourceSHA256": "a440ecf47d836161cb6bd96cda05e3b8bd22e4e735c5ccadfb5ef300c4089aaa",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对 Scene 后处理、映射和暂停 HDR 验证导航",
-        "limitations": "源逻辑与验证边界分别归现役合同。"
+        "scope": "核对纹理选级、实际像素解码和 Auto 拓扑路由",
+        "limitations": "页面保导航，细节归稳定纹理合同。"
       }
     },
     {
@@ -361,10 +361,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b22c1c8ed2f5ff1dafc944b5c35a8b21fc2b04ba7fe3020ef9aa197627b74f9b",
+        "sourceSHA256": "dd41374fd19caa6ab164dc255d0b0efd109285f5208940053e35c584d778de4e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对签名外部浮点捕获、现役冻结时钟及原生门",
-        "limitations": "真机系统余量已在 1.2，延迟 1.0 向上变化由近门覆盖而非现场。"
+        "scope": "核对同源尾链解码与有效实呈，原生压缩候选暂退出",
+        "limitations": "原生阶段与应用画面单列；无首帧、物理峰值或能耗结论。"
       }
     },
     {
@@ -855,10 +855,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "999329cac94d3b854a09380c60c09556405e25ef9af49d4bf123335c6279fd11",
+        "sourceSHA256": "4548e799871e812234cdfc25f37ec880f0174745be3907b9a1a2fbb5308cee3b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对显示映射的所有者和已有冻结输出失效",
-        "limitations": "仅新增现场证据路由与原系统通知语义。"
+        "scope": "核对嵌入像素缓存、TEX 结构和选档职责",
+        "limitations": "范围限已准入的原作者尾链；不同 loader 不共享 CPU 图像。"
       }
     },
     {

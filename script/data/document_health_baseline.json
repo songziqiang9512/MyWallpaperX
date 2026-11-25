@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 62,
-      "bytes": 15851
+      "bytes": 16004
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -77,8 +77,8 @@
       "bytes": 79716
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 473,
-      "bytes": 100052
+      "lines": 499,
+      "bytes": 106046
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -94,7 +94,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 288,
-      "bytes": 57211
+      "bytes": 57552
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,29 +369,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "29fa86556ddbc64b5564bbe1a96737ec22f249e11e76f157196a5da1f9cfbb38",
-      "after": "4c5aa8660c85e03dcd8faa39d0c130f228535d0ecc2663d9457b5ae825c0a6e5",
+      "before": "4c5aa8660c85e03dcd8faa39d0c130f228535d0ecc2663d9457b5ae825c0a6e5",
+      "after": "8607c82ebf7a0e4891695406f5e7ec125b3808ce5372b024324947b262cbd9d3",
       "owner": "scene-runtime",
-      "reason": "为现役 EDR 余量刷新关联可复原的暂停实证",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-paused-display-hdr-live"
+      "reason": "记录同 loader 连续尾链和真实解码失败边界",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-embedded-selected-mip-decode"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "e0058b6c1538ca377896a4af0c862a67018bd30907385a8a5330ae148e13052c",
-      "after": "9a2f01611424d2286d9e86a038b0e8c7dde63a7296ed7815d71793aba3faf73d",
+      "before": "9a2f01611424d2286d9e86a038b0e8c7dde63a7296ed7815d71793aba3faf73d",
+      "after": "d33211b52faff548c0076178550a8aa55ef38da55ea912e343155f7cdf74a38f",
       "owner": "wallpaper-quality",
-      "reason": "登记暂停窗口的正反照、源身份和当前设备限制",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-paused-display-hdr-live"
+      "reason": "登记真实选级解码计费、Metal 读回、签名作者及 Auto 效果",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-embedded-selected-mip-decode"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "017ea358808196dd07dede6b9d80082bbca35ddd0e3b1f8b8014709593792211",
-      "after": "c3b0f9e49c5c8faff7665445be3c53689a3f23688b39caf8dab13a1f93de0316",
+      "before": "c3b0f9e49c5c8faff7665445be3c53689a3f23688b39caf8dab13a1f93de0316",
+      "after": "de1c1400407aa2b94fa50c6b707c21cb2c73264386da32087d202d1ca6381a15",
       "owner": "repository-map",
-      "reason": "补暂停真机显示 HDR 到原输出职责路由",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-paused-display-hdr-live"
+      "reason": "补嵌入 mip 像素 owner 到当前源码导航",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-embedded-selected-mip-decode"
     },
     {
       "section": "bodies",

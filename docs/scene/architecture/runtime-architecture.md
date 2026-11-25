@@ -157,7 +157,7 @@ App 以 10–120 整数保存动画帧率，Scene 启动和热更新沿原数值
 解码租约预算在 Scene host 初始化时定一次，并与帧率分开。已有旧小预算的设备保留兼容值，便携导入不携带它，改帧率不扫描或缩减缓存。 [资源准入](scene-resource-admission.md#budget) · [实测与保留决定](../../development/wallpaper-quality-work-card.md#scene-decode-budget)
 
 <a id="scene-texture-quality-policy"></a>
-纹理「高质量」沿原物理规格。「高性能」可在冷准备选择普通图像的已验证作者 TEX mip 尾。唯一静态普通颜色采样、无其它需精确像素的消费者和真实无 padding 是首批资格。同一源的布局尺寸、归一 UV、作者颜色／alpha 和采样保持。原解码缓存共享，设备纹理按实际起始 mip 区分。作者材质、具名供货、粒子像素及动态模型独立加载全规格，借用原模型别名时不得把缩小图当作全规格。含 padding、单 mip、数据通道及非适用格式沿原 Loader。偏好与 v8 便携设置沿 Scene 质量快照交付，随原候选重载生效。 [代码入口](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift) · [已验范围](../../development/wallpaper-quality-work-card.md#scene-texture-rollout)
+纹理「高质量」沿原物理规格。「高性能」可在冷准备选择普通图像的已验证作者 TEX mip 尾。唯一静态普通颜色采样、无其它需精确像素的消费者和真实无 padding 是首批资格。同一源的布局尺寸、归一 UV、作者颜色／alpha 和采样保持。同一 loader 的原解码缓存按当前源复用已解码尾链，更高基级需求只补前缀，设备纹理按实际起始 mip 区分。整链 TEX 结构、各级标记和显示范围由原准备入口判定，像素只解码实际需要的级。坏像素级仅使包含它的请求失败。作者材质、具名供货、粒子像素及动态模型独立加载全规格，借用原模型别名时不得把缩小图当作全规格。含 padding、单 mip、数据通道及非适用格式沿原 Loader。偏好与 v8 便携设置沿 Scene 质量快照交付，随原候选重载生效。 [代码入口](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift) · [已验范围](../../development/wallpaper-quality-work-card.md#scene-texture-rollout) · [尾链解码实测](../../development/wallpaper-quality-work-card.md#scene-embedded-selected-mip-decode)
 
 纹理「自动」在同一入口用所选目标 drawable 的最大 cover、固定作者正交尺寸和根层逻辑范围选择可完整覆盖的作者 mip。同源普通使用合并需求。已接纳的相机／图层动态修改、精确材质、具名、粒子及未证明的共享用途保原规格。实际尾链才进入增长计划。尺寸穿越上界时沿既有基础资源队列准备原基级，完成后共享更新当前 Surface，期间继续使用在手图像。缩小继续使用原已升级资源。原帧资源注册表用一个回滚快照比较旧身份，提交时释放已退休快照，在途 pin 沿 GPU terminal。普通帧没有尺寸策略计算。 [Auto 取证和失败边界](../../development/wallpaper-quality-work-card.md#scene-texture-auto)
 

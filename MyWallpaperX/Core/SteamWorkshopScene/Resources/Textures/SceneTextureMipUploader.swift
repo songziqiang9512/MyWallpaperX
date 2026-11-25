@@ -196,11 +196,13 @@ nonisolated enum SceneTextureMipUploader {
     }
 
     static func decodeEmbeddedImages(_ payloads: [Data]) -> [CGImage]? {
-        let images = payloads.compactMap { data -> CGImage? in
-            guard SceneTexContainer.isEmbeddedImagePayload(data) else { return nil }
-            return SceneImageTextureUploader.decodeSourceImage(data, requiringSupported2DExtent: true)
-        }
+        let images = payloads.compactMap(decodeEmbeddedImage)
         return images.count == payloads.count ? images : nil
+    }
+
+    static func decodeEmbeddedImage(_ payload: Data) -> CGImage? {
+        guard SceneTexContainer.isEmbeddedImagePayload(payload) else { return nil }
+        return SceneImageTextureUploader.decodeSourceImage(payload, requiringSupported2DExtent: true)
     }
 
     static func overwriteConditionalPatches(

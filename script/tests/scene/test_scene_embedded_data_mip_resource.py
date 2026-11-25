@@ -105,6 +105,7 @@ private enum EmbeddedDataMipHarness {
             let loader = SceneTextureLoader()
             let prepared = try loader.prepareTexSource(from: root.appendingPathComponent("authored-data-mips.tex"))!
             let first = try candidate(loader, prepared, tailFirst ? limit : nil)
+            let firstDecodedLevels = loader.texEmbeddedImageDecodeAttemptCount
             let second = try candidate(loader, prepared, tailFirst ? nil : limit)
             let full = tailFirst ? second : first
             let tail = tailFirst ? first : second
@@ -124,10 +125,79 @@ private enum EmbeddedDataMipHarness {
                     && full.sampling == tail.sampling && full.sampling.rawFlags == tail.sampling.rawFlags
                     && full.authoredFormat == tail.authoredFormat && full.content == tail.content,
                 "smallerAllocation": tail.texture.allocatedSize < full.texture.allocatedSize,
+                "firstDecodedLevels": firstDecodedLevels,
                 "decodedLevels": loader.texEmbeddedImageDecodeAttemptCount,
                 "data": observe(data, purpose: .mask, queue: queue, expected: raw),
             ]
         }
+        let validURL = root.appendingPathComponent("authored-data-mips.tex")
+        let validTEX = try SceneTexContainerReader().read(data: Data(contentsOf: validURL))
+        let encodedBytes = validTEX.mips.reduce(0) { $0 + $1.data.count }
+        let imageBytes = validTEX.mips.map { $0.width * $0.height * 4 }
+        var cacheAdmissions: [String: Any] = [:]
+        for admitsPrefix in [false, true] {
+            let tailBytes = imageBytes.dropFirst().reduce(0, +)
+            let bytes = encodedBytes + tailBytes + (admitsPrefix ? imageBytes[0] : 0)
+            let budget = SceneTextureDecodeCacheBudget(maximumBytes: bytes)
+            let loader = SceneTextureLoader(decodeCacheBudget: budget)
+            let prepared = try loader.prepareTexSource(from: validURL)!
+            let tail = try candidate(loader, prepared, limit)
+            let afterTail = budget.residentBytes
+            _ = try candidate(loader, prepared, nil)
+            let afterFull = budget.residentBytes
+            let fullAttempts = loader.texEmbeddedImageDecodeAttemptCount
+            _ = try candidate(loader, prepared, nil, purpose: .mask)
+            let dataAttempts = loader.texEmbeddedImageDecodeAttemptCount
+            let reusedTail = try candidate(loader, prepared, limit).texture === tail.texture
+            loader.evictDecodedCaches()
+            cacheAdmissions[String(admitsPrefix)] = [
+                "tailChargesOnlySelectedImages": afterTail == encodedBytes + tailBytes,
+                "fullAddsOnlyAdmittedPrefix": afterFull == bytes,
+                "initialFullDecodeAttempts": fullAttempts,
+                "subsequentFullPurposeDecodeAttempts": dataAttempts,
+                "reusesTailTexture": reusedTail,
+                "releasedBytes": budget.residentBytes,
+            ]
+        }
+        observations["cacheAdmissions"] = cacheAdmissions
+
+        var corrupt: [String: Any] = [:]
+        for brokenMip in 0...1 {
+            let safe = SceneOrdinaryImageMipSelection.maximumLongEdge(brokenMip == 0 ? 2048 : 1024)
+            let includesBroken: SceneOrdinaryImageMipSelection? = brokenMip == 0 ? nil : limit
+            for tailFirst in [false, true] {
+                let loader = SceneTextureLoader()
+                let url = root.appendingPathComponent("corrupt-codec-\(brokenMip).tex")
+                let prepared = try loader.prepareTexSource(from: url)!
+                func rejects(_ selection: SceneOrdinaryImageMipSelection?) throws -> Bool {
+                    let outcome = try loader.loadCandidate(from: prepared, purpose: .straightAlbedo,
+                        device: device, mipSelection: selection)
+                    if case .failed = outcome { return true }
+                    return false
+                }
+                let earlyReject = tailFirst ? true : try rejects(includesBroken)
+                let outcome = try loader.loadCandidate(from: prepared, purpose: .straightAlbedo,
+                    device: device, mipSelection: safe)
+                let largerRejected = try rejects(includesBroken)
+                let fullRejected = try rejects(nil)
+                let key = "\(brokenMip)-\(tailFirst)"
+                guard case let .loaded(tail) = outcome else {
+                    corrupt[key] = ["tailLoaded": false]
+                    continue
+                }
+                let repeated = try candidate(loader, prepared, safe)
+                corrupt[key] = [
+                    "headersAdmit": prepared.resource.hasValidTexb3EmbeddedMipChain,
+                    "containingRequestsReject": earlyReject && largerRejected && fullRejected,
+                    "preservedTail": repeated.texture === tail.texture,
+                    "attempts": loader.texEmbeddedImageDecodeAttemptCount,
+                    "tail": observe(tail, purpose: .straightAlbedo, queue: queue,
+                        expected: Array(raw.dropFirst(brokenMip + 1))),
+                ]
+            }
+        }
+        observations["corruptCodec"] = corrupt
+
         for (name, maximum, expected) in [("padded-authored.tex", 2048, raw), ("single-small.tex", 4, small)] {
             let loader = SceneTextureLoader()
             let prepared = try loader.prepareTexSource(from: root.appendingPathComponent(name))!
@@ -394,12 +464,13 @@ def _pixels(width: int, height: int, level: int, *, associated: bool = False) ->
     return row * height
 
 
-def _png(width: int, height: int, pixels: bytes, *, color_type: int = 6) -> bytes:
+def _png(width: int, height: int, pixels: bytes, *, color_type: int = 6, invalid_filter: bool = False) -> bytes:
     def chunk(kind: bytes, data: bytes) -> bytes:
         return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
 
     channels = {0: 1, 4: 2, 6: 4}[color_type]
-    scanlines = b"".join(b"\0" + pixels[row * width * channels:(row + 1) * width * channels]
+    row_filter = b"\x05" if invalid_filter else b"\0"
+    scanlines = b"".join(row_filter + pixels[row * width * channels:(row + 1) * width * channels]
                          for row in range(height))
     return (b"\x89PNG\r\n\x1a\n"
             + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, color_type, 0, 0, 0))
@@ -440,6 +511,11 @@ def prepare_inputs(root: Path) -> None:
     mips = [(width, height, _png(width, height, raw[level]))
             for level, (width, height) in enumerate(sizes)]
     authored = _tex(mips)
+    for level in (0, 1):
+        corrupt = mips.copy()
+        width, height = sizes[level]
+        corrupt[level] = (width, height, _png(width, height, raw[level], invalid_filter=True))
+        (root / f"corrupt-codec-{level}.tex").write_bytes(_tex(corrupt))
     (root / "authored-data-mips.tex").write_bytes(authored)
     (root / "renamed-signal.tex").write_bytes(authored)
     (root / "padded-authored.tex").write_bytes(_tex(mips, mapped=(4096, 4), physical=(4097, 4)))
@@ -532,6 +608,7 @@ class SceneEmbeddedDataMipResourceTests(unittest.TestCase):
                 for key in ("differentTexture", "cacheReusesTail", "cacheReusesOriginal",
                             "sameSourceAndSampling", "smallerAllocation"):
                     self.assertTrue(facts[key], facts)
+                self.assertEqual(facts["firstDecodedLevels"], 2 if order == "tailFirst" else 3, facts)
                 self.assertEqual(facts["decodedLevels"], 3, facts)
                 for role, extent, levels, base in (("full", [4097, 4], 3, 0), ("tail", [2048, 2], 2, 1),
                                                    ("lastMip", [1024, 1], 1, 2),
@@ -545,6 +622,26 @@ class SceneEmbeddedDataMipResourceTests(unittest.TestCase):
                     self.assertEqual(result["levelPixelsMatch"], [True] * levels, result)
                     for key in ("identityUV", "purposeMatches", "gpuCompleted"):
                         self.assertTrue(result[key], result)
+
+    def test_incremental_decode_cache_charges_only_the_new_prefix(self) -> None:
+        for admitted, facts in self.result["mipTail"]["cacheAdmissions"].items():
+            with self.subTest(admitted=admitted):
+                for key in ("tailChargesOnlySelectedImages", "fullAddsOnlyAdmittedPrefix", "reusesTailTexture"):
+                    self.assertTrue(facts[key], facts)
+                self.assertEqual(facts["initialFullDecodeAttempts"], 3, facts)
+                self.assertEqual(facts["subsequentFullPurposeDecodeAttempts"], 3 if admitted == "true" else 4, facts)
+                self.assertEqual(facts["releasedBytes"], 0, facts)
+
+    def test_corrupt_unselected_image_does_not_poison_a_valid_tail(self) -> None:
+        for key, facts in self.result["mipTail"]["corruptCodec"].items():
+            with self.subTest(case=key):
+                broken_mip = int(key.split("-")[0])
+                self.assertTrue(facts.get("headersAdmit"), facts)
+                self.assertTrue(facts["containingRequestsReject"], facts)
+                self.assertTrue(facts["preservedTail"], facts)
+                self.assertEqual(facts["attempts"], 3 - broken_mip, facts)
+                self.assertEqual(facts["tail"]["embeddedBaseMip"], broken_mip + 1, facts)
+                self.assertEqual(facts["tail"]["levelPixelsMatch"], [True] * (2 - broken_mip), facts)
 
     def test_mip_tail_request_preserves_padded_and_single_mip_sources(self) -> None:
         for name, extent, mapped, levels in (("padded-authored.tex", [4097, 4], [4096, 4], 3),

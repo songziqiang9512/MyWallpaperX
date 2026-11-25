@@ -240,9 +240,9 @@ nonisolated final class SceneTextureLoader {
         }
     }
 
-    private enum TexEmbeddedImageResource {
-        case decoded([CGImage])
-        case failed
+    private struct TexEmbeddedImageResource {
+        var images: [CGImage] = []
+        var failedMip: Int?
     }
 
     private static let directImageExtensions: Set<String> = ["png", "jpg", "jpeg"]
@@ -702,14 +702,14 @@ nonisolated final class SceneTextureLoader {
         if SceneTexContainer.isEmbeddedImagePayload(firstMip.data) {
             guard let images = cachedTexEmbeddedImages(
                 source: source,
-                payloads: container.mips.map(\.data)
+                mips: container.mips,
+                baseMip: embeddedBaseMip
             ) else {
                 return .decodeFailed("compiled TEX embedded mip chain could not be decoded")
             }
-            let selectedImages = embeddedBaseMip == 0 ? images : Array(images.dropFirst(embeddedBaseMip))
             let uploaded = purpose.preservesSourceChannels
                 ? SceneTextureMipUploader.uploadEmbeddedDataImages(
-                    selectedImages,
+                    images,
                     purpose: purpose,
                     maximumDimension: Self.maxTextureDimension,
                     device: device
@@ -761,25 +761,35 @@ nonisolated final class SceneTextureLoader {
 
     private func cachedTexEmbeddedImages(
         source: SourceKey,
-        payloads: [Data]
+        mips: [SceneTexContainer.Mip],
+        baseMip: Int
     ) -> [CGImage]? {
-        if let cached = texEmbeddedImageResources[source] {
-            guard case let .decoded(images) = cached else { return nil }
-            return images
+        var cached = texEmbeddedImageResources[source] ?? .init()
+        if let failedMip = cached.failedMip, baseMip <= failedMip { return nil }
+        let cachedBase = mips.count - cached.images.count
+        if baseMip == cachedBase { return cached.images }
+        if baseMip > cachedBase { return Array(cached.images.dropFirst(baseMip - cachedBase)) }
+
+        var images: [CGImage] = []
+        images.reserveCapacity(mips.count - baseMip)
+        for level in baseMip..<cachedBase {
+            texEmbeddedImageDecodeAttemptCount += 1
+            guard let image = SceneTextureMipUploader.decodeEmbeddedImage(mips[level].data) else {
+                // All suffixes containing this level fail; a smaller suffix may still render.
+                cached.failedMip = level
+                texEmbeddedImageResources[source] = cached
+                return nil
+            }
+            images.append(image)
         }
-        texEmbeddedImageDecodeAttemptCount += payloads.count
-        guard let images = SceneTextureMipUploader.decodeEmbeddedImages(payloads) else {
-            texEmbeddedImageResources[source] = .failed
-            return nil
-        }
-        let byteCost = images.reduce(into: 0) { total, image in
-            let (next, overflow) = total.addingReportingOverflow(
-                Self.decodedByteCost(image)
-            )
+        let addedBytes = images.reduce(into: 0) { total, image in
+            let (next, overflow) = total.addingReportingOverflow(Self.decodedByteCost(image))
             total = overflow ? Int.max : next
         }
-        if decodeCacheLease.reserve(byteCost) {
-            texEmbeddedImageResources[source] = .decoded(images)
+        images.append(contentsOf: cached.images)
+        if decodeCacheLease.reserve(addedBytes) {
+            cached.images = images
+            texEmbeddedImageResources[source] = cached
         }
         return images
     }
