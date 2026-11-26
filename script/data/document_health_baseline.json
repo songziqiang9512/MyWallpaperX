@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 429,
-      "bytes": 82146
+      "bytes": 82276
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 486,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 395116
+      "bytes": 396166
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 57,
-      "bytes": 7649
+      "bytes": 7620
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -648,30 +648,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "2bf3796cd6f511d06054070589d7592ab4a375d30abd39883f60dab0657f6115",
-      "after": "7e8fceb821f23309a281998e571b6f64a504565a8a03852b9f75da108462559a",
-      "owner": "Scene particles",
-      "reason": "记录官版正交半透明 Sprite 的写入和排序语义。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#material-state"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "380d925af5003f7461ba365b22c63c53f6fcbb4aa8cdf7fa8ae73edfb98601a5",
-      "after": "3dd105019c0510181d1bb497e174190902a8cd8ba52fe5a09fb48debde5b8218",
-      "owner": "Scene particles",
-      "reason": "登记当前原包启动基线与独立预热短栈。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-box-prewarm-333"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "624ff26cce861cb2428330a37d7b9dec61323c9bf057f6e15951e463929f6086",
       "after": "83962074438454dc02459c98bfa0023ae8d4dab31fdc02672a4b79dfd0a0608d",
       "owner": "Scene particles",
       "reason": "登记当前原包启动基线与独立预热短栈。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "7e8fceb821f23309a281998e571b6f64a504565a8a03852b9f75da108462559a",
+      "after": "015f68f2d1a28c0df5748d1d8b008a7d2e8c542cfbed787ad7d7e864dbf10f74",
+      "owner": "Scene particles",
+      "reason": "登记连续噪声角点共享 Z 置换的执行语义。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#continuous-turbulence"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "3dd105019c0510181d1bb497e174190902a8cd8ba52fe5a09fb48debde5b8218",
+      "after": "70edc4c36b959c09e231cfd3cbcc8c8d81e13de087e1b3a34dc41cc803af43f9",
+      "owner": "Scene particles",
+      "reason": "登记同包实测首屏、算法位值和独立作者复验。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#simplex-cold-start-333"
     }
   ]
 }
