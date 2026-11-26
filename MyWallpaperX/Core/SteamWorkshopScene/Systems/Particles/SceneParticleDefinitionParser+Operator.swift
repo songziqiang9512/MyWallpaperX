@@ -9,7 +9,7 @@ extension SceneParticleDefinitionParser {
         let controlPoint = Self.integer(root["controlpoint"])
         let origin = Self.numericValue(root["origin"])
         let audioResponse = Self.audioResponse(root)
-        let rawFlags = Self.integer(root["flags"])
+        let rawFlags = name == "remapvalue" ? SceneParticleRemapPlan.flags(root["flags"]) : Self.integer(root["flags"])
         let kind: SceneParticleOperatorKind
         switch name {
         case "movement": kind = .movement
@@ -31,7 +31,8 @@ extension SceneParticleDefinitionParser {
         case "vortex", "vortex_v2": kind = .vortex(Self.vortex(root,
             version: name == "vortex" ? .classic : .v2))
         case "capvelocity": kind = .capVelocity(Self.capVelocity(root))
-        case "remapvalue": kind = .remapValue(.init(root: root))
+        case "remapvalue":
+            kind = .remapValue(audioResponse.isEnabled ? nil : .init(root: root, flags: rawFlags))
         case "reducemovementnearcontrolpoint":
             kind = .reduceMovement(.init(root: root))
         case "collisionplane": kind = .collisionPlane(.init(root: root))

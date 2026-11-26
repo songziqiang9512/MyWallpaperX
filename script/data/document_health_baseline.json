@@ -86,7 +86,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 259,
-      "bytes": 48386
+      "bytes": 48463
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 412,
-      "bytes": 77952
+      "bytes": 77759
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 467,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 365347
+      "bytes": 366152
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 240,
-      "bytes": 68701
+      "bytes": 68411
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -478,10 +478,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "f4f04f851943817a76e0fe7075bf0003dbed30e6668a4795e412f22bbca6633d",
-      "after": "ff75624f65dbcf7a1a7e401835c3d2ea4c20750cd0cb90b836b571f8351e3bbe",
+      "before": "ff75624f65dbcf7a1a7e401835c3d2ea4c20750cd0cb90b836b571f8351e3bbe",
+      "after": "a1bf3fc2ed65e7dbcc4ee6111749cbdbdccdf4edca798d5feeea896cf2ba3af5",
       "owner": "Scene",
-      "reason": "记录官版正弦重映射和帧时钟，收窄本机执行计划待办。",
+      "reason": "记录统一执行计划及原包Rope与同帧波形验收。",
       "decision": "docs/scene/architecture/runtime-architecture.md#particle-scalar-remap"
     },
     {
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "36959a83098a66c2e294ff8b221cb0fb5a8919c290d84f8388601cbe7fbd1158",
-      "after": "d525c2e288e5c4ff81d33641e1341f674fcbe3a9f971f17c0d6cd12916cf7cb2",
+      "before": "d525c2e288e5c4ff81d33641e1341f674fcbe3a9f971f17c0d6cd12916cf7cb2",
+      "after": "388d2bc0520e9b1c4b787fcfe81c0e25382b1833f6e2de4d0262e3a0946b6902",
       "owner": "Scene",
-      "reason": "记录官版正弦重映射和帧时钟，收窄本机执行计划待办。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-remap-sine-clock"
+      "reason": "记录统一执行计划及原包Rope与同帧波形验收。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-remap-native-output"
     },
     {
       "section": "bodies",

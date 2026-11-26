@@ -198,7 +198,7 @@ nonisolated enum SceneParticleOperatorKind: Equatable, Sendable {
     case boids(SceneParticleBoids)
     case vortex(SceneParticleVortex)
     case capVelocity(SceneParticleCapVelocity)
-    case remapValue(SceneParticleRemapValue)
+    case remapValue(SceneParticleRemapPlan?)
     case reduceMovement(SceneParticleReduceMovement)
     case collisionPlane(SceneParticleCollisionPlane)
     case collisionSphere(SceneParticleCollisionSpherePlan?)

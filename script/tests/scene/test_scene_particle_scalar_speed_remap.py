@@ -1,4 +1,4 @@
-"""Rain scalar Remap through real preparation and fixed-step simulation.
+"""Authored scalar Remap through real preparation and fixed-step simulation.
 
 FBM is a project approximation. These invariants do not claim official noise,
 phase, scale-domain or trajectory parity. The optional Simulator source selects
@@ -34,6 +34,7 @@ import Foundation
         return ["time": number(simulator.simulationTime),
             "ids": simulator.particles.map(\.id),
             "ages": simulator.particles.map { number($0.age) },
+            "alpha": simulator.particles.map { number($0.alpha) },
             "velocity": simulator.particles.map { vector($0.velocity) },
             "position": simulator.particles.map { vector($0.position) },
             "nextID": frame.nextParticleID, "randomState": frame.random.state,
@@ -49,40 +50,24 @@ import Foundation
         let input = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
         let cases = try JSONSerialization.jsonObject(with: input) as! [[String: Any]]
         var results: [String: Any] = [:]
+        let parser = SceneParticleDefinitionParser()
         for item in cases {
-            let definition = SceneParticleDefinitionParser().parse(root: item["definition"] as! [String: Any])
-            let plans = definition.operators.map { SceneParticleOperatorExecutionPlan($0, definition: definition) }
+            let definition = parser.parse(root: item["definition"] as! [String: Any])
             let simulator = SceneParticleSimulator(definition: definition,
+                instanceOverride: parser.parseInstanceOverride(item["instanceOverride"] as? [String: Any]),
+                initialTiming: .init(sceneTime: item["initialSceneTime"] as? Double ?? 0),
                 seed: (item["seed"] as? NSNumber)?.uint64Value ?? 81, fixedTimeStep: 0.125)
             var states: [[String: Any]] = []
             var snapshots: [String: SceneParticleSimulator.FrameSnapshot] = [:]
             for step in item["steps"] as! [[String: Any]] {
                 if let key = step["restore"] as? String { simulator.restoreFrame(snapshots[key]!) }
-                if let duration = step["advance"] as? Double { simulator.advance(by: duration) }
+                if let duration = step["advance"] as? Double {
+                    simulator.advance(by: duration, timing: .init(sceneTime: step["sceneTime"] as? Double ?? 0))
+                }
                 if let key = step["save"] as? String { snapshots[key] = simulator.frameSnapshot() }
                 states.append(observe(simulator))
             }
-            var entry: [String: Any] = [
-                "scalarAdmission": plans.map { $0.scalarSpeedRemap != nil },
-                "velocityAdmission": plans.map { $0.velocityRemap != nil },
-                "states": states,
-            ]
-            if let plan = plans.compactMap(\.scalarSpeedRemap).first {
-                entry["preparedScalar"] = [plan.minimum, plan.maximum, plan.inputScale]
-                let probes = (0...64).map { Double($0) / 64 }
-                func coefficients(seed: UInt64, particleID: UInt64) -> [Any] {
-                    probes.map { life in
-                        SceneParticleSimulationMath.scalarSpeedRemapMultiplier(plan,
-                            normalizedLife: life, particleID: particleID, simulationSeed: seed)
-                            .map(number) ?? NSNull()
-                    }
-                }
-                entry["coefficients"] = coefficients(seed: 81, particleID: 0)
-                entry["repeatCoefficients"] = coefficients(seed: 81, particleID: 0)
-                entry["otherSeedCoefficients"] = coefficients(seed: 82, particleID: 0)
-                entry["otherParticleCoefficients"] = coefficients(seed: 81, particleID: 1)
-            }
-            results[item["name"] as! String] = entry
+            results[item["name"] as! String] = states
         }
         print(String(decoding: try JSONSerialization.data(withJSONObject: results,
             options: [.sortedKeys]), as: UTF8.self))
@@ -97,6 +82,8 @@ VELOCITY = {"name": "remapvalue", "operation": "remap", "output": "velocity",
             "outputrangemin": "-10 -20 0", "outputrangemax": "10 -40 0",
             "transformfunction": "simplexnoise", "transforminputscale": 10}
 MOVEMENT = {"name": "movement", "gravity": "0 0 0", "drag": 0}
+SINE = {"name": "remapvalue", "input": "particlesystemtime", "output": "opacity",
+        "transformfunction": "sine"}
 
 
 def fixture(operators, *, initial="2 -4 6", count=1, lifetime=8, steps=None, seed=81):
@@ -178,6 +165,57 @@ def cases():
     add("legacy-explicit-flags0", [dict(VELOCITY, flags=0), MOVEMENT])
     for index, flags in enumerate([None, True, 3.5, "invalid"]):
         add("legacy-invalid-flags-" + str(index), [dict(VELOCITY, flags=flags), MOVEMENT])
+    result.extend(sine_cases())
+    return result
+
+
+def sine_cases():
+    result = []
+
+    def add(name, operators, times, **kwargs):
+        steps = [{"advance": .125, "sceneTime": time} for time in times]
+        entry = dict(fixture(operators, steps=steps, **kwargs), name=name)
+        entry["definition"]["initializer"].append({"name": "alpharandom", "min": .625, "max": .625})
+        result.append(entry)
+        return entry
+
+    unit_times = [0, .25, .5, .75, 1, 1.5]
+    add("sine-defaults", [SINE], unit_times)
+    add("sine-explicit", [dict(SINE, flags=0, operation="multiply", transforminputscale=2,
+                              inputrangemin=0, inputrangemax=1, outputrangemin=0, outputrangemax=1)],
+        unit_times)
+    ranged = dict(SINE, operation="remap", inputrangemin=2, inputrangemax=6,
+                  outputrangemin=.25, outputrangemax=.75)
+    range_times = [2, 3, 4, 6, 8, 0]
+    add("sine-range", [ranged], range_times)
+    add("sine-zero-scale", [dict(ranged, transforminputscale=0)], range_times)
+    add("sine-negative-scale", [dict(ranged, transforminputscale=-1)], range_times)
+    renamed = add("sine-renamed", [dict(ranged, id=912)], range_times)
+    renamed["definition"]["material"] = "materials/renamed-wave.json"
+    linear = dict(ranged)
+    del linear["transformfunction"]
+    add("time-linear", [linear], [0, 2, 3, 4, 6, 8])
+
+    peer = {"name": "alphachange", "startvalue": .5, "endvalue": .5}
+    assignment = dict(SINE, operation="remap")
+    add("sine-multiply-current", [peer, SINE], [.25])
+    add("sine-assign-current", [peer, assignment], [.25])
+    add("sine-assign-before-peer", [assignment, peer], [.25])
+    add("sine-lifecycle", [peer, dict(assignment, blendinstart=0, blendinend=.5)], [.25] * 5, lifetime=1)
+    add("sine-alpha-overflow", [peer, dict(assignment, outputrangemin=.25, outputrangemax=4e38)], [0, .5, 0])
+
+    clock = add("sine-clock", [assignment], [.25, .25, .5], count=2)
+    first = dict(clock["definition"]["emitter"][0], instantaneous=1)
+    clock["definition"]["emitter"] = [first, dict(first, delay=.1875)]
+    clock["steps"][1]["advance"] = .25
+    warm = dict(copy.deepcopy(clock), name="sine-clock-prewarm", instanceOverride={"rate": 2},
+                initialSceneTime=.25, steps=[{}, {"advance": .25, "sceneTime": .5}])
+    warm["definition"]["starttime"] = .375
+    result.append(warm)
+
+    for field, value in [("input", "unknown-clock"), ("output", "unsupported-channel"),
+                         ("inputrangemin", "0 0 0"), ("flags", 7)]:
+        add(f"sine-invalid-{field}", [dict(SINE, **{field: value}), peer, MOVEMENT], [.5])
     return result
 
 
@@ -219,14 +257,15 @@ class SceneParticleScalarSpeedRemapTests(unittest.TestCase):
             self.assertAlmostEqual(value, target, places=8)
 
     def state(self, name, index=0):
-        return self.result[name]["states"][index]
+        return self.result[name][index]
 
-    def test_actual_rain_shape_enters_exact_prepared_scalar_plan(self):
-        rain = self.result["rain-shape"]
-        self.assertEqual(rain["scalarAdmission"], [False, False, True, False])
-        self.assertEqual(rain["velocityAdmission"], [False, True, False, False])
-        self.assertEqual(rain["preparedScalar"], [-5, 7, 8])
-        self.assertTrue(self.state("rain-shape")["gpuFinite"])
+    def test_actual_rain_shape_executes_both_noise_writers(self):
+        rain = self.state("rain-shape")
+        without_speed = self.state("rain-without-speed")
+        self.assertNotEqual(rain["velocity"], without_speed["velocity"])
+        self.assertNotEqual(rain["position"], without_speed["position"])
+        self.assertTrue(rain["gpuFinite"])
+        self.assertNotIn("remapValueUnsupported", [entry["kind"] for entry in rain["diagnostics"]])
 
     def test_default_multiply_clamps_after_mapping_and_keeps_vector_direction(self):
         for factor in [-0.5, 0, 0.5, 2]:
@@ -254,25 +293,19 @@ class SceneParticleScalarSpeedRemapTests(unittest.TestCase):
 
     def test_partition_and_snapshot_replay_preserve_state_and_rng(self):
         self.assertEqual(self.state("rain-shape"), self.state("rain-split", -1))
-        replay = self.result["rain-replay"]["states"]
+        replay = self.result["rain-replay"]
         self.assertEqual(replay[1], replay[3])
         self.assertEqual(self.state("rain-shape")["randomState"], self.state("rain-without-speed")["randomState"])
 
     def test_project_fbm_varies_over_life_without_seed_or_particle_lockstep(self):
-        rain = self.result["rain-shape"]
-        values = rain["coefficients"]
-        self.assertTrue(all(isinstance(value, (int, float)) and math.isfinite(value) and 0 <= value <= 1
-                            for value in values))
-        self.assertGreater(max(values) - min(values), 0.1)
-        self.assertEqual(values, rain["repeatCoefficients"])
-        self.assertNotEqual(values, rain["otherSeedCoefficients"])
-        self.assertNotEqual(values, rain["otherParticleCoefficients"])
-        states = self.result["temporal-motion"]["states"]
+        states = self.result["temporal-motion"]
         speeds = [state["velocity"][0][1] for state in states]
         peer = [state["velocity"][1][1] for state in states]
-        self.assertGreater(max(speeds) - min(speeds), 1)
+        self.assertTrue(all(isinstance(value, (int, float)) and math.isfinite(value) and 0 <= value <= 20
+                            for value in speeds + peer))
+        self.assertGreater(max(speeds) - min(speeds), 2)
         self.assertNotEqual(speeds, peer)
-        other = [state["velocity"][0][1] for state in self.result["temporal-other-seed"]["states"]]
+        other = [state["velocity"][0][1] for state in self.result["temporal-other-seed"]]
         self.assertNotEqual(speeds, other)
         self.assertTrue(self.state("maximum-scale")["gpuFinite"])
 
@@ -280,7 +313,6 @@ class SceneParticleScalarSpeedRemapTests(unittest.TestCase):
         names = [name for name in self.result if name.startswith(("invalid-", "missing-"))]
         for name in names:
             with self.subTest(case=name):
-                self.assertFalse(any(self.result[name]["scalarAdmission"]))
                 state = self.state(name)
                 self.assert_vector(state["velocity"][0], [2, -4, 6])
                 self.assert_vector(state["position"][0], [0.25, -0.5, 0.75])
@@ -289,12 +321,56 @@ class SceneParticleScalarSpeedRemapTests(unittest.TestCase):
         peer, baseline = self.state("unsupported-with-healthy-peer"), self.state("legacy-vector")
         self.assertEqual(peer["velocity"], baseline["velocity"])
         self.assertEqual(peer["position"], baseline["position"])
-        self.assertFalse(any(self.result["legacy-explicit-flags0"]["velocityAdmission"]))
         for name in self.result:
-            if name.startswith("legacy-invalid-flags-"):
+            if name == "legacy-explicit-flags0" or name.startswith("legacy-invalid-flags-"):
                 with self.subTest(case=name):
-                    self.assertFalse(any(self.result[name]["velocityAdmission"]))
                     self.assert_vector(self.state(name)["velocity"][0], [2, -4, 6])
+
+    def test_sine_defaults_explicit_ranges_scale_and_renamed_operator(self):
+        for name, expected in {
+            "sine-defaults": [0, .3125, .625, .3125, 0, .625],
+            "sine-explicit": [0, .3125, .625, .3125, 0, .625],
+            "sine-range": [.25, .5, .75, .25, .75, .75],
+            "sine-zero-scale": [.25] * 6,
+            "sine-negative-scale": [.25, .3232233047033631, .5, .75, .5, .5],
+            "time-linear": [0, .25, .375, .5, .75, 1],
+        }.items():
+            with self.subTest(case=name):
+                self.assert_vector([state["alpha"][0] for state in self.result[name]], expected)
+        self.assertEqual(self.result["sine-renamed"], self.result["sine-range"])
+
+    def test_sine_applies_authored_order_and_blends_current_alpha_with_result(self):
+        for name, alpha in [("sine-multiply-current", .15625), ("sine-assign-current", .5),
+                            ("sine-assign-before-peer", .25)]:
+            with self.subTest(case=name):
+                self.assert_vector(self.state(name)["alpha"], [alpha])
+        self.assert_vector([state["alpha"][0] for state in self.result["sine-lifecycle"]],
+                           [.3125, .359375, .40625, .453125, .5])
+        self.assert_vector([state["alpha"][0] for state in self.result["sine-alpha-overflow"]],
+                           [.25, .3125, .25])
+
+    def test_sine_consumes_frame_timing_with_different_particle_ages_and_rates(self):
+        first, middle, updated = self.result["sine-clock"]
+        prepared, handoff = self.result["sine-clock-prewarm"]
+        self.assertEqual(first["ages"], [0])
+        for state in (middle, prepared):
+            self.assertEqual((state["time"], state["ages"]), (.375, [.25, .125]))
+        self.assertEqual((updated["time"], updated["ages"]), (.5, [.375, .25]))
+        self.assertEqual((handoff["time"], handoff["ages"]), (.875, [.75, .625]))
+        self.assert_vector(first["alpha"], [.5])
+        for state in (middle, prepared):
+            self.assert_vector(state["alpha"], [.5, .5])
+        self.assert_vector(updated["alpha"], [1, 1])
+        self.assert_vector(handoff["alpha"], [1, 1])
+
+    def test_unsupported_sine_fields_only_skip_the_remap(self):
+        for name in self.result:
+            if name.startswith("sine-invalid-"):
+                with self.subTest(case=name):
+                    state = self.state(name)
+                    self.assert_vector(state["alpha"], [.3125])
+                    self.assert_vector(state["position"][0], [.25, -.5, .75])
+                    self.assertIn("remapValueUnsupported", [entry["kind"] for entry in state["diagnostics"]])
 
 
 if __name__ == "__main__":

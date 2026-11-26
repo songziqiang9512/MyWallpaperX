@@ -324,13 +324,10 @@ nonisolated enum SceneParticleSimulationMath {
     /// Bounded project FBM approximation, not an official phase/scale formula.
     /// The local phase generator never consumes the simulator's emission RNG.
     static func scalarSpeedRemapMultiplier(
-        _ plan: SceneParticleScalarSpeedRemapPlan,
+        _ plan: SceneParticleRemapPlan.Scalar, inputScale: Double,
         normalizedLife: Double, particleID: UInt64, simulationSeed: UInt64
     ) -> Double? {
-        guard normalizedLife.isFinite, (0 ... 1).contains(normalizedLife),
-              plan.inputScale.isFinite, plan.inputScale > 0,
-              plan.minimum.isFinite, plan.maximum.isFinite else { return nil }
-        let temporal = normalizedLife * plan.inputScale
+        let temporal = normalizedLife * inputScale
         var point = particleNoisePhase(particleID: particleID, simulationSeed: simulationSeed)
             + SIMD3(temporal, temporal * 0.754_877_666, temporal * 1.324_717_957)
         var amplitude = 1.0, amplitudeSum = 0.0, noise = 0.0
@@ -344,9 +341,7 @@ nonisolated enum SceneParticleSimulationMath {
             point *= 2
         }
         let amount = min(max(noise / amplitudeSum * 0.5 + 0.5, 0), 1)
-        let mapped = plan.minimum + (plan.maximum - plan.minimum) * amount
-        guard mapped.isFinite else { return nil }
-        return min(max(mapped, 0), 1)
+        return min(max(plan.value(at: amount), 0), 1)
     }
 
     static func positionOffset(

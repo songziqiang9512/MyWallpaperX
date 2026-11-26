@@ -211,9 +211,9 @@ Root 新生沿原 birthPositionOffset 进入 reference。Child 复用原系统 o
 
 Remap 的 input、range、transform、operation、output 和原 lifecycle blend 分别准备、消费；不得再以一组字段形状授执行许可，或另加“某input+某output+某flags”的样本式 profile。新增消费者沿原 Parser → OperatorExecutionPlan → Simulator → batch/GPU，不增加时钟、组件注册表或每帧解析。外层 blend 已由 Operator 解析，Remap 不重复将其判为未知字段。
 
-首个待接通的 input 是作者 `particlesystemtime`，首个输出是 opacity。该作者输入取与 `g_Time` 同源的现役 `SceneParticleFrameTiming.sceneTime`，实时及预热子步使用传入的 Scene 帧值。粒龄仍只决定生命周期混合。与源/目标无关的标量范围、变换及运算使用同一准备与求值路径；系统级时间变换每个操作每步只求一次，粒子只处理自身当前值、作者顺序和 blend。原 vector simplex 与 scalar speed FBM 的既有行为保留在同一执行计划中，替换平行可选计划，不增加第三份专用许可；超出已有真实消费者的源或值维度保持局部不可用。
+作者 `particlesystemtime` 与 opacity 沿原类型化 Operator 准备。该作者输入取与 `g_Time` 同源的现役 `SceneParticleFrameTiming.sceneTime`，实时及预热子步使用传入的 Scene 帧值。粒龄仍只决定生命周期混合。与源/目标无关的标量范围、变换及运算使用同一准备与求值路径；系统级时间变换每个操作每步只求一次，粒子只处理自身当前值、作者顺序和 blend。原 vector simplex 与 scalar speed FBM 与新标量消费者共用一个准备计划，存入已有 Operator kind，替代两个平行槽位和重复诊断准备。超出已有消费者的源或值维度保持局部不可用。
 
-官版 flags 0 的标量 sine 先归一 `q = (input − inputMin) / (inputMax − inputMin)`，再取 `(1 − cos(π × q × scale)) / 2`，结果线性映入输出范围。已测越界输入仍进入波形。省略 scale 取 2，显式 0 给最低输出，负值按该式。首个时间/透明度消费者的缺省输入和输出均为 0…1。省略 operation 与 multiply 一致，将当前 alpha 乘映射值；显式 remap 赋值。原 lifecycle blend 在当前 alpha 与运算结果之间插值。实机依据见[标量 Remap 波形与帧时钟](../capabilities/runtime-evidence-current.md#particle-remap-sine-clock)。逆序范围、零宽、额外 flags 和异常数值按实际消费者与相邻失败独立核对；不增加编辑器数字上限或整壁纸拒绝。
+官版 flags 0 的标量 sine 先归一 `q = (input − inputMin) / (inputMax − inputMin)`，再取 `(1 − cos(π × q × scale)) / 2`，结果线性映入输出范围。已测越界输入仍进入波形。省略 scale 取 2，显式 0 给最低输出，负值按该式。首个时间/透明度消费者的缺省输入和输出均为 0…1。省略 operation 与 multiply 一致，将当前 alpha 乘映射值；显式 remap 赋值。原 lifecycle blend 在当前 alpha 与运算结果之间插值。实机依据见[标量 Remap 波形与帧时钟](../capabilities/runtime-evidence-current.md#particle-remap-sine-clock)。有限非零输入跨度和输出跨度按有符号端点计算。零宽输入暂不执行该算子，额外 flags 与非法值保持局部失败。最终 alpha 只在当前写回检查可转成 Float，保留前序有效值。
 
 完成条件是新值经实际 Simulator alpha、Rope/Sprite batch 与生产 Metal 消费，并在相同作者输入下核活动 Remap 与最终捕获；未取得同步像素或完整子束资格时保持对应边界。证据和当前能力仍由原组件与运行证据卡维护。
 

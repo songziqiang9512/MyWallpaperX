@@ -215,6 +215,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             switch operatorValue.kind {
             case .alphaFade, .alphaChange, .oscillateAlpha:
                 resetsAlpha = true
+            case let .remapValue(.scalar(plan)?):
+                if case .opacity = plan.consumer { resetsAlpha = true }
             case .sizeChange, .oscillateSize:
                 resetsSize = true
             case .colorChange, .inheritEventValue:

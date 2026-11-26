@@ -362,42 +362,68 @@ nonisolated extension SceneParticleSimulator {
                 normalizedLives: normalizedLives,
                 blendPlan: operatorExecutionPlans[operatorIndex].blend
             )
-        case .remapValue:
-            if let plan = operatorExecutionPlans[operatorIndex].scalarSpeedRemap {
+        case let .remapValue(remap):
+            switch remap {
+            case let .velocityNoise(plan)?:
                 for index in particles.indices {
-                    guard let multiplier = SceneParticleSimulationMath.scalarSpeedRemapMultiplier(
-                        plan, normalizedLife: normalizedLives[index],
-                        particleID: particles[index].id, simulationSeed: simulationSeed
+                    guard let amount = SceneParticleSimulationMath.remapNoiseAmount(
+                        position: particles[index].position,
+                        time: simulationTime,
+                        particleID: particles[index].id,
+                        simulationSeed: simulationSeed,
+                        inputScale: plan.inputScale
                     ) else { continue }
-                    let velocity = particles[index].velocity * multiplier
-                    guard acceptsMotionResult(velocity, particles[index].position,
-                        component: "remapvalue-speed") else { continue }
-                    particles[index].velocity = velocity
+                    particles[index].velocity = plan.minimum + (plan.maximum - plan.minimum) * amount
 #if DEBUG
-                    componentObservation?.record("operator", operatorIndex, "evaluated", reason: "speed-remap-result-accepted", time: simulationTime, particleID: particles[index].id)
+                    componentObservation?.record("operator", operatorIndex, "evaluated", reason: "velocity-remap-evaluated", time: simulationTime, particleID: particles[index].id)
 #endif
                 }
-                break
-            }
-            guard let plan = operatorExecutionPlans[operatorIndex].velocityRemap else {
+            case let .scalar(plan)?:
+                switch plan.consumer {
+                case let .speedNoise(inputScale):
+                    for index in particles.indices {
+                        guard let multiplier = SceneParticleSimulationMath.scalarSpeedRemapMultiplier(
+                            plan, inputScale: inputScale, normalizedLife: normalizedLives[index],
+                            particleID: particles[index].id, simulationSeed: simulationSeed
+                        ) else { continue }
+                        let velocity = particles[index].velocity * multiplier
+                        guard acceptsMotionResult(velocity, particles[index].position,
+                            component: "remapvalue-speed") else { continue }
+                        particles[index].velocity = velocity
+#if DEBUG
+                        componentObservation?.record("operator", operatorIndex, "evaluated", reason: "speed-remap-result-accepted", time: simulationTime, particleID: particles[index].id)
+#endif
+                    }
+                case let .opacity(input, operation):
+                    guard !particles.isEmpty else { break }
+                    let mapped = plan.value(at: input.amount(at: timing.sceneTime))
+                    guard mapped.isFinite else { break }
+                    let blend = operatorExecutionPlans[operatorIndex].blend
+#if DEBUG
+                    var observedParticleID: UInt64?
+#endif
+                    for index in particles.indices {
+                        let current = particles[index].alpha
+                        let value = operation == .multiply ? current * mapped : mapped
+                        let weight = operatorBlend(blend, normalizedLives[index])
+                        let alpha = weight == 1 ? value : current + (value - current) * weight
+                        guard Float(alpha).isFinite else { continue }
+                        particles[index].alpha = alpha
+#if DEBUG
+                        observedParticleID = particles[index].id
+#endif
+                    }
+#if DEBUG
+                    if let observedParticleID {
+                        componentObservation?.record("operator", operatorIndex, "evaluated", reason: "opacity-remap-evaluated", time: simulationTime, particleID: observedParticleID)
+                    }
+#endif
+                }
+            case nil:
 #if DEBUG
                 componentObservation?.record("operator", operatorIndex, "unavailable", reason: "prepared-plan-unavailable", time: simulationTime)
 #endif
                 break
-            }
-            for index in particles.indices {
-                guard let amount = SceneParticleSimulationMath.remapNoiseAmount(
-                    position: particles[index].position,
-                    time: simulationTime,
-                    particleID: particles[index].id,
-                    simulationSeed: simulationSeed,
-                    inputScale: plan.inputScale
-                ) else { continue }
-                particles[index].velocity = plan.minimum
-                    + (plan.maximum - plan.minimum) * amount
-#if DEBUG
-                componentObservation?.record("operator", operatorIndex, "evaluated", reason: "velocity-remap-evaluated", time: simulationTime, particleID: particles[index].id)
-#endif
             }
         case .reduceMovement:
 #if DEBUG

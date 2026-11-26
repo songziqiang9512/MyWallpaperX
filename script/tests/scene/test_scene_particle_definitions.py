@@ -145,7 +145,7 @@ enum Harness {
         guard case let .capVelocity(capVelocity) = definition.operators[12].kind else {
             throw HarnessError.invalidJSON
         }
-        guard let remapPlan = definition.operators[13].boundedVelocityRemapPlan else {
+        guard case let .remapValue(.velocityNoise(remapPlan)?) = definition.operators[13].kind else {
             throw HarnessError.invalidJSON
         }
         return [

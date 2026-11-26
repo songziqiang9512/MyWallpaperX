@@ -206,7 +206,7 @@ Sphere沿原DefinitionParser一次准备显式local origin、radius及bouncefact
 <a id="operators"></a>
 ## 需要保留的数值边界
 
-- Remap 仍由原 `SceneParticleRemapValue` 准备 velocity/simplex 与 scalar-speed/FBM 两条有界计划；真实input selector/range、其他输出/操作及外层lifecycle blend尚缺完整消费者。独立静态范围、晚EventDeath实例与sine正控的当前资格见[运行证据](runtime-evidence-current.md)；场景对齐候选类不等于所有时钟/预热/rate行为已定，sine及作者缺省参数仍未资格。新实现沿[标量Remap合同](../architecture/runtime-architecture.md#particle-scalar-remap)替换两份平行可选计划，保原noise/RNG行为；不能用猜公式或新增字段组合白名单补第三路径。
+- Remap 由原 Operator 一次准备。时间到透明度支持线性或 sine、值域、Multiply/Remap 及生命周期混合，按作者顺序作用于当前 alpha。只在有已准备的透明度 writer 时恢复每步的出生基值。原 velocity/simplex 与 speed/FBM 保留既有行为。[数值合同](../architecture/runtime-architecture.md#particle-scalar-remap) · [原包及终端证据](runtime-evidence-current.md#particle-remap-native-output)
 - Vortex classic 与 v2 有不同 flags/轴/CP/audio 资格。现有默认原点的 v2 固定半径及强度为项目有界响应。显式控制点的方案见[定向 Vortex](#oriented-vortex)。
 - Plane Collision消费原准备平面；静态Sphere由[球体合同](#sphere-collision)维护。壁纸画布边界的实现范围归[Bounds合同](#bounds-collision)。
 - Position Around Count 是序列除数，支持大于等于 1 的有限作者数值，保留小数。整数可沿 ID 取余，小数沿原分段余数，超出 ID 范围的除数直接消费原 ID；计数只参与相位计算。准备时由同一 typed plan 汇合控制点和发射源约束，出生只消费该计划。未资格的轴、Mirror、periodic 与空间组合仍沿原边界。

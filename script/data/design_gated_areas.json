@@ -417,12 +417,11 @@
       "title": "粒子 Remap 标量消费与时间来源",
       "owner": "scene-particle",
       "status": "approved",
-      "designDoc": "docs/scene/capabilities/particle-component-coverage.md",
-      "design_notes": "Generic scalar input/range/transform/operation/output ownership: docs/scene/architecture/runtime-architecture.md#particle-scalar-remap. Qualify defaults, range/implicit transform and sine/time independently before implementing; the bounded time control does not qualify Simulator.simulationTime as this source. Reuse the existing typed SceneFrameTiming supply only after source semantics are established, with the original blend, ordered writer and one execution plan; preserve noise behavior and retire shape admission rather than add a time-opacity profile.",
+      "designDoc": "docs/scene/architecture/runtime-architecture.md",
+      "design_notes": "Generic Remap preparation follows docs/scene/architecture/runtime-architecture.md#particle-scalar-remap and the same-frame official evidence. Store the one prepared value in the original typed OperatorKind, reuse the existing blend and alpha reset, and remove both old plan slots and raw-declaration rechecks. Preserve the two noise consumers and directed failures. Time uses SceneParticleFrameTiming.sceneTime and evaluates the scalar once per operator step.",
       "matchPatterns": [],
       "contentPatterns": [
-        "SceneParticleScalarSpeedRemapPlan",
-        "boundedScalarSpeedRemapPlan"
+        "SceneParticleRemapPlan"
       ]
     },
     {
