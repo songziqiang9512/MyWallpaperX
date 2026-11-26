@@ -450,11 +450,22 @@ M4 内屏用同一团队签名的现役 Video helper 走真实可见接管。在
 
 | 方向 | 采用条件与成本 |
 |---|---|
-| 固定渲染比例 | 仅评估 Scene。若性能瓶颈是可缩放颜色 pass，先试 0.75× 的原离屏 render extent → 单一原生 drawable，按实际选择 Metal 线性或经验证的缩放。保持 viewport/光标/作者逻辑分辨率、命名图、历史、精确 atlas、文字、EDR；禁止用全局 drawableSize 修改冒充完整方案。调档、屏幕尺寸和历史互斥需实证，MetalFX 或动态比例会加入新 pass／历史，只有固定档方向成立再评估。 |
+| 固定渲染比例 | Scene 保原生默认。先定位可缩放颜色阶段，再按固定比例与双线性作净收益和视觉对照。获得采用资格才裁决是否显式开放低档。 [固定比例与 MetalFX](#scene-spatial-scaling) |
 | 自动省电与热状态 | 首轮优先使用现有前台／全屏／电池／空闲暂停。将来需要「电池降低 FPS」时采用原 policy 现有事件向 cadence 投影并显示有效值；固定、可逆、用户显式选择。自动降纹理、重载资源或多档瞬时跳变的切换成本大，先量到长稳真实收益，再限定迟滞、频率与条件。 |
 | 每屏或每作品覆盖 | 现有多屏拓扑、设备能力与属性维持。全局值先验收；只有实测存在混合刷新率／EDR 或用户明确长期需要不同策略，才在原显示/作品 owner 加一个可解释覆盖层。设备测值只产生有效值，便携设置不写物理 display ID。 |
 | 粒子、脚本、色彩、缩放 | 作者粒子数量、固定步进、script/timeline、阴影材质和各类后处理拥有各自语义，禁止随预设笼统删减。AV、WK、Scene 各自已有 fit 与色彩路径；显示比例与解码规格分开。库网格、预览帧、桌面静帧与系统锁屏控制另有既存入口。 |
 | 平台与依赖 | 优先 AppKit/Swift、Metal、ImageIO、WKWebView、AVFoundation。引入 FFmpeg、另一个浏览器内核、私有 API、第二 renderer 或永驻转码 helper，都会增大发行、原生架构、签名、维护和退出成本。仅当确有竞争方案无解且独立设计验证后才重开。 |
+
+<a id="scene-spatial-scaling"></a>
+#### Scene 固定比例与 MetalFX 的采用条件
+
+先复测现役优化构建的 1× A/A、GPU 阶段、实际呈现和原纹理池。先拆出同尺寸下可省的重复工作，再找确实由像素工作量限制的独立颜色通道。3749463715 之前少五次离屏材质，GPU P95 18.298→18.244 ms，实呈仍约 39.8 FPS，作候选归因及无收益对照。3673609113 先定位真正占用，阶段重叠不能相加，且作者两条历史照原规格。3448845950 作精确栅格反例，主工作树 `8834ba30f` 恢复作者栅格并量得网格 8.25→3 px，`02188ae34` 再去重复复制。这两项在画质工作树尚未纳入。 [复测与无收益对照](../scene/capabilities/runtime-evidence-current.md#terminal-main-ablation) · [作者局部栅格合同](../scene/capabilities/render-graph-shader-coverage.md#scaled-image-framebuffers)
+
+普通 Blur 的作者 `fbos.scale=4`、God Rays 的 `scale=2`，分别使用四分之一、二分之一轴长；Blur Precise 使用原尺度。各保作者栅格、`Scale` 调参、mask、核脚印、透明覆盖和后继输入。只对已归因的独占软色中间结果另试可等价的采样路径。God Rays 以 2868108515 和独立 2165492759 的光束、遮罩及定相为资格，保精确同帧输入。Motion Blur、Workshop Bokeh、Shine、Light Shafts 各归其原语义。 [Blur](https://docs.wallpaperengine.io/en/scene/effects/effect/blur.html) · [Blur Precise](https://docs.wallpaperengine.io/en/scene/effects/effect/blurprecise.html) · [God Rays](https://docs.wallpaperengine.io/en/scene/effects/effect/godrays.html) · [局部栅格实证](../scene/capabilities/runtime-evidence-current.md#author-chain-godrays-local-grid)
+
+对已量有资格的颜色通道，0.85× 为首个画面候选，0.75× 为更强的带宽探针，名义减像素约 28%／44%。仅缩放内部通道，保原生 drawable、遮挡、作者历史、具名或精确纹理、界面文字、指针和终端映射。最便宜的单次 Metal 双线性作为基线，Lanczos 可作高质量空间参考。Spatial 在有资格的同样尺寸与正确色域、alpha、传递函数下才竞争。M4 原生探针为 2560×1440 → 3024×1700 创建 BGRA8 感知和 RGBA16Float HDR 两个 scaler，只读 usage。两者输入需 shaderRead，输出需 shaderRead+renderTarget。对现役 framebuffer-only 的 Surface，需可读的输出再走原终端。按 Surface／规格准备，计入 scaler、额外纹理、最终呈现的全部成本。Temporal 须先有可靠运动、深度、抖动、遮挡历史及 reset 合同。Web 沿作者 FPS 建议，Video 沿原 AVPlayerLayer；不引入跨引擎统一缩放。探针归 `.artifacts/wallpaper-quality-spatial-scaler-probe`。 [MetalFX 接线](https://developer.apple.com/videos/play/wwdc2022/10103/) · [Spatial 规格](https://developer.apple.com/documentation/metalfx/mtlfxspatialscalerbase) · [Drawable 限制](https://developer.apple.com/documentation/metal/mtltexture/isframebufferonly) · [Lanczos](https://developer.apple.com/documentation/metalperformanceshaders/mpsimagelanczosscale)
+
+先验真实相同相位的细边、纹理、遮挡、透明度和下一帧，精确域按原图要求，避免清晰纹理或光束随时间闪动。同一机的固定相位原生／缩比例／还原与独立作品全通后，再比较实际 presented、GPU 中位／P95、驻留、换屏和固定时间窗功耗。按既定 A/A 波动、收益与回退门判断。原生分辨率和现有四档保留当前语义，纹理「高性能」仍只选择作者 mip。仅在有净收益、有明确画质代价并符合总体门时评估低档独立选项；其余档保原生。 [性能与画面门槛](#quality-release-gates)
 
 <a id="delivery"></a>
 ## 评估工作包、工程成本与停止线

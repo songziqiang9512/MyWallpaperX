@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 587,
-      "bytes": 148719
+      "lines": 598,
+      "bytes": 152229
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 138536
+      "bytes": 138675
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "41fbcc305490ec94cafd942a77d7046b461ac1acd1d991fdd59b0246223dbefc",
-      "after": "58cae30fc786c375869fbf9bb634f202c16c5f3e823fcce1f5e184855fcb3b85",
+      "before": "58cae30fc786c375869fbf9bb634f202c16c5f3e823fcce1f5e184855fcb3b85",
+      "after": "96ce8e387056819430b489c071cc791a7fe7d63736f1d91c869c19d5949b79e6",
       "owner": "scene-runtime",
-      "reason": "官版反射对照与关闭档作者环境供货设计",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-reflection-targets"
+      "reason": "MetalFX 与局部作者效果的适用档位及带宽画面门",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-spatial-scaling"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "e6736e9ec7d81fd16cc018e6b4c4ab7eb9ec37fa167f25ddf7bee22777640482",
-      "after": "39b46ee121b9d79dc8e7db0eedf420e067116fdda55d6e9d52c9d39f84930880",
+      "before": "39b46ee121b9d79dc8e7db0eedf420e067116fdda55d6e9d52c9d39f84930880",
+      "after": "66a7d5a232fa00f1741ed02567f69fc4c0b0ca4748672216f2f9bda08954cb20",
       "owner": "scene-runtime",
-      "reason": "官版反射目标已具备判别力及近期适配顺序",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-reflection-targets"
+      "reason": "固定比例的任务排序与保真默认",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-spatial-scaling"
     },
     {
       "section": "bodies",

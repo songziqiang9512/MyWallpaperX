@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2c352a31ed0ab8d694fa8f2d04f4aeb6b821f5387b3289db39bcef5d2da18052",
+        "sourceSHA256": "5794a216a4b760697b74ddd892035aed7d981742a86fa8fa4f40d6655b2c44ea",
         "method": "document_registry --audit + document_health --check",
-        "scope": "官版反射对照与关闭档作者环境供货设计",
-        "limitations": "本机设计待实施。固定版具名窗口实测边界另见证据。"
+        "scope": "MetalFX 与局部作者效果的适用档位及带宽画面门",
+        "limitations": "M4 只测描述符和实际所需 usage；当前未开放缩放档。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f66d2eb7a9aa38e037cdaa3b89cacf1ae658ae1442c5f5387b04f61daea75ec5",
+        "sourceSHA256": "7c8943b941fce8896dd42f6f1ab80a9f8284aa60f97de8886c7c2fcd13508c1c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "官版反射目标已具备判别力及近期适配顺序",
-        "limitations": "动态继承、其它目标与 Mac 实现待各自验证。"
+        "scope": "固定比例的任务排序与保真默认",
+        "limitations": "只复核 Q3 路线与现役样本证据入口。"
       }
     },
     {
