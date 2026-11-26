@@ -222,6 +222,7 @@ enum SceneTimelinePlaybackCommand: Equatable, Sendable {
     case pause
     case stop
     case setFrame(Double)
+    case setRate(Double)
 }
 
 struct SceneTimelinePlaybackMutation: Equatable, Sendable {

@@ -79,9 +79,6 @@ extension SceneMetalRenderer {
         )
     }
 
-    /// Puppet vertices are already expressed in authored model pixels. Apply
-    /// the layer/world transform and coordinate-system orientation exactly
-    /// once; unlike image quads, no render-size scale belongs in this matrix.
     func geometryModelMatrix(
         for layer: SceneRenderDescriptor.Layer,
         worldFramesByLayerID: [Int: simd_float4x4],
@@ -103,9 +100,23 @@ extension SceneMetalRenderer {
             orthoSize: configuration.orthoSize,
             visibleHalfExtents: visibleHalfExtents
         )
-        let unitPivot = SceneImageLayerPivot.unitOffset(
-            alignment: layer.imageAlignment
+        let shift = parallax + screenAnchor
+        return authoredGeometryModelMatrix(
+            for: layer,
+            worldFrame: SceneMatrix.translation(SIMD3(shift.x, shift.y, 0)) * world,
+            authoredSize: authoredSize,
+            usesPerspective: usesPerspective
         )
+    }
+
+    /// Puppet vertices are already expressed in authored model pixels.
+    func authoredGeometryModelMatrix(
+        for layer: SceneRenderDescriptor.Layer,
+        worldFrame: simd_float4x4,
+        authoredSize: SIMD2<Float>,
+        usesPerspective: Bool
+    ) -> simd_float4x4 {
+        let unitPivot = SceneImageLayerPivot.unitOffset(alignment: layer.imageAlignment)
         let localPivot = SIMD3(
             authoredSize.x * unitPivot.x,
             authoredSize.y * unitPivot.y,
@@ -115,9 +126,7 @@ extension SceneMetalRenderer {
             usesPerspective: usesPerspective,
             sceneOrthoHeight: renderDescriptor.camera.orthoHeight
         )
-        let shift = parallax + screenAnchor
-        return SceneMatrix.translation(SIMD3(shift.x, shift.y, 0))
-            * world
+        return worldFrame
             * SceneMatrix.scale(SIMD3(1, yDirection, 1))
             * SceneMatrix.translation(localPivot)
     }

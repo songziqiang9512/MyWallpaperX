@@ -65,18 +65,15 @@ extension SceneDesktopWallpaperSession.Surface {
             parallax: .zero, audioSpectrum: .silent)
         let camera = metalView.renderer.makeCameraFrame(frameContext: frame,
             descriptor: descriptor, layersByID: layersByID, worldFrames: staticWorldFrames)
-        let parallax = metalView.renderer.parallaxConfiguration(cameraFrame: camera,
-            viewportSize: frame.screenSize, dynamicValues: dynamicValues)
         let prepareAttachments: (SceneRenderDescriptor.Layer, [Int: simd_float4x4]) -> [String: simd_float4x4]? = { layer, worlds in
             let layerID = layer.id
             guard let playback = self.puppetPlaybackStates[layerID],
                   let samples = puppetAnimationFrame[layerID] else { return nil }
             let model = layer.staticModelPath != nil
                 ? self.metalView.renderer.staticModelWorld(for: layerID, worldFrames: worlds)
-                : self.metalView.renderer.geometryModelMatrix(for: layer, worldFramesByLayerID: worlds,
+                : self.metalView.renderer.authoredGeometryModelMatrix(for: layer,
+                    worldFrame: worlds[layerID] ?? matrix_identity_float4x4,
                     authoredSize: SIMD2<Float>(layer.renderSizeWH ?? [], fill: 0),
-                    parallaxMouseNormalized: .zero, configuration: parallax,
-                    visibleHalfExtents: camera.coverHalfExtents,
                     usesPerspective: camera.resolvesPerspective(for: layer))
             let meshToWorld = SceneLayerCursorGeometry.authoredWorldTransform(
                 model, sceneOrthoHeight: descriptor.camera.orthoHeight)
