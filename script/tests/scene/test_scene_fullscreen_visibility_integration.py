@@ -18,6 +18,9 @@ import unittest
 from unittest.mock import patch
 import zlib
 
+from script.scene.scene_wallpaper_graph_output_metrics import (
+    structured_runtime_observations, terminal_composition_snapshot,
+)
 from script.tests.scene.test_scene_composition_authored_order_integration import VERTEX, encoded, measure_capture
 from script.tests.support.scene_pkg_fixture import make_package
 
@@ -125,6 +128,65 @@ def fixture_entries(*, mixed_particle=False, no_capture=False, inactive_effect=F
     return {"type": "scene", "file": "scene.json", "general": {"properties": properties}}, entries
 
 
+def ordered_fullscreen_named_entries(*, renamed=False, **parameters):
+    project, entries = fixture_entries(**parameters)
+    scene = json.loads(entries["scene.json"])
+    canvas, red, peer = scene["objects"]
+    offset = 330 if renamed else 0
+    red_id, blue_id, consumer_id = (value + offset for value in (20, 21, 22))
+    namespace, varying = ("color_cuts", "v_Alternate") if renamed else ("named_prefix", "v_TexCoord")
+    first_key = "include_earlier_color" if renamed else "firstcut"
+    placement = {"image": red["image"], "origin": red["origin"], "size": red["size"]}
+    project["general"]["properties"][first_key] = {"type": "bool", "value": True}
+
+    def effect(label, effect_id, code, *, sampled_provider=None, uses_current=False):
+        name = f"{namespace}_{label}"
+        descriptor = f"effects/{name}/effect.json"
+        material = f"materials/{name}.json"
+        entries[descriptor] = encoded({"passes": [{"material": material}]})
+        # g_Texture0 refers to the current framebuffer, g_Texture1 to the authored named input.
+        entries[material] = encoded({"passes": [{"shader": name,
+            "textures": [None, None] if sampled_provider is not None else [None],
+            "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]})
+        entries[f"shaders/{name}.vert"] = VERTEX.replace(b"v_TexCoord", varying.encode())
+        declarations = []
+        if uses_current:
+            declarations.append("uniform sampler2D g_Texture0;")
+        if sampled_provider is not None:
+            declarations.append("uniform sampler2D g_Texture1;")
+        code = code.replace("source*0.5", "source/2.0") if renamed else code
+        fragment = "\n".join([*declarations, f"varying vec2 {varying};", "void main(){",
+                              code.replace("v_TexCoord", varying), "}"])
+        entries[f"shaders/{name}.frag"] = fragment.encode()
+        entry = {"id": effect_id, "file": descriptor, "visible": True}
+        if sampled_provider is not None:
+            entry["passes"] = [{"id": effect_id + 1, "textures": [None, f"_rt_imageLayerComposite_{sampled_provider}_a"]}]
+        return entry
+
+    del entries["effects/own_dim/effect.json"], entries["materials/own_dim.json"]
+    del entries["shaders/own_dim.vert"], entries["shaders/own_dim.frag"]
+    first = effect("first", 220 + offset, "float source=texSample2D(g_Texture1,v_TexCoord).r;"
+                   "gl_FragColor=vec4(source,0.125,0.0,1.0);", sampled_provider=red_id)
+    first["visible"] = {"user": first_key, "value": True}
+    red.update(id=red_id, name="Earlier red prefix", effects=[effect("red", 200 + offset,
+        "float source=texSample2D(g_Texture0,v_TexCoord).r;gl_FragColor=vec4(source*0.5,0.0,0.0,1.0);",
+        uses_current=True)])
+    blue = dict(placement, id=blue_id, name="Second prefix turns red into blue",
+                effects=[effect("blue", 210 + offset,
+                    "float source=texSample2D(g_Texture0,v_TexCoord).r;gl_FragColor=vec4(0.0,0.0,source*0.5,1.0);",
+                    uses_current=True)])
+    consumer = dict(placement, id=consumer_id, name="Read both completed prefixes",
+                    dependencies=[red_id, blue_id], effects=[first, effect("second", 222 + offset,
+                        "vec4 previous=texSample2D(g_Texture0,v_TexCoord);"
+                        "float namedBlue=texSample2D(g_Texture1,v_TexCoord).b;"
+                        "gl_FragColor=vec4(previous.rg,namedBlue,1.0);", uses_current=True, sampled_provider=blue_id)])
+    canvas["id"] += offset
+    peer["id"] += offset
+    scene["objects"] = [canvas, red, blue, consumer, peer]
+    entries["scene.json"] = encoded(scene)
+    return project, entries
+
+
 def file_hashes(paths):
     return {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
             for path in paths if path.is_file()}
@@ -148,33 +210,35 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
                  missing_shader=False, legal_particle=False, project_script=False, fullscreen_script=False,
                  fullscreen_children=False, launch=None, sequence=None,
                  expected_dims=None, expected_accepted=None, effect_layer_id=20,
-                 initially_dimmed=False):
+                 initially_dimmed=False, expected_backgrounds=None, fixture=None):
         unavailable = mixed_particle or missing_shader
         launch = launch or {"mode": "off", **({"fx": False} if inactive_effect else {})}
         sequence = sequence or [{"mode": "on"}, {"mode": "unsupported" if mixed_particle else "off"}]
         if expected_dims is None:
             expected_dims = [not (unavailable or no_capture), False]
-        self.assertEqual(len(sequence), len(expected_dims))
+        if expected_backgrounds is None:
+            expected_backgrounds = [GRAY if dim else WHITE for dim in [initially_dimmed, *expected_dims]]
+        self.assertEqual(len(sequence) + 1, len(expected_backgrounds))
         accepted = ([str(value).lower() for value in expected_accepted]
                     if expected_accepted is not None
                     else ["false" if unavailable else "true"] * len(sequence))
-        def oracle(dim, particle=False, child_visible=False):
-            child = (128, 0, 0) if dim else RED
-            colors = {"background": GRAY if dim else WHITE, "nonchild": GREEN,
-                      "child": child if child_visible else RED if particle else GRAY if dim else WHITE}
+        def oracle(background, particle=False, child_visible=False):
+            child = (128, 0, 0) if background == GRAY else RED
+            colors = {"background": background, "nonchild": GREEN,
+                      "child": child if child_visible else RED if particle else background}
             return {key: {"canvasRect": rect, "expectedRGB": colors[key]} for key, rect in RECTS.items()}
         after_delay = 2 * len(sequence) + 3
         root_mode = launch.get("mode")
-        snapshots = {"scene-ready-window.png": oracle(initially_dimmed,
+        snapshots = {"scene-ready-window.png": oracle(expected_backgrounds[0],
             child_visible=fullscreen_children and root_mode == "on")}
         times = {"scene-ready-window.png": 1}
-        for index, dim in enumerate(expected_dims):
+        for index, background in enumerate(expected_backgrounds[1:]):
             # Each intermediate capture is 1.5s after its property request and
             # 0.5s before the next; the last gets the existing settled 'after'.
             name = ("scene-after-window.png" if index == len(sequence) - 1
                     else f"scene-series-{2 + index * 2:04d}-window.png")
             root_mode = sequence[index].get("mode", root_mode)
-            snapshots[name] = oracle(dim, legal_particle and index == 0,
+            snapshots[name] = oracle(background, legal_particle and index == 0,
                 child_visible=fullscreen_children and root_mode == "on")
             times[name] = after_delay if index == len(sequence) - 1 else 3.5 + index * 2
         protocol = {"canvas": [256, 256], "channelTolerance": 4, "minimumCorrectFraction": .99,
@@ -187,7 +251,7 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
                     "effectLayerID": effect_layer_id, "initiallyDimmed": initially_dimmed,
                     "snapshotTimesSeconds": times, "snapshotOracles": snapshots,
                     "captureMapping": "centered orthographic cover, 256 square canvas"}
-        project, entries = fixture_entries(mixed_particle=mixed_particle, no_capture=no_capture,
+        project, entries = (fixture or fixture_entries)(mixed_particle=mixed_particle, no_capture=no_capture,
             inactive_effect=inactive_effect, missing_shader=missing_shader, legal_particle=legal_particle,
             project_script=project_script, fullscreen_script=fullscreen_script, fullscreen_children=fullscreen_children)
         self.assertEqual(app_hashes(self.app), self.frozen_app_hashes)
@@ -273,6 +337,51 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
 
     def test_prepared_fullscreen_can_show_and_hide_in_authored_slot(self):
         self.run_case()
+
+    def assert_ordered_fullscreen_named_inputs(self, *, renamed):
+        both, second_only = (128, 32, 64), (0, 0, 64)
+        offset = 330 if renamed else 0
+        red, blue, consumer = (value + offset for value in (20, 21, 22))
+        first_key = "include_earlier_color" if renamed else "firstcut"
+        log, _ = self.run_case(launch={"mode": "on", first_key: True}, effect_layer_id=red,
+            sequence=[{first_key: False}, {first_key: True}],
+            expected_backgrounds=[both, second_only, both],
+            fixture=lambda **kwargs: ordered_fullscreen_named_entries(renamed=renamed, **kwargs))
+        self.assertNotRegex(log, r"frame-success-blueprint-rejected|predecessor-output-not-consumed")
+        for layer in (red, blue):
+            self.assertIn(f"phase=visible-graph-output-publication layer={layer} status=succeeded", log)
+        self.assertIn(f"phase=named-target-binding layer={consumer} status=succeeded", log)
+        observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
+        self.assertEqual(observations["parse_errors"], 0)
+        for reason, stages in (("ready", [0, 1]), ("series-0002", [1]), ("after", [0, 1])):
+            with self.subTest(capture=reason):
+                receipt = re.search(rf"phase=snapshot reason={reason} request=(\d+) source=metal ", log)
+                self.assertIsNotNone(receipt)
+                request = int(receipt[1])
+                encoding = re.search(rf"phase=snapshot-encoded request={request} commandBufferToken=(\d+) "
+                                     r"textureToken=(\d+) width=(\d+) height=(\d+)", log)
+                self.assertIsNotNone(encoding)
+                matched = terminal_composition_snapshot({"status": "captured", "request_id": request,
+                    "command_buffer_token": encoding[1], "texture_token": encoding[2],
+                    "source_width": int(encoding[3]), "source_height": int(encoding[4])}, observations)
+                self.assertTrue(matched["composition_receipt_matched"], matched)
+                event = next(e for e in observations["events"]
+                             if e.get("captureRequestID") == request and e.get("commandBufferToken") == encoding[1])
+                self.assertEqual(event["truncatedRows"], 0)
+                rows = event["rows"]
+                named_reads = [row for row in rows if row.get("layerID") == consumer
+                    and row.get("kind") in ("material", "terminal-material-replay")
+                    and row.get("slot") == 1 and row.get("outcome") == "draw-encoded"]
+                self.assertEqual([row["effectIndex"] for row in named_reads], stages, named_reads)
+                self.assertEqual(len({row["source"]["textureToken"] for row in named_reads}), len(stages))
+                self.assertTrue(any(row.get("layerID") == consumer and row.get("kind") == "tail-consume"
+                                    and row.get("outcome") == "terminal-consumed" for row in rows))
+
+    def test_ordered_fullscreen_named_inputs_keep_both_provider_colors(self):
+        self.assert_ordered_fullscreen_named_inputs(renamed=False)
+
+    def test_renamed_fullscreen_named_inputs_keep_both_provider_colors(self):
+        self.assert_ordered_fullscreen_named_inputs(renamed=True)
 
     def test_forward_fullscreen_dependency_leaves_prefix_and_later_draws_playing(self):
         base_fixture = fixture_entries

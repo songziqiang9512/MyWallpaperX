@@ -97,8 +97,9 @@ extension SceneDependencyRenderPlan {
                   provider.dependencyLayerIDs.isEmpty,
                   provider.visible == false || hasEffects {
             kind = .solidLayer
-        } else if provider.utilityLayer?.kind == .composition,
-                  provider.contentKind == "composition" {
+        } else if let utility = provider.utilityLayer, provider.contentKind == utility.kind.rawValue,
+                  utility.kind == .composition || (utility.kind == .fullscreen
+                    && provider.parentID == nil && visibleLayerIDs.contains(provider.id) && hasEffects) {
             kind = .resolvedMaterial
         } else {
             return nil

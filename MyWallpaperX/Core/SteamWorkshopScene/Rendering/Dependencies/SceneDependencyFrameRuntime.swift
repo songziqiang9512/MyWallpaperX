@@ -381,8 +381,9 @@ final class SceneDependencyFrameRuntime {
         permitsGraphOutputSourceFallback: Bool = false
     ) -> SceneGraphOutputPublicationResult? {
         guard plan.requiredProviderLayerIDs.contains(layer.id) else { return nil }
-        guard permitsGraphOutputSourceFallback
-            || !plan.requiredGraphOutputProviderLayerIDs.contains(layer.id) else {
+        guard layer.utilityLayer?.kind != .fullscreen,
+              permitsGraphOutputSourceFallback
+                || !plan.requiredGraphOutputProviderLayerIDs.contains(layer.id) else {
             // A graph-output provider publishes through the graph route, not
             // through this raw capture entry point. That is an ordinary
             // route-not-applicable miss: the caller keeps its previous

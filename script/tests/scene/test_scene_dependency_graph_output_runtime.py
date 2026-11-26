@@ -63,7 +63,7 @@ struct SceneAuthoredEffectRenderPlan {
 }
 
 struct SceneUtilityLayer {
-    enum Kind { case composition }
+    enum Kind { case composition, fullscreen }
     let kind: Kind
     var copyBackground: Bool = true
 }

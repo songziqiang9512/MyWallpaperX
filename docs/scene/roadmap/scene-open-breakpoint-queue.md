@@ -15,7 +15,6 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| 全屏闪电 · 3842633043 | 启动阻断已修复。[本机终图与官版开关](../capabilities/runtime-evidence-current.md#utility-capture-admission-3842633043)确认原包可播、604仍缺。沿原具名发布接通先于604的172/583图尾，在两段Blend的实际slot核同帧采样及终图。前向截点不得提前捕获。 |
 | 材质参数双名 · 3833869818 | 53/59/86 的 `Opacity` 与 `u_Opacity` 同值，冷绑定按命中数拒绝，三个活动材质透传。42另有 `Base px/u_Base` 同值和Thickness/Tint异值。合并同一uniform的等价输入，异值优先级须官版；用改名、动态值及真冲突对照，保实际材质和尾图。 |
 | 隐藏动画图具名供货 · 3258021301 | 211/e1持续读不到208。208无effect，默认隐藏，41帧TEX已载入；专用动画链未给原named捕获需要的当前帧映射。沿原sprite选帧和纹理映射供货，保静态反例、帧相位和211实际合成。 |
 | Sphere 全零方向的出生可见性（待证） | [固定零半径初速](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)已恢复。显式全零 Directions 的隔离 Sprite 官版无像素、本机有静点。现库860可读包及松散/库存的1,834个显式声明未见全零。重启须活动输入或子事件/占槽证据区分出生与可见性，保零速度和非零轴。 |
@@ -192,6 +191,7 @@
 
 | 定位 | 下一步 |
 |---|---|
+| 全屏具名依赖显隐 · 3842633043 | [启动与默认闪电已修复](../capabilities/runtime-evidence-current.md#utility-capture-admission-3842633043)。播放中关闭 `lightning` 被拒，604的visibility未准备。沿原显隐owner取得已接两路具名输入的关闭与恢复，核同窗GPU及两路按需供货。 |
 | 属性面板 | 总打开/编辑延迟、长Combo完整显示、系统键盘路径与更多locale需实际可达控件。保原始key/value/条件，翻译只改展示；完整段落、只读说明和reset入口不能因优化丢失。 |
 | effect 显隐 / history | 同 scene-time 像素 A/B、真实 descriptor 变化与 349 类 activation 切换仍需实际 App 资格。运行时材料失败的已提交历史保持、首帧/reset 与 capability-level 反例归[运行证据](../capabilities/runtime-evidence-current.md#stale-history-seed)，职责归[history 合同](../capabilities/render-graph-shader-coverage.md#history-read-write-split)；不把重建透明内容当成历史保持，不另建 owner。 |
 | text size | VM catalog size与排版logical extent是不同事实；setter后可见时机与padding/装饰需真实行为，不另建排版owner。 |

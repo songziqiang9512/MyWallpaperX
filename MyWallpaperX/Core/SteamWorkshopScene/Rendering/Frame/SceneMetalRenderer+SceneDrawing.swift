@@ -297,8 +297,9 @@ extension SceneMetalRenderer {
             topologyRevision: layerTopology?.topologyRevision ?? 0,
             sourceAfterLayerIDByLayerID: {
                 var points: [Int: Int] = [:]
-                for layer in orderedLayers where layer.utilityLayer != nil {
-                    if layer.utilityLayer?.copyBackground == true
+                for layer in orderedLayers {
+                    guard let utility = layer.utilityLayer else { continue }
+                    if utility.copyBackground || utility.kind == .fullscreen
                         || availableExecutionLayerIDs.contains(layer.id) {
                         points[layer.id] = layer.id
                     }
