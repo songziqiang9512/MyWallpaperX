@@ -639,10 +639,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "c30e106350e51a8f27533128629fd60f4564308f52558c10de68c05d39678eee",
+      "before": "82f26464283af97705f1e22b3b7e1df2dd7e026007bd15023ad07910b92aa67d",
       "after": "ea38c3ab49bc49a5388164d6b48537af88c3f74bae8e74b790b7c2d41598becc",
       "owner": "Scene main synchronization",
-      "reason": "保留连续发射出生分组与质量工作树已有运行证据。",
+      "reason": "绑定同步后保留的双方运行证据。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-continuous-birth-cadence-292"
     },
     {
