@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 380295
+      "bytes": 381403
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 58,
-      "bytes": 7282
+      "bytes": 7348
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9bc2b0b9ac4ded63704f0cf9f66caadb8205b503e26aece771fdd57ca7a7c1a6",
-      "after": "4f451f8beb892084098cc327a69bf184f02393e7da1a60ae2a528f3083532f8e",
-      "owner": "Scene effect texture projection",
-      "reason": "登记官版着点探针、斜卡实际遮罩和稳态景深控制。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#xray-tilted-projection"
+      "before": "4f451f8beb892084098cc327a69bf184f02393e7da1a60ae2a528f3083532f8e",
+      "after": "edf3f9477b0d26abf37a0d626ad7fb1837c2276a392fc9719da331c6974ccdb9",
+      "owner": "Scene author audio history",
+      "reason": "保留同源频谱历史反例、跨声道实机对照及可复验边界。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#forefront-magnitude-history-346"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "4665e0f4be9616bd651ba91a860f75d6188cd1508b349d0105b1a1578f56cc5e",
-      "after": "212e343cb59a7ac01885802716d631cadcc44bad94214f7398b57fd40b71bf69",
-      "owner": "Scene composition and named graph output",
-      "reason": "记录已验证的具名图时序及对应的现役设计入口。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      "before": "a78bc555bb54b999f11060fea874d2fd26f960de35f64fd7f439cc73e7272dff",
+      "after": "2d8c7af5157433d5343dc1a35d2b0dc1d1e2e4c05bc9aa56da3a5239b86f2f99",
+      "owner": "Scene author audio history",
+      "reason": "更新前景问题到已证幅度历史后的实际定位。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
       "section": "bodies",
