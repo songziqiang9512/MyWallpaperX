@@ -166,7 +166,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 409511
+      "bytes": 410122
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 57,
-      "bytes": 7558
+      "bytes": 7596
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -705,15 +705,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "44a2220f6c0577d8e5030882c1abf840fbc399ec5820b192ae708290a277e915",
-      "after": "6e5f700bdf5f8a3a26a6242379f1b1ef7261bd171375fccb885e3c0c295e1eba",
-      "owner": "Scene graph composition and quality evidence",
-      "reason": "Preserve the integrated graph, authored-text anchoring and quality evidence from both worktrees.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
       "after": "0e91933206c8a5cdf6a6edc9675d7d8e3e5641e61ce3c9c33258b53ea22f70ba",
@@ -742,11 +733,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "5aee2e38f1634403d7bf72d520ce3bcbda03deaa341dd115304590fcaeb30fa6",
-      "after": "e720af2346be32c98ca68b1bfa7cbdf17e514752de98298ee7f6bcc856c0f4bf",
+      "before": "e720af2346be32c98ca68b1bfa7cbdf17e514752de98298ee7f6bcc856c0f4bf",
+      "after": "6989c1af3814333d9abfc34b07cc4745d33c0d38452ec4f82543263d2e1c815b",
       "owner": "Scene composition and quality evidence",
-      "reason": "Preserve integrated author Sprite coverage and runtime evidence from both worktrees.",
+      "reason": "Preserve integrated author Godrays evidence and the existing quality evidence.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "6b084590c4b357a73408c92bbf31d24c7658a53e272e89505868eb194ed17856",
+      "after": "624ff26cce861cb2428330a37d7b9dec61323c9bf057f6e15951e463929f6086",
+      "owner": "Scene composition and quality evidence",
+      "reason": "Preserve integrated author Godrays evidence and the existing quality evidence.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
     }
   ]
 }

@@ -13,7 +13,7 @@
 
 | 样本 | 本轮反馈 | 复验起点 |
 |---|---|---|
-| 2868108515 | 剑链左侧仍有蜘蛛网状叠影 | 沿[旧高通对照](../capabilities/runtime-evidence-current.md#author-chain-godrays-local-grid)，按新叠影位置固定同场景时刻，比较 39/e43181 开关下的残差。 |
+| 2868108515 | 剑链左侧的叠影仍可见 | [两端原包及只关 Godrays 的对照](../capabilities/runtime-evidence-current.md#author-chain-left-step-286)已定位接缝，旧密格未复现。锁定相位与背景采样，核接缝强度和位置的剩余差异。 |
 | 3769688830 | 本机玩偶水球持续向左转，用户在官版看到头朝上的往返摆动 | [旧实测含 spinorb/e524 与父层摆动](../capabilities/runtime-evidence-current.md#orb-spin-parent-motion-376)。对齐自转属性、父层相位和默认版本，分别比较静止头向和摆动轨迹。 |
 | 3673609113 | 人偶运动和音条抖动时出现上一帧残影 | [旧残影归因](../capabilities/runtime-evidence-current.md#author-motion-history-367)覆盖飘带。新对照固定人偶和音条各自的高运动 ROI，比较历史源清除、当前帧及官版连续图。 |
 | 3187857248 | 仍有时拖不动 | 沿[拖动证据](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318)匹配两端当前骨位置，重复真实按下、拖动和释放，记录命中归属。 |
