@@ -826,10 +826,19 @@ final class SceneParticleRuntime {
 #endif
         }
         guard !prepared.isEmpty else { return nil }
+        let sceneIsOrthographic = descriptor.camera.authoredOrthographicProjectionActive == true
         if !hasChildSystems, layer.parentID == nil, let state = asset.pipelineState,
            state.blendMode == .translucent, state.depthWriteEnabled,
            prepared.allSatisfy(\.usesSceneCamera) {
-            for index in prepared.indices { prepared[index].ignoresNativeSceneDepthWrite = true }
+            let usesCanvasProjection = sceneIsOrthographic && !asset.definition.flags.usesPerspective
+                && !SceneParticleCameraFrame.acceptsNativePerspectiveProjection(camera: descriptor.camera)
+            for index in prepared.indices {
+                if usesCanvasProjection {
+                    prepared[index].renderState.depthWriteEnabled = false
+                } else {
+                    prepared[index].ignoresNativeSceneDepthWrite = true
+                }
+            }
         }
         let initialInstanceOverride = SceneParticleInstanceOverride.resolving(
             authored: layer.particleInstanceOverride,
@@ -845,7 +854,7 @@ final class SceneParticleRuntime {
             initialDynamicControlPointAngles: initialDynamicValues.particleControlPointAngles(layerID: layer.id),
             initialPlayback: initialPlayback,
             initialAudioInput: initialAudioInput, initialTiming: .init(sceneTime: initialSceneTime),
-            sceneIsOrthographic: descriptor.camera.authoredOrthographicProjectionActive == true,
+            sceneIsOrthographic: sceneIsOrthographic,
             seed: UInt64(bitPattern: Int64(layer.id)),
             prewarmStepBudget: nil,
             shouldCancelPrewarm: shouldCancelPrewarm,

@@ -159,18 +159,75 @@ class SceneParticleMainDepthTests(unittest.TestCase):
                 for path, event in self.captures(f"translucent-{arm}", entries, material):
                     self.assert_translucent_capture(path, event, shifted, tested)
 
+    def test_canvas_translucent_sprite_keeps_later_halo_coverage(self):
+        controls = (
+            ("read-only", "translucent", False),
+            ("authored-write", "translucent", True),
+            ("renamed-write", "translucent", True),
+            ("additive-write", "additive", True),
+        )
+        reference = None
+        for name, blend, writes_depth in controls:
+            with self.subTest(arm=name):
+                layer_id = 104 if name == "renamed-write" else 40
+                material = f"materials/{name}/paint.json"
+                particle = f"particles/{name}.json"
+                scene = native_world_scene([{
+                    "id": layer_id, "particle": particle, "origin": "640 416 0",
+                }])
+                scene["general"].update(orthogonalprojection={"width": 1280, "height": 832},
+                                        clearcolor=".64 .64 .64", farz=10000)
+                entries = {
+                    "scene.json": encoded(scene),
+                    material: encoded({"passes": [{
+                        "shader": "genericparticle", "textures": ["particle/halo"],
+                        "blending": blend, "cullmode": "nocull", "depthtest": "enabled",
+                        "depthwrite": "enabled" if writes_depth else "disabled",
+                    }]}),
+                    particle: encoded({
+                        "material": material, "maxcount": 2, "starttime": .25,
+                        "emitter": [{"name": "sphererandom", "origin": origin, "rate": 0,
+                                     "instantaneous": 1, "distancemin": 0, "distancemax": 0}
+                                    for origin in ("-40 0 8", "0 0 -8")],
+                        "initializer": [{"name": "lifetimerandom", "min": 30, "max": 30},
+                                        {"name": "sizerandom", "min": 180, "max": 180},
+                                        {"name": "colorrandom", "min": "220 30 30", "max": "220 30 30"}],
+                        "renderer": [{"name": "sprite"}],
+                    }),
+                }
+                for path, event in self.captures(f"canvas-{name}", entries, material):
+                    draw, = [row for row in event["rows"] if row.get("layerID") == layer_id
+                             and row["kind"] == "particle" and row.get("slot") == 0]
+                    expected_depth = str(blend == "additive").lower()
+                    self.assertEqual(draw["details"]["depthTestEnabled"], "true")
+                    self.assertEqual(draw["details"]["depthWriteEnabled"], expected_depth)
+                    self.assertEqual(draw["details"]["usesDepthAttachment"], expected_depth)
+                    self.assertEqual(draw["details"]["instanceCount"], "2")
+                    if blend == "translucent":
+                        width, height, rgb = png_rgb_pixels(path)
+                        x, y = width // 2 - 3, height // 2
+                        r, g, b = rgb[y][3*x:3*x+3]
+                        self.assertGreater(r - max(g, b), 30, (path, r, g, b))
+                        crop = [row[3*(x-22):3*(x+22)] for row in rgb[y-14:y+14]]
+                        if reference is None:
+                            reference = crop
+                        self.assertEqual(crop, reference, path)
+
     def test_translucent_world_sprite_keeps_private_depth_only_for_drawn_ortho_writer(self):
-        for alpha in (1, 0):
-            with self.subTest(ortho_alpha=alpha):
+        for alpha, auto_canvas in ((1, False), (0, False), (1, True)):
+            with self.subTest(ortho_alpha=alpha, auto_canvas=auto_canvas):
                 entries, material, shifted = fixture("mixed-ortho", translucent=True)
                 scene = json.loads(entries["scene.json"])
+                if auto_canvas:
+                    scene["general"]["orthogonalprojection"] = {"auto": True}
                 layers = {layer["id"]: layer for layer in scene["objects"]}
                 del entries[layers.pop(10)["particle"]]
                 scene["objects"] = list(layers.values())
                 ortho = layers[21]
                 ortho.update(visible=True, alpha=alpha)
                 entries["scene.json"] = encoded(scene)
-                for path, event in self.captures(f"translucent-mixed-ortho-{alpha}", entries, material):
+                name = f"translucent-mixed-ortho-{alpha}" + ("-auto" if auto_canvas else "")
+                for path, event in self.captures(name, entries, material):
                     self.assert_translucent_capture(path, event, shifted, tested=True,
                                                      orthographic_writer=bool(alpha))
 

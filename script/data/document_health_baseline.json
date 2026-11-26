@@ -121,8 +121,8 @@
       "bytes": 7411
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 428,
-      "bytes": 81534
+      "lines": 429,
+      "bytes": 82146
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 486,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 393063
+      "bytes": 393877
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 58,
-      "bytes": 7798
+      "lines": 57,
+      "bytes": 7558
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -432,15 +432,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "c6e746924a512ee6dc601dcb922a7a249a54ad33c002be57ded269e03063a8f6",
-      "after": "2bf3796cd6f511d06054070589d7592ab4a375d30abd39883f60dab0657f6115",
-      "owner": "Scene particle simulation",
-      "reason": "更新出生乘积及实例色投影合同",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#instance-color-revision"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "d490c0d50a6ff64d53da91703c1794bf018dcc531e8c60a43b08bd2f1bb43522",
       "after": "51ab0c44e7ee50643e905f9f62e62c2451dec75db0bc1757d8f8ca88f64c2c57",
@@ -666,12 +657,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "2bf3796cd6f511d06054070589d7592ab4a375d30abd39883f60dab0657f6115",
+      "after": "7e8fceb821f23309a281998e571b6f64a504565a8a03852b9f75da108462559a",
+      "owner": "Scene particles",
+      "reason": "记录官版正交半透明 Sprite 的写入和排序语义。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#material-state"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e8dfab5ee91291cc418d4a2e2bef251862f76f40a374fa8690a761729acf7153",
-      "after": "255b9aae1e78de041269cde289e7269a39ae18b6168cfe4967c07f35b22eb3c6",
-      "owner": "Scene composition",
-      "reason": "登记歌曲文字在不同画幅、锚点和同字体下的双端量测。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-player-text-current-360"
+      "before": "255b9aae1e78de041269cde289e7269a39ae18b6168cfe4967c07f35b22eb3c6",
+      "after": "899081a8579bd8a68899d3ee06db390bffa56beda1fa51c7b63cc667380953cf",
+      "owner": "Scene particles",
+      "reason": "登记原包指针、固定双粒板和独立作者的实画结果。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#pointer-halo-378"
     }
   ]
 }

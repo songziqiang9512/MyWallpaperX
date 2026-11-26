@@ -398,6 +398,7 @@ Rope 整图路径不构造 SpriteAnimation，只传整图消费选择和原纹�
 - A2C 不额外禁止 cull 或 depth。共同 depth 接受已有普通颜色材质输入或已准备 REFRACT 事实，实际 PSO、nearest pass、depth clear/store/load 与 writer/readonly 次序继续由原 GPU owner 消费。REFRACT planner 当前无 depth-write 语义，不在下游重复其入口判断；A2C+REFRACT 没有组合 fragment/PSO，不能据此伪造执行。
 - `usesSceneCamera` 保留原选择及 CameraFrame 的 native projection/Y 转换语义；它不再充当材质或深度的播放许可。新增 Rope coverage 不能令普通 Rope 自动切 native 相机。
 - overbright 是准备期静态 scalar，转为后端 Float 后须有限且非负。shader 直接消费其数值，不能以 64 或编辑器范围作额外播放上限；未实现的 combo、user sampler/value、自定义 shader 或多 pass 仍需真实消费者，不能因状态已准备就宣称其输入生效。
+- 作者相机实际使用正交画布且粒子定义未请求透视时，普通根层 translucent Sprite 按原提交顺序混合颜色。沿根层准备关闭写深度，避免透明四边形遮住同批后继粒子，也免去该批私有深度附件。官版固定正交双粒对照中，换序仍会改变重叠色，单切写入则不改变同序像素。保留测试声明和原有附件语义，additive、coverage、子系统、组及透视路径沿各自合同。验收用同色 halo 的边缘和异色不透明纹理的重叠，区分关闭写入与重排，并核独立作者和真实指针轨迹。
 - 保留原 sampleCount1、像素格式和深度附件变体，不为 A2C 名称新增 MSAA/resolve 生命周期。PSO 或资源失败只使实际受影响 batch 不可用，健康 peer 继续；不得退回另一个 blend 来冒称 coverage。单采样硬件结果不证明平滑抗锯齿或官方 coverage mask 一致。
 
 验收使用原 Runtime 的 live-particle Rope 与独立 RopeTrail history，读取实际 joins/vertex、硬件 alpha 正反例、非方纹理、急转/合并段、镜像/cull、共同深度 writer/readonly、缺 PSO 和健康后继；overbright65 用低输入颜色避免饱和掩盖。真实作者以活动 pointer 轨迹期间的 batch、纹理、捕获身份和终端画面取证，静止帧或默认隐藏 child 的准备诊断不能证明轨迹恢复。若原几何、输入或资源出现下一断点，沿实际 owner 修正或登记，不继续追加模式名单。
