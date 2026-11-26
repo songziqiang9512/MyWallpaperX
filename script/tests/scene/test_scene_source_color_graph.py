@@ -92,10 +92,10 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
             authoredFallbackTargets: [visibility], timelineTargets: [], sceneScriptTargets: [])
         let qualification: [(String, Graph, String, Bool, Bool)] = [
             ("implicitMissingAlias", value, "text", false, true), ("renamedRT", renamedGraph, "text", false, true),
-            ("ordinaryImage", value, "image", false, false), ("direct", direct, "text", false, false),
-            ("unusedRT", unusedRT, "text", false, false), ("copyFirst", copyFirst, "text", false, false),
+            ("ordinaryImage", value, "image", false, false), ("direct", direct, "text", false, true),
+            ("unusedRT", unusedRT, "text", false, true), ("copyFirst", copyFirst, "text", false, false),
             ("overwrittenRT", overwrittenRT, "text", false, false),
-            ("priorEffect", prior, "text", false, false), ("dynamicFirst", value, "text", true, true)]
+            ("priorEffect", prior, "text", false, true), ("dynamicFirst", value, "text", true, true)]
         for (name, graphValue, kind, dynamic, expected) in qualification {
             let chain = graphValue.effects.count > 1 ? orderedLayerGraph(graphValue) : admittedGraph(graphValue)
             debugLastCandidateFailureCode = ""
@@ -131,23 +131,25 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
         let full = simd_float4x4(diagonal: SIMD4<Float>(2,2,1,1))
         var shifted = matrix_identity_float4x4
         shifted.columns.3.x = 0.5
-        // Hand-calculated BGRA: two distinct prefix colors; prefix alpha differs
-        // while glyph coverage alone determines the captured alpha.
-        let samples: [(UInt8, [UInt8], [UInt8], [UInt8], [UInt8], [UInt8])] = [
-            (0, [0,0,0,0], [120,80,40,0], [60,20,160,0], [81,69,57,255], [51,39,117,255]),
-            (128, [40,20,60,128], [100,60,80,128], [70,30,140,128], [71,59,77,255], [56,44,107,255]),
-            (255, [80,40,120,255], [80,40,120,255], [80,40,120,255], [61,49,97,255], [61,49,97,255])]
+        // Prefix RGB blends linearly, while the carrier stores squared coverage.
+        let samples: [(Float, [UInt8], [UInt8], [UInt8], [UInt8], [UInt8])] = [
+            (1, [0,0,0,0], [120,80,40,0], [60,20,160,0], [81,69,57,255], [51,39,117,255]),
+            (1, [40,20,60,128], [100,60,80,64], [70,30,140,64], [71,59,77,255], [56,44,107,255]),
+            (1, [80,40,120,255], [80,40,120,255], [80,40,120,255], [61,49,97,255], [61,49,97,255]),
+            (0.7, [80,40,120,255], [92,52,96,125], [74,34,132,125], [67,55,85,255], [58,46,103,255])]
         var generation: UInt64 = 100
-        for (alpha, glyph, left, right, terminalLeft, terminalRight) in samples {
+        for (opacity, glyph, left, right, terminalLeft, terminalRight) in samples {
             for projected in [false, true] {
                 generation += 1
                 let lease = makeLease(requirePlan(value), device: device)
                 let command = queue.makeCommandBuffer()!
                 let background = SceneFrameTextureResource.sameFrameSceneBackground(
                     consumerLayerID: layerID, frameEpoch: generation, texture: prefix)!
+                var sourceUniforms = SceneLayerFragmentUniforms.neutral()
+                sourceUniforms.alpha = opacity
                 let preparation = executor.prepare(token: claim.token, leases: [lease],
                     historyRehydrateCopiesByEffect: [:], frame: frame(generation), sceneBackgroundResource: background,
-                    sourceTexture: makeSource(device, bgra: glyph), sourceUniforms: .neutral(), sourcePipeline: pipeline,
+                    sourceTexture: makeSource(device, bgra: glyph), sourceUniforms: sourceUniforms, sourcePipeline: pipeline,
                     frameInputs: .init(effectOutputModelViewProjection: full,
                         terminalReplayModelViewProjection: projected ? shifted : nil),
                     commandBuffer: command, previousStates: [:], previousGraphResources: [:],
@@ -171,7 +173,7 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
                 let terminalRead = appendReadback(target, commandBuffer: command)!
                 let prefixRead = appendReadback(prefix, commandBuffer: command)!
                 command.commit(); command.waitUntilCompleted()
-                let key = "pixels-a\(alpha)-projected\(projected)"
+                let key = "pixels-a\(glyph[3])-opacity\(opacity)-projected\(projected)"
                 let expectedCapture = projected ? [right,right,right,right] : [left,right,left,right]
                 let expectedTerminal = projected ? [terminalRight,terminalRight,terminalRight,terminalRight]
                     : [terminalLeft,terminalRight,terminalLeft,terminalRight]
@@ -191,8 +193,8 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
                     "effect": effectRead.allTexels, "terminal": terminalRead.allTexels, "expectedCapture": expectedCapture])
             }
         }
-        // A preceding effect owns its output; a later RT cannot recapture the
-        // original glyph or inject the scene prefix before that earlier effect.
+        // The first effect consumes the prefix once, even when it writes directly
+        // to its output. The later framebuffer receives that effect's result.
         do {
             generation += 1
             let chain = orderedLayerGraph(prior)
@@ -201,18 +203,21 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
             let executor = Executor(device: device, capabilities: owners)!
             let leases = makeChainedLeases(capability, device: device)!
             let command = queue.makeCommandBuffer()!
+            let background = SceneFrameTextureResource.sameFrameSceneBackground(
+                consumerLayerID: layerID, frameEpoch: generation, texture: prefix)!
             let preparation = executor.prepare(token: claim.token, leases: leases,
-                historyRehydrateCopiesByEffect: [:], frame: frame(generation),
+                historyRehydrateCopiesByEffect: [:], frame: frame(generation), sceneBackgroundResource: background,
                 sourceTexture: makeSource(device, bgra: [40,20,60,128]), sourceUniforms: .neutral(), sourcePipeline: pipeline,
-                frameInputs: .init(), commandBuffer: command,
+                frameInputs: .init(effectOutputModelViewProjection: full), commandBuffer: command,
                 previousStates: [:], previousGraphResources: [:], effectGeneration: 1, resetGeneration: 1)
             guard case let .success(prepared) = preparation, executor.encode(prepared, commandBuffer: command),
                   let read = appendReadback(prepared.finalTexture, commandBuffer: command) else {
                 print("{\"metalAvailable\":true,\"failure\":\"isolated-neighbor-prepare\"}"); return
             }
             command.commit(); command.waitUntilCompleted()
+            let firstOutput = [[UInt8(155),195,175,64], [185,225,115,64]]
             results["prior-effect-output-retained"] = command.status == .completed
-                && read.allTexels.allSatisfy { matches($0, [175,215,135,128]) }
+                && zip(read.allTexels, firstOutput + firstOutput).allSatisfy { matches($0.0, $0.1) }
                 && prepared.stages.allSatisfy { $0.effectLocalFailureReasonCode == nil }
         }
         let failures: [(String, SceneResolvedMaterialPassEncoder.PreparationFailure?)] = [
@@ -317,7 +322,7 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
         let hdrPrefix = floatTexture([[2,0.4,0.2,0], [2,0.4,0.2,0], [0.25,1.5,3,1], [0.25,1.5,3,1]], width: 4)
         let hdrSamples: [(Float, [Float], [[Float]])] = [
             (0, [0,0,0,0], [[2,0.4,0.2,0], [0.25,1.5,3,0]]),
-            (0.5, [0.3,0.1,0.2,0.5], [[1.3,0.3,0.3,0.5], [0.425,0.85,1.7,0.5]])]
+            (0.5, [0.3,0.1,0.2,0.5], [[1.3,0.3,0.3,0.25], [0.425,0.85,1.7,0.25]])]
         for (alpha, glyph, expected) in hdrSamples {
             let target = floatTexture([[0,0,0,0], [0,0,0,0]], width: 2)
             let prepared = resourceEncoder.prepareSourceCapture(source: floatTexture([glyph], width: 1),
@@ -347,7 +352,7 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
         if not payload["metalAvailable"]:
             self.skipTest("Metal is unavailable")
         self.assertNotIn("failure", payload, payload)
-        self.assertEqual(len(payload["results"]), 25)
+        self.assertEqual(len(payload["results"]), 27)
         self.assertEqual([name for name, passed in payload["results"].items() if not passed], [], payload)
 
     def test_actual_source_capture_alpha_override_and_terminal_composition(self) -> None:

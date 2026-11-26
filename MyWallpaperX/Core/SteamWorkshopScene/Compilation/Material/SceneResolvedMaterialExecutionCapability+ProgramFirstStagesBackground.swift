@@ -150,14 +150,15 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         for (index, node) in nodes.enumerated() {
             if node.commandSource == effect.input { return nil }
             guard let slot = sourceSlot(effect.input, in: node) else { continue }
-            guard node.kind == .material, let target = node.target,
-                  target.kind == .framebuffer,
-                  product.graph.renderTargets.contains(where: { $0.texture == target }),
-                  let consumer = nodes.dropFirst(index + 1).first(where: {
-                      $0.target == target || $0.commandTarget == target
-                        || $0.commandSource == target || sourceSlot(target, in: $0) != nil
-                  }), consumer.commandSource == target || sourceSlot(target, in: consumer) != nil
-                  else { return nil }
+            if node.target != effect.output {
+                guard let target = node.target, target.kind == .framebuffer,
+                      product.graph.renderTargets.contains(where: { $0.texture == target }),
+                      let consumer = nodes.dropFirst(index + 1).first(where: {
+                          $0.target == target || $0.commandTarget == target
+                            || $0.commandSource == target || sourceSlot(target, in: $0) != nil
+                      }), consumer.commandSource == target || sourceSlot(target, in: consumer) != nil
+                      else { return nil }
+            }
             return .init(layerID: admitted.layerID, effect: effect.key,
                          nodeIndex: node.nodeIndex, slot: slot, bindingCount: 0,
                          capturesTextSourcePrefixRGB: true)

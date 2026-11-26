@@ -200,6 +200,8 @@ fragment float4 sceneImageLayerFrag(
             * float4(input.modelPosition, 0.0, 1.0);
         const float2 prefixUV = sceneImageLayerProjectedUV(prefixClip);
         result.rgb += dependencyTexture.sample(linearClampSampler, prefixUV).rgb * (1.0 - result.a);
+        // The captured alpha blends the glyph's own coverage over transparent alpha.
+        result.a *= result.a;
     }
     if (is_function_constant_defined(discardsEmptyDepthWrites)
         && discardsEmptyDepthWrites && all(result == float4(0.0))) {

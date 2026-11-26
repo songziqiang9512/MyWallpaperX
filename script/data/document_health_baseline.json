@@ -157,12 +157,12 @@
       "bytes": 81731
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 485,
-      "bytes": 96229
+      "lines": 486,
+      "bytes": 96350
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 407183
+      "bytes": 408267
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -193,8 +193,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 57,
-      "bytes": 7244
+      "lines": 59,
+      "bytes": 8044
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -584,15 +584,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "48fdfecd39d7454f73ffe2c8b770aa779b0b50fcc04a16a6ffb48bd75c5c957a",
-      "after": "04d3538bf6b83177508c7f02eed0714fc2621b74da8f783cf7186727eced8b43",
-      "owner": "Scene composition and named graph output",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#forward-composition-named-epoch",
-      "reason": "按主父提交与合并正文核对作者画布投影合同与运行证据的预算。"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "8b03d7a809a475ced26626270e6ac0e8c86fee6239074ae75fa7d9b30abcd7b4",
       "after": "51ab0c44e7ee50643e905f9f62e62c2451dec75db0bc1757d8f8ca88f64c2c57",
@@ -674,15 +665,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e091839decc7e93015e19e6111f9730916bbe869c8e35685c37e0ccf32faa3ae",
-      "after": "736dc49a40d757f869367e10c69085acfdf334eafd89a91d25e359fb06ba3ce1",
-      "owner": "Scene particle runtime and evidence",
-      "reason": "Preserve the current main particle birth palette and the existing quality evidence on the merge.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "ff2273cb11bb4794586ad30941b5286b68fd9f80c40047f76d0a1b8d67179544",
       "after": "6e8dffd9c90e936938af9a36b5c28f36ddeac7d41069864944fe53e7e7d63296",
@@ -695,15 +677,6 @@
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "2bf3796cd6f511d06054070589d7592ab4a375d30abd39883f60dab0657f6115",
       "after": "b81c50afdc0be645bf6eab76512f2c87d3e1c360d3c19c307cac085edf0ec25b",
-      "owner": "Scene particle and quality evidence owners",
-      "reason": "Bind both retained evidence scopes to the current main particle color baseline.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f27c956e3738fbdb9f8f1e9693ce2c5bb5eda2647486a8710d458aa0a88d9d19",
-      "after": "6c3f9f3ebd11706f022040263c6a49ed8550baa598e10879f6daa6ff73ae99b9",
       "owner": "Scene particle and quality evidence owners",
       "reason": "Bind both retained evidence scopes to the current main particle color baseline.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
@@ -734,6 +707,33 @@
       "owner": "Scene Debug presentation and quality evidence",
       "reason": "Describe actual drawable callback comparisons and depth feasibility bounds.",
       "decision": "docs/development/wallpaper-quality-work-card.md#scene-aa-four"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "04d3538bf6b83177508c7f02eed0714fc2621b74da8f783cf7186727eced8b43",
+      "after": "2f42e458d8ba69c9806720db14ac5b2e78e0ea24729d69bea13883f2927d4733",
+      "owner": "Scene graph composition and ordered text",
+      "reason": "Retain both the main text-effect evidence and quality-contract coverage after integration.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "6c3f9f3ebd11706f022040263c6a49ed8550baa598e10879f6daa6ff73ae99b9",
+      "after": "7bfc8030cc8043d57bc46c87530fc1ac1f6c81dc3b380150e428482c8c462bb8",
+      "owner": "Scene graph composition and ordered text",
+      "reason": "Retain both the main text-effect evidence and quality-contract coverage after integration.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "0624ce9b52f3c2ddf4fc15624c9a9fc6fb7fb652f87bb02cfe9980560678aeff",
+      "after": "6e5f700bdf5f8a3a26a6242379f1b1ef7261bd171375fccb885e3c0c295e1eba",
+      "owner": "Scene graph composition and ordered text",
+      "reason": "Retain both the main text-effect evidence and quality-contract coverage after integration.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
     }
   ]
 }
