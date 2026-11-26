@@ -130,11 +130,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 355608
+      "bytes": 355996
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 172,
-      "bytes": 29938
+      "lines": 177,
+      "bytes": 30441
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 241,
-      "bytes": 67868
+      "lines": 240,
+      "bytes": 67772
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -442,11 +442,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "10aab4ed5ec094511a7c206612ef79fa410608ea6bd6f48378a625924c702f96",
-      "after": "8b03d7a809a475ced26626270e6ac0e8c86fee6239074ae75fa7d9b30abcd7b4",
-      "owner": "Scene material property binding and prepared uniform",
-      "reason": "Defines the direct missing-seed Slider contract and exact reflected scalar consumer check.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#property-target-fallback"
+      "before": "d490c0d50a6ff64d53da91703c1794bf018dcc531e8c60a43b08bd2f1bb43522",
+      "after": "51ab0c44e7ee50643e905f9f62e62c2451dec75db0bc1757d8f8ca88f64c2c57",
+      "owner": "Scene",
+      "reason": "记录 childless fullscreen 整层显隐的原准备、供货与消费职责",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#fullscreen-named-layer-visibility"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2edbb5fd2e7713076c964e57328421faa75e52396f821a55882518280d472d8f",
-      "after": "0fc5f228bf809da35387ee56d7a5a9f218f5327c083f2e422c4da5e0ebba1ec5",
+      "before": "0fc5f228bf809da35387ee56d7a5a9f218f5327c083f2e422c4da5e0ebba1ec5",
+      "after": "30af636e664be23bf61fc6b461025f39a4057048cf627df23b73aeeb5ec06f61",
       "owner": "Scene",
-      "reason": "记载作者波纹恢复、跨端色卡与透明度证据范围",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-refraction-normal-2860569355"
+      "reason": "替换过时热关拒绝事实，保留原包冷暖同窗GPU与独立样本复验",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#utility-capture-admission-3842633043"
     },
     {
       "section": "bodies",

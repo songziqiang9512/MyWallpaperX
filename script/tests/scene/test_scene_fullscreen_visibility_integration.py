@@ -128,7 +128,8 @@ def fixture_entries(*, mixed_particle=False, no_capture=False, inactive_effect=F
     return {"type": "scene", "file": "scene.json", "general": {"properties": properties}}, entries
 
 
-def ordered_fullscreen_named_entries(*, renamed=False, **parameters):
+def ordered_fullscreen_named_entries(*, renamed=False, consumer_visibility=False,
+                                     forward_consumer=False, **parameters):
     project, entries = fixture_entries(**parameters)
     scene = json.loads(entries["scene.json"])
     canvas, red, peer = scene["objects"]
@@ -180,9 +181,13 @@ def ordered_fullscreen_named_entries(*, renamed=False, **parameters):
                         "vec4 previous=texSample2D(g_Texture0,v_TexCoord);"
                         "float namedBlue=texSample2D(g_Texture1,v_TexCoord).b;"
                         "gl_FragColor=vec4(previous.rg,namedBlue,1.0);", uses_current=True, sampled_provider=blue_id)])
+    if consumer_visibility:
+        key = "show_color_reader" if renamed else "showreader"
+        project["general"]["properties"][key] = {"type": "bool", "value": True}
+        consumer["visible"] = {"user": key, "value": True}
     canvas["id"] += offset
     peer["id"] += offset
-    scene["objects"] = [canvas, red, blue, consumer, peer]
+    scene["objects"] = [canvas, red, consumer, blue, peer] if forward_consumer else [canvas, red, blue, consumer, peer]
     entries["scene.json"] = encoded(scene)
     return project, entries
 
@@ -351,9 +356,15 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
         for layer in (red, blue):
             self.assertIn(f"phase=visible-graph-output-publication layer={layer} status=succeeded", log)
         self.assertIn(f"phase=named-target-binding layer={consumer} status=succeeded", log)
+        self.assert_fullscreen_named_captures(log, consumer, [[0, 1], [1], [0, 1]])
+
+    def assert_fullscreen_named_captures(self, log, consumer, expected_stages, *, final_fallback_stage=None):
         observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
         self.assertEqual(observations["parse_errors"], 0)
-        for reason, stages in (("ready", [0, 1]), ("series-0002", [1]), ("after", [0, 1])):
+        reasons = ("ready", "series-0002", "after") if len(expected_stages) == 3 else ("ready", "after")
+        self.assertEqual(len(reasons), len(expected_stages))
+        surfaces, generations = set(), []
+        for reason, stages in zip(reasons, expected_stages):
             with self.subTest(capture=reason):
                 receipt = re.search(rf"phase=snapshot reason={reason} request=(\d+) source=metal ", log)
                 self.assertIsNotNone(receipt)
@@ -368,20 +379,60 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
                 event = next(e for e in observations["events"]
                              if e.get("captureRequestID") == request and e.get("commandBufferToken") == encoding[1])
                 self.assertEqual(event["truncatedRows"], 0)
-                rows = event["rows"]
-                named_reads = [row for row in rows if row.get("layerID") == consumer
-                    and row.get("kind") in ("material", "terminal-material-replay")
+                surfaces.add(event["surfaceIdentity"])
+                rows = [row for row in event["rows"] if row.get("layerID") == consumer]
+                named_reads = [row for row in rows if row.get("kind") in ("material", "terminal-material-replay")
                     and row.get("slot") == 1 and row.get("outcome") == "draw-encoded"]
                 self.assertEqual([row["effectIndex"] for row in named_reads], stages, named_reads)
                 self.assertEqual(len({row["source"]["textureToken"] for row in named_reads}), len(stages))
-                self.assertTrue(any(row.get("layerID") == consumer and row.get("kind") == "tail-consume"
-                                    and row.get("outcome") == "terminal-consumed" for row in rows))
+                if stages:
+                    generation = {row["source"]["contentGeneration"] for row in named_reads}
+                    self.assertEqual(len(generation), 1, named_reads)
+                    generations.append(generation.pop())
+                tails = [row for row in rows if row.get("kind") == "tail-consume"
+                         and row.get("outcome") == "terminal-consumed"]
+                self.assertEqual(bool(tails), bool(stages))
+                if final_fallback_stage is not None and reason == "after":
+                    fallback = [row for row in rows if row.get("effectIndex") == final_fallback_stage]
+                    self.assertEqual([(row["kind"], row["outcome"]) for row in fallback], [("copy", "encoded")])
+                    self.assertEqual(fallback[0]["source"]["textureToken"], named_reads[-1]["target"]["textureToken"])
+                    self.assertEqual(fallback[0]["target"]["textureToken"], tails[-1]["source"]["textureToken"])
+        self.assertEqual(len(surfaces), 1)
+        self.assertEqual(generations, sorted(set(generations)))
 
     def test_ordered_fullscreen_named_inputs_keep_both_provider_colors(self):
         self.assert_ordered_fullscreen_named_inputs(renamed=False)
 
     def test_renamed_fullscreen_named_inputs_keep_both_provider_colors(self):
         self.assert_ordered_fullscreen_named_inputs(renamed=True)
+
+    def assert_named_consumer_visibility(self, *, renamed, initially_visible):
+        key = "show_color_reader" if renamed else "showreader"
+        red, consumer = (350, 352) if renamed else (20, 22)
+        visibility = [initially_visible, not initially_visible, initially_visible]
+        launch = {"mode": "on"}
+        if not initially_visible:
+            launch[key] = False
+        log, _ = self.run_case(launch=launch, effect_layer_id=red,
+            sequence=[{key: visible} for visible in visibility[1:]],
+            expected_backgrounds=[(128, 32, 64) if visible else (0, 0, 64) for visible in visibility],
+            fixture=lambda **kwargs: ordered_fullscreen_named_entries(
+                renamed=renamed, consumer_visibility=True, **kwargs))
+        self.assert_fullscreen_named_captures(log, consumer, [[0, 1] if visible else [] for visible in visibility])
+
+    def test_hidden_fullscreen_named_consumer_reveals_and_hides_in_place(self):
+        self.assert_named_consumer_visibility(renamed=False, initially_visible=False)
+
+    def test_renamed_visible_fullscreen_named_consumer_hides_and_returns_in_place(self):
+        self.assert_named_consumer_visibility(renamed=True, initially_visible=True)
+
+    def test_forward_fullscreen_dependency_preserves_the_prepared_stage_on_reveal(self):
+        log, _ = self.run_case(launch={"mode": "on", "showreader": False}, effect_layer_id=20,
+            sequence=[{"showreader": True}],
+            expected_backgrounds=[(0, 0, 64)] * 2,
+            fixture=lambda **kwargs: ordered_fullscreen_named_entries(
+                consumer_visibility=True, forward_consumer=True, **kwargs))
+        self.assert_fullscreen_named_captures(log, 22, [[], [0]], final_fallback_stage=1)
 
     def test_forward_fullscreen_dependency_leaves_prefix_and_later_draws_playing(self):
         base_fixture = fixture_entries

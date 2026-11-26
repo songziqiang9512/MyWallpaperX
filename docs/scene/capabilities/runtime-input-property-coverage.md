@@ -33,6 +33,11 @@ Utility 冷准备沿层级与 SourceRoute 取得原输入，再由 Planner/Capab
 
 验收固定 Project 层恒 visible，只切 effect 的 DirectBool false→true→false，以同 window/Surface 的 white→gray→white、后置绿色 peer、实际 Program draw→main/seal/request/CB/GPU核资格，保资源/变量/等价表达式改名、缺 fragment 拒绝开启与活动启动邻例。原 fullscreen/composition 和成员资源门继续作为相邻边界；childless passthrough 沿原 source/Program 承接，不另按名称拒绝，空透明来源不能以主目标未变冒充效果执行。若旧 App 不能分、首错另属未实现 source/Program或需要新资源 owner，则停止此切片并重排。独立作者只授实际默认输入与已观测消费者，不将健康邻例称精确缺图恢复；当前结果见[运行证据](runtime-evidence-current.md)。
 
+<a id="fullscreen-named-layer-visibility"></a>
+### 全屏具名消费者的图层显隐
+
+根部无子层的 Fullscreen 沿原 SourceRoute 保留初始关闭的 Bool 图层候选。只有已准备 Program 和具名供货路径才成为热更消费者。图层状态决定当前帧是否请求这些来源，沿同一窗口切换并保留共享来源的其他需求。层级和依赖冲突仍由原所有者裁决。验收覆盖冷关后开启、开关往返、资源改名、缺供货与实际终图。
+
 <a id="property-target-fallback"></a>
 ### 材质属性的目标局部 fallback 合同
 

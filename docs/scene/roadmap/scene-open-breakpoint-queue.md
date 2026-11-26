@@ -4,7 +4,7 @@
 
 本页维护未闭问题、输入定位和下一步。按画面合成/正常播放、可证性能成本、属性接线、工具资格排序。架构归[当前主链](../architecture/runtime-architecture.md)，领域合同归[能力入口](../capabilities/README.md)，冻结身份与覆盖范围归[运行证据](../capabilities/runtime-evidence-current.md)。
 
-11-26 实库986件，124个新ID以 `3302e6d0` 默认跑4秒，123件有匹配GPU终帧、124件排空。串行确认4个产品断点与1个分母误报。3258021301的[动画缺图已修复](../capabilities/runtime-evidence-current.md#hidden-sprite-named-3258021301)。已复核124件project/pkg/tree全同，无新增待跑。索引归 `.artifacts/scene-author-intake-20261126/`；11-24的340件和11-25的3件归 `.artifacts/scene-new-author-intake-20261124/`、`.artifacts/scene-evidence/runs/scene-author-intake-delta-20261125/`。
+11-26 实库986件，124个新ID默认跑4秒，123件有匹配GPU终帧、124件排空。四处产品断点已修复：[动画缺图](../capabilities/runtime-evidence-current.md#hidden-sprite-named-3258021301) · [玻璃材质](../capabilities/runtime-evidence-current.md#material-annotation-keys-3833869818) · [波纹](../capabilities/runtime-evidence-current.md#particle-refraction-normal-2860569355) · [启动、闪电及热显隐](../capabilities/runtime-evidence-current.md#utility-capture-admission-3842633043)。另一个告警归粒子分母。当前无新ID待跑。11-24至26的新增索引归 `.artifacts/scene-new-author-intake-20261124/`、`.artifacts/scene-evidence/runs/scene-author-intake-delta-20261125/`、`.artifacts/scene-author-intake-20261126/`。
 
 11-24 的31项观察按首个可见断点复核。接续先对照页尾[已修复的用户反馈](#resolved-user-feedback)及[运行证据](../capabilities/runtime-evidence-current.md)。优先处理可复现的播放阻断、画面及交互差异，沿各行停止线推进。11-07补报13项中8项实跑、5项仅有census，定位与图1–5归`.artifacts/scene-user-feedback-20261107/`。
 
@@ -190,7 +190,6 @@
 | 定位 | 下一步 |
 |---|---|
 | 注解材质与被忽略的直接绑定 | 同属性还写有效目标时，未选GLSL名会阻断热更新。以合法双写验证保窗口和实际准备失败。3833869818未定义对应面板键，[玻璃已修复](../capabilities/runtime-evidence-current.md#material-annotation-keys-3833869818)。 |
-| 全屏具名依赖显隐 · 3842633043 | [启动与默认闪电已修复](../capabilities/runtime-evidence-current.md#utility-capture-admission-3842633043)。播放中关闭 `lightning` 被拒，604的visibility未准备。沿原显隐owner取得已接两路具名输入的关闭与恢复，核同窗GPU及两路按需供货。 |
 | 属性面板 | 总打开/编辑延迟、长Combo完整显示、系统键盘路径与更多locale需实际可达控件。保原始key/value/条件，翻译只改展示；完整段落、只读说明和reset入口不能因优化丢失。 |
 | effect 显隐 / history | 同 scene-time 像素 A/B、真实 descriptor 变化与 349 类 activation 切换仍需实际 App 资格。运行时材料失败的已提交历史保持、首帧/reset 与 capability-level 反例归[运行证据](../capabilities/runtime-evidence-current.md#stale-history-seed)，职责归[history 合同](../capabilities/render-graph-shader-coverage.md#history-read-write-split)；不把重建透明内容当成历史保持，不另建 owner。 |
 | text size | VM catalog size与排版logical extent是不同事实；setter后可见时机与padding/装饰需真实行为，不另建排版owner。 |
