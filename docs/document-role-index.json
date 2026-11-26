@@ -140,13 +140,13 @@
       "role": "current-state",
       "entrypoint": "docs/README.md",
       "purpose": "全仓任务到实际 owner 的导航与已知边界，不定义新的产品权威。",
-      "lastReviewed": "2026-11-25",
+      "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5adb9f05823a58a40642da045f8ec82ce3080d7363dbcefa4fa400350d26546f",
+        "sourceSHA256": "129b4c92e11ae64556a8a9343b507662a1db2a985625321c16b2672e96bd5915",
         "method": "document_registry --audit + document_health --check",
-        "scope": "点光实际编码与候选筛查入口",
-        "limitations": "只核 point volume 源码和实测链接。"
+        "scope": "反射质量、保留目标和适用验证入口",
+        "limitations": "只复核质量章节的反射路径。"
       }
     },
     {
@@ -360,13 +360,13 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "各质量项完成验收或明确退役，稳定语义归对应引擎合同，专项顺序与设计登记一并退役。",
-      "lastReviewed": "2026-11-25",
+      "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a52bdfe1af4eaf36a95685c5a6c11ebe05ad79751e1affbfc9b50edc15efa853",
+        "sourceSHA256": "13cec3037db88d4d909de77369dcad7ed9ad7ec69d6f9c2cfb6d4f7320030113",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役体积质量及暗尾候选筛查",
-        "limitations": "只覆盖两部作品的三帧实际点光数据，未量新 GPU 路线和整机功耗。"
+        "scope": "反射质量两档的作者实屏和官版实验",
+        "limitations": "覆盖无罩固定颜色、两部作者的绑定、当前帧截点及显式或缺省环境采样，官版副本待启动取证。"
       }
     },
     {
@@ -374,13 +374,13 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "完成各引擎画质纵向链、实际退役与验收，稳定规则交现有合同后撤除工作卡。",
-      "lastReviewed": "2026-11-25",
+      "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c757279864f68e3587a94060a21ad1ce7c933d2a8f319bf39c69f9860ebb8bfe",
+        "sourceSHA256": "cd829a4485e463d6f48ce438ff3879f36d037974c8226b475b03d47dc7e093d8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "体积档位与现役取证路由",
-        "limitations": "只核本轮体积照明路线。"
+        "scope": "反射收据及独立官版实验顺序",
+        "limitations": "只复核质量反射的现役工作路线。"
       }
     },
     {

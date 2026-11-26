@@ -633,7 +633,8 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
         print(f"N03 native-world source App evidence: {cls.evidence_root}", flush=True)
 
     def test_authored_source_program_effect_and_terminal_readonly_depth(self):
-        self.run_source_case(0)
+        enabled = self.run_source_case(0, reflection_quality="enabled")
+        self.assertEqual(enabled, self.run_source_case(0, reflection_quality="disabled"))
 
     def test_unused_earlier_and_later_declared_dependencies_preserve_current_main_source(self):
         for label in (1, 2):
@@ -875,14 +876,15 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
                     self.assertAlmostEqual(actual, expected, delta=TOLERANCE,
                         msg=str((path.name, name, measured, region)))
 
-    def run_source_case(self, label):
-        # The existing runner dispatches one real App and asserts immutable
-        # inputs, actual Metal completion, no GPU error, normal stop and drain.
+    def run_source_case(self, label, *, reflection_quality=None):
+        name = f"Ref{label}-capture-on" + (f"-{reflection_quality}" if reflection_quality else "")
+        arguments = ("-mwx.playback.quality", f"{{ sceneReflectionQuality = {reflection_quality}; }}")
         with patch.object(app_runner, "fixture_entries", fixture_entries), patch.object(
                 app_runner, "measure_capture", measure_capture):
             result = app_runner.SceneReflectionHistoryIntegrationTests.run_case(self, label, capture=True,
-                material_input_path="materials/retitled/current_view.json" if label in (2, 4) else "materials/receiver.json")
-        work = self.evidence_root / f"Ref{label}-capture-on"
+                material_input_path="materials/retitled/current_view.json" if label in (2, 4) else "materials/receiver.json",
+                name=name, extra_arguments=arguments if reflection_quality else ())
+        work = self.evidence_root / name
         identity = json.loads((work / "identity.json").read_text())
         inputs_after = {"package": app_runner.sha256(work / "content/scene.pkg"),
                         "project": app_runner.sha256(work / "content/project.json")}
@@ -897,17 +899,24 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
                     self.assertAlmostEqual(actual, expected, delta=TOLERANCE,
                                            msg=str((phase, region_name, measurement, region)))
         log = (work / "app.log").read_text()
+        if reflection_quality is not None:
+            self.assertRegex(log, rf"phase=session-candidate [^\n]*reflectionQuality={reflection_quality}\b")
+            for _, event in self.composition_captures(work, log):
+                providers = [r["source"]["logical"] for r in event["rows"]
+                             if r["kind"] == "material" and r["outcome"] == "draw-encoded"
+                             and r.get("layerID") == TARGET_LAYER and r.get("slot") == 0]
+                self.assertIn(f"provider:sceneBackground(consumerLayerID: {TARGET_LAYER})", providers)
         completed = re_graph_frames(log)
         self.assertGreaterEqual(len(completed), 2, completed)
         self.assertNotRegex(log, r"entries=[^\n]*20:layer-source-not-ready")
         if label in (3, 4, 5):
             self.check_material_binding_captures(work, log, label)
-        (work / "native-world-checks.json").write_bytes(encoded({
-            "inputAfter": inputs_after, "inputImmutable": True,
+        (work / "native-world-checks.json").write_bytes(encoded({"inputAfter": inputs_after, "inputImmutable": True,
             "completedTargetGraphFrames": sorted(completed),
             "targetGraphSourceExtent": list(LOCAL_SIZE),
             "oracle": roi_protocol(), "pixels": result["pixels"],
             "scope": "One full product-chain scene; two settled captures and completed graph frames, not adjacent-frame pixel pairing or official parity."}))
+        return inputs_after
 
     def composition_captures(self, work, log):
         observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")

@@ -545,12 +545,18 @@ Win32 2.8.0.42 从 `0x4d9280` 读取 `shadows`，禁用／低／中／高／超�
 
 本机现役保作品显式或 Shader 缺省读取的环境供货。若要让反射关档覆盖官版私有历史目标，先做同版全局单变量 A/B。分别隔离普通材质、显式读取 `_rt_MipMappedFrameBuffer`、作者独立 Reflection 效果、`_rt_FullFrameBuffer` 及作者自带的有色环境贴图。固定视口、帧相位、发光、alpha 和探针。记录保留的尺寸、mip 与显式像素访问，避免以单个黑像素推断可缩减纹理规格。证实差异后再裁决仅此保留名的供货策略，同时保持作者持久色、具名资源及原材质流程。本机静态薄收据归 `.artifacts/wallpaper-quality-official-reflections`。
 
+Apple Silicon M4 的同签名 App 冷启动两档用两种受控夹具核对。颜色板的普通反射接收区由 RGB 179／128／128 变为 128／128／128，显式槽 3 与 Shader 缺省槽 2 均继续从上一完成帧采晚层红。随包 Reflection 无遮罩、普通混合的红蓝上下镜像在两档均实际画成蓝／红，旁置原图在两档均为红／蓝。独立的透视图以 `_rt_FullFrameBuffer` 在 layer 20 槽 0 读取同帧前缀，后继 Program 和遮挡继续接原主域。两档五处固定探针均命中原色预期，归属同一构图收据的实际捕获均完成。 [完成帧与作者效果验收](../../script/tests/scene/test_scene_authored_environment_integration.py) · [同帧前缀验收](../../script/tests/scene/test_scene_native_world_composition.py)
+
+独立作者 3465215190 在两档均由原 layer 123 槽 0 取图层颜色，同一 Reflection Program 实际出画、进合成并排空。作者 3228084178 在两档的四张捕获均记录 layer 192 的 Reflection 实绑前序效果颜色和包内 `mask` 槽 1，末端消费和 GPU 已完成。两部作品未锁定动画相位，受控无罩画面负责判断像素上的档位差。颜色板按实际作者包提供同样的效果定义、材质和 Shader。只带定义的起始夹具复现随包材料路径缺失，解析器按材质的原虚拟路径查找。2026-11-26 本机库直下的 984 个 `scene.pkg` 中，实际引用这一定义的 13 个均有根路径资源，暂不调整通用资源查找。
+
+官版通过同类颜色板先在开档 A/A 确立每个非黑正控，再做设置面板的开／关／开。同帧前缀另以截点后覆盖色作时序反例，作者蒙版另取镜像侧和保原色侧。此次真实接收版本 2.8.0.42、单数 `reflection=true` 已只读核实；公开 CLI 没有全局开关入口，虚拟机桌面未能读取，本轮未改共享官版设置。显式历史目标的官版动态结论仍待验证。 [公开 CLI](https://help.wallpaperengine.io/en/functionality/cli.html) · [官版作者 Reflection 效果](https://docs.wallpaperengine.io/en/scene/effects/effect/reflection.html)
+
 <a id="official-global-ab-isolation"></a>
-独占 Windows 执行环境可使用同版已购客户端目录和本地壁纸走官版正常性能面板。先核二进制摘要、选档可正常保存并重启、同一素材在桌面与具名窗均真实出图。桌面及具名窗的冷继承和同接收进程热改分别做 A/B/A。共享 Parallels 只有一台运行中的客体，完整克隆要求源客体关机。物理 HDR 另要求 Windows HDR 模式、实际出现显示 HDR 档及保留高动态的 FP16 采集，以参考白、灰和超白作对照。独占接收或有效采集无法成立时，继续采用已取得的单档和静态证据。 [官版离线运行 FAQ](https://www.wallpaperengine.io/en) · [Parallels 完整克隆条件](https://kb.parallels.com/en/123907) · [Windows HDR 采集](https://learn.microsoft.com/en-us/windows/win32/direct3darticles/high-dynamic-range)
+独占 Windows 执行环境可使用同版已购客户端目录和本地壁纸走官版正常性能面板。先核二进制摘要、选档可正常保存并重启、同一素材在桌面与具名窗均真实出图。桌面及具名窗的冷继承和同接收进程热改分别做 A/B/A。源客体关机时已用 Parallels 完整克隆取得独立虚拟磁盘和 UUID，源配置摘要一致。副本待做会话、离线客户端和采集资格验证。物理 HDR 另要求 Windows HDR 模式、实际出现显示 HDR 档及保留高动态的 FP16 采集，以参考白、灰和超白作对照。独占接收或有效采集无法成立时，继续采用已取得的单档和静态证据。 [官版离线运行 FAQ](https://www.wallpaperengine.io/en) · [Parallels 完整克隆条件](https://kb.parallels.com/en/123907) · [Windows HDR 采集](https://learn.microsoft.com/en-us/windows/win32/direct3darticles/high-dynamic-range)
 
 锁定合法安装的 Windows 版 Wallpaper Engine build、位数／版本、系统／GPU／显示、全量设置和自有输入，先记录四预设逐字段向量，再测单项改变、选择另一作品、重启、按屏及运行中的生效时机。帧率记录 10／25／60／120 及输入步进、上限与显示节律，MSAA 在设备允许时用几何斜边、遮挡和纯 2D 反例逐档对照。后处理用作者普通／HDR 开关组合和实测三档相互验证，纹理以含 mip／无 mip／图集、阴影以三类灯、体积以点光／聚光、反射以实时接收与静态对照验证各档。另让相同 Web／Video 输入读取或播放，核影响面。每次只改一项，固定可见 ROI、捕获身份、色域、DPI、动画相位与 pause；预览如未采用桌面质量配置，验证其会话或改用有界桌面窗口。VM 采行为，Mac 功耗真机另测。
 
-如固定版本的公开/可见实验无法区分「候选设置确实被该 consumer 读到」等问题，先用现有 locale/changelog 结构提取，再按官方研究工作流选择 REA 对单一设置写入→读取关系作有界静态研究。保留版本、证据位置和可观测预测，随后用单变量运行反证；解析结果只作线索，最终行为仍取实际画面与事件。此轮补固定版本随包资源及 REA 静态定位。共享 VM 正由并行任务使用，未改其设置或会话。目标档的行为和 macOS 整机功耗仍各自取证。 [官方研究与保留规则](../scene/development/official-client-behavior-research-workflow.md) · [结构提取工具](../../script/evidence/extract_wallpaper_engine_client_evidence.py)
+如固定版本的公开/可见实验无法区分「候选设置确实被该 consumer 读到」等问题，先用现有 locale/changelog 结构提取，再按官方研究工作流选择 REA 对单一设置写入→读取关系作有界静态研究。保留版本、证据位置和可观测预测，随后用单变量运行反证；解析结果只作线索，最终行为仍取实际画面与事件。此轮补固定版本随包资源及 REA 静态定位。共享 VM 保留原设置和会话，后续实际开关实验在独立副本进行。目标档的行为和 macOS 整机功耗仍各自取证。 [官方研究与保留规则](../scene/development/official-client-behavior-research-workflow.md) · [结构提取工具](../../script/evidence/extract_wallpaper_engine_client_evidence.py)
 
 <a id="retirement"></a>
 ## 退役与完成判定

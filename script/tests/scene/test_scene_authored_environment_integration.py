@@ -10,9 +10,43 @@ import tempfile
 import unittest
 
 from script.tests.scene import test_scene_reflection_history_integration as reflection
+from script.tests.scene.test_scene_native_world_composition import png
 
 
-def fixture_entries(slot: int, shader_default: bool, with_f5: bool = False) -> dict[str, bytes]:
+STOCK_REFLECTION_PROBES = {
+    "mirrorTop": ((52, 17), (0, 0, 255)),
+    "mirrorBottom": ((52, 29), (255, 0, 0)),
+    "sourceTop": ((96, 17), (255, 0, 0)),
+    "sourceBottom": ((96, 29), (0, 0, 255)),
+}
+
+
+def add_stock_reflection_control(entries: dict[str, bytes], scene: dict) -> None:
+    # Workshop packages carry the stock effect's material and shaders alongside the definition.
+    stock = reflection.REPO / "MyWallpaperX/Resources/SceneStockAssets.bundle/assets/effects/reflection"
+    for path in ("effect.json", "materials/effects/reflection.json",
+                 "shaders/effects/reflection.vert", "shaders/effects/reflection.frag"):
+        target = "effects/reflection/effect.json" if path == "effect.json" else path
+        entries[target] = (stock / path).read_bytes()
+
+    scene["objects"].extend([
+        {"id": 8, "image": "models/mirror_source.json", "origin": "52 73 0", "size": "32 24",
+         "effects": [{"id": 80, "file": "effects/reflection/effect.json", "visible": True,
+                      "passes": [{"id": 81, "combos": {"BLENDMODE": 0}, "constantshadervalues": {
+                          "alpha": 1, "direction": 0, "offset": 0}}]}]},
+        {"id": 9, "image": "models/mirror_source.json", "origin": "96 73 0", "size": "32 24"},
+    ])
+    entries["models/mirror_source.json"] = b'{"material":"materials/mirror_source.json"}'
+    entries["materials/mirror_source.json"] = json.dumps({"passes": [{
+        "shader": "genericimage2", "textures": ["materials/mirror_source.png"],
+        "combos": {"LIGHTING": 0, "NORMALMAP": 0, "REFLECTION": 0},
+        "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull",
+    }]}).encode()
+    entries["materials/mirror_source.png"] = png(16, 16, lambda _x, y: (255, 0, 0) if y < 8 else (0, 0, 255))
+
+
+def fixture_entries(slot: int, shader_default: bool, with_f5: bool = False,
+                    with_stock_reflection: bool = False) -> dict[str, bytes]:
     entries = reflection.fixture_entries(0)
     scene = json.loads(entries["scene.json"])
     scene["objects"][0]["name"] = "Authored completed environment receiver"
@@ -26,7 +60,6 @@ def fixture_entries(slot: int, shader_default: bool, with_f5: bool = False) -> d
         f5["passes"][0]["constantshadervalues"]["reflectivitydistance"] = 120
         entries["models/shared_f5.json"] = json.dumps({"material": "materials/shared_f5.json"}).encode()
         entries["materials/shared_f5.json"] = json.dumps(f5).encode()
-    entries["scene.json"] = json.dumps(scene, sort_keys=True).encode()
     entries["effects/environment/effect.json"] = json.dumps({
         "passes": [{"material": "materials/environment.json"}]
     }).encode()
@@ -50,6 +83,9 @@ def fixture_entries(slot: int, shader_default: bool, with_f5: bool = False) -> d
         "varying vec2 v_TexCoord;\n"
         f"void main(){{gl_FragColor=texSample2D(g_Texture{slot},vec2(0.875,0.5));}}\n"
     ).encode()
+    if with_stock_reflection:
+        add_stock_reflection_control(entries, scene)
+    entries["scene.json"] = json.dumps(scene, sort_keys=True).encode()
     return entries
 
 
@@ -77,7 +113,7 @@ class SceneAuthoredEnvironmentIntegrationTests(unittest.TestCase):
         content.mkdir(parents=True)
         home = work / "home"
         home.mkdir()
-        entries = fixture_entries(slot, shader_default, with_f5)
+        entries = fixture_entries(slot, shader_default, with_f5, reflection_quality is not None)
         (content / "project.json").write_text(json.dumps({"type": "scene", "file": "scene.json"}))
         (content / "scene.pkg").write_bytes(reflection.make_package(list(entries.items())))
         command = [str(self.app), "--mwx-debug-scene-root", str(content),
@@ -115,6 +151,8 @@ class SceneAuthoredEnvironmentIntegrationTests(unittest.TestCase):
         rois = dict(reflection.ROIS)
         if with_f5:
             rois["f5"] = (40, 48)
+        if reflection_quality is not None:
+            rois.update({name: point for name, (point, _) in STOCK_REFLECTION_PROBES.items()})
         measurements = {p.name: reflection.measure_capture(p, rois)
                         for p in sorted((work / "evidence").glob("*-window.png"))}
         (work / "pixels.json").write_text(json.dumps(measurements, indent=2) + "\n")
@@ -130,6 +168,10 @@ class SceneAuthoredEnvironmentIntegrationTests(unittest.TestCase):
             for actual, expected in zip(after["f5"]["mean"], oracle, strict=True):
                 self.assertAlmostEqual(actual, expected, delta=reflection.PIXEL_TOLERANCE)
         if reflection_quality is not None:
+            for name, (_, expected) in STOCK_REFLECTION_PROBES.items():
+                for actual, channel in zip(after[name]["mean"], expected, strict=True):
+                    self.assertAlmostEqual(actual, channel, delta=reflection.PIXEL_TOLERANCE,
+                                           msg=f"{work}: {name} {after[name]}")
             self.assertRegex(log, rf"phase=session-candidate [^\n]*reflectionQuality={reflection_quality}\b")
             receipts = re.findall(r"diagnostic=scene-color-completed[^\n]*intent=snapshot sourceSubmission=(\S+)", log)
             self.assertGreaterEqual(len(set(receipts)), 2, log[-6000:])
