@@ -6,7 +6,7 @@
 <a id="execution"></a>
 ## 当前批与接手步骤
 
-独立工作树 `Fluxo/wallpaper-quality-settings` 已合入主线 `0cf544a5e`。优化签名版 3337494481 三臂各有 8 帧有效封口，上视封面调色板像素 78,296→0，近处正控仍可见。点光候选三档 3.99 s 的 49×49 影边逐像素复现，待缺省 60 FPS 长稳。收据归 `.artifacts/wallpaper-quality-terminal-depth-sync-20261126`。体积出口查表约省 10% 阶段时间，未达 15% 门。下一批把已通过原生准备筛查的[作者 mip 快照](wallpaper-quality-settings-plan.md#scene-texture-snapshot-slices)接入原资源租约。 [技术设计](wallpaper-quality-settings-plan.md#decision) · [源码地图](../architecture/repository-map.md#wallpaper-quality) · [验证流程](repository-workflow.md#设计判定与记录)
+独立工作树 `Fluxo/wallpaper-quality-settings` 已合入主线 `6f3aa2df6`，通过捕获投影相邻门。点光候选的三档固定相位影边已重现，缺省 60 FPS 长稳待按当前源码重验。体积出口查表未达成本门。[作者 mip 快照](#scene-embedded-mip-snapshot-result)在局部读回获益，因整场启动峰值回退退出。纹理档继续用已实绘的选级与解码链，后续跟进官版体积与反射运行对照。 [技术设计](wallpaper-quality-settings-plan.md#decision) · [源码地图](../architecture/repository-map.md#wallpaper-quality) · [验证流程](repository-workflow.md#设计判定与记录)
 
 M4 单内屏已验证四档预设、10–120 FPS、Scene MSAA 至 4×、泛光和显示 HDR、三种纹理策略、阴影五档、反射启停及真实桌面接管。Scene 冷档直接编辑与显式重试共用实际准备回执和在途撤单。导入同类画质可连续播放。真实 Web 作者验证 FPS 建议与绘制，Video 保原片并已实测 PQ／HLG／HDR10+ 实窗。体积保禁用、高／超高，低／中原尺寸网格已验画面与回退，整帧收益未复现，暂退出发布。[本地 Video 原片恢复](wallpaper-quality-settings-plan.md#video-inspector-source-recovery)已在同窗更新实际尺寸和标称帧率，原生同窗切换实证[冷海报等比定位、暖切保留原画及留黑](wallpaper-quality-settings-plan.md#video-candidate-poster)及[同源淡入亮度连续](wallpaper-quality-settings-plan.md#video-crossfade-luminance)。直接调档已实测自动采纳、在途精确撤单与三引擎导入连续。后续继续官版运行对照及混合显示拓扑、8× 和长稳功耗的硬件复验。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
 
@@ -364,7 +364,7 @@ M4 内置当前 120 Hz 下，签名短窗 61／90／119／120 实呈 60.75／89.
 
 此前高性能与 Auto 已经选用实际小尾链，但在上传前仍解码完整的所有 PNG／JPEG。真实 1695673397 的第 12 层从 L2 上传，未选 L0 的紧凑 PNG RGBA8 会经实际 inflate／解滤构造约 68.29 MB 的直通 RGBA；L1 也无需建图。3383210272 第 184 层从 L1 上传，未选 L0 的 RGBA8 对应约 34.41 MB。原 TEX 结构、包范围、全部级的标记、维度和作者布局继续在同一预备入口确定。
 
-仍用一份原 CPU 解码缓存，把完成的全链或尾链按源 revision 保留。已缓存全链时直接取已选尾部；同一 loader 准备批先低后高时只补缺少的较高 mip，并以已有额度一次结算新增级。预算拒绝时当次仍可使用已解码值，沿原租约释放。GPU 缓存原 source／device／purpose／base 及 Auto 升全的发布机制不变。对照方案是冷尾链全不入缓存，会在同批精确消费者到来后重解原尾。逐级字典会引入额外元数据或频繁的预算更新，先试单份连续尾链。初次准备后仍沿原时点清退解码缓存；Auto 扩屏用独立 loader，保原受控升全，不为跨阶段复用延长解码对象寿命。
+原 CPU 缓存按源 revision 保留连续尾链。全链命中直接取尾部，先低后高只补缺失前缀并一次计费。拒收时允许当次上传，不留额外缓存。GPU 继续按原 source／device／purpose／base 复用；发布后按原时点清退解码缓存。Auto 扩屏沿独立 Loader 升级。
 
 只对已经合格并实际选中的嵌入尾链裁掉像素解码。mip 表声明与实际不符、范围或 LZ4 长度错误、编解码标记与 ImageIO 显示尺寸不匹配仍由原结构入口判定。结构和尺寸完整但落在省略区的编解码失败，按未消费的较高源级处理，较低已选尾部可独立完成；全画质或其它明确要该级的请求仍失败。选中级失败按实际失败位置覆盖包含该级的请求，不能毒死不含它的合法尾部。GPU 分配失败继续原回退，不能作为源坏片记忆。
 
@@ -372,7 +372,7 @@ M4 内置当前 120 Hz 下，签名短窗 61／90／119／120 实呈 60.75／89.
 
 真实作者同纹理固定高性能基级的原生优化构建对照，排除首轮，分别记录快照和 Metal 候选。1695673397 的 L2 尾链由 8 次解码降至 6 次，解码图像计费从 91,046,960 到 5,686,960 B，加载和上传 elapsed 中位数 132.95→17.09、134.49→16.62 ms。3383210272 的 L1 从 5 次到 4 次、45,829,912→11,421,912 B、110.15→23.32、107.55→23.30 ms，进程 CPU 同方向。逐级 Metal RGBA 读回摘要、实际纹理分配、原 TEX 缓存驻留和最终归零均一致。高质量完整链另做 A/A 及正反两序，实际级数、计费和完整读回相同，未复现稳定 CPU 退化。上述是受控 Native 中的阶段时间和解码图像计费，未量物理驻留峰值、文件读取或 App 首帧提速。
 
-两组签名 Debug 同档均实绘目标 12／184 层，实际物理规格分别保 1000×1067／1955×1100，窗口有画且正常排空。真实作者相位未固定，完全一致的像素由原生选中尾链读回验证。签名的 Auto 扩窗保持同一会话，2048×1024 升到 4096×2048 一次，读到原色并确认退役 11,288,576 B。具名精确用途和脚本模型别名也通过，签名共三项。原生 11 项嵌入用途及 4 项解码额度门通过，L0／L1 像素损坏、紧额度前缀拒绝以及两序不会重复解码尾部。独审通过，证据归 `.artifacts/wallpaper-quality-embedded-tail`。
+原签名两作第 12／184 层实际用 1000×1067／1955×1100。Auto 同会话实扩从 2048×1024 到 4096×2048 一次，旧纹理确认退役 11,288,576 B。具名用途和脚本模型邻例通过，普通命中不重复解码，坏 L0／L1 不污染健康尾部。原证据归 `.artifacts/wallpaper-quality-embedded-tail`。 <a id="scene-embedded-mip-snapshot-result"></a>**快照借用退出。** 实际包内 Loader 按 A/A/B/B/A 到完整 Metal 尾链，3355255518／1695673397／3383210272 峰值中位少 32.18／16.67／7.70 MiB，L2／L2／L1 各级 RGBA 摘要及 GPU 分配相同。缓存接纳／拒收及跨 Loader 正反例通过，真实 RGB8 仅分离所选载荷。优化签名版三部 30 张整图逐作品相同。335 截至单 Surface Ready 的 App 物理峰值中位反增 13.63 MiB，关闭早期捕获仍增 12.62 MiB。独立 338 两轮均有候选瞬时高峰。撤出试验源码、夹具和临时缓存，保留已交付选级。原生、签名和补丁归 `.artifacts/wallpaper-quality-tex-snapshot-app-20261127`。 [试验边界](wallpaper-quality-settings-plan.md#scene-texture-snapshot-slices)
 
 <a id="scene-texture-auto"></a>
 ### 自动纹理按物理投影选择
