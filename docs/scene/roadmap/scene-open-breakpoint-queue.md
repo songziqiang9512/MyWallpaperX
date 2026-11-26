@@ -13,7 +13,7 @@
 
 | 样本 | 本轮反馈 | 复验起点 |
 |---|---|---|
-| 3042492564 | 切「人物动作(动画)」后左人掉下 | [原包默认动作已恢复](../capabilities/runtime-evidence-current.md#author-aircraft-timeline-input)并核两个人物位置进入主图。继续核实际属性键、开↔关两方向的父层位置与骨姿态，以及官版重载前后。 |
+| 3042492564 | 切「人物动作(动画)」后左人掉下 | [原包热切和冷载对照](../capabilities/runtime-evidence-current.md#author-float-reload-304)中，本机左、右按作者脚本停在 Y665.2/1891.1 并恢复，未复现下坠。本次官版弹窗 CLI 对照仅证明直接绑定生效，仍需通过实际属性面板核热回调和姿态。 |
 | 3750813609 | 时钟的白光混入黑色，官版为白光 | 原钟层 358 有 Blur 与 Clouds。固定同一字形和底图，逐步隔离文字覆盖、模糊与末端混合。 |
 | 3603711180 | 歌曲文字位置错 | [标题、艺人、时间和封面供给](../capabilities/runtime-evidence-current.md#author-player-text-current-360)有同输入对照。以同媒体、字体和画幅比较首行与次行的盒位置。 |
 | 3781003282 | 指针粒子移到浅色区时中央有半透明白方 | [旧红尾随鼠标](../capabilities/runtime-evidence-current.md#pointer-halo-378)。在浅、深背景重复同一路径，检查中央 Sprite 的覆盖与混合。 |
@@ -32,7 +32,6 @@
 | 定位 | 已确认的差异与下一步 |
 |---|---|
 | 斜置 X-Ray · 遮罩位置 | [同包斜卡实帧](../capabilities/runtime-evidence-current.md#xray-tilted-projection)均随指针移动并复位，移动轨迹的 RGB 响应仍不同。先用同几何基图注册两端，区分相机斜卡映射和效果局部着点。 |
-| 3383210272 · 323 横宽 | [同包定相位实帧](../capabilities/runtime-evidence-current.md#sprite-trail-canvas-width-338)在基准相位 x=300 的半峰边界，官版 y66–166，本机 y50–186。峰值主轴与无偏航蓝束相合，另一相位横宽近同。先验证画布固定 shader 眼位与拟合投影眼位分离，保中心投影、近眼裁剪和尾部 UV。音频节拍仍是另一项比较。 |
 | 3463406101 · 前景回亮 | [低多音动态边对照](../capabilities/runtime-evidence-current.md#forefront-recovery-346)显示官版 Pulse .569 时本机尾段 .033。先区分窗内取样与动态邻档，再用独立低频输入核释放时间。 |
 | 3769761761 · 成熟右侧亮段 | [同龄右区](../capabilities/runtime-evidence-current.md#ember-mature-trail-luminance)非零面积接近，亮段分布仍不同。维持同龄与相机对照，分离权重及轨迹重叠。 |
 | 2927205881 · 左端短 | [固定速率及淡出对照](../capabilities/runtime-evidence-current.md#particle-rate-alpha-envelope)后原作者 699 左端仍短。用同画幅、同声源核出生相位、实际存量及 Sprite 栅格，单独对照稳态与动态切换。 |

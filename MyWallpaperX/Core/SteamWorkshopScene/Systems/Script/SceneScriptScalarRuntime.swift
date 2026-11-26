@@ -100,6 +100,8 @@ nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
     var particleEmissionHost: ((OpaquePointer, MWXSceneQuickJSParticlePlaybackCommand) throws -> SceneParticlePlaybackObservation)?
 
     var namedAnimationTargets: [SceneDynamicTarget]?
+    var animationIndicesByTarget: [SceneDynamicTarget: (target: UInt32, playback: UInt32)] = [:]
+    var animationRateLookup: ((SceneDynamicTarget) -> Double?)?
     var layerCatalogSignature: String?
     var dynamicImageAvailableModelPaths: [String] = []
     var dynamicImageRequestedModelPaths: Set<String> = []

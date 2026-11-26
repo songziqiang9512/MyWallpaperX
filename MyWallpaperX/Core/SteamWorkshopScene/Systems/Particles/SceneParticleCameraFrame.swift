@@ -62,7 +62,8 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
     let cameraOrigin: SIMD3<Float>
     private let orthographicViewBasis: SceneParticleOrientationBasis
     let perspectiveEyePosition: SIMD3<Float>
-    let legacyModelEyePosition: SIMD3<Float>
+    let canvasShaderEyePosition: SIMD3<Float>
+    private let hasAuthoredCanvasExtent: Bool
     let defaultsToPerspective: Bool
     // Shares the immutable frame value payload; no per-camera dictionary copy.
     private let dynamicValues: SceneDynamicSnapshot?
@@ -85,8 +86,9 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
     ) {
         self.dynamicValues = dynamicValues
         self.perspectiveReplayRootIDs = perspectiveReplayRootIDs
-        // The canvas shader eye is fixed while the model's clip projection fits the viewport.
-        legacyModelEyePosition = SIMD3((camera.orthoWidth ?? 0) * 0.5, (camera.orthoHeight ?? 0) * 0.5, 2_000)
+        // The canvas shader eye is fixed while the clip projection fits the viewport.
+        canvasShaderEyePosition = SIMD3((camera.orthoWidth ?? 0) * 0.5, (camera.orthoHeight ?? 0) * 0.5, 2_000)
+        hasAuthoredCanvasExtent = camera.orthoWidth != nil && camera.orthoHeight != nil
         let safeOrigin = cameraOrigin.x.isFinite && cameraOrigin.y.isFinite
             && cameraOrigin.z.isFinite ? cameraOrigin : .zero
         let isCanvas = camera.orthoWidth != nil || camera.orthoHeight != nil
@@ -212,8 +214,7 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         // the existing eye-distance fallback; native/partial cameras do not
         // acquire a canvas default here.
         let perspectiveFOVDegrees = camera.perspectiveOverrideFOVDegrees
-            ?? (camera.orthoWidth != nil && camera.orthoHeight != nil
-                ? Self.orthographicCanvasDefaultFOVDegrees : nil)
+            ?? (hasAuthoredCanvasExtent ? Self.orthographicCanvasDefaultFOVDegrees : nil)
         let authoredFOV = Self.authoredFOVRadians(perspectiveFOVDegrees)
         let fittedEyeDistance = authoredFOV.map {
             fittedHalfExtents.y / tan($0 * 0.5)
@@ -374,7 +375,8 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
             viewBasis: viewBasis
         )
         if usesPerspectiveTrailEye {
-            let eye = simd_inverse(model) * SIMD4(perspectiveEyePosition, 1)
+            let widthEye = hasAuthoredCanvasExtent ? canvasShaderEyePosition : perspectiveEyePosition
+            let eye = simd_inverse(model) * SIMD4(widthEye, 1)
             if eye.x.isFinite, eye.y.isFinite, eye.z.isFinite {
                 // Preserve front winding under a reflected layer or the canvas Y flip.
                 let facing: Float = (simd_determinant(model) < 0) != defaultsToPerspective ? 1 : -1

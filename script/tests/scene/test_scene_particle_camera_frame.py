@@ -105,6 +105,16 @@ class SceneParticleCameraFrameTests(unittest.TestCase):
         for key in ['materialViewOrthoParallel','materialViewPerspectiveEye','materialViewPanInvariant']:
             self.assertTrue(self.result[key],key)
 
+    def test_canvas_trail_width_uses_fixed_shader_eye(self):
+        for index, eye in enumerate(self.result["canvasTrailWidthEyes"]):
+            with self.subTest(canvas=index):
+                for actual, expected in zip(eye, (960, 540, 2000), strict=True):
+                    self.assertAlmostEqual(actual, expected, delta=0.001)
+        for index, row in enumerate(self.result["fallbackTrailWidthEyes"]):
+            with self.subTest(fallback=index):
+                for actual, expected in zip(row["width"], row["projection"], strict=True):
+                    self.assertAlmostEqual(actual, expected, delta=0.001)
+
     def test_cover_uses_drawable_aspect_without_letterboxing(self) -> None:
         self.assertAlmostEqual(self.result["coverHalfExtents"][0], 830.7692, places=3)
         self.assertAlmostEqual(self.result["coverHalfExtents"][1], 540, places=4)

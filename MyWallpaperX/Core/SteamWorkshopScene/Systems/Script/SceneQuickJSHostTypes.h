@@ -17,7 +17,9 @@ typedef struct MWXSceneQuickJSNamedAnimation {
     size_t name_length;
     uint32_t scene_only; // 1 excludes ILayer lookup; components require exact effect/pass.
     uint32_t effect_index, pass_index;
+    uint32_t playback_index;
 } MWXSceneQuickJSNamedAnimation;
+typedef uint32_t (*MWXSceneQuickJSAnimationRateLookup)(void *, uint32_t, double *);
 typedef struct MWXSceneQuickJSTimerFrameSnapshot
     MWXSceneQuickJSTimerFrameSnapshot;
 
@@ -219,7 +221,8 @@ typedef enum MWXSceneQuickJSAnimationCommand {
     MWX_SCENE_QUICKJS_ANIMATION_PLAY = 1,
     MWX_SCENE_QUICKJS_ANIMATION_PAUSE = 2,
     MWX_SCENE_QUICKJS_ANIMATION_STOP = 3,
-    MWX_SCENE_QUICKJS_ANIMATION_SET_FRAME = 4
+    MWX_SCENE_QUICKJS_ANIMATION_SET_FRAME = 4,
+    MWX_SCENE_QUICKJS_ANIMATION_SET_RATE = 5
 } MWXSceneQuickJSAnimationCommand;
 
 typedef enum MWXSceneQuickJSMediaPlaybackCommandKind {

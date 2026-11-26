@@ -124,9 +124,11 @@ enum Harness {
                 "legacyCursorLocal": legacyHit.map(vector3) as Any? ?? NSNull(),
                 "requiredEffectProjection": SceneLayerCursorGeometry.effectTextureProjectionInverse(
                     inverseModelViewProjection: SceneLayerCursorGeometry.preciseInverseModelViewProjection(mvp),
+                    projectedOrigin: mvp.columns.3,
                     required: true) != nil,
                 "legacyRequiredEffectProjection": SceneLayerCursorGeometry.effectTextureProjectionInverse(
                     inverseModelViewProjection: SceneLayerCursorGeometry.preciseInverseModelViewProjection(legacyMVP),
+                    projectedOrigin: legacyMVP.columns.3,
                     required: true) != nil,
                 "farNDC": ndc(omitted.perspectiveViewProjection, SIMD4(size.x * 0.5, size.y * 0.5, -10_000, 1))[2],
             ]
@@ -458,7 +460,19 @@ enum Harness {
                     && sprite.spriteUp == SIMD4(geometry.columns.1, 0)
                     && sprite.spriteForward == SIMD4(geometry.columns.2, 0)]
         }
+        func trailWidthEye(_ camera: SceneParticleCameraFrame) -> [Float] {
+            let uniforms = camera.particleUniforms(layerModel: ropeModel, orientation: .screen,
+                orientationAxis: nil, usesPerspective: true, usesSceneCamera: false,
+                viewportSize: SIMD2(Float(viewport.width), Float(viewport.height)),
+                sizeIsWorldSpace: false, usesPerspectiveTrailEye: true)
+            let worldEye = uniforms.layerModel * uniforms.trailWidthReference
+            return [worldEye.x / worldEye.w, worldEye.y / worldEye.w, worldEye.z / worldEye.w]
+        }
         let result: [String: Any] = [
+            "canvasTrailWidthEyes": [frame, authoredFOVFrame, dynamicFrame].map(trailWidthEye),
+            "fallbackTrailWidthEyes": [nativePolicy, missingNativeFOV, partialCanvas].map {
+                ["width": trailWidthEye($0), "projection": vector3($0.perspectiveEyePosition)]
+            },
             "staticCameraTransforms": staticCameraTransformChecks(),
             "nativeLayerSelection": nativeLayerSelectionChecks(camera: missingFOVCamera),
             "ropeCameraPolicy": ropePolicy,

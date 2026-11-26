@@ -75,6 +75,8 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
         userPropertyDefinitions: [SceneUserPropertyDefinition],
         timelineTargets: Set<SceneDynamicTarget>,
         namedAnimations: [(target: SceneDynamicTarget, name: String)] = [],
+        timelinePlaybackOwners: [SceneDynamicTarget: SceneDynamicTarget] = [:],
+        timelineRateLookup: ((SceneDynamicTarget) -> Double?)? = nil,
         scalarExcludedTargets: Set<SceneDynamicTarget>,
         stringExcludedTargets: Set<SceneDynamicTarget>,
         admittedVectorPassTargets: Set<SceneDynamicTarget>,
@@ -197,7 +199,8 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     try control.checkOwnerBoundary()
                 }
                 try domain.configureLayerRuntimeFields(authoredDescriptor)
-                try domain.configureNamedAnimations(namedAnimations)
+                try domain.configureNamedAnimations(namedAnimations,
+                    playbackOwners: timelinePlaybackOwners, rateLookup: timelineRateLookup)
             } catch {
                 return makeUnavailable(typedFailure(error))
             }

@@ -217,27 +217,7 @@ struct SceneScriptMaterialFunctionMutation: Equatable, Sendable {
     let functionName: String
 }
 
-enum SceneTimelinePlaybackCommand: Equatable, Sendable {
-    case play
-    case pause
-    case stop
-    case setFrame(Double)
-}
-
-struct SceneTimelinePlaybackMutation: Equatable, Sendable {
-    let target: SceneDynamicTarget
-    let command: SceneTimelinePlaybackCommand
-    let callbackEpoch: UInt64
-    let ordinal: UInt32
-
-    init(target: SceneDynamicTarget, command: SceneTimelinePlaybackCommand,
-         callbackEpoch: UInt64 = 0, ordinal: UInt32 = 0) {
-        self.target = target
-        self.command = command
-        self.callbackEpoch = callbackEpoch
-        self.ordinal = ordinal
-    }
-}
+__TIMELINE_PLAYBACK_DECLARATIONS__
 
 enum SceneParticleNumericValue: Equatable, Sendable {
     case scalar(Double)
@@ -489,7 +469,13 @@ _document_models = (SCENE / "Format/SceneDocumentObject.swift").read_text(encodi
 _timeline_start = _document_models.index("    struct SceneObjectTimeline:")
 _timeline_end = _document_models.index("\n    /// Particle", _timeline_start)
 _bloom_source = (SCENE / "Rendering/Composition/SceneBloomPostProcess.swift").read_text(encoding="utf-8")
+_playback_source = (SCENE / "Systems/Timeline/SceneTimelinePlaybackRuntime.swift").read_text(encoding="utf-8")
 SWIFT_PREAMBLE = SWIFT_PREAMBLE.replace(
+    "__TIMELINE_PLAYBACK_DECLARATIONS__",
+    "\n\n".join(swift_declaration(_playback_source, signature) for signature in (
+        "enum SceneTimelinePlaybackCommand:", "struct SceneTimelinePlaybackMutation:",
+    )),
+).replace(
     "struct SceneDocument {", "struct SceneDocument {\n" + _document_models[_timeline_start:_timeline_end]
 ).replace(
     "__BLOOM_ALLOWS__", swift_declaration(_bloom_source, "var allowsBloom:")

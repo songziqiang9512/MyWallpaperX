@@ -564,7 +564,7 @@ extension SceneDesktopWallpaperHost {
             uploadCommandQueue: textureUploadCommandQueue,
             cancellationCheck: { try cancellation?.check() }
         )
-        let provisionalMaterialExecutionCapabilities =
+        let resolvedMaterialExecutionCapabilities =
             try SceneResolvedMaterialExecutionCapabilityCatalog(
                 admissionCandidates: resolvedMaterialAdmissionCandidates,
                 materialCatalog: resolvedMaterialCatalog,
@@ -586,11 +586,8 @@ extension SceneDesktopWallpaperHost {
 #if DEBUG
         NSLog("MWX LAUNCH-STAGE: stage=capability-catalog elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
 #endif
-        let admittedVectorPassTargets =
-            provisionalMaterialExecutionCapabilities.sceneScriptConsumerTargets
-                .intersection(propertyVectorPassCandidateTargets)
-        let resolvedMaterialExecutionCapabilities =
-            provisionalMaterialExecutionCapabilities
+        let admittedVectorPassTargets = resolvedMaterialExecutionCapabilities.sceneScriptConsumerTargets
+            .intersection(propertyVectorPassCandidateTargets)
         let sourceMaterialCandidateConsumerLayerIDs = resolvedMaterialCatalog
             .sourceMaterialCandidateConsumerLayerIDs(in: runtimeInput.renderDescriptor)
         let imageModulationConsumerTargets = Self.imageLayerModulationConsumerTargets(
@@ -614,9 +611,7 @@ extension SceneDesktopWallpaperHost {
             .sceneScriptVolumeConsumerTargets(for: sceneScriptScalarDefinitions,
                 namedPropertyKeys: namedSoundPropertyKeys,
                 resolvedPropertyVolumes: resolvedPropertyVolumes)
-        // Structural candidates need an actual prepared consumer. Partition
-        // them before planning/evaluating modules; construction and fallback
-        // use the same exclusions.
+        // Construction and fallback share exclusions before any module planning or evaluation.
         let scalarExcludedTargets = propertyVectorScriptTargets.union(
             sceneScriptScalarTargets.filter { target in
                 switch target {
@@ -652,6 +647,14 @@ extension SceneDesktopWallpaperHost {
         let sceneScriptStorageSession = recordID.map {
             SceneScriptLocalStorageSession(recordID: $0, defersPersistence: true)
         }
+        let timelinePlaybackRuntime = SceneTimelinePlaybackRuntime(program: timelineProgram)
+        let timelineAnimationTargets = timelineProgram.bindings.map {
+            (target: $0.target, name: $0.animation.options.name ?? "")
+        }
+        let timelinePlaybackOwners: [SceneDynamicTarget: SceneDynamicTarget] = Dictionary(
+            uniqueKeysWithValues: timelineProgram.bindings.compactMap {
+            $0.target == $0.playbackOwnerTarget ? nil : ($0.target, $0.playbackOwnerTarget)
+        })
         let compileSceneScriptPrograms: (
             Set<SceneDynamicTarget>, Set<SceneDynamicTarget>
         ) throws -> SceneScriptQuickJSProgramCandidate = {
@@ -665,9 +668,9 @@ extension SceneDesktopWallpaperHost {
                 ), routeExcludedTargets: excludedVectorTargets,
                 userPropertyDefinitions: model.project.userProperties.definitions,
                 timelineTargets: timelineTargets,
-                namedAnimations: timelineProgram.bindings.compactMap { binding in
-                    binding.animation.options.name.map { (binding.target, $0) }
-                },
+                namedAnimations: timelineAnimationTargets,
+                timelinePlaybackOwners: timelinePlaybackOwners,
+                timelineRateLookup: timelinePlaybackRuntime.rate(for:),
                 scalarExcludedTargets: scalarExcludedTargets,
                 stringExcludedTargets: sceneScriptStringExcludedTargets,
                 admittedVectorPassTargets: vectorPassTargets,
@@ -891,9 +894,7 @@ extension SceneDesktopWallpaperHost {
             preparedDeviceResources: preparedDeviceResources,
             preparedFirstSurfaceRuntime: preparedFirstSurfaceRuntime,
             timelineProgram: timelineProgram,
-            timelinePlaybackRuntime: SceneTimelinePlaybackRuntime(
-                program: timelineProgram
-            ),
+            timelinePlaybackRuntime: timelinePlaybackRuntime,
             textureAnimationPlaybackRuntime:
                 SceneTextureAnimationPlaybackRuntime(),
             puppetAnimationPlaybackRuntime: ScenePuppetAnimationPlaybackRuntime(),

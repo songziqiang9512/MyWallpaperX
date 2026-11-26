@@ -154,7 +154,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 414,
-      "bytes": 78357
+      "bytes": 78585
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 474,
@@ -162,7 +162,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 391192
+      "bytes": 393355
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -177,8 +177,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 230,
-      "bytes": 43655
+      "lines": 239,
+      "bytes": 44919
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 120,
@@ -193,8 +193,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 63,
-      "bytes": 8671
+      "lines": 62,
+      "bytes": 8303
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -621,10 +621,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "5bacd0e70d867d376760e5f8f1b2d2d52408ac8ee0cc6dd92a881a49a7d409ef",
-      "after": "959df4d0458be9ad616ed874a8e9aebdd6417414cfab91cde9a6c1cb4a09ef85",
+      "before": "959df4d0458be9ad616ed874a8e9aebdd6417414cfab91cde9a6c1cb4a09ef85",
+      "after": "141cc78d2d698371746f4ec2ae14199263f0aac61fddab56a36ee38236b538aa",
       "owner": "Scene 与三引擎画质",
-      "reason": "合入主线已落库正文及其现行职责。",
+      "reason": "将主分支的 Scene 行为与质量分支证据合入同一现役正文，按合并正文重算预算。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
@@ -639,10 +639,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "695c0a27c82196c947742e15c4f304117fa53d6a1692189546f8fd4064201db8",
-      "after": "2c83007844eb112dd5b5f2b3d263aa263c4c3a881bc85510cc0d260326870b13",
+      "before": "2c83007844eb112dd5b5f2b3d263aa263c4c3a881bc85510cc0d260326870b13",
+      "after": "18090dda1ab00673307a53ec7056dca5e6b78d05a53959d492a405541b02f892",
       "owner": "Scene 与三引擎画质",
-      "reason": "合并画质与主线的执行合同及不同构建身份下的证据，保持单一现役入口。",
+      "reason": "将主分支的 Scene 行为与质量分支证据合入同一现役正文，按合并正文重算预算。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
@@ -657,10 +657,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "41700f2a4954e0d77edaaafaf1f5bd709d7ef36a99178eb3c7f7bf61629b2e80",
-      "after": "87ea653be930eeba06b6a15cc350a89f5b16f4be54e498343578f579725beec7",
+      "before": "87ea653be930eeba06b6a15cc350a89f5b16f4be54e498343578f579725beec7",
+      "after": "6d2a740a4df47e5d979b682fbc1970f15102bcecd8bd067cbbff8a2773445bb9",
       "owner": "Scene 与三引擎画质",
-      "reason": "合入主线已落库正文及其现行职责。",
+      "reason": "将主分支的 Scene 行为与质量分支证据合入同一现役正文，按合并正文重算预算。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
@@ -693,11 +693,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "92d5d8457e59f4d20c41641a994f3dbf3b0ecb0cf2fa8ace2e7269c6235f53fe",
-      "after": "7900bd439153ac62bb9a3e8df11b3064ddf12782e1aa0c3266c7d7bc6beb062d",
-      "owner": "Scene 与三引擎画质",
-      "reason": "合入主线已落库正文及其现行职责。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+      "before": "c83644ced4ef7f10cbf7255e0c0ecdee0f49e2c77c37676b1e2f270386df5b89",
+      "after": "d43e33ec4d77aa1a3080167417c0b91c7db94661d3c29a283bf9bbd826b2c7a5",
+      "owner": "Scene Timeline and SceneScript",
+      "reason": "登记作者热切与冷载证据、四种速度的实帧及属性倍率设计。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-float-reload-304"
     },
     {
       "section": "bodies",

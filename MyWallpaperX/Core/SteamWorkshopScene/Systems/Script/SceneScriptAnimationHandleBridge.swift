@@ -14,7 +14,8 @@ nonisolated enum SceneScriptAnimationHandleBridge {
     }
 
     static func configure(
-        owner: OpaquePointer, target: SceneDynamicTarget, hasCurrentAnimation: Bool
+        owner: OpaquePointer, target: SceneDynamicTarget, hasCurrentAnimation: Bool,
+        indices: (target: UInt32, playback: UInt32)?
     ) throws {
         let effectIndex: UInt32
         let passIndex: UInt32
@@ -32,6 +33,8 @@ nonisolated enum SceneScriptAnimationHandleBridge {
             hasCurrentAnimation ? 1 : 0,
             effectIndex,
             passIndex,
+            indices?.target ?? .max,
+            indices?.playback ?? .max,
             &diagnostic,
             diagnostic.count
         )
@@ -50,7 +53,7 @@ nonisolated enum SceneScriptAnimationHandleBridge {
         for index in 0..<count {
             var command = MWX_SCENE_QUICKJS_ANIMATION_PLAY
             var targetIndex = UInt32.max
-            var frame = 0.0
+            var value = 0.0
             var callbackEpoch: UInt64 = 0
             var ordinal: UInt32 = 0
             var diagnostic = [CChar](repeating: 0, count: 256)
@@ -59,7 +62,7 @@ nonisolated enum SceneScriptAnimationHandleBridge {
                 index,
                 &command,
                 &targetIndex,
-                &frame,
+                &value,
                 &callbackEpoch,
                 &ordinal,
                 &diagnostic,
@@ -73,7 +76,8 @@ nonisolated enum SceneScriptAnimationHandleBridge {
             case MWX_SCENE_QUICKJS_ANIMATION_PLAY: typed = .play
             case MWX_SCENE_QUICKJS_ANIMATION_PAUSE: typed = .pause
             case MWX_SCENE_QUICKJS_ANIMATION_STOP: typed = .stop
-            case MWX_SCENE_QUICKJS_ANIMATION_SET_FRAME: typed = .setFrame(frame)
+            case MWX_SCENE_QUICKJS_ANIMATION_SET_FRAME: typed = .setFrame(value)
+            case MWX_SCENE_QUICKJS_ANIMATION_SET_RATE: typed = .setRate(value)
             default:
                 return .failure(.invalidArgument("unknown animation command"))
             }
@@ -190,13 +194,23 @@ nonisolated extension SceneScriptQuickJSDomain {
 
     /// Publishes only already-compiled targets; no second animation registry
     /// or playback state is reconstructed from the author document in a frame.
-    func configureNamedAnimations(_ bindings: [(target: SceneDynamicTarget, name: String)]) throws {
+    func configureNamedAnimations(
+        _ bindings: [(target: SceneDynamicTarget, name: String)],
+        playbackOwners: [SceneDynamicTarget: SceneDynamicTarget] = [:],
+        rateLookup: ((SceneDynamicTarget) -> Double?)? = nil
+    ) throws {
         guard namedAnimationTargets == nil else {
             throw SceneScriptScalarRuntimeFailure.invalidArgument("named animation catalog already configured")
         }
         var names: [UnsafeMutablePointer<CChar>] = []
         defer { names.forEach { free($0) } }
         var records: [MWXSceneQuickJSNamedAnimation] = []
+        let targetIndices = Dictionary(bindings.enumerated().map {
+            ($0.element.target, UInt32($0.offset))
+        }, uniquingKeysWith: { first, _ in first })
+        let preparedIndices = Dictionary(uniqueKeysWithValues: targetIndices.map { target, index in
+            (target, (target: index, playback: playbackOwners[target].flatMap { targetIndices[$0] } ?? index))
+        })
         for (index, binding) in bindings.enumerated() {
             let layerID: Int
             let sceneOnly: UInt32
@@ -224,7 +238,8 @@ nonisolated extension SceneScriptQuickJSDomain {
             names.append(copied)
             records.append(.init(target_index: targetIndex, layer_id: Int64(layerID),
                 name: UnsafePointer(copied), name_length: name.utf8.count,
-                scene_only: sceneOnly, effect_index: effectIndex, pass_index: passIndex))
+                scene_only: sceneOnly, effect_index: effectIndex, pass_index: passIndex,
+                playback_index: preparedIndices[binding.target]?.playback ?? targetIndex))
         }
         var diagnostic = [CChar](repeating: 0, count: 512)
         let result = records.withUnsafeBufferPointer {
@@ -235,5 +250,17 @@ nonisolated extension SceneScriptQuickJSDomain {
             throw SceneScriptScalarRuntimeFailure.invalidArgument(String(cString: diagnostic))
         }
         namedAnimationTargets = bindings.map(\.target)
+        animationIndicesByTarget = preparedIndices
+        if let rateLookup {
+            animationRateLookup = rateLookup
+            mwx_scene_quickjs_domain_bind_animation_rate_lookup(handle, { opaque, index, rate in
+                guard let opaque, let rate else { return 0 }
+                let domain = Unmanaged<SceneScriptQuickJSDomain>.fromOpaque(opaque).takeUnretainedValue()
+                guard let targets = domain.namedAnimationTargets, targets.indices.contains(Int(index)),
+                      let value = domain.animationRateLookup?(targets[Int(index)]) else { return 0 }
+                rate.pointee = value
+                return 1
+            }, Unmanaged.passUnretained(self).toOpaque())
+        }
     }
 }

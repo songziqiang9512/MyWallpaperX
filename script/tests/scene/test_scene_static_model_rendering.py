@@ -57,7 +57,7 @@ class SceneStaticModelRenderingTests(unittest.TestCase):
         self.assertRegex(
             model_stage,
             r"cameraPosition: draw\.material\.legacyLighting == nil\s*"
-            r"\? cameraFrame\.perspectiveEyePosition : cameraFrame\.legacyModelEyePosition,",
+            r"\? cameraFrame\.perspectiveEyePosition : cameraFrame\.canvasShaderEyePosition,",
         )
         self.assertIn("let frameLightSnapshot = SceneLightSnapshot.make(", renderer)
         self.assertIn("layersByID: frameLayersByID", renderer)

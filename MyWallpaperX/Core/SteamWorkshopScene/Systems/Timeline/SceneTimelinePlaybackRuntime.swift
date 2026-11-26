@@ -5,6 +5,7 @@ nonisolated enum SceneTimelinePlaybackCommand: Equatable, Sendable {
     case pause
     case stop
     case setFrame(Double)
+    case setRate(Double)
 }
 
 nonisolated struct SceneTimelinePlaybackMutation: Equatable, Sendable {
@@ -26,6 +27,7 @@ nonisolated enum SceneTimelinePlaybackFailure: Error, Equatable, Sendable {
     case invalidSceneTime
     case unknownTarget(SceneDynamicTarget)
     case invalidFrame(SceneDynamicTarget)
+    case invalidRate(SceneDynamicTarget)
 }
 
 /// 唯一的 Timeline 播放状态。每个已编译 playback owner 只保一份本地播放位置，并消费
@@ -38,6 +40,7 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
     private struct State: Equatable {
         var playback: Playback
         var publishedFrame: Double = 0
+        var rate: Double = 1
     }
     fileprivate struct PublicationPosition {
         let stateIndex: Int
@@ -174,6 +177,10 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
         pendingNextFrameObservations = state.pendingNextFrameObservations
     }
 
+    func rate(for target: SceneDynamicTarget) -> Double? {
+        stateIndices[target].map { orderedStates[$0].rate }
+    }
+
     func values(sceneTime: Double) -> [SceneDynamicTarget: SceneDynamicValue] {
         guard sceneTime.isFinite, sceneTime >= 0 else { return [:] }
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
@@ -197,7 +204,8 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
             let state = orderedStates[index], animation = ownerAnimations[index]
             let elapsed = elapsedFrames(state: state, animation: animation, sceneTime: sceneTime)
             guard project(stateIndex: index, elapsed: elapsed, into: &values, observe: true),
-                  !animation.options.events.isEmpty, case .playing = state.playback else { continue }
+                  !animation.options.events.isEmpty, case .playing = state.playback,
+                  state.rate >= 0 else { continue }
             let end = min(max(0, elapsed), animation.options.length)
             guard end > state.publishedFrame else { continue }
             let target = orderedBindings[stateMembers[index][0][0]].playbackOwnerTarget
@@ -292,37 +300,54 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
                 animation: animation,
                 sceneTime: sceneTime
             )
+            let isSingle = animation.options.mode == .single
             let next: Playback
-            var position = elapsed
+            var position = isSingle ? min(max(0, elapsed), animation.options.length) : elapsed
+            var rate = state.rate
+            var resetsEventCursor = true
             switch mutation.command {
             case .play:
-                // A completed single animation starts a new run. Playing or
-                // paused positions before its end still resume in place.
-                let completed = animation.options.mode == .single
-                    && elapsed >= animation.options.length
-                position = completed ? 0 : elapsed
+                // Explicit forward play restarts at the end of a Single.
+                // Reverse play can move directly from that endpoint.
+                if isSingle, rate > 0, position == animation.options.length { position = 0 }
                 next = .playing(
                     anchorSceneTime: sceneTime,
-                    anchorElapsedFrames: completed ? 0 : elapsed
+                    anchorElapsedFrames: position
                 )
             case .pause:
-                next = .paused(elapsedFrames: elapsed)
+                next = .paused(elapsedFrames: position)
             case .stop:
                 position = 0
                 next = .paused(elapsedFrames: 0)
             case let .setFrame(frame):
                 guard frame.isFinite else { return .failure(.invalidFrame(mutation.target)) }
-                position = frame
+                position = max(0, frame)
+                if isSingle {
+                    position = min(position, animation.options.length)
+                }
                 switch state.playback {
                 case .playing:
                     next = .playing(
-                        anchorSceneTime: sceneTime, anchorElapsedFrames: frame)
+                        anchorSceneTime: sceneTime, anchorElapsedFrames: position)
                 case .paused:
-                    next = .paused(elapsedFrames: frame)
+                    next = .paused(elapsedFrames: position)
+                }
+            case let .setRate(value):
+                guard value.isFinite else { return .failure(.invalidRate(mutation.target)) }
+                rate = value
+                // Only reopen positions already published before reverse playback.
+                resetsEventCursor = state.rate < 0 && value >= 0 && position < state.publishedFrame
+                switch state.playback {
+                case .playing:
+                    next = .playing(
+                        anchorSceneTime: sceneTime, anchorElapsedFrames: position)
+                case .paused:
+                    next = state.playback
                 }
             }
             candidate[stateIndex] = .init(playback: next,
-                publishedFrame: min(max(0, position), animation.options.length))
+                publishedFrame: resetsEventCursor ? position : state.publishedFrame,
+                rate: rate)
         }
         return .success(candidate)
     }
@@ -434,7 +459,7 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
         switch state.playback {
         case let .playing(anchorSceneTime, anchorElapsedFrames):
             return anchorElapsedFrames
-                + max(0, sceneTime - anchorSceneTime) * animation.options.fps
+                + max(0, sceneTime - anchorSceneTime) * state.rate * animation.options.fps
         case let .paused(elapsedFrames):
             return elapsedFrames
         }

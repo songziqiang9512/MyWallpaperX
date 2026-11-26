@@ -178,7 +178,8 @@ nonisolated extension SceneScriptValueOwner {
                 try SceneScriptAnimationHandleBridge.configure(
                     owner: created,
                     target: target,
-                    hasCurrentAnimation: hasCurrentAnimation
+                    hasCurrentAnimation: hasCurrentAnimation,
+                    indices: domain.animationIndicesByTarget[target]
                 )
                 if let puppetAnimationIdentity {
                     guard allowsStatefulLayerSideEffects,
