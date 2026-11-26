@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 386669
+      "bytes": 387761
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 57,
-      "bytes": 7071
+      "bytes": 7140
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "500f924ece399409eb307fc27cb570fcadfd6d4a593a051b814f68bb9458020b",
-      "after": "7787d58730e8ec0fd24637a3f8293c4a999e794fa2b6a12c24976e18abb36c78",
+      "before": "7787d58730e8ec0fd24637a3f8293c4a999e794fa2b6a12c24976e18abb36c78",
+      "after": "82f26464283af97705f1e22b3b7e1df2dd7e026007bd15023ad07910b92aa67d",
       "owner": "Scene particle simulation",
-      "reason": "记录实例颜色出生类型与实际色差修复，并保存独立的高倍率覆盖和HSV断点。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-default-birth-color"
+      "reason": "记录真实发射根的深度对照及同帧时钟测得的连续出生组。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-continuous-birth-cadence-292"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "1588d0efdb41250814959fefce5f5acd2692c9597a422fcc5f22515689522c71",
-      "after": "5508f96625aa65a17e8fe4b063761690a0d5626fe4cce5cba42e5f575d335fa1",
+      "before": "5508f96625aa65a17e8fe4b063761690a0d5626fe4cce5cba42e5f575d335fa1",
+      "after": "a3c7e62c1b1a70e60ea31f28a31b0a65867d8cd25dea9686525e651d60a3c0f8",
       "owner": "Scene particle simulation",
-      "reason": "用已测高倍率覆盖差替换旧左缘猜测，并登记实测HSV出生差异。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+      "reason": "记录真实发射根的深度对照及同帧时钟测得的连续出生组。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-continuous-birth-cadence-292"
     },
     {
       "section": "bodies",
