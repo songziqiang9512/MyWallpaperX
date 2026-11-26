@@ -392,9 +392,9 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "81db2449571b74226a6d7bd435ae7cbb2b8f3c3390a808885d4a87c590533b57",
+        "sourceSHA256": "843bf4d53d2bf64258c6edf75c45dadd518cd6744e26e17cef353a0ad29f1472",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对签名 M4 场景的同帧 MSAA、点光、体积证据与剩余交付门。",
+        "scope": "复核 M4 签名实绘在扩档、退档、独立体积资源和原作者样本上的证据边界。",
         "limitations": "画面和持续呈现的证据边界见现役工作卡。"
       }
     },

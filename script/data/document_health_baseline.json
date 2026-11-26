@@ -102,7 +102,7 @@
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 154864
+      "bytes": 155467
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -714,15 +714,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "a0b5b81dbc9b631fc4a48e8abe487c4dec1168c2d90264770fa12f288a283b2c",
-      "after": "003f84a2395e062ad4aaa4e57bc54edae876abcead7f1624891befaf4a8c9181",
-      "owner": "Scene quality combination evidence",
-      "reason": "登记签名 M4 冷池中点光扩档挤掉实际体积光的对照。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-point-shadow-density-trial"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "f52c1636e26bc81b41f57989377ab5697e32fdc95474db579190c8ae77403a37",
       "after": "356b088789baa22241b4798020bfa31276c1a870bdf00d1d92836e0c0deac4f4",
@@ -747,6 +738,15 @@
       "owner": "Scene particle simulation",
       "reason": "同步步进寿命数组的就地填充合同、实际交错首帧收益和剩余启动边界。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-life-buffer-evidence"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "003f84a2395e062ad4aaa4e57bc54edae876abcead7f1624891befaf4a8c9181",
+      "after": "aa9f036fc27c62af121531ade1f1b018d48aaa41d33a50706777b16c3b51531f",
+      "owner": "Scene point-shadow tier",
+      "reason": "登记实际组合预约修复、作者实绘和具名证据边界。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-point-shadow-density-trial"
     }
   ]
 }
