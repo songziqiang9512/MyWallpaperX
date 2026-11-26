@@ -79,6 +79,7 @@ enum Harness {
         guard required else { return matrix_identity_float4x4 }
         return SceneLayerCursorGeometry.effectTextureProjectionInverse(
             inverseModelViewProjection: SceneLayerCursorGeometry.preciseInverseModelViewProjection(matrix),
+            projectedOrigin: matrix.columns.3,
             required: true
         )
     }
@@ -162,6 +163,43 @@ enum Harness {
                 1 - (effectTextureProjection[1] + 0.5),
             ]
         }()
+        let perspective = SceneMatrix.perspectiveRHMetal(
+            fovYRadians: .pi / 3, aspect: 1.6, near: 0.01, far: 60_000
+        ) * SceneMatrix.translation(SIMD3(0, 0, -2_000))
+        let effectPlanes = [
+            "orthographic-oblique": transformedMVP,
+            "perspective-front": perspective * SceneMatrix.scale(SIMD3(7680, 4320, 1)),
+            "perspective-oblique-mirrored": perspective
+                * SceneMatrix.translation(SIMD3(180, -90, 140))
+                * SceneMatrix.rotationY(0.42)
+                * SceneMatrix.rotationX(-0.29)
+                * SceneMatrix.scale(SIMD3(-1500, 850, 1)),
+        ]
+        let effectDepthChecks = effectPlanes.mapValues { matrix -> [[Float]] in
+            guard let inverse = independentEffectProjection(matrix, required: true) else { return [] }
+            let forward = inverse.inverse
+            let origin = SIMD4<Double>(matrix.columns.3)
+            let depthOrigin = origin.z / origin.w
+            let worldInverse = SceneLayerCursorGeometry.inverseModelViewProjection(matrix)!
+            return [SIMD2<Double>(0.1, -0.2), SIMD2(-0.52, 0.21)].map { point in
+                let clip = SIMD4<Double>(matrix.columns.0) * point.x
+                    + SIMD4<Double>(matrix.columns.1) * point.y + origin
+                let screen = SIMD3<Float>(SIMD3(clip.x / clip.w, clip.y / clip.w,
+                                               clip.z / clip.w - depthOrigin))
+                let recovered = inverse * SIMD4(screen, 1)
+                let back = forward * SIMD4(Float(2 * point.x), Float(2 * point.y), 0, 1)
+                return [
+                    recovered.x / recovered.w * 0.5 - Float(point.x),
+                    recovered.y / recovered.w * 0.5 - Float(point.y),
+                    recovered.z / recovered.w,
+                    back.x / back.w - screen.x,
+                    back.y / back.w - screen.y,
+                    back.z / back.w - screen.z,
+                    (0..<3).allSatisfy { inverse[$0] == worldInverse[$0] * SIMD4(2, 2, 1, 1) }
+                        ? 0 : 1,
+                ]
+            }
+        }
         let objectSize = SIMD2<Float>(320, 180)
         let transformedPixelPoints: [[Double]] = [
             transformedMVP,
@@ -285,7 +323,8 @@ enum Harness {
             if shared {
                 let inverse = SceneLayerCursorGeometry.preciseInverseModelViewProjection(matrix)
                 guard let effect = SceneLayerCursorGeometry.effectTextureProjectionInverse(
-                    inverseModelViewProjection: inverse, required: required
+                    inverseModelViewProjection: inverse, projectedOrigin: matrix.columns.3,
+                    required: required
                 ) else { return (nil, nil, nil) }
                 return (effect, SceneLayerCursorGeometry.layerUV(
                     mouseNormalized: current, inverseModelViewProjection: inverse),
@@ -404,6 +443,7 @@ enum Harness {
             "inverseRestoresKnownPoint": inverseRestoresKnownPoint,
             "effectTextureProjection": effectTextureProjection,
             "rippleTextureUV": rippleTextureUV,
+            "effectDepthChecks": effectDepthChecks,
             "singularInverseRejected":
                 SceneLayerCursorGeometry.inverseModelViewProjection(singular) == nil,
             "nonfiniteInverseRejected": SceneLayerCursorGeometry.inverseModelViewProjection(nonfinite) == nil,
@@ -461,7 +501,7 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
         transforms = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+LayerTransforms.swift").read_text()
         camera = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCameraFrame.swift").read_text()
         methods = "extension SceneMetalRenderer {\n" + "\n".join(_declaration(transforms, marker) for marker in (
-            "    func particleModelMatrix(", "    private func parallaxOffset(")) + "\n}\n"
+            "    func particleModelMatrix(", "    func parallaxOffset(")) + "\n}\n"
         methods += "extension SceneParticleCameraFrame {\n" + _declaration(camera, "    static func particleLayerModel(") + "\n}\n"
         harness.write_text(HARNESS_SOURCE.replace("// PRODUCTION_PARTICLE_MODEL_METHODS", methods), encoding="utf-8")
         geometry = next(path for path in SWIFT_SOURCES if path.name == "SceneLayerCursorGeometry.swift")
@@ -573,6 +613,14 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
             self.result["rippleTextureUV"], [0.6, 0.7]
         )
 
+    def test_effect_projection_pair_uses_relative_depth_and_keeps_directions(self) -> None:
+        for pose, points in self.result["effectDepthChecks"].items():
+            with self.subTest(pose=pose):
+                self.assertEqual(len(points), 2)
+                for errors in points:
+                    for error in errors:
+                        self.assertAlmostEqual(error, 0, delta=0.0001)
+
     def test_finite_points_outside_layer_remain_available_for_halo_clipping(self) -> None:
         self.assert_pair_almost_equal(self.result["outsideFinite"], [2.0, 2.0])
 
@@ -617,6 +665,7 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
         for name in ("near-zero-w", "far-zero-w", "parallel-ray", "singular", "nonfinite-matrix"):
             self.assertFalse(cases[name]["currentAvailable"], cases[name])
             self.assertFalse(cases[name]["previousAvailable"], cases[name])
+        self.assertTrue(cases["near-zero-w"]["requiredAvailable"], cases["near-zero-w"])
         for name in ("inverse-float-overflow", "effect-float-overflow"):
             self.assertTrue(cases[name]["currentAvailable"], cases[name])
             self.assertTrue(cases[name]["previousAvailable"], cases[name])

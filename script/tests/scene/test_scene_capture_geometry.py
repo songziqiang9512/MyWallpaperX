@@ -284,12 +284,14 @@ enum Harness {
                 SceneLayerCursorGeometry.effectTextureProjectionInverse(
                     inverseModelViewProjection: SceneLayerCursorGeometry.preciseInverseModelViewProjection(
                         fullscreenFromSingularLayer.outputMVP),
+                    projectedOrigin: fullscreenFromSingularLayer.outputMVP.columns.3,
                     required: true
                 ) != nil,
             "singularCompositionProjectionRejected":
                 SceneLayerCursorGeometry.effectTextureProjectionInverse(
                     inverseModelViewProjection: SceneLayerCursorGeometry.preciseInverseModelViewProjection(
                         compositionFromSingularLayer.outputMVP),
+                    projectedOrigin: compositionFromSingularLayer.outputMVP.columns.3,
                     required: true
                 ) == nil,
             "projectOrigin": vector(project.sourceUV.origin),

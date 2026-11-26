@@ -125,12 +125,12 @@
       "bytes": 78160
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 467,
-      "bytes": 92594
+      "lines": 474,
+      "bytes": 93678
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 372282
+      "bytes": 373437
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 64,
-      "bytes": 8824
+      "bytes": 8780
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -460,11 +460,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "8f4d2c4fac631efb851f0c4f705e3848b866c014f3ff76245141656865eaa694",
-      "after": "28a491f465aef3566fff9a712fe0957c2861d16d633697f1ccf9e55a845862cf",
-      "owner": "Scene",
-      "reason": "记录无作者目标的停用末段沿原图发布实际纹理与验证范围",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#inactive-terminal-source-capture"
+      "before": "28a491f465aef3566fff9a712fe0957c2861d16d633697f1ccf9e55a845862cf",
+      "after": "0dfa8cbf08520fd4eeb81300181fd45ea6023c7eef57ac0cb86d09558e122dd5",
+      "owner": "Scene render graph and runtime evidence",
+      "reason": "登记效果纹理的相对投影深度与方向基合同",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#effect-texture-plane-projection"
     },
     {
       "section": "bodies",
@@ -577,10 +577,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b2c506e22bc06f152a25b6f3e22a882ba843f4b4fc7adaa5ffe8852fc6d03661",
-      "after": "2f07f955f8c7ed97408e25a59242d160bb0466cdc15fc11599bf30544ed726ed",
-      "owner": "Scene runtime evidence",
-      "reason": "登记双端固定姿态粒子横宽与透视指针同包实帧，开放队列仅维护待修状态。",
+      "before": "2f07f955f8c7ed97408e25a59242d160bb0466cdc15fc11599bf30544ed726ed",
+      "after": "0fc1403ea0cc053a9dd03d2ef0ff6128dd54da02f4c0975582c27af94169b19a",
+      "owner": "Scene render graph and runtime evidence",
+      "reason": "同包修正后的指针、斜卡余差与景深方向对照",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#xray-perspective-pointer-294"
     },
     {

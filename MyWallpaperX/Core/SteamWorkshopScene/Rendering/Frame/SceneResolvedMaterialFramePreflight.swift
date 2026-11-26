@@ -571,6 +571,7 @@ extension SceneMetalRenderer {
             guard let effectTextureProjectionMatrixInverse =
                     SceneLayerCursorGeometry.effectTextureProjectionInverse(
                         inverseModelViewProjection: cursorInverse,
+                        projectedOrigin: effectProjectionMVP.columns.3,
                         required: claim.frameInputContract
                             .requiresInvertibleEffectTextureProjection
                     ) else {
