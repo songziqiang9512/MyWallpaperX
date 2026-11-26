@@ -392,7 +392,7 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fedd173bd6967110283b5613eb8bbf7e702187cd6bfb365b94a01e496c05d235",
+        "sourceSHA256": "9e2a33734f36f773fb79f3adca353e6fe484f2e16d9f17607e6913fc1185417a",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对候选点光档位的实际读数、冷资源顺序和未完成的验收。",
         "limitations": "画面和持续呈现的证据边界见现役工作卡。"
