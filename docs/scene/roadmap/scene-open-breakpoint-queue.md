@@ -24,7 +24,6 @@
 | 3187857248 | 仍有时拖不动 | 沿[拖动证据](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318)匹配两端当前骨位置，重复真实按下、拖动和释放，记录命中归属。 |
 | 3586705329 | 拼贴有竖状拉伸，随镜头大小变化 | 沿[已登记的拼贴层](../capabilities/runtime-evidence-current.md#author-collage-edge-358)固定两档作者镜头缩放和同一竖区，对照局部工作栅格、采样边与后继视口。 |
 | 3337494481 | 文字和封面可透过模型 | 沿[盒体深度对照](../capabilities/runtime-evidence-current.md#author-box-text-occlusion-333)固定真实封面、同角度及前后深度，分别核文字、媒体图像的终端深度和顺序。 |
-| 3372715909 | 时钟仍不显示 | [旧本机定位](../capabilities/runtime-evidence-current.md#author-clock-video-order-337)发现视频 120 遮住 46/60，换序对照能见时钟。取官版原包同视频状态确认可见层序。 |
 
 <a id="implementation-gaps"></a>
 ## 独立实测的开放断点

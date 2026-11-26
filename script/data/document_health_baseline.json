@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 378611
+      "bytes": 378710
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 61,
-      "bytes": 8052
+      "lines": 60,
+      "bytes": 7812
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "78d4cdb450887e74715ff552448df9002d88d012bbb5f4e187c860a88bf6c7b9",
-      "after": "efe2fd2380d3f426fabca6d06f0bd9184b610e65ee472403875f3c3033a8e110",
-      "owner": "Scene composition and named graph output",
-      "reason": "登记透明具名图的官版本机取时、反例与独立作者实帧。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#transparent-forward-named-recovery"
+      "before": "efe2fd2380d3f426fabca6d06f0bd9184b610e65ee472403875f3c3033a8e110",
+      "after": "0b227c1bea0fc81b5d089a9f0b5f7b62167814626396ed84ef7d58e53bf5f3cb",
+      "owner": "Scene video and SceneScript composition",
+      "reason": "记录真实原视频在官版和本机对时钟的层序对照。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-clock-video-order-337"
     },
     {
       "section": "bodies",
