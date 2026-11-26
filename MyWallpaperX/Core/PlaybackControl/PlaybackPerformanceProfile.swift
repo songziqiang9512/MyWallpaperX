@@ -29,8 +29,9 @@ nonisolated enum ScenePostProcessingMode: String, Sendable {
     case ultraDisplayHDR = "displayHDR"
 
     var requestsDisplayHDR: Bool { self == .ultraDisplayHDR }
-    var usesHDRWorkingDomain: Bool { self == .ultra || self == .ultraDisplayHDR }
-    var appliesBloom: Bool { self != .disabled }
+    var preparationMode: Self { self == .ultraDisplayHDR ? .ultra : self }
+    var usesHDRWorkingDomain: Bool { preparationMode == .ultra }
+    var appliesBloom: Bool { preparationMode != .disabled }
 }
 
 nonisolated enum SceneShadowQuality: String, Sendable {
@@ -86,7 +87,7 @@ nonisolated struct SceneRenderQuality: Equatable, Sendable {
 
     var preparationQuality: Self {
         var quality = self
-        if quality.postProcessing == .ultraDisplayHDR { quality.postProcessing = .ultra }
+        quality.postProcessing = postProcessing.preparationMode
         return quality
     }
 }

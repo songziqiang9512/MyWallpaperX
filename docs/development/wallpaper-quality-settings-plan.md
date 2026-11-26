@@ -18,20 +18,20 @@
 4. 首批完成条件为升级、导入恢复和复位正确，Scene 实际控制提交节奏，Web 在真实宿主中正确收发建议值，Video 的适用范围一目了然，三引擎候选、暂停、恢复和输出交接通过代表验证。后续每项都以独立可见结果和成本取证决定发布。
 
 <a id="reference-and-current"></a>
-## 官方对照与当前底座
+## 八项设置的执行合同
 
 档位名称和范围按用户提供的官方客户端画面及补充记录。10–120 FPS 是帧率范围，渲染输出像素和纹理尺寸各自有独立的调整路径。
 
-| 项目 | Wallpaper Engine 可见选项 | 本分支可复用能力与差距 |
-|---|---|---|
-| 预设 | 低／中／高／超高 | 现有 30／60 同时绑定帧率与缓存，尚缺可编辑的质量组合 |
-| 帧率 | 下限 10，客户端由运行端提供上限。用户观察到 120 档，图中当前值 25 FPS | Scene 首批 30／60，缺省 60，分别关联 512 MiB／1 GiB 解码缓存。Web 取目标屏建议并封顶 60，Video 按素材播放 |
-| 抗锯齿 | 无／MSAA ×2／×4／×8 | 兼容默认 1×。连续合格主域可请求 2×／4×，8× 等支持设备的正向验收。 |
-| 后处理 | 禁用／启用／超高。符合显示资格时另有「超高（显示 HDR）」 | Scene 有普通／HDR Bloom、作者动态参数和单独的 EDR 显示。缺用户后处理档 |
-| 纹理分辨率 | 自动／高质量／高性能 | Loader 保用途、来源版本和设备缓存。帧率绑定的缓存额度只影响驻留，缺可以改变解码／上传规格的用户档 |
-| 阴影 | 禁用／低／中／高／超高 | Scene 按定向、点、聚光的实际 caster／receiver 编码，有定向分配降级。缺用户开关与预算档 |
-| 体积照明 | 禁用／低／中／高／超高 | Scene 有透视根域的无阴影点光深度积分，以及可在根层、普通父层和局部 source 绘制的聚光锥。遮挡、投影混合和 3D 聚光覆盖各自有限 |
-| 反射 | 开／关 | Scene 的模型及普通图像已有实时反射消费者，部分通用 Program 消费 `.sceneEnvironment`。反射历史和普通画布／具名历史有不同寿命 |
+| 项目 | 官版范围 | 本项目请求、实际消费者与生效时机 | 应报告的结果与当前缺口 |
+|---|---|---|---|
+| 预设 | 低／中／高／超高 | 只由 `SceneQualityPreset.projection` 定义请求向量。一次应用写 FPS 和 Scene 字段，Web 跟随时从同一 FPS 派生。每项按下方自己的时机采纳。 | 选中预设或自定由已保存向量派生。实际输出仍逐项报告。 |
+| 帧率 | 10–120 FPS | Scene 的原帧驱动在下一排帧边界采纳，受目标显示器限制。Web 只投递作品 FPS 建议，Video 以原文件时基播放。 | 调度上限、GPU 完成、显示呈现分开。Web 桥层交付可确认，作者收件和遵守分别取实际监听与绘制证据。 |
+| 抗锯齿 | 无／MSAA ×2／×4／×8 | 默认为 1×，已公开 2×／4×。冷准备合格 PSO。清屏和颜色前缀现有分开判定，拟按实际层序统一颜色、相机深度、读回和 resolve。 | 现有已完成根域样本数可回显。需补每屏回退原因并区分实际呈现。8× 待支持设备验证。 |
+| 后处理 | 禁用／启用／超高及合格的显示 HDR | 冷准备选择 Bloom 和工作色域，普通超高与显示 HDR 共用同一准备档，可以热换最终显示映射。作者光效与当前目标屏能力分别参与。 | 显示可用性与实际 EDR 输出分别取原目标屏和原输出。仍须把设置资格从任意接屏改成实际播放目标。 |
+| 纹理分辨率 | 自动／高质量／高性能 | 原资源准备以实际颜色用途、作者 mip 与目标屏集合的最大物理投影选同源共享级。高质量保原规格，高性能选已验证尾链，自动按需要增级。 | 实际绑定的规格与覆盖对象。保原纹理时说明精确用途、可用 mip 或负载限制，避免把整景所有纹理显示成同尺度。 |
+| 阴影 | 禁用／低／中／高／超高 | 冷准备冻结定向、点、聚光的尺寸上限及管线，帧资源按实际 caster／receiver 和预算兑现尺寸及原滤波。禁用撤原可选阴影，保直接光。 | 有适用光源才产生影图。实际尺寸或回退取占用的 attachment 与有效采样。不同灯与预算下相邻档可能等效。 |
+| 体积照明 | 禁用／低／中／高／超高 | 冷准备投影到点光积分和聚光锥的实际执行。现行高／超高为点光四／六点，聚光沿原锥。 | 区分实际点光阶数、聚光同档、无体积贡献、低／中尚未达交付门。 |
+| 反射 | 开／关 | 冷准备控制实时环境采样；模型、普通图和合格作者 Program 消费同一语义。关档停产可选快照，必需的材质源可消费暗环境，作者自有／具名反射保原语义。 | 按实际环境取样和快照来源说明有效范围。作者自带效果仍可见时，设置应准确标注控制的是实时环境反射。 |
 
 官方资料明确了普通／HDR Bloom、三种投影灯、点／聚光体积、Web FPS 建议和视频素材质量。四套预设的实际属性值见下方客户端核验，渲染差别与生效时机仍由固定版本的单项 A/B 验收。 [性能 FAQ](https://help.wallpaperengine.io/en/performance/gpu.html) · [Web FPS Limiter](https://docs.wallpaperengine.io/en/web/performance/fps.html) · [Bloom](https://docs.wallpaperengine.io/en/scene/effects/bloom.html) · [高级光照](https://docs.wallpaperengine.io/en/scene/models/lighting.html) · [反射](https://docs.wallpaperengine.io/en/scene/lighting/introduction.html) · [纹理分辨率开发者答复](https://steamcommunity.com/app/431960/discussions/2/3035978213219373047/) · [mip 开发者答复及后续修复](https://steamcommunity.com/app/431960/discussions/1/4418677198500806035/)
 
@@ -43,21 +43,21 @@
 ### 入口与作用范围
 
 - 复用 `SettingsWindowController`、`AppKitSettingsView` 和 `AppSettingsPanelDependency`。质量区域由动画帧率、Scene 质量、Web 建议和 Video 素材组成。Scene 后处理统一管理显示 HDR。作品的作者属性仍可从原属性面板操作。 [布局现址](../../MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift) · [设置动作注入](../../MyWallpaperX/Shared/Settings/AppSettingsPanelDependency.swift)
-- 全局「动画帧率」首批保留 30／60 两值，随后在已验收范围内采用可键盘步进和直接输入的 1 FPS 滑杆，目标范围为 10–120。副标题说明 Scene 使用此调度上限，受当前屏幕组合限制时并列显示意愿与生效值。Web 可选「随显示器（最高 60）」或「跟随动画帧率」，缺省随显示器；跟随后，帧率、预设或 Web 模式变更将重算作品建议。Video 显示已知的片源分辨率与素材帧率，派生达到交付门后再显示素材选择。静态图、封面、系统屏保与锁屏遵循各自既有路径。
-- 使用 AppKit 原生 segmented control、popup、switch，连续 FPS 经验证再用有数值反馈和键盘步进的 slider。Tab、VoiceOver 读出控件名和当前值，说明和失败状态用文字表达；窄窗、浅／深色及已支持语言的长文案实查。拖动时可预览数字，触发资源准备或 IPC 只在一次完成编辑时合并提交。 [本地化与布局标准](localization-contract.md#layout)
+- 全局「动画帧率」现已支持 10–120 的 1 FPS 滑杆、键盘步进和直接输入。副标题说明 Scene 使用此调度上限，受当前屏幕组合限制时并列显示意愿与生效值。Web 可选「随显示器（最高 60）」或「跟随动画帧率」，缺省随显示器；跟随后，帧率、预设或 Web 模式变更将重算作品建议。Video 显示已知的片源分辨率与素材帧率，派生达到交付门后再显示素材选择。静态图、封面、系统屏保与锁屏遵循各自既有路径。
+- 使用 AppKit 原生 segmented control、popup、switch，连续 FPS 用带数值反馈和键盘步进的 slider。Tab、VoiceOver 读出控件名和当前值，说明和失败状态用文字表达；窄窗、浅／深色及已支持语言的长文案实查。拖动时可预览数字，触发资源准备或 IPC 只在一次完成编辑时合并提交。 [本地化与布局标准](localization-contract.md#layout)
 - 「恢复默认画质」沿一次差分更新复位帧率、Web 模式和已交付的画质字段。显示 HDR 随后处理档恢复为普通超高。直接调档需要冷准备时会自动重新应用当前 Scene。导入后仍有差分、或自动应用失败时，设置提供原手动动作。帧率受限时可看到确认的生效值，其他质量控件显示所选档及适用说明。未完善的档位留在开发验证面。Web 无作者回执时显示「作品支持时应用」。 [重新应用与验收](wallpaper-quality-work-card.md#quality-reapply-current-scene)
 
 ### 数据与生命周期
 
-| 层 | 拟落地职责 |
+| 层 | 单一权威与接入规则 |
 |---|---|
-| 持久化与入口 | 延伸现有播放偏好。Q1 的 typed UserDefaults 值只含动画 FPS 和 Web 模式，后续仅随实际消费者加入字段。按请求向量匹配预设，手改向量时重新判断「自定」。设备、内容、预算导致的有效值变化另用现有状态呈现。Q2 加入后处理请求，Scene 只在有效输出意图变化时更新。 |
-| 首开与升级 | 新记录未建立时取 `mwx.playback.performanceProfile` 的合法 30／60 与原缓存映射，缺失或无效时用 60。已有新记录中新增字段按兼容默认初始化。旧键供一次迁移或旧版读取，日常只写新值。自定义 FPS 须先测独立 decoded cache 上限，再一起退役原帧率绑定与重复额度写入。 [画质偏好与旧键投影](../../MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift) |
+| 持久化与入口 | 由 `PlaybackQualityPreference` 唯一持久化用户请求，控制器、预设、复位和导入都由此投影。`PlaybackCommandMultiplexer` 一次保存、按实际字段差分下发。Scene 后处理的准备归并由 `ScenePostProcessingMode` 判定一次，冷档比较和同域热切共用。 |
+| 首开与升级 | 新记录未建立时取 `mwx.playback.performanceProfile` 的合法 30／60 与原缓存映射，缺失或无效时用 60。已有新记录中新增字段按兼容默认初始化。旧键供一次迁移或旧版读取，日常只写新值。动画帧率与 decoded cache 上限已解耦，旧 30 档仅保留兼容额度位。 [画质偏好与旧键投影](../../MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift) |
 | 便携 v8 导入／导出 | 按明确声明的字段更新。新 FPS 合法时优先，只有缺省新 FPS 才读取合法 legacy 30／60。新字段存在但枚举未知或数值越界时保本机相应字段，类型或结构错误沿原写入前错误。旧档只含 30 时只改 FPS，保本机 Web 模式和其它档。导出向旧字段仅投影能表示的 30／60，直接退回旧二进制仍读取升级前旧键。 [v8 载荷](../../MyWallpaperX/Models/PersonalSettingsPayload.swift) |
-| 导入时的活动播放 | 只有画质与视频库视图排序差分的 v8 计划允许维持原播放。Scene 帧率热更，冷资源档供下次准备，Web 原页消费有效建议，Video 继续原片及已捕获的播放顺序。视频库排序按原视图状态持久化，新播放选择才采纳其顺序。带来源、关系或其它设置变化的计划沿原停播屏障。登录项有实际偏好差分时才由原系统入口同步。 [画质导入](wallpaper-quality-work-card.md#quality-only-import-playback) · [视频库排序](wallpaper-quality-work-card.md#quality-import-video-sort) |
+| 导入时的活动播放 | 只有画质与视频库视图排序差分的 v8 计划允许维持原播放。Scene 帧率和同准备域显示 HDR 可热更，冷向量变更供下次准备，Web 原页消费有效建议，Video 继续原片及已捕获的播放顺序。视频库排序按原视图状态持久化，新播放选择才采纳其顺序。带来源、关系或其它设置变化的计划沿原停播屏障。登录项有实际偏好差分时才由原系统入口同步。 [画质导入](wallpaper-quality-work-card.md#quality-only-import-playback) · [视频库排序](wallpaper-quality-work-card.md#quality-import-video-sort) |
 | 中断恢复与复位 | 旧 v3 恢复票据在 preferences 阶段前将实际声明的字段投影到相同 typed 比较，沿原 before／target 处理间隔编辑。已结算的 preferences 继续承认其收据，存储按启动迁移。画质复位和完整重置显式写默认向量，保原 reset epoch。旧恢复票据里相同的隐含 HDR 布尔值作为未编辑处理。验写前／写后中断、用户后续更改及旧键 30 同时存在的反例。 [导入恢复](../../MyWallpaperX/App/PersonalSettingsImportCoordinator.swift) · [完整重置](../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Persistence.swift) |
 | App 到执行端 | 通过现有动作和命令层下发各端实际消费的 typed 字段。Scene 沿单一父端和 daemon wire。Web 定向到现有 Web 入口，处理 Video／Web handler 别名和广播去重，更新 Web 会话与以后 launch 的 seed；Video 没有需要消费的 FPS 消息。wire 以现有版本和请求信封承载，启动状态含完整有效子集，变更发一次差分或小快照。 [App 装配](../../MyWallpaperX/App/MyWallpaperXApplication.swift) · [命令层](../../MyWallpaperX/Core/PlaybackControl/PlaybackCommandMultiplexer.swift) · [Scene IPC](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonProtocol.swift) |
-| 执行端有效值 | 由当前内容、设备／显示能力、实际 consumer 与原帧／资源合同决定。字段只进入其消费点；静态资格于准备期确定，动态作者值仍由 typed snapshot 提供。执行有效值和回退原因可按已有状态／诊断观察，请求值可以在换作品或换屏时重新求有效。 |
+| 执行端有效值 | 由当前内容、设备／显示能力、实际 consumer 与原帧／资源合同决定。字段只进入其消费点；静态资格于准备期确定，动态作者值仍由 typed snapshot 提供。请求、候选准备收据、实际消费和物理呈现是不同事实。统一回显复用现有请求／Surface 状态，在值变化时投递，分清待应用、已采用、当前未用、无适用对象、保原规格、预算或设备回退及未知；每个值由真实消费者发布。当前 FPS 是调度上限，MSAA 是 GPU 完成的根域样本数，其余项尚需按表补齐。 |
 | 失败与回退 | 热更新只在当前会话和合法边界采用；已准备的下次应用项按最新偏好重新解析。需要更新资源／pipeline 的候选沿现有 request、generation、surface、提交和 pin，候选失败保旧画面，取消或更晚的意图淘汰旧结果。关闭/恢复档位沿原单一事务，无新 watchdog、每帧 IPC 或偏好认证。 |
 
 Scene FPS 在下一排帧边界采纳，Web 在当前文档回调，能原位采用的可选 Metal 功能在提交前的帧边采纳。直接调档在已保存冷向量变化时进入原同源执行事务。新 Scene 会重新建立作者 VM 和动画时钟。有冷档差分时「重新应用」仍能显示待应用并用于显式重试。Scene 暂停时只用原路径必要的冻结帧更新，已提交的 Web 页面暂停时保存最新设置并在恢复回调交付。暂停、切换、轮换、系统休眠与恢复原先各有权威。 [待应用验收](wallpaper-quality-work-card.md#scene-cold-quality-receipt)
@@ -350,7 +350,7 @@ M4 的每种隔离候选各与原版配对 70 组直接目标。35 组 BGRA8 逐
 ### 六项组合的执行边界
 
 1. 采样域、显示范围和源用途分别在原准备入口确定。阴影图和体积实体遮挡保各自深度。作者 Project 的有界 FBO 缩放保原 source 及容量回退，加入跨采样域读取的反例。主颜色完成后，现行反射可选快照取含已编码体积贡献、尚未施加终端 Bloom／显示映射的源，后续 Bloom 再修改显示侧，最终只走原 SDR／EDR 映射。组内作者效果保原顺序。用 `clear=false`、HDR 和透明／具名源验证上述依赖。 [作者 Project 尺寸合同](../scene/capabilities/render-graph-shader-coverage.md#project-scaled-framebuffers) · [帧顺序](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift) · [终端调用](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift)
-2. 每帧只采用一个匹配当前 Surface／请求的有效质量结果。首个合格新帧以前使用旧输出，源或缓存代际需重准备时走原候选、取消和交接。记录实际代际、显示 ID、逻辑与物理 extent、色深格式、有效档及退回理由。事件只在应用或状态变化时发。针对资源压力验证必需颜色、相机深度和 named/history 能先获容量，低档只撤对应可选工作。
+2. 同一 Surface／请求只采用一份帧计划，允许多采样段和各资源的真实回退。根采样收敛设计基于现有最终层序与图输入，确定一个原生区间及清屏／颜色前缀进入、帧尾／utility 前 resolve、提前就绪的局部输出。先从原 Program、源需求和层序取得不占容量的计划事实，再兑现选定的根深度和原图目标预约。普通终端与模型共用相机深度，阴影预算先保障此容量，再预约独立影图。原生 pass 的深度测试及写入用片上 D32，纹理读取按自己的真实存储要求。现有清屏、前缀和实验尾段的分开判定随迁移退出。有效采样取具有呈现请求且 GPU 成功完成的根 pass，显示实呈沿原 drawable 回调。原生附件失败沿原 1× 预约顺序；耗尽私有 1× 深度池时，验证只依赖已有原生附件的帧仍能提交，失效反例核原 1× 与同一图票据。新执行实际呈现并获接管确认前保旧输出，源或缓存代际需重准备时走原候选、取消和交接。记录实际代际、显示 ID、逻辑与物理 extent、色深格式、有效档及退回理由。事件只在应用或状态变化时发。针对资源压力验证必需颜色、相机深度和 named/history 能先获容量，低档只撤对应可选工作。
 3. 单项验收后做交互对照。最少包含 **MSAA×HDR／透明**、**纹理规格×阴影 cutout／显式 LOD**、**阴影禁用×作者有阴影的灯是否参与体积**、**体积加光×Bloom／反射**、**反射×`clear=false`／named 历史**。旧 30／60、现有预设、同时多项切换、失败回退和新旧 Surface 共存分别核预算和实际画面。
 
 <a id="web"></a>

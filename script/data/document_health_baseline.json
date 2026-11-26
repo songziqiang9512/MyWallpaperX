@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 66,
-      "bytes": 23737
+      "bytes": 23887
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -94,7 +94,7 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 172365
+      "bytes": 174695
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
@@ -683,15 +683,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "369bfbd9b7aadc7fd1a2b355a8ba6f0d7e22a1aa5093d330892931cf7b3a9ba7",
-      "after": "e1898c3ae929018ee8e2e54335659be2acd358d54912a076e381123fedfa23f8",
-      "owner": "Scene ordered root composition and quality",
-      "reason": "Record the verified source, attachment scheduling and sample reporting contract.",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-color-prefix"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "ff2273cb11bb4794586ad30941b5286b68fd9f80c40047f76d0a1b8d67179544",
       "after": "6e8dffd9c90e936938af9a36b5c28f36ddeac7d41069864944fe53e7e7d63296",
@@ -719,21 +710,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "49589add85ceadabbc365ac93c427b01b3d4499ff808c8ade79e15b72e762163",
-      "after": "819f565effbe42fc0f4162fa5927584f0bf3d01be153b970903bc9d2fa07cc45",
-      "owner": "Scene root composition and quality",
-      "reason": "Record the actual long-window results and the next proven order of graph and depth consumers.",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-paired-depth-terminal"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
       "before": "5b73306a4d8521c0dce26d07dcbebfe197972f59936d0d497b0bf5ed4a378a3f",
       "after": "3862312f688a5886e487cfddd485a69f026ca14c124c8fa9ddda4397ce998216",
       "owner": "Scene root composition and quality",
       "reason": "Record the actual long-window results and the next proven order of graph and depth consumers.",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-paired-depth-terminal"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "e1898c3ae929018ee8e2e54335659be2acd358d54912a076e381123fedfa23f8",
+      "after": "be44457987066b92d96f17a259449e15f317d13172740e4711ee140c96fcdbe8",
+      "owner": "Playback quality intent and the execution owners",
+      "reason": "Record each setting's request, actual consumer, evidence and shared selection contract.",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#reference-and-current"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-settings-plan.md",
+      "before": "819f565effbe42fc0f4162fa5927584f0bf3d01be153b970903bc9d2fa07cc45",
+      "after": "60d385023d43620825d1444663b625a934656e93f6d9c42ca703ef8c2336627f",
+      "owner": "Playback quality intent and the execution owners",
+      "reason": "Record each setting's request, actual consumer, evidence and shared selection contract.",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#reference-and-current"
     }
   ]
 }

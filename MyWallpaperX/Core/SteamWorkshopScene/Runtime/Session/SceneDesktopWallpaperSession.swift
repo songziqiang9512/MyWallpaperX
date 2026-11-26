@@ -165,8 +165,7 @@ final class SceneDesktopWallpaperSession {
 
     func applyScenePostProcessing(_ mode: ScenePostProcessingMode) {
         guard mode != scenePostProcessing,
-              mode.usesHDRWorkingDomain == scenePostProcessing.usesHDRWorkingDomain,
-              mode.appliesBloom == scenePostProcessing.appliesBloom else { return }
+              mode.preparationMode == scenePostProcessing.preparationMode else { return }
         scenePostProcessing = mode
         let requestsDisplayHDR = mode.requestsDisplayHDR
         var redraw = false
