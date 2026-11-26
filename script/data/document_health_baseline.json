@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 373437
+      "bytes": 374220
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 64,
-      "bytes": 8780
+      "bytes": 8952
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2f07f955f8c7ed97408e25a59242d160bb0466cdc15fc11599bf30544ed726ed",
-      "after": "0fc1403ea0cc053a9dd03d2ef0ff6128dd54da02f4c0975582c27af94169b19a",
-      "owner": "Scene render graph and runtime evidence",
-      "reason": "同包修正后的指针、斜卡余差与景深方向对照",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#xray-perspective-pointer-294"
+      "before": "0fc1403ea0cc053a9dd03d2ef0ff6128dd54da02f4c0975582c27af94169b19a",
+      "after": "a3607f70918c8ddff58a6d3430146d052fc760c60bbbe2a459c1410f4e11458a",
+      "owner": "Scene Timeline and SceneScript evidence",
+      "reason": "登记飞机同包官版与本机的动画输入断点和回调控制。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-aircraft-timeline-input"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e0bb358fc3f0cb7e5062d59a71dce55063d50cea6a4ca70c8cfe2f03ed965960",
-      "after": "294726741619ccba3e11dcb3b367102d0994058bfcff14f90e1a7827979cdce1",
-      "owner": "Scene",
-      "reason": "登记双宽束实例色版本差异、官版出生时序与实施边界。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+      "before": "92d5d8457e59f4d20c41641a994f3dbf3b0ecb0cf2fa8ace2e7269c6235f53fe",
+      "after": "7900bd439153ac62bb9a3e8df11b3064ddf12782e1aa0c3266c7d7bc6beb062d",
+      "owner": "Scene Timeline and SceneScript evidence",
+      "reason": "登记飞机同包官版与本机的动画输入断点和回调控制。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-aircraft-timeline-input"
     },
     {
       "section": "bodies",
