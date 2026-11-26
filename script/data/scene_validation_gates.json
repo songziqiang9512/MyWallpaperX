@@ -1523,7 +1523,7 @@
         "test_scene_graph_texture_publication",
         "test_scene_preserved_channel_history",
         "test_scene_preserved_channel_frame_local_unique",
-        "test_scene_captured_main_preflight_fallback",
+        "test_scene_resolved_material_runtime_bridge",
         "test_scene_preserved_channel_feedback_pair",
         "test_scene_preserved_channel_ordered_feedback",
         "test_scene_independent_signal_feedback",
@@ -3366,7 +3366,6 @@
         "script/tests/scene/test_scene_capability_census.py",
         "script/tests/scene/test_scene_capability_census_observations.py",
         "script/tests/scene/test_scene_capture_geometry.py",
-        "script/tests/scene/test_scene_captured_main_preflight_fallback.py",
         "script/tests/scene/test_scene_color_analysis_reuse.py",
         "script/tests/scene/test_scene_color_blend_capture_region.py",
         "script/tests/scene/test_scene_color_script_property.py",
@@ -4226,7 +4225,6 @@
         "test_scene_resolved_material_runtime_bridge",
         "test_scene_frame_rejection_fault",
         "test_scene_surface_submission",
-        "test_scene_captured_main_preflight_fallback",
         "test_scene_material_copy_history_rendering",
         "test_scene_terminal_material_receipt"
       ]

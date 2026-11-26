@@ -733,6 +733,8 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "typedHistoryDiscardReachesPoolExactly",
                 "forgedHistoryDiscardRejectedBeforePoolCommit",
                 "secondPreparationFailureRollsBackWholeFrame",
+                "capturedMainColorFailurePreservesIndependentFrameWork",
+                "capturedMainProviderColorFailureRemainsAtomic",
                 "lateNamedInputsNormalPrepareOnce",
                 "lateNamedInputsSubsetRepreparesOnceAndKeepsAOnlySuffix",
                 "lateNamedInputsEmptyRepreparesOnceAndKeepsIndependentSuffix",

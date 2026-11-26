@@ -256,6 +256,116 @@ enum SceneSubmissionAtomicPreparationChecks {
 
     }
 
+    static func capturedMainColorFailure(
+        device: MTLDevice, queue: MTLCommandQueue,
+        results: inout [String: Bool]
+    ) {
+        let failure = SceneResolvedMaterialGraphExecutor.Failure.colorContractVisual.rawValue
+        let localReason = "captured-main-color-contract-unproven"
+        for requiredProvider in [false, true] {
+            let prepared = makeAtomicPrepared(device: device, layerID: 8, generation: 2)
+            let executor = SceneResolvedMaterialGraphExecutor.self
+            executor.prepareTokens = []
+            executor.prepareCalls = []
+            executor.encodeInputs = []
+            executor.colorFailureToken = 7
+            executor.preparedByToken = [8: prepared]
+            executor.encodeSucceeds = true
+            defer {
+                executor.colorFailureToken = nil
+                executor.preparedByToken = [:]
+                executor.prepareCalls = []
+                executor.encodeInputs = []
+            }
+
+            let binding = externalPrimaryBinding(consumerLayerID: 8, providerLayerID: 7)
+            let capabilities = makeCapabilities(
+                layerIDs: [7, 8],
+                dependencyOwnershipByLayerID: requiredProvider ? [8: .externalPrimary(binding)] : [:],
+                sourceRouteByLayerID: [7: .capturedMainTargetTexture]
+            )
+            let recorder = LogRecorder()
+            let coordinator = Coordinator(device: device, capabilities: capabilities, logSink: recorder.append)
+            let buffer = queue.makeCommandBuffer()!
+            let frameEpoch: UInt64 = requiredProvider ? 74 : 73
+            coordinator.beginFrame(textureSnapshot: .init(frameIndex: frameEpoch, valid: true),
+                dynamicSnapshot: .init(), frameInputs: .init())
+            let targets7 = makeAtomicTargets(layerID: 7, generation: 1)
+            let targets8 = makeAtomicTargets(layerID: 8, generation: 2)
+            defer {
+                targets7.commit.releaseAll()
+                targets8.commit.releaseAll()
+            }
+            let pool = SceneOffscreenTexturePool(factory: { plan in
+                plan.graphPlan.key.layerID == 7 ? targets7.prepared : targets8.prepared
+            })
+            let requests: [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest] = [7, 8].map { layerID in
+                guard case let .claimed(claim) = coordinator.preflightClaim(layerID: layerID) else {
+                    fatalError("missing preflight claim for layer \(layerID)")
+                }
+                let inputs: SceneResolvedMaterialRuntimeBridge.FrameInputs
+                if requiredProvider && layerID == 8 {
+                    let reservation = dependencyInput(binding: binding,
+                        texture: makeTexture(device, "captured-main-reservation"), frameEpoch: frameEpoch)
+                    inputs = .fixture.replacingDependencyEffects([reservation])
+                } else {
+                    inputs = .fixture
+                }
+                return .init(claim: claim,
+                    targetPlan: .init(token: claim.token, allocation: .init(graphPlan: .init(key: .init(layerID: layerID)))),
+                    sourceTexture: makeTexture(device, "captured-main-source-\(layerID)"),
+                    sourceUniforms: .init(), sourcePipeline: .init(), frameInputs: inputs)
+            }
+            let outcome = coordinator.prepareFrame(requests, pool: pool, commandBuffer: buffer)
+            if requiredProvider {
+                let reason: String?
+                if case let .rejected(value) = outcome { reason = value } else { reason = nil }
+                results["capturedMainProviderColorFailureRemainsAtomic"] =
+                    reason == "graph-preflight-\(failure)"
+                    && executor.prepareTokens == [7]
+                    && pool.batchCommitCount == 0
+                    && coordinator.frameRequiresDrop
+                    && !coordinator.framePreparationComplete
+                    && coordinator.frameLocalFallbacks.isEmpty
+                _ = coordinator.endFrame()
+                continue
+            }
+
+            let result = "capturedMainColorFailurePreservesIndependentFrameWork"
+            let outputs = coordinator.preparedOutputTexturesByLayerID()
+            guard case .ready = outcome,
+                  case let .rejected(reason) = coordinator.claim(layerID: 7),
+                  reason == localReason,
+                  case let .claimed(claim) = coordinator.claim(layerID: 8),
+                  case let .encoded(texture, ticket) = coordinator.executeClaimed(
+                      claim: claim, dependencyEffects: [], commandBuffer: buffer),
+                  case .consumed = coordinator.markComposite(ticket, texture: texture, consumed: true),
+                  coordinator.sealFrame(on: buffer)
+            else {
+                results[result] = false
+                _ = coordinator.endFrame()
+                continue
+            }
+            buffer.commit()
+            buffer.waitUntilCompleted()
+            let identity = ObjectIdentifier(buffer)
+            coordinator.completeCommandBuffer(identity: identity,
+                observationID: coordinator.commandBufferRecords[identity]?.observationID ?? 0,
+                status: buffer.status == .completed && buffer.error == nil ? .completed : .failed)
+            let audit = coordinator.endFrame().first ?? ""
+            let diagnostics = recorder.lines.filter { $0.contains("layer-local-fallback count=1 entries=7:\(localReason)") }
+            results[result] = executor.prepareTokens == [7, 8]
+                && outputs?.count == 1 && outputs?[8] === prepared.finalTexture
+                && buffer.status == .completed && buffer.error == nil
+                && pool.batchCommitCount == 1
+                && targets7.commit.submissionPin.releaseCount == 0
+                && targets8.commit.submissionPin.releaseCount == 1
+                && coordinator.activeByID.isEmpty && coordinator.pendingSubmissions.isEmpty
+                && audit.contains("failures=0") && audit.contains("localFallbacks=1")
+                && diagnostics.count == 1 && diagnostics[0].contains("preflight=\(failure)")
+        }
+    }
+
     static func twoCandidateSubmission(
         device: MTLDevice, queue: MTLCommandQueue,
         results: inout [String: Bool]

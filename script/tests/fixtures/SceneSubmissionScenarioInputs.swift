@@ -451,6 +451,7 @@ private func makeCapabilities(
     dependencyOwnershipByLayerID: [
         Int: SceneResolvedMaterialDependencyOwnership
     ] = [:],
+    sourceRouteByLayerID: [Int: SceneResolvedMaterialAdmittedLayer.SourceRoute] = [:],
     visualFailureReasonByLayerID: [Int: String] = [:],
     resolvesClaims: Bool = true
 ) -> SceneResolvedMaterialExecutionCapabilityCatalog {
@@ -477,7 +478,7 @@ private func makeCapabilities(
             )],
             dependencyOwnership:
                 dependencyOwnershipByLayerID[layerID] ?? .none,
-            sourceRoute: .capturedLayerTexture
+            sourceRoute: sourceRouteByLayerID[layerID] ?? .capturedLayerTexture
         )
     }
     return .init(

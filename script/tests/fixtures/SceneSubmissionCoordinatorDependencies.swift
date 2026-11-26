@@ -564,8 +564,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         }
     }
     var executionLayerIDs: Set<Int> { Set(capabilitiesByLayerID.keys) }
-    // The legacy one-phase inputs contain no authored environment sampler.
     func requiresSceneEnvironment(layerID: Int) -> Bool { false }
+    var privateLayerAlphaPreservingIDs: Set<Int> { [] }
     var visibilityOwnedLayerIDs: Set<Int> { [] }
     let preparedNamedInputBindingsByConsumerLayerID: [Int: [SceneDependencyRenderPlan.Binding]] = [:]
     var sceneBackgroundLayerIDs: Set<Int> {
@@ -868,7 +868,8 @@ final class SceneResolvedMaterialGraphExecutor {
     enum Failure: String, Error {
         case unavailable = "fixture-preflight-unavailable"
         case graphStructureRejected = "graph-structure-rejected"
-        var isColorContractVisualRejection: Bool { false }
+        case colorContractVisual = "fixture-finalizer-color-colorContractUnproven"
+        var isColorContractVisualRejection: Bool { self == .colorContractVisual }
     }
     struct PreparedStage {
         let effect: Graph.EffectKey
@@ -887,6 +888,7 @@ final class SceneResolvedMaterialGraphExecutor {
         let effectLocalFailureReasonCode: String?
         let effectLocalActivationBypassReasonCode: String?
         let discardedPersistentTargetState: Bool
+        var actualOutputMember: SceneLayerFullFramePairPlan.Member? = nil
     }
     struct PreparedTerminalPass {
         struct Role { let terminalReplayBlendMode: Int?; var readsCurrentAttachment = false }
@@ -907,6 +909,7 @@ final class SceneResolvedMaterialGraphExecutor {
     static var prepareCallCount = 0
     static var prepareTokens: [Int] = []
     static var preparedByToken: [Int: PreparedGraph] = [:]
+    static var colorFailureToken: Int?
     static var preparedResponsesByToken: [Int: [PreparedGraph]] = [:]
     struct PreparationCall {
         let token: Int
@@ -959,6 +962,7 @@ final class SceneResolvedMaterialGraphExecutor {
             poolID: pool.map { ObjectIdentifier($0) }, traceID: executionTrace.map { ObjectIdentifier($0) },
             frameIndex: frame.frameIndex, frameTime: frameInputs.frameTime, time: frameInputs.time,
             leaseGenerations: leases.map(\.generation)))
+        if token.value == Self.colorFailureToken { return .failure(.colorContractVisual) }
         if let texture = frameInputs.dependencyEffects.first?.texture {
             Self.preparedDependencyTextureByToken[token.value] =
                 ObjectIdentifier(texture)

@@ -22,20 +22,6 @@
   },
   "entries": [
     {
-      "path": "script/tests/scene/test_scene_animated_base_sampler.py",
-      "scope": "SceneAnimatedBaseSamplerTests.test_specialized_sampler_reaches_both_request_builders",
-      "method": "assertIn",
-      "literal": "let baseTextureSampling: SceneTextureSampling?",
-      "count": 1
-    },
-    {
-      "path": "script/tests/scene/test_scene_animated_base_sampler.py",
-      "scope": "SceneAnimatedBaseSamplerTests.test_specialized_sampler_reaches_both_request_builders",
-      "method": "assertIn",
-      "literal": "var specializedBaseTextureSamplings: [Int: SceneTextureSampling]",
-      "count": 1
-    },
-    {
       "path": "script/tests/scene/test_scene_audio_demand.py",
       "scope": "SceneAudioDemandWiringTests.test_host_samples_one_spectrum_per_frame_for_all_surfaces",
       "method": "assertIn",
@@ -89,13 +75,6 @@
       "scope": "SceneCameraShakeTests.test_report_and_single_camera_owner_wiring",
       "method": "assertIn",
       "literal": "let cameraFrame = renderer.makeCameraFrame",
-      "count": 1
-    },
-    {
-      "path": "script/tests/scene/test_scene_captured_main_preflight_fallback.py",
-      "scope": "SceneCapturedMainPreflightFallbackTests.test_product_contract_is_typed_bounded_and_compositor_visible",
-      "method": "assertIn",
-      "literal": "case .capturedMainTargetTexture",
       "count": 1
     },
     {

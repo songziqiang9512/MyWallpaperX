@@ -22,6 +22,7 @@ final class SceneResolvedMaterialFrameResourceBundle {
 extension SceneResolvedMaterialRuntimeBridge {
     struct PreparedSourceMaterial {
         var sharedModelPath: String? { fatalError("source preparation is outside this fixture") }
+        var requiresSceneEnvironment: Bool { fatalError("source preparation is outside this fixture") }
         private init() { fatalError("source preparation is outside this fixture") }
     }
 }

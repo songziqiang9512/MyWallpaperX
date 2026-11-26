@@ -29,6 +29,9 @@ enum Harness {
         try SceneSubmissionAtomicPreparationChecks.atomicPreparationRollback(
             device: device, queue: queue, results: &results
         )
+        SceneSubmissionAtomicPreparationChecks.capturedMainColorFailure(
+            device: device, queue: queue, results: &results
+        )
         try SceneSubmissionAtomicPreparationChecks.lateHistoryRollback(
             device: device, queue: queue, results: &results
         )
