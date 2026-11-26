@@ -202,7 +202,7 @@ M4 实际 91×65 深度与浮点输出通过。斜边夹具框内 81 个深度�
 
 将求积阶数在原点光 PSO 冷准备中编译固定。先量原生线性像素的精确积分误差和必要深度反例，再同签名核锁定作者相位后的实际变化。小指数与原透明、反向深度、独立聚光保持。达到画面与预算门才接公开档。同一批撤退实验入口或旧职责，保持一套点光渲染链。 [算法与验收阈值](wallpaper-quality-settings-plan.md#scene-volume-higher-order)
 
-公开方案沿同一体积偏好增加超高值，旧 `enabled` 保原四点请求，对外显示「高」。不重写用户已存向量。新选择全局超高预设时写超高体积，旧超高向量的字段仍可照常播放并按实际值显示自定。新档随原 Scene 重载在已有 pipeline slot 选择六点，创建失败时沿同 slot 退四点。保直接光、作者聚光与合格点光深度，无额外帧状态或缓存。设置、导入 v8、daemon 和冷恢复都通过原 typed raw 值。低／中继续收敛无纹理分区的通用准入。原生门已覆盖跨同行矩形的薄遮挡及 32／64 px 的亮光分界；下一批对照轴线入／出视锥，分别测 32／64 px 的曲率和分段误差，再用独立参数及连续动作验证近远面、半弦切换与斜边实体，过门再接原点光 PSO 和签名整帧。同时保留原作者窄灯对照，补终端 EDR、整帧和独立广覆盖正例。公开保禁用、高／超高。 [分区与放行条件](wallpaper-quality-settings-plan.md#scene-volume-segment-mean) · [原生回放](../scene/capabilities/runtime-evidence-current.md#point-volume-grid-qualification) · [早期暗尾筛查](wallpaper-quality-settings-plan.md#scene-volume-dark-tail-screen)
+公开方案沿同一体积偏好增加超高值，旧 `enabled` 保原四点请求，对外显示「高」。不重写用户已存向量。新选择全局超高预设时写超高体积，旧超高向量的字段仍可照常播放并按实际值显示自定。新档随原 Scene 重载在已有 pipeline slot 选择六点，创建失败时沿同 slot 退四点。保直接光、作者聚光与合格点光深度，无额外帧状态或缓存。设置、导入 v8、daemon 和冷恢复都通过原 typed raw 值。低／中下一批从隔离签名路径验证直接 SDR 的 32／64 px 原几何网格，沿同一 Scene 需求和原点光 owner 冷选，计时包含主画面 .load 和已有 D32。HDR 继续单独试保全屏三角形的小型 R16Float 网格。暗／混合亮底有阶段收益，必须再验证全亮开销、Bloom 与持续 raw，并补实物宽光。当前保持禁用、高／超高。原亮窄作者反例继续走原积分。 [分区与放行条件](wallpaper-quality-settings-plan.md#scene-volume-segment-mean) · [原生回放](../scene/capabilities/runtime-evidence-current.md#point-volume-grid-terminal-replay) · [早期暗尾筛查](wallpaper-quality-settings-plan.md#scene-volume-dark-tail-screen)
 
 原生 Metal 扣背景的指数 32 中心贡献，四点为 0.034729、六点为 0.057983、解析值为 0.060606。指数 16 的绝对误差从 0.006685 降至 0.000093，偏轴裁剪指数 10 从 0.004753 降至 0.000358。实体遮挡、恒密度 RGBA 以及目标 alpha 走原合同。
 

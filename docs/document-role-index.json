@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "434fe2424b13046155e402e611b1c521818f5108a0d5b8fed107fe14a70c42f5",
+        "sourceSHA256": "67259912bdbe56db19cc5a2840880e6490978baf1498deb70ac82de860a8c928",
         "method": "document_registry --audit + document_health --check",
-        "scope": "按投影、辐射及半弦分界选择供货步长",
-        "limitations": "32／64 px 筛查已覆盖受控亮度，几何误差界待独立校准。"
+        "scope": "体积 EDR 舍入反例与原三角形候选",
+        "limitations": "尚未进入签名整帧或发布。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "018088024a3f4e623209cec977f038aecc3178d0e8ac8fcb05128fbb8c8bb278",
+        "sourceSHA256": "8d1bc8f34ed1deb47e4a6fbfae91d42809e91cdaba43a875921e2102adb82b20",
         "method": "document_registry --audit + document_health --check",
-        "scope": "体积双步长和薄遮挡验证后的准入顺序",
-        "limitations": "只复核本批体积实施和当前状态。"
+        "scope": "直接 SDR 与 HDR 候选的实际放行顺序",
+        "limitations": "只复核本批体积实施段。"
       }
     },
     {
@@ -1003,10 +1003,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fa2ac68aba6a7182b9d61ada2a440005ee19ce475a3ebd994d482d30cca8b444",
+        "sourceSHA256": "38333f6382cab59127d79030deb8271375094a95a6b831a8a94adfc3e88c29a4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Apple M4 横竖细挡、HDR 步长分界和同进程配对",
-        "limitations": "只量原生图形阶段，签名整帧、真实终端和能耗在窗外。"
+        "scope": "原生体积准入、D32 斜挡、亮底与现役显示映射",
+        "limitations": "隔离目标，Bloom、持续 raw、整帧和实体 EDR 未验证。"
       }
     },
     {

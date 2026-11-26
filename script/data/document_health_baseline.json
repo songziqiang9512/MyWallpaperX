@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 155534
+      "bytes": 155638
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 139541
+      "bytes": 139516
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -138,7 +138,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 332303
+      "bytes": 333844
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -603,10 +603,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "13beb6669bd468b99aec1982c56b5cbae5d8d5f32c9818d4d0f28129d59145cf",
-      "after": "607f850735cd4c18a5298be6be91176f1e191750d36358b927d9d6a2243f6b41",
+      "before": "607f850735cd4c18a5298be6be91176f1e191750d36358b927d9d6a2243f6b41",
+      "after": "1e1f92172d998b29fbc678cd6df50d0c676d2097f7a2b1c558b6e1797865ba7d",
       "owner": "scene-runtime",
-      "reason": "Apple M4 横竖细挡、HDR 步长分界和同进程配对",
+      "reason": "原生体积准入、D32 斜挡、亮底与现役显示映射",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-segment-mean"
     },
     {
@@ -675,10 +675,10 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "7c11704e98a526ab6094d845c9476dd05cf67999926ba5d094fa03b1a31fbaeb",
-      "after": "777549f76e92b8f15e0feadb08541158d52fa934af39af3603d1893f4499871f",
+      "before": "777549f76e92b8f15e0feadb08541158d52fa934af39af3603d1893f4499871f",
+      "after": "3e7fe4d6f188f5d1f337084fa938f23852b21317d24159218dd5efc81ba6bf76",
       "owner": "scene-runtime",
-      "reason": "按投影、辐射及半弦分界选择供货步长",
+      "reason": "体积 EDR 舍入反例与原三角形候选",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-segment-mean"
     },
     {
