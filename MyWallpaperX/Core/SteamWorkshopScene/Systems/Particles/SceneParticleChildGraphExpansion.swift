@@ -25,6 +25,9 @@ struct SceneParticleChildTemplate {
     let depth: Int
     let parentAssetPath: String?
     let instanceOverride: SceneParticleInstanceOverride?
+    var particleControlPointStart: Int? = nil
+    var particleControlPointMask: UInt8 = 0
+    var usesLocalParentControlPointFallback = false
 #if DEBUG
     var debugParentParticlePath: String? = nil
     var debugParentComponentIndex: Int? = nil
@@ -32,9 +35,7 @@ struct SceneParticleChildTemplate {
 }
 
 /// Expands authored child declarations into strict templates. Depth-one declarations keep
-/// per-declaration templates; nested declarations expand once per parent asset path and stay
-/// limited to event triggers at depth two. Anything deeper or outside the strict shapes fails
-/// closed with a diagnostic.
+/// per-declaration templates; nested declarations expand once per parent asset path.
 enum SceneParticleChildGraphExpansion {
     static let maximumDepth = 2
 
@@ -63,7 +64,7 @@ enum SceneParticleChildGraphExpansion {
         rootInstanceOverride: SceneParticleInstanceOverride?
     ) -> Expansion {
         var result = Expansion()
-        var expandedParentPaths: Set<String> = []
+        var parentsWithExecutableChildren: [String: Bool] = [:]
         var nextTemplateIndex = 0
 
         for (index, child) in rootAsset.definition.children.enumerated() {
@@ -72,7 +73,7 @@ enum SceneParticleChildGraphExpansion {
                 declarationIndex: index,
                 depth: 1,
                 parentAssetPath: nil,
-                rootDefinition: rootAsset.definition,
+                parentDefinition: rootAsset.definition,
                 rootInstanceOverride: rootInstanceOverride,
                 templateIndex: nextTemplateIndex,
                 graph: graph,
@@ -94,16 +95,15 @@ enum SceneParticleChildGraphExpansion {
                 template.debugParentComponentIndex = rootAsset.definition.componentObservationSources?["children"]?[index].componentIndex
 #endif
                 nextTemplateIndex += 1
-                if !asset.definition.children.isEmpty,
-                   expandedParentPaths.insert(template.path).inserted
-                {
+                if !asset.definition.children.isEmpty, parentsWithExecutableChildren[template.path] == nil {
+                    let firstNestedIndex = nextTemplateIndex
                     for (nestedIndex, nested) in asset.definition.children.enumerated() {
                         let nestedEvaluation = evaluate(
                             child: nested,
                             declarationIndex: nestedIndex,
                             depth: 2,
                             parentAssetPath: template.path,
-                            rootDefinition: rootAsset.definition,
+                            parentDefinition: asset.definition,
                             rootInstanceOverride: rootInstanceOverride,
                             templateIndex: nextTemplateIndex,
                             graph: graph,
@@ -128,6 +128,12 @@ enum SceneParticleChildGraphExpansion {
                             result.templates.append(nestedTemplate)
                         }
                     }
+                    parentsWithExecutableChildren[template.path] = nextTemplateIndex > firstNestedIndex
+                }
+                if template.renderers.isEmpty, parentsWithExecutableChildren[template.path] != true {
+                    nextTemplateIndex -= 1
+                    result.unsupportedDetails.append("\(template.path):simulationOnlyChildHasNoExecutableDescendant")
+                    continue
                 }
                 result.templates.append(template)
                 result.handledRootChildren += 1
@@ -136,13 +142,23 @@ enum SceneParticleChildGraphExpansion {
         return result
     }
 
+    private static func trigger(for child: SceneParticleChild) -> SceneParticleChildTrigger? {
+        switch child.type?.lowercased() {
+        case nil, "static": .staticChild
+        case "eventspawn": .spawn
+        case "eventdeath": .death
+        case "eventfollow": .follow
+        default: nil
+        }
+    }
+
     // swiftlint:disable:next function_parameter_count
     private static func evaluate(
         child: SceneParticleChild,
         declarationIndex: Int,
         depth: Int,
         parentAssetPath: String?,
-        rootDefinition: SceneParticleDefinition,
+        parentDefinition: SceneParticleDefinition,
         rootInstanceOverride: SceneParticleInstanceOverride?,
         templateIndex: Int,
         graph: SceneParticleAssetGraph,
@@ -153,17 +169,8 @@ enum SceneParticleChildGraphExpansion {
         result: inout Expansion
     ) -> Evaluation {
         let label = child.path ?? "child#\(declarationIndex)"
-        let trigger: SceneParticleChildTrigger
-        switch child.type?.lowercased() {
-        case nil, "static": trigger = .staticChild
-        case "eventspawn": trigger = .spawn
-        case "eventdeath": trigger = .death
-        case "eventfollow": trigger = .follow
-        default:
+        guard let trigger = trigger(for: child) else {
             return .rejected("\(label):unsupportedType:\(child.type ?? "missing")")
-        }
-        if depth > 1, trigger == .staticChild {
-            return .rejected("\(label):nestedStaticChildUnsupported")
         }
         guard let transform = SceneParticleChildTemplateSupport.transform(
             child, allowsOrigin: trigger == .staticChild
@@ -185,27 +192,45 @@ enum SceneParticleChildGraphExpansion {
         guard let asset = graph.assetsByPath[path] else {
             return .rejected("\(path):missingAsset")
         }
-        if child.rawFlags != 0 {
+        let needsStaticFrame = asset.definition.flags.isWorldSpace
+            || asset.definition.operators.contains(where: \.isWorldSpaceMovement)
+        let hasLocalPoints = !needsStaticFrame && !transform.hasScale
+            && !parentDefinition.flags.isWorldSpace
+            && !parentDefinition.operators.contains(where: \.isWorldSpaceMovement)
+        if depth > 1, trigger == .staticChild, !hasLocalPoints {
+            return .rejected("\(path):nestedStaticChildOutsideLocalSpace")
+        }
+        let pointStart = child.controlPointStartIndex ?? 0
+        let particleControlPointStart = child.rawFlags == 1 && hasLocalPoints
+            && (trigger == .follow || trigger == .staticChild) && (0 ... 7).contains(pointStart)
+            ? pointStart : nil
+        if child.rawFlags != 0, particleControlPointStart == nil {
             guard asset.definition.children.isEmpty,
                   !SceneParticleChildTemplateSupport.consumesControlPointValues(asset.definition)
             else { return .rejected("\(path):childControlPointBindingUnavailable") }
         }
 #if DEBUG
-        if child.rawFlags != 0 || child.controlPointStartIndex != nil {
+        if particleControlPointStart == nil, child.rawFlags != 0 || child.controlPointStartIndex != nil {
             result.performanceDetails.append(
                 "\(path):unconsumedChildOptions:flags=\(child.rawFlags):startIndex=\(child.controlPointStartIndex?.description ?? "-")"
             )
         }
 #endif
-        guard asset.supportsBuiltInShaderExecution else {
+        let simulationOnly = trigger != .staticChild && asset.definition.renderers.isEmpty
+            && !asset.definition.rendererWasImplicit && !asset.definition.children.isEmpty
+            && !asset.definition.diagnostics.contains {
+                $0.path == "renderer" || $0.path.hasPrefix("renderer[")
+            }
+        guard simulationOnly || asset.supportsBuiltInShaderExecution else {
             return .rejected("\(path):unsupportedShader")
         }
         if depth >= maximumDepth, !asset.definition.children.isEmpty {
             return .rejected("\(path):nestedDepthUnsupported")
         }
-        var plans = SceneParticleChildLifecycle.supportsEmitterProfile(asset.definition)
+        let supportsEmitters = SceneParticleChildLifecycle.supportsEmitterProfile(asset.definition)
+        var plans = supportsEmitters && !simulationOnly
             ? SceneParticleChildTemplateSupport.supportedRenderers(in: asset.definition) : []
-        guard !plans.isEmpty else {
+        guard !plans.isEmpty || (simulationOnly && supportsEmitters) else {
             let profile = trigger == .staticChild
                 ? "outsideStrictStaticProfile" : "outsideStrictEventProfile"
             return .rejected("\(path):\(profile)")
@@ -249,11 +274,13 @@ enum SceneParticleChildGraphExpansion {
 #endif
         }
         let controlPointOverride: SceneParticleInstanceOverride?
+        var usesLocalParentControlPointFallback = false
         switch SceneParticleChildTemplateSupport.rawParentControlPointOverride(
             childDefinition: asset.definition,
-            rootDefinition: rootDefinition,
-            rootOverride: rootInstanceOverride,
-            allowsCopy: depth == 1 && trigger == .staticChild
+            parentDefinition: parentDefinition,
+            parentOverride: depth == 1 ? rootInstanceOverride : nil,
+            allowsCopy: depth == 1 && trigger == .staticChild,
+            allowsAuthoredFallback: trigger == .follow && hasLocalPoints
         ) {
         case .disabled:
             controlPointOverride = nil
@@ -261,12 +288,19 @@ enum SceneParticleChildGraphExpansion {
         case let .ignoredUnused(count):
             controlPointOverride = nil
             result.performanceDetails.append("\(path):unusedParentControlPointMappings:mappings=\(count)")
+        case let .authoredFallback(count):
+            controlPointOverride = nil
+            usesLocalParentControlPointFallback = true
+            result.performanceDetails.append("\(path):rawParentControlPointAuthoredFallback:mappings=\(count)")
         case let .supported(value, count):
             controlPointOverride = value
             result.performanceDetails.append("\(path):rawParentControlPointCopyBounded:mappings=\(count)")
 #else
         case .ignoredUnused:
             controlPointOverride = nil
+        case .authoredFallback:
+            controlPointOverride = nil
+            usesLocalParentControlPointFallback = true
         case let .supported(value, _):
             controlPointOverride = value
 #endif
@@ -288,8 +322,6 @@ enum SceneParticleChildGraphExpansion {
             controlPoints: controlPointOverride?.controlPoints ?? [:],
             controlPointAngles: controlPointOverride?.controlPointAngles ?? [:]
         )
-        let needsStaticFrame = asset.definition.flags.isWorldSpace
-            || asset.definition.operators.contains(where: \.isWorldSpaceMovement)
         guard !needsStaticFrame || worldSpaceFrame != nil else {
             return .rejected("\(path):dynamicWorldSpaceTransform")
         }
@@ -299,8 +331,10 @@ enum SceneParticleChildGraphExpansion {
         }
         let authoredMaximum = min(max(asset.definition.maximumCount ?? 1, 0), 20000)
         let particleBudget = authoredMaximum
-        let systemBudget = trigger == .staticChild ? 1 : maximum
-        if !permitsStaticRope {
+        // Detached leaves can overlap new parent scopes until their particles drain.
+        let systemBudget = trigger == .staticChild && depth == 2
+            ? SceneParticleChildLifecycle.maximumSystemsPerDepth : maximum
+        if !simulationOnly, !permitsStaticRope {
             var remainingSegments = SceneParticleChildTemplateSupport.maximumRopeSegmentsPerTemplate
             let rendererCount = plans.count
             plans.removeAll { plan in
@@ -316,14 +350,14 @@ enum SceneParticleChildGraphExpansion {
             }
         }
         var preparationFailures: [String] = []
-        let renderers = SceneParticlePreparedRenderer.prepare(
+        let renderers = simulationOnly ? [] : SceneParticlePreparedRenderer.prepare(
             plans: plans, asset: asset, rootUsesWorldSpace: false, textureLoader: textureLoader,
             builtInTextureRegistry: builtInTextureRegistry, device: device,
             onFailure: { index, detail in
                 preparationFailures.append("\(path):renderer[\(index)]:\(detail)")
             }
         )
-        guard !renderers.isEmpty else {
+        guard !renderers.isEmpty || simulationOnly else {
             return .rejected(preparationFailures.first ?? "\(path):rendererPreparationUnavailable")
         }
         result.unsupportedDetails.append(contentsOf: preparationFailures)
@@ -342,23 +376,36 @@ enum SceneParticleChildGraphExpansion {
             default: return false
             }
         }
+        var particleControlPointMask: UInt8 = 0
+        if let start = particleControlPointStart {
+            particleControlPointMask = UInt8.max << start
+            for point in asset.definition.controlPoints
+                where point.copiesRawParentValue || point.isWorldSpace || point.followsPointer {
+                if let id = point.id, (0 ... 7).contains(id) {
+                    particleControlPointMask &= ~(UInt8(1) << id)
+                }
+            }
+        }
         let template = SceneParticleChildTemplate(
-                index: templateIndex,
-                path: path,
-                definition: asset.definition,
-                pointerControlPointIdentities: asset.definition.pointerControlPointIdentities,
-                needsWorldControlPointFrame: needsWorldPointFrame,
-                trigger: trigger,
-                renderers: renderers,
-                worldSpaceFrame: worldSpaceFrame,
-                probability: probability,
-                transform: transform,
-                maximumSystemCount: maximum,
-                particleBudget: particleBudget,
-                depth: depth,
-                parentAssetPath: parentAssetPath,
-                instanceOverride: instanceOverride
-            )
+            index: templateIndex,
+            path: path,
+            definition: asset.definition,
+            pointerControlPointIdentities: asset.definition.pointerControlPointIdentities,
+            needsWorldControlPointFrame: needsWorldPointFrame,
+            trigger: trigger,
+            renderers: renderers,
+            worldSpaceFrame: worldSpaceFrame,
+            probability: probability,
+            transform: transform,
+            maximumSystemCount: maximum,
+            particleBudget: particleBudget,
+            depth: depth,
+            parentAssetPath: parentAssetPath,
+            instanceOverride: instanceOverride,
+            particleControlPointStart: particleControlPointStart,
+            particleControlPointMask: particleControlPointMask,
+            usesLocalParentControlPointFallback: usesLocalParentControlPointFallback
+        )
         return .accepted(template, asset)
     }
 }
@@ -374,6 +421,7 @@ extension SceneParticleChildTemplate {
         initialDynamicControlPoints: [Int: SIMD3<Double>] = [:],
         initialDynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
         initialAudioInput: SceneParticleAudioInput = .silent,
+        hasChildStreamOrigin: Bool = false,
         maximumEmissionDuration: Double? = nil,
         eventValueContext: SceneParticleEventValueContext = .unavailable
     ) -> SceneParticleSimulator {
@@ -389,10 +437,12 @@ extension SceneParticleChildTemplate {
             particleBudget: particleBudget,
             maximumEmissionDuration: maximumEmissionDuration,
             worldSpaceFrame: worldSpaceFrameOverride ?? worldSpaceFrame,
+            controlPointForceEnvironment: .init(allowsLocalParentFallback: usesLocalParentControlPointFallback),
             controlPointFrame: needsWorldControlPointFrame
                 ? controlPointFrame?.childFrame(origin: origin - (definition.flags.isWorldSpace ? rootTranslationOffset : .zero), scale: transform.scale) : nil,
             initialControlPointParticleSpace: definition.flags.isWorldSpace
                 ? .init(currentOrigin: origin, scale: transform.scale, birthOrigins: [:]) : nil,
+            hasChildStreamOrigin: hasChildStreamOrigin,
             eventValueContext: eventValueContext
         )
 #if DEBUG

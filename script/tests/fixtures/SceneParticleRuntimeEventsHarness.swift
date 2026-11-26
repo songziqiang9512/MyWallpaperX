@@ -464,13 +464,15 @@ extension Harness {
         _ = runtime.advance(by: 1.0 / 60)
         let follow = frames(runtime.frameSnapshot(), layerID: 21).first?.simulatorFrame
         facts["follow-later-births-refresh-scalars-without-reinitializing-the-old-particle"] =
-            follow?.particles.map(\.initialSize) == [80, 80]
-            && follow?.particles.map(\.initialAlpha) == [0.25, 0.25]
-            && follow?.particles.map(\.size) == [80, 80]
-            && follow?.particles.map(\.alpha) == [0.25, 0.25]
+            follow?.particles.map(\.initialSize) == [40, 80]
+            && follow?.particles.map(\.initialAlpha) == [0.5, 0.25]
+            && follow?.particles.map(\.size) == [40, 80]
+            && follow?.particles.map(\.alpha) == [0.5, 0.25]
+        _ = runtime.advance(by: 1.0 / 60)
+        let liveFollow = frames(runtime.frameSnapshot(), layerID: 21).first?.simulatorFrame
         facts["continuous-operator-keeps-only-color-live"] =
-            follow?.particles.first?.initialColor == SIMD3(repeating: 1)
-            && follow?.particles.map(\.color) == [SIMD3(0, 0.5, 1), SIMD3(0, 0.5, 1)]
+            liveFollow?.particles.first?.initialColor == SIMD3(repeating: 1)
+            && liveFollow?.particles.map(\.color) == Array(repeating: SIMD3(0, 0.5, 1), count: 3)
         let batches = runtime.advance(by: 1.0 / 60)
         let accepted = runtime.frameSnapshot()
         let value = batch(batches, "values-child")
@@ -537,6 +539,7 @@ extension Harness {
                  "stage": $0.evaluation.stage, "reason": $0.evaluation.reason] as [String: Any] }
 #endif
         runtime.restoreFrame(before)
+        _ = runtime.advance(by: 1.0 / 60)
         _ = runtime.advance(by: 1.0 / 60)
         let replayBatches = runtime.advance(by: 1.0 / 60)
         let replay = runtime.frameSnapshot()

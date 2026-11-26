@@ -1,6 +1,8 @@
 import Foundation
 
 nonisolated enum SceneParticleChildLifecycle {
+    static let maximumSystemsPerDepth = 64
+
     nonisolated static func supportsEmitterProfile(
         _ definition: SceneParticleDefinition
     ) -> Bool {
@@ -12,7 +14,12 @@ nonisolated enum SceneParticleChildLifecycle {
             let rate = emitter.rate ?? 5
             let count = emitter.instantaneousCount ?? 0
             let duration = emitter.duration ?? 0
-            return supportedKind && emitter.rawFlags & ~2 == 0
+            let supportsSchedule: Bool = switch emitter.periodicEmissionAdmission {
+            case .disabled: emitter.rawFlags & ~2 == 0
+            case .supported: true
+            case .unsupported: false
+            }
+            return supportedKind && supportsSchedule
                 && !emitter.audioResponse.isEnabled
                 && rate.isFinite && rate >= 0 && count >= 0
                 && duration.isFinite && duration >= 0 && (rate > 0 || count > 0)

@@ -168,7 +168,7 @@ Sphere 的 sign 逐轴按原有限值选边，零取双侧，任意非零含小�
 
 原 DefinitionParser → SpawnPlan → EmitterState → Simulator 承接周期数量。`maxtoemitperperiod` 只解析一次并进入原周期计划；缺省、0与负数沿无上限路径，正数由原自然发射消费者逐活动窗执行，不能因存在该字段拒绝整个发射器。当前 `count` 同时缩放发射率与周期上限，有效上限取正数乘积向下取整，再减去本周期已消费的自然请求数量；中途更新 `count` 不重置已用数量。每个 emitter 只在原 State 增加一个计数值，进入新活动窗及既有 rearm 清零；不保存倍率副本或第二份剩余额度，不建许可表、调度器或缓存。
 
-沿原窗口时钟/RNG推进，触顶只抑制本窗额外自然请求，不提前进入间隔，不停止小数余量积分；余量跨间隔与周期保留。跨多个窗的单步须在原循环内逐窗限额和重置，不能先合并所有活动秒再限一次。无上限仍保原活动秒聚合后一次积分的运算顺序。准备期的字段/时间区间检查、原1024窗口工作预算与非有限 accumulator 的局部失败保持；此消费者不借 cap 开放其他尚无消费者的 flags/audio/burst/duration 组合。
+沿原窗口时钟/RNG推进，触顶只抑制本窗额外自然请求。余量跨间隔与周期保留，单步跨窗逐窗扣额度，无上限沿原活动秒聚合。有限非负 `duration` 沿原发射时钟扣掉初延迟，从活动开始计时，到期只停新生。间隔保有限、有序和原最小时间，长间隔降低窗频率，退出一小时上限。原1024窗口预算与坏字段的局部失败保持，额外 flags、audio 与 burst 组合沿原边界。
 
 自然出生仍按作者 emitter 顺序，经过原系统容量裁剪与 constructor；额度按原 maximumParticleCount 有界的调度请求消费是本引擎当前策略，容量饱和时的官方计费点尚未确定。官方短命满槽对照中，无上限也会延后出生，不能据它选择计费公式；该通用调度差异独立留在[队列](../roadmap/scene-open-breakpoint-queue.md)。不为未证组合新增播放许可或改动已可用路径。显式 exact-n 沿原调用点/事务及容量处理，不扣自然额度，不把 cap guard 搬到整个 preparedPlaybackWork；早期显式调用对自然相位的官方差异另列队列，不以晚命令仍贡献证明完整交互一致。
 
@@ -246,11 +246,11 @@ CameraFrame 在原 screen 几何处形成 `linear × diag(1, ratio, 1) × billbo
 <a id="child-declaration-options"></a>
 ### Child声明选项与实际输入需求
 
-ChildGraphExpansion先解析已有trigger/transform并取得asset，再按原typed selector/可执行plan判断CP读取需求。无CP消费者的leaf沿原事件、constructor、实例、预算和draw执行；不解释的declaration flags或未消费start index保一次准备诊断，不用flags==0或{0,1}作播放许可。CP需求判断只在冷准备且有非零未解释声明flags时执行；flags0的start index是被动参数，不启用绑定或触发读取许可。无新增状态、时钟、CP表或逐帧定义扫描。
+ChildGraphExpansion 为已对照的局部 Follow 与 Static 准备声明 `flags=1` 的父粒子流。开始槽取 `controlpointstartindex`，缺省0。值来自直接父系统的存活粒子顺序和局部位置。收到的槽写进原 Simulator 控制点，清空时沿当前值保留。仅已收到流的 CP0 可作为 Sphere/Box 的隐式发射原点。显式 CP 输入沿原消费者，`flags=0` 的 start index 与没有复制位的 CP `parentcontrolpoint` 保持被动。已对照的局部 Follow 复制槽取自身作者默认点，一级 Static 的 raw-parent copy 保留原供值。
 
-CP需求不能用CP数组或共同controlpoint字段猜：Emitter的实际source（含隐式pointer CP0）、Around/Between initializer、Radius/Maintain、Force、Reduce及Vortex v2的CP0分别沿各自既有typed计划取事实；Sphere残留CP333不产生读取。非零未解释声明遇到真实reader或未资格子树时，仅该child template保持绑定不可用，父和健康peer继续；不能删请求后读默认点。原flags0/startnil与static raw-parent copy路径保持，旧parent-mapping诊断缺口独立留队列，不借本批改变其未知位置语义。
+未解释的声明组合由原 typed reader 决定影响范围。无 CP 消费的 leaf 走原事件链。实际 Emitter、Around/Between、Radius/Maintain、Force、Reduce、Vortex 读取到未知绑定时，局部保留诊断，父和健康 peer 继续。显式空 renderer 的事件节点在有可执行后代时只模拟，二级局部 Static 随直接父作用域建立一次。直接父粒群清空仍保末点，作用域结束后仅排空存量。快照与预算沿[原子系统](../architecture/runtime-architecture.md#particle-child-control-stream)。
 
-公开[Children合同](https://docs.wallpaperengine.io/en/scene/particles/component/children.html#child-particle-system-configuration)规定death在父末位置创建及可选控制点设置，但没有declaration位表。官方同输入flags0/1的无CP/无继承leaf三点L，在真实death、晚父存活和死亡后平移条件下等位稳定，支持此base切片；flags0/start1的CP正控保持真实静态半径读取；另一旧CP支线白蓝重合。新的[端点与生命周期对照](runtime-evidence-current.md#thunderbolt-child-control-stream)分离了 bit 1 与值源，现役仍沿上述未接通边界。目标归[子系统架构](../architecture/runtime-architecture.md#particle-child-control-stream)，未测General world流、脚本同槽及祖先变换保持开放。验收用真实GraphExpansion→事件→child Simulator/Metal，核活跃CP及隐式源反例、改名/无关metadata、正常死亡/显式销毁、健康peer、快照及实际作者捕获；不以准备放行或root draw代child贡献。
+官方[端点与生命周期对照](runtime-evidence-current.md#thunderbolt-child-control-stream)覆盖出生、逐步读取、清空、局部 Follow 默认点与一级 world Static 原始复制。General world 粒子流、脚本同槽优先级及脱离后的持续新发射仍在[开放队列](../roadmap/scene-open-breakpoint-queue.md)。验收沿真实 GraphExpansion→子 Simulator→Metal，分别核变体、健康 peer、回滚及子 batch 对最终像素的贡献。
 
 <a id="event-value-inheritance"></a>
 ### 事件值继承的职责合同

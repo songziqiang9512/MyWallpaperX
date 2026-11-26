@@ -274,7 +274,7 @@ class SceneParticleRuntimeTests(
         )
         self.assertEqual(
             result["batchLayerIDs"],
-            [2, 3, 4, 4, 4, 6, 7, 9, 9, 9, 9, 9, 10, 11, 13, 14, 16, 17, 17, 18, 19],
+            [2, 3, 4, 4, 4, 6, 7, 9, 9, 9, 9, 9, 10, 11, 13, 14, 16, 17, 17, 17, 18, 18, 19],
         )
         self.assertGreater(result["activeParticleCount"], 0)
         self.assertGreater(result["childInstanceCount"], 0)
@@ -296,7 +296,7 @@ class SceneParticleRuntimeTests(
         self.assertTrue(result["movementWorldLayerLoaded"])
         self.assertEqual(result["normalCullState"], "back")
         self.assertEqual(result["rawControlPointCopyPositions"], [[22, 0, 0]])
-        self.assertFalse(result["adjustedControlPointCopyLoaded"])
+        self.assertEqual(result["adjustedControlPointCopyPositions"], [[0, 0, 0], [0, 0, 0]])
         self.assertTrue(result["rawControlPointCopyBounded"])
         self.assertEqual(result["rawControlPointCopyLayerIDs"], [17])
         self.assertFalse(result["hiddenMentioned"])
@@ -342,10 +342,6 @@ class SceneParticleRuntimeTests(
         self.assertIn(
             "particles/custom-shader.json:unsupportedShader",
             result["staticChildUnsupportedDetails"],
-        )
-        self.assertIn(
-            "particles/adjusted-copy-child.json:rawParentControlPointCopyMalformed",
-            [value["detail"] for value in diagnostics if value["detail"] is not None],
         )
         details = [value["detail"] for value in diagnostics if value["detail"] is not None]
         self.assertIn(
@@ -845,11 +841,11 @@ class SceneParticleRuntimeTests(
 
     def test_continuous_children_follow_finish_and_obey_aggregate_budget(self) -> None:
         result = self.run_harness("eventfollow-synthetic")
-        self.assertEqual(result["childCounts"], [0, 1, 2, 0, 0, 0])
-        self.assertEqual(result["childPositions"], [2, 2])
-        self.assertEqual(result["childSizes"], [10, 10])
-        self.assertEqual(result["boundedCounts"], [0, 1, 1, 1, 0, 0])
-        self.assertEqual(len(result["boundedSizes"]), 3)
+        self.assertEqual(result["childCounts"], [0, 1, 2, 3, 3, 3])
+        self.assertEqual(result["childPositions"], [2] * 5)
+        self.assertEqual(result["childSizes"], [10] * 5)
+        self.assertEqual(result["boundedCounts"], [0, 1, 2, 2, 1, 0])
+        self.assertEqual(len(result["boundedSizes"]), 4)
         for size in result["boundedSizes"]:
             self.assertAlmostEqual(size, 0.8, places=5)
         self.assertEqual(result["budgetCounts"], [0, 64, 128, 192, 256, 320])
@@ -934,34 +930,6 @@ class SceneParticleRuntimeTests(
         # the allocation path instead of growing the buffer without bound.
         self.assertTrue(result["withinBudgetAccepted"])
         self.assertTrue(result["overBudgetRejected"])
-
-
-    def test_synthetic_nested_children_follow_depth_limit_and_budget(self) -> None:
-        result = self.run_harness("nested-synthetic")
-        self.assertEqual(result["trailCounts"], [0, 1, 2, 3, 0, 0])
-        heads = result["headPositions"]
-        origins = result["trailOrigins"]
-        self.assertEqual(len(heads), 4)
-        self.assertEqual(len(origins), 3)
-        for index, origin in enumerate(origins):
-            self.assertAlmostEqual(origin, heads[index + 1], delta=0.01)
-        for index in range(1, len(heads)):
-            self.assertAlmostEqual(heads[index] - heads[index - 1], 1.0, delta=0.01)
-        self.assertGreater(heads[0], 40)
-        self.assertIn(
-            "particles/depth-three.json:nestedDepthUnsupported", result["depthDetails"]
-        )
-        self.assertIn(
-            "particles/static-leaf.json:nestedStaticChildUnsupported",
-            result["staticDetails"],
-        )
-        self.assertIn(
-            "nestedAggregateSystemBudget:depth=2:systems=64:particleCapacity=65536",
-            result["budgetDetails"],
-        )
-        self.assertEqual(result["budgetTrailCounts"][0], 0)
-        self.assertEqual(result["budgetTrailCounts"][1], 64)
-        self.assertEqual(result["nestedUnsupportedLayers"], [])
 
 
     def test_delayed_child_emitters_survive_until_their_actual_emission_finishes(self) -> None:

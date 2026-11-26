@@ -86,7 +86,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 272,
-      "bytes": 51032
+      "bytes": 51010
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 412,
-      "bytes": 77982
+      "bytes": 77411
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 467,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 368519
+      "bytes": 369396
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 240,
-      "bytes": 68881
+      "lines": 239,
+      "bytes": 68160
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "3dfadc0964708f295cffe2b4869af94e565c2f00e9ef1a969896a45226e7635a",
-      "after": "911f3662b059988f224f6ca41d755a24a28637f1a5df6da00db8da49433bb354",
+      "before": "911f3662b059988f224f6ca41d755a24a28637f1a5df6da00db8da49433bb354",
+      "after": "51d59f3366f88a657fdf53fe3ec09c569925381ee9f7510bce11b5a23f09165b",
       "owner": "Scene",
-      "reason": "记录子系统父点流、晚生保留与生命周期实测。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#thunderbolt-child-control-stream"
+      "reason": "记录两份原包的子束合成、隔离像素反例和独立旧复制样本。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#thunderbolt-native-branches"
     },
     {
       "section": "bodies",

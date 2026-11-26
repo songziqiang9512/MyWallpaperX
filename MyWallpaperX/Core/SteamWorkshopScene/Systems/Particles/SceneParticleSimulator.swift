@@ -132,6 +132,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         collisionBoundsFrame: SceneParticleCollisionBoundsFrame? = nil,
         initialControlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil,
         stepSnapshotPolicies: [SceneParticleStepSnapshotPolicy] = [],
+        hasChildStreamOrigin: Bool = false,
         eventValueContext: SceneParticleEventValueContext = .unavailable
     ) {
         self.playback = initialPlayback
@@ -258,6 +259,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         warmUp(duration: definition.startTime ?? 0, stepBudget: prewarmStepBudget, timing: initialTiming,
                controlPointParticleSpace: initialControlPointParticleSpace,
                collisionBoundsFrame: collisionBoundsFrame,
+               hasChildStreamOrigin: hasChildStreamOrigin,
                shouldCancel: shouldCancelPrewarm)
 #if DEBUG
         componentObservation?.origin = "live"
@@ -312,6 +314,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         controlPointFrame: SceneParticleControlPointFrame? = nil,
         collisionBoundsFrame: SceneParticleCollisionBoundsFrame? = nil,
         controlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil,
+        hasChildStreamOrigin: Bool = false,
         allowsEmission: Bool = true
     ) {
         let intent = playback.intent
@@ -335,7 +338,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         while accumulator + 1e-12 >= fixedTimeStep {
             step(by: simulationStep, timing: timing, rate: rate,
                  controlPointParticleSpace: controlPointParticleSpace,
-                 collisionBoundsFrame: collisionBoundsFrame)
+                 collisionBoundsFrame: collisionBoundsFrame, hasChildStreamOrigin: hasChildStreamOrigin)
             accumulator -= fixedTimeStep
         }
         if accumulator < 0 { accumulator = 0 }
@@ -495,6 +498,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         duration: Double, stepBudget: Int?, timing: SceneParticleFrameTiming,
         controlPointParticleSpace: SceneParticleControlPointParticleSpace?,
         collisionBoundsFrame: SceneParticleCollisionBoundsFrame?,
+        hasChildStreamOrigin: Bool,
         shouldCancel: (() -> Bool)?
     ) {
         guard duration != 0 else { return }
@@ -530,7 +534,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             guard slice > 0 else { break }
             step(by: slice, timing: timing, rate: rate,
                  controlPointParticleSpace: controlPointParticleSpace,
-                 collisionBoundsFrame: collisionBoundsFrame)
+                 collisionBoundsFrame: collisionBoundsFrame, hasChildStreamOrigin: hasChildStreamOrigin)
             completedSteps += 1
             // These events have never been replayed to children after warmup.
             // Drain per step so a long, short-lived emitter cannot retain its
@@ -553,7 +557,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     private nonisolated func step(
         by duration: Double, timing: SceneParticleFrameTiming, rate: Double,
         controlPointParticleSpace: SceneParticleControlPointParticleSpace?,
-        collisionBoundsFrame: SceneParticleCollisionBoundsFrame?
+        collisionBoundsFrame: SceneParticleCollisionBoundsFrame?, hasChildStreamOrigin: Bool
     ) {
         guard duration != 0 else { return }
         guard duration.isFinite, Float(simulationTime + duration).isFinite else {
@@ -570,7 +574,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             let emitterWorldFrame = controlPointParticleSpace == nil ? activeWorldSpaceFrame : nil
             for index in definition.emitters.indices {
                 emit(index: index, duration: duration, sceneTime: timing.sceneTime, rate: rate,
-                     worldSpaceFrame: emitterWorldFrame)
+                     worldSpaceFrame: emitterWorldFrame, hasChildStreamOrigin: hasChildStreamOrigin)
             }
         }
         normalizedLives.removeAll(keepingCapacity: true)
@@ -649,7 +653,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 
     private nonisolated func emit(
         index: Int, duration: Double, sceneTime: Double, rate: Double,
-        worldSpaceFrame: SceneParticleWorldSpaceFrame?
+        worldSpaceFrame: SceneParticleWorldSpaceFrame?, hasChildStreamOrigin: Bool
     ) {
         let emitter = definition.emitters[index]
 #if DEBUG
@@ -669,7 +673,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             controlPointsByID: controlPointsByID,
             controlPointSourcesAreValid: controlPointSourcesAreValid,
             preparedOrigin: spawnPlan.origin, controlPointFrame: controlPointFrame,
-            worldSpaceFrame: worldSpaceFrame
+            worldSpaceFrame: worldSpaceFrame, hasChildStreamOrigin: hasChildStreamOrigin
         ) else {
 #if DEBUG
             componentObservation?.record("emitter", index, "unavailable", reason: "control-point-frame-unavailable", time: simulationTime)

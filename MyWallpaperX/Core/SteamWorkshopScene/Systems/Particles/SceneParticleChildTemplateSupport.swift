@@ -4,6 +4,7 @@ import Metal
 enum SceneParticleChildControlPointCopyAdmission {
     case disabled
     case ignoredUnused(count: Int)
+    case authoredFallback(count: Int)
     case supported(SceneParticleInstanceOverride, count: Int)
     case unsupported(String)
 }
@@ -100,48 +101,44 @@ enum SceneParticleChildTemplateSupport {
 
     static func rawParentControlPointOverride(
         childDefinition: SceneParticleDefinition,
-        rootDefinition: SceneParticleDefinition,
-        rootOverride: SceneParticleInstanceOverride?,
-        allowsCopy: Bool
+        parentDefinition: SceneParticleDefinition,
+        parentOverride: SceneParticleInstanceOverride?,
+        allowsCopy: Bool,
+        allowsAuthoredFallback: Bool
     ) -> SceneParticleChildControlPointCopyAdmission {
         let mappings = childDefinition.controlPoints.filter {
-            $0.parentControlPoint != nil || $0.copiesRawParentValue
+            $0.copiesRawParentValue || ($0.rawFlags != 0 && $0.parentControlPoint != nil)
         }
-        guard !mappings.isEmpty else { return .disabled }
-        let hasKnownConsumer = childDefinition.emitters.contains { $0.controlPoint != nil }
-            || childDefinition.operators.contains { $0.controlPoint != nil }
-        let hasUnknownConsumer = childDefinition.initializers.contains {
-            if case .unsupported = $0.kind { return true }
-            return false
-        } || childDefinition.operators.contains {
-            if case .unsupported = $0.kind { return true }
-            return false
+        if mappings.isEmpty {
+#if DEBUG
+            let count = childDefinition.controlPoints.count { $0.parentControlPoint != nil }
+            if count > 0 { return .ignoredUnused(count: count) }
+#endif
+            return .disabled
         }
-        let isInertMappingShape = mappings.allSatisfy {
-            $0.parentControlPoint != nil && $0.rawFlags == 0
-                && isZeroVector($0.offset) && isZeroVector($0.angles)
+        guard allowsCopy || allowsAuthoredFallback else {
+            return .unsupported("rawParentControlPointCopyOutsideStaticDepthOne")
         }
-        if isInertMappingShape, !hasKnownConsumer, !hasUnknownConsumer,
-           childDefinition.children.isEmpty
-        {
-            return .ignoredUnused(count: mappings.count)
-        }
-        guard mappings.allSatisfy({ $0.parentControlPoint != nil }) else {
-            return .unsupported("rawParentControlPointCopyMalformed")
-        }
-        guard allowsCopy else { return .unsupported("rawParentControlPointCopyOutsideStaticDepthOne") }
+        var slotMask: UInt8 = 0
         var values: [Int: SceneParticleBoundValue] = [:]
         for mapping in mappings {
-            guard let childID = mapping.id, (0 ... 7).contains(childID),
+            guard mapping.rawFlags == 4,
+                  let childID = mapping.id, (0 ... 7).contains(childID),
                   let parentID = mapping.parentControlPoint, (0 ... 7).contains(parentID),
-                  mapping.rawFlags == 4, values[childID] == nil,
-                  isZeroVector(mapping.offset), isZeroVector(mapping.angles)
+                  !mapping.hasMalformedOffset, !mapping.hasMalformedMetadata,
+                  let offset = finiteVector(mapping.offset, fallback: .zero),
+                  allowsAuthoredFallback || offset == .zero,
+                  finiteVector(mapping.angles, fallback: .zero) == .zero
             else { return .unsupported("rawParentControlPointCopyMalformed") }
-            let sources = rootDefinition.controlPoints.filter { $0.id == parentID }
+            let slot = UInt8(1) << childID
+            guard slotMask & slot == 0 else { return .unsupported("rawParentControlPointCopyMalformed") }
+            slotMask |= slot
+            if allowsAuthoredFallback { continue }
+            let sources = parentDefinition.controlPoints.filter { $0.id == parentID }
             guard sources.count == 1,
                   var value = finiteVector(sources[0].offset, fallback: .zero)
             else { return .unsupported("rawParentControlPointSourceUnavailable") }
-            if let authored = rootOverride?.controlPoints[parentID] {
+            if let authored = parentOverride?.controlPoints[parentID] {
                 guard authored.userPropertyKey == nil, !authored.hasScript, !authored.hasAnimation,
                       let override = finiteVector(authored.value, fallback: nil)
                 else { return .unsupported("rawParentControlPointSourceDynamic") }
@@ -152,6 +149,7 @@ enum SceneParticleChildTemplateSupport {
                 userPropertyKey: nil, hasScript: false, hasAnimation: false
             )
         }
+        if allowsAuthoredFallback { return .authoredFallback(count: mappings.count) }
         return .supported(SceneParticleInstanceOverride(
             id: nil, alpha: nil, size: nil, lifetime: nil, rate: nil, speed: nil,
             count: nil, color: nil, normalizedColor: nil,
@@ -172,11 +170,6 @@ enum SceneParticleChildTemplateSupport {
         guard case let .vector(components) = value, components.count == 3,
               components.allSatisfy(\.isFinite) else { return nil }
         return SIMD3(components[0], components[1], components[2])
-    }
-
-    private static func isZeroVector(_ value: SceneParticleNumericValue?) -> Bool {
-        guard let resolved = finiteVector(value, fallback: .zero) else { return false }
-        return resolved == .zero
     }
 
     static func supportedRenderers(

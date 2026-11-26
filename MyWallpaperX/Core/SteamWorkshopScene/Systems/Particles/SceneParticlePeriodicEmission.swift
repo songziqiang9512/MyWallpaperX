@@ -370,7 +370,8 @@ nonisolated extension SceneParticleEmitter {
         guard rawFlags & ~4 == 0,
               !value.hasMalformedFields,
               (instantaneousCount ?? 0) == 0,
-              (duration ?? 0) == 0,
+              !hasMalformedDuration,
+              duration.map({ $0.isFinite && $0 >= 0 }) ?? true,
               !audioResponse.isEnabled,
               let minimumDuration = value.minimumDuration,
               let maximumDuration = value.maximumDuration,
@@ -379,11 +380,10 @@ nonisolated extension SceneParticleEmitter {
               minimumDuration.isFinite, maximumDuration.isFinite,
               minimumDelay.isFinite, maximumDelay.isFinite,
               (minimumInterval...maximumInterval).contains(minimumDuration),
-              (minimumInterval...maximumInterval).contains(minimumDelay),
+              minimumDelay >= minimumInterval,
               minimumDuration <= maximumDuration,
               minimumDelay <= maximumDelay,
-              maximumDuration <= maximumInterval,
-              maximumDelay <= maximumInterval else { return .unsupported }
+              maximumDuration <= maximumInterval else { return .unsupported }
         return .supported(.init(
             minimumDuration: minimumDuration,
             maximumDuration: maximumDuration,

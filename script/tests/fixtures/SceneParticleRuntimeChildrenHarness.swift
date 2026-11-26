@@ -583,6 +583,7 @@ extension Harness {
         var trailOrigins: [Float] = []
         var headPositions: [Float] = []
         var budgetTrailCounts: [Int] = []
+        var staticLeafCounts: [Int] = []
         for _ in 0..<6 {
             let batches = runtime.advance(by: 1.0 / 60.0)
             let trail = batches.first {
@@ -597,12 +598,16 @@ extension Harness {
             budgetTrailCounts.append(batches.first {
                 $0.particlePath == "particles/budget-nested-trail.json"
             }?.instances.count ?? 0)
+            staticLeafCounts.append(batches.first {
+                $0.particlePath == "particles/static-leaf.json"
+            }?.instances.count ?? 0)
         }
         var facts1: [String: Any] = [
             "trailCounts": trailCounts,
             "trailOrigins": trailOrigins,
             "headPositions": headPositions,
             "budgetTrailCounts": budgetTrailCounts,
+            "staticLeafCounts": staticLeafCounts,
         ]
 #if DEBUG
         facts1["depthDetails"] = runtime.diagnostics.compactMap {
@@ -620,6 +625,103 @@ extension Harness {
         }
 #endif
         return facts1
+    }
+
+    static func syntheticNestedFollowControlStream() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-nested-follow-stream-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"), opaque: true)
+        let step = 1.0 / 60
+        let rootPath = "particles/stream-root.json"
+        let followPath = "particles/stream-follow.json"
+        let shortPath = "particles/stream-short.json"
+        let latePath = "particles/stream-late.json"
+        let fallbackPath = "particles/stream-fallback.json"
+        let continuousPath = "particles/stream-continuous.json"
+
+        func emitter(x: Int = 0, delay: Double = 0) -> [String: Any] {
+            ["name": "sphererandom", "rate": 0, "instantaneous": 1, "distancemin": 0,
+             "distancemax": 0, "origin": "\(x) 0 0", "delay": delay]
+        }
+        func lifetime(_ age: Double) -> [String: Any] {
+            ["name": "lifetimerandom", "min": age, "max": age]
+        }
+        func leaf(_ path: String, delay: Double, age: Double, continuous: Bool = false) throws {
+            var pointEmitter = emitter(delay: delay)
+            pointEmitter["controlpoint"] = 1
+            if continuous {
+                pointEmitter["rate"] = 60
+                pointEmitter["instantaneous"] = 0
+            }
+            try writeJSON([
+                "material": "materials/shared.json", "maxcount": continuous ? 2 : 1,
+                "controlpoint": [["id": 1, "flags": 0, "offset": "-4 0 0"]],
+                "emitter": [pointEmitter], "renderer": [["name": "sprite"]],
+                "initializer": [lifetime(age), ["name": "sizerandom", "min": 8, "max": 8]],
+            ], to: directory.appendingPathComponent(path))
+        }
+        try leaf(shortPath, delay: 0, age: 0.5 * step)
+        try leaf(latePath, delay: 6.5 * step, age: 8 * step)
+        try leaf(fallbackPath, delay: 6.5 * step, age: 8 * step)
+        try leaf(continuousPath, delay: 0, age: 0.5 * step, continuous: true)
+        let leaves: [[String: Any]] = [
+            (shortPath, 1), (latePath, 1), (fallbackPath, 0), (continuousPath, 1),
+        ].map { path, flags in
+            ["name": path, "type": "static", "flags": flags, "controlpointstartindex": 1]
+        }
+        try writeJSON([
+            "material": "materials/no-renderer.json", "renderer": [], "maxcount": 1,
+            // Leave a pending burst while the source is empty. Root death must cancel it.
+            "emitter": [emitter(x: 8, delay: 1.5 * step), emitter(x: 24, delay: 23.5 * step)],
+            "children": leaves,
+            "initializer": [lifetime(1.5 * step), ["name": "velocityrandom", "min": "60 0 0", "max": "60 0 0"]],
+            "operator": [["name": "movement", "gravity": "0 0 0", "drag": 0]],
+        ], to: directory.appendingPathComponent(followPath))
+        try writeJSON([
+            "material": "materials/shared.json", "renderer": [["name": "sprite"]], "maxcount": 2,
+            "emitter": [emitter(x: -16), emitter(x: 4, delay: 2.5 * step)],
+            "initializer": [lifetime(9.5 * step)],
+            "children": [["name": followPath, "type": "eventfollow", "maxcount": 2]],
+        ], to: directory.appendingPathComponent(rootPath))
+
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let pass = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: "materials/shared.json",
+            shaderPath: "genericparticle", texturePaths: ["shared.png"], blending: "translucent")
+        let runtime = SceneParticleRuntime(descriptor: .init(layers: [layer(35, rootPath)],
+            renderOrderLayerIDs: [35], materialPasses: [pass]), cacheDirectory: directory, device: device)
+        var firstLatePixels: [Int] = []
+        func advance() -> [String: Any] {
+            let batches = runtime.advance(by: step)
+            if firstLatePixels.isEmpty, let batch = batches.first(where: { $0.particlePath == latePath }) {
+                firstLatePixels = spriteBatchBounds(batch, device: device)
+            }
+            func positions(_ path: String) -> [Float] {
+                batches.filter { $0.particlePath == path }.flatMap(\.instances)
+                    .map { $0.positionAndSize.x }.sorted()
+            }
+            let state = runtime.frameSnapshot().layers.first
+            let systems = state?.child?.systems ?? []
+            let sources = systems.filter { $0.depth == 1 }
+            return ["short": positions(shortPath), "late": positions(latePath), "fallback": positions(fallbackPath),
+                "continuous": positions(continuousPath), "sourceOrigins": sources.map { $0.origin.x },
+                "source": sources.flatMap { source in
+                    source.simulatorFrame.particles.map { [source.origin.x, $0.position.x] }
+                },
+                "rootCount": state?.root?.simulatorFrame.particles.count ?? 0,
+                "scopes": systems.filter { $0.depth == 2 }.compactMap(\.spawnScopeID).sorted(),
+                "systemIDs": systems.map(\.id), "followDraws": positions(followPath)]
+        }
+
+        let prefix = (0..<5).map { _ in advance() }
+        let checkpoint = runtime.frameSnapshot()
+        let suffix = (0..<23).map { _ in advance() }
+        runtime.restoreFrame(checkpoint)
+        let replay = (0..<23).map { _ in advance() }
+        return ["frames": prefix + suffix, "replayed": try JSONSerialization.data(withJSONObject: suffix,
+            options: [.sortedKeys]) == JSONSerialization.data(withJSONObject: replay, options: [.sortedKeys]),
+            "firstLatePixels": firstLatePixels]
     }
 
     static func realNestedMatrix(
