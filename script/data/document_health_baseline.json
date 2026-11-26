@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 371099
+      "bytes": 372282
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 240,
-      "bytes": 68461
+      "lines": 64,
+      "bytes": 8824
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d2a595c4ce758a36737049be85c05850e5fd9ebc5244dd5b775d9c165d9a6530",
-      "after": "b2c506e22bc06f152a25b6f3e22a882ba843f4b4fc7adaa5ffe8852fc6d03661",
-      "owner": "Scene",
-      "reason": "记录旧版实例色修复的定稿像素、独立原包及版本端点。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-instance-color-revision"
+      "before": "b2c506e22bc06f152a25b6f3e22a882ba843f4b4fc7adaa5ffe8852fc6d03661",
+      "after": "2f07f955f8c7ed97408e25a59242d160bb0466cdc15fc11599bf30544ed726ed",
+      "owner": "Scene runtime evidence",
+      "reason": "登记双端固定姿态粒子横宽与透视指针同包实帧，开放队列仅维护待修状态。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#xray-perspective-pointer-294"
     },
     {
       "section": "bodies",
