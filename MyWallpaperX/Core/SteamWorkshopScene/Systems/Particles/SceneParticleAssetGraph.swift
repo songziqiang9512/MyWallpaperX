@@ -264,7 +264,7 @@ nonisolated struct SceneParticleAssetGraphLoader {
             }
             let renderState = pipelineState == nil ? nil : compiledRenderState
             switch pipelineState?.blendMode {
-            case .additive, .translucent, .alphaToCoverage:
+            case .some:
                 break
             case nil where compiledRenderState?.blending == .normal:
                 diagnose(.unsupportedBlendMode, path, "normal")

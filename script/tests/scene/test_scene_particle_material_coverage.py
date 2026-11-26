@@ -85,7 +85,7 @@ class SceneParticleMaterialCoverageTests(unittest.TestCase):
         ordinary = {
             "oldAdditiveRope", "oldTranslucentTrail", "oldFixedTranslucent", "oldSpriteDepthCull",
             "translucentRopeDepthCull", "additiveTrailReadOnlyDepth", "refractionTrailReadOnlyDepth",
-            "refractionRenderers",
+            "refractionRenderers", "normalRefraction", "renamedNormalRefraction",
         }
         resource_failures = {"customShader", "missingTexture"}
         rejected = {
@@ -95,7 +95,8 @@ class SceneParticleMaterialCoverageTests(unittest.TestCase):
             "floatOverflowOverbright",
             "emptyOverbright", "vectorOverbright", "dynamicOverbright", "unknownConstant",
             "unknownBlend", "normalBlend", "refractionDepthWrite", "depthUnknownCombo",
-            "depthUserTexture",
+            "depthUserTexture", "normalRefractionDisabled", "normalRefractionUnknownCombo",
+            "normalRefractionMissingTexture",
         }
         self.assertEqual(set(rows), positives | ordinary | resource_failures | rejected)
         self.assertEqual({name for name, row in rows.items() if row["hasPipelineState"]},
@@ -182,6 +183,27 @@ class SceneParticleMaterialCoverageTests(unittest.TestCase):
                 self.assertEqual(rows[name]["pipelineBlend"], blend)
                 self.assertTrue(rows[name]["hasPipelineState"])
         self.assertFalse(rows["normalBlend"]["hasPipelineState"])
+
+    def test_normal_blend_requires_a_prepared_refraction_source(self) -> None:
+        rows = self.outputs["profiles"]
+        for name, amount in (("normalRefraction", 0.03125),
+                             ("renamedNormalRefraction", 0.125)):
+            with self.subTest(name=name):
+                row = rows[name]
+                self.assertEqual(row["sharedBlend"], "normal")
+                self.assertEqual(row["pipelineBlend"], "normal")
+                self.assertTrue(row["refractionPrepared"])
+                self.assertTrue(row["textureAvailable"])
+                self.assertTrue(row["refractionNormalResolved"])
+                self.assertEqual(row["refractionAmount"], amount)
+                self.assertEqual(row["diagnostics"], [])
+        for name in ("normalBlend", "normalRefractionDisabled", "normalRefractionUnknownCombo",
+                     "normalRefractionMissingTexture"):
+            with self.subTest(name=name):
+                self.assertFalse(rows[name]["hasPipelineState"])
+                self.assertFalse(rows[name]["refractionPrepared"])
+        self.assertIn("refractionUnsupported", rows["normalRefractionUnknownCombo"]["diagnostics"])
+        self.assertIn("missingTextureFile", rows["normalRefractionMissingTexture"]["diagnostics"])
 
     def test_prepared_root_and_child_demand_precedes_particle_birth(self) -> None:
         rows = self.outputs["demand"]

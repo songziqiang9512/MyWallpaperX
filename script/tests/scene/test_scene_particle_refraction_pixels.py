@@ -240,6 +240,22 @@ class SceneParticleRefractionPixelTests(unittest.TestCase):
             )), 2)
             self.assertLess(expected_error, double_error)
 
+    def test_normal_refraction_replaces_rgb_independent_of_coverage(self) -> None:
+        self.require_metal()
+        pixels = self.result["replacePixels"]
+        for name in ("fractional", "transparentAlbedo", "transparentParticle"):
+            self.assertEqual(pixels[name], [200, 100, 50, 255], name)
+        self.assertEqual(pixels["halfDestination"], [100, 50, 25, 128])
+        self.assertEqual(pixels["halfBackdrop"], [100, 50, 25, 128])
+        self.assertLessEqual(max(abs(actual - expected) for actual, expected in zip(
+            pixels["halfSampleFullDestination"], [200, 100, 50, 255]
+        )), 1)
+        self.assertEqual(pixels["clearBackdrop"], [0, 0, 0, 255])
+        self.assertEqual(pixels["displaced"], self.result["normalPixels"]["rgba"])
+        self.assertLessEqual(max(abs(actual - expected) for actual, expected in zip(
+            pixels["displacedHalfBackdrop"], pixels["displaced"]
+        )), 1)
+
     def test_ambient_lighting_uses_real_plan_loader_and_preserves_unlit_normal_peers(self) -> None:
         self.require_metal()
         rows = self.result["ambientLighting"]

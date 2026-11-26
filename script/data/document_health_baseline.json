@@ -121,8 +121,8 @@
       "bytes": 7411
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 398,
-      "bytes": 76226
+      "lines": 405,
+      "bytes": 77110
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 465,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 354864
+      "bytes": 355608
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 241,
-      "bytes": 67881
+      "bytes": 67868
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "bb4b464f89116d37888629ccfd28a7cfee916474b76d892657e82574b7562909",
-      "after": "7a70e4d31c5448b889ada3284a8e3123d2de61eb672ef29efeb30496505775e6",
-      "owner": "Scene scalar oscillation plan",
-      "reason": "登记共享稳定随机、振荡跨度、寿命和混合合同。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#scalar-oscillation"
+      "before": "d4b58141e018092847e38671bd4fc9cd7607e1a7ba1cc3ffbd3590bb3ac331eb",
+      "after": "78c3979618d14c77126f3cd8da09b70bf4ae8490a913e527cacaf2effa9b5517",
+      "owner": "Scene",
+      "reason": "保留已证普通折射颜色、实际目标的预乘存储和反例",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#particle-refraction-normal-blend"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f930af35bd3370ff72f1fceca5a3931ad60eb9a53de7747bedf4f752db159910",
-      "after": "2edbb5fd2e7713076c964e57328421faa75e52396f821a55882518280d472d8f",
+      "before": "2edbb5fd2e7713076c964e57328421faa75e52396f821a55882518280d472d8f",
+      "after": "0fc5f228bf809da35387ee56d7a5a9f218f5327c083f2e422c4da5e0ebba1ec5",
       "owner": "Scene",
-      "reason": "保留隐藏动画首帧恢复、实际播放和无读者对照",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#hidden-sprite-named-3258021301"
+      "reason": "记载作者波纹恢复、跨端色卡与透明度证据范围",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-refraction-normal-2860569355"
     },
     {
       "section": "bodies",

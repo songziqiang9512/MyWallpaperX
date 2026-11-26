@@ -10,7 +10,7 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
         guard [.unspecified, .default].contains(state.alphaWriting),
               let overbright = overbright(in: materialPass) else { return nil }
 
-        let ordinaryInputs = supportsOrdinaryMaterialProfile(materialPass)
+        let ordinaryInputs = !isRefraction && supportsOrdinaryMaterialProfile(materialPass)
         let blendMode: SceneParticlePipelineBlendMode
         switch state.blending {
         case .translucent: blendMode = .translucent
@@ -21,7 +21,9 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
                       $0 == "ui_editor_properties_overbright"
                   }) else { return nil }
             blendMode = .alphaToCoverage
-        case .normal: return nil
+        case .normal:
+            guard isRefraction else { return nil }
+            blendMode = .normal
         }
 
         if state.requiresDepthAttachment, !ordinaryInputs, !isRefraction {

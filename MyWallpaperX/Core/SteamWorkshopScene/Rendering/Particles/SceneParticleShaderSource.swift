@@ -283,6 +283,7 @@ float4 particleColorSample(
 }
 
 constant bool normalizedParticleTarget [[function_constant(0)]];
+constant bool replacesRefractionRGB [[function_constant(1)]];
 
 fragment float4 sceneParticleFrag(
     Varyings in [[stage_in]],
@@ -340,18 +341,13 @@ fragment float4 sceneParticleRefractFrag(
         backgroundUV += (in.screenTangentX * normalXY.x
             + in.screenTangentY * normalXY.y) * settings.material.x * refractionWeight;
     }
-    float3 background = backgroundTexture.sample(backgroundSampler, backgroundUV).rgb;
-
-    float coverage;
-    float3 straightTint;
-    if (settings.cutout.w > 0.5) {
-        coverage = smoothstep(settings.cutout.x, settings.cutout.y, albedo.a * in.cutoutTint.a)
-            * settings.cutout.z;
-        straightTint = in.cutoutTint.rgb;
-    } else {
-        coverage = saturate(albedo.a * in.tint.a);
-        straightTint = in.tint.a > 0.0 ? in.tint.rgb / in.tint.a : float3(0.0);
+    float4 sampledBackground = backgroundTexture.sample(backgroundSampler, backgroundUV);
+    float3 background = sampledBackground.rgb;
+    if (replacesRefractionRGB && sampledBackground.a < 1.0) {
+        background = sampledBackground.a > 0.0 ? background / sampledBackground.a : float3(0.0);
     }
+
+    float3 straightTint = in.cutoutTint.rgb;
     float3 source;
     if (settings.ambientLighting.w > 0.5) {
         float3 lit = albedo.rgb * straightTint * settings.ambientLighting.rgb;
@@ -360,6 +356,12 @@ fragment float4 sceneParticleRefractFrag(
     } else {
         source = background * albedo.rgb * straightTint * settings.material.y;
     }
+    if (replacesRefractionRGB) {
+        return float4(source, 0.0);
+    }
+    float coverage = settings.cutout.w > 0.5
+        ? smoothstep(settings.cutout.x, settings.cutout.y, albedo.a * in.cutoutTint.a) * settings.cutout.z
+        : saturate(albedo.a * in.tint.a);
     return float4(source * coverage, coverage);
 }
 """

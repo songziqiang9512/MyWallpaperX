@@ -46,7 +46,7 @@ nonisolated enum SceneParticleRefractionPlanner {
               !pass.hasUserShaderValues,
               renderState.depthWrite == .disabled,
               [.unspecified, .default].contains(renderState.alphaWriting),
-              [.translucent, .additive].contains(renderState.blending) else {
+              renderState.blending != .alphaToCoverage else {
             return nil
         }
 

@@ -67,6 +67,8 @@ enum Harness {
 
         let fractionalURL = directory.appendingPathComponent("fractional-albedo.tex")
         try makeRawTex(pixel: [255, 255, 255, 128]).write(to: fractionalURL)
+        let transparentURL = directory.appendingPathComponent("transparent-colored-albedo.tex")
+        try makeRawTex(pixel: [255, 255, 255, 0]).write(to: transparentURL)
         let rg88EqualURL = directory.appendingPathComponent("rg88-equal-normal.tex")
         try makeTex(format: 8, payload: Data((0..<16).flatMap { _ in [decoded[0], decoded[1]] })).write(to: rg88EqualURL)
         let rgbaA255URL = directory.appendingPathComponent("rgba-a255-normal.tex")
@@ -120,6 +122,8 @@ enum Harness {
             loader: loader,
             device: device
         )
+        let transparent = try refraction(colorURL: transparentURL, normalURL: nil,
+            amount: 0, loader: loader, device: device)
         let paddedURL = directory.appendingPathComponent("padded-normal.tex")
         try makePaddedRawNormalTex().write(to: paddedURL)
         let padded = try refraction(
@@ -405,6 +409,26 @@ enum Harness {
                 ),
                 "albedo": try readPixel(fractional.color).map(Int.init),
             ],
+            "replacePixels": [
+                "fractional": try draw(device: device, refraction: fractional,
+                    particleAlpha: 0.5, blendMode: .normal, gradientBackground: false),
+                "transparentAlbedo": try draw(device: device, refraction: transparent,
+                    particleAlpha: 1, blendMode: .normal, gradientBackground: false),
+                "transparentParticle": try draw(device: device, refraction: fractional,
+                    particleAlpha: 0, blendMode: .normal, gradientBackground: false),
+                "halfDestination": try draw(device: device, refraction: transparent,
+                    particleAlpha: 1, blendMode: .normal, gradientBackground: false, destinationAlpha: 0.5),
+                "halfBackdrop": try draw(device: device, refraction: transparent, particleAlpha: 1,
+                    blendMode: .normal, gradientBackground: false, destinationAlpha: 0.5, backgroundAlpha: 128),
+                "halfSampleFullDestination": try draw(device: device, refraction: transparent, particleAlpha: 1,
+                    blendMode: .normal, gradientBackground: false, backgroundAlpha: 128),
+                "clearBackdrop": try draw(device: device, refraction: transparent, particleAlpha: 1,
+                    blendMode: .normal, gradientBackground: false, backgroundAlpha: 0),
+                "displaced": try draw(device: device, refraction: rgba,
+                    particleAlpha: 1, blendMode: .normal, gradientBackground: true),
+                "displacedHalfBackdrop": try draw(device: device, refraction: rgba, particleAlpha: 1,
+                    blendMode: .normal, gradientBackground: true, backgroundAlpha: 128),
+            ],
         ]
         let output = try JSONSerialization.data(
             withJSONObject: result,
@@ -418,11 +442,15 @@ enum Harness {
         refraction: SceneParticleRefractionTextureLoader.Loaded,
         particleAlpha: Float,
         blendMode: SceneParticlePipelineBlendMode,
-        gradientBackground: Bool
+        gradientBackground: Bool,
+        destinationAlpha: Double = 1,
+        backgroundAlpha: UInt8 = 255
     ) throws -> [Int] {
         let pixels = try drawPixels(device: device, refraction: refraction,
             particleAlpha: particleAlpha, blendMode: blendMode,
-            gradientBackground: gradientBackground)
+            gradientBackground: gradientBackground,
+            clearColor: blendMode == .normal ? MTLClearColorMake(0.17, 0.26, 0.05, destinationAlpha) : .init(),
+            backgroundAlpha: backgroundAlpha)
         let offset = (16 * 32 + 16) * 4
         return pixels[offset ..< offset + 4].map(Int.init)
     }
@@ -437,7 +465,9 @@ enum Harness {
         instance: SceneParticleGPUInstance? = nil,
         uniforms: SceneParticleLayerUniforms? = nil,
         ambient: SIMD3<Float>? = nil, hdrEnabled: Bool = false,
-        rejectFirst: SceneParticleRefractionBinding? = nil
+        rejectFirst: SceneParticleRefractionBinding? = nil,
+        clearColor: MTLClearColor = .init(),
+        backgroundAlpha: UInt8 = 255
     ) throws -> [UInt8] {
         guard let pipeline = SceneParticleMetalPipeline(device: device),
               let queue = device.makeCommandQueue(),
@@ -469,7 +499,11 @@ enum Harness {
                     backgroundBytes[offset + 1] = 100
                     backgroundBytes[offset + 2] = 50
                 }
-                backgroundBytes[offset + 3] = 255
+                for channel in 0..<3 {
+                    let sample = Int(backgroundBytes[offset + channel])
+                    backgroundBytes[offset + channel] = UInt8((sample * Int(backgroundAlpha) + 127) / 255)
+                }
+                backgroundBytes[offset + 3] = backgroundAlpha
             }
         }
         background.replace(
@@ -499,7 +533,7 @@ enum Harness {
         let pass = MTLRenderPassDescriptor()
         pass.colorAttachments[0].texture = target
         pass.colorAttachments[0].loadAction = .clear
-        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+        pass.colorAttachments[0].clearColor = clearColor
         pass.colorAttachments[0].storeAction = .store
         guard let encoder = command.makeRenderCommandEncoder(
             descriptor: pass
