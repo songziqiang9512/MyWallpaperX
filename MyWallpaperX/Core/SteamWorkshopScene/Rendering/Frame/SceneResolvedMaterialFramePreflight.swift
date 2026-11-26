@@ -26,8 +26,6 @@ extension SceneMetalRenderer {
 
     func preflightResolvedMaterialFrameTargets(
         imageTextures: SceneBaseImageTextureSnapshot,
-        spriteAnimations: [Int: SceneSpriteAnimation],
-        spriteAnimationPlaybackTimes: [Int: Float],
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:],
         imagePipeline: SceneImageLayerPipeline?,
@@ -511,11 +509,7 @@ extension SceneMetalRenderer {
                 sourceTexture = source.texture
                 sourceCandidate = source.candidate
                 sourceUsesAuthoredLayerColor = source.usesAuthoredLayerColor
-                textureFrame = spriteAnimations[layerID].map {
-                    $0.transform(
-                        at: spriteAnimationPlaybackTimes[layerID] ?? 0
-                    )
-                } ?? .identity
+                textureFrame = source.spriteFrame?.textureFrame ?? .identity
                 capturesMainTarget = false
                 if layer.contentKind == "solid" {
                     // Use the accepted solid target, including the authored

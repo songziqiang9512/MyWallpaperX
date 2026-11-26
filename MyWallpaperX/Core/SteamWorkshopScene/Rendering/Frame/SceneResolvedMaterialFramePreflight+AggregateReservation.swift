@@ -59,6 +59,7 @@ extension SceneMetalRenderer {
                     providerLayer: providerLayer,
                     providerTexture: source?.texture,
                     providerCandidate: source?.candidate,
+                    providerSpriteFrame: source?.spriteFrame,
                     layerMVP: placement.mvp,
                     viewportSize: placement.viewport,
                     preparedOutputExtent: preparedOutputExtent,
@@ -207,6 +208,7 @@ extension SceneMetalRenderer {
                 providerLayer: providerLayer,
                 providerTexture: providerSource?.texture,
                 providerCandidate: providerSource?.candidate,
+                providerSpriteFrame: providerSource?.spriteFrame,
                 layerMVP: placement.mvp,
                 viewportSize: placement.viewport,
                 preparedOutputExtent: preparedGraphOutputExtent(

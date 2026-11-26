@@ -200,7 +200,7 @@ class SceneLayerSourcePassthroughCoverageTests(unittest.TestCase):
             copied.append(str(alpha_source))
             for source in source_paths:
                 target = directory / source.name
-                target.write_text(source.read_text().replace("import Metal\n", ""))
+                target.write_text(source.read_text().replace("import Metal\n", "import CoreGraphics\n"))
                 copied.append(str(target))
             binary = directory / "checks"
             compilation = subprocess.run(

@@ -49,6 +49,7 @@ extension SceneDependencyFrameRuntime {
         providerLayer: SceneRenderDescriptor.Layer,
         providerTexture: MTLTexture?,
         providerCandidate: SceneTextureCandidate?,
+        providerSpriteFrame: SceneBaseImageTextureSample? = nil,
         layerMVP: simd_float4x4,
         viewportSize: CGSize,
         preparedOutputExtent: (width: Int, height: Int)? = nil,
@@ -77,6 +78,7 @@ extension SceneDependencyFrameRuntime {
             providerLayer: providerLayer,
             providerTexture: providerTexture,
             providerCandidate: providerCandidate,
+            providerSpriteFrame: providerSpriteFrame,
             geometryProduct: geometryProduct,
             layerMVP: layerMVP,
             viewportSize: viewportSize,
@@ -191,6 +193,7 @@ extension SceneDependencyFrameRuntime {
         frameEpoch: UInt64,
         sourceTexture: MTLTexture?,
         sourceCandidate: SceneTextureCandidate?,
+        spriteFrame: SceneBaseImageTextureSample?,
         layerMVP: simd_float4x4,
         viewportSize: CGSize,
         failureReason: inout String?
@@ -216,6 +219,7 @@ extension SceneDependencyFrameRuntime {
                 providerLayer: layer,
                 providerTexture: sourceTexture,
                 providerCandidate: sourceCandidate,
+                providerSpriteFrame: spriteFrame,
                 layerMVP: layerMVP,
                 viewportSize: viewportSize,
                 failureReason: &failureReason
@@ -252,6 +256,7 @@ extension SceneDependencyFrameRuntime {
         providerLayer: SceneRenderDescriptor.Layer,
         providerTexture: MTLTexture?,
         providerCandidate: SceneTextureCandidate?,
+        providerSpriteFrame: SceneBaseImageTextureSample? = nil,
         geometryProduct: SceneGeometryProduct? = nil,
         layerMVP: simd_float4x4,
         viewportSize: CGSize,
@@ -279,13 +284,14 @@ extension SceneDependencyFrameRuntime {
                 return nil
             }
             if !usesPreparedGraphOutput,
+               providerCandidate == nil,
+               let spriteFrameExtent = providerSpriteFrame?.spriteFrameExtent {
+                return normalizedExtent(width: Int(spriteFrameExtent.width), height: Int(spriteFrameExtent.height))
+            }
+            if !usesPreparedGraphOutput,
                providerCandidate?.axisAlignedMappedUVScale(
                    expectedPurpose: providerCandidate?.purpose ?? .premultipliedColor
                ) == nil {
-                // Specialized sprite loading intentionally has no Candidate;
-                // its prepared graph source is validated by the original
-                // source capture. Raw capture still needs its exact profile.
-                // Missing that visual metadata is not a forged resource.
                 failureReason = "image-provider-mapping-unavailable"
                 return nil
             }

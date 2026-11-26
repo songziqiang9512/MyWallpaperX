@@ -239,9 +239,11 @@ Utility graph provider 在原 utility 触发点取 source、执行与发布，�
 <a id="independent-named-source"></a>
 ### 独立来源的 named 发布
 
+无效果 Sprite 被读取时，当帧基图从同一播放时间取 UV、采样器和像素范围。预约与原捕获使用这份帧样本，发布局部纹理，隐藏层仍不进入主合成。普通图片和已执行图输出沿各自原来源。无可用帧只丢受影响的输入。验收含两相位、改名、缺源和独立静态对照。
+
 来源是否依赖合成顺序，由它真正读取的内容决定。普通图片、文字、solid 的独立来源与 geometry 沿原捕获器发布；没有成员、没有效果的 composition 在 `copyBackground=false` 时拥有透明空来源。它不读取 enclosing attachment，按需直接清原 reserved named target 并发布，不造空 Program、graph ticket、group target 或第二份纹理。已预约的空来源只消费原 target 尺寸，不因局部画布与主屏投影不同而重算捕获尺寸。solid 消费 candidate 的真实颜色表示，straight RGB 在捕获时关联自身 alpha 后发布 PMA；已有 PMA 不重复关联，并保真实 source texture 与本帧 tint/alpha。不能因 provider 位于 consumer 后面就被 kind 白名单拒绝。effectful provider 仍消费实际 graph 输出，不能以清空或 base texture 冒充材质结果。
 
-这些独立来源可由原 forward prepass 供货，实际顺序点再次遇到时复用原 frame epoch 的已发布 target，不二次捕获。读取 attachment prefix 或成员 subtree 的来源保原取源截点；不能为满足前向引用而挪到全局 prepass、借父组背景或使用上一帧。执行计划使用 utility 展开顺序与原捕获 trigger；cold candidate 的准入仍使用原始 renderOrder，二者的准入差异尚未统一。独立来源的提前准备不改变作者主合成顺序。
+原截点计划决定独立来源的提前或作者位捕获。作者位只消费本帧被请求的来源，停用或隐藏消费者的冷声明不触发捕获。读取 attachment prefix 或成员 subtree 的来源保原取源截点；不能为满足前向引用而挪到全局 prepass、借父组背景或使用上一帧。执行计划使用 utility 展开顺序与原捕获 trigger；cold candidate 的准入仍使用原始 renderOrder，二者的准入差异尚未统一。独立来源的提前准备不改变作者主合成顺序。
 
 缺 source 或普通编码失败只使消费它的 operation 保 previous-current，健康后继继续；错误 epoch、resource、content、extent 与 pin 仍由原发布/资源入口拒绝。验收沿现有依赖计划、composition source 与签名 App 门：前/后置 solid 同像素，资源/ID/槽位改名、真实 alpha/tint、无效果透明来源与彩色 enclosing prefix 可区分，缺源及健康 peer 有正反例。无需求不分配或发布；原作者定向复验只授实际 source→publication→sampler→terminal 链，不外推背景前缀取时或逐资产最终贡献。
 

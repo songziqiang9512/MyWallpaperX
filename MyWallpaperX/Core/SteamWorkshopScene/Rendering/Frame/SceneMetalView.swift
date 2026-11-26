@@ -647,11 +647,21 @@ class SceneMetalView: NSView {
         let dynamicImageSnapshot = dynamicImageTextures?.snapshot(
             topology: layerTopology
         )
+        var spriteFrames: [Int: SceneBaseImageTextureSample] = [:]
+        for (layerID, animation) in spriteAnimations {
+            guard let texture = imageTextures[layerID],
+                  let sampling = specializedBaseTextureSamplings[layerID] else { continue }
+            let transform = animation.transform(at: spriteAnimationPlaybackTimes[layerID] ?? 0)
+            spriteFrames[layerID] = renderer.dependencyRuntime.plan.requiredProviderLayerIDs.contains(layerID)
+                ? .spriteFrame(transform, texture: texture, sampling: sampling)
+                : .init(textureFrame: transform, sampling: sampling)
+        }
         let frameImageTextures = SceneFrameLayerTextureAssembly.make(
             base: imageTextures, dynamicImage: dynamicImageSnapshot,
             dynamicText: dynamicTextSnapshot,
             videoSources: videoSourceRegistry?.layerSources(deviceRegistryID: metalDevice.registryID) ?? [:],
-            retiredLayerIDs: layerTopology.destroyedAuthoredLayerIDs, timing: timing,
+            retiredLayerIDs: layerTopology.destroyedAuthoredLayerIDs, spriteFrames: spriteFrames,
+            timing: timing,
             collectsInitialVideoReadiness: collectsInitialVideoReadiness
         )
         #if DEBUG
@@ -701,8 +711,6 @@ performanceTelemetry?.recordPreparation(
             userPropertyTextures: frameUserTextures.textures,
             userPropertyTextureStates: frameUserTextures.states,
             mediaThumbnail: mediaThumbnail,
-            spriteAnimations: spriteAnimations,
-            spriteAnimationPlaybackTimes: spriteAnimationPlaybackTimes,
             specializedBaseTextureSamplings: specializedBaseTextureSamplings,
             imagePipeline: imagePipeline,
             frameProjection: frameProjection,

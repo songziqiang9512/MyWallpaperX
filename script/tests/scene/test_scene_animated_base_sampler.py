@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-from script.tests.support.source_family import read_source_family
 import subprocess
 import tempfile
 import unittest
@@ -13,50 +12,25 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-SAMPLING_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift"
-LOAD_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad.swift"
-VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
-REQUEST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerDrawRequest.swift"
-RENDERER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
-PREFLIGHT_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
-)
+SAMPLING_SOURCE = SCENE_ROOT / "Resources/Textures/SceneTextureSampling.swift"
+LOAD_SOURCE = SCENE_ROOT / "Resources/Textures/SceneBaseImageTextureLoad.swift"
+FRAME_ROOT = SCENE_ROOT / "Rendering/Frame"
+REQUEST_SOURCE = SCENE_ROOT / "Rendering/Composition/SceneImageLayerDrawRequest.swift"
 
 
 class SceneAnimatedBaseSamplerTests(unittest.TestCase):
-    def test_specialized_sampler_reaches_both_request_builders(self) -> None:
+    def test_specialized_sampler_reaches_draw_and_capture(self) -> None:
         load = LOAD_SOURCE.read_text(encoding="utf-8")
-        view = VIEW_SOURCE.read_text(encoding="utf-8")
+        view = (FRAME_ROOT / "SceneMetalView.swift").read_text(encoding="utf-8")
         request = REQUEST_SOURCE.read_text(encoding="utf-8")
-        renderer = read_source_family(RENDERER_SOURCE)
-        preflight = PREFLIGHT_SOURCE.read_text(encoding="utf-8")
+        renderer = (FRAME_ROOT / "SceneMetalRenderer+ImageLayerEncoding.swift").read_text(encoding="utf-8")
+        preflight = (FRAME_ROOT / "SceneResolvedMaterialFramePreflight.swift").read_text(encoding="utf-8")
+        named = (FRAME_ROOT / "SceneMetalRenderer+DependencyProviders.swift").read_text(encoding="utf-8")
 
-        self.assertIn(
-            "let baseTextureSampling: SceneTextureSampling?", load
-        )
-        self.assertIn(
-            "SceneTextureSampling(texFlags: container.flags)", load
-        )
-        self.assertIn(
-            "var specializedBaseTextureSamplings: [Int: SceneTextureSampling]",
-            view,
-        )
-        self.assertIn(
-            "loadedSpecializedBaseTextureSamplings[layer.id] = sampling",
-            view,
-        )
-        self.assertIn(
-            "specializedBaseTextureSamplings[layerID] = loaded.baseTextureSampling",
-            view,
-        )
-        self.assertIn(
-            "for: baseTextureSampling ?? .linearClamp",
-            request,
-        )
-        self.assertIn(
-            "specializedBaseTextureSamplings: [Int: SceneTextureSampling]",
-            renderer,
-        )
+        self.assertIn("SceneTextureSampling(texFlags: container.flags)", load)
+        self.assertIn("loadedSpecializedBaseTextureSamplings[layer.id] = sampling", view)
+        self.assertIn("specializedBaseTextureSamplings[layerID] = loaded.baseTextureSampling", view)
+        self.assertIn("for: baseTextureSampling ?? .linearClamp", request)
         self.assertIn(
             "baseTextureSampling: specializedBaseTextureSamplings[layer.id]",
             renderer,
@@ -65,6 +39,10 @@ class SceneAnimatedBaseSamplerTests(unittest.TestCase):
             "baseTextureSampling: specializedBaseTextureSamplings[layerID]",
             preflight,
         )
+        self.assertIn("spriteFrames: spriteFrames", view)
+        self.assertIn("textureFrame: baseSource.spriteFrame?.textureFrame", renderer)
+        self.assertIn("textureFrame = source.spriteFrame?.textureFrame", preflight)
+        self.assertIn("spriteFrame: source?.spriteFrame", named)
 
     def test_tex_flags_compile_to_the_shared_sampler_modes(self) -> None:
         harness = r"""

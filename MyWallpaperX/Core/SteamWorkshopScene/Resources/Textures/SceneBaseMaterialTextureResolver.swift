@@ -9,6 +9,7 @@ struct SceneBaseMaterialTextureSource {
     let usesUserPropertyProvider: Bool
     let usesAuthoredLayerColor: Bool
     let rejectedProviderReason: String?
+    var spriteFrame: SceneBaseImageTextureSample? = nil
 }
 
 enum SceneBaseMaterialTextureResolution {
@@ -137,7 +138,8 @@ extension SceneMetalRenderer {
                     usesSystemProvider: false,
                     usesUserPropertyProvider: false,
                     usesAuthoredLayerColor: true,
-                    rejectedProviderReason: nil
+                    rejectedProviderReason: nil,
+                    spriteFrame: imageTextures.spriteFrames[layer.id]
                 )
             )
         }
@@ -217,7 +219,8 @@ extension SceneMetalRenderer {
         return .source(.init(texture: texture, candidate: candidate,
             usesSystemProvider: false, usesUserPropertyProvider: false,
             usesAuthoredLayerColor: usesAuthoredLayerColor,
-            rejectedProviderReason: rejectedProviderReason))
+            rejectedProviderReason: rejectedProviderReason,
+            spriteFrame: candidate == nil ? imageTextures.spriteFrames[layer.id] : nil))
     }
 
     func baseMaterialTextureSource(

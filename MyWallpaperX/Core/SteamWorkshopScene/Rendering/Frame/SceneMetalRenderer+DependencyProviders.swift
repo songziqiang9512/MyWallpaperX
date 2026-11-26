@@ -246,11 +246,13 @@ extension SceneMetalRenderer {
             : CGSize(width: mainPass.targetExtent.width, height: mainPass.targetExtent.height)
         if preparesCapacityOnly {
             return dependencyRuntime.prepareCaptureCapacity(layer: layer, sourceTexture: source?.texture,
-                sourceCandidate: source?.candidate, layerMVP: mvp, viewportSize: captureSize,
+                sourceCandidate: source?.candidate, spriteFrame: source?.spriteFrame,
+                layerMVP: mvp, viewportSize: captureSize,
                 textureRegistry: textureRegistry) ? nil : .unavailable(reasonCode: "named-provider-capacity-unavailable")
         }
         return dependencyRuntime.captureProviderIfRequired(layer: layer, sourceTexture: source?.texture,
-            sourceCandidate: source?.candidate, usesAuthoredLayerColor: source?.usesAuthoredLayerColor ?? true,
+            sourceCandidate: source?.candidate, spriteFrame: source?.spriteFrame,
+            usesAuthoredLayerColor: source?.usesAuthoredLayerColor ?? true,
             providerAlpha: Float(SceneDynamicLayerValues.alpha(layerID: layer.id,
                 authoredValue: layer.alpha, snapshot: frameContext.dynamicValues)),
             providerColor: SceneDynamicLayerValues.color(layerID: layer.id,

@@ -178,12 +178,9 @@ extension SceneMetalRenderer {
         preparationSchedule: SceneDependencyRenderPlan.PreparationSchedule,
         frameVisibleLayerIDs: Set<Int>,
         omittedPrivateLayerIDs: Set<Int>,
-        activeStaticModelNamedAlbedoLayerIDs: Set<Int>,
         imageTextures: SceneBaseImageTextureSnapshot,
         imagePipeline: SceneImageLayerPipeline?,
         specializedBaseTextureSamplings: [Int: SceneTextureSampling],
-        spriteAnimations: [Int: SceneSpriteAnimation],
-        spriteAnimationPlaybackTimes: [Int: Float],
         resolvedMaterialFrameTargetPlans: [Int: SceneResolvedMaterialFrameTargetPlan],
         frameContext: SceneFrameContext,
         frameWorldFrames: [Int: simd_float4x4],
@@ -368,11 +365,7 @@ extension SceneMetalRenderer {
                 }
                 continue
             }
-            if !reusesForwardOutput, let imagePipeline, dependencyRuntime.requiresCapture(
-                for: layer.id,
-                activeStaticModelConsumerLayerIDs:
-                    activeStaticModelNamedAlbedoLayerIDs
-            ) {
+            if let imagePipeline, preparationSchedule.authoredRawProviderLayerIDs.contains(layer.id) {
                 let captureResult = captureRawDependencyProvider(layer: layer, source: baseSource,
                     imageTextures: imageTextures, imagePipeline: imagePipeline, frameContext: frameContext,
                     worldFrames: frameWorldFrames, cameraFrame: cameraFrame,
@@ -476,8 +469,6 @@ extension SceneMetalRenderer {
                         imageTextures: imageTextures,
                         imagePipeline: imagePipeline,
                         specializedBaseTextureSamplings: specializedBaseTextureSamplings,
-                        spriteAnimations: spriteAnimations,
-                        spriteAnimationPlaybackTimes: spriteAnimationPlaybackTimes,
                         resolvedMaterialFrameTargetPlans: resolvedMaterialFrameTargetPlans,
                         frameContext: frameContext,
                         frameWorldFrames: frameWorldFrames,

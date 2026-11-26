@@ -197,6 +197,7 @@ struct SceneLayerSourcePublication {
 }
 struct SceneFrameTiming {}
 enum SceneOrdinaryVideoFrameReadiness { case unavailable }
+struct SceneBaseImageTextureSample {}
 struct SceneDynamicImageTextureProviderSnapshot {
     let layerSources: [Int: SceneLayerSourcePublication]
     let pendingLayerSourceIDs: Set<Int>
@@ -209,8 +210,10 @@ struct SceneBaseImageTextureSnapshot {
 struct SceneBaseImageTextureStore {
     let textures: [Int: MTLTexture] = [:]
     let unavailableOrdinaryVideoLayerIDs: Set<Int> = []
+    subscript(layerID: Int) -> MTLTexture? { textures[layerID] }
     func snapshot(textures: [Int: MTLTexture], explicitLayerSources: [Int: SceneTextureProviderPublication],
-        layerSourcePublications: [Int: SceneLayerSourcePublication], pendingLayerSourceIDs: Set<Int>,
+        layerSourcePublications: [Int: SceneLayerSourcePublication],
+        spriteFrames: [Int: SceneBaseImageTextureSample], pendingLayerSourceIDs: Set<Int>,
         initialVideoReadiness: [Int: SceneOrdinaryVideoFrameReadiness]?) -> SceneBaseImageTextureSnapshot {
         .init(textures: textures, layerSourcePublications: layerSourcePublications)
     }

@@ -14,6 +14,7 @@ struct SceneBaseImageTextureSnapshot {
     let textures: [Int: MTLTexture]
     let geometryProducts: [Int: SceneGeometryProduct]
     let explicitLayerSources: [Int: SceneTextureProviderPublication]
+    let spriteFrames: [Int: SceneBaseImageTextureSample]
     private let layerSourcePublications: [Int: SceneLayerSourcePublication]
     private let candidates: [Int: SceneTextureCandidate]
     private let pendingLayerSourceIDs: Set<Int>
@@ -25,6 +26,7 @@ struct SceneBaseImageTextureSnapshot {
         explicitLayerSources: [Int: SceneTextureProviderPublication] = [:],
         layerSourcePublications: [Int: SceneLayerSourcePublication] = [:],
         candidates: [Int: SceneTextureCandidate],
+        spriteFrames: [Int: SceneBaseImageTextureSample] = [:],
         pendingLayerSourceIDs: Set<Int> = [],
         initialVideoReadiness: [Int: SceneOrdinaryVideoFrameReadiness]? = nil
     ) {
@@ -73,6 +75,7 @@ struct SceneBaseImageTextureSnapshot {
             validatedCandidates[layerID] = layerSource.publication.candidate
         }
         self.candidates = validatedCandidates
+        self.spriteFrames = spriteFrames
         self.pendingLayerSourceIDs = pendingLayerSourceIDs.subtracting(
             validatedLayerSources.keys
         )
@@ -98,6 +101,7 @@ struct SceneBaseImageTextureSnapshot {
             geometryProducts: geometryProducts.filter { sources[$0.key] == nil },
             explicitLayerSources: explicitLayerSources,
             layerSourcePublications: replacedPublications, candidates: candidates,
+            spriteFrames: spriteFrames.filter { sources[$0.key] == nil },
             pendingLayerSourceIDs: pendingLayerSourceIDs,
             initialVideoReadiness: initialVideoReadiness)
     }
@@ -248,6 +252,7 @@ struct SceneBaseImageTextureStore {
         textures: [Int: MTLTexture],
         explicitLayerSources: [Int: SceneTextureProviderPublication] = [:],
         layerSourcePublications: [Int: SceneLayerSourcePublication] = [:],
+        spriteFrames: [Int: SceneBaseImageTextureSample] = [:],
         pendingLayerSourceIDs: Set<Int> = [],
         initialVideoReadiness: [Int: SceneOrdinaryVideoFrameReadiness]? = nil
     ) -> SceneBaseImageTextureSnapshot {
@@ -267,6 +272,7 @@ struct SceneBaseImageTextureStore {
             explicitLayerSources: combinedPublications,
             layerSourcePublications: combinedLayerSources,
             candidates: candidates,
+            spriteFrames: spriteFrames,
             pendingLayerSourceIDs: pendingLayerSourceIDs,
             initialVideoReadiness: initialVideoReadiness
         )

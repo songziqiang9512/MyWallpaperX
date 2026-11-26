@@ -4,7 +4,7 @@
 
 本页维护未闭问题、输入定位和下一步。按画面合成/正常播放、可证性能成本、属性接线、工具资格排序。架构归[当前主链](../architecture/runtime-architecture.md)，领域合同归[能力入口](../capabilities/README.md)，冻结身份与覆盖范围归[运行证据](../capabilities/runtime-evidence-current.md)。
 
-11-26 实库986件，124个新ID以 `3302e6d0` 默认跑4秒，123件有匹配GPU终帧、124件排空。串行确认4个产品断点与1个分母误报。已复核124件project/pkg/tree全同，无新增待跑。索引归 `.artifacts/scene-author-intake-20261126/`；11-24的340件和11-25的3件归 `.artifacts/scene-new-author-intake-20261124/`、`.artifacts/scene-evidence/runs/scene-author-intake-delta-20261125/`。
+11-26 实库986件，124个新ID以 `3302e6d0` 默认跑4秒，123件有匹配GPU终帧、124件排空。串行确认4个产品断点与1个分母误报。3258021301的[动画缺图已修复](../capabilities/runtime-evidence-current.md#hidden-sprite-named-3258021301)。已复核124件project/pkg/tree全同，无新增待跑。索引归 `.artifacts/scene-author-intake-20261126/`；11-24的340件和11-25的3件归 `.artifacts/scene-new-author-intake-20261124/`、`.artifacts/scene-evidence/runs/scene-author-intake-delta-20261125/`。
 
 11-24 的31项观察按首个可见断点复核。接续先对照页尾[已修复的用户反馈](#resolved-user-feedback)及[运行证据](../capabilities/runtime-evidence-current.md)。优先处理可复现的播放阻断、画面及交互差异，沿各行停止线推进。11-07补报13项中8项实跑、5项仅有census，定位与图1–5归`.artifacts/scene-user-feedback-20261107/`。
 
@@ -15,7 +15,6 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| 隐藏动画图具名供货 · 3258021301 | 211/e1持续读不到208。208无effect，默认隐藏，41帧TEX已载入；专用动画链未给原named捕获需要的当前帧映射。沿原sprite选帧和纹理映射供货，保静态反例、帧相位和211实际合成。 |
 | Sphere 全零方向的出生可见性（待证） | [固定零半径初速](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)已恢复。显式全零 Directions 的隔离 Sprite 官版无像素、本机有静点。现库860可读包及松散/库存的1,834个显式声明未见全零。重启须活动输入或子事件/占槽证据区分出生与可见性，保零速度和非零轴。 |
 | 音频环形变 · 3612940332 | [分组末段缓释](../capabilities/runtime-evidence-current.md#author-spectrum-near-target-release)已恢复已测音乐左弧的主要形变。[1512×818 全环静态](../capabilities/runtime-evidence-current.md#author-ring-wide-fixed-361)同帧线宽与轮廓一致，无需复跑。原包人物/Bloom下动态右弧、小残差及其他画幅待有新可见证据再核。[44.1kHz](../capabilities/runtime-evidence-current.md#author-spectrum-endpoint-44100)需实际协商端点，当前复核仍48kHz。 |
 | 粒子外圈 · 3653620838 | [近轴与像素相位](../capabilities/runtime-evidence-current.md#vortex-outer-pixel-phase-365)的静卡一致。继续须运动同亚像素或重复成熟群组，区分出光与覆盖。 |

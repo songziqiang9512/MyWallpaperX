@@ -9,7 +9,7 @@ enum SceneTextureLoadOutcome {
 }
 
 struct SceneGeometryProduct {
-    func installing(resourceGeneration: UInt64) -> Self { fatalError("geometry outside this resource gate") }
+    func installing(resourceGeneration: UInt64, samplingTexture: MTLTexture) -> Self { fatalError("geometry outside this resource gate") }
     func matchesInstalledSource(layerID: Int, texture: MTLTexture) -> Bool { fatalError("geometry outside gate") }
 }
 struct SceneRenderDescriptor { struct Layer { let id: Int; var contentKind = "image" } }

@@ -125,12 +125,12 @@
       "bytes": 76226
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 463,
-      "bytes": 91489
+      "lines": 465,
+      "bytes": 91858
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 599,
-      "bytes": 354137
+      "lines": 600,
+      "bytes": 354864
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 242,
-      "bytes": 68044
+      "lines": 241,
+      "bytes": 67881
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -460,11 +460,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "feb74fd563a26e329e0553f977b90ef053e243072ca1936ef39db41c9b36c70b",
-      "after": "9155de844af11689d0a57c5255866c754ccc5642fa63b9039d20c3f1bbd47425",
-      "owner": "Scene material coverage and compositing",
-      "reason": "记录透明图链终端合同、HDR覆盖反例及两场同条件实测。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#zero-alpha-private-graph"
+      "before": "3a77645aefd3de9f91191b89f4456094f98beba3c8ea740a960c555a486618dd",
+      "after": "8f4d2c4fac631efb851f0c4f705e3848b866c014f3ff76245141656865eaa694",
+      "owner": "Scene",
+      "reason": "保留动画来源的选帧与按需捕获合同，补足预约和实际绘制之间的接线",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#independent-named-source"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9f1b758ad28c36aa4e3d1b1273db33eb79d2b96d25f6ba2b5a9808e19cd5bcd7",
-      "after": "f930af35bd3370ff72f1fceca5a3931ad60eb9a53de7747bedf4f752db159910",
+      "before": "f930af35bd3370ff72f1fceca5a3931ad60eb9a53de7747bedf4f752db159910",
+      "after": "2edbb5fd2e7713076c964e57328421faa75e52396f821a55882518280d472d8f",
       "owner": "Scene",
-      "reason": "保留首次真实作者玻璃合成、同输入官版色标与验证范围",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#material-annotation-keys-3833869818"
+      "reason": "保留隐藏动画首帧恢复、实际播放和无读者对照",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#hidden-sprite-named-3258021301"
     },
     {
       "section": "bodies",

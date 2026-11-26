@@ -12,8 +12,6 @@ extension SceneMetalRenderer {
         imageTextures: SceneBaseImageTextureSnapshot,
         imagePipeline: SceneImageLayerPipeline,
         specializedBaseTextureSamplings: [Int: SceneTextureSampling],
-        spriteAnimations: [Int: SceneSpriteAnimation],
-        spriteAnimationPlaybackTimes: [Int: Float],
         resolvedMaterialFrameTargetPlans: [Int: SceneResolvedMaterialFrameTargetPlan],
         frameContext: SceneFrameContext,
         frameWorldFrames: [Int: simd_float4x4],
@@ -104,11 +102,7 @@ extension SceneMetalRenderer {
             baseTextureCandidate: baseSource.candidate,
             baseTextureSampling: specializedBaseTextureSamplings[layer.id],
             masks: .empty,
-            textureFrame: spriteAnimations[layer.id].map {
-                $0.transform(
-                    at: spriteAnimationPlaybackTimes[layer.id] ?? 0
-                )
-            } ?? .identity,
+            textureFrame: baseSource.spriteFrame?.textureFrame ?? .identity,
             mvp: mvp,
             uniforms: SceneImageLayerUniformValues(
                 time: time,
@@ -175,6 +169,7 @@ extension SceneMetalRenderer {
                         layer: layer,
                         sourceTexture: fallbackTexture,
                         sourceCandidate: baseSource.candidate,
+                        spriteFrame: baseSource.spriteFrame,
                         usesAuthoredLayerColor:
                             baseSource.usesAuthoredLayerColor,
                         layerMVP: mvp,

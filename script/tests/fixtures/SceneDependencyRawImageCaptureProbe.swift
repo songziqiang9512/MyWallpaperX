@@ -150,6 +150,89 @@ extension AtlasNamedProbe {
             "completed": finished && cb.status == .completed && cb.error == nil]
     }
 
+    static func hiddenSpriteFrames(_ device: MTLDevice) -> [[String: Any]] {
+        let queue = device.makeCommandQueue()!, pipeline = SceneImageLayerPipeline(device: device)!
+        let atlas = texture(device, 4, 2)
+        let red: [UInt8] = [16, 8, 112, 128]
+        let darkRed: [UInt8] = [0, 12, 56, 128]
+        let green: [UInt8] = [0, 100, 20, 128]
+        let darkGreen: [UInt8] = [8, 44, 0, 128]
+        let atlasBytes = [red, red, green, green, darkRed, darkRed, darkGreen, darkGreen].flatMap { $0 }
+        atlasBytes.withUnsafeBytes { atlas.replace(region: MTLRegionMake2D(0, 0, 4, 2),
+            mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 16) }
+        let staticCandidate = rawCaptureCandidate(atlas, straight: false)
+        let left = SceneTextureUVTransform(origin: .zero, xAxis: SIMD2(0.5, 0), yAxis: SIMD2(0, 1))
+        let flippedRight = SceneTextureUVTransform(origin: SIMD2(0.5, 1),
+            xAxis: SIMD2(0.5, 0), yAxis: SIMD2(0, -1))
+        let outOfBounds = SceneTextureUVTransform(origin: SIMD2(0.75, 0),
+            xAxis: SIMD2(0.5, 0), yAxis: SIMD2(0, 1))
+        let sampling = SceneTextureSampling(texFlags: 7)
+        let frames: [(sample: SceneBaseImageTextureSample?, candidate: SceneTextureCandidate?, expected: [UInt8])] = [
+            (.spriteFrame(left, texture: atlas, sampling: sampling), nil, red + red + darkRed + darkRed),
+            (.spriteFrame(flippedRight, texture: atlas, sampling: sampling), nil, darkGreen + darkGreen + green + green),
+            (nil, nil, []),
+            (.spriteFrame(outOfBounds, texture: atlas, sampling: sampling), nil, []),
+            (nil, staticCandidate, atlasBytes),
+        ]
+        let pma: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
+        var rows: [[String: Any]] = []
+        for (providerID, effectID) in [(700, "sprite-probe"), (963, "renamed-provider")] {
+            let provider = SceneRenderDescriptor.Layer(id: providerID, contentKind: "image",
+                utilityLayer: nil, alpha: 1, colorRGB: [1, 1, 1])
+            let bindings = [1, 2].map { slot in
+                SceneDependencyRenderPlan.Binding(consumerLayerID: providerID + slot,
+                    providerLayerID: providerID, slot: .init(effectID: effectID, passIndex: 0, slotIndex: slot),
+                    blendMode: 0, kind: .imageLayerBlend, requiresForwardCapture: true,
+                    requiresResolvedMaterialProgram: true)
+            }
+            let runtime = SceneDependencyFrameRuntime(descriptor: .init(layers: [provider],
+                bindings: Dictionary(uniqueKeysWithValues: bindings.map { ($0.consumerLayerID, $0) }),
+                graphOutputProviderLayerIDs: []), visibleLayerIDs: Set(bindings.map(\.consumerLayerID)),
+                executableUtilityConsumerLayerIDs: [], device: device)
+            let registry = SceneFrameTextureRegistry()
+            let reference = SceneNamedTextureReference(providerLayerID: providerID, variant: .primary)
+            let viewport = CGSize(width: 8, height: 6), enclosing = texture(device, 8, 6)
+            for (index, frame) in frames.enumerated() {
+                let epoch = registry.beginFrame(frameIndex: UInt64(index + 1), layerSources: [:])
+                let before = registry.completeNamedLayerTargetResource(reference: reference, frameEpoch: epoch)
+                let commandBuffer = queue.makeCommandBuffer()!
+                let main = SceneMainPassEncoder(commandBuffer: commandBuffer, target: enclosing,
+                    clearColor: MTLClearColorMake(0, 0, 0, 0), clearEnabled: true)
+                var reasons: [String] = []
+                let prepared = bindings.compactMap { binding in
+                    var reason: String?
+                    let input = runtime.reserveEffectInput(for: binding, providerLayer: provider,
+                        providerTexture: atlas, providerCandidate: frame.candidate, providerSpriteFrame: frame.sample,
+                        layerMVP: matrix_identity_float4x4, viewportSize: viewport, frameEpoch: epoch, failureReason: &reason)
+                    if let reason { reasons.append(reason) }
+                    return input
+                }
+                let published = runtime.captureProviderIfRequired(layer: provider, sourceTexture: atlas,
+                    sourceCandidate: frame.candidate, spriteFrame: frame.sample, layerMVP: matrix_identity_float4x4,
+                    viewportSize: viewport, pipeline: pipeline, textureRegistry: registry, mainPass: main)
+                let actual = bindings.compactMap { runtime.effectInput(for: $0.consumerLayerID, textureRegistry: registry) }
+                let atom = registry.completeNamedLayerTargetResource(reference: reference, frameEpoch: epoch)
+                let copied = actual.first.map { readback(device, $0.texture, commandBuffer) }
+                let finished = main.finishEnsuringClear()
+                commandBuffer.commit(); commandBuffer.waitUntilCompleted(); registry.commitFramePublication()
+                rows.append(["provider": providerID, "phase": index,
+                    "beforeUnpublished": before == nil, "afterPublished": atom != nil,
+                    "published": status(published), "reservationReasons": reasons,
+                    "targetExtent": copied.map { [$0.width, $0.height] } ?? [],
+                    "preparedMatchesReady": prepared.count == 2 && actual.count == 2
+                        && zip(prepared, actual).allSatisfy { samePreparedIdentity($0.0, $0.1) && $0.0.content == pma && $0.1.content == pma },
+                    "sharedDistinctTarget": actual.count == 2 && actual[0].texture === actual[1].texture
+                        && actual[0].texture !== atlas && atom?.publication.texture === actual[0].texture,
+                    "publicationIsPMA": atom?.publication.candidate.content == pma,
+                    "consumerCount": actual.count, "sourceUnchanged": read(atlas) == atlasBytes,
+                    "mainRemainsClear": read(enclosing).allSatisfy { $0 == 0 },
+                    "pixels": copied.map(read) ?? [], "expected": frame.expected,
+                    "completed": finished && commandBuffer.status == .completed && commandBuffer.error == nil])
+            }
+        }
+        return rows
+    }
+
     static func emptyUtilityNamedSource(_ device: MTLDevice) -> [String: Any] {
         let queue = device.makeCommandQueue()!, pipeline = SceneImageLayerPipeline(device: device)!
         let provider = SceneRenderDescriptor.Layer(id: 900, contentKind: "composition",

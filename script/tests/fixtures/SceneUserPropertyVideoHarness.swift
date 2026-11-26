@@ -9,9 +9,11 @@ import simd
 struct SceneBaseImageTextureStore {
     let textures: [Int: MTLTexture] = [:]
     let unavailableOrdinaryVideoLayerIDs: Set<Int> = []
+    subscript(layerID: Int) -> MTLTexture? { textures[layerID] }
     func snapshot(textures: [Int: MTLTexture],
                   explicitLayerSources: [Int: SceneTextureProviderPublication],
                   layerSourcePublications: [Int: SceneLayerSourcePublication],
+                  spriteFrames: [Int: SceneBaseImageTextureSample],
                   pendingLayerSourceIDs: Set<Int>,
                   initialVideoReadiness: [Int: SceneOrdinaryVideoFrameReadiness]? = nil) -> SceneBaseImageTextureSnapshot {
         fatalError("unrelated layer assembly executed")

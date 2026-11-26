@@ -234,11 +234,12 @@ final class SceneDependencyFrameRuntime {
     /// so their original capture remains at its authored position.
     func prepareCaptureCapacity(
         layer: SceneRenderDescriptor.Layer, sourceTexture: MTLTexture?,
-        sourceCandidate: SceneTextureCandidate?, layerMVP: simd_float4x4,
+        sourceCandidate: SceneTextureCandidate?, spriteFrame: SceneBaseImageTextureSample? = nil,
+        layerMVP: simd_float4x4,
         viewportSize: CGSize, textureRegistry: SceneFrameTextureRegistry
     ) -> Bool {
         switch captureTarget(layer: layer, sourceTexture: sourceTexture,
-            sourceCandidate: sourceCandidate, layerMVP: layerMVP,
+            sourceCandidate: sourceCandidate, spriteFrame: spriteFrame, layerMVP: layerMVP,
             viewportSize: viewportSize, textureRegistry: textureRegistry) {
         case .target, .finished(.published): return true
         case .finished: return false
@@ -247,7 +248,8 @@ final class SceneDependencyFrameRuntime {
 
     private func captureTarget(
         layer: SceneRenderDescriptor.Layer, sourceTexture: MTLTexture?,
-        sourceCandidate: SceneTextureCandidate?, layerMVP: simd_float4x4,
+        sourceCandidate: SceneTextureCandidate?, spriteFrame: SceneBaseImageTextureSample?,
+        layerMVP: simd_float4x4,
         viewportSize: CGSize, textureRegistry: SceneFrameTextureRegistry
     ) -> CaptureTarget {
         let frameEpoch = textureRegistry.frameEpoch
@@ -276,6 +278,7 @@ final class SceneDependencyFrameRuntime {
             frameEpoch: frameEpoch,
             sourceTexture: sourceTexture,
             sourceCandidate: sourceCandidate,
+            spriteFrame: spriteFrame,
             layerMVP: layerMVP,
             viewportSize: viewportSize,
             failureReason: &captureFailureReason
@@ -369,6 +372,7 @@ final class SceneDependencyFrameRuntime {
         layer: SceneRenderDescriptor.Layer,
         sourceTexture: MTLTexture?,
         sourceCandidate: SceneTextureCandidate?,
+        spriteFrame: SceneBaseImageTextureSample? = nil,
         usesAuthoredLayerColor: Bool = true,
         providerAlpha: Float? = nil,
         providerColor: SIMD3<Float>? = nil,
@@ -407,7 +411,7 @@ final class SceneDependencyFrameRuntime {
 #endif
         let target: MTLTexture
         switch captureTarget(layer: layer, sourceTexture: sourceTexture,
-            sourceCandidate: sourceCandidate, layerMVP: layerMVP,
+            sourceCandidate: sourceCandidate, spriteFrame: spriteFrame, layerMVP: layerMVP,
             viewportSize: viewportSize, textureRegistry: textureRegistry) {
         case let .target(value): target = value
         case let .finished(result):
@@ -423,32 +427,35 @@ final class SceneDependencyFrameRuntime {
         var capturedContent: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
         switch binding?.kind {
         case .imageLayerBlend, .visibleImageGraphOutput:
-            guard let sourceTexture, let sourceCandidate else {
+            guard let sourceTexture else {
                 captureTelemetry.recordFailure(layerID: layer.id)
                 return .unavailable(reasonCode: "image-provider-source-unavailable")
             }
-            guard sourceCandidate.texture === sourceTexture else {
-                captureTelemetry.recordFailure(layerID: layer.id)
-                return .invalid(reasonCode: "image-provider-source-identity-invalid")
-            }
-            guard Self.isExactImageProviderCandidate(
-                sourceCandidate,
-                matching: sourceTexture
-            ) else {
-                // Unresolved content/sampling or a wrong-purpose candidate
-                // means no exact provider atom exists yet. Keep the ordinary
-                // local radius for that pending state.
+            let sample: SceneBaseImageTextureSample
+            if let sourceCandidate {
+                guard sourceCandidate.texture === sourceTexture else {
+                    captureTelemetry.recordFailure(layerID: layer.id)
+                    return .invalid(reasonCode: "image-provider-source-identity-invalid")
+                }
+                guard Self.isExactImageProviderCandidate(sourceCandidate, matching: sourceTexture) else {
+                    captureTelemetry.recordFailure(layerID: layer.id)
+                    return .unavailable(reasonCode: "image-provider-source-unavailable")
+                }
+                capturedContent = Self.rawImageCaptureContent(sourceCandidate.content)
+                sample = .init(textureFrame: sourceCandidate.uvTransform, sampling: sourceCandidate.sampling)
+            } else if let spriteFrame, spriteFrame.spriteFrameExtent != nil {
+                sample = spriteFrame
+            } else {
                 captureTelemetry.recordFailure(layerID: layer.id)
                 return .unavailable(reasonCode: "image-provider-source-unavailable")
             }
-            capturedContent = Self.rawImageCaptureContent(sourceCandidate.content)
             let isStraight = capturedContent == .color(.resolved(.straightAlpha))
             encoded = mainPass.encodeOffscreen { commandBuffer in
                 var uniforms = SceneLayerFragmentUniforms.neutral()
-                uniforms.textureFrame0 = sourceCandidate.uvTransform.uniform0
-                uniforms.textureFrame1 = sourceCandidate.uvTransform.uniform1
+                uniforms.textureFrame0 = sample.textureFrame.uniform0
+                uniforms.textureFrame1 = sample.textureFrame.uniform1
                 uniforms.sourceSampling = SIMD2(
-                    sourceCandidate.sampling.applying(
+                    sample.sampling.applying(
                         clampUVs: layer.clampUVs,
                         noInterpolation: layer.noInterpolation
                     ).imageLayerUniformMode,
@@ -655,6 +662,7 @@ final class SceneDependencyFrameRuntime {
         layer: SceneRenderDescriptor.Layer,
         sourceTexture: MTLTexture?,
         sourceCandidate: SceneTextureCandidate?,
+        spriteFrame: SceneBaseImageTextureSample? = nil,
         usesAuthoredLayerColor: Bool = true,
         layerMVP: simd_float4x4,
         viewportSize: CGSize,
@@ -673,6 +681,7 @@ final class SceneDependencyFrameRuntime {
             layer: layer,
             sourceTexture: sourceTexture,
             sourceCandidate: sourceCandidate,
+            spriteFrame: spriteFrame,
             usesAuthoredLayerColor: usesAuthoredLayerColor,
             layerMVP: layerMVP,
             viewportSize: viewportSize,
