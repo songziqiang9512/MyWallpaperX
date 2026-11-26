@@ -25,6 +25,7 @@ extension SceneMetalRenderer {
         stockNoiseTextures: SceneStockNoiseTextureStore = .empty,
         staticModelResources: ScenePreparedStaticModelResources = .empty,
         allowsProjectedSpotVolume: Bool = true,
+        allowsSceneReflection: Bool = true,
         hasDynamicBloom: Bool = false,
         instantiatedSceneScriptTargets: Set<SceneDynamicTarget> = [],
         scriptSourceEvidence: [SceneScriptSourceEvidenceIR] = [],
@@ -57,6 +58,7 @@ extension SceneMetalRenderer {
         self.baseMaterialProviderBindings = baseMaterialProviderBindings
         self.stockNoiseTextures = stockNoiseTextures
         self.staticModelResources = staticModelResources
+        self.allowsSceneReflection = allowsSceneReflection
         let rasterSampleCount = staticModelResources.pipeline?.rasterSampleCount ?? 1
         self.multisampleTargets = rasterSampleCount > 1 ? MainMultisampleTargets(sampleCount: rasterSampleCount) : nil
         self.pipelineRepository = pipelineRepository

@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1dc722636e96ae6a76ae976b0e4a683fa754fd3364990f0cc6fe6c45faac169e",
+        "sourceSHA256": "59f25584d36369ccdddd67a400ea511bb47c049cf2809bffbcfa15ddfc4531fb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "帧驱动与 QuickJS 定时器入口",
-        "limitations": "只复核 Scene 帧率段。"
+        "scope": "反射关档黑纹理的 typed publication 入口",
+        "limitations": "只复核反射 owner 与源码导航。"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5794a216a4b760697b74ddd892035aed7d981742a86fa8fa4f40d6655b2c44ea",
+        "sourceSHA256": "d55168b8bf0feb073018fe83b4480b89441054151e6baef0c94da25e209c1a0a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "MetalFX 与局部作者效果的适用档位及带宽画面门",
-        "limitations": "M4 只测描述符和实际所需 usage；当前未开放缩放档。"
+        "scope": "关档作者环境不透明黑、原池预算及实际验收",
+        "limitations": "固定官版具名窗及 M4 签名 App，不授其它目标、显示或功耗资格。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7c8943b941fce8896dd42f6f1ab80a9f8284aa60f97de8886c7c2fcd13508c1c",
+        "sourceSHA256": "144b0102c03e8608293da7176e6cdede8206e5ad3f9f8d161f3955975909ac9e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "固定比例的任务排序与保真默认",
-        "limitations": "只复核 Q3 路线与现役样本证据入口。"
+        "scope": "官方反射语义适配及受控、作者邻例验收",
+        "limitations": "只复核反射执行段。"
       }
     },
     {
@@ -868,13 +868,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene 当前架构与源码地图",
-      "lastReviewed": "2026-11-25",
+      "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9a4c4f1f6d89a21014c0c9f3c46f9487ef5fd7b919df21261f6e4bd1ecda9131",
+        "sourceSHA256": "9e70cf9f2cf5670dd009153cd81c5372b9fe99f200f60006b5861dc5cb6601cb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene 帧率合同的实际验证链接",
-        "limitations": "验证结果不改变其他播放架构。"
+        "scope": "反射供货、资源优先级及原持久颜色",
+        "limitations": "只复核场景反射运行合同。"
       }
     },
     {
@@ -1003,10 +1003,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "19a6afa318e567ef80c09f45f23bd2d3bc985ba8551f7ffa752108d964fbe658",
+        "sourceSHA256": "41e5b5aff59d0da5411ca335a75bb916b35691525ba8a8c87d44dd8c4274b08e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "官版 2.8.0.42 具名窗口反射开关与恢复",
-        "limitations": "未验证桌面热继承、物理 mip 数或实际历史年龄。"
+        "scope": "签名 M4 反射关档、LOD alpha、HDR 持久 raw 及真实邻例",
+        "limitations": "实窗与本机工作计数，未量整机能耗。"
       }
     },
     {

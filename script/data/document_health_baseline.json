@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 20557
+      "bytes": 20747
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 598,
-      "bytes": 152229
+      "lines": 600,
+      "bytes": 153021
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 138675
+      "bytes": 138764
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -94,7 +94,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 292,
-      "bytes": 59448
+      "bytes": 59672
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -138,7 +138,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 327674
+      "bytes": 328713
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -369,20 +369,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "aed9b80221cdbff5d8e855314e886449f8567bbbf6d0dfe9bdb7b48be04fc2e1",
-      "after": "faaa28b23610b78386410c5549724ae728db8defc33561900719ef5027c3b55f",
-      "owner": "Scene 运行架构",
-      "reason": "关联同几何改变保持原 Surface 和帧驱动的真机证据。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-live-refresh-proof"
+      "before": "faaa28b23610b78386410c5549724ae728db8defc33561900719ef5027c3b55f",
+      "after": "59f15193e62e616d7c63d5738bf9ae06bbb67bdcf2ca1b5ad91c269eae2eb031",
+      "owner": "scene-runtime",
+      "reason": "反射供货、资源优先级及原持久颜色",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-quality"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "9bf6c43b605643affea76e82091f01392ed2cf00cfb5d1c27ea0527a2b0ca5de",
-      "after": "eef5d21286bf671a9c7ce6b347fcffd44c40d07f8b12b74c44bbf233026d511f",
+      "before": "eef5d21286bf671a9c7ce6b347fcffd44c40d07f8b12b74c44bbf233026d511f",
+      "after": "89cfd7490d0b39c2018e7849a33b19aff96981e0b8ce29ae13dc6a20653c5b3b",
       "owner": "scene-runtime",
-      "reason": "帧驱动与 QuickJS 定时器入口",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-script-interval-phase"
+      "reason": "反射关档黑纹理的 typed publication 入口",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-quality"
     },
     {
       "section": "bodies",
@@ -603,11 +603,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "db3a66f4d51c74141fb9d448bbb312fce6dfc496855369bd705f796ddb2bec49",
-      "after": "22ac78fe9b56a3862d1b080e3b3d1a7cc0d5a035d3510c751c38128c71e1192e",
+      "before": "22ac78fe9b56a3862d1b080e3b3d1a7cc0d5a035d3510c751c38128c71e1192e",
+      "after": "6c1fbe8f16cf61133e42f0708c7e52277610430d84df936cdeef1d043e9de896",
       "owner": "scene-runtime",
-      "reason": "官版 2.8.0.42 具名窗口反射开关与恢复",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-reflection-targets"
+      "reason": "签名 M4 反射关档、LOD alpha、HDR 持久 raw 及真实邻例",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-quality"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "58cae30fc786c375869fbf9bb634f202c16c5f3e823fcce1f5e184855fcb3b85",
-      "after": "96ce8e387056819430b489c071cc791a7fe7d63736f1d91c869c19d5949b79e6",
+      "before": "96ce8e387056819430b489c071cc791a7fe7d63736f1d91c869c19d5949b79e6",
+      "after": "80a2e531dce58323d7ebd1f3f23b0d5f4d4ad8a253a212d8f89b8f2e79940864",
       "owner": "scene-runtime",
-      "reason": "MetalFX 与局部作者效果的适用档位及带宽画面门",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-spatial-scaling"
+      "reason": "关档作者环境不透明黑、原池预算及实际验收",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-quality"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "39b46ee121b9d79dc8e7db0eedf420e067116fdda55d6e9d52c9d39f84930880",
-      "after": "66a7d5a232fa00f1741ed02567f69fc4c0b0ca4748672216f2f9bda08954cb20",
+      "before": "66a7d5a232fa00f1741ed02567f69fc4c0b0ca4748672216f2f9bda08954cb20",
+      "after": "5a0223e136f966799aefeceb3e0fc801589cbe6b1e6b40be7d608cb5c9f16b8a",
       "owner": "scene-runtime",
-      "reason": "固定比例的任务排序与保真默认",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-spatial-scaling"
+      "reason": "官方反射语义适配及受控、作者邻例验收",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-quality"
     },
     {
       "section": "bodies",

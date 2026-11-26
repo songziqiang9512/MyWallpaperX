@@ -148,6 +148,7 @@ nonisolated extension SceneResolvedMaterialProgramFinalizer {
         case .provider(.namedLayerTarget): "provider-named-layer"
         case .provider(.sceneBackground): "provider-scene-background"
         case .provider(.sceneEnvironment): "provider-scene-environment"
+        case .provider(.clearedSceneEnvironment): "provider-scene-environment-cleared"
         case .provider(.video): "provider-video"
         case .provider(.videoAsset): "provider-video-asset"
         case .provider(.videoUserProperty): "provider-video-user-property"

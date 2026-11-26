@@ -106,14 +106,31 @@ class SceneAuthoredEnvironmentIntegrationTests(unittest.TestCase):
         print(f"Authored environment App evidence: {cls.root}", flush=True)
 
     def run_case(self, slot: int, shader_default: bool, *, capture: bool = True,
-                 with_f5: bool = False, reflection_quality: str | None = None):
+                 with_f5: bool = False, reflection_quality: str | None = None, hdr_history: bool = False):
         name = f"slot{slot}-{'default' if shader_default else 'explicit'}-{'capture' if capture else 'drawable'}-f5{int(with_f5)}"
+        if hdr_history:
+            name += "-hdr-persistence"
         work = self.root / (f"{name}-{reflection_quality}" if reflection_quality is not None else name)
         content = work / "content"
         content.mkdir(parents=True)
         home = work / "home"
         home.mkdir()
-        entries = fixture_entries(slot, shader_default, with_f5, reflection_quality is not None)
+        entries = fixture_entries(slot, shader_default, with_f5, reflection_quality is not None and not hdr_history)
+        if hdr_history:
+            scene = json.loads(entries["scene.json"])
+            scene["general"].update(hdr=True, clearenabled=False)
+            entries["scene.json"] = json.dumps(scene, sort_keys=True).encode()
+            entries["shaders/own_environment.frag"] = (
+                f"uniform sampler2D g_Texture{slot};\n"
+                f"uniform vec4 g_Texture{slot}Resolution;\n"
+                "void main(){\n"
+                f"vec4 history=texSample2DLod(g_Texture{slot},vec2(0.875,0.5),3.0);\n"
+                f"vec4 size=g_Texture{slot}Resolution;\n"
+                "float extent=step(64.0,size.x)*step(64.0,size.y)"
+                "*step(abs(size.x-size.z)+abs(size.y-size.w),0.0);\n"
+                "gl_FragColor=vec4(history.r,history.a,extent,1.0);\n"
+                "}\n"
+            ).encode()
         (content / "project.json").write_text(json.dumps({"type": "scene", "file": "scene.json"}))
         (content / "scene.pkg").write_bytes(reflection.make_package(list(entries.items())))
         command = [str(self.app), "--mwx-debug-scene-root", str(content),
@@ -121,7 +138,8 @@ class SceneAuthoredEnvironmentIntegrationTests(unittest.TestCase):
         if capture:
             command += ["--mwx-debug-scene-evidence-dir", str(work / "evidence")]
         if reflection_quality is not None:
-            command += ["-mwx.playback.quality", f"{{ sceneReflectionQuality = {reflection_quality}; }}"]
+            post = " scenePostProcessingMode = ultra;" if hdr_history else ""
+            command += ["-mwx.playback.quality", f"{{ sceneReflectionQuality = {reflection_quality};{post} }}"]
         env = {k: v for k, v in os.environ.items() if not k.startswith("MWX_SCENE_DEBUG_")}
         env.update(HOME=str(home), CFFIXED_USER_HOME=str(home), MWX_SCENE_DEBUG_SURFACE_COUNT="1")
         package_hash = reflection.sha256(content / "scene.pkg")
@@ -145,20 +163,28 @@ class SceneAuthoredEnvironmentIntegrationTests(unittest.TestCase):
             self.assertRegex(log, r"phase=performance-gpu[^\n]*resolvedMaterialRenders=[1-9]\d*")
             self.assertEqual({str(p): reflection.sha256(p) for p in self.artifacts}, self.identity)
             return
-        self.assertIn("reason=material-finalizer-scene-environment-unavailable", log)
+        if reflection_quality == "disabled":
+            self.assertNotIn("reason=material-finalizer-scene-environment-unavailable", log)
+        else:
+            self.assertIn("reason=material-finalizer-scene-environment-unavailable", log)
         self.assertRegex(log, r"axis=graph-execution[^\n]*frame=[1-9]\d*[^\n]*materialNodes=1[^\n]*rejectedNodes=0[^\n]*compositorConsumed=true[^\n]*gpuCompletion=completed")
         self.assertRegex(log, r"state=completed frame=[1-9]\d* surface=\d+ gpu=completed")
         rois = dict(reflection.ROIS)
         if with_f5:
             rois["f5"] = (40, 48)
-        if reflection_quality is not None:
+        if reflection_quality is not None and not hdr_history:
             rois.update({name: point for name, (point, _) in STOCK_REFLECTION_PROBES.items()})
         measurements = {p.name: reflection.measure_capture(p, rois)
                         for p in sorted((work / "evidence").glob("*-window.png"))}
         (work / "pixels.json").write_text(json.dumps(measurements, indent=2) + "\n")
         self.assertIn("scene-after-window.png", measurements)
         after = measurements["scene-after-window.png"]
-        for name, expected in (("receiver", (255, 0, 0)), ("lateRed", (255, 0, 0)),
+        receiver_color = (255, 0, 0)
+        if hdr_history:
+            receiver_color = (0, 255, 255)
+        elif reflection_quality == "disabled":
+            receiver_color = (0, 0, 0)
+        for name, expected in (("receiver", receiver_color), ("lateRed", (255, 0, 0)),
                                ("greenPeer", (0, 255, 0))):
             for actual, golden in zip(after[name]["mean"], expected):
                 self.assertAlmostEqual(actual, golden, delta=reflection.PIXEL_TOLERANCE,
@@ -168,17 +194,30 @@ class SceneAuthoredEnvironmentIntegrationTests(unittest.TestCase):
             for actual, expected in zip(after["f5"]["mean"], oracle, strict=True):
                 self.assertAlmostEqual(actual, expected, delta=reflection.PIXEL_TOLERANCE)
         if reflection_quality is not None:
-            for name, (_, expected) in STOCK_REFLECTION_PROBES.items():
-                for actual, channel in zip(after[name]["mean"], expected, strict=True):
-                    self.assertAlmostEqual(actual, channel, delta=reflection.PIXEL_TOLERANCE,
-                                           msg=f"{work}: {name} {after[name]}")
+            if not hdr_history:
+                for name, (_, expected) in STOCK_REFLECTION_PROBES.items():
+                    for actual, channel in zip(after[name]["mean"], expected, strict=True):
+                        self.assertAlmostEqual(actual, channel, delta=reflection.PIXEL_TOLERANCE,
+                                               msg=f"{work}: {name} {after[name]}")
+            else:
+                raw = re.findall(r"diagnostic=scene-color-completed[^\n]*intent=persistence sourceSubmission=(\S+)", log)
+                self.assertGreaterEqual(len(set(raw)), 2, log[-6000:])
             self.assertRegex(log, rf"phase=session-candidate [^\n]*reflectionQuality={reflection_quality}\b")
             receipts = re.findall(r"diagnostic=scene-color-completed[^\n]*intent=snapshot sourceSubmission=(\S+)", log)
-            self.assertGreaterEqual(len(set(receipts)), 2, log[-6000:])
+            if reflection_quality == "disabled":
+                self.assertEqual(receipts, [], log[-6000:])
+            else:
+                self.assertGreaterEqual(len(set(receipts)), 2, log[-6000:])
             event = reflection.SceneReflectionHistoryIntegrationTests.settled_composition(self, work, log)
             inputs = [r["source"] for r in event["rows"] if r["kind"] == "material" and r.get("layerID") == 1
                       and r.get("slot") == slot and r.get("outcome") == "draw-encoded"]
             self.assertEqual([item["logical"] for item in inputs], ["provider:sceneEnvironment"], event)
+            source = inputs[0]
+            drawable = next(row["target"] for row in event["rows"] if row["kind"] == "frame-seal")
+            self.assertEqual((source["width"], source["height"]), (drawable["width"], drawable["height"]))
+            self.assertEqual(source["provenance"], "shader-default" if shader_default else "authored.material")
+            self.assertEqual("clearedSceneEnvironment(" in source["candidateIdentity"],
+                             reflection_quality == "disabled")
         self.assertEqual({str(p): reflection.sha256(p) for p in self.artifacts}, self.identity)
         return package_hash
 
@@ -194,12 +233,15 @@ class SceneAuthoredEnvironmentIntegrationTests(unittest.TestCase):
     def test_authored_and_default_f5_share_completed_suffix(self):
         self.run_case(3, False, with_f5=True)
 
-    def test_image_reflection_quality_preserves_explicit_and_shader_default_environment(self):
+    def test_image_reflection_quality_clears_explicit_and_shader_default_environment(self):
         for slot, shader_default in ((3, False), (2, True)):
             with self.subTest(slot=slot, shader_default=shader_default):
                 enabled = self.run_case(slot, shader_default, with_f5=True, reflection_quality="enabled")
                 disabled = self.run_case(slot, shader_default, with_f5=True, reflection_quality="disabled")
                 self.assertEqual(enabled, disabled)
+
+    def test_disabled_environment_lod_keeps_opaque_alpha_and_hdr_persistence(self):
+        self.run_case(3, False, reflection_quality="disabled", hdr_history=True)
 
     def test_authored_only_without_debug_capture(self):
         self.run_case(0, False, capture=False)

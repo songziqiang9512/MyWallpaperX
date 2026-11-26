@@ -766,12 +766,12 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
                 rows = event["rows"]
                 model = [r for r in rows if r["kind"] == "model-reflection" and r.get("layerID") == 10]
                 self.assertEqual([r["slot"] for r in model], [6] if enabled else [], model)
-                if enabled or with_program or with_source:
+                if enabled:
                     self.assertGreaterEqual(len(set(result["completedSourceSubmissions"])), 2, result)
                 else:
                     self.assertFalse(result["completedSourceSubmissions"], result)
                 if with_program or with_source:
-                    self.assert_pixel(pixels["authorProgram"], [255, 0, 0])
+                    self.assert_pixel(pixels["authorProgram"], [255, 0, 0] if enabled else [0, 0, 0])
                 if with_source:
                     self.assertIn("source material encoded: layer=1 ", log)
                 if with_program:
@@ -788,7 +788,7 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
     def test_model_reflection_quality_skips_optional_history_for_same_authored_model(self):
         self.run_model_reflection_quality_pair(model_reflection_entries(1))
 
-    def test_model_reflection_quality_preserves_shared_authored_program(self):
+    def test_model_reflection_quality_clears_environment_without_losing_shared_authored_program(self):
         from script.tests.scene.test_scene_authored_environment_integration import fixture_entries as author_environment
         from script.tests.scene.test_scene_named_model_shadow import named_fixture
 
@@ -819,7 +819,28 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
         entries["scene.json"] = json.dumps(scene, sort_keys=True).encode()
         self.run_model_reflection_quality_pair(entries, with_program=True)
 
-    def test_model_reflection_quality_preserves_authored_source_material_environment(self):
+        # A raw named source makes the live-history depth prepass incomplete.
+        # Its later model draw still shares the frame with the cleared Program.
+        provider.pop("effects")
+        entries["scene.json"] = json.dumps(scene, sort_keys=True).encode()
+        name = "model-reflection-quality-late-raw-disabled"
+        result = self.run_case(1, capture=True, name=name, entries=entries,
+            rois={**MODEL_ROIS, "authorProgram": (28, 48)},
+            extra_arguments=("-mwx.playback.quality", "{ sceneReflectionQuality = disabled; }"))
+        work = self.evidence_root / name
+        log = (work / "app.log").read_text()
+        self.assertIn("phase=named-target-capture layer=31 status=succeeded", log)
+        self.assertFalse(result["completedSourceSubmissions"], result)
+        pixels = result["pixels"]["scene-after-window.png"]
+        self.assert_pixel(pixels["authorProgram"], [0, 0, 0])
+        self.assert_pixel(pixels["opaquePeer"], [0, 200, 0])
+        rows = self.settled_composition(work, log)["rows"]
+        bindings = [r["source"]["candidateIdentity"] for r in rows if r["kind"] == "material"
+                    and r.get("layerID") == 1 and r.get("slot") == 3 and r.get("outcome") == "draw-encoded"]
+        self.assertEqual(len(bindings), 1, bindings)
+        self.assertIn("clearedSceneEnvironment(", bindings[0])
+
+    def test_model_reflection_quality_clears_environment_in_authored_source_material(self):
         from script.tests.scene.test_scene_authored_environment_integration import fixture_entries as author_environment
 
         entries = model_reflection_entries(1)

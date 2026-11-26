@@ -759,6 +759,21 @@ enum Harness {
             checks["other-pin-retains-\(bytes)"] = exact.residentByteCost == total
             same.pin.release()
             checks["cancel-releases-\(bytes)"] = exact.residentByteCost == 0
+
+            let black = SceneOffscreenTexturePool(device: device, pixelFormat: format, residentByteBudget: 113)
+            let firstClear = black.reserveEnvironment(width: 13, height: 7, commandBuffer: cb, cleared: true)!
+            let nextClear = black.reserveEnvironment(width: 13, height: 7,
+                commandBuffer: queue.makeCommandBuffer()!, cleared: true)!
+            checks["cleared-readers-share-\(bytes)"] = firstClear.texture === nextClear.texture
+                && firstClear.texture.mipmapLevelCount == 4
+                && firstClear.texture.pixelFormat == .r8Unorm && black.residentByteCost == 113
+            checks["cleared-cannot-be-history-\(bytes)"] = black.reserveEnvironment(width: 13, height: 7,
+                commandBuffer: cb) == nil
+            black.reset()
+            firstClear.pin.release()
+            checks["cleared-reset-preserves-in-flight-\(bytes)"] = black.residentByteCost == 113
+            nextClear.pin.release()
+            checks["cleared-reset-releases-\(bytes)"] = black.residentByteCost == 0
         }
         // A late actual factory nil permits one legal idle reclamation and
         // retry. Already allocated prefixes remain the objects published on

@@ -145,10 +145,10 @@ final class SceneOffscreenTexturePool {
     }
 
     func reserveEnvironment(
-        width: Int, height: Int, commandBuffer: MTLCommandBuffer,
+        width: Int, height: Int, commandBuffer: MTLCommandBuffer, cleared: Bool = false,
         textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)? = nil
     ) -> PinnedTexture? {
-        reserveFrameTextures(requests: [(.environment, width, height)],
+        reserveFrameTextures(requests: [(.environment(cleared: cleared), width, height)],
             commandBuffer: commandBuffer, textureFactory: textureFactory)?.values.first
     }
 
@@ -213,7 +213,7 @@ final class SceneOffscreenTexturePool {
     }
 
     private enum FrameTextureKind {
-        case composition, environment, shadow(Int), modelCameraDepth, sourceMaterial(Int)
+        case composition, environment(cleared: Bool), shadow(Int), modelCameraDepth, sourceMaterial(Int)
         case terminalInput(layerID: Int, slot: Int)
         case puppetClipping(layerID: Int, clipID: Int, domain: UUID)
     }
@@ -232,8 +232,10 @@ final class SceneOffscreenTexturePool {
             switch kind {
             case .shadow, .modelCameraDepth:
                 format = .depth32Float; bytesPerPixel = 4; mipmapped = false
-            case .environment:
-                format = pixelFormat; bytesPerPixel = backbufferFormat.logicalBytesPerPixel; mipmapped = true
+            case .environment(let cleared):
+                format = cleared ? .r8Unorm : pixelFormat
+                bytesPerPixel = cleared ? 1 : backbufferFormat.logicalBytesPerPixel
+                mipmapped = true
             case .composition, .sourceMaterial, .terminalInput:
                 format = pixelFormat; bytesPerPixel = backbufferFormat.logicalBytesPerPixel; mipmapped = false
             case .puppetClipping: format = .r8Unorm; bytesPerPixel = 1; mipmapped = false
@@ -243,7 +245,7 @@ final class SceneOffscreenTexturePool {
             case let .sourceMaterial(layerID): .sourceMaterial(layerID: layerID, width: width, height: height)
             case let .terminalInput(layerID, slot):
                 .terminalInput(layerID: layerID, slot: slot, width: width, height: height)
-            case .environment: .environment(width: width, height: height)
+            case .environment(let cleared): .environment(width: width, height: height, cleared: cleared)
             case .shadow(let slot): .modelShadow(slot: slot, width: width, height: height)
             case .modelCameraDepth: .modelCameraDepth(width: width, height: height)
             case let .puppetClipping(layerID, clipID, domain):
@@ -255,7 +257,12 @@ final class SceneOffscreenTexturePool {
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format,
                 width: width, height: height, mipmapped: mipmapped)
             descriptor.storageMode = .private
-            descriptor.usage = [.shaderRead, .renderTarget]
+            if case .environment(cleared: true) = kind {
+                descriptor.usage = .shaderRead
+                descriptor.swizzle = .init(red: .zero, green: .zero, blue: .zero, alpha: .one)
+            } else {
+                descriptor.usage = [.shaderRead, .renderTarget]
+            }
             guard let cost = byteCost(width: width, height: height,
                 levels: descriptor.mipmapLevelCount, bytesPerPixel: bytesPerPixel) else { return nil }
             descriptors[key] = descriptor; costs[key] = cost
@@ -265,9 +272,12 @@ final class SceneOffscreenTexturePool {
             var missing: Set<CacheKey> = []
             var incoming = 0
             for key in keys {
-                if let entry = proposed[.current(key)],
-                   entry.permitsFrameTextureReuse(on: commandBuffer) {
-                    continue
+                if let entry = proposed[.current(key)] {
+                    if case .environment(_, _, true) = key {
+                        if !entry.isResetInvalidated { continue }
+                    } else if entry.permitsFrameTextureReuse(on: commandBuffer) {
+                        continue
+                    }
                 }
                 missing.insert(key)
                 if let previous = proposed.removeValue(forKey: .current(key)), previous.isPinned {

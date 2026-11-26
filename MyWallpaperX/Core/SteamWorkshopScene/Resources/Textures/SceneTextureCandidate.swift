@@ -28,6 +28,7 @@ nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
     case sceneBackground(consumerLayerID: Int, frameEpoch: UInt64)
     case sceneEnvironment(frameEpoch: UInt64, allocationGeneration: UInt64,
                           source: SceneCompletedColorSourceIdentity)
+    case clearedSceneEnvironment(frameEpoch: UInt64, allocationGeneration: UInt64)
     case video(layerID: Int, lifecycleEpoch: UInt64)
     case videoAsset(
         asset: SceneAssetTextureIdentity,
@@ -62,6 +63,8 @@ nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
                 + ":source-frame:\(source.frameIndex):source-epoch:\(source.frameEpoch)"
                 + ":source-execution:\(source.executionEpoch)"
                 + ":source-allocation:\(source.allocationGeneration):source-reset:\(source.resetEpoch.uuidString)"
+        case let .clearedSceneEnvironment(epoch, generation):
+            return "scene-environment:epoch:\(epoch):allocation:\(generation):quality-cleared"
         case let .sceneBackground(consumerLayerID, frameEpoch):
             return "scene-background:\(consumerLayerID):epoch:\(frameEpoch)"
         case let .video(layerID, lifecycleEpoch):

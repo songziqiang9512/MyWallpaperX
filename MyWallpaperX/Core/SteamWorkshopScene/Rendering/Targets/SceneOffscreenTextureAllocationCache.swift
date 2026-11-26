@@ -315,7 +315,7 @@ extension SceneOffscreenTextureAllocationCache {
         case composition(width: Int, height: Int)
         case sourceMaterial(layerID: Int, width: Int, height: Int)
         case terminalInput(layerID: Int, slot: Int, width: Int, height: Int)
-        case environment(width: Int, height: Int)
+        case environment(width: Int, height: Int, cleared: Bool = false)
         case modelShadow(slot: Int, width: Int, height: Int)
         case modelCameraDepth(width: Int, height: Int)
         case puppetClipping(layerID: Int, clipID: Int, domain: UUID, width: Int, height: Int)

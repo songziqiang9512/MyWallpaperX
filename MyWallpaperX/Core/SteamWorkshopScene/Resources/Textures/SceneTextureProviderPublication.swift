@@ -345,16 +345,35 @@ nonisolated struct SceneFrameTextureResource {
         frameEpoch: UInt64, allocationGeneration: UInt64, texture: MTLTexture,
         source: SceneCompletedColorSourceIdentity
     ) -> Self? {
-        guard frameEpoch > 0, texture.textureType == .type2D, texture.sampleCount == 1,
-              texture.usage.contains(.shaderRead), texture.usage.contains(.renderTarget),
+        guard texture.usage.contains(.renderTarget),
               texture.pixelFormat == .bgra8Unorm || texture.pixelFormat == .rgba8Unorm
                 || texture.pixelFormat == .rgba16Float else { return nil }
-        let levels = Int(floor(log2(Double(max(texture.width, texture.height))))) + 1
-        guard texture.mipmapLevelCount == levels else { return nil }
+        return frameEnvironment(frameEpoch: frameEpoch, allocationGeneration: allocationGeneration,
+            texture: texture, identity: .sceneEnvironment(frameEpoch: frameEpoch,
+                allocationGeneration: allocationGeneration, source: source))
+    }
+
+    static func clearedFrameEnvironment(
+        frameEpoch: UInt64, allocationGeneration: UInt64, texture: MTLTexture
+    ) -> Self? {
+        let swizzle = texture.swizzle
+        guard texture.pixelFormat == .r8Unorm, swizzle.red == .zero, swizzle.green == .zero,
+              swizzle.blue == .zero, swizzle.alpha == .one else { return nil }
+        return frameEnvironment(frameEpoch: frameEpoch, allocationGeneration: allocationGeneration,
+            texture: texture, identity: .clearedSceneEnvironment(frameEpoch: frameEpoch,
+                allocationGeneration: allocationGeneration))
+    }
+
+    private static func frameEnvironment(
+        frameEpoch: UInt64, allocationGeneration: UInt64, texture: MTLTexture,
+        identity: SceneTextureProviderIdentity
+    ) -> Self? {
+        let levels = Int.bitWidth - max(texture.width, texture.height).leadingZeroBitCount
+        guard frameEpoch > 0, allocationGeneration > 0, texture.textureType == .type2D,
+              texture.sampleCount == 1, texture.usage.contains(.shaderRead),
+              texture.mipmapLevelCount == levels else { return nil }
         let size = CGSize(width: texture.width, height: texture.height)
-        let candidate = SceneTextureCandidate(texture: texture,
-            identity: .provider(.sceneEnvironment(frameEpoch: frameEpoch,
-                allocationGeneration: allocationGeneration, source: source)),
+        let candidate = SceneTextureCandidate(texture: texture, identity: .provider(identity),
             generation: .provider(contentGeneration: frameEpoch),
             purpose: .premultipliedColor, content: .color(.resolved(.premultipliedAlpha)),
             physicalSize: size, mappedSize: size, uvTransform: .identity, sampling: .linearClamp)
@@ -916,13 +935,15 @@ nonisolated struct SceneFrameTextureRegistrySnapshot {
         switch atom {
         case .ready(let resource):
             let value = resource.publication.candidate
-            guard case let .provider(.sceneEnvironment(epoch, generation, source)) = value.identity,
-                  epoch == frameEpoch, generation > 0,
-                  resource.publication.isComplete,
-                  let canonical = SceneFrameTextureResource.sameFrameEnvironment(
-                    frameEpoch: epoch, allocationGeneration: generation,
-                    texture: value.texture, source: source),
-                  resource.resourceGeneration == canonical.resourceGeneration,
+            let canonical: SceneFrameTextureResource? = switch value.identity {
+            case let .provider(.sceneEnvironment(epoch, generation, source)) where epoch == frameEpoch:
+                .sameFrameEnvironment(frameEpoch: epoch, allocationGeneration: generation,
+                    texture: value.texture, source: source)
+            case let .provider(.clearedSceneEnvironment(epoch, generation)) where epoch == frameEpoch:
+                .clearedFrameEnvironment(frameEpoch: epoch, allocationGeneration: generation, texture: value.texture)
+            default: nil
+            }
+            guard let canonical, resource.resourceGeneration == canonical.resourceGeneration,
                   resource.publication.isSameAtom(as: canonical.publication) else { return nil }
         case .unavailable:
             break

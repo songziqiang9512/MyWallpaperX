@@ -255,6 +255,7 @@ extension SceneDesktopWallpaperSession {
                 staticModelResources:
                     launchContext.preparedDeviceResources.staticModels,
                 allowsProjectedSpotVolume: allowsProjectedSpotVolume,
+                allowsSceneReflection: allowsSceneReflection,
                 hasDynamicBloom: launchContext.runtimeInput.propertyBindingProgram
                     .instructions.contains { $0.target == .scene(.bloomEnabled) },
                 instantiatedSceneScriptTargets: Set(

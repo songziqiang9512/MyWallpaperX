@@ -23,7 +23,24 @@ extension Harness {
         let replacement = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 4, texture: full, source: source)!
         let changedProducer = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: full, source: otherProducer)!
         let candidate = first.publication.candidate
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r8Unorm,
+            width: 13, height: 7, mipmapped: true)
+        descriptor.usage = .shaderRead
+        let ordinaryR8 = device.makeTexture(descriptor: descriptor)!
+        descriptor.swizzle = .init(red: .zero, green: .zero, blue: .zero, alpha: .one)
+        let opaqueBlack = device.makeTexture(descriptor: descriptor)!
+        let cleared = SceneFrameTextureResource.clearedFrameEnvironment(frameEpoch: 7, allocationGeneration: 3,
+            texture: opaqueBlack)!
+        let current = SceneFrameTextureRegistrySnapshot(frameEpoch: 7, frameIndex: 41, entries: [:])
+        let stale = SceneFrameTextureRegistrySnapshot(frameEpoch: 8, frameIndex: 41, entries: [:])
         return [
+            "clearedEnvironmentReadyInCurrentFrame": current.overlayingPreparedSceneEnvironment(.ready(cleared)) != nil
+                && cleared.publication.candidate.identity == .provider(.clearedSceneEnvironment(
+                    frameEpoch: 7, allocationGeneration: 3))
+                && cleared.publication.candidate.mappedSize == CGSize(width: 13, height: 7),
+            "clearedEnvironmentStaleRejected": stale.overlayingPreparedSceneEnvironment(.ready(cleared)) == nil,
+            "clearedEnvironmentRegularR8Rejected": SceneFrameTextureResource.clearedFrameEnvironment(
+                frameEpoch: 7, allocationGeneration: 3, texture: ordinaryR8) == nil,
             "environmentExactAtom": first.publication.isComplete && first.resourceGeneration == 3
                 && first.publication.requestIdentity == .sceneEnvironment && first.publication.contentGeneration == 7
                 && candidate.texture === full && candidate.identity == .provider(.sceneEnvironment(frameEpoch: 7, allocationGeneration: 3, source: source))

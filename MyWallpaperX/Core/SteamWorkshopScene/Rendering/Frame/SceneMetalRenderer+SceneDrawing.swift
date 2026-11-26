@@ -422,6 +422,9 @@ extension SceneMetalRenderer {
             reflectionDemand = needed
             return needed
         }
+        func requiresLiveImageReflection() -> Bool {
+            allowsSceneReflection && requiresImageReflection()
+        }
         if let multisampleTargets, frameDescriptor.camera.clearEnabled, groups == nil,
            !modelFrame.collectsVolumeOccluders, !hasReadyReflectiveModel,
            activeStaticModelNamedAlbedoLayerIDs.isEmpty,
@@ -436,7 +439,7 @@ extension SceneMetalRenderer {
                    && modelFrame.imageMaterialStates[layer.id] == nil
                    && baseMaterialProviderBindings.lightingProfile(for: layer)?.surfaceEnabled != true
            }),
-           !requiresImageReflection(),
+           !requiresLiveImageReflection(),
            let draws = modelFrame.prepared ?? shadowCandidates ?? shadowDrawCandidates(
                orderedLayers: orderedLayers, visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames,
                snapshot: frameContext.dynamicValues, groups: nil, state: modelFrame) {
@@ -453,13 +456,13 @@ extension SceneMetalRenderer {
             clearEnabled: frameDescriptor.camera.clearEnabled,
             hasPersistentSceneColor: sceneColor != nil, hasShadowReceiver: hasShadowReceiver,
             hasSourceMaterials: hasSourceMaterials,
-            requiresReflection: requiresImageReflection) ?? .textureSource
+            requiresReflection: requiresLiveImageReflection) ?? .textureSource
         let terminalExtent: (width: Int, height: Int)? = sceneColor == nil && displayMappingPostProcess != nil
             && displayMappingInput == .textureSource ? (drawable.texture.width, drawable.texture.height) : nil
         var optionalScratch: [SceneOffscreenTexturePool.PinnedTexture]?
         if let pool = offscreenTexturePool,
            let targets = reserveOptionalEffectScratch(requiresShadow: shadowCandidates != nil,
-            requiresReflection: { hasReadyReflectiveModel || requiresImageReflection() },
+            requiresReflection: { hasReadyReflectiveModel || requiresLiveImageReflection() },
             pool: pool, imageTextures: imageTextures,
             frameContext: frameContext, framePlans: resolvedMaterialFrameTargetPlans,
             visibleLayerIDs: frameVisibleLayerIDs, orderedLayers: orderedLayers,
@@ -494,9 +497,16 @@ extension SceneMetalRenderer {
             return .deferred(reasonCode: reason)
         }
         // The late named-shadow owner prepares its own ordered depth set.
-        let preparesReflection = optionalScratch != nil && !preparesNamedModelShadow
-            && (hasReadyReflectiveModel || requiresImageReflection()) && prepareReflectionDepth()
-        func prepareReflectionDepth() -> Bool {
+        let needsLiveReflection = optionalScratch != nil && !preparesNamedModelShadow
+            && (hasReadyReflectiveModel || requiresLiveImageReflection())
+        let clearsAuthoredEnvironment = !allowsSceneReflection && requiresImageReflection()
+        let clearedEnvironmentNeedsDepthCapacity = clearsAuthoredEnvironment && (
+            !staticModelResources.isEmpty && frameVisibleLayerIDs.contains { staticModelResources[$0] != nil }
+                || particleBatches.contains { $0.draw.renderState.depthWriteEnabled })
+        let hasEnvironmentDepthCapacity = !(needsLiveReflection || clearedEnvironmentNeedsDepthCapacity)
+            || prepareReflectionDepth(requiresEarlyPlan: needsLiveReflection)
+        let preparesReflection = needsLiveReflection && hasEnvironmentDepthCapacity
+        func prepareReflectionDepth(requiresEarlyPlan: Bool) -> Bool {
             if let candidates = modelFrame.prepared ?? shadowDrawCandidates(orderedLayers: orderedLayers,
                 visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames,
                 snapshot: frameContext.dynamicValues, groups: groups, state: modelFrame) {
@@ -515,7 +525,7 @@ extension SceneMetalRenderer {
                         activeStaticModelConsumerLayerIDs: activeStaticModelNamedAlbedoLayerIDs)
                           && (resolvedMaterialFrameTargetPlans[id] == nil
                               || !dependencyRuntime.requiresGraphOutputCapture(for: id))
-                  }) else { return false }
+                  }) else { return !requiresEarlyPlan }
             return modelFrame.sharedDepth(pass: mainPass, pool: staticModelDepthTargetPool,
                 device: device, commandBuffer: commandBuffer, leases: &frameDepthLeases).lease != nil
         }
@@ -524,8 +534,17 @@ extension SceneMetalRenderer {
             mainPass.closeForOffscreen()
             return .deferred(reasonCode: reason)
         }
-        let hasRequiredCapacity = (preparesReflection || hasSourceMaterials)
+        let hasRequiredCapacity = (preparesReflection || hasSourceMaterials || clearsAuthoredEnvironment)
             && prepareTerminalAndFramebufferCapacity()
+        let demanded: [SceneResolvedMaterialRuntimeBridge.SourceMaterialConsumer] = if let runtime,
+            hasSourceMaterials, hasRequiredCapacity {
+            demandedSourceMaterials(in: runtime)
+        } else { [] }
+        let terminalPins: [SceneOffscreenTexturePool.PinnedTexture]? = if clearsAuthoredEnvironment || !demanded.isEmpty,
+            optionalScratch == nil, let terminalExtent {
+            offscreenTexturePool?.reserveCompositionTargets(dimensions: [terminalExtent], commandBuffer: commandBuffer)
+        } else { [] }
+        terminalPins?.forEach { mainPass.retainCompositionPin($0.pin) }
         func prepareEnvironment() -> Bool {
             var preparedEnvironment: SceneFrameTextureResource?
             if let targets = optionalScratch {
@@ -539,24 +558,18 @@ extension SceneMetalRenderer {
                 if history != nil { preparedEnvironment = reflection.resolve(commandBuffer) }
             }
             guard let runtime else { return true }
+            if clearsAuthoredEnvironment, hasEnvironmentDepthCapacity, hasRequiredCapacity, terminalPins != nil {
+                preparedEnvironment = reflection.prepareClearedEnvironment()
+            }
             let atom: SceneFrameTextureLookupStatus = preparedEnvironment.map { .ready($0) } ?? .unavailable
             let snapshot = SceneFrameTextureRegistrySnapshot(frameEpoch: textureRegistry.frameEpoch,
                 frameIndex: frameContext.frameIndex, entries: [.sceneEnvironment: atom])
             return runtime.overlayPreparedSceneEnvironment(from: snapshot)
         }
-        let demanded: [SceneResolvedMaterialRuntimeBridge.SourceMaterialConsumer] = if let runtime,
-            hasSourceMaterials, hasRequiredCapacity {
-            demandedSourceMaterials(in: runtime)
-        } else { [] }
-        var terminalPins: [SceneOffscreenTexturePool.PinnedTexture]? = []
-        if !demanded.isEmpty, optionalScratch == nil, let terminalExtent {
-            terminalPins = offscreenTexturePool?.reserveCompositionTargets(
-                dimensions: [terminalExtent], commandBuffer: commandBuffer)
-        }
         let environmentOverlaid: Bool
-        if let runtime, !demanded.isEmpty, let terminalPins {
-            terminalPins.forEach { mainPass.retainCompositionPin($0.pin) }
-            let defersEnvironment = sceneColor == nil && preparesReflection && hasRequiredCapacity
+        if let runtime, !demanded.isEmpty, terminalPins != nil {
+            let defersEnvironment = hasRequiredCapacity
+                && (clearsAuthoredEnvironment || sceneColor == nil && preparesReflection)
             let canPrepareSources = defersEnvironment || prepareEnvironment()
 #if DEBUG
             performanceTelemetry?.beginStage("frame-admission")

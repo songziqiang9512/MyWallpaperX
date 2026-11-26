@@ -33,7 +33,7 @@ struct SceneOffscreenTextureAllocationCandidate {
                 && texture.textureType == .type2D && texture.sampleCount == 1
                 && texture.storageMode == .private
                 && texture.usage.contains([.shaderRead, .renderTarget])
-        case let (.environment(width, height), .composition(texture, _)):
+        case let (.environment(width, height, _), .composition(texture, _)):
             texture.width == width && texture.height == height
         case let (.compositionGroup(_, width, height), .composition(texture, _)):
             texture.width == width && texture.height == height

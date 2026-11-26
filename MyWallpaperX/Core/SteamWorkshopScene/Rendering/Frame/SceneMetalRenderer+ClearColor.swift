@@ -145,6 +145,15 @@ extension SceneMetalRenderer {
             return resource
         }
 
+        func prepareClearedEnvironment() -> SceneFrameTextureResource? {
+            let extent = mainPass.targetExtent
+            guard let reserved = pool?.reserveEnvironment(width: extent.width, height: extent.height,
+                commandBuffer: commandBuffer, cleared: true) else { return nil }
+            pins.append(reserved.pin)
+            return .clearedFrameEnvironment(frameEpoch: frameEpoch,
+                allocationGeneration: reserved.pin.generation, texture: reserved.texture)
+        }
+
         func arm() {
             let submittedPins = pins
             commandBuffer.addCompletedHandler { _ in submittedPins.forEach { $0.release() } }
