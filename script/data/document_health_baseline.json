@@ -10,11 +10,11 @@
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
       "lines": 52,
-      "bytes": 9406
+      "bytes": 9553
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 20972
+      "bytes": 20990
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 156740
+      "bytes": 158419
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 139633
+      "bytes": 139803
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "89cfd7490d0b39c2018e7849a33b19aff96981e0b8ce29ae13dc6a20653c5b3b",
-      "after": "a63c96933a1d6a422bff0840069e035036a8bce7e23d14d1c5f08323ce9847af",
-      "owner": "scene-runtime",
-      "reason": "粒子帧率热切消费的原 Session 与 Surface",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-particle-rate-transition"
+      "before": "123cc6aae5b2ff86294703ab691e11e8addb1030562e4a0d813730696c83aa32",
+      "after": "d09a8220484d0fc8ea61b7cef26c01a8bd6a8fb5d5dadfd41de3c2b4cc25b960",
+      "owner": "video-runtime",
+      "reason": "定位原 Video 画幅交接 owner",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-crossfade-aspect"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "2090f552ccfa56056781dd90105a8de370c5e40cbff01cabc8c86df5c3da4020",
-      "after": "5b203737454d4640c431ca4ca95c9be30c4470e59ff9ac5824157f1e011841c3",
-      "owner": "scene-runtime",
-      "reason": "同会话整帧对照和体积双档退出",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-segment-mean"
+      "before": "5b203737454d4640c431ca4ca95c9be30c4470e59ff9ac5824157f1e011841c3",
+      "after": "79bc219be63ea4fec28855fd789f22a8bfbe26356e0c3ea16394fabf1bad93f0",
+      "owner": "video-runtime",
+      "reason": "Video 混合画幅原生窗口对照",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-crossfade-aspect"
     },
     {
       "section": "bodies",
@@ -693,20 +693,20 @@
     {
       "section": "bodies",
       "path": "docs/architecture/playback-lifecycle-transaction-design.md",
-      "before": "673f4da81b88fc6fc2f9604251668e9eb856efe72499fa67f41d24572798402b",
-      "after": "f2db710dcdc6ce2a33e1b08d6f2ac9df120a7945ff3d29ff18d16deb50cd771e",
-      "owner": "播放生命周期",
-      "reason": "同步实窗双槽的层级、隐藏旧层和保留媒体的合同。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-crossfade-luminance"
+      "before": "f2db710dcdc6ce2a33e1b08d6f2ac9df120a7945ff3d29ff18d16deb50cd771e",
+      "after": "95c2ef87784c656877f9fcce6c2d521fce754b23a0216a3832188677094cee6e",
+      "owner": "video-runtime",
+      "reason": "Video 双槽、等比过渡及热改剩余时序",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-crossfade-aspect"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "f8b222abffa86a80926fb22b0fa5d19644ef4adb915bdbd899075f6b436d1684",
-      "after": "2fbdb81323977e7c63f22fdbb49b9fca47cdbefad71ff07c5cd294066271856e",
-      "owner": "scene-runtime",
-      "reason": "真实缩窗回退与实窗成本取舍",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-segment-mean"
+      "before": "2fbdb81323977e7c63f22fdbb49b9fca47cdbefad71ff07c5cd294066271856e",
+      "after": "0efd955b8303994b6cf8c1e63224e274ed1d0f0578b746576dc6954142e164cc",
+      "owner": "video-runtime",
+      "reason": "视频等比淡入实际实施与回归",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-crossfade-aspect"
     },
     {
       "section": "bodies",

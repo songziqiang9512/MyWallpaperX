@@ -69,52 +69,36 @@ extension WallpaperDaemon {
 
     func animateLayerFrameForFillMode(_ fillMode: String) {
         guard let contentBounds = window.contentView?.bounds else { return }
-        let targetFrame = layerFrameForFillMode(fillMode, in: contentBounds)
-
-        let layer = activeLayer
-        guard layer.opacity > 0,
-              targetFrame.width > 0, targetFrame.height > 0 else {
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            for l in [primaryLayer, secondaryLayer] { l.frame = targetFrame }
-            fallbackLayer.frame = contentBounds
-            CATransaction.commit()
-            return
+        let incoming = activeLayer
+        let retained = inactiveLayer
+        let incomingFrame = layerFrameForFillMode(fillMode, in: contentBounds, sourceLayer: incoming)
+        var retainedFrame = layerFrameForFillMode(fillMode, in: contentBounds, sourceLayer: retained)
+        var duration: CFTimeInterval = 0.42
+        if let preparation = videoPreparation, preparation.isCommitted, !preparation.transitionComplete,
+           retained.opacity > 0, !incomingFrame.isEmpty, !retainedFrame.isEmpty {
+            retainedFrame = AVMakeRect(aspectRatio: retainedFrame.size, insideRect: incomingFrame)
+            let animation = incoming.animation(forKey: "opacity")
+            let end = animation.map { $0.beginTime + $0.duration } ?? CACurrentMediaTime()
+            duration = min(duration, max(0, end - CACurrentMediaTime()))
         }
-
-        let fromFrame = layer.presentation()?.frame ?? layer.frame
-
-        guard abs(fromFrame.width - targetFrame.width) > 0.5 ||
-              abs(fromFrame.height - targetFrame.height) > 0.5 ||
-              abs(fromFrame.midX - targetFrame.midX) > 0.5 ||
-              abs(fromFrame.midY - targetFrame.midY) > 0.5 else {
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            for l in [primaryLayer, secondaryLayer] { l.frame = targetFrame }
-            fallbackLayer.frame = contentBounds
-            CATransaction.commit()
-            return
-        }
-
-        let duration: CFTimeInterval = 0.42
-        let timing = CAMediaTimingFunction(controlPoints: 0.4, 0.0, 0.2, 1.0)
-
-        let inactive = inactiveLayer
+        let layouts = [(incoming, incoming.presentation()?.frame ?? incoming.frame, incomingFrame),
+                       (retained, retained.presentation()?.frame ?? retained.frame, retainedFrame)]
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        inactive.frame = targetFrame
         fallbackLayer.frame = contentBounds
-        CATransaction.commit()
-
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        layer.frame = fromFrame
+        for (layer, from, target) in layouts {
+            layer.removeAnimation(forKey: "position")
+            layer.removeAnimation(forKey: "bounds")
+            layer.frame = layer.opacity > 0 ? from : target
+        }
         CATransaction.commit()
 
         CATransaction.begin()
         CATransaction.setAnimationDuration(duration)
-        CATransaction.setAnimationTimingFunction(timing)
-        layer.frame = targetFrame
+        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(controlPoints: 0.4, 0.0, 0.2, 1.0))
+        for (layer, _, target) in layouts where layer.opacity > 0 {
+            layer.frame = target
+        }
         CATransaction.commit()
     }
 
@@ -144,7 +128,6 @@ extension WallpaperDaemon {
         }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        incomingLayer.transform = CATransform3DIdentity
         if targetFrame != .zero { incomingLayer.frame = targetFrame }
         incomingLayer.opacity = 0
         fallbackLayer.contents = nil

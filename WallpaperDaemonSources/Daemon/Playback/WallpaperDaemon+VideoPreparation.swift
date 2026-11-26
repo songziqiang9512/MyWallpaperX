@@ -43,7 +43,6 @@ extension WallpaperDaemon {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         inactiveLayer.opacity = 0
-        inactiveLayer.transform = CATransform3DIdentity
         CATransaction.commit()
         videoPreparation?.transitionComplete = true
     }
@@ -72,7 +71,6 @@ extension WallpaperDaemon {
         CATransaction.setDisableActions(true)
         for layer in [primaryLayer, secondaryLayer] {
             layer.removeAllAnimations()
-            layer.transform = CATransform3DIdentity
             layer.opacity = layer === activeLayer && currentVideoPath != nil ? 1 : 0
         }
         if let bounds = window.contentView?.bounds {

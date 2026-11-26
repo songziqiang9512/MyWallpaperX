@@ -126,13 +126,13 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "三引擎退出、可见交接与唯一产品事务实施且有界验收完成，稳定合同接管后归档。",
-      "lastReviewed": "2026-11-25",
+      "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "544d230c55d9447e4e4d1f931ba16de53ced99463d97ed23747ff0417d71c781",
+        "sourceSHA256": "c1599a24a8480dd6198448b37d867a8fe77d2d1a76a6b61f754a44c5e7f938bf",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Video 同窗淡入和原可见请求票据",
-        "limitations": "只核可交接确认段与当前实现的映射。"
+        "scope": "Video 双槽、等比过渡及热改剩余时序",
+        "limitations": "仍沿现有票据和窗口接管。"
       }
     },
     {
@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6c72077391a85b38440f9be1bf0881d093bd894068407da0cb48ce0e212f19c8",
+        "sourceSHA256": "693e04080cd2569183468ac489d239c57073e37d91d4d6c34e202b92844ce7c8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定位点光分区的原 owner 和当前准入评估",
-        "limitations": "只调整当前评估入口，源码职责按现役读取。"
+        "scope": "定位原 Video 画幅交接 owner",
+        "limitations": "仅核本批 Video 源码入口。"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0bf330c98abefe015b796d21621f856ebfefc08a7cab02034a7fabd056758cfd",
+        "sourceSHA256": "64d76fe7689873ab2c8c5fc5ea95f554876b463570aad9aa49de3b93b5e959f5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同会话整帧对照和体积双档退出",
-        "limitations": "只覆盖一个单宽灯和直接 SDR。"
+        "scope": "Video 混合画幅原生窗口对照",
+        "limitations": "M4 本机 SDR 实窗，未取 HDR 超白、物理逐刷新及实际音轨。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4eede6f661f8b0e214e887f8cd98a8009331aa778264a58980df940d69bd6d2e",
+        "sourceSHA256": "d07788b34a4384632351f2e43c963921e2bec5bdb81ce3c310e3b47366f11639",
         "method": "document_registry --audit + document_health --check",
-        "scope": "真实缩窗回退与实窗成本取舍",
-        "limitations": "只复核本批体积实施段。"
+        "scope": "视频等比淡入实际实施与回归",
+        "limitations": "只复核对应 Video 路线。"
       }
     },
     {

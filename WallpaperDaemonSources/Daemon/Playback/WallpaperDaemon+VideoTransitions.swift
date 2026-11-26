@@ -37,7 +37,7 @@ extension WallpaperDaemon {
         }
 
         let outFrame = outgoingLayer.presentation()?.frame ?? outgoingLayer.frame
-        let needsFrameAnim = targetFrame != .zero
+        let needsFrameAnim = !targetFrame.isEmpty && !outFrame.isEmpty
             && (abs(outFrame.width - targetFrame.width) > 0.5
                 || abs(outFrame.height - targetFrame.height) > 0.5
                 || abs(outFrame.midX - targetFrame.midX) > 0.5
@@ -61,20 +61,15 @@ extension WallpaperDaemon {
 
         if needsFrameAnim {
             let timing = CAMediaTimingFunction(controlPoints: 0.25, 0.46, 0.45, 0.94)
-            let outMid = CGPoint(x: outFrame.midX, y: outFrame.midY)
-            let targetMid = CGPoint(x: targetFrame.midX, y: targetFrame.midY)
-            let outScale = CATransform3DMakeScale(targetFrame.width / outFrame.width,
-                                                targetFrame.height / outFrame.height, 1)
-            let inScale = CATransform3DMakeScale(outFrame.width / targetFrame.width,
-                                               outFrame.height / targetFrame.height, 1)
-            outgoingLayer.frame = outFrame
-            outgoingLayer.position = targetMid
-            outgoingLayer.transform = outScale
-            for layer in [outgoingLayer, incomingLayer] {
-                animate(layer, "position", from: outMid, to: targetMid, timing: timing)
+            let incomingStart = AVMakeRect(aspectRatio: targetFrame.size, insideRect: outFrame)
+            // Any retained picture must be inside the incoming picture when it is hidden.
+            outgoingLayer.frame = AVMakeRect(aspectRatio: outFrame.size, insideRect: targetFrame)
+            for (layer, from) in [(outgoingLayer, outFrame), (incomingLayer, incomingStart)] {
+                let fromCenter = CGPoint(x: from.midX, y: from.midY)
+                animate(layer, "position", from: fromCenter, to: layer.position, timing: timing)
+                let fromBounds = CGRect(origin: layer.bounds.origin, size: from.size)
+                animate(layer, "bounds", from: fromBounds, to: layer.bounds, timing: timing)
             }
-            animate(outgoingLayer, "transform", from: CATransform3DIdentity, to: outScale, timing: timing)
-            animate(incomingLayer, "transform", from: inScale, to: CATransform3DIdentity, timing: timing)
         }
         animate(incomingLayer, "opacity", from: 0, to: 1, timing: opacityTiming)
         CATransaction.commit()

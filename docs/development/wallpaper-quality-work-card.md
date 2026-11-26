@@ -8,7 +8,7 @@
 
 从主工作树 `codex/engine-refactor-program` 的 `b2b80f892` 建 `Fluxo/wallpaper-quality-settings`。评估方案给技术取舍与失败判据，本卡维护唯一执行顺序与当前批。开工核对分支、实际 diff 和上批证据，从原设置行为追到真实运行消费者。 [算法与技术设计](wallpaper-quality-settings-plan.md#decision) · [源码地图](../architecture/repository-map.md#wallpaper-quality) · [验证工作流](repository-workflow.md#设计判定与记录)
 
-M4 单内屏已验证四档预设、10–120 FPS、Scene MSAA 至 4×、泛光和显示 HDR、三种纹理策略、阴影五档、反射启停及真实桌面接管。Scene 冷档直接编辑与显式重试共用实际准备回执和在途撤单。导入同类画质可连续播放。真实 Web 作者验证 FPS 建议与绘制，Video 保原片并已实测 PQ／HLG／HDR10+ 实窗。体积保禁用、高／超高，低／中已有 32／64 px 原尺寸网格候选，正在验证可重复的入档与回退。[本地 Video 原片恢复](wallpaper-quality-settings-plan.md#video-inspector-source-recovery)已在同窗更新实际尺寸和标称帧率，原生同窗切换实证[候选期间保留原视频与留黑](wallpaper-quality-settings-plan.md#video-candidate-poster)及[同源淡入亮度连续](wallpaper-quality-settings-plan.md#video-crossfade-luminance)。直接调档已实测自动采纳、在途精确撤单与三引擎导入连续。后续继续官版运行对照及混合显示拓扑、8× 和长稳功耗的硬件复验。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
+M4 单内屏已验证四档预设、10–120 FPS、Scene MSAA 至 4×、泛光和显示 HDR、三种纹理策略、阴影五档、反射启停及真实桌面接管。Scene 冷档直接编辑与显式重试共用实际准备回执和在途撤单。导入同类画质可连续播放。真实 Web 作者验证 FPS 建议与绘制，Video 保原片并已实测 PQ／HLG／HDR10+ 实窗。体积保禁用、高／超高，低／中原尺寸网格已验画面与回退，整帧收益未复现，暂退出发布。[本地 Video 原片恢复](wallpaper-quality-settings-plan.md#video-inspector-source-recovery)已在同窗更新实际尺寸和标称帧率，原生同窗切换实证[候选期间保留原视频与留黑](wallpaper-quality-settings-plan.md#video-candidate-poster)及[同源淡入亮度连续](wallpaper-quality-settings-plan.md#video-crossfade-luminance)。直接调档已实测自动采纳、在途精确撤单与三引擎导入连续。后续继续官版运行对照及混合显示拓扑、8× 和长稳功耗的硬件复验。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
 
 每批先冻结输入、画面口径及同机噪声，再改现有职责并走最近门、独立审查和窄提交。轮次完成后保必要证据，退出诊断和已失效的边界。未越过收益门的候选停止推进。 [实测门槛](wallpaper-quality-settings-plan.md#quality-release-gates)
 
@@ -532,7 +532,7 @@ Pixabay 以空 URL 和零字节表示缺失 Large。浏览卡、远程详情和�
 
 ### Video 派生验证与本地播放设置
 
-本地 Video 继续提交原文件给 AVFoundation，移除只影响 HLS 的分辨率偏好赋值，保原缓冲和播放器层。 导入卡片与详情共用[轨道显示尺寸](wallpaper-quality-settings-plan.md#video-import-display-size)，用已签名 helper 和真实媒体核尺寸、就绪与循环。同窗[淡入亮度及前后构图](wallpaper-quality-settings-plan.md#video-crossfade-luminance)用原 helper 播放和实际窗口采样验收。
+本地 Video 继续提交原文件给 AVFoundation，移除只影响 HLS 的分辨率偏好赋值，保原缓冲和播放器层。 导入卡片与详情共用[轨道显示尺寸](wallpaper-quality-settings-plan.md#video-import-display-size)，用已签名 helper 和真实媒体核尺寸、就绪与循环。同窗[淡入亮度及前后构图](wallpaper-quality-settings-plan.md#video-crossfade-luminance)用原 helper 播放和实际窗口采样验收。横竖等比淡入、单片和淡入中热改、取消及真实双向接管均通过实窗。 [混合画幅设计](wallpaper-quality-settings-plan.md#video-crossfade-aspect)
 
 真实 Workshop 3821417083 的 UHD 60 FPS 原片在隔离签名 Xcode helper 通过实际屏确认。同一窗口两个阶段的非黑覆盖均约 99.9%，平均 RGB 差为 28.66／255。进程正常退出，原片摘要一致。原生 AVPlayer 探针另确认同源 MP4 短片的两次媒体时钟回绕，生成 MOV 另验回滚。Apple 将该分辨率偏好限定于 HLS，所有产品入口当前交给 helper 的是本地常规文件。 [Apple 播放项接口](https://developer.apple.com/documentation/avfoundation/avplayeritem/preferredmaximumresolution)
 

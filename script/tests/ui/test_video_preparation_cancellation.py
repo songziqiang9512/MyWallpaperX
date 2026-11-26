@@ -86,7 +86,7 @@ import QuartzCore
         let bounds = daemon.window.contentView!.bounds
         let outgoingLayer = daemon.primaryLayer
         let candidateLayer = daemon.secondaryLayer
-        let insetFrame = bounds.insetBy(dx: bounds.width / 8, dy: bounds.height / 8)
+        let insetFrame = bounds.insetBy(dx: bounds.width / 8, dy: bounds.height / 6)
         func framesMatch(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
             abs(lhs.minX - rhs.minX) < 0.01 && abs(lhs.minY - rhs.minY) < 0.01
                 && abs(lhs.width - rhs.width) < 0.01 && abs(lhs.height - rhs.height) < 0.01
@@ -142,7 +142,9 @@ import QuartzCore
             }
             return incoming.opacity > 0 && incoming.opacity < 1 && outgoing.opacity == 1
                 && incoming.zPosition > outgoing.zPosition
-                && incoming.frame.width > insetFrame.width && incoming.frame.width < bounds.width
+                && incoming.frame.width > 0 && incoming.frame.width < bounds.width
+                && abs(incoming.frame.width / incoming.frame.height - bounds.width / bounds.height) < 0.005
+                && abs(outgoing.frame.width / outgoing.frame.height - insetFrame.width / insetFrame.height) < 0.005
         }
         let fadeDeadline = Date().addingTimeInterval(0.4)
         while !hasPresentedFade() && Date() < fadeDeadline {
@@ -152,6 +154,10 @@ import QuartzCore
         precondition(daemon.currentVideoPath == "B" && daemon.activeSlot == .secondary)
         renderingFact("animatedCommitPublishesCurrentOutput", daemon.currentRequestID == 2
             && hasPresentedFade()
+            && [candidateLayer, outgoingLayer].allSatisfy {
+                guard let transform = $0.presentation()?.transform else { return false }
+                return abs(transform.m11-transform.m22) < 0.001
+            }
             && daemon.window.level == PlaybackSurfaceVisibility.activationLevel(normal: WallpaperDaemon.desktopWindowLevel))
         precondition(daemon.videoPreparation?.transitionComplete == false,
             "an animated switch must retain its animation completion")
