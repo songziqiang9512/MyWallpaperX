@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 393877
+      "bytes": 394488
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 57,
-      "bytes": 7558
+      "bytes": 7596
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -648,15 +648,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "0624ce9b52f3c2ddf4fc15624c9a9fc6fb7fb652f87bb02cfe9980560678aeff",
-      "after": "6e5f700bdf5f8a3a26a6242379f1b1ef7261bd171375fccb885e3c0c295e1eba",
-      "owner": "Scene composition",
-      "reason": "保留最近复报的开放项目，移出已验证时钟项。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "2bf3796cd6f511d06054070589d7592ab4a375d30abd39883f60dab0657f6115",
       "after": "7e8fceb821f23309a281998e571b6f64a504565a8a03852b9f75da108462559a",
@@ -667,11 +658,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "255b9aae1e78de041269cde289e7269a39ae18b6168cfe4967c07f35b22eb3c6",
-      "after": "899081a8579bd8a68899d3ee06db390bffa56beda1fa51c7b63cc667380953cf",
-      "owner": "Scene particles",
-      "reason": "登记原包指针、固定双粒板和独立作者的实画结果。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#pointer-halo-378"
+      "before": "899081a8579bd8a68899d3ee06db390bffa56beda1fa51c7b63cc667380953cf",
+      "after": "380d925af5003f7461ba365b22c63c53f6fcbb4aa8cdf7fa8ae73edfb98601a5",
+      "owner": "Scene composition",
+      "reason": "记录原包开关对照的新接缝定位，保留尚未锁定的双端差异。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-chain-left-step-286"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "6b084590c4b357a73408c92bbf31d24c7658a53e272e89505868eb194ed17856",
+      "after": "624ff26cce861cb2428330a37d7b9dec61323c9bf057f6e15951e463929f6086",
+      "owner": "Scene composition",
+      "reason": "记录原包开关对照的新接缝定位，保留尚未锁定的双端差异。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
 }
