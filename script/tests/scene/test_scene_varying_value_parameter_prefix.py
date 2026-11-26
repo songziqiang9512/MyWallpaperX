@@ -195,7 +195,8 @@ def pack_uniforms(fields: list[dict], size: int, index: int,
                   values: dict[str, list[float]]) -> dict:
     storage = bytearray((size + 3) // 4 * 4)
     for field in fields:
-        width = {"float": 1, "vec2": 2, "float2": 2, "vec4": 4, "float4": 4}[field["type"]]
+        width = {"float": 1, "vec2": 2, "float2": 2, "vec3": 3, "float3": 3,
+                 "vec4": 4, "float4": 4}[field["type"]]
         components = values[field["name"]]
         if len(components) != width:
             raise AssertionError(f"wrong fixture uniform width: {field}")
@@ -376,7 +377,7 @@ class SceneVaryingValueParameterPrefixTests(unittest.TestCase):
              "void main(){gl_FragColor=vec4(sin(0.5));}", False),
             ("function-owner", normal_vertex,
              "vec2 carried(){return vec2(0.5);}void main(){gl_FragColor=vec4(carried(),0.0,1.0);}", False),
-            ("uniform-stage-namespace-gap", normal_vertex,
+            ("uniform-stage-namespace", normal_vertex,
              "uniform vec2 carried;\nvoid main(){gl_FragColor=vec4(carried,0.25,1.0);}", False),
             ("structure-type-owner", normal_vertex,
              "struct carried{vec2 uv;};void main(){carried value;value.uv=vec2(0.5);"
@@ -415,20 +416,18 @@ class SceneVaryingValueParameterPrefixTests(unittest.TestCase):
                     self.assertRegex(output["canonicalFragment"], r"\bvarying\s+vec3\s+carried\s*;")
                 boundary = {"normalizerFailure": output.get("normalizerFailure"),
                             "boundedDiagnosticCodes": output["boundedDiagnosticCodes"]}
-                if name == "uniform-stage-namespace-gap":
+                if name == "uniform-stage-namespace":
                     self.assertNotIn("normalizerFailure", output)
                     self.assertEqual(output["canonicalFragment"], fragment)
                     canonical = self.strict_link(root, output, normalized=False)
                     self.assertEqual(canonical.returncode, 0, canonical.stdout + canonical.stderr)
                     normalized = self.strict_link(root, output, normalized=True)
-                    self.assertNotEqual(normalized.returncode, 0, "existing generic stage namespace gap changed")
+                    self.assertEqual(normalized.returncode, 0, normalized.stdout + normalized.stderr)
                     self.assertEqual(output["boundedDiagnosticCodes"], [])
                     self.assertIn("boundedMSL", output)
                     (root / "strict-boundary.json").write_text(json.dumps({**boundary,
                         "canonicalAuthoredStrictReturncode": canonical.returncode,
-                        "normalizedStrictReturncode": normalized.returncode,
-                        "genericGap": "cross-stage-uniform-varying-namespace",
-                        "boundedQualification": "diagnostics-and-MSL-only-no-Metal-pixels"}, indent=2))
+                        "normalizedStrictReturncode": normalized.returncode}, indent=2))
                     continue
                 if "normalizerFailure" in output and rejected:
                     (root / "strict-boundary.json").write_text(json.dumps(
@@ -446,6 +445,42 @@ class SceneVaryingValueParameterPrefixTests(unittest.TestCase):
                                         name + " must retain its actual compiler failure: " + completed.stdout)
                 else:
                     self.assertEqual(completed.returncode, 0, name + completed.stdout + completed.stderr)
+
+    def test_stage_varying_and_uniform_keep_independent_values(self) -> None:
+        for name, carrier, color in (
+            ("stage-symbol", "carried", "vec2"),
+            ("stage-symbol-renamed", "surfaceValue", "vec3"),
+        ):
+            with self.subTest(name=name):
+                vertex = vertex_source(carrier, width=2, assignment=(
+                    f"{carrier} = a_TexCoord; forwarded = {carrier};"
+                    f"forwarded.x += stayLocal(0.25) - 0.25 + mwxVarying_{carrier};"
+                )).replace("void main()", (
+                    f"varying vec2 forwarded;\nconst float mwxVarying_{carrier} = 0.0;\n"
+                    f"float stayLocal(float {carrier}) {{ return {carrier}; }}\nvoid main()"
+                ))
+                if color == "vec2":
+                    value = f"vec3 mixedColor = vec3({carrier},0.125) + vec3(0.0,0.0,0.125);"
+                    uniforms = {carrier: [0.125, 0.25]}
+                else:
+                    value = f"vec3 mixedColor = {carrier} + vec3(0.125);"
+                    uniforms = {carrier: [0.0, 0.125, 0.125]}
+                fragment = (
+                    f"uniform {color} {carrier};\nvarying vec2 forwarded;\n"
+                    f"void main(){{{value} gl_FragColor=vec4(mixedColor + vec3(0.0,forwarded*0.5),1.0);}}"
+                )
+                expected = [channel for y in (0.25, 0.75) for x in (0.25, 0.75)
+                            for channel in (0.125, 0.25 + x * 0.5, 0.25 + y * 0.5, 1.0)]
+                root = self.prepare(name, {"vertex": vertex, "fragment": fragment}, expected, uniforms)
+                if GPU_ENABLED:
+                    self.assert_exact_pixels(root, expected, uniforms=True)
+                invalid_vertex = f"uniform vec2 {carrier};\n" + vertex
+                rejected, output = self.analyze(name + "-same-stage-conflict", {
+                    "vertex": invalid_vertex, "fragment": fragment,
+                })
+                if "normalizerFailure" not in output:
+                    linked = self.strict_link(rejected, output, normalized=True)
+                    self.assertNotEqual(linked.returncode, 0, linked.stdout + linked.stderr)
 
     def test_coordinate_value_copy_reaches_both_backend_routes(self) -> None:
         for name, pair in copy_cases():

@@ -125,12 +125,12 @@
       "bytes": 82956
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 486,
-      "bytes": 96067
+      "lines": 493,
+      "bytes": 97374
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 402745
+      "bytes": 403569
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 55,
-      "bytes": 7258
+      "bytes": 7180
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -621,15 +621,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "48fdfecd39d7454f73ffe2c8b770aa779b0b50fcc04a16a6ffb48bd75c5c957a",
-      "after": "0549c5663deb3b9fbf2dd1145f6b30988f541e32bedf07632707aec61340ade4",
-      "owner": "Scene composition",
-      "reason": "按对照修订文字源的 Alpha 存储及直接输出材质的接入。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#text-source-capture"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "51ab0c44e7ee50643e905f9f62e62c2451dec75db0bc1757d8f8ca88f64c2c57",
       "after": "01ab3b1eee3aadf18ef6654299f22c0bd42cbde422fe25052b0f14eab0a27404",
@@ -657,21 +648,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "1286972bb9f2127802376a713cdde34ca81302dd2f45f8d7740f41e4451d0841",
-      "after": "a370d5f480a6ba06876ee14f532da1f1fadf80160fbec009e7280d80787c43aa",
-      "owner": "Scene runtime evidence",
-      "reason": "记录剑链与 Godrays 冻结对照和原包接缝的后续复验边界。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-chain-left-step-286"
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "0549c5663deb3b9fbf2dd1145f6b30988f541e32bedf07632707aec61340ade4",
+      "after": "c7f971b149770d676a9076edffe016a733b5acd4b0c80e433241b2633d6c7991",
+      "owner": "Scene Generic shader compiler",
+      "reason": "记录跨阶段数值名称与普通结构成员的编译合同、签名实绘和回归边界。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#stage-scoped-varying-symbols"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "1fb7a9a649caa777b766f42e948de9049719fa139acf5d5498a9f0cf316385d6",
-      "after": "6b21171fcded758cfc686737c86e2e75e91be06266a96f6ab854c59a4a64c067",
-      "owner": "Scene runtime evidence",
-      "reason": "记录剑链与 Godrays 冻结对照和原包接缝的后续复验边界。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "a370d5f480a6ba06876ee14f532da1f1fadf80160fbec009e7280d80787c43aa",
+      "after": "dcf90321e3119c180ebaa4c60a37e61ce90c315748afac2660d65e00038a38e9",
+      "owner": "Scene Generic shader compiler",
+      "reason": "记录跨阶段数值名称与普通结构成员的编译合同、签名实绘和回归边界。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#stage-scoped-uniform-runtime"
     }
   ]
 }

@@ -53,6 +53,13 @@ Program仍准备一个数值binding，主身份供原ABI/语义身份、直user�
 
 验收先用相同输入取得旧编译/执行失败，再核两后端实际 Metal 相位像素；覆盖完整变量/资源改名、等价表达式、helper/混合作用域及固定数组，相邻局部/形参/成员、内建 callee、同名 uniform/函数/类型、重复声明和缺生产者保各自原结果或实际编译失败。签名 App 须确认原424→420→237供货及模型可归因像素，独立真实样本保持；不以编译成功或夜光存在代替相位执行，不预设整体更亮，不授官方像素与性能。
 
+<a id="stage-scoped-varying-symbols"></a>
+### 分阶段的 varying 与 uniform 名称
+
+两阶段各有作者值作用域。仅顶点声明的 varying 与片元的数值 uniform 可以同名；共享 std140 块不得把片元字段的无实例声明注入顶点后遮住作者 varying。Generic 归一保原 uniform 字段名、排序、绑定槽和材质键，以原 varying 位置排序为仅发生冲突的顶点声明分配唯一后端名。沿顶点的精确 lexical references 改真实读写，保局部、形参和成员。片元转换使用本阶段的 uniform 形状，也不把该字段交给片元 varying 的本地化。Artifact Builder 沿 SPIRV-Cross 生成的 MWXUniforms 接收者收集活字段并改 ABI 名，避免把同名的普通结构体成员登记为另一阶段的材质输入。由原 glslang 联合链接、SPIR-V 反射与 Metal 验证最终接口。
+
+同阶段冲突、真实接口类型不合与无生产者沿原失败路径。没有碰撞的源码保持原命名与冷准备；不另建解析器、uniform ABI、材质别名、运行时状态或普通帧工作。用原有严格链接和 GPU 门核真实旧失败、异型和等价表达式、变量及资源改名和遮蔽反例，再经生产 Program 验证反射与执行。sampler 宏声明的冷入口单独验收。
+
 <a id="generic-varying-array-budget"></a>
 ### 固定数组接口的准入设计
 
