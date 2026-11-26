@@ -557,11 +557,14 @@ class SceneDaemonSwitchCancellationTests(unittest.TestCase):
             "private static func animationFrameRate(_ raw: Any?) -> AnimationFrameRate?",
             "private static func finiteDouble(_ raw: Any?) -> Double?",
             "private static func integer(_ raw: Any?) -> Int?",
+            "private static func unsignedInteger(_ raw: Any?) -> UInt64?",
+            "static func rasterSampleCounts(_ raw: Any?) -> [Int]?",
         )))
         support = support.replace("    var activeRequestID:UUID?", "\n".join((
             "    var activeRequestID:UUID?",
             method(client, "nonisolated struct ActiveAnimationCadence: Equatable, Sendable"),
             "    var activeAnimationCadence:ActiveAnimationCadence?",
+            "    var activeRasterSampleCounts: [Int] = []",
         )))
         for signature in ("func ensureSession()->Bool", "func replayPendingIntent()"):
             support = support.replace(signature + " " + function_body(support, signature), "")

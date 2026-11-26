@@ -43,7 +43,7 @@
 
 | 产物 | 资源 |
 |---|---|
-| 主 App（`MyWallpaperX`） | `MyWallpaperX/Resources/Localizable.xcstrings`、`MyWallpaperX/Resources/InfoPlist.xcstrings`，当前 1460 条 key × en/zh-Hans/ru/de/fr |
+| 主 App（`MyWallpaperX`） | `MyWallpaperX/Resources` 下的 `Localizable.xcstrings`、`InfoPlist.xcstrings` 和 Scene 画质运行读数 `SceneQuality.xcstrings`，共用 en/zh-Hans/ru/de/fr |
 | 系统动态锁屏/屏保扩展 | `ScreenSaverSources/Resources/Localizable.xcstrings`、`InfoPlist.xcstrings`，随扩展 target 打包 |
 | WallpaperDaemon | 当前无用户可见界面文案，不建资源；若将来出现，按本表另建 |
 | SteamService helper | 不建资源；语义经错误码交给 App 生成文案，见[第 7 节](#diagnostics) |
@@ -62,7 +62,7 @@
 - 文件必须能被 `xcstringstool compile` 成功编译；编译失败等同于资源损坏。
 - 翻译未完成时保留条目但不得标记为已翻译；不得用源语言文本冒充译文来"凑满"。唯一的例外是专有名词与非译词（见[第 10 节](#terminology)），它们由译文语言显式填写同一文本，并保持 `state` 为已翻译。
 
-哪些文案进 `Localizable` 与 `InfoPlist` 两张表：界面文案进 `Localizable`；plist 可见键（权限用途描述、将来加入的 `CFBundleDisplayName`）进 `InfoPlist`。不进表的内容见[第 5 节](#scope)。
+界面文案默认进 `Localizable`。Scene 画质的实际档位读数明确使用同 bundle 的 `SceneQuality`，运行读数独立于原设置选项文案。plist 可见键进 `InfoPlist`。源码检查分别解析默认表和字面量 `table:`，编译提取也按实际表对比。同名 key 在各自表里独立校验。不进表的内容见[第 5 节](#scope)。
 
 <a id="api"></a>
 ## 4. 代码入口与 key 规则

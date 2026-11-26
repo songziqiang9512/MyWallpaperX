@@ -473,6 +473,11 @@ import Foundation
             && SceneDaemonProtocol.animationCadenceEvent([
                 "requestID": candidateID.uuidString, "requestedFPS": 120, "effectiveFPS": true
             ]) == nil
+        let rasterSamplesValid = SceneDaemonProtocol.rasterSampleCounts([1, 4]) == [1, 4]
+            && SceneDaemonProtocol.rasterSampleCounts([]) == []
+            && [nil, [true], [3], [8], [4, 1], [1, 1], [1.5]].allSatisfy {
+                SceneDaemonProtocol.rasterSampleCounts($0) == nil
+            }
         let duplicateDisplayRejected: Bool
         if case .failure(.invalidPayload("setDisplayConfiguration")) = decode([
             "v": 2, "cmd": "setDisplayConfiguration", "screens": [
@@ -654,6 +659,7 @@ import Foundation
             "displayCadenceValid": displayCadenceValid,
             "debugTopologyPreservesCadence": debugTopologyPreservesCadence(),
             "cadenceEventValid": cadenceEventValid,
+            "rasterSamplesValid": rasterSamplesValid,
             "duplicateDisplayRejected": duplicateDisplayRejected,
             "badBookmarkRejected": badBookmarkRejected,
             "audioValid": audioValid,

@@ -57,6 +57,9 @@ extension SceneDaemonClient {
                 if let cadence = SceneDaemonProtocol.animationCadenceEvent(payload),
                    cadence.requestID == activeRequestID {
                     activeAnimationCadence = .init(requestedFPS: cadence.requestedFPS, effectiveFPS: cadence.effectiveFPS)
+                    if let counts = SceneDaemonProtocol.rasterSampleCounts(payload["rasterSampleCounts"]) {
+                        activeRasterSampleCounts = counts
+                    }
                 }
             case "frameStats": handleFrameStats(payload)
             case "propertyUpdateResult": handlePropertyUpdateResult(payload)

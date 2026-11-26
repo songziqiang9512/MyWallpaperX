@@ -3,6 +3,38 @@ import QuartzCore
 
 // Session owns submission transactions and its startup-only surface cohort.
 extension SceneDesktopWallpaperSession {
+    struct RasterSampleStatus {
+        struct Observation {
+            let samples: Int
+            fileprivate let revision: UInt64
+        }
+
+        private(set) var completedSamples: Int?
+        private var inFlight: [Int: Int] = [:]
+        private var latestSubmission: UInt64 = 0
+        private var latestCompletion: UInt64 = 0
+
+        mutating func observe(_ samples: Int) -> Observation? {
+            if samples == completedSamples,
+               inFlight.isEmpty || (inFlight.count == 1 && inFlight[samples] != nil) {
+                return nil
+            }
+            inFlight[samples, default: 0] += 1
+            latestSubmission &+= 1
+            return .init(samples: samples, revision: latestSubmission)
+        }
+
+        mutating func complete(_ observation: Observation, succeeded: Bool) -> Bool {
+            let count = inFlight[observation.samples, default: 0] - 1
+            inFlight[observation.samples] = count > 0 ? count : nil
+            guard succeeded, observation.revision > latestCompletion else { return false }
+            latestCompletion = observation.revision
+            guard completedSamples != observation.samples else { return false }
+            completedSamples = observation.samples
+            return true
+        }
+    }
+
     func renderSurfaces() -> SceneFrameDriverAttempt {
         let attempt = awaitsInitialPresentation ? initialPresentationCohort.beginAttempt(
             members: Set(surfaces.keys) == preparedSurfaceIDs
@@ -97,7 +129,7 @@ extension SceneDesktopWallpaperSession {
                 }
 #endif
                 observeSurfaceCompletion(
-                    candidate, surface: surface, displayID: displayID, attempt: attempt
+                    candidate, surface: surface, displayID: displayID, attempt: attempt, presentsFrame: presentsFrame
                 )
             }
             let submitted = SceneMetalRenderer.submitPreparedFrame(
@@ -167,14 +199,20 @@ extension SceneDesktopWallpaperSession {
     private func observeSurfaceCompletion(
         _ candidate: SceneMetalRenderer.PreparedFrame,
         surface: Surface, displayID: CGDirectDisplayID,
-        attempt: SceneInitialPresentationCohort.AttemptToken?
+        attempt: SceneInitialPresentationCohort.AttemptToken?, presentsFrame: Bool
     ) {
+        let rasterAttempt = onRasterSamplesChanged != nil && presentsFrame
+            ? candidate.rasterSampleCount.flatMap { surface.rasterSampleStatus.observe($0) }
+            : nil
         guard awaitsInitialPresentation || sceneClock.isPaused
-            || surface.videoSwitchDeadline != nil else { return }
+            || surface.videoSwitchDeadline != nil || rasterAttempt != nil else { return }
         if sceneClock.isPaused { surface.pendingPausedFrame = candidate }
         candidate.whenCompleted { [weak self, weak surface, weak candidate] succeeded in
             DispatchQueue.main.async {
                 guard let self, let surface, self.surfaces[displayID] === surface else { return }
+                if let rasterAttempt, surface.rasterSampleStatus.complete(rasterAttempt, succeeded: succeeded) {
+                    self.onRasterSamplesChanged?()
+                }
                 if !succeeded, let deadline = surface.videoSwitchDeadline {
                     surface.videoSwitchDeadline = min(deadline, CACurrentMediaTime())
                 }

@@ -37,6 +37,7 @@ final class SceneDesktopWallpaperSession {
         var pendingPausedFrame: SceneMetalRenderer.PreparedFrame?
         var lastSubmittedPresentationSources: Set<UUID> = []
         var videoSwitchDeadline: TimeInterval?
+        var rasterSampleStatus = RasterSampleStatus()
 
         init(
             window: NSWindow,
@@ -66,6 +67,7 @@ final class SceneDesktopWallpaperSession {
     var isOutputActive = true
     var audioDemand = (spectrum: false, currentProcess: false)
     var onAudioDemandChanged: (() -> Void)?
+    var onRasterSamplesChanged: (() -> Void)?
     var onFirstFrameCompletion: ((CGDirectDisplayID, Bool) -> Void)?
     var initialPresentationCohort = SceneInitialPresentationCohort()
     var drainCallbacks: [@MainActor (Bool) -> Void] = []
@@ -73,7 +75,9 @@ final class SceneDesktopWallpaperSession {
     var surfaceDrainFailed = false
     var drainStarted = false
     var drainResult: Bool?
-    var surfaces: [CGDirectDisplayID: Surface] = [:]
+    var surfaces: [CGDirectDisplayID: Surface] = [:] {
+        didSet { onRasterSamplesChanged?() }
+    }
     var preparedSurfaceIDs: Set<CGDirectDisplayID> = []
     var launchContext: SceneDesktopWallpaperLaunchContext?
     var sceneScriptPuppetPoseSurface: ObjectIdentifier?

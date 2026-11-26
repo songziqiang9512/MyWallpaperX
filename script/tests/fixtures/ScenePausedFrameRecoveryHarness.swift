@@ -237,6 +237,7 @@ final class SceneDesktopWallpaperSession {
         var pendingPausedFrame: SceneMetalRenderer.PreparedFrame?
         var lastSubmittedPresentationSources: Set<UUID> = []
         var videoSwitchDeadline: TimeInterval?
+        var rasterSampleStatus = RasterSampleStatus()
         func teardownParticlePlayback(reason: SceneGraphExecutionResetReason) {}
     }
     var sceneClock = SceneClock(hostTime: 0)
@@ -265,6 +266,7 @@ final class SceneDesktopWallpaperSession {
     var pendingParticleFrameInterval: TimeInterval = 0
     var pausedFrameRetryDeadline: CFTimeInterval?
     var onFirstFrameCompletion: ((CGDirectDisplayID, Bool) -> Void)?
+    var onRasterSamplesChanged: (() -> Void)?
     var videoTextureSourceRegistry: VideoProviders?
     var soundPlaybackRegistry: SoundProviders?
     let userShortcutInput = UserShortcutInput()
@@ -959,6 +961,20 @@ final class SceneDesktopWallpaperSession {
         let scenario = CommandLine.arguments[1]
         switch scenario {
         case "success": success()
+        case "rasterSamples":
+            var samples = SceneDesktopWallpaperSession.RasterSampleStatus()
+            let initial = samples.observe(4)!
+            precondition(samples.complete(initial, succeeded: true) && samples.observe(4) == nil)
+            let fallback = samples.observe(1)!, upgrade = samples.observe(4)!
+            precondition(samples.complete(fallback, succeeded: true) && samples.completedSamples == 1)
+            precondition(!samples.complete(upgrade, succeeded: false) && samples.completedSamples == 1)
+            let failed = samples.observe(4)!, retry = samples.observe(4)!
+            precondition(!samples.complete(failed, succeeded: false))
+            precondition(samples.complete(retry, succeeded: true) && samples.observe(4) == nil)
+            let older = samples.observe(1)!, newer = samples.observe(4)!
+            precondition(!samples.complete(newer, succeeded: true))
+            precondition(!samples.complete(older, succeeded: true))
+            precondition(samples.completedSamples == 4 && samples.observe(4) == nil)
         case "failOnce": failOnce()
         case "asyncExpiry": asynchronousExpiry()
         case "syncExpiry": synchronousExpiry(.synchronousDrop)

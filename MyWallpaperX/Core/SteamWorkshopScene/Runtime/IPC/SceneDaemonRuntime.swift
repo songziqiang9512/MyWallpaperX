@@ -158,6 +158,8 @@ final class SceneDaemonRuntime {
     private var didReportNonSilentAudioPublication = false
 #endif
     private var currentRequestID: UUID?
+    private var rasterStatusScheduled = false
+    private var lastReportedRasterSamples: [Int] = []
     private var lastPropertyRevision: UInt64 = 0
     private var shouldPausePlayback = false
     private var isShuttingDown = false
@@ -632,15 +634,30 @@ final class SceneDaemonRuntime {
         emitActiveAnimationCadence()
     }
 
-    private func emitActiveAnimationCadence() {
-        guard host.unconfirmedPromotion == nil,
+    private func emitActiveAnimationCadence(rasterChangeOnly: Bool = false) {
+        guard !isShuttingDown, host.unconfirmedPromotion == nil,
               let session = host.activeSession, let requestID = session.launchRequestID else { return }
+        let completed = session.surfaces.values.compactMap(\.rasterSampleStatus.completedSamples)
+        let samples = completed.count == session.surfaces.count ? Set(completed).sorted() : []
+        guard !rasterChangeOnly || samples != lastReportedRasterSamples else { return }
+        lastReportedRasterSamples = samples
         emit(["v": SceneDaemonProtocol.version, "event": "animationCadenceChanged",
               "requestID": requestID.uuidString, "requestedFPS": session.animationFrameRate.rawValue,
-              "effectiveFPS": session.effectiveAnimationFPS])
+              "effectiveFPS": session.effectiveAnimationFPS, "rasterSampleCounts": samples])
+    }
+
+    private func scheduleRasterStatus() {
+        guard !rasterStatusScheduled else { return }
+        rasterStatusScheduled = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            guard let self else { return }
+            self.rasterStatusScheduled = false
+            self.emitActiveAnimationCadence(rasterChangeOnly: true)
+        }
     }
 
     private func installObservers() {
+        host.rasterSamplesChangedHandler = { [weak self] in self?.scheduleRasterStatus() }
         observers.append(NotificationCenter.default.addObserver(
             forName: .sceneWallpaperLaunchStateDidChange,
             object: nil,

@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "17746389cf17c9564dc50988a9284d614ba9467c9d1a9cfa6d944e9a722b165b",
+        "sourceSHA256": "9e9c8a7c9bb4baacf9af0715ce52ed7372fac3626968e741c9d6fdf13f151af0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通副槽缺失的冷准备、采样资格与静态发布导航",
-        "limitations": "运行数据归 Scene 能力页。"
+        "scope": "抗锯齿请求与实际主域采样读数的导航",
+        "limitations": "验证和详细投递合同归 Scene。"
       }
     },
     {
@@ -250,13 +250,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/development/localization-plan.md",
-      "lastReviewed": "2026-11-23",
+      "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "eb396d4b955cb3a47ae456da9ba67b9927ace331951de1b73f8115bf5bb09302",
+        "sourceSHA256": "a9f8a29d7b26cded1c665e897206c160062680137543f442ea19963e57c61270",
         "method": "document_registry --audit + document_health --check",
-        "scope": "英文源语言与回退、String Catalog 资源格式、入口与 key 规则、禁译边界、失败消息分层、字符长度布局（含更长语言样张）、区域格式、术语、新增语言流程、校验门与源码文案变更同步检查；2026-11-23 实施后补记编译期提取实测结论与资源规模。",
-        "limitations": "文档与索引核对；构建已验证，但界面截图、中文逐屏回归、帮助书与场景属性名译文、译文人工审校未完成。"
+        "scope": "Scene 运行读数、字面量表名与按表校验",
+        "limitations": "已验证五种资源打包与中英文设置窗，仍沿当前 locale 启动机制。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4138704070dce72f041f957c97f05d383264aaeb6da4d6fb34b8349d7eb35dec",
+        "sourceSHA256": "2b9c09e6b1fca224ff3a5142f9a67eba3f00d6827d9b17756cdad26c7609940a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通副槽样本实绘与后续缩放顺序",
-        "limitations": "本批验证单屏固定相位，不授稳态性能。"
+        "scope": "Scene 主域采样的设置读数和实绘覆盖",
+        "limitations": "真实设备验证为单屏 M4。"
       }
     },
     {
@@ -871,10 +871,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cac594b9de453ea34e7c7da371471f07b90eb277dc84305a44abf1e0e56c6439",
+        "sourceSHA256": "b120fa2367d54677468c6e1a2acc3fb6f9ff04c5233f272540b8b298df64bfe7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "帧计时和粒子固定步进的热切职责",
-        "limitations": "只复核热切周期与原生命周期。"
+        "scope": "主域采样经过成功提交与活动会话到设置的投递",
+        "limitations": "只表达最近成功且请求呈现的主域，物理多屏待验。"
       }
     },
     {
@@ -1003,10 +1003,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0c574243b4d840a55d21683cf1c4eb5cdf45df790b39b512c282e2d340836e62",
+        "sourceSHA256": "18b5ae6bb75f4ecf9ada3a4640776955a4cce843fed9e17fbe1fbb95d22e40c0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "官版观察、签名 App 作者作业、颜色与格距",
-        "limitations": "仅两个已确认显式材质别名样本及其变体，比较格距而非完整像素。"
+        "scope": "同请求 4×／1×／4× 及独立样本的签名设置收据",
+        "limitations": "真实单屏和中英文，混合结果仅原生控件，不量耗时。"
       }
     },
     {

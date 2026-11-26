@@ -6,7 +6,7 @@ Use --source for source lookups, --changed for staged changes and --compile
 to compile the catalogs with `xcstringstool`.
 `--extraction DIR` — additionally compare the compiler-extracted keys
   (the `.stringsdata` files of a build with `SWIFT_EMIT_LOC_STRINGS`) against
-  the catalog, which is the authoritative check that source edits and
+  their App catalogs, which is the authoritative check that source edits and
   translations stayed in sync.
 
 `--hardcoded` lists Chinese literals in UI-looking code that never reached
@@ -38,7 +38,11 @@ CATALOGS = {
     target: Path(target) / "Resources/Localizable.xcstrings"
     for target in ("MyWallpaperX", "ScreenSaverSources")
 }
-INFO_CATALOG = Path("MyWallpaperX/Resources/InfoPlist.xcstrings")
+TABLE_CATALOGS = {
+    **{(target, "Localizable"): path for target, path in CATALOGS.items()},
+    ("MyWallpaperX", "InfoPlist"): Path("MyWallpaperX/Resources/InfoPlist.xcstrings"),
+    ("MyWallpaperX", "SceneQuality"): Path("MyWallpaperX/Resources/SceneQuality.xcstrings"),
+}
 PLURAL_FORMS = {
     'en': {'one', 'other'},
     'zh-Hans': {'other'},
@@ -113,9 +117,9 @@ ESCAPES = {'n': '\n', 'r': '\r', 't': '\t', '0': '\0', '\\': '\\', '"': '"', "'"
 INTERPOLATION = "\0argument\0"
 
 
-def source_keys(source: str) -> set[str]:
-    """Extract literal lookup keys and preserve interpolation positions."""
-    keys: set[str] = set()
+def source_lookups(source: str) -> set[tuple[str, str]]:
+    """Extract literal table/key lookups and preserve interpolation positions."""
+    lookups: set[tuple[str, str]] = set()
 
     def block_end(offset: int) -> int:
         depth = 1
@@ -157,7 +161,17 @@ def source_keys(source: str) -> set[str]:
                 if not QUOTE.match(source, argument):
                     continue
                 key, offset = literal(argument)
-                keys.add(key)
+                table = "Localizable"
+                after_key = skip_trivia(offset)
+                if source[after_key:after_key + 1] == ",":
+                    label = skip_trivia(after_key + 1)
+                    if source.startswith("table", label):
+                        colon = skip_trivia(label + len("table"))
+                        if source[colon:colon + 1] == ":":
+                            table_value = skip_trivia(colon + 1)
+                            if QUOTE.match(source, table_value):
+                                table, offset = literal(table_value)
+                lookups.add((table, key))
                 if depth:
                     depth += 1
             elif not value.startswith("//") and value.endswith('"'):
@@ -202,7 +216,7 @@ def source_keys(source: str) -> set[str]:
         return "", len(source)
 
     code(0)
-    return keys
+    return lookups
 
 
 def git_text(revision: str, *, optional: bool = False) -> str | None:
@@ -212,20 +226,21 @@ def git_text(revision: str, *, optional: bool = False) -> str | None:
     return result.stdout if result.returncode == 0 else None
 
 
-def staged_inputs() -> tuple[dict[str, set[str]], set[Path]]:
+def staged_inputs() -> tuple[dict[tuple[str, str], set[str]], set[Path]]:
     paths = {
         Path(name) for name in subprocess.check_output(
             ["git", "diff", "--cached", "--name-only", "-z", "--no-renames"], cwd=ROOT,
         ).decode().split("\0") if name
     }
-    keys: dict[str, set[str]] = defaultdict(set)
+    keys: dict[tuple[str, str], set[str]] = defaultdict(set)
     for path in paths:
         target = path.parts[0]
         if target in CATALOGS and path.suffix == ".swift":
             new = git_text(f":{path.as_posix()}", optional=True)
             if new is not None:
                 old = git_text(f"HEAD:{path.as_posix()}", optional=True) or ""
-                keys[target].update(source_keys(new) - source_keys(old))
+                for table, key in source_lookups(new) - source_lookups(old):
+                    keys[target, table].add(key)
     return keys, paths
 
 
@@ -257,14 +272,14 @@ def compile_errors(catalog_path: Path, tmp: Path) -> list[str]:
     return []
 
 
-def extraction_keys(directory: Path) -> set[str]:
+def extraction_keys(directory: Path, table: str) -> set[str]:
     keys: set[str] = set()
     for path in directory.rglob('*.stringsdata'):
         try:
             data = json.loads(path.read_text(encoding='utf-8'))
         except (OSError, ValueError):
             continue
-        for entry in data.get('tables', {}).get('Localizable', []):
+        for entry in data.get('tables', {}).get(table, []):
             key = entry.get('key')
             if key:
                 keys.add(key)
@@ -300,7 +315,7 @@ def main() -> int:
     parser.add_argument('--catalog', type=Path, help='validate a single catalog instead of the product tables')
     parser.add_argument('--changed', action='store_true', help='check staged Swift and catalog changes')
     parser.add_argument('--source', action='store_true', help='compare literal Swift lookups with each target table')
-    parser.add_argument('--extraction', type=Path, help='compare the main App catalog against compiler stringsdata')
+    parser.add_argument('--extraction', type=Path, help='compare App localization tables against compiler stringsdata')
     parser.add_argument('--hardcoded', action='store_true')
     parser.add_argument('--compile', action='store_true', help='also run xcstringstool compile')
     args = parser.parse_args()
@@ -309,30 +324,35 @@ def main() -> int:
         parser.error('choose staged, product source, or a single catalog')
 
     errors: list[str] = []
-    staged_keys, staged_paths = staged_inputs() if args.changed else ({}, set())
-    tables = {"MyWallpaperX": args.catalog} if args.catalog else {**CATALOGS, "InfoPlist": INFO_CATALOG}
+    keys_by_table, staged_paths = staged_inputs() if args.changed else (defaultdict(set), set())
+    tables = {("MyWallpaperX", "Localizable"): args.catalog} if args.catalog else TABLE_CATALOGS
+    if args.source:
+        for target in CATALOGS:
+            for file in (ROOT / target).rglob("*.swift"):
+                for table, key in source_lookups(file.read_text(encoding="utf-8")):
+                    keys_by_table[target, table].add(key)
+    for target, table in sorted(keys_by_table.keys() - tables.keys()):
+        errors.append(f'{target}: no catalog for source string table {table!r}')
+
     with TemporaryDirectory(prefix="mwx-localization-") if args.compile else nullcontext() as temporary:
-        for target, path in tables.items():
-            keys = staged_keys.get(target, set())
+        for (target, table), path in tables.items():
+            keys = keys_by_table.get((target, table), set())
             if args.changed and not keys and path not in staged_paths:
                 continue
             catalog_path = ROOT / path
             data = git_text(f":{path.as_posix()}") if args.changed else catalog_path.read_text(encoding='utf-8')
             catalog = json.loads(data)
             entries = catalog.get('strings', {})
-            if args.source and target in CATALOGS:
-                for file in (ROOT / target).rglob("*.swift"):
-                    keys.update(source_keys(file.read_text(encoding="utf-8")))
             findings, matched = source_catalog_errors(keys, entries)
             findings.extend(catalog_errors(catalog, matched if args.changed and path not in staged_paths else None))
-            if args.extraction and target == "MyWallpaperX":
-                extracted = extraction_keys(args.extraction)
+            if args.extraction and target == "MyWallpaperX" and table != "InfoPlist":
+                extracted = extraction_keys(args.extraction, table)
                 if not extracted:
-                    findings.append("no compiler-extracted Localizable keys found")
+                    findings.append(f"no compiler-extracted {table} keys found")
                 findings.extend(f'missing key (compiler extracted): {key}' for key in sorted(extracted - entries.keys()))
                 findings.extend(f'orphan key (compiler did not extract): {key}' for key in sorted(entries.keys() - extracted))
             if args.compile:
-                findings.extend(compile_errors(catalog_path, Path(temporary) / target))
+                findings.extend(compile_errors(catalog_path, Path(temporary) / target / table))
             errors.extend(f"{path}: {finding}" for finding in findings)
             print(f'{path}: {len(entries)} catalog keys')
 

@@ -61,7 +61,7 @@ class LocalizationTests(unittest.TestCase):
             self.assertIn("About %@", missing.stderr)
 
     def test_source_lookup_uses_interpolation_positions_and_nested_calls(self):
-        keys = checker.source_keys(r'''
+        lookups = checker.source_lookups(r'''
             let title = String(localized: /* translator /* nested */ note */
                 #"Open \#(String(localized: "Gallery"))"#)
             let count = String(localized: "Items: \(Int(4))")
@@ -71,11 +71,22 @@ class LocalizationTests(unittest.TestCase):
                     world
                 """)
         ''')
+        self.assertEqual({table for table, _ in lookups}, {"Localizable"})
+        keys = {key for _, key in lookups}
         entries = {"Open %@", "Gallery", "Items: %lld", "    Hello     world"}
         self.assertEqual(checker.source_catalog_errors(keys, entries), ([], entries))
         errors, _ = checker.source_catalog_errors(keys, entries - {"Items: %lld"} | {"%lld: Items"})
         self.assertEqual(len(errors), 1)
         self.assertIn("Items: %@", errors[0])
+
+    def test_named_table_does_not_validate_a_default_table_lookup(self):
+        key = "In use: %@"
+        named = checker.source_lookups('let label = String(localized: "In use: \\(count)", table: /* note */ "SceneQuality")')
+        default = checker.source_lookups('let label = String(localized: "In use: \\(count)")')
+        self.assertEqual({table for table, _ in named}, {"SceneQuality"})
+        self.assertEqual({table for table, _ in default - named}, {"Localizable"})
+        self.assertEqual(checker.source_catalog_errors({lookup for _, lookup in named}, {key}), ([], {key}))
+        self.assertEqual(len(checker.source_catalog_errors({lookup for _, lookup in default}, set())[0]), 1)
 
     def test_reordering_requires_the_original_argument_positions(self):
         key = "Count %lld Recent %@"

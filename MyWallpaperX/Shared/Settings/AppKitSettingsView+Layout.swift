@@ -392,9 +392,15 @@ extension AppKitSettingsContainerView {
             sceneAntiAliasingPopup.lastItem?.representedObject = mode.rawValue
         }
         sceneAntiAliasingPopup.setAccessibilityLabel(String(localized: "Scene Anti-Aliasing"))
+        sceneRasterSamplesLabel.font = .systemFont(ofSize: 11)
+        sceneRasterSamplesLabel.textColor = .secondaryLabelColor
+        let antiAliasingControls = NSStackView(views: [sceneAntiAliasingPopup, sceneRasterSamplesLabel])
+        antiAliasingControls.orientation = .vertical
+        antiAliasingControls.alignment = .trailing
+        antiAliasingControls.spacing = 2
         qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Anti-Aliasing"),
             iconSystemName: "viewfinder",
-            subtitle: String(localized: "Applies to supported 3D scenes after reloading the wallpaper"), trailing: sceneAntiAliasingPopup))
+            subtitle: String(localized: "Applies to supported 3D scenes after reloading the wallpaper"), trailing: antiAliasingControls))
 
         let modes: [(ScenePostProcessingMode, String)] = [
             (.disabled, String(localized: "Disabled")),
@@ -484,6 +490,7 @@ extension AppKitSettingsContainerView {
         }
         webFrameRatePopup.selectItem(at: quality.webFrameRateMode == .display ? 0 : 1)
         sceneAntiAliasingPopup.selectItem(at: sceneAntiAliasingPopup.indexOfItem(withRepresentedObject: quality.scene.antiAliasing.rawValue))
+        refreshSceneRasterSampleReadout()
         refreshScenePostProcessingMenu(quality.scene.postProcessing)
         sceneTextureQualityPopup.selectItem(at: sceneTextureQualityPopup.indexOfItem(withRepresentedObject: quality.scene.textures.rawValue))
         sceneShadowsPopup.selectItem(at: sceneShadowsPopup.indexOfItem(withRepresentedObject: quality.scene.shadows.rawValue))
@@ -498,6 +505,14 @@ extension AppKitSettingsContainerView {
             sceneQualityPresetPopup.indexOfItem(withRepresentedObject: $0.rawValue)
         } ?? 0
         sceneQualityPresetPopup.selectItem(at: index)
+    }
+
+    func refreshSceneRasterSampleReadout() {
+        let counts = SceneDaemonClient.shared.activeRasterSampleCounts
+        sceneRasterSamplesLabel.isHidden = counts.isEmpty
+        guard !counts.isEmpty else { return }
+        let samples = counts.map { "\($0.formatted())×" }.joined(separator: " / ")
+        sceneRasterSamplesLabel.stringValue = String(localized: "In use: \(samples)", table: "SceneQuality")
     }
 
     private func updateSceneFrameRateLabels(_ requested: Int) {

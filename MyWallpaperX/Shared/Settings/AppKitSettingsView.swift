@@ -102,6 +102,7 @@ final class AppKitSettingsContainerView: NSView {
     let syncSystemWallpaperSwitch = NSSwitch()
     let sceneQualityPresetPopup = NSPopUpButton()
     let sceneAntiAliasingPopup = NSPopUpButton()
+    let sceneRasterSamplesLabel = NSTextField(labelWithString: "")
     let scenePostProcessingPopup = NSPopUpButton()
     let sceneTextureQualityPopup = NSPopUpButton()
     let sceneShadowsPopup = NSPopUpButton()
@@ -493,6 +494,10 @@ final class AppKitSettingsContainerView: NSView {
         NotificationCenter.default.publisher(for: .sceneDaemonAnimationCadenceDidChange)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.refreshSceneFrameRateReadout() }
+            .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: .sceneDaemonRasterSamplesDidChange)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.refreshSceneRasterSampleReadout() }
             .store(in: &cancellables)
         NotificationCenter.default.publisher(for: .sceneDaemonPreparedQualityDidChange)
             .receive(on: DispatchQueue.main)

@@ -231,6 +231,7 @@ def production_harness(sources=None):
             "private func armFrameDriver(", "private func waitForFrameAdmission(", "private func advanceFrameTiming(",
         ]),
         *(method(submission, signature) for signature in [
+            "struct RasterSampleStatus",
             "func renderSurfaces(", "var awaitsInitialPresentation:",
             "private func observeSurfaceCompletion(", "private func deliverInitialPresentationCohort(",
         ]),
@@ -300,6 +301,9 @@ class ScenePausedFrameRecoveryTests(unittest.TestCase):
         result = subprocess.run([str(self.binary), name], capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("paused-frame-recovery-pass: " + name, result.stdout)
+
+    def test_raster_readout_uses_latest_success_and_settles_steady_frames(self):
+        self.run_scenario("rasterSamples")
 
     def test_success_draws_once_per_invalidation(self):
         self.run_scenario("success")

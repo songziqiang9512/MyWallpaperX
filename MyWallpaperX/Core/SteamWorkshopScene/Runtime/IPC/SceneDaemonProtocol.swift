@@ -108,6 +108,17 @@ nonisolated enum SceneDaemonProtocol {
         return (requestID, requestedFPS, effectiveFPS)
     }
 
+    static func rasterSampleCounts(_ raw: Any?) -> [Int]? {
+        guard let values = raw as? [Any], values.count <= 3 else { return nil }
+        var counts: [Int] = []
+        for value in values {
+            guard let count = unsignedInteger(value), count == 1 || count == 2 || count == 4,
+                  counts.last.map({ $0 < Int(count) }) ?? true else { return nil }
+            counts.append(Int(count))
+        }
+        return counts
+    }
+
     static func sourceObject(_ source: ScenePlaybackSource) throws -> [String: Any] {
         guard source.isValid,
               let object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(source)) as? [String: Any] else {

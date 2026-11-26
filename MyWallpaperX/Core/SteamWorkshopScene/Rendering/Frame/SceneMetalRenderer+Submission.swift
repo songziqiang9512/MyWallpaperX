@@ -35,7 +35,9 @@ extension SceneMetalRenderer {
 #else
         compositionSurface = nil
 #endif
-        return PreparedFrame(commandBuffer: commandBuffer, initialVideoPresentation: initialVideoPresentation, observeCompositionSurface: compositionSurface, submit: { present in
+        return PreparedFrame(commandBuffer: commandBuffer, initialVideoPresentation: initialVideoPresentation,
+            rasterSampleCount: mainPassForSubmission?.rasterSampleCount,
+            observeCompositionSurface: compositionSurface, submit: { present in
 #if DEBUG
             if !SceneGPUStageTimestampHook.isSelected(commandBuffer) {
                 encodeFrameReadback?(drawable.texture, commandBuffer)

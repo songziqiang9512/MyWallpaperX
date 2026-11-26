@@ -39,6 +39,7 @@ class SettingsCacheActionsTests(unittest.TestCase):
         for marker, signature in (
             ("// ACTUAL_SCENE_POST_PROCESSING_MENU", "    func refreshScenePostProcessingMenu("),
             ("// ACTUAL_SCENE_REAPPLY_TITLE", "    func refreshSceneQualityReapplyTitle("),
+            ("// ACTUAL_RASTER_SAMPLE_READOUT", "    func refreshSceneRasterSampleReadout("),
             ("// ACTUAL_RESTORE_QUALITY_CONTROLS", "    func refreshQualityControls("),
             ("// ACTUAL_REFRESH_SCENE_QUALITY_PRESET", "    private func refreshSceneQualityPreset("),
             ("// ACTUAL_QUALITY_ACTION", "    @objc private func handleQualityChange("),

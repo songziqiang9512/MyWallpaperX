@@ -35,6 +35,7 @@ nonisolated struct SceneDaemonActiveSessionFactsChange: Sendable {
 extension Notification.Name {
     static let sceneDaemonAnimationCadenceDidChange = Notification.Name("SceneDaemonAnimationCadenceDidChange")
     static let sceneDaemonPreparedQualityDidChange = Notification.Name("SceneDaemonPreparedQualityDidChange")
+    static let sceneDaemonRasterSamplesDidChange = Notification.Name("SceneDaemonRasterSamplesDidChange")
     static let sceneDaemonActiveSessionFactsDidChange = Notification.Name(
         "SceneDaemonActiveSessionFactsDidChange"
     )
@@ -107,9 +108,20 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var deferredDisplayConfigurationUpdate = false
     var activeRequestID: UUID? {
         didSet {
-            if oldValue != activeRequestID { activeAnimationCadence = nil }
+            if oldValue != activeRequestID {
+                activeAnimationCadence = nil
+                activeRasterSampleCounts = []
+            }
         }
     }
+    var activeRasterSampleCounts: [Int] = [] {
+        didSet {
+            if oldValue != activeRasterSampleCounts {
+                NotificationCenter.default.post(name: .sceneDaemonRasterSamplesDidChange, object: self)
+            }
+        }
+    }
+
     nonisolated struct ActiveAnimationCadence: Equatable, Sendable {
         let requestedFPS: AnimationFrameRate
         let effectiveFPS: Double
@@ -621,6 +633,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         sessionGeneration &+= 1
         if hadPreparedQuality { notifyPreparedQualityChanged() }
         activeAnimationCadence = nil
+        activeRasterSampleCounts = []
         activeCallbackPropertyFacts = nil
         let generation = sessionGeneration
         expectedTerminationGenerations.remove(generation)

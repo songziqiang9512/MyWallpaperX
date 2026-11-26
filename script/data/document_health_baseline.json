@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 66,
-      "bytes": 22466
+      "bytes": 22679
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -78,7 +78,7 @@
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 141186
+      "bytes": 141467
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -93,8 +93,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 292,
-      "bytes": 59867
+      "lines": 294,
+      "bytes": 60521
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -138,7 +138,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 339165
+      "bytes": 339870
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -234,7 +234,7 @@
     },
     "docs/development/localization-contract.md": {
       "lines": 390,
-      "bytes": 29190
+      "bytes": 29354
     },
     "docs/development/localization-plan.md": {
       "lines": 200,
@@ -369,20 +369,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "59f15193e62e616d7c63d5738bf9ae06bbb67bdcf2ca1b5ad91c269eae2eb031",
-      "after": "02b91afbe07c1220a346b2140f231dff7009ce300149d77efa0768e1c0a660cb",
-      "owner": "scene-runtime",
-      "reason": "帧计时和粒子固定步进的热切职责",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-particle-rate-transition"
+      "before": "02b91afbe07c1220a346b2140f231dff7009ce300149d77efa0768e1c0a660cb",
+      "after": "5ed51687b798af3e53ee504aceafaccc829e32cc6df02c2c49e41b1f46b96497",
+      "owner": "三引擎画质与 Scene 提交",
+      "reason": "同步实际采样数的投递、用户读数与本地化入口。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "647b11c9b96a678ec063f445928f83394c205f45e2e03b6281216001268ed911",
-      "after": "96e35acfb2dd2e75a36b5fe8149620b86a9acfe3910b78f30a6ae12a1cef742f",
-      "owner": "Scene 材质准备",
-      "reason": "同步普通副槽的官版合同、现役导航和启动实测。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#missing-ordinary-material-texture"
+      "before": "96e35acfb2dd2e75a36b5fe8149620b86a9acfe3910b78f30a6ae12a1cef742f",
+      "after": "054e62eb6224311796533c29704e0c69917dec10b916bf9c3be425f6d49b5ca5",
+      "owner": "三引擎画质与 Scene 提交",
+      "reason": "同步实际采样数的投递、用户读数与本地化入口。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
     },
     {
       "section": "bodies",
@@ -603,11 +603,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f3911566d01edfb5cf8d0e9c2665e9d2ecdeb8beef0846c4904746cd8227c288",
-      "after": "d7dab82975a75f1cc4fe7a1509e92384d45661a6db581d3d8f7898d77b581164",
-      "owner": "Scene 材质准备",
-      "reason": "同步普通副槽的官版合同、现役导航和启动实测。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#missing-ordinary-material-texture"
+      "before": "d7dab82975a75f1cc4fe7a1509e92384d45661a6db581d3d8f7898d77b581164",
+      "after": "ecaf8f49568ef7ee0093c19f51ae1b1f3a3911b5cf4416e5cbc4b0aedfdf4c6e",
+      "owner": "三引擎画质与 Scene 提交",
+      "reason": "同步实际采样数的投递、用户读数与本地化入口。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
     },
     {
       "section": "bodies",
@@ -621,11 +621,11 @@
     {
       "section": "bodies",
       "path": "docs/development/localization-contract.md",
-      "before": "1fe06626d4935615677fc4d5186f467398dfbed07e544a973a3960da37fc3484",
-      "after": "ea1a7be2ba540a81e3c0106d398e8e4f7a2c3893cfb33a078d639e04f9340e68",
-      "owner": "repository-governance",
-      "reason": "Merge the codex localization work with the script collection migration.",
-      "decision": "docs/development/localization-contract.md"
+      "before": "87dd77cb4fa3b2bac50e46188787c70f1f457ff7c4c0af4f4801a444914d80d1",
+      "after": "7c7a4549a5724e9321a36fbf5f923ae21d239d04ed2775bbb0fd4375f47e67f8",
+      "owner": "三引擎画质与 Scene 提交",
+      "reason": "同步实际采样数的投递、用户读数与本地化入口。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "003197bb0c4319afbab55a992b1ddfdd13a93e73941866d15b7773b6ddf95865",
-      "after": "b6c757450098bfb1687f8f6c2c8238f7f487a9aeb70af7afd8246db5a404fd75",
-      "owner": "Scene 材质准备",
-      "reason": "同步普通副槽的官版合同、现役导航和启动实测。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#missing-ordinary-material-texture"
+      "before": "b6c757450098bfb1687f8f6c2c8238f7f487a9aeb70af7afd8246db5a404fd75",
+      "after": "b3c9883c49d5016ecb01b24260abeff25405a861a6cbc8b64f5f1ceeca1076a8",
+      "owner": "三引擎画质与 Scene 提交",
+      "reason": "同步实际采样数的投递、用户读数与本地化入口。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
     },
     {
       "section": "bodies",

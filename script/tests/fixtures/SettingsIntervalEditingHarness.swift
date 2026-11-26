@@ -26,6 +26,7 @@ extension Notification.Name {
     static let wallpaperManagerLoginItemSyncFailed = Self("fixture.login-item")
     static let sceneDaemonAnimationCadenceDidChange = Self("fixture.cadence")
     static let sceneDaemonPreparedQualityDidChange = Self("fixture.preparation-quality")
+    static let sceneDaemonRasterSamplesDidChange = Self("fixture.raster-samples")
 }
 
 @MainActor final class PlaybackCommandMultiplexer {
@@ -47,6 +48,7 @@ extension Notification.Name {
     var configuredAnimationCadenceLimit: Double = 60
     var activeAnimationCadence: ActiveAnimationCadence?
     var activePreparedRenderQuality: SceneRenderQuality?
+    var activeRasterSampleCounts: [Int] = []
 }
 
 // ACTUAL_FRAME_RATE_SLIDER
@@ -58,6 +60,7 @@ extension Notification.Name {
     var muteStateObserver: NSObjectProtocol?, loginItemSyncFailureObserver: NSObjectProtocol?
     let sceneMediaInfoSwitch = NSSwitch()
     let sceneQualityPresetPopup = NSPopUpButton(), sceneAntiAliasingPopup = NSPopUpButton()
+    let sceneRasterSamplesLabel = NSTextField(labelWithString: "")
     let scenePostProcessingPopup = NSPopUpButton(), sceneTextureQualityPopup = NSPopUpButton()
     let sceneShadowsPopup = NSPopUpButton(), sceneVolumeLightingPopup = NSPopUpButton()
     let sceneReflectionsSwitch = NSSwitch(), webFrameRatePopup = NSPopUpButton()
@@ -144,6 +147,7 @@ extension Notification.Name {
     // ACTUAL_SETTINGS_OBSERVER
     // ACTUAL_SCENE_POST_PROCESSING_MENU
     // ACTUAL_SCENE_REAPPLY_TITLE
+    // ACTUAL_RASTER_SAMPLE_READOUT
     // ACTUAL_RESTORE_QUALITY_CONTROLS
     // ACTUAL_REFRESH_SCENE_QUALITY_PRESET
     // ACTUAL_QUALITY_ACTION
@@ -406,6 +410,22 @@ extension Notification.Name {
         pump()
         checks["native-presented-quality-notification-clears-the-pending-title"] =
             button.title == standardTitle && button.isHiddenOrHasHiddenAncestor
+
+        let selectedMSAA = view.sceneAntiAliasingPopup.indexOfSelectedItem
+        let storedMSAA = PlaybackQualityPreference.current.scene.antiAliasing
+        let savesBeforeRasterStatus = requests.requests.count
+        daemon.activeRasterSampleCounts = [1, 4]
+        NotificationCenter.default.post(name: .sceneDaemonRasterSamplesDidChange, object: daemon)
+        pump()
+        checks["native-raster-readout-shows-active-counts-without-changing-the-request"] =
+            !view.sceneRasterSamplesLabel.isHidden && view.sceneRasterSamplesLabel.stringValue.contains("1× / 4×")
+            && view.sceneAntiAliasingPopup.indexOfSelectedItem == selectedMSAA
+            && PlaybackQualityPreference.current.scene.antiAliasing == storedMSAA
+            && requests.requests.count == savesBeforeRasterStatus
+        daemon.activeRasterSampleCounts = []
+        NotificationCenter.default.post(name: .sceneDaemonRasterSamplesDidChange, object: daemon)
+        pump()
+        checks["native-raster-readout-clears-on-empty-active-state"] = view.sceneRasterSamplesLabel.isHidden
 
         let locale = UserDefaults.standard.string(forKey: "AppleLocale")
         let separator = locale == "de_DE" ? "," : "."
