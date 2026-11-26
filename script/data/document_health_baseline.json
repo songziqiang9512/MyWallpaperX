@@ -630,19 +630,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "07b0018996e0ce5b5d2c12c1e5d445c8c31f0cced8ad6150bd1f3c5d289bcaa2",
-      "after": "8ba7954e60fc26951f61514257324090eb4b19390edb6271c802a1ada97d2ce3",
+      "before": "c548b280881bd5a7537e12bdbff40ccc19819a7e78c95a1cb6a323da4d56076a",
+      "after": "2ed33a0a300c007a41151b46ce385f0f05a22c368337a4488cfd8c84b9075ba0",
       "owner": "Scene Composition",
-      "reason": "核对主父提交与合并后正文的准确预算。",
+      "reason": "核对主父提交与具名前置合成合并后的正文预算。",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9b75e557f70bbd0dc4db5944d448e40a9c136009fac7b31f3f2bc369a065ef8a",
+      "before": "78d4cdb450887e74715ff552448df9002d88d012bbb5f4e187c860a88bf6c7b9",
       "after": "a1bb27c2ca24d70f5ec20f8642cc05889c720ed3a27df15277d52abe606e1d15",
       "owner": "Scene Composition",
-      "reason": "将主分支具名前置输出合同与画质分支能力证据合并。",
+      "reason": "核对主父提交与具名前置合成合并后的正文预算。",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
     },
     {
