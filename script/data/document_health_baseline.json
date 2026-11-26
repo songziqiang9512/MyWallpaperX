@@ -630,20 +630,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "00bcca94ec7c57e57226b8ccbbc3e0939d334fac80890b132f01c1ac29903e4e",
-      "after": "b1728ea0eba6ea43153eb775e2c474e96fa79e8337d28f5fec2b6302112a8c1a",
-      "owner": "Scene Composition",
-      "reason": "核对主父提交与透明前向合成合并后正文的准确预算。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
+      "before": "48fdfecd39d7454f73ffe2c8b770aa779b0b50fcc04a16a6ffb48bd75c5c957a",
+      "after": "04d3538bf6b83177508c7f02eed0714fc2621b74da8f783cf7186727eced8b43",
+      "owner": "Scene composition and named graph output",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#forward-composition-named-epoch",
+      "reason": "按主父提交与合并正文核对作者画布投影合同与运行证据的预算。"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a0b10b88a50683bf265c2785e11eefa55d9e8c2d1e427d0f813d9af256b605f8",
+      "before": "4f451f8beb892084098cc327a69bf184f02393e7da1a60ae2a528f3083532f8e",
       "after": "023ddcca9957eced2abcddee7465f13434f1b4162c310bacf15127f57dec9c5e",
       "owner": "Scene effect texture projection",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#xray-tilted-projection",
-      "reason": "按质量父提交与合并正文核对作者画布投影合同与运行证据的预算。"
+      "reason": "按主父提交与合并正文核对作者画布投影合同与运行证据的预算。"
     },
     {
       "section": "bodies",
