@@ -621,10 +621,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "d683613b778f087bf2c3f775beec398becd5d258a9168cf886895e668866b78d",
+      "before": "92e7075bd5262d9b6be8dbd65f5d5f20c74d837f3a9b921002a31875f17fe71b",
       "after": "087250ed4df93a1880690dccc2b305df51bbf933e887e3d1e2cdf0ad8a7f293d",
       "owner": "Scene main synchronization",
-      "reason": "保留连续发射出生分组与质量工作树已有运行证据。",
+      "reason": "绑定同步后保留的双方运行证据。",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
     },
     {
@@ -639,10 +639,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ea38c3ab49bc49a5388164d6b48537af88c3f74bae8e74b790b7c2d41598becc",
+      "before": "0a7062727b7067e5de3d4e123024fe66b9506ca32f6aedbff790c30d9162da76",
       "after": "a656a73ba9d26bf8609e97a7723205378fc3dd1ee0a27b81f5bd4ee9c310ff2d",
       "owner": "Scene main synchronization",
-      "reason": "保留连续发射出生分组与质量工作树已有运行证据。",
+      "reason": "绑定同步后保留的双方运行证据。",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
     },
     {
