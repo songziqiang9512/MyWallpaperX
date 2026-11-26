@@ -162,7 +162,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 399495
+      "bytes": 400479
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -193,8 +193,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 57,
-      "bytes": 7064
+      "lines": 56,
+      "bytes": 6831
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -639,11 +639,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "98a0e0146a3bdce7cccad77bc66d10303b1e3f79ccb81851d07fc87f20e1b0c6",
-      "after": "3583d1759ae212f006947afb09812d538615223123f25ba1f8b7d96f305b7fdd",
-      "owner": "Scene background attachment addressing",
-      "reason": "按主线父提交核对合并后的滚动边条与画质实测正文预算。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-collage-strip-358"
+      "before": "3583d1759ae212f006947afb09812d538615223123f25ba1f8b7d96f305b7fdd",
+      "after": "4269088fd79b7dc4473699007480ca616c1c00358da84a5634744278a18c8289",
+      "owner": "Scene particle composition",
+      "reason": "按画质父提交核对主线拖尾复测和保留的画质证据。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ember-mature-cohort-repeat-376"
     },
     {
       "section": "bodies",
