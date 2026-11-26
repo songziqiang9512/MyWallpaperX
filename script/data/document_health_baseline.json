@@ -94,11 +94,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 160854
+      "bytes": 162786
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 144322
+      "bytes": 144578
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -504,20 +504,20 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "84ea4e8887777581e87f9d1a51a0508a50f904bcf63bfd0343ffa66a34e275dd",
-      "after": "c188f2d67db5ec08c99a9f08266c2de99fe71d9cdaeecc3422ffe73ebd1b52df",
-      "owner": "Video native derivative",
-      "reason": "登记原生编码和当前音画门的实测、失败原因与发布边界。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-derivative-audio-timing"
+      "before": "c188f2d67db5ec08c99a9f08266c2de99fe71d9cdaeecc3422ffe73ebd1b52df",
+      "after": "bc06f31172d8cabad186404ab49fb399a9a060b8411ef9fe09184782ad580ee2",
+      "owner": "Scene volume quality",
+      "reason": "登记真实宽光 SDR 阶段、HDR 终端和大坐标反例，以及已完成签名整帧的退出决策。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-clear-depth-table"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "1568844fbca06bd29c7f73b5e8c1562f6c09a99eeb1e6a7c072e121fb88cccec",
-      "after": "a2e429c2c6e02fdce5508c68564c97e08b21f6b34ba3b1268f355d18993b129e",
-      "owner": "Scene point shadow quality",
-      "reason": "更新同步基线并标明点光桌面短窗的准确源码。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-point-shadow-density-trial"
+      "before": "d782b5177a050ab2c6cdb43c834a25d5aab110f27155bf74def1f6629e516d70",
+      "after": "e6c2f3bbe7eb8e73fa26724a7e02a58f22319c132f60f0a277397542f62d9899",
+      "owner": "Scene volume quality",
+      "reason": "同步体积照明清深度方案退出及下一批的取证顺序。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
