@@ -1482,13 +1482,6 @@ enum Harness {
         var colors = simulator(colorJSON, seed: 1, step: 0.1)
         colors.advance(by: 0.1)
         let randomColor = colors.particles[0].color
-        let colorOverride = SceneParticleDefinitionParser().parseInstanceOverride(
-            try object(#"{"colorn":"0.5 1 0.25"}"#)
-        )
-        var colorsWithOverride = simulator(
-            colorJSON, override: colorOverride, seed: 1, step: 0.1
-        )
-        colorsWithOverride.advance(by: 0.1)
         let colorParser = SceneParticleDefinitionParser()
         var colorBirthRoot = try object(colorJSON)
         colorBirthRoot["initializer"] = [
@@ -1533,6 +1526,51 @@ enum Harness {
                 "diagnostics": candidate.diagnostics.map(\.kind.rawValue),
             ]
         }
+        let rgbA: [String: Any] = ["name": "colorrandom", "min": "30 155 237", "max": "30 155 237"]
+        let rgbB: [String: Any] = ["name": "colorrandom", "min": "210 96 41", "max": "210 96 41"]
+        let hsv: [String: Any] = ["name": "hsvcolorrandom", "huemin": 0.4, "huemax": 0.4,
+            "huesteps": 1, "saturationmin": 0.8, "saturationmax": 0.8, "valuemin": 0.7, "valuemax": 0.7]
+        let list: [String: Any] = ["name": "colorlist", "colors": [".5 .8 .23"]]
+        let firstTint = ".17 .43 .81"
+        let rgbRange: [String: Any] = ["name": "colorrandom", "min": "30 155 237", "max": "210 96 41"]
+        let compositeInputs: [(String, [[String: Any]], [String: Any]?, Bool, Int)] = [
+            ("rgbPair", [rgbA, rgbB], nil, false, 0),
+            ("rgbPairRenamed", [rgbB, rgbA], nil, false, 0),
+            ("beforeHSV", [rgbA, hsv], ["colorn": firstTint], false, 0),
+            ("afterHSV", [hsv, rgbA], ["colorn": firstTint], false, 0),
+            ("legacyBeforeHSV", [rgbA, hsv], ["color": "43.35 109.65 206.55"], true, 0),
+            ("lastAnchor", [rgbA, hsv, rgbB], ["colorn": firstTint], false, 0),
+            ("listAnchor", [rgbA, list], ["colorn": firstTint], false, 0),
+            ("listOwnReference", [list, rgbA], ["colorn": firstTint], false, 0),
+            ("disabledTint", [rgbA, rgbB], ["colorn": firstTint], true, 8),
+            ("noWriter", [], ["colorn": firstTint], true, 0),
+            ("tintedRange", [rgbRange], ["colorn": firstTint], false, 0),
+        ]
+        var mixedBirthColors: [String: [Double]] = [:]
+        for (name, writers, raw, legacy, flags) in compositeInputs {
+            var root = colorBirthRoot
+            root["initializer"] = [["name": "lifetimerandom", "min": 10, "max": 10]] + writers
+            root["flags"] = flags
+            if name == "rgbPairRenamed" { root["material"] = "renamed-reference.json" }
+            let value = colorParser.parseInstanceOverride(raw, usesLegacyColorTransfer: legacy)
+            let sim = SceneParticleSimulator(definition: colorParser.parse(root: root),
+                instanceOverride: value, seed: 52, fixedTimeStep: 0.1)
+            sim.advance(by: 0.1)
+            mixedBirthColors[name] = vector(sim.particles[0].initialColor)
+        }
+        var mixedRoot = try object(liveOverrideDefinitionJSON)
+        mixedRoot["initializer"] = [["name": "lifetimerandom", "min": 10, "max": 10], rgbA, hsv]
+        let mixed = SceneParticleSimulator(definition: colorParser.parse(root: mixedRoot),
+            instanceOverride: colorParser.parseInstanceOverride(["colorn": firstTint]), seed: 79,
+            fixedTimeStep: 0.25)
+        let changedTint = colorParser.parseInstanceOverride(["colorn": "0.6 0.7 0.8"])
+        mixed.advance(by: 0.25)
+        let savedMixed = mixed.frameSnapshot()
+        mixed.advance(by: 0.25, dynamicInstanceOverride: changedTint)
+        let tintedCohort = mixed.particles.map { vector($0.initialColor) }
+        mixed.restoreFrame(savedMixed)
+        mixed.advance(by: 0.25)
+        let restoredCohort = mixed.particles.map { vector($0.initialColor) }
         var colorCohortResults: [[String: Any]] = []
         for variant in 0..<2 {
             var root = try object(liveOverrideDefinitionJSON)
@@ -2445,8 +2483,10 @@ enum Harness {
                 vector(longQuarterLifeOscillationPosition),
             "colorUsesSingleInterpolation": abs(randomColor.y - expectedGreen) < 1e-12
                 && abs(randomColor.z - expectedBlue) < 1e-12,
-            "colorOverrideValue": vector(colorsWithOverride.particles[0].color),
             "colorBirthResults": colorBirthResults,
+            "mixedBirthColors": mixedBirthColors,
+            "tintedCohort": tintedCohort,
+            "restoredColorCohort": restoredCohort,
             "colorCohortResults": colorCohortResults,
             "colorListColors": colorList.particles.map { vector($0.color) },
             "colorListDiagnostics": colorList.diagnostics.map(\.kind.rawValue),
@@ -3926,7 +3966,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["overrideSize"], 6)
         self.assertEqual(self.results["overrideVelocity"], [4, 0, 0])
         self.assertEqual(self.results["overrideAlpha"], 0.25)
-        self.assertEqual(self.results["overrideColor"], [0.5, 0.25, 1])
+        self.assert_color_sequence([self.results["overrideColor"]], [[0.5, 0.25, 1]])
         self.assertEqual(self.results["overrideEmissionCount"], 5)
         self.assertNotIn("dynamicOverrideIgnored", self.results["overrideDiagnostics"])
 
@@ -4097,20 +4137,24 @@ class SceneParticleSimulatorTests(unittest.TestCase):
     def test_color_initializer_interpolates_between_authored_colors(self) -> None:
         self.assertTrue(self.results["colorUsesSingleInterpolation"])
 
-    def test_color_instance_override_replaces_initializer_result(self) -> None:
-        self.assertEqual(self.results["colorOverrideValue"], [0.5, 1, 0.25])
+    def assert_color_sequence(self, actual, expected, places=12) -> None:
+        for actual_color, expected_color in zip(actual, expected, strict=True):
+            for actual_channel, expected_channel in zip(actual_color, expected_color, strict=True):
+                self.assertAlmostEqual(actual_channel, expected_channel, places=places)
+
+    def test_static_color_tint_respects_field_priority_flags_and_operator(self) -> None:
         results = self.results["colorBirthResults"]
         for name in ("normalized", "legacy", "legacyPrecedence"):
             with self.subTest(profile=name):
-                self.assertEqual(results[name]["colors"], [[0.5, 0.25, 1]])
-                self.assertEqual(results[name]["birthColors"], [[0.5, 0.25, 1]])
+                self.assert_color_sequence(results[name]["colors"], [[0.5, 0.25, 1]])
+                self.assert_color_sequence(results[name]["birthColors"], [[0.5, 0.25, 1]])
         self.assertEqual(results["noOverride"]["colors"], [[128 / 255, 64 / 255, 0]])
         self.assertEqual(results["brightness"]["colors"], results["normalized"]["colors"])
         self.assertEqual(results["black"]["colors"], [[0, 0, 0]])
         for name in ("brightnessOnly", "disabled"):
             self.assertEqual(results[name]["colors"], results["noOverride"]["colors"])
-        self.assertEqual(results["operator"]["birthColors"], [[0.5, 0.25, 1]])
-        self.assertEqual(results["operator"]["colors"], [[0.25, 0.25, 0.25]])
+        self.assert_color_sequence(results["operator"]["birthColors"], [[0.5, 0.25, 1]])
+        self.assert_color_sequence(results["operator"]["colors"], [[0.25, 0.25, 0.25]])
         for name, result in results.items():
             with self.subTest(profile=name):
                 self.assertEqual(result["diagnostics"], [])
@@ -4127,9 +4171,9 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         }
         for name, color in expected.items():
             with self.subTest(profile=name):
-                self.assertEqual(results[name]["birthColors"], [color])
+                self.assert_color_sequence(results[name]["birthColors"], [color])
                 self.assertEqual(results[name]["alpha"], [0.5 if name == "hdrNormalized" else 1])
-        self.assertEqual(results["hdrOperator"]["colors"], [[0.5, 0.5, 0.5]])
+        self.assert_color_sequence(results["hdrOperator"]["colors"], [[0.5, 0.5, 0.5]])
 
     def test_dynamic_color_override_changes_only_new_births_and_preserves_peer(self) -> None:
         initial = [0.5, 0.25, 1]
@@ -4137,10 +4181,10 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         results = self.results["colorCohortResults"]
         for index, result in enumerate(results):
             with self.subTest(variant=index):
-                self.assertEqual(result["first"], [initial])
-                self.assertEqual(result["second"], [initial, updated])
-                self.assertEqual(result["fallback"], [initial, updated, initial])
-                self.assertEqual(result["birthColors"], [initial, updated, initial])
+                self.assert_color_sequence(result["first"], [initial])
+                self.assert_color_sequence(result["second"], [initial, updated])
+                self.assert_color_sequence(result["fallback"], [initial, updated, initial])
+                self.assert_color_sequence(result["birthColors"], [initial, updated, initial])
                 self.assertTrue(result["firstIDRetained"])
                 self.assertEqual(result["peer"], [[128 / 255, 64 / 255, 0]] * 3)
                 self.assertEqual(result["diagnostics"], [])
@@ -4148,13 +4192,41 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(results[1]["propertyKeys"], ["renamed_tint", "renamed_tint_next"])
         self.assertEqual(results[0]["fallback"], results[1]["fallback"])
 
+    def test_birth_color_composition_matches_official_rgb8_controls(self) -> None:
+        colors = self.results["mixedBirthColors"]
+        expected = {
+            "rgbPair": (25, 58, 38),
+            "rgbPairRenamed": (25, 58, 38),
+            "beforeHSV": (28, 15, 207),
+            "afterHSV": (7, 47, 167),
+            "legacyBeforeHSV": (5, 6, 167),
+            "lastAnchor": (7, 31, 22),
+            "listAnchor": (41, 5, 108),
+            "listOwnReference": (7, 47, 167),
+            "disabledTint": (25, 58, 38),
+            "noWriter": (43, 110, 207),
+        }
+        for name, rgb in expected.items():
+            with self.subTest(name=name):
+                self.assertEqual(tuple(round(channel * 255) for channel in colors[name]), rgb)
+        red, green, blue = colors["tintedRange"]
+        self.assertTrue(0 < red < 1)
+        self.assertAlmostEqual(blue, 1 - red)
+        self.assertAlmostEqual(green * 255, 183.76 + red * (53.21 - 183.76), places=1)
+
+        def rgb8(cohort):
+            return [tuple(round(channel * 255) for channel in rgb) for rgb in cohort]
+
+        self.assertEqual(rgb8(self.results["tintedCohort"]), [(28, 15, 207), (128, 121, 204)])
+        self.assertEqual(rgb8(self.results["restoredColorCohort"]), [(28, 15, 207)] * 2)
+
     def test_color_list_selects_authored_members_in_initializer_order(self) -> None:
         colors = {tuple(value) for value in self.results["colorListColors"]}
         self.assertEqual(colors, {(1, 0, 0), (0, 1, 0), (0, 0, 1)})
         self.assertEqual(self.results["colorListDiagnostics"], ["colorListBounded"])
         self.assertEqual(
             self.results["colorListThenColor"],
-            [64 / 255, 128 / 255, 1],
+            [64 / 255, 0, 0],
         )
 
     def test_color_list_rejects_malformed_or_unbounded_profiles(self) -> None:
@@ -4183,7 +4255,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["hsvColorDiagnostics"], ["hsvColorBounded"])
         self.assertEqual(self.results["fixedGrayHSV"], [0.25, 0.25, 0.25])
         self.assertEqual(
-            self.results["hsvThenColor"], [64 / 255, 128 / 255, 1]
+            self.results["hsvThenColor"], [0, 128 / 255, 0]
         )
 
     def test_hsv_color_random_defaults_and_signed_hue_spacing(self) -> None:
@@ -4238,7 +4310,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             self.results["inheritedSnapshotDiagnostics"],
             ["eventValueInitializerBounded"],
         )
-        self.assertEqual(self.results["inheritThenAuthoredColor"], [1, 0, 0])
+        self.assertEqual(self.results["inheritThenAuthoredColor"], [0.2, 0, 0])
         self.assertEqual(self.results["authoredThenInheritColor"], [0.2, 0.4, 0.6])
         self.assertEqual(self.results["followedInitialColor"], [0.2, 0.4, 0.6])
         self.assertEqual(self.results["followedUpdatedColor"], [0.8, 0.3, 0.1])

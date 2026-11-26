@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 428,
-      "bytes": 80945
+      "bytes": 81534
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 485,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 390643
+      "bytes": 391549
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 57,
-      "bytes": 7302
+      "bytes": 7244
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "a24c0a340e9d14f56b316b1af4a8022375a8b8cec8140762095dc9ac1ca5a898",
-      "after": "c6e746924a512ee6dc601dcb922a7a249a54ad33c002be57ded269e03063a8f6",
-      "owner": "scene",
-      "reason": "添加同板验证的 HSV 单写入解析、色相与接受范围合同",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
+      "before": "c6e746924a512ee6dc601dcb922a7a249a54ad33c002be57ded269e03063a8f6",
+      "after": "2bf3796cd6f511d06054070589d7592ab4a375d30abd39883f60dab0657f6115",
+      "owner": "Scene particle simulation",
+      "reason": "更新出生乘积及实例色投影合同",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#instance-color-revision"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0c7edf1c10887dba8908ce0c07ec7c54b24f4e90a87bf87de99676d2eb3d7c8e",
-      "after": "39e50e5d981b696fa5f0ef097a0d0bd119c17a0e5c4119928493c44aff63d324",
-      "owner": "scene",
-      "reason": "替换旧 HSV 保白证据，记录实帧收益与剩余写入差异",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-hsv-birth-color-oracle"
+      "before": "39e50e5d981b696fa5f0ef097a0d0bd119c17a0e5c4119928493c44aff63d324",
+      "after": "f27c956e3738fbdb9f8f1e9693ce2c5bb5eda2647486a8710d458aa0a88d9d19",
+      "owner": "Scene particle simulation",
+      "reason": "补充跨版本实帧、作者颜色和未复现的空值分支",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-birth-color-composition"
     },
     {
       "section": "bodies",
@@ -636,15 +636,6 @@
       "owner": "repository-governance",
       "reason": "The Scene design document moved to history; the stale gate-debt note shrinks to state the resolved fact, so the baseline ratchets down.",
       "decision": "docs/development/immersive-ui-execution-plan.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e091839decc7e93015e19e6111f9730916bbe869c8e35685c37e0ccf32faa3ae",
-      "after": "736dc49a40d757f869367e10c69085acfdf334eafd89a91d25e359fb06ba3ce1",
-      "owner": "scene",
-      "reason": "移除已修并收敛为已测的颜色写入组合差异",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
     },
     {
       "section": "bodies",

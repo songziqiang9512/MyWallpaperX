@@ -31,16 +31,16 @@ nonisolated struct SceneParticleRandomVectorPlan: Sendable {
 }
 
 nonisolated struct SceneParticleRandomColorPlan: Sendable {
-    let minimum: SIMD3<Double>
-    let maximum: SIMD3<Double>
+    var minimum: SIMD3<Double>
+    var maximum: SIMD3<Double>
     let exponent: Double?
 
     nonisolated init(
         _ value: SceneParticleInitializer,
         defaults: (minimum: SIMD3<Double>, maximum: SIMD3<Double>)
     ) {
-        minimum = SceneParticleSimulationMath.vector(value.minimum, fallback: defaults.minimum)
-        maximum = SceneParticleSimulationMath.vector(value.maximum, fallback: defaults.maximum)
+        minimum = SceneParticleSimulationMath.vector(value.minimum, fallback: defaults.minimum) / 255
+        maximum = SceneParticleSimulationMath.vector(value.maximum, fallback: defaults.maximum) / 255
         exponent = value.exponent
     }
 }
@@ -136,21 +136,20 @@ extension SceneParticleSimulator {
                 componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "velocity-assigned", time: simulationTime, particleID: particle.id)
 #endif
             case let .color(plan):
-                particle.color = randomColor(plan) / 255
+                particle.color *= randomColor(plan)
 #if DEBUG
                 componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "color-assigned", time: simulationTime, particleID: particle.id)
 #endif
             case let .hsvColor(plan):
                 if let plan {
-                    particle.color = randomHSVColor(plan)
+                    particle.color *= randomHSVColor(plan)
 #if DEBUG
                     componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "hsv-color-assigned", time: simulationTime, particleID: particle.id)
 #endif
                 }
             case let .colorList(colors):
-                if let colors,
-                   let color = randomColorFromList(colors) {
-                    particle.color = color
+                if let colors {
+                    particle.color *= randomColorFromList(colors)
 #if DEBUG
                     componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "list-color-assigned", time: simulationTime, particleID: particle.id)
 #endif

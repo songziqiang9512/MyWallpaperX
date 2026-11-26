@@ -34,13 +34,11 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             let color = activeInstanceOverride?.color?.value
             if color != oldValue?.color?.value
                 || (color == nil && activeInstanceOverride?.normalizedColor?.value != oldValue?.normalizedColor?.value) {
-                preparedInstanceColor = Self.prepareInstanceColor(
-                    activeInstanceOverride, legacy: instanceOverride?.usesLegacyColorTransfer == true
-                )
+                prepareBirthColor()
             }
         }
     }
-    private(set) var preparedInstanceColor: SIMD3<Double>?
+    var birthColorSeed = SIMD3<Double>(repeating: 1)
     private let maximumEmissionDuration: Double?
     /// Read completion from the same emitter state that schedules births.
     /// This also survives frame rollback without a second child deadline.
@@ -76,7 +74,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     let controlPointSourcesAreValid: Bool
     /// Launch-stable scalar/vector/color initializer projections. Turbulence,
     /// event values and control-point values stay frame-local in their consumers.
-    let initializerExecutionPlans: [SceneParticleInitializerExecutionPlan]
+    var initializerExecutionPlans: [SceneParticleInitializerExecutionPlan]
+    let authoredColorInitializers: [(offset: Int, source: SceneParticleColorInitializerSource)]
+    let authoredColorReference: SIMD3<Double>?
     private let birthSizeSeed: Double
     /// Launch-stable emitter vectors, ranges and admission results. Dynamic
     /// control-point/instance values and random state remain frame-local.
@@ -153,17 +153,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             instanceOverride: instanceOverride, hasLayerImageMap: layerImageEmissionMap != nil
         )
         self.definition = definition
-        var instanceOverride = instanceOverride
-        if instanceOverride?.usesLegacyColorTransfer == true,
-           !definition.initializers.contains(where: { $0.kind.writesBirthColor }) {
-            instanceOverride?.usesLegacyColorTransfer = nil
-        }
         self.instanceOverride = instanceOverride
-        let activeOverride = initialDynamicInstanceOverride ?? instanceOverride
-        self.activeInstanceOverride = activeOverride
-        self.preparedInstanceColor = Self.prepareInstanceColor(
-            activeOverride, legacy: instanceOverride?.usesLegacyColorTransfer == true
-        )
+        self.activeInstanceOverride = initialDynamicInstanceOverride ?? instanceOverride
         self.dynamicControlPoints = initialDynamicControlPoints
         self.dynamicControlPointAngles = initialDynamicControlPointAngles
         self.audioInput = initialAudioInput
@@ -203,6 +194,11 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         initializerExecutionPlans = definition.initializers.map {
             SceneParticleInitializerExecutionPlan($0, definition: definition)
         }
+        authoredColorInitializers = definition.flags.disablesColorOverrides ? [] : initializerExecutionPlans.enumerated().compactMap {
+            guard let source = SceneParticleColorInitializerSource($0.element) else { return nil }
+            return ($0.offset, source)
+        }
+        authoredColorReference = authoredColorInitializers.last?.source.colorReference
         // Random writers multiply, while an absent size writer retains the default.
         birthSizeSeed = definition.initializers.contains { $0.kind == .size } ? 1 : 20
         explicitInitializerWork = Self.explicitInitializerWork(plans: initializerExecutionPlans)
@@ -288,6 +284,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             SceneParticleEmitterState(seed: seed, emitterIndex: $0)
         }
         random = SceneParticleRandomGenerator(state: seed)
+        prepareBirthColor()
         // The init-time warm-up runs the same emit/apply path as advance;
         // prewarmed world-space systems convert through the launch frame.
         activeWorldSpaceFrame = worldSpaceFrame
@@ -889,7 +886,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 
         var particle = SceneParticleState(
             id: nextParticleID, position: position, velocity: velocity,
-            color: SIMD3(repeating: 1), alpha: 1, size: birthSizeSeed,
+            color: birthColorSeed, alpha: 1, size: birthSizeSeed,
             rotation: .zero, angularVelocity: .zero, age: 0, lifetime: 1,
             initialColor: SIMD3(repeating: 1), initialAlpha: 1, initialSize: birthSizeSeed
         )

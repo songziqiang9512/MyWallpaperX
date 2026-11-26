@@ -26,7 +26,7 @@ extension SceneParticleSimulator {
 
     nonisolated func randomColorFromList(
         _ colors: [SIMD3<Double>]
-    ) -> SIMD3<Double>? {
+    ) -> SIMD3<Double> {
         let index = min(Int(random.unit() * Double(colors.count)), colors.count - 1)
         return colors[index]
     }
@@ -143,7 +143,7 @@ extension SceneParticleSimulationMath {
         let chroma = value * saturation
         let offset = SIMD3(repeating: value - chroma)
         let sector = hue.truncatingRemainder(dividingBy: 1) * 6
-        if sector < 0 { return offset }
+        guard sector >= 0 else { return offset }
         let intermediate = chroma * (1 - abs(sector.truncatingRemainder(dividingBy: 2) - 1))
         let primary: SIMD3<Double> = switch Int(sector) {
         case 0: SIMD3(chroma, intermediate, 0)
