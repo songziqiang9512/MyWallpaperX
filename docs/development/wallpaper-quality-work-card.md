@@ -6,7 +6,7 @@
 <a id="execution"></a>
 ## 当前批与接手步骤
 
-在独立工作树 `Fluxo/wallpaper-quality-settings` 执行。主线同步到 `codex/engine-refactor-program` 的 `04d383fd4`。以其资源需求与发布、帧准入和终端合成为基准接回已交付画质。合并时直接材质属性的相同键只建一次集合，Puppet 参考骨直接读取准备结果的成功值，保留原资格。最新主线的投影和 Timeline 进入同一合并构建验证。已完成[本轮实窗复验](../scene/capabilities/runtime-evidence-current.md#quality-main-sync)。后续先补有实测差距的官版对照与单机档位，继续用原工作卡跟踪硬件项。 [算法与技术设计](wallpaper-quality-settings-plan.md#decision) · [源码地图](../architecture/repository-map.md#wallpaper-quality) · [验证工作流](repository-workflow.md#设计判定与记录)
+独立工作树 `Fluxo/wallpaper-quality-settings` 已合入主线 `0cf544a5e`。优化签名版 3337494481 三臂各有 8 帧有效封口，上视封面调色板像素 78,296→0，近处正控仍可见。点光候选三档 3.99 s 的 49×49 影边逐像素复现，待缺省 60 FPS 长稳。收据归 `.artifacts/wallpaper-quality-terminal-depth-sync-20261126`。体积出口查表约省 10% 阶段时间，未达 15% 门。下一批把已通过原生准备筛查的[作者 mip 快照](wallpaper-quality-settings-plan.md#scene-texture-snapshot-slices)接入原资源租约。 [技术设计](wallpaper-quality-settings-plan.md#decision) · [源码地图](../architecture/repository-map.md#wallpaper-quality) · [验证流程](repository-workflow.md#设计判定与记录)
 
 M4 单内屏已验证四档预设、10–120 FPS、Scene MSAA 至 4×、泛光和显示 HDR、三种纹理策略、阴影五档、反射启停及真实桌面接管。Scene 冷档直接编辑与显式重试共用实际准备回执和在途撤单。导入同类画质可连续播放。真实 Web 作者验证 FPS 建议与绘制，Video 保原片并已实测 PQ／HLG／HDR10+ 实窗。体积保禁用、高／超高，低／中原尺寸网格已验画面与回退，整帧收益未复现，暂退出发布。[本地 Video 原片恢复](wallpaper-quality-settings-plan.md#video-inspector-source-recovery)已在同窗更新实际尺寸和标称帧率，原生同窗切换实证[冷海报等比定位、暖切保留原画及留黑](wallpaper-quality-settings-plan.md#video-candidate-poster)及[同源淡入亮度连续](wallpaper-quality-settings-plan.md#video-crossfade-luminance)。直接调档已实测自动采纳、在途精确撤单与三引擎导入连续。后续继续官版运行对照及混合显示拓扑、8× 和长稳功耗的硬件复验。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
 
