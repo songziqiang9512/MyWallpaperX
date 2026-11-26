@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 20976
+      "bytes": 20972
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 155136
+      "bytes": 155534
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 139386
+      "bytes": 139541
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -138,7 +138,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 330966
+      "bytes": 332303
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -603,10 +603,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "fa391ce3a303344f2de868358eb31f97bae1805fe5c6d06be61e12b001baba28",
-      "after": "13beb6669bd468b99aec1982c56b5cbae5d8d5f32c9818d4d0f28129d59145cf",
+      "before": "13beb6669bd468b99aec1982c56b5cbae5d8d5f32c9818d4d0f28129d59145cf",
+      "after": "607f850735cd4c18a5298be6be91176f1e191750d36358b927d9d6a2243f6b41",
       "owner": "scene-runtime",
-      "reason": "Apple M4 实体深度回放与细灯分区",
+      "reason": "Apple M4 横竖细挡、HDR 步长分界和同进程配对",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-segment-mean"
     },
     {
@@ -675,10 +675,10 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "6a5681c45ea7168a59390ff48b9ec936d837cbd9b1b4844c9214b4a552d9d5f0",
-      "after": "7c11704e98a526ab6094d845c9476dd05cf67999926ba5d094fa03b1a31fbaeb",
+      "before": "7c11704e98a526ab6094d845c9476dd05cf67999926ba5d094fa03b1a31fbaeb",
+      "after": "777549f76e92b8f15e0feadb08541158d52fa934af39af3603d1893f4499871f",
       "owner": "scene-runtime",
-      "reason": "原尺寸点光网格的准入与分档",
+      "reason": "按投影、辐射及半弦分界选择供货步长",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-segment-mean"
     },
     {
@@ -702,10 +702,10 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "d6ab1d9abf8c76a02da6a2761b846267a1b015d9fc3778d95dd33a650a81d736",
-      "after": "daa3a48d59e42543c74ba16cbcfb35f00ab18f348cb2faa72cc6b9ba7bb19b36",
+      "before": "daa3a48d59e42543c74ba16cbcfb35f00ab18f348cb2faa72cc6b9ba7bb19b36",
+      "after": "082535aa9fad8496236b1c8508a9c561e9dc5131c4afeb17355ec4c019eb8eec",
       "owner": "scene-runtime",
-      "reason": "低／中体积档的下一批准入和真实反例",
+      "reason": "体积双步长和薄遮挡验证后的准入顺序",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-segment-mean"
     },
     {

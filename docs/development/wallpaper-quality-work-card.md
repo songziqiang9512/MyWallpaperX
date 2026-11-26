@@ -8,7 +8,7 @@
 
 从主工作树 `codex/engine-refactor-program` 的 `b2b80f892` 建 `Fluxo/wallpaper-quality-settings`。评估方案给技术取舍与失败判据，本卡维护唯一执行顺序与当前批。开工核对分支、实际 diff 和上批证据，从原设置行为追到真实运行消费者。 [算法与技术设计](wallpaper-quality-settings-plan.md#decision) · [源码地图](../architecture/repository-map.md#wallpaper-quality) · [验证工作流](repository-workflow.md#设计判定与记录)
 
-M4 单内屏已验证四档预设、10–120 FPS、Scene MSAA 至 4×、泛光和显示 HDR、三种纹理策略、阴影五档、反射启停及真实桌面接管。Scene 冷档直接编辑与显式重试共用实际准备回执和在途撤单。导入同类画质可连续播放。真实 Web 作者验证 FPS 建议与绘制，Video 保原片并已实测 PQ／HLG／HDR10+ 实窗。体积保禁用、高／超高，低／中仍待有新办法保护细光和遮挡。[本地 Video 原片恢复](wallpaper-quality-settings-plan.md#video-inspector-source-recovery)已在同窗更新实际尺寸和标称帧率，原生同窗切换实证[候选期间保留原视频与留黑](wallpaper-quality-settings-plan.md#video-candidate-poster)及[同源淡入亮度连续](wallpaper-quality-settings-plan.md#video-crossfade-luminance)。直接调档已实测自动采纳、在途精确撤单与三引擎导入连续。后续继续官版运行对照及混合显示拓扑、8× 和长稳功耗的硬件复验。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
+M4 单内屏已验证四档预设、10–120 FPS、Scene MSAA 至 4×、泛光和显示 HDR、三种纹理策略、阴影五档、反射启停及真实桌面接管。Scene 冷档直接编辑与显式重试共用实际准备回执和在途撤单。导入同类画质可连续播放。真实 Web 作者验证 FPS 建议与绘制，Video 保原片并已实测 PQ／HLG／HDR10+ 实窗。体积保禁用、高／超高，低／中已有 32／64 px 原尺寸网格候选，正在验证可重复的入档与回退。[本地 Video 原片恢复](wallpaper-quality-settings-plan.md#video-inspector-source-recovery)已在同窗更新实际尺寸和标称帧率，原生同窗切换实证[候选期间保留原视频与留黑](wallpaper-quality-settings-plan.md#video-candidate-poster)及[同源淡入亮度连续](wallpaper-quality-settings-plan.md#video-crossfade-luminance)。直接调档已实测自动采纳、在途精确撤单与三引擎导入连续。后续继续官版运行对照及混合显示拓扑、8× 和长稳功耗的硬件复验。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
 
 每批先冻结输入、画面口径及同机噪声，再改现有职责并走最近门、独立审查和窄提交。轮次完成后保必要证据，退出诊断和已失效的边界。未越过收益门的候选停止推进。 [实测门槛](wallpaper-quality-settings-plan.md#quality-release-gates)
 
@@ -202,7 +202,7 @@ M4 实际 91×65 深度与浮点输出通过。斜边夹具框内 81 个深度�
 
 将求积阶数在原点光 PSO 冷准备中编译固定。先量原生线性像素的精确积分误差和必要深度反例，再同签名核锁定作者相位后的实际变化。小指数与原透明、反向深度、独立聚光保持。达到画面与预算门才接公开档。同一批撤退实验入口或旧职责，保持一套点光渲染链。 [算法与验收阈值](wallpaper-quality-settings-plan.md#scene-volume-higher-order)
 
-公开方案沿同一体积偏好增加超高值，旧 `enabled` 保原四点请求，对外显示「高」。不重写用户已存向量。新选择全局超高预设时写超高体积，旧超高向量的字段仍可照常播放并按实际值显示自定。新档随原 Scene 重载在已有 pipeline slot 选择六点，创建失败时沿同 slot 退四点。保直接光、作者聚光与合格点光深度，无额外帧状态或缓存。设置、导入 v8、daemon 和冷恢复都通过原 typed raw 值。低／中先在原生验证无纹理分区网格的通用准入。32 px 已通过宽光及窄亮同行的固定深度性能与浮点门；以不同作者或独立受控的宽光校准准入，与实物窄光、完全挡断的薄实体、近远面及同行矩形移动互作反例。通过后再分档和接签名整帧。先保禁用、高／超高。 [分区与放行条件](wallpaper-quality-settings-plan.md#scene-volume-segment-mean) · [原生回放](../scene/capabilities/runtime-evidence-current.md#point-volume-mean-grid-replay) · [早期暗尾筛查](wallpaper-quality-settings-plan.md#scene-volume-dark-tail-screen)
+公开方案沿同一体积偏好增加超高值，旧 `enabled` 保原四点请求，对外显示「高」。不重写用户已存向量。新选择全局超高预设时写超高体积，旧超高向量的字段仍可照常播放并按实际值显示自定。新档随原 Scene 重载在已有 pipeline slot 选择六点，创建失败时沿同 slot 退四点。保直接光、作者聚光与合格点光深度，无额外帧状态或缓存。设置、导入 v8、daemon 和冷恢复都通过原 typed raw 值。低／中继续收敛无纹理分区的通用准入。原生门已覆盖跨同行矩形的薄遮挡及 32／64 px 的亮光分界；下一批对照轴线入／出视锥，分别测 32／64 px 的曲率和分段误差，再用独立参数及连续动作验证近远面、半弦切换与斜边实体，过门再接原点光 PSO 和签名整帧。同时保留原作者窄灯对照，补终端 EDR、整帧和独立广覆盖正例。公开保禁用、高／超高。 [分区与放行条件](wallpaper-quality-settings-plan.md#scene-volume-segment-mean) · [原生回放](../scene/capabilities/runtime-evidence-current.md#point-volume-grid-qualification) · [早期暗尾筛查](wallpaper-quality-settings-plan.md#scene-volume-dark-tail-screen)
 
 原生 Metal 扣背景的指数 32 中心贡献，四点为 0.034729、六点为 0.057983、解析值为 0.060606。指数 16 的绝对误差从 0.006685 降至 0.000093，偏轴裁剪指数 10 从 0.004753 降至 0.000358。实体遮挡、恒密度 RGBA 以及目标 alpha 走原合同。
 

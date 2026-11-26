@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d0c7e00014610ff0df6d790de99563ca303ac1ee6509682dd69829e2d4b27fee",
+        "sourceSHA256": "6c72077391a85b38440f9be1bf0881d093bd894068407da0cb48ce0e212f19c8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "粒子帧率热切消费的原 Session 与 Surface",
-        "limitations": "只复核可执行的帧率链路。"
+        "scope": "定位点光分区的原 owner 和当前准入评估",
+        "limitations": "只调整当前评估入口，源码职责按现役读取。"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1a13ee5b649ed2b5ad3e69a0139343a959c0497589dfec13fd11f0feceb06381",
+        "sourceSHA256": "434fe2424b13046155e402e611b1c521818f5108a0d5b8fed107fe14a70c42f5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原尺寸点光网格的准入与分档",
-        "limitations": "限同一宽光与受控混合回放，准入矩阵尚未通过。"
+        "scope": "按投影、辐射及半弦分界选择供货步长",
+        "limitations": "32／64 px 筛查已覆盖受控亮度，几何误差界待独立校准。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "40efc4a080a086ee90aa48d388f7efdfec1e6afe7f097f56cb57c2e70319f33c",
+        "sourceSHA256": "018088024a3f4e623209cec977f038aecc3178d0e8ac8fcb05128fbb8c8bb278",
         "method": "document_registry --audit + document_health --check",
-        "scope": "低／中体积档的下一批准入和真实反例",
-        "limitations": "只复核本批体积实施段。"
+        "scope": "体积双步长和薄遮挡验证后的准入顺序",
+        "limitations": "只复核本批体积实施和当前状态。"
       }
     },
     {
@@ -1003,10 +1003,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5738c189cdb84b4e9b54f247d30c157cacfb9a4948452d4f4254016fa5dbedb4",
+        "sourceSHA256": "fa2ac68aba6a7182b9d61ada2a440005ee19ce475a3ebd994d482d30cca8b444",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Apple M4 实体深度回放与细灯分区",
-        "limitations": "只量原生图形阶段，整帧、终端呈现和能耗在窗外。"
+        "scope": "Apple M4 横竖细挡、HDR 步长分界和同进程配对",
+        "limitations": "只量原生图形阶段，签名整帧、真实终端和能耗在窗外。"
       }
     },
     {
