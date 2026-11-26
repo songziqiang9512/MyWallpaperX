@@ -38,11 +38,11 @@
 
 | 样本 | 剩余瓶颈 |
 |---|---|
-| 3337494481 | [同包启动对照](../capabilities/runtime-evidence-current.md#simplex-cold-start-333)已减少角点计算，首屏仍需较长预热。在当前构建上重新测主导成本，保首帧、历史和 RNG。 |
+| 3337494481 | [同包并行预热实测](../capabilities/runtime-evidence-current.md#authored-root-prewarm-join)把首屏降至18.32秒，仍有13.31秒独占根模拟。余下只跟进当前剖面上可复验的新主导成本，保完整历史及 RNG。 |
 | 3749463715 | [可比 60fps 运行](../capabilities/runtime-evidence-current.md#gpu-admission-wake-374)实呈从 29.96 提升到 34.80fps，尚低于目标。仅跟进当前路径的新显著成本。 |
 | 3420215721 | [同包实测](../capabilities/runtime-evidence-current.md#scene-playback-triage-342)仍有 GPU 超预算。固定 scene-time 和实际历史源做消融。 |
 | 3673609113 | [实呈与 GPU 回执](../capabilities/runtime-evidence-current.md#inactive-terminal-copy-367)仍显示 GPU 超预算。沿实际帧成本定位，保两级作者历史。人偶及音条残影独立按用户反馈核对。 |
-| 3808922316 | [预热读回](../capabilities/runtime-evidence-current.md#particle-prewarm-hotpath)优化态预热 18.12s、Ready 24.05s。围绕已测预热工作量寻找保随机与首帧的删减。 |
+| 3808922316 | [当前单根反例](../capabilities/runtime-evidence-current.md#authored-root-prewarm-join)签名本机预热45.78秒、Ready 52.74秒，同批旧版相近。复用[预热剖面](../capabilities/runtime-evidence-current.md#particle-prewarm-hotpath)找保随机与首帧的单根工作删减。 |
 
 测量与退出条件归[性能方法](performance-convergence-card.md)。
 
@@ -51,5 +51,5 @@
 
 | 定位 | 仍在复现的断点 |
 |---|---|
-| <a id="legacy-gate-debt"></a>存量回归夹具 | 提交阶段夹具缺 composition trace API；暂停文字的两屏对照在旧签名及文字修订后同样失败。另有旧 347 与 366 resize 的跨 epoch 判定误用，23/23 图在新 epoch 恢复仍被记录为失败。按实际 owner 和输出修对应门。[缩放证据](../capabilities/model-runtime-evidence.md) |
+| <a id="legacy-gate-debt"></a>存量回归夹具 | 提交阶段夹具缺 composition trace API；暂停文字的两屏对照在旧签名及文字修订后同样失败。另有旧 347 与 366 resize 的跨 epoch 判定误用，23/23 图在新 epoch 恢复仍被记录为失败。EventDeath 子系统时长在冻结父版本与当前均为.125秒，夹具断言.1333秒。按实际 owner 和输出修对应门。[缩放证据](../capabilities/model-runtime-evidence.md) |
 | 呈现与周期截图 | 后台鼠标输入已有合格 GPU 帧，但部分报告缺 presented 计数或 interval 身份。366 的周期截图有 superseded 和 teardown 拒绝。分别核 present 回调与请求排空，保有效的独立捕获。 |

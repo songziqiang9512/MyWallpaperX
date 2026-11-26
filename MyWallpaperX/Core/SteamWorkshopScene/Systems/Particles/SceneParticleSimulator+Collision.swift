@@ -1,7 +1,7 @@
 import Foundation
 import simd
 
-nonisolated struct SceneParticleCollisionBoundsFrame {
+nonisolated struct SceneParticleCollisionBoundsFrame: Sendable {
     let extent: SIMD2<Double>
     let origin: SIMD2<Double>
     let localToCanvas: simd_double2x2

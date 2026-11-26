@@ -200,7 +200,7 @@ final class SceneParticleRuntime {
         initialAudioInput: SceneParticleAudioInput = .silent,
         initialSceneTime: Double = 0,
         destroyedAuthoredLayerIDs: Set<Int> = [],
-        shouldCancelPrewarm: (() -> Bool)? = nil
+        shouldCancelPrewarm: (@Sendable () -> Bool)? = nil
     ) {
         self.device = device
         self.descriptor = descriptor
@@ -267,6 +267,10 @@ final class SceneParticleRuntime {
         let builtInTextureRegistry = SceneParticleBuiltInTextureRegistry(device: device)
         var pointerDemands: Set<Int> = []
         var worldSpaceDemandLayerIDs = Set<Int>()
+        var rootPrewarms: [(simulator: SceneParticleSimulator, bounds: SceneParticleCollisionBoundsFrame?)] = []
+#if DEBUG
+        var rootDiagnosticLayers: [(index: Int, handlesAllChildren: Bool)] = []
+#endif
         for layer in particleLayers {
             guard let rawPath = layer.particlePath else {
 #if DEBUG
@@ -392,8 +396,9 @@ final class SceneParticleRuntime {
                   ),
                   !renderers.isEmpty else { continue }
             let boundsExtent = asset.definition.hasCanvasCollision ? collisionBoundsExtent : nil
+            let defersInitialWarmup = (asset.definition.startTime ?? 0) > 0
             let initialBoundsFrame: SceneParticleCollisionBoundsFrame?
-            if (asset.definition.startTime ?? 0) > 0, let boundsExtent,
+            if defersInitialWarmup, let boundsExtent,
                let worldFrame = prewarmWorldFrame(for: layer.id) {
                 initialBoundsFrame = .init(extent: boundsExtent, worldFrame: worldFrame)
             } else {
@@ -416,16 +421,15 @@ final class SceneParticleRuntime {
                 initialPlayback: initialPlayback[layer.id] ?? .init(),
                 initialAudioInput: initialAudioInput, initialSceneTime: initialSceneTime,
                 shouldCancelPrewarm: shouldCancelPrewarm,
+                defersInitialWarmup: defersInitialWarmup,
                 textureLoader: textureLoader,
                 builtInTextureRegistry: builtInTextureRegistry
             ) else { continue }
+            if defersInitialWarmup {
+                rootPrewarms.append((rootRender.simulator, initialBoundsFrame))
+            }
 #if DEBUG
-            appendSimulationDiagnostics(
-                rootRender.simulator.diagnostics,
-                layerID: layer.id,
-                path: path,
-                handlesAllChildren: childRuntime.handlesAllChildren
-            )
+            rootDiagnosticLayers.append((layers.count, childRuntime.handlesAllChildren))
 #endif
             layers.append(SceneParticleLayerRuntime(
                 layerID: layer.id,
@@ -445,6 +449,30 @@ final class SceneParticleRuntime {
                 worldSpaceDemandLayerIDs.insert(layer.id)
             }
         }
+        let prewarms = rootPrewarms
+        let workerCount = min(prewarms.count, 2)
+        let timing = SceneParticleFrameTiming(sceneTime: initialSceneTime)
+        let prewarm: @Sendable (Int) -> Void = { worker in
+            for index in stride(from: worker, to: prewarms.count, by: workerCount) {
+                let work = prewarms[index]
+                work.simulator.completeInitialWarmup(timing: timing, collisionBoundsFrame: work.bounds,
+                                                     shouldCancel: shouldCancelPrewarm)
+            }
+        }
+        if workerCount == 1 {
+            prewarm(0)
+        } else if workerCount > 1 {
+            DispatchQueue.concurrentPerform(iterations: workerCount, execute: prewarm)
+        }
+#if DEBUG
+        for entry in rootDiagnosticLayers {
+            let layer = layers[entry.index]
+            guard let root = layer.rootRender else { continue }
+            root.simulator.observeSelectedRenderers(typedIndices: root.outputs.map(\.renderer.index))
+            appendSimulationDiagnostics(root.simulator.diagnostics,
+                layerID: layer.layerID, path: layer.particlePath, handlesAllChildren: entry.handlesAllChildren)
+        }
+#endif
         pointerControlPointDemands = pointerDemands
         worldSpaceRequiringLayerIDs = worldSpaceDemandLayerIDs
         let canUseSceneDepth = SceneParticleCameraFrame.acceptsNativePerspectiveProjection(camera: descriptor.camera)
@@ -808,7 +836,7 @@ final class SceneParticleRuntime {
         initialDynamicValues: SceneDynamicSnapshot,
         initialPlayback: SceneParticlePlaybackSnapshot,
         initialAudioInput: SceneParticleAudioInput, initialSceneTime: Double,
-        shouldCancelPrewarm: (() -> Bool)?, textureLoader: SceneTextureLoader,
+        shouldCancelPrewarm: (() -> Bool)?, defersInitialWarmup: Bool, textureLoader: SceneTextureLoader,
         builtInTextureRegistry: SceneParticleBuiltInTextureRegistry
     ) -> SceneParticleRootRenderRuntime? {
         var prepared = SceneParticlePreparedRenderer.prepare(
@@ -865,11 +893,9 @@ final class SceneParticleRuntime {
             controlPointFrame: controlPointFrame,
             collisionBoundsFrame: collisionBoundsFrame,
             stepSnapshotPolicies: prepared.compactMap { $0.snapshotPolicy },
-            allowsContinuousFrameUpdate: !hasChildSystems
+            allowsContinuousFrameUpdate: !hasChildSystems,
+            defersInitialWarmup: defersInitialWarmup
         )
-#if DEBUG
-        simulator.observeSelectedRenderers(typedIndices: prepared.map(\.index))
-#endif
         return SceneParticleRootRenderRuntime(
             definition: asset.definition,
             collisionBoundsExtent: collisionBoundsExtent,

@@ -325,6 +325,13 @@ extension Harness {
         let descriptor = SceneRenderDescriptor(layers: [layer(42, "particles/finished.json"),
             layer(43, "particles/finished.json")], renderOrderLayerIDs: [42, 43],
             materialPasses: audioDescriptor.materialPasses)
+        let assets = try SceneParticleRuntime.prepareAssets(descriptor: descriptor,
+            resourceView: SceneResourceView(projectRootURL: directory, packageRootURL: nil))
+        let cancelled = SceneParticleRuntime(descriptor: descriptor,
+            preparedAssets: assets, device: device, shouldCancelPrewarm: { true })
+        let cancelledRoots = cancelled.frameSnapshot().layers.compactMap(\.root?.simulatorFrame)
+        result["cancelledMultiRootPrewarmJoinsWithoutAdvancing"] = cancelledRoots.count == 2
+            && cancelledRoots.allSatisfy { $0.simulationTime == 0 && $0.particles.isEmpty }
         let retained = SceneParticlePlaybackState(descriptor: descriptor,
             cacheDirectory: directory, device: device)
         let added = SceneParticlePlaybackState(descriptor: descriptor,
