@@ -146,7 +146,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         stepSnapshotPolicies: [SceneParticleStepSnapshotPolicy] = [],
         allowsContinuousFrameUpdate: Bool = false,
         hasChildStreamOrigin: Bool = false,
-        eventValueContext: SceneParticleEventValueContext = .unavailable
+        eventValueContext: SceneParticleEventValueContext = .unavailable,
+        defersInitialWarmup: Bool = false
     ) {
         self.playback = initialPlayback
         self.playbackHasWork = definition.preparedPlaybackWork(
@@ -285,14 +286,27 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         }
         random = SceneParticleRandomGenerator(state: seed)
         prepareBirthColor()
-        // The init-time warm-up runs the same emit/apply path as advance;
-        // prewarmed world-space systems convert through the launch frame.
+        // Prewarmed world-space systems use the launch frame in the same emit/apply path as advance.
         activeWorldSpaceFrame = worldSpaceFrame
-        warmUp(duration: definition.startTime ?? 0, stepBudget: prewarmStepBudget, timing: initialTiming,
-               controlPointParticleSpace: initialControlPointParticleSpace,
+        if !defersInitialWarmup {
+            completeInitialWarmup(timing: initialTiming, stepBudget: prewarmStepBudget,
+                                  controlPointParticleSpace: initialControlPointParticleSpace,
+                                  collisionBoundsFrame: collisionBoundsFrame,
+                                  hasChildStreamOrigin: hasChildStreamOrigin, shouldCancel: shouldCancelPrewarm)
+        }
+    }
+
+    func completeInitialWarmup(
+        timing: SceneParticleFrameTiming, stepBudget: Int? = nil,
+        controlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil,
+        collisionBoundsFrame: SceneParticleCollisionBoundsFrame?,
+        hasChildStreamOrigin: Bool = false, shouldCancel: (() -> Bool)?
+    ) {
+        warmUp(duration: definition.startTime ?? 0, stepBudget: stepBudget, timing: timing,
+               controlPointParticleSpace: controlPointParticleSpace,
                collisionBoundsFrame: collisionBoundsFrame,
                hasChildStreamOrigin: hasChildStreamOrigin,
-               shouldCancel: shouldCancelPrewarm)
+               shouldCancel: shouldCancel)
 #if DEBUG
         componentObservation?.origin = "live"
 #endif

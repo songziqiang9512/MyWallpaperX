@@ -157,8 +157,8 @@
       "bytes": 172229
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 429,
-      "bytes": 82473
+      "lines": 431,
+      "bytes": 83153
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 486,
@@ -166,7 +166,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 416745
+      "bytes": 417927
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 55,
-      "bytes": 7015
+      "bytes": 7246
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -660,15 +660,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "015f68f2d1a28c0df5748d1d8b008a7d2e8c542cfbed787ad7d7e864dbf10f74",
-      "after": "e0f0cfa09b07f125fb9416d4a4b4d986dfc11312ca8e4ed34b478f6d9c22fd88",
-      "owner": "Scene particles and quality evidence",
-      "reason": "Preserve upstream particle and runtime evidence together with the integrated quality branch authorities.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "51ab0c44e7ee50643e905f9f62e62c2451dec75db0bc1757d8f8ca88f64c2c57",
       "after": "01ab3b1eee3aadf18ef6654299f22c0bd42cbde422fe25052b0f14eab0a27404",
@@ -732,12 +723,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "e0f0cfa09b07f125fb9416d4a4b4d986dfc11312ca8e4ed34b478f6d9c22fd88",
+      "after": "2deee7a646013b9011eeff1197a2de5e79b8c61b0608a20dffbe49ff6f6116bc",
+      "owner": "Scene particle launch preparation",
+      "reason": "登记根模拟并行边界、原包首屏收益、单根反例与队列剩余范围。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "2e83b2c0d83b22dc568a489645161187d1f729f7e5cec43afc575cb5db63933d",
+      "after": "1fb7a9a649caa777b766f42e948de9049719fa139acf5d5498a9f0cf316385d6",
+      "owner": "Scene particle launch preparation",
+      "reason": "登记根模拟并行边界、原包首屏收益、单根反例与队列剩余范围。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "96c0d8418a27eb1a1448d28f0171e149ff79fa544f0f5c78edea129d93e0fcc4",
-      "after": "871c843ddff2244fb0b985e031038a9d925ebee174981ffa61340e4c2a09e91a",
-      "owner": "Scene perspective composition",
-      "reason": "保留原包斜视实际结果、独立音频位移与余下官版对照。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-box-oblique-333"
+      "before": "871c843ddff2244fb0b985e031038a9d925ebee174981ffa61340e4c2a09e91a",
+      "after": "b19630529ce75a98c0e41f6028d0ea81fa1ad1012ab07e44b39e76ea6c28f143",
+      "owner": "Scene particle launch preparation",
+      "reason": "登记根模拟并行边界、原包首屏收益、单根反例与队列剩余范围。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#authored-root-prewarm-join"
     }
   ]
 }

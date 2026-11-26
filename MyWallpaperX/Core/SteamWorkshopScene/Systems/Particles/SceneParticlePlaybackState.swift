@@ -47,7 +47,7 @@ final class SceneParticlePlaybackState {
         initialAudioInput: SceneParticleAudioInput = .silent,
         initialSceneTime: Double = 0,
         destroyedAuthoredLayerIDs: Set<Int> = [],
-        shouldCancelPrewarm: (() -> Bool)? = nil
+        shouldCancelPrewarm: (@Sendable () -> Bool)? = nil
     ) {
         let layersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
         let initialWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
