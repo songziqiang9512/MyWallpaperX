@@ -639,10 +639,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d08fde9ded49c0982ab6f61d93c975392e18627156cc36dbc8f1b19d4bb460f9",
+      "before": "f1eb92f3d667d1a2cfcc80a0751e2d7b83c3453fceeadf262243683d65ee75ed",
       "after": "1ad6561ac765ee86b78d103cdb0517da19a8ecad718b9da043a296196b1ff57f",
       "owner": "Scene author audio history",
-      "reason": "按画质父提交核对已合并原作者的音频生产改动、图像实测及质量分支原证据。",
+      "reason": "从音频生产改动的主线父提交核对合并正文的预算，含保留的画质分支证据。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#forefront-normalized-history-346"
     },
     {
