@@ -162,7 +162,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 599,
-      "bytes": 388913
+      "bytes": 389696
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 64,
-      "bytes": 8780
+      "bytes": 8952
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -639,8 +639,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ce212bb0d0e9a426288e83a38caa51353aaea614b34d509c6943a7816483e57b",
-      "after": "4597608db202497a09004c5aeee7b5f9c3b09c6f4cd852c54e63ff96ef9cd630",
+      "before": "4597608db202497a09004c5aeee7b5f9c3b09c6f4cd852c54e63ff96ef9cd630",
+      "after": "695c0a27c82196c947742e15c4f304117fa53d6a1692189546f8fd4064201db8",
       "owner": "Scene 与三引擎画质",
       "reason": "合并画质与主线的执行合同及不同构建身份下的证据，保持单一现役入口。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
@@ -693,11 +693,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e0bb358fc3f0cb7e5062d59a71dce55063d50cea6a4ca70c8cfe2f03ed965960",
-      "after": "294726741619ccba3e11dcb3b367102d0994058bfcff14f90e1a7827979cdce1",
-      "owner": "Scene",
-      "reason": "登记双宽束实例色版本差异、官版出生时序与实施边界。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+      "before": "92d5d8457e59f4d20c41641a994f3dbf3b0ecb0cf2fa8ace2e7269c6235f53fe",
+      "after": "7900bd439153ac62bb9a3e8df11b3064ddf12782e1aa0c3266c7d7bc6beb062d",
+      "owner": "Scene 与三引擎画质",
+      "reason": "合入主线已落库正文及其现行职责。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",

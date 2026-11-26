@@ -1003,7 +1003,7 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9b1ec78e19a8a62b90ad1d863d8b36f80813e11e61701a14c5b8f3c048c83f8c",
+        "sourceSHA256": "906d2209a458b935be2dad38975947d2745f516f2a0839b8bbcad8bccb28bfa3",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
         "limitations": "导航复核，实际渲染证据仍绑定其原构建。"
