@@ -658,10 +658,12 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             cancellationReason: nil,
             retiredHistoryPins: [],
             sceneColor: preparedSceneColor,
-            displayScratchPin: preparedDisplayScratch?.pin
+            displayScratchPin: preparedDisplayScratch?.pin,
+            namedGraphOutputs: preparedNamedGraphOutputs
         ))
         preparedSceneColor = nil
         preparedDisplayScratch = nil
+        preparedNamedGraphOutputs.removeAll(keepingCapacity: true)
         activeTransactions.removeAll(keepingCapacity: true)
         frameSealed = true
         lock.unlock()

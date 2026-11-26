@@ -31,6 +31,13 @@ EFFECT_INPUT_RESOLUTION_RUNTIME_SOURCE = RUNTIME_SOURCE.with_name(
 PLAN_SOURCE = RUNTIME_SOURCE.with_name("SceneDependencyRenderPlan.swift")
 PLAN_AGGREGATE_SOURCE = RUNTIME_SOURCE.with_name("SceneDependencyRenderPlan+Aggregate.swift")
 PLAN_FORWARD_SOURCE = RUNTIME_SOURCE.with_name("SceneDependencyRenderPlan+ForwardPreparation.swift")
+NAMED_POOL_SOURCE = RUNTIME_SOURCE.with_name("SceneNamedRenderTargetPool.swift")
+RESOURCE_BUDGET_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift"
+)
+DRAW_REQUEST_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerDrawRequest.swift"
+)
 GEOMETRY_PRODUCT_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneGeometryProduct.swift"
 )
@@ -148,6 +155,7 @@ struct SceneDependencyEffectInput {
     let frameEpoch: UInt64
     let texture: MTLTexture
     var content: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
+    var producerFrameEpoch: UInt64? = nil
 }
 
 enum SceneFrameTextureIdentity: Hashable {
@@ -222,33 +230,6 @@ final class SceneFrameTextureRegistry {
         return self.texture(
             for: .namedLayerTarget(reference)
         ) === texture
-    }
-}
-
-final class SceneNamedRenderTargetPool {
-    static let maximumDimension = 2_048
-    private let device: MTLDevice
-    private(set) var residentByteCost = 0
-
-    private let pixelFormat: MTLPixelFormat
-
-    init(device: MTLDevice, pixelFormat: MTLPixelFormat) {
-        self.device = device
-        self.pixelFormat = pixelFormat
-    }
-
-    func texture(for layerID: Int, width: Int, height: Int) -> MTLTexture? {
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: pixelFormat,
-            width: width,
-            height: height,
-            mipmapped: false
-        )
-        descriptor.usage = [.shaderRead, .renderTarget]
-        let texture = device.makeTexture(descriptor: descriptor)
-        texture?.label = "reservation-\(layerID)"
-        residentByteCost = width * height * 4
-        return texture
     }
 }
 
@@ -1836,6 +1817,13 @@ _plan_projection = PLAN_AGGREGATE_SOURCE.read_text().split(
 _plan_support_end = HARNESS_SOURCE.index("struct SceneDependencyEffectInput {")
 HARNESS_SOURCE = (HARNESS_SOURCE[:_plan_support_end] + _plan_projection
                   + PLAN_FORWARD_SOURCE.read_text() + HARNESS_SOURCE[_plan_support_end:])
+_draw_request_source = DRAW_REQUEST_SOURCE.read_text()
+_graph_output = _draw_request_source[
+    _draw_request_source.index("struct SceneNamedGraphOutput {"):
+    _draw_request_source.index("/// A frame-local capability")]
+_registry_support_start = HARNESS_SOURCE.index("enum SceneFrameTextureIdentity")
+HARNESS_SOURCE = (HARNESS_SOURCE[:_registry_support_start] + _graph_output
+                  + HARNESS_SOURCE[_registry_support_start:])
 DESCRIPTOR_SUPPORT = HARNESS_SOURCE[
     HARNESS_SOURCE.index("struct SceneRenderDescriptor {"):
     HARNESS_SOURCE.index("struct SceneStaticModelNamedTextureBinding:")]
@@ -1878,6 +1866,8 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     str(STATIC_MODEL_RUNTIME_SOURCE),
                     str(GEOMETRY_PRODUCT_SOURCE),
                     str(BASE_IMAGE_SAMPLE_SOURCE),
+                    str(NAMED_POOL_SOURCE),
+                    str(RESOURCE_BUDGET_SOURCE),
                     str(
                         REPOSITORY_ROOT
                         / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift"
@@ -2502,7 +2492,7 @@ def run_native_atlas_probe():
     input_end = draw_source.index("\n/// A frame-local capability", input_start)
     real_input = draw_source[input_start:input_end]
     start = support.index("struct SceneDependencyEffectInput {")
-    end = support.index("\n}", start) + len("\n}")
+    end = support.index("\n}", support.index("struct SceneNamedGraphOutput {", start)) + len("\n}")
     support = support[:start] + real_input + support[end:]
     support += uniform_extension + ATLAS_NATIVE_MAIN + ATLAS_NATIVE_EXTRA + fixture_data.decode()
     identity = {"inputs": inputs, "harnessSHA256": hashlib.sha256(support.encode()).hexdigest(),

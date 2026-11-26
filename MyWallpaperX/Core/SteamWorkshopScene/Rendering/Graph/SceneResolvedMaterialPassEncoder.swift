@@ -19,7 +19,8 @@ final class SceneResolvedMaterialPassEncoder {
 
         mutating func observeComposition(program: SceneResolvedMaterialProgram, layerID: Int,
                                          effectIndex: Int? = nil, nodeIndex: Int? = nil,
-                                         materialOrdinal: Int? = nil) {
+                                         materialOrdinal: Int? = nil,
+                                         dependencyEffects: [SceneDependencyEffectInput] = []) {
             compositionRows = program.semanticIdentity.shader.textureSlots.compactMap { index in
                 guard let slot = program.textureSlots[index] else { return nil }
                 var source = SceneCompositionTextureObservation(slot.resource.publication.candidate,
@@ -39,8 +40,18 @@ final class SceneResolvedMaterialPassEncoder {
                 }
                 source.generation = slot.resource.resourceGeneration
                 source.contentGeneration = slot.resource.publication.contentGeneration
+                var details: [String: String]?
+                if case let .provider(.namedLayerTarget(reference)) = slot.reference,
+                   let dependency = dependencyEffects.first(where: {
+                       $0.namedReference == reference
+                           && $0.texture === slot.resource.publication.texture
+                   }) {
+                    details = ["producerFrameEpoch": String(dependency.producerFrameEpoch),
+                               "consumerFrameEpoch": String(dependency.frameEpoch)]
+                }
                 return .init(kind: "material", layerID: layerID, effectIndex: effectIndex,
-                    nodeIndex: nodeIndex, materialOrdinal: materialOrdinal, slot: index, source: source)
+                    nodeIndex: nodeIndex, materialOrdinal: materialOrdinal, slot: index, source: source,
+                    details: details)
             }
             if compositionRows.isEmpty {
                 compositionRows = [.init(kind: "material", layerID: layerID, effectIndex: effectIndex,

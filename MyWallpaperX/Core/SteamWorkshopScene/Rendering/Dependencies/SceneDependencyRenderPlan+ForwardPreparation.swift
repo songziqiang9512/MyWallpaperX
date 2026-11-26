@@ -12,11 +12,13 @@ extension SceneDependencyRenderPlan {
         let fixedSourceLayerIDs: Set<Int>
         let executionRoots: Set<Int>
         let modelProviders: [Int: Int]
+        let previousCandidatesByConsumerLayerID: [Int: Set<Int>]
 
         init(authoredLayerIDs: [Int], positions: [Int: Int], graphs: Set<Int>,
              bindingsByConsumer: [Int: [Binding]], dependencyOrder: [Int],
              ownCuts: [Int: Int], fixedSourceLayerIDs: Set<Int>,
-             executionRoots: Set<Int>, modelProviders: [Int: Int]) {
+             executionRoots: Set<Int>, modelProviders: [Int: Int],
+             previousCandidatesByConsumerLayerID: [Int: Set<Int>]) {
             self.preparationLayerIDs = dependencyOrder.filter { graphs.contains($0) }
             self.authoredLayerIDs = authoredLayerIDs
             self.positions = positions
@@ -27,17 +29,25 @@ extension SceneDependencyRenderPlan {
             self.fixedSourceLayerIDs = fixedSourceLayerIDs
             self.executionRoots = executionRoots
             self.modelProviders = modelProviders
+            self.previousCandidatesByConsumerLayerID = previousCandidatesByConsumerLayerID
         }
 
         func preparationSchedule(
             excludingSlotsByConsumerLayerID excluded: [Int: Set<SceneEffectPassSlot>] = [:]
         ) -> PreparationSchedule {
             var providersByConsumer: [Int: Set<Int>] = [:]
+            var activePreviousProviders: [Int: Set<Int>] = [:]
             for (consumer, bindings) in bindingsByConsumer {
+                let previousCandidates = previousCandidatesByConsumerLayerID[consumer]
                 for binding in bindings where !binding.referenceSlots.allSatisfy({
                     excluded[consumer]?.contains($0) == true
                 }) {
-                    providersByConsumer[consumer, default: []].insert(binding.providerLayerID)
+                    let provider = binding.providerLayerID
+                    if previousCandidates?.contains(provider) == true {
+                        activePreviousProviders[consumer, default: []].insert(provider)
+                    } else {
+                        providersByConsumer[consumer, default: []].insert(provider)
+                    }
                 }
             }
             var bounds: [Int: Int] = [:]
@@ -73,13 +83,24 @@ extension SceneDependencyRenderPlan {
                 }
                 cuts[provider] = min(cuts[provider] ?? cut, cut)
             }
+            var previousProvidersByConsumerLayerID: [Int: Set<Int>] = [:]
+            var previousProviderLayerIDs: Set<Int> = []
+            func requestDependencies(for consumer: Int, at cut: Int) {
+                for provider in providersByConsumer[consumer] ?? [] { request(provider, by: cut) }
+                guard let previous = activePreviousProviders[consumer] else { return }
+                previousProvidersByConsumerLayerID[consumer] = previous
+                previousProviderLayerIDs.formUnion(previous)
+                // A missing completed read cannot prevent this frame from
+                // writing the provider's next output at its authored cut.
+                for provider in previous { cuts[provider] = ownCuts[provider]! }
+            }
             for layerID in graphs.intersection(executionRoots) {
                 cuts[layerID] = ownCuts[layerID]!
             }
             for consumer in executionRoots where !graphs.contains(consumer) {
                 guard let position = positions[consumer] else { continue }
                 let cut = ownCuts[consumer] ?? position * 2
-                for provider in providersByConsumer[consumer] ?? [] { request(provider, by: cut) }
+                requestDependencies(for: consumer, at: cut)
             }
             for (consumer, provider) in modelProviders {
                 request(provider, by: -1)
@@ -87,7 +108,7 @@ extension SceneDependencyRenderPlan {
             }
             for consumer in dependencyOrder.reversed() where graphs.contains(consumer) {
                 guard let cut = cuts[consumer] else { continue }
-                for provider in providersByConsumer[consumer] ?? [] { request(provider, by: cut) }
+                requestDependencies(for: consumer, at: cut)
             }
             let ranks = Dictionary(uniqueKeysWithValues:
                 dependencyOrder.enumerated().map { ($0.element, $0.offset) })
@@ -115,14 +136,18 @@ extension SceneDependencyRenderPlan {
             return .init(preparationLayerIDs: preparation,
                 prepassProviderLayerIDs: prepass, providersBeforeLayerID: before,
                 scheduledGraphProviderLayerIDs: scheduledGraphs,
-                authoredRawProviderLayerIDs: authoredRawProviders)
+                authoredRawProviderLayerIDs: authoredRawProviders,
+                previousProvidersByConsumerLayerID: previousProvidersByConsumerLayerID,
+                previousProviderLayerIDs: previousProviderLayerIDs)
         }
     }
 
     nonisolated func sourcePreparationPlan(
         authoredLayerIDs: [Int], availableExecutionLayerIDs: Set<Int>,
         visibleRootLayerIDs: Set<Int>, activeStaticModelConsumerLayerIDs: Set<Int>,
-        sourceAfterLayerIDByLayerID: [Int: Int]
+        sourceAfterLayerIDByLayerID: [Int: Int],
+        previousEligibleProviderLayerIDs: Set<Int> = [],
+        previousIneligibleConsumerLayerIDs: Set<Int> = []
     ) -> SourcePreparationPlan? {
         guard Set(authoredLayerIDs).count == authoredLayerIDs.count else { return nil }
         let positions = Dictionary(uniqueKeysWithValues:
@@ -190,10 +215,26 @@ extension SceneDependencyRenderPlan {
                 ownCuts[layerID] = position * 2 + 1
             } else { ownCuts[layerID] = positions[layerID]! * 2 }
         }
+        let previousProviders = previousEligibleProviderLayerIDs.intersection(graphs).subtracting(executionRoots)
+        var previousCandidatesByConsumerLayerID: [Int: Set<Int>] = [:]
+        if !previousProviders.isEmpty {
+            for (consumer, bindings) in bindingsByConsumer
+            where graphs.contains(consumer) && !previousIneligibleConsumerLayerIDs.contains(consumer) {
+                guard let consumerCut = ownCuts[consumer] else { continue }
+                for binding in bindings {
+                    let provider = binding.providerLayerID
+                    guard previousProviders.contains(provider),
+                          sourceAfterLayerIDByLayerID[provider] != nil,
+                          let providerCut = ownCuts[provider], consumerCut < providerCut else { continue }
+                    previousCandidatesByConsumerLayerID[consumer, default: []].insert(provider)
+                }
+            }
+        }
         return SourcePreparationPlan(authoredLayerIDs: authoredLayerIDs,
             positions: positions, graphs: graphs, bindingsByConsumer: bindingsByConsumer,
             dependencyOrder: order, ownCuts: ownCuts,
             fixedSourceLayerIDs: Set(sourceAfterLayerIDByLayerID.keys),
-            executionRoots: executionRoots, modelProviders: modelProviders)
+            executionRoots: executionRoots, modelProviders: modelProviders,
+            previousCandidatesByConsumerLayerID: previousCandidatesByConsumerLayerID)
     }
 }

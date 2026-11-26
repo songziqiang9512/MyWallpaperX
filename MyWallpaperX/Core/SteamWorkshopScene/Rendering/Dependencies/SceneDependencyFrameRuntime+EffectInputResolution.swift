@@ -1,6 +1,56 @@
 import Metal
 
 extension SceneDependencyFrameRuntime {
+    func selectNamedGraphHistory(
+        _ schedule: SceneDependencyRenderPlan.PreparationSchedule,
+        completed: [Int: SceneNamedGraphOutput],
+        frameEpoch: UInt64
+    ) {
+        synchronizeReservations(to: frameEpoch)
+        for provider in previousProviderLayerIDs.subtracting(schedule.previousProviderLayerIDs) {
+            targetPool.retireHistory(for: provider, keeping: previousNamedGraphOutputs[provider]?.texture)
+        }
+        previousProviderLayerIDs = schedule.previousProviderLayerIDs
+        previousProvidersByConsumerLayerID = schedule.previousProvidersByConsumerLayerID
+        previousNamedGraphOutputs = completed
+    }
+
+    /// Reserve the writer even if its first reader has no previous image.
+    func reserveHistoricalGraphOutput(
+        for provider: Int, sourceExtent: (width: Int, height: Int), frameEpoch: UInt64
+    ) -> (reserved: Bool, retiresPrevious: Bool) {
+        guard let extent = Self.normalizedExtent(width: sourceExtent.width, height: sourceExtent.height)
+        else { return (false, false) }
+        let previous = previousNamedGraphOutputs[provider]
+        let reusable = previous.map {
+            $0.sourceWidth == sourceExtent.width && $0.sourceHeight == sourceExtent.height
+        } ?? false
+        func reserve(avoiding texture: MTLTexture?) -> MTLTexture? {
+            var failure: String?
+            return reserveProviderTarget(providerLayerID: provider, kind: .resolvedMaterial,
+                extent: extent, sourceExtent: sourceExtent, avoiding: texture,
+                frameEpoch: frameEpoch, failureReason: &failure)
+        }
+        if reusable, let previous, reserve(avoiding: previous.texture) != nil {
+            return (true, false)
+        }
+        if let previous {
+            previousNamedGraphOutputs.removeValue(forKey: provider)
+            targetPool.retireHistory(for: provider, keeping: reusable ? previous.texture : nil)
+        }
+        return (reserve(avoiding: nil) != nil, previous != nil)
+    }
+
+    func previousEffectInput(for binding: SceneDependencyRenderPlan.Binding, frameEpoch: UInt64)
+        -> SceneDependencyEffectInput? {
+        guard let previous = previousNamedGraphOutputs[binding.providerLayerID],
+              let writer = reservationsByProviderLayerID[binding.providerLayerID],
+              writer.texture !== previous.texture else { return nil }
+        return .init(consumerLayerID: binding.consumerLayerID, providerLayerID: binding.providerLayerID,
+            variant: .primary, slot: binding.slot, blendMode: binding.blendMode, frameEpoch: frameEpoch,
+            texture: previous.texture, content: previous.content, producerFrameEpoch: previous.frameEpoch)
+    }
+
     func effectInput(
         for consumerLayerID: Int,
         textureRegistry: SceneFrameTextureRegistry
@@ -47,6 +97,12 @@ extension SceneDependencyFrameRuntime {
         synchronizeReservations(to: frameEpoch)
         var inputs: [SceneDependencyEffectInput] = []
         for binding in aggregate.bindings where selectedSlots?.contains(binding.slot) != false {
+            if previousProvidersByConsumerLayerID[binding.consumerLayerID]?.contains(binding.providerLayerID) == true {
+                if let input = previousEffectInput(for: binding, frameEpoch: frameEpoch) {
+                    inputs.append(input)
+                }
+                continue
+            }
             let reference = SceneNamedTextureReference(
                 providerLayerID: binding.providerLayerID,
                 variant: .primary
@@ -100,6 +156,10 @@ extension SceneDependencyFrameRuntime {
             return .invalid(reasonCode: "external-primary-frame-epoch-invalid")
         }
         synchronizeReservations(to: frameEpoch)
+        if previousProvidersByConsumerLayerID[consumerLayerID]?.contains(binding.providerLayerID) == true {
+            return previousEffectInput(for: binding, frameEpoch: frameEpoch).map { .ready($0) }
+                ?? .unavailable(reasonCode: "external-primary-provider-history-unavailable")
+        }
         guard let reservation = reservationsByProviderLayerID[
             binding.providerLayerID
         ] else {

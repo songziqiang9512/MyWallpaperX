@@ -856,6 +856,7 @@ SceneBaseMaterialLitCaptureMissLog.record(
                 continue
             }
             if let extent = source.preferredExtent, usesSharedPair,
+               !preparationSchedule.previousProviderLayerIDs.contains(layerID),
                preferredSharedExtent == nil || preferredSharedExtent == extent,
                claim.sourceRoute == .capturedMainTargetTexture
                 ? allocation.graphPlan.historyByteCost == 0
@@ -903,6 +904,26 @@ SceneBaseMaterialLitCaptureMissLog.record(
                     byLayerID.removeValue(forKey: layerID)
                     graphTargetFallbacks[layerID] = "model-provider-target-unavailable"
                     continue
+                }
+            }
+        }
+        if let submissions = imageCompositor.resolvedMaterialRuntime?.submissions,
+           !preparationSchedule.previousProviderLayerIDs.isEmpty
+               || !dependencyRuntime.previousProviderLayerIDs.isEmpty {
+            let previousProviders = preparationSchedule.previousProviderLayerIDs
+            let frameEpoch = textureRegistry.frameEpoch
+            dependencyRuntime.selectNamedGraphHistory(preparationSchedule,
+                completed: submissions.namedGraphHistory(retaining: previousProviders), frameEpoch: frameEpoch)
+            for provider in previousProviders {
+                guard let extent = preparedGraphOutputExtent(for: provider, plans: byLayerID) else { continue }
+                let history = dependencyRuntime.reserveHistoricalGraphOutput(
+                    for: provider, sourceExtent: extent, frameEpoch: frameEpoch)
+                if history.retiresPrevious {
+                    submissions.discardNamedGraphHistory(for: provider)
+                }
+                if !history.reserved {
+                    byLayerID.removeValue(forKey: provider)
+                    graphTargetFallbacks[provider] = "named-provider-target-unavailable"
                 }
             }
         }

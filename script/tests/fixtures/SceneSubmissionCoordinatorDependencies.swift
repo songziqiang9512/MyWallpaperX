@@ -708,6 +708,7 @@ struct SceneImageLayerPipeline { static func bindQuad(encoder: MTLRenderCommandE
 struct SceneImageLayerMasks {}
 struct SceneAuthoredEffectPipelineSet {}
 struct SceneAudioSpectrumSnapshot {}
+typealias SceneNamedGraphOutput = (frameEpoch: UInt64, texture: MTLTexture, content: SceneTextureContent)
 struct SceneDependencyEffectInput {
     let consumerLayerID: Int
     let providerLayerID: Int
@@ -719,6 +720,7 @@ struct SceneDependencyEffectInput {
 
     var content: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
     var slotIndex: Int { slot.slotIndex }
+    var producerFrameEpoch: UInt64 { frameEpoch }
     func withContent(_ content: SceneTextureContent) -> Self {
         var result = self
         result.content = content

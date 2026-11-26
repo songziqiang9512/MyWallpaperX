@@ -158,11 +158,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 485,
-      "bytes": 96320
+      "bytes": 95965
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 393125
+      "bytes": 393990
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 62,
-      "bytes": 8429
+      "bytes": 8389
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -639,10 +639,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ac3b4da03f511eeb67fb0566033f89bd364619ee4f07dd9d2cfb6b8896fc25f4",
-      "after": "9b75e557f70bbd0dc4db5944d448e40a9c136009fac7b31f3f2bc369a065ef8a",
+      "before": "9b75e557f70bbd0dc4db5944d448e40a9c136009fac7b31f3f2bc369a065ef8a",
+      "after": "a1bb27c2ca24d70f5ec20f8642cc05889c720ed3a27df15277d52abe606e1d15",
       "owner": "Scene Composition",
-      "reason": "核对主父提交与合并后正文的准确预算。",
+      "reason": "将主分支具名前置输出合同与画质分支能力证据合并。",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
     },
     {

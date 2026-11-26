@@ -110,7 +110,7 @@ enum SceneUtilityPlanFrameRenderer {
                 let publisher: ((MTLTexture, SceneTextureContent) -> SceneGraphOutputPublicationResult)?
                 if dependencyRuntime.requiresDemandedGraphOutputCapture(for: layer.id) {
                     publisher = { texture, content in
-                        dependencyRuntime.publishGraphOutputIfRequired(
+                        let result = dependencyRuntime.publishGraphOutputIfRequired(
                             layerID: layer.id,
                             texture: texture,
                             publicationRole: compositeOutput ? .visibleMainLoop : .namedProviderPrepass,
@@ -120,6 +120,17 @@ enum SceneUtilityPlanFrameRenderer {
                             imagePipeline: imagePipeline,
                             retainAuxiliary: compositePass.retainAuxiliaryRelease
                         ) ?? .invalid(reasonCode: "named-provider-publication-route-missing")
+                        if result == .published, dependencyRuntime.previousProviderLayerIDs.contains(layer.id),
+                           let target = dependencyRuntime.reservationsByProviderLayerID[layer.id] {
+                            let output = SceneNamedGraphOutput(frameEpoch: target.frameEpoch,
+                                texture: target.texture, content: content,
+                                sourceWidth: target.sourceWidth, sourceHeight: target.sourceHeight)
+                            if imageCompositor.resolvedMaterialRuntime?.submissions.stageNamedGraphOutput(
+                                output, providerLayerID: layer.id, commandBuffer: commandBuffer) != true {
+                                return .invalid(reasonCode: "named-provider-history-stage-rejected")
+                            }
+                        }
+                        return result
                     }
                 } else {
                     publisher = nil

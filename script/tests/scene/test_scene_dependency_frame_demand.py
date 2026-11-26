@@ -52,7 +52,7 @@ HARNESS = r'''
                     visibleRootLayerIDs: roots, activeStaticModelConsumerLayerIDs: models,
                     topologyRevision: revision, sourceAfterLayerIDByLayerID: {
                         sourceProjections += 1
-                        return sources
+                        return (sources, [], [])
                     })
                 schedule = sourcePlan.flatMap {
                     runtime.preparationSchedule(sourcePlan: $0, excludingSlotsByConsumerLayerID: excluded)
@@ -139,7 +139,7 @@ HARNESS = r'''
         let modelSourcePlan = prefixModelRuntime.sourcePreparationPlan(authoredLayerIDs: [77, 12, 22, 88],
             availableExecutionLayerIDs: [22, 88], visibleRootLayerIDs: [77, 88],
             activeStaticModelConsumerLayerIDs: [77], topologyRevision: 0,
-            sourceAfterLayerIDByLayerID: { [12: 12] })!
+            sourceAfterLayerIDByLayerID: { ([12: 12], [], []) })!
         let prefixModel = prefixModelRuntime.preparationSchedule(sourcePlan: modelSourcePlan,
             excludingSlotsByConsumerLayerID: [:])!
         rows["modelPrefix"] = ["preparation": prefixModel.preparationLayerIDs,
@@ -179,19 +179,36 @@ HARNESS = r'''
             let independent = shared.sourcePreparationPlan(authoredLayerIDs: order,
                 availableExecutionLayerIDs: visible, visibleRootLayerIDs: visible,
                 activeStaticModelConsumerLayerIDs: [], topologyRevision: 0,
-                sourceAfterLayerIDByLayerID: { [:] })!
+                sourceAfterLayerIDByLayerID: { ([:], [], []) })!
             let ready = shared.preparationSchedule(sourcePlan: independent,
                 excludingSlotsByConsumerLayerID: [:])!
             let prefix = shared.sourcePreparationPlan(authoredLayerIDs: order,
                 availableExecutionLayerIDs: visible, visibleRootLayerIDs: visible,
                 activeStaticModelConsumerLayerIDs: [], topologyRevision: 1,
-                sourceAfterLayerIDByLayerID: { [p:p] })!
+                sourceAfterLayerIDByLayerID: { ([p:p], [], []) })!
             let ordered = shared.preparationSchedule(sourcePlan: prefix,
                 excludingSlotsByConsumerLayerID: [:])!
             let lateOnly = shared.sourcePreparationPlan(authoredLayerIDs: order,
                 availableExecutionLayerIDs: visible, visibleRootLayerIDs: [p,d],
                 activeStaticModelConsumerLayerIDs: [], topologyRevision: 1,
-                sourceAfterLayerIDByLayerID: { [:] })!
+                sourceAfterLayerIDByLayerID: { ([:], [], []) })!
+            var historyProjectionCalls = 0
+            func historySource() -> SceneDependencyRenderPlan.SourcePreparationPlan {
+                shared.sourcePreparationPlan(authoredLayerIDs: order,
+                    availableExecutionLayerIDs: visible, visibleRootLayerIDs: [c,d],
+                    activeStaticModelConsumerLayerIDs: [], topologyRevision: 2,
+                    sourceAfterLayerIDByLayerID: {
+                        historyProjectionCalls += 1
+                        return ([p:p], [p], [])
+                    })!
+            }
+            let historySourcePlan = historySource()
+            let history = shared.preparationSchedule(sourcePlan: historySourcePlan,
+                excludingSlotsByConsumerLayerID: [:])!
+            let disabledHistory = shared.preparationSchedule(sourcePlan: historySource(),
+                excludingSlotsByConsumerLayerID: [c: [early.slot]])!
+            let restoredHistory = shared.preparationSchedule(sourcePlan: historySource(),
+                excludingSlotsByConsumerLayerID: [:])!
             rows["visibleForward-\(renamed)"] = [
                 "provider": p, "early": c, "late": d,
                 "preparation": ready.preparationLayerIDs, "prepass": ready.prepassProviderLayerIDs,
@@ -205,12 +222,18 @@ HARNESS = r'''
                 "sharedReservation": reservations[0] != nil && reservations[1] != nil
                     && reservations[0]!.texture === reservations[1]!.texture,
                 "unavailableBefore": before, "unavailableAfter": unavailable(),
+                "historyPairs": history.previousProvidersByConsumerLayerID[c]?.sorted() ?? [],
+                "historyPreparation": history.preparationLayerIDs,
+                "disabledHistory": disabledHistory.previousProviderLayerIDs.sorted(),
+                "disabledPreparation": disabledHistory.preparationLayerIDs,
+                "restoredHistory": restoredHistory == history,
+                "historyProjectionCalls": historyProjectionCalls,
             ]
         }
         let raw = runtime.sourcePreparationPlan(authoredLayerIDs: [11, 55],
             availableExecutionLayerIDs: [55], visibleRootLayerIDs: [55],
             activeStaticModelConsumerLayerIDs: [], topologyRevision: 2,
-            sourceAfterLayerIDByLayerID: { [:] })!
+            sourceAfterLayerIDByLayerID: { ([:], [], []) })!
         let requested = runtime.preparationSchedule(sourcePlan: raw,
             excludingSlotsByConsumerLayerID: [:])!
         let inactive = runtime.preparationSchedule(sourcePlan: raw,
@@ -240,6 +263,8 @@ class SceneDependencyFrameDemandTests(unittest.TestCase):
             str(support.EFFECT_INPUT_RESOLUTION_RUNTIME_SOURCE), str(support.STATIC_MODEL_RUNTIME_SOURCE),
             str(support.GEOMETRY_PRODUCT_SOURCE),
             str(support.BASE_IMAGE_SAMPLE_SOURCE),
+            str(support.NAMED_POOL_SOURCE),
+            str(support.RESOURCE_BUDGET_SOURCE),
             str(support.REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift"),
             str(support.REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift"),
             str(source), "-framework", "Metal", "-o", str(binary)
@@ -336,6 +361,17 @@ class SceneDependencyFrameDemandTests(unittest.TestCase):
                 self.assertEqual(row["prefixPrepass"], [])
                 self.assertEqual(row["prefixScheduled"], [])
                 self.assertEqual(row["prefixOwnCuts"], [0, 3, 4])
+
+    def test_history_readers_update_without_rebuilding_the_source_plan(self):
+        for renamed in (False, True):
+            with self.subTest(renamed=renamed):
+                row = self.rows[f"visibleForward-{str(renamed).lower()}"]
+                self.assertEqual(row["historyPairs"], [row["provider"]])
+                self.assertEqual(row["historyPreparation"], [row["early"], row["provider"], row["late"]])
+                self.assertEqual(row["disabledHistory"], [])
+                self.assertEqual(row["disabledPreparation"], row["historyPreparation"])
+                self.assertTrue(row["restoredHistory"])
+                self.assertEqual(row["historyProjectionCalls"], 1)
 
 
 if __name__ == "__main__":

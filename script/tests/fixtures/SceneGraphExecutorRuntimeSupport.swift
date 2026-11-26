@@ -239,6 +239,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     }
 }
 
+typealias SceneNamedGraphOutput = (frameEpoch: UInt64, texture: MTLTexture, content: SceneTextureContent)
 struct SceneDependencyEffectInput {
     let consumerLayerID: Int
     let providerLayerID: Int
@@ -250,6 +251,7 @@ struct SceneDependencyEffectInput {
     var content: SceneTextureContent
     let namedReference: SceneNamedTextureReference
     let reservedMaterialResource: SceneFrameTextureResource?
+    var producerFrameEpoch: UInt64 { frameEpoch }
 
     init(
         consumerLayerID: Int = 1,

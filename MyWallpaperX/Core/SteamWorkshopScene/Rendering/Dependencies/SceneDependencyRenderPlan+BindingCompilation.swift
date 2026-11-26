@@ -903,7 +903,7 @@ extension SceneDependencyRenderPlan {
                 order: order, visibleLayerIDs: visibleLayerIDs),
                 !binding.requiresForwardCapture
                     || !provider.effects.contains(where: { $0.visible != false })
-                    || providerGraphIsAuthoredOrderIndependent(provider)
+                    || (provider.utilityLayer == nil && providerGraphIsAuthoredOrderIndependent(provider))
             else { return nil }
             return binding
         }

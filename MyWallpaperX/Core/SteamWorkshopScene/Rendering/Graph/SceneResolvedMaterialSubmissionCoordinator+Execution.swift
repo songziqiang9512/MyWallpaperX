@@ -334,6 +334,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                   prepared.blendMode == ready.blendMode,
                   prepared.frameEpoch == frameEpoch,
                   ready.frameEpoch == frameEpoch,
+                  prepared.producerFrameEpoch == ready.producerFrameEpoch,
                   prepared.content == ready.content,
                   prepared.texture === ready.texture else { return false }
             input = inputs.next()
@@ -395,7 +396,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                         binding = aggregate.bindings.first { $0.slot == input.slot }
                     case .none, .graphInternal: binding = nil
                     }
-                    guard binding?.kind != .geometryLayer,
+                    guard input.producerFrameEpoch == input.frameEpoch,
+                          binding?.kind != .geometryLayer,
                           let providerID = preparedLedgerByLayerID[input.providerLayerID],
                           let provider = activeByID[providerID] else { return input }
                     let content = provider.prepared.finalResource.publication.candidate.content

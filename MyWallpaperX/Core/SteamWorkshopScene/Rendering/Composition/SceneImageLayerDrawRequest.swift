@@ -195,6 +195,7 @@ struct SceneDependencyEffectInput {
     let slot: SceneEffectPassSlot
     let blendMode: Int
     let frameEpoch: UInt64
+    let producerFrameEpoch: UInt64
     let texture: MTLTexture
     private(set) var content: SceneTextureContent
 
@@ -222,7 +223,8 @@ struct SceneDependencyEffectInput {
         blendMode: Int,
         frameEpoch: UInt64,
         texture: MTLTexture,
-        content: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
+        content: SceneTextureContent = .color(.resolved(.premultipliedAlpha)),
+        producerFrameEpoch: UInt64? = nil
     ) {
         self.consumerLayerID = consumerLayerID
         self.providerLayerID = providerLayerID
@@ -230,6 +232,7 @@ struct SceneDependencyEffectInput {
         self.slot = slot
         self.blendMode = blendMode
         self.frameEpoch = frameEpoch
+        self.producerFrameEpoch = producerFrameEpoch ?? frameEpoch
         self.texture = texture
         self.content = content
     }
@@ -239,6 +242,14 @@ struct SceneDependencyEffectInput {
         result.content = content
         return result
     }
+}
+
+struct SceneNamedGraphOutput {
+    let frameEpoch: UInt64
+    let texture: MTLTexture
+    let content: SceneTextureContent
+    let sourceWidth: Int
+    let sourceHeight: Int
 }
 
 /// A frame-local capability issued by the shared depth owner. It neither

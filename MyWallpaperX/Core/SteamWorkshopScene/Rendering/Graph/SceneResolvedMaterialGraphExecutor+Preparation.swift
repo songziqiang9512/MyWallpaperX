@@ -365,7 +365,8 @@ extension SceneResolvedMaterialGraphExecutor {
                     observed.placementEffectGeneration = transition.transaction.effectGeneration
                     if executionTrace?.isCompositionSelected == true {
                         observed.observeComposition(program: program, layerID: node.effect.layerID,
-                            effectIndex: node.effect.effectIndex, nodeIndex: nodeIndex, materialOrdinal: ordinal)
+                            effectIndex: node.effect.effectIndex, nodeIndex: nodeIndex, materialOrdinal: ordinal,
+                            dependencyEffects: dependencyInputs)
                     }
                     return .placement(observed)
 #else
@@ -404,7 +405,8 @@ extension SceneResolvedMaterialGraphExecutor {
                 var observedPass = prepared
                 if executionTrace?.isCompositionSelected == true {
                     observedPass.observeComposition(program: program, layerID: node.effect.layerID,
-                        effectIndex: node.effect.effectIndex, nodeIndex: nodeIndex, materialOrdinal: ordinal)
+                        effectIndex: node.effect.effectIndex, nodeIndex: nodeIndex, materialOrdinal: ordinal,
+                        dependencyEffects: dependencyInputs)
                 }
 #else
                 let observedPass = prepared
@@ -430,7 +432,8 @@ extension SceneResolvedMaterialGraphExecutor {
                         var observedReplay = replay
                         if executionTrace?.isCompositionSelected == true {
                             observedReplay.observeComposition(program: program, layerID: node.effect.layerID,
-                                effectIndex: node.effect.effectIndex, nodeIndex: nodeIndex, materialOrdinal: ordinal)
+                                effectIndex: node.effect.effectIndex, nodeIndex: nodeIndex, materialOrdinal: ordinal,
+                                dependencyEffects: dependencyInputs)
                         }
 #else
                         let observedReplay = replay

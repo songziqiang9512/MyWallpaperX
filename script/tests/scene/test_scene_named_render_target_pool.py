@@ -62,6 +62,33 @@ enum Harness {
         )
         let floatTexture = floatPool.texture(for: 50, width: 8, height: 8)
         let floatOverflow = floatPool.texture(for: 51, width: 1, height: 1)
+        let historyPool = SceneNamedRenderTargetPool(device: device, byteBudget: 512)
+        let historyA = historyPool.texture(for: 60, width: 8, height: 8)
+        let historyB = historyPool.texture(for: 60, width: 8, height: 8, avoiding: historyA)
+        let nextA = historyPool.texture(for: 60, width: 8, height: 8, avoiding: historyB)
+        let nextB = historyPool.texture(for: 60, width: 8, height: 8, avoiding: nextA)
+        let historyBlockedPeer = historyPool.texture(for: 61, width: 1, height: 1)
+        let historySizeAndCost = [historyPool.residentTextureCount, historyPool.residentByteCost]
+        let squeezed = SceneNamedRenderTargetPool(device: device, byteBudget: 256)
+        let single = squeezed.texture(for: 62, width: 8, height: 8)
+        let deniedAlternate = squeezed.texture(for: 62, width: 8, height: 8, avoiding: single)
+        let fallbackPrimary = squeezed.texture(for: 62, width: 8, height: 8)
+
+        let historyResize = SceneNamedRenderTargetPool(device: device, byteBudget: 1_024)
+        let bothCountedDuringResize = autoreleasepool {
+            let a = historyResize.texture(for: 63, width: 8, height: 8)
+            let b = historyResize.texture(for: 63, width: 8, height: 8, avoiding: a)
+            let unavailable = historyResize.texture(for: 63, width: 16, height: 16, avoiding: b)
+            let stillB = historyResize.texture(for: 63, width: 8, height: 8, avoiding: a)
+            historyResize.retireHistory(for: 63, keeping: nil)
+            return withExtendedLifetime((a, b, stillB)) {
+                a != nil && b != nil && unavailable == nil && stillB === b
+                    && historyResize.residentByteCost == 512
+            }
+        }
+        let reclaimedResize = historyResize.texture(for: 63, width: 16, height: 16)
+        let gpuRetirement = try retirementAcrossSubmission(device: device)
+
         let invalidPool = SceneNamedRenderTargetPool(device: device)
         let negativeProvider = invalidPool.texture(for: -1, width: 8, height: 8)
         let zeroWidth = invalidPool.texture(for: 40, width: 0, height: 8)
@@ -91,6 +118,15 @@ enum Harness {
             "newProviderOverBudgetRefused": overBudget == nil,
             "budgetCount": budgetPool.residentTextureCount,
             "budgetCost": costAfterBudgetRefusal,
+            "historyDistinctAndRotates": historyA != nil && historyB != nil && historyA !== historyB
+                && historyA === nextA && historyB === nextB,
+            "historySizeAndCost": historySizeAndCost,
+            "historyBlockedPeer": historyBlockedPeer == nil,
+            "historyFailureKeepsSingle": single != nil && deniedAlternate == nil
+                && fallbackPrimary === single && squeezed.residentByteCost == 256,
+            "bothCountedDuringResize": bothCountedDuringResize,
+            "reclaimedResize": reclaimedResize?.width == 16 && historyResize.residentByteCost == 1_024,
+            "gpuRetirement": gpuRetirement,
             "invalidSizesRefused": negativeProvider == nil && zeroWidth == nil && negativeHeight == nil,
             "invalidCount": invalidPool.residentTextureCount,
             "invalidCost": invalidPool.residentByteCost,
@@ -101,6 +137,38 @@ enum Harness {
 
     enum HarnessError: Error {
         case metalUnavailable
+    }
+
+    static func retirementAcrossSubmission(device: MTLDevice) throws -> [String: Bool] {
+        let pool = SceneNamedRenderTargetPool(device: device, byteBudget: 512)
+        guard let queue = device.makeCommandQueue() else { throw HarnessError.metalUnavailable }
+        let held = try autoreleasepool {
+            guard let command = queue.makeCommandBuffer() else { throw HarnessError.metalUnavailable }
+            let preserved = try autoreleasepool {
+                guard let old = pool.texture(for: 70, width: 8, height: 8),
+                      let next = pool.texture(for: 70, width: 8, height: 8, avoiding: old)
+                else { throw HarnessError.metalUnavailable }
+                let pass = MTLRenderPassDescriptor()
+                pass.colorAttachments[0].texture = old
+                pass.colorAttachments[0].loadAction = .clear
+                pass.colorAttachments[0].storeAction = .store
+                guard let encoder = command.makeRenderCommandEncoder(descriptor: pass)
+                else { throw HarnessError.metalUnavailable }
+                encoder.endEncoding()
+                pool.retireHistory(for: 70, keeping: next)
+                return pool.texture(for: 70, width: 8, height: 8) === next
+            }
+            // No CPU variable or render-pass descriptor still owns the old
+            // member. The retaining Metal submission prevents overbooking.
+            let blocked = pool.residentByteCost == 512 && pool.residentTextureCount == 2
+                && pool.texture(for: 71, width: 8, height: 8) == nil
+            command.commit()
+            command.waitUntilCompleted()
+            return preserved && blocked && command.status == .completed
+        }
+        let afterRetirement = pool.residentTextureCount == 1 && pool.residentByteCost == 256
+        let replacement = pool.texture(for: 71, width: 8, height: 8)
+        return ["liveCharge": held, "terminalRelease": afterRetirement && replacement != nil]
     }
 }
 '''
@@ -177,6 +245,19 @@ class SceneNamedRenderTargetPoolTests(unittest.TestCase):
         self.assertTrue(self.result["invalidSizesRefused"])
         self.assertEqual(self.result["invalidCount"], 0)
         self.assertEqual(self.result["invalidCost"], 0)
+
+    def test_history_uses_two_targets_and_refuses_more_than_the_pool_budget(self) -> None:
+        self.assertTrue(self.result["historyDistinctAndRotates"])
+        self.assertEqual(self.result["historySizeAndCost"], [2, 512])
+        self.assertTrue(self.result["historyBlockedPeer"])
+        self.assertTrue(self.result["historyFailureKeepsSingle"])
+
+    def test_history_resize_and_retirement_preserve_the_cost_of_live_targets(self) -> None:
+        self.assertTrue(self.result["bothCountedDuringResize"])
+        self.assertTrue(self.result["reclaimedResize"])
+
+    def test_retired_history_remains_charged_until_metal_releases_it(self) -> None:
+        self.assertEqual(self.result["gpuRetirement"], {"liveCharge": True, "terminalRelease": True})
 
 
 if __name__ == "__main__":

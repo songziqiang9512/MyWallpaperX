@@ -35,7 +35,7 @@
 | 3463406101 · 前景回亮 | [低多音动态边对照](../capabilities/runtime-evidence-current.md#forefront-recovery-346)显示官版 Pulse .569 时本机尾段 .033。先区分窗内取样与动态邻档，再用独立低频输入核释放时间。 |
 | 3769761761 · 成熟右侧亮段 | [同龄右区](../capabilities/runtime-evidence-current.md#ember-mature-trail-luminance)非零面积接近，亮段分布仍不同。维持同龄与相机对照，分离权重及轨迹重叠。 |
 | 2927205881 · 左端短 | [固定速率及淡出对照](../capabilities/runtime-evidence-current.md#particle-rate-alpha-envelope)后原作者 699 左端仍短。用同画幅、同声源核出生相位、实际存量及 Sprite 栅格，单独对照稳态与动态切换。 |
-| 2972071249 · named 输出 | 隐藏 234 在作者截点取背景，313/e9 需要上一幅具名图。[原包与官版密采](../capabilities/runtime-evidence-current.md#forward-composition-named-oracle)已证剑刃回亮和早晚取时；沿[时序设计](../capabilities/render-graph-shader-coverage.md#forward-composition-named-epoch)接入真实槽和原供货提交。 |
+| 无背景 Composition · 前向具名图 | [同包色标](../capabilities/runtime-evidence-current.md#forward-composition-named-recovery)的显式 `copybackground=false` 有特效提供层，官版读到透明起点加工后的图，本机仍未供货。先核独立源的取时，再沿已有透明来源和具名图发布接入。 |
 | Sphere 全零方向 | [隔离对照](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)中官版无像素，本机出现静点。原作者盘点未发现活动声明；用实际子事件或占槽对照区分出生和可见性。 |
 | 粒子高阻尼和侧转 | [同龄大阻尼](../capabilities/runtime-evidence-current.md#particle-movement-half-life)的 drag40 官/本相差约 15 px，drag20 在容差内。[正交 Sprite](../capabilities/runtime-evidence-current.md#particle-around-phase-frame)的精确 90° 另有投影差。各自核实际步长与局部 quad。 |
 | GLSL 作用域与采样声明 | 双阶段 varying/uniform 同名在真编译中触发重定义。另一个实际反例是 slot0 sampler 的宏别名被冷接口拒绝。沿现有 stage ABI 与预处理接口复现，保持健康相邻声明。 |

@@ -26,6 +26,14 @@ extension SceneMetalRenderer {
             if binding.referenceSlots.allSatisfy(excludingSlots.contains) {
                 return ([], .providerSourceUnavailable)
             }
+            if dependencyRuntime.previousProvidersByConsumerLayerID[layerID]?.contains(binding.providerLayerID) == true {
+                return dependencyRuntime.previousEffectInput(for: binding, frameEpoch: textureRegistry.frameEpoch)
+                    .map { ([$0], nil) } ?? ([], .providerSourceUnavailable)
+            }
+            if dependencyRuntime.previousProviderLayerIDs.contains(binding.providerLayerID),
+               dependencyRuntime.reservationsByProviderLayerID[binding.providerLayerID] == nil {
+                return ([], .providerSourceUnavailable)
+            }
             guard !pendingGraphLayerIDs.contains(binding.providerLayerID),
                   liveLayerIDs.contains(binding.providerLayerID),
                   !dependencyRuntime.plan.cyclicLayerIDs.contains(binding.providerLayerID),
@@ -168,6 +176,14 @@ extension SceneMetalRenderer {
         var dependencyEffects: [SceneDependencyEffectInput] = []
         for binding in aggregate.bindings {
             if binding.referenceSlots.allSatisfy(excludingSlots.contains) { continue }
+            if dependencyRuntime.previousProvidersByConsumerLayerID[binding.consumerLayerID]?.contains(binding.providerLayerID) == true {
+                if let input = dependencyRuntime.previousEffectInput(for: binding, frameEpoch: textureRegistry.frameEpoch) {
+                    dependencyEffects.append(input)
+                }
+                continue
+            }
+            if dependencyRuntime.previousProviderLayerIDs.contains(binding.providerLayerID),
+               dependencyRuntime.reservationsByProviderLayerID[binding.providerLayerID] == nil { continue }
             guard !pendingGraphLayerIDs.contains(binding.providerLayerID),
                   liveLayerIDs.contains(binding.providerLayerID),
                   !dependencyRuntime.plan.cyclicLayerIDs.contains(binding.providerLayerID),

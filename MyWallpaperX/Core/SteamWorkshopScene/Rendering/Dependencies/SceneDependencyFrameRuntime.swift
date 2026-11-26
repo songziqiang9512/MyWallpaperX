@@ -90,6 +90,9 @@ final class SceneDependencyFrameRuntime {
     private var reservationFrameEpoch: UInt64?
     var demandedGraphOutputProviderLayerIDs: Set<Int> = []
     var reservationsByProviderLayerID: [Int: EffectTargetReservation] = [:]
+    var previousProviderLayerIDs: Set<Int> = []
+    var previousProvidersByConsumerLayerID: [Int: Set<Int>] = [:]
+    var previousNamedGraphOutputs: [Int: SceneNamedGraphOutput] = [:]
     private struct PreparationMemo {
         let authoredLayerIDs: [Int]
         let availableExecutionLayerIDs: Set<Int>
@@ -185,7 +188,8 @@ final class SceneDependencyFrameRuntime {
     func sourcePreparationPlan(
         authoredLayerIDs: [Int], availableExecutionLayerIDs: Set<Int>,
         visibleRootLayerIDs: Set<Int>, activeStaticModelConsumerLayerIDs: Set<Int>,
-        topologyRevision: UInt64, sourceAfterLayerIDByLayerID: () -> [Int: Int]
+        topologyRevision: UInt64,
+        sourceAfterLayerIDByLayerID: () -> (points: [Int: Int], previousEligible: Set<Int>, enclosed: Set<Int>)
     ) -> SceneDependencyRenderPlan.SourcePreparationPlan? {
         if let memo = preparationMemo,
            memo.authoredLayerIDs == authoredLayerIDs,
@@ -193,11 +197,14 @@ final class SceneDependencyFrameRuntime {
            memo.visibleRootLayerIDs == visibleRootLayerIDs,
            memo.activeStaticModelConsumerLayerIDs == activeStaticModelConsumerLayerIDs,
            memo.topologyRevision == topologyRevision { return memo.sourcePlan }
+        let sources = sourceAfterLayerIDByLayerID()
         let plan = plan.sourcePreparationPlan(authoredLayerIDs: authoredLayerIDs,
             availableExecutionLayerIDs: availableExecutionLayerIDs,
             visibleRootLayerIDs: visibleRootLayerIDs,
             activeStaticModelConsumerLayerIDs: activeStaticModelConsumerLayerIDs,
-            sourceAfterLayerIDByLayerID: sourceAfterLayerIDByLayerID())
+            sourceAfterLayerIDByLayerID: sources.points,
+            previousEligibleProviderLayerIDs: sources.previousEligible,
+            previousIneligibleConsumerLayerIDs: sources.enclosed)
         preparationMemo = .init(authoredLayerIDs: authoredLayerIDs,
             availableExecutionLayerIDs: availableExecutionLayerIDs,
             visibleRootLayerIDs: visibleRootLayerIDs,
