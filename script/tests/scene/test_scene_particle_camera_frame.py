@@ -175,6 +175,17 @@ class SceneParticleCameraFrameTests(unittest.TestCase):
                 self.assertTrue(row["utilityUnchanged"])
                 self.assertTrue(row["generalFOVKeepsCanvasPolicy"])
 
+    def test_captured_mask_uses_canvas_anchor_without_changing_direction_basis(self):
+        perspective, changed_fov, orthographic = self.result["maskProjectionRows"]
+        for variant in (changed_fov, orthographic):
+            self.assertNotAlmostEqual(variant["raster"][0], perspective["raster"][0], places=3)
+        for row in self.result["maskProjectionRows"]:
+            for value, official_code in zip(row["shaderPoint"][:2], (118, 91), strict=True):
+                self.assertAlmostEqual(round((0.5 + 0.25 * value) * 255), official_code, delta=1)
+        self.assertNotAlmostEqual(perspective["shaderPoint"][0], perspective["oldShaderPoint"][0], places=2)
+        self.assertTrue(all(row["directionsUnchanged"] for row in self.result["maskProjectionRows"]))
+        self.assertTrue(self.result["nativeKeepsGeometryRelativeMask"])
+
     def test_invalid_explicit_fov_keeps_existing_eye_distance_fallback(self) -> None:
         self.assertEqual(len(self.result["invalidFOVRows"]), 6)
         for row in self.result["invalidFOVRows"]:

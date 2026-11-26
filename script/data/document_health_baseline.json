@@ -126,11 +126,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 485,
-      "bytes": 95963
+      "bytes": 95946
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 379759
+      "bytes": 380295
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 59,
-      "bytes": 7558
+      "lines": 58,
+      "bytes": 7282
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0b227c1bea0fc81b5d089a9f0b5f7b62167814626396ed84ef7d58e53bf5f3cb",
-      "after": "9bc2b0b9ac4ded63704f0cf9f66caadb8205b503e26aece771fdd57ca7a7c1a6",
-      "owner": "Scene perspective image terminal depth",
-      "reason": "登记实际封面正反例及独立样本合成。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-box-cover-depth-333"
+      "before": "9bc2b0b9ac4ded63704f0cf9f66caadb8205b503e26aece771fdd57ca7a7c1a6",
+      "after": "4f451f8beb892084098cc327a69bf184f02393e7da1a60ae2a528f3083532f8e",
+      "owner": "Scene effect texture projection",
+      "reason": "登记官版着点探针、斜卡实际遮罩和稳态景深控制。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#xray-tilted-projection"
     },
     {
       "section": "bodies",
