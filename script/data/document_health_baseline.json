@@ -639,10 +639,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e021844d936abf151debd1fc32ee6d29f309884e56e294086610b70c52662185",
+      "before": "edf3f9477b0d26abf37a0d626ad7fb1837c2276a392fc9719da331c6974ccdb9",
       "after": "d08fde9ded49c0982ab6f61d93c975392e18627156cc36dbc8f1b19d4bb460f9",
       "owner": "Scene author audio history",
-      "reason": "从画质父提交保留既有证据，同步主线声道与幅度历史实测，合并正文按实际字节计。",
+      "reason": "从音频证据主线父提交核对合并预算，包含画质分支保留的实测证据。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#forefront-magnitude-history-346"
     },
     {
