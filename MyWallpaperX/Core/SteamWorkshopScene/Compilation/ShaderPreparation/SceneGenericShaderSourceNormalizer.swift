@@ -41,6 +41,13 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
     private struct ParsedStage {
         var body: String
         let declarations: [Declaration]
+
+        var declarationLines: [String] {
+            declarations.map {
+                "\($0.storage) \($0.type) \($0.name)"
+                    + ($0.count.map { "[\($0)]" } ?? "") + ";"
+            }
+        }
     }
 
     private static let valueTypes = Set([
@@ -110,10 +117,8 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             // Use the same deduplicated interface and unchanged body as stage
             // conversion. Identical fragment declarations are already allowed
             // by parse; they cannot make the shared scope analysis unavailable.
-            let fragmentReferenceSource = parsedFragment.declarations.map {
-                "\($0.storage) \($0.type) \($0.name)"
-                    + ($0.count.map { "[\($0)]" } ?? "") + ";"
-            }.joined(separator: "\n") + "\n" + parsedFragment.body
+            let fragmentReferenceSource = (parsedFragment.declarationLines + [parsedFragment.body])
+                .joined(separator: "\n")
             let fragmentReferenceAnalysis = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
                 lexerOutput: SceneAuthoredShaderLexer.lex(
                     source: fragmentReferenceSource,
@@ -214,10 +219,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 $0 != "a_Position" && $0 != "a_TexCoord"
             }
             if !extraAttributes.isEmpty, let vertex = parsed["vertex"] {
-                let referenceSource = vertex.declarations.map {
-                    "\($0.storage) \($0.type) \($0.name)"
-                        + ($0.count.map { "[\($0)]" } ?? "") + ";"
-                }.joined(separator: "\n") + "\n" + vertex.body
+                let referenceSource = (vertex.declarationLines + [vertex.body]).joined(separator: "\n")
                 let references = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
                     lexerOutput: SceneAuthoredShaderLexer.lex(source: referenceSource, stage: .vertex),
                     stage: .vertex
@@ -301,12 +303,23 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             guard var vertex = parsed["vertex"], var fragment = parsed["fragment"] else {
                 throw Failure.stageLinkMismatch
             }
+            let scopedUniforms = Set(varyings.keys.filter { name in
+                uniformStages[name] == "fragment"
+                    && !vertex.declarations.contains { $0.name == name && $0.storage == "uniform" }
+                    && !fragment.declarations.contains { $0.name == name && $0.storage == "varying" }
+            })
             fragment.body = SceneAuthoredShaderVaryingPrefixLink
                 .rewriteWholeFragmentReferences(
                     fragment.body,
                     facts: varyingPrefixFacts
                 )
             let expressionShapes = varyings.merging(uniforms) { current, _ in current }
+            var fragmentShapes = expressionShapes
+            var fragmentVaryingCandidates = varyings
+            for name in scopedUniforms {
+                fragmentShapes[name] = uniforms[name]
+                fragmentVaryingCandidates.removeValue(forKey: name)
+            }
             vertex.body = SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewrite(
                 vertex.body,
                 shapes: attributes.merging(expressionShapes) { current, _ in current },
@@ -314,7 +327,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             )
             fragment.body = SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewrite(
                 fragment.body,
-                shapes: expressionShapes,
+                shapes: fragmentShapes,
                 convertsScalarArguments: false, convertsVectorArguments: true
             )
             vertex.body = rewriteComponentWiseBuiltInAssignmentResults(
@@ -323,8 +336,21 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             )
             fragment.body = rewriteComponentWiseBuiltInAssignmentResults(
                 fragment.body,
-                shapes: expressionShapes
+                shapes: fragmentShapes
             )
+            let collisions = scopedUniforms.filter { maskedContainsWord($0, in: fragment.body) }
+            let vertexVaryingNames: [String: String]
+            if collisions.isEmpty {
+                vertexVaryingNames = [:]
+            } else if let isolated = isolateVertexVaryings(
+                vertex.body, declarations: vertex.declarationLines,
+                names: collisions, reserved: Set(uniforms.keys).union(samplers.keys)
+            ) {
+                vertex.body = isolated.body
+                vertexVaryingNames = isolated.names
+            } else {
+                throw Failure.stageLinkMismatch
+            }
             vertex.body = replaceWord("sample", with: "mwx_sample", in: vertex.body)
             fragment.body = replaceWord("sample", with: "mwx_sample", in: fragment.body)
             fragment.body = replaceWord("gl_FragColor", with: "mwxFragColor", in: fragment.body)
@@ -335,23 +361,23 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 .rewrite(fragment.body)
             fragment.body = rewriteScalarVectorAssignments(
                 fragment.body,
-                shapes: varyings.merging(uniforms) { current, _ in current }
+                shapes: fragmentShapes
             )
             fragment.body = rewriteVectorConstructorAssignments(
                 fragment.body,
-                shapes: varyings.merging(uniforms) { current, _ in current }
+                shapes: fragmentShapes
             )
             fragment.body = rewriteFloatToIntAssignments(
                 fragment.body,
-                shapes: varyings.merging(uniforms) { current, _ in current }
+                shapes: fragmentShapes
             )
             fragment.body = rewriteVectorBuiltInIntFirstOperands(
                 fragment.body,
-                shapes: varyings.merging(uniforms) { current, _ in current }
+                shapes: fragmentShapes
             )
             fragment.body = rewriteVectorClampLiteralArguments(
                 fragment.body,
-                shapes: varyings.merging(uniforms) { current, _ in current }
+                shapes: fragmentShapes
             )
             // Prefix-link facts may promise zero-filled components; the fill
             // is part of the admission contract, so a failed append rejects
@@ -364,7 +390,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             guard let mutableVaryings = SceneGenericShaderMutableFragmentVaryingNormalizer
                 .rewrite(
                     fragment.body,
-                    varyings: varyings.mapValues {
+                    varyings: fragmentVaryingCandidates.mapValues {
                         .init(type: $0.type, count: $0.count)
                     }
                 ) else {
@@ -385,7 +411,8 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             parsed["fragment"] = fragment
 
             let activeUniforms = uniforms.keys.filter { name in
-                [vertex.body, fragment.body].contains { SceneGenericShaderSourceNormalizer.maskedContainsWord(name, in: $0) }
+                if scopedUniforms.contains(name) { return collisions.contains(name) }
+                return maskedContainsWord(name, in: fragment.body) || maskedContainsWord(name, in: vertex.body)
             }.sorted()
             let uniformLines = activeUniforms.map { name in
                 let shape = uniforms[name]!
@@ -413,7 +440,8 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                     }
                     let direction = stage == "vertex" ? "out" : "in"
                     let suffix = shape.count.map { "[\($0)]" } ?? ""
-                    return "layout(location = \(location)) \(direction) \(shape.type) \(name)\(suffix);"
+                    let emittedName = stage == "vertex" ? vertexVaryingNames[name] ?? name : name
+                    return "layout(location = \(location)) \(direction) \(shape.type) \(emittedName)\(suffix);"
                 }
                 if stage == "fragment" {
                     interface.append("layout(location = 0) out vec4 mwxFragColor;")
@@ -461,7 +489,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             let activeAudioSpectrumArrays = Set(activeUniforms.filter { name in
                 guard let declaration = [vertex, fragment]
                     .flatMap(\.declarations)
-                    .first(where: { $0.name == name }) else { return false }
+                    .first(where: { $0.storage == "uniform" && $0.name == name }) else { return false }
                 return isAudioSpectrumArray(declaration)
             })
             return .success(.init(

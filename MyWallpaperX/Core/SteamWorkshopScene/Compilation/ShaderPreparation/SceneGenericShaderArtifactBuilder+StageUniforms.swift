@@ -1,37 +1,34 @@
 import Foundation
 
 nonisolated extension SceneGenericShaderArtifactBuilder {
-    nonisolated static func activeUniformFields(
+    struct UniformMemberAccess {
+        let name: String
+        let range: NSRange
+    }
+
+    static func uniformMemberAccesses(in msl: String) -> [UniformMemberAccess] {
+        // SPIRV-Cross passes the block to its entry point and to helpers
+        // that read its fields. Ordinary structs may have the same fields.
+        let receivers = Set(SceneShaderSourceTextFacts.matches(
+            #"\bconstant\s+MWXUniforms\s*&\s*([A-Za-z_]\w*)\b"#, in: msl
+        ).compactMap { SceneShaderSourceTextFacts.capture($0, 1, in: msl) })
+        guard !receivers.isEmpty else { return [] }
+        let names = receivers.sorted().joined(separator: "|")
+        let accesses = SceneShaderSourceTextFacts.matches(
+            #"\b(?:"# + names + #")\s*\.\s*([A-Za-z_]\w*)\b"#, in: msl
+        )
+        return accesses.compactMap { access in
+            guard let field = SceneShaderSourceTextFacts.capture(access, 1, in: msl) else { return nil }
+            return .init(name: field, range: access.range(at: 1))
+        }
+    }
+
+    static func activeUniformFields(
         _ fields: [SceneGenericShaderProgramArtifact.Program.UniformLayout.Field],
-        in msl: String
-    ) throws -> [SceneGenericShaderProgramArtifact.Program.UniformLayout.Field] {
-        let structPattern = try! NSRegularExpression(
-            pattern: #"(?s)struct\s+MWXUniforms\s*\{.*?\};"#
-        )
-        let matches = structPattern.matches(
-            in: msl,
-            range: NSRange(msl.startIndex..., in: msl)
-        )
-        guard matches.count == 1,
-              let structRange = Range(matches[0].range, in: msl) else {
-            throw Failure.uniformStruct
-        }
-        var executable = msl
-        executable.removeSubrange(structRange)
-        executable = executable.replacingOccurrences(
-            of: #"(?s)/\*.*?\*/|//[^\n]*"#,
-            with: " ",
-            options: .regularExpression
-        )
-        return fields.filter { field in
-            if isSharedInternalUniform(field.authoredName) { return true }
-            return executable.range(
-                of: #"\.\s*"#
-                    + NSRegularExpression.escapedPattern(for: field.authoredName)
-                    + #"\b"#,
-                options: .regularExpression
-            ) != nil
-        }
+        accesses: [UniformMemberAccess]
+    ) -> [SceneGenericShaderProgramArtifact.Program.UniformLayout.Field] {
+        let names = Set(accesses.map(\.name))
+        return fields.filter { isSharedInternalUniform($0.authoredName) || names.contains($0.authoredName) }
     }
 
     nonisolated static func stageLocalUniformLayout(

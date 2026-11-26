@@ -392,7 +392,7 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3db9d412d1112806923a24a2052ca51b336c905acb4c96a5b471dfcc8f83315f",
+        "sourceSHA256": "82e88776980ee376ecc3493d56817ce11220b428335535c3235ee20c0936c5a6",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对实际阴影规格、有效的受光绑定、逐屏完成回执和原启动事务。",
         "limitations": "画面和持续呈现的证据边界见现役工作卡。"

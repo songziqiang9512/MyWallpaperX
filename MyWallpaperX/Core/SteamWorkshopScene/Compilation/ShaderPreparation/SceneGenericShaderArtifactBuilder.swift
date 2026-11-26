@@ -107,13 +107,13 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             let vertexLayout = try reflectedLayout(vertexReflection)
             let fragmentLayout = try reflectedLayout(fragmentReflection)
             let stagedUniforms = try stageLocalUniformLayout(
-                vertex: try activeUniformFields(
+                vertex: activeUniformFields(
                     vertexLayout.fields,
-                    in: vertexStage.msl
+                    accesses: uniformMemberAccesses(in: vertexStage.msl)
                 ),
-                fragment: try activeUniformFields(
+                fragment: activeUniformFields(
                     fragmentLayout.fields,
-                    in: fragmentStage.msl
+                    accesses: uniformMemberAccesses(in: fragmentStage.msl)
                 ), colorBoundary: colorBoundary
             )
             let reflectedTextureNames = try reflectedTextureNames(
@@ -577,11 +577,6 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         layout: ReflectedLayout,
         fieldNames: [String: String]
     ) throws -> String {
-        let found = SceneShaderSourceTextFacts.matches(#"(?s)struct\s+MWXUniforms\s*\{(.*?)\};"#, in: source)
-        guard found.count == 1,
-              let bodyRange = Range(found[0].range(at: 1), in: source) else {
-            throw Failure.uniformStruct
-        }
         let declarations = layout.fields.compactMap { field -> String? in
             guard let type = SceneAuthoredShaderValueType(rawValue: field.type) else {
                 return nil
@@ -594,14 +589,19 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         }
         let body = "\n" + declarations.joined(separator: "\n") + "\n"
         var result = source
-        result.replaceSubrange(bodyRange, with: body)
-        for (authoredName, fieldName) in fieldNames where authoredName != fieldName {
-            result = result.replacingOccurrences(
-                of: #"\."# + SceneShaderSourceTextFacts.escaped(authoredName) + #"\b"#,
-                with: ".\(fieldName)",
-                options: .regularExpression
-            )
+        if fieldNames.contains(where: { $0.key != $0.value }) {
+            for access in uniformMemberAccesses(in: source).reversed() {
+                guard let fieldName = fieldNames[access.name], fieldName != access.name,
+                      let range = Range(access.range, in: result) else { continue }
+                result.replaceSubrange(range, with: fieldName)
+            }
         }
+        let found = SceneShaderSourceTextFacts.matches(#"(?s)struct\s+MWXUniforms\s*\{(.*?)\};"#, in: result)
+        guard found.count == 1,
+              let bodyRange = Range(found[0].range(at: 1), in: result) else {
+            throw Failure.uniformStruct
+        }
+        result.replaceSubrange(bodyRange, with: body)
         for field in layout.fields where field.arrayCount != nil && field.type == "float" {
             result = result.replacingOccurrences(
                 of: #"("# + SceneShaderSourceTextFacts.escaped(field.name)

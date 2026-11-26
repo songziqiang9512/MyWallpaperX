@@ -161,12 +161,12 @@
       "bytes": 83153
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 486,
-      "bytes": 96350
+      "lines": 493,
+      "bytes": 97657
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 417927
+      "bytes": 419203
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 55,
-      "bytes": 7246
+      "bytes": 7180
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -651,15 +651,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "0549c5663deb3b9fbf2dd1145f6b30988f541e32bedf07632707aec61340ade4",
-      "after": "2f42e458d8ba69c9806720db14ac5b2e78e0ea24729d69bea13883f2927d4733",
-      "owner": "Scene graph composition and quality evidence",
-      "reason": "Preserve the integrated graph, authored-text anchoring and quality evidence from both worktrees.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "51ab0c44e7ee50643e905f9f62e62c2451dec75db0bc1757d8f8ca88f64c2c57",
       "after": "01ab3b1eee3aadf18ef6654299f22c0bd42cbde422fe25052b0f14eab0a27404",
@@ -684,24 +675,6 @@
       "owner": "Scene particle launch preparation",
       "reason": "登记根模拟并行边界、原包首屏收益、单根反例与队列剩余范围。",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "2e83b2c0d83b22dc568a489645161187d1f729f7e5cec43afc575cb5db63933d",
-      "after": "1fb7a9a649caa777b766f42e948de9049719fa139acf5d5498a9f0cf316385d6",
-      "owner": "Scene particle launch preparation",
-      "reason": "登记根模拟并行边界、原包首屏收益、单根反例与队列剩余范围。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "871c843ddff2244fb0b985e031038a9d925ebee174981ffa61340e4c2a09e91a",
-      "after": "b19630529ce75a98c0e41f6028d0ea81fa1ad1012ab07e44b39e76ea6c28f143",
-      "owner": "Scene particle launch preparation",
-      "reason": "登记根模拟并行边界、原包首屏收益、单根反例与队列剩余范围。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#authored-root-prewarm-join"
     },
     {
       "section": "bodies",
@@ -747,6 +720,24 @@
       "owner": "Scene playback quality",
       "reason": "明确阴影实际绑定、灯图规格及共用的逐屏反馈职责。",
       "decision": "docs/scene/architecture/runtime-architecture.md#effective-quality-policy"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "2f42e458d8ba69c9806720db14ac5b2e78e0ea24729d69bea13883f2927d4733",
+      "after": "f52c1636e26bc81b41f57989377ab5697e32fdc95474db579190c8ae77403a37",
+      "owner": "Scene Generic shader compiler",
+      "reason": "记录跨阶段数值名称与普通结构成员的编译合同、签名实绘和回归边界。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#stage-scoped-varying-symbols"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "b19630529ce75a98c0e41f6028d0ea81fa1ad1012ab07e44b39e76ea6c28f143",
+      "after": "574a7e1aa912407492795925128bb9c91323d99cd5b9d42b43eb7df1a8751c4c",
+      "owner": "Scene Generic shader compiler",
+      "reason": "记录跨阶段数值名称与普通结构成员的编译合同、签名实绘和回归边界。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#stage-scoped-uniform-runtime"
     }
   ]
 }

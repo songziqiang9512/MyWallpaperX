@@ -1,6 +1,49 @@
 import Foundation
 
 nonisolated extension SceneGenericShaderSourceNormalizer {
+    /// Renames only the vertex output identities that would collide with
+    /// a fragment uniform injected by the common std140 block.
+    static func isolateVertexVaryings(
+        _ body: String, declarations: [String], names: Set<String>, reserved: Set<String>
+    ) -> (body: String, names: [String: String])? {
+        let source = (declarations + [body]).joined(separator: "\n")
+        let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
+            lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: .vertex), stage: .vertex
+        )
+        guard analysis.diagnostics.isEmpty, let unit = analysis.unit else { return nil }
+        var taken = reserved.union(unit.defines.keys)
+        taken.formUnion(unit.tokens.lazy.filter { $0.kind == .identifier }.map(\.text))
+        var aliases: [String: String] = [:]
+        var scalars = Array(body.unicodeScalars)
+        var lineStarts = [0]
+        for index in scalars.indices where scalars[index] == "\n" {
+            lineStarts.append(index + 1)
+        }
+        var edits: [(range: Range<Int>, alias: String)] = []
+        for name in names.sorted() {
+            var alias = "mwxVarying_\(name)"
+            while !taken.insert(alias).inserted { alias += "_" }
+            aliases[name] = alias
+            guard let references = SceneAuthoredShaderGlobalReferenceAnalyzer.exactReferenceIndices(name, in: unit)
+            else { return nil }
+            for index in references {
+                let token = unit.tokens[index]
+                let line = token.line - declarations.count - 1
+                guard lineStarts.indices.contains(line) else { return nil }
+                let offset = lineStarts[line] + token.column - 1
+                let end = offset + name.unicodeScalars.count
+                // A macro-expanded token can report the location of a different spelling.
+                guard offset >= 0, end <= scalars.count,
+                      scalars[offset..<end].elementsEqual(name.unicodeScalars) else { return nil }
+                edits.append((offset..<end, alias))
+            }
+        }
+        for edit in edits.sorted(by: { $0.range.lowerBound > $1.range.lowerBound }) {
+            scalars.replaceSubrange(edit.range, with: edit.alias.unicodeScalars)
+        }
+        return (String(String.UnicodeScalarView(scalars)), aliases)
+    }
+
     /// Lower recognized type positions without rewriting identically named
     /// values, members or authored functions. The shared syntax owner supplies
     /// declaration positions; constructor calls must also be unshadowed.
