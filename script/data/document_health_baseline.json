@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 356558
+      "bytes": 356998
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 240,
-      "bytes": 67856
+      "bytes": 67919
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,10 +577,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "30af636e664be23bf61fc6b461025f39a4057048cf627df23b73aeeb5ec06f61",
-      "after": "f838a111a1c2583a538fda3d53265af7b818e187a57814001ab64aef4beb8605",
+      "before": "f838a111a1c2583a538fda3d53265af7b818e187a57814001ab64aef4beb8605",
+      "after": "65b1ff2e25ade01acda8aec8dcb4281d117f9a7cf74a134d17d63d60cfd60130",
       "owner": "Scene",
-      "reason": "记录独立锚定的稳态阴性，并收窄原包前景回亮实测的下一步",
+      "reason": "记录固定公共峰的同尾动态对照与相位停止条件",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#forefront-recovery-346"
     },
     {
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "bd69cd53afaa73e8e9abaeffcf09d607ded685fbe4b29b881d6a4b8935ef4105",
-      "after": "81b8ad06baa66b579ae17ac3277c8cbc7556dd8d74e3774c693e30a1e964c950",
+      "before": "81b8ad06baa66b579ae17ac3277c8cbc7556dd8d74e3774c693e30a1e964c950",
+      "after": "c4eb8debf69ad348482016bc730faee8174142a8cba1d7c657b1e84e0f2d798e",
       "owner": "Scene",
-      "reason": "记录独立锚定的稳态阴性，并收窄原包前景回亮实测的下一步",
+      "reason": "记录固定公共峰的同尾动态对照与相位停止条件",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     },
     {
