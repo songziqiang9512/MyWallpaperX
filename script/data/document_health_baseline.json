@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 366152
+      "bytes": 366946
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 240,
-      "bytes": 68411
+      "bytes": 68635
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d525c2e288e5c4ff81d33641e1341f674fcbe3a9f971f17c0d6cd12916cf7cb2",
-      "after": "388d2bc0520e9b1c4b787fcfe81c0e25382b1833f6e2de4d0262e3a0946b6902",
+      "before": "388d2bc0520e9b1c4b787fcfe81c0e25382b1833f6e2de4d0262e3a0946b6902",
+      "after": "3dfadc0964708f295cffe2b4869af94e565c2f00e9ef1a969896a45226e7635a",
       "owner": "Scene",
-      "reason": "记录统一执行计划及原包Rope与同帧波形验收。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-remap-native-output"
+      "reason": "登记可见的作者闪电子束与端点验证入口。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#thunderbolt-eventfollow-branch-356"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "5339c64a3d619efb0a6c119d16a2e589b4f1354da423056c8b1e7887d329cacb",
-      "after": "45d1d547111aaba881b769f454e84c6b2e4a13d15a310205eceef1be21acda93",
+      "before": "988393a005dcc3ceea2aa184cf671ab62cf3e4570ec8f067cc7aec097555ac1f",
+      "after": "e3ccdabd383d26f4f535fce53c58041837aa80e0bfc36ce861c8eeb30c1f5b0f",
       "owner": "Scene",
-      "reason": "Record measured natural birth age, runtime evidence and resolved feedback scope.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#resolved-user-feedback"
+      "reason": "登记可见的作者闪电子束与端点验证入口。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
       "section": "bodies",
