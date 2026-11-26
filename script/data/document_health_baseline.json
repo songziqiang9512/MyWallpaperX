@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 414,
-      "bytes": 78388
+      "bytes": 78598
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 485,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 384845
+      "bytes": 386669
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 56,
-      "bytes": 6831
+      "lines": 57,
+      "bytes": 7071
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "5bacd0e70d867d376760e5f8f1b2d2d52408ac8ee0cc6dd92a881a49a7d409ef",
-      "after": "9be46f8e448bdaa64699e48d78c1b0b3a864385c7d312e8d7111ba2b4c8e91c7",
-      "owner": "Scene particles and camera",
-      "reason": "区分画布宽轴眼位、拟合投影和背面剔除的职责。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rendering"
+      "before": "9be46f8e448bdaa64699e48d78c1b0b3a864385c7d312e8d7111ba2b4c8e91c7",
+      "after": "02d182707f5a3678ca7773363fa2a81b473fbd718afcec50adbebf05277b2592",
+      "owner": "Scene particle simulation",
+      "reason": "约束旧实例颜色转换在有出生颜色声明的粒子上。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#instance-color-revision"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "98a0e0146a3bdce7cccad77bc66d10303b1e3f79ccb81851d07fc87f20e1b0c6",
-      "after": "500f924ece399409eb307fc27cb570fcadfd6d4a593a051b814f68bb9458020b",
-      "owner": "Scene particle composition",
-      "reason": "记录两画幅同包独立粒群复跑、原始渲染和旧亮度差未稳定复现的范围。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ember-mature-cohort-repeat-376"
+      "before": "500f924ece399409eb307fc27cb570fcadfd6d4a593a051b814f68bb9458020b",
+      "after": "7787d58730e8ec0fd24637a3f8293c4a999e794fa2b6a12c24976e18abb36c78",
+      "owner": "Scene particle simulation",
+      "reason": "记录实例颜色出生类型与实际色差修复，并保存独立的高倍率覆盖和HSV断点。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-default-birth-color"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a78bc555bb54b999f11060fea874d2fd26f960de35f64fd7f439cc73e7272dff",
-      "after": "2d8c7af5157433d5343dc1a35d2b0dc1d1e2e4c05bc9aa56da3a5239b86f2f99",
-      "owner": "Scene author audio history",
-      "reason": "更新前景问题到已证幅度历史后的实际定位。",
+      "before": "1588d0efdb41250814959fefce5f5acd2692c9597a422fcc5f22515689522c71",
+      "after": "5508f96625aa65a17e8fe4b063761690a0d5626fe4cce5cba42e5f575d335fa1",
+      "owner": "Scene particle simulation",
+      "reason": "用已测高倍率覆盖差替换旧左缘猜测，并登记实测HSV出生差异。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {

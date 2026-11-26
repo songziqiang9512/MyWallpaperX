@@ -16,6 +16,15 @@ nonisolated enum SceneParticleInitializerKind: Equatable, Sendable {
     case positionBetweenControlPoints(SceneParticlePositionBetweenControlPoints)
     case inheritEventValue(SceneParticleEventValueOperation?)
     case unsupported(String)
+
+    var writesBirthColor: Bool {
+        switch self {
+        case .color, .hsvColor, .colorList, .inheritEventValue(.some(.setColor)):
+            true
+        default:
+            false
+        }
+    }
 }
 
 nonisolated enum SceneParticleEventValueOperation: String, Equatable, Sendable {
