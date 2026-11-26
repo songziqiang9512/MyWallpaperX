@@ -392,7 +392,7 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "993b3e309aae51e67c6b346e1a2be55ec3fbe21e0e3e9caa70af1f1dfb93e558",
+        "sourceSHA256": "002486546f238debbbded93f67373995c8898fe9d1fc516e3bbcdaca1fe2f8a8",
         "method": "document_registry --audit + document_health --check",
         "scope": "匹配逐屏设置回执、实际窗口及独立测试的同帧 GPU 绑定。",
         "limitations": "画面和持续呈现的证据边界见现役工作卡。"
