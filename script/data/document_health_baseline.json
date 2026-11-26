@@ -94,11 +94,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 170943
+      "bytes": 172365
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 146509
+      "bytes": 147122
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -683,27 +683,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "4aea851d1098668cfe1d74ac8c35c1286478ed2e62493034c193653d6149f4c1",
-      "after": "49589add85ceadabbc365ac93c427b01b3d4499ff808c8ade79e15b72e762163",
-      "owner": "Scene main color and raster sampling",
-      "reason": "Record the M4 seed experiment and the phased change to the existing main encoder.",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-color-prefix"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/repository-map.md",
       "before": "369bfbd9b7aadc7fd1a2b355a8ba6f0d7e22a1aa5093d330892931cf7b3a9ba7",
       "after": "e1898c3ae929018ee8e2e54335659be2acd358d54912a076e381123fedfa23f8",
-      "owner": "Scene ordered root composition and quality",
-      "reason": "Record the verified source, attachment scheduling and sample reporting contract.",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-color-prefix"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "3bd947e524ad4f01c4285bca6184c5246927c3be684f39cede2da5aee03a84f8",
-      "after": "5b73306a4d8521c0dce26d07dcbebfe197972f59936d0d497b0bf5ed4a378a3f",
       "owner": "Scene ordered root composition and quality",
       "reason": "Record the verified source, attachment scheduling and sample reporting contract.",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-color-prefix"
@@ -734,6 +716,24 @@
       "owner": "Scene particle and quality evidence owners",
       "reason": "Bind both retained evidence scopes to the current main particle color baseline.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-settings-plan.md",
+      "before": "49589add85ceadabbc365ac93c427b01b3d4499ff808c8ade79e15b72e762163",
+      "after": "819f565effbe42fc0f4162fa5927584f0bf3d01be153b970903bc9d2fa07cc45",
+      "owner": "Scene root composition and quality",
+      "reason": "Record the actual long-window results and the next proven order of graph and depth consumers.",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-paired-depth-terminal"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "5b73306a4d8521c0dce26d07dcbebfe197972f59936d0d497b0bf5ed4a378a3f",
+      "after": "3862312f688a5886e487cfddd485a69f026ca14c124c8fa9ddda4397ce998216",
+      "owner": "Scene root composition and quality",
+      "reason": "Record the actual long-window results and the next proven order of graph and depth consumers.",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-paired-depth-terminal"
     }
   ]
 }
