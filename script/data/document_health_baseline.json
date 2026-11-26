@@ -639,10 +639,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "3583d1759ae212f006947afb09812d538615223123f25ba1f8b7d96f305b7fdd",
+      "before": "500f924ece399409eb307fc27cb570fcadfd6d4a593a051b814f68bb9458020b",
       "after": "4269088fd79b7dc4473699007480ca616c1c00358da84a5634744278a18c8289",
       "owner": "Scene particle composition",
-      "reason": "按画质父提交核对主线拖尾复测和保留的画质证据。",
+      "reason": "按主线父提交核对合并后的拖尾复测与画质证据预算。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#ember-mature-cohort-repeat-376"
     },
     {
