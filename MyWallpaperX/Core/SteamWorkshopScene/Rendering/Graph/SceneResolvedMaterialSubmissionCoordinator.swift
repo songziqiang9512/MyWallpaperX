@@ -79,6 +79,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         var retiredHistoryPins: [SceneGraphRenderTargetResidencyPin]
         var sceneColor: SceneColorReservation? = nil
         var displayScratchPin: SceneGraphRenderTargetResidencyPin? = nil
+        var namedGraphOutputs: [Int: SceneNamedGraphOutput] = [:]
     }
 
     struct CommandBufferRecord {
@@ -138,6 +139,8 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     var completedSceneColor: CompletedSceneColor?
     var preparedSceneColor: SceneColorReservation?
     var preparedDisplayScratch: (commandBufferID: ObjectIdentifier, pin: SceneGraphRenderTargetResidencyPin)?
+    var completedNamedGraphOutputs: [Int: SceneNamedGraphOutput] = [:]
+    var preparedNamedGraphOutputs: [Int: SceneNamedGraphOutput] = [:]
     var committedTails: [Graph.EffectKey: Tail] = [:]
     var scheduledTails: [Graph.EffectKey: Tail] = [:]
     var activeByID: [UInt64: PreparedLedger] = [:]
@@ -250,7 +253,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     /// dependent command buffers reach a terminal callback. No new frame may
     /// derive state from that suffix even when nominal capacity remains.
     func submissionQueueAcceptsFrameLocked() -> Bool {
-        !pendingSubmissions.contains(where: { $0.sceneColor != nil })
+        !pendingSubmissions.contains(where: { $0.sceneColor != nil || !$0.namedGraphOutputs.isEmpty })
             && pendingSubmissions.count < Self.maximumPendingSubmissions
             && pendingSubmissions.allSatisfy {
                 $0.cancellationReason == nil && $0.finalTails.isEmpty
@@ -450,6 +453,8 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 request.frameInputs.dependencyUnavailability
             switch claim.dependencyOwnership {
             case let .externalPrimary(binding):
+                if let input = preparedDependencyEffects.first,
+                   input.producerFrameEpoch != input.frameEpoch { break }
                 let providerCandidates = candidates.filter {
                     $0.layerID == binding.providerLayerID
                 }
@@ -495,7 +500,8 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 }
             case let .externalAggregate(aggregate):
                 preparedDependencyEffects = preparedDependencyEffects.map { input in
-                    guard let binding = aggregate.bindings.first(where: {
+                    guard input.producerFrameEpoch == input.frameEpoch,
+                          let binding = aggregate.bindings.first(where: {
                         $0.slot == input.slot
                     }), binding.kind != .geometryLayer,
                           let provider = candidates.first(where: {

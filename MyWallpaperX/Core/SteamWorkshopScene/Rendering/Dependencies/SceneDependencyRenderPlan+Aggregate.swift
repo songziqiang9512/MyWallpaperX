@@ -112,7 +112,11 @@ extension SceneDependencyRenderPlan {
                 && provider.dependencyLayerIDs.isEmpty
                 && provider.utilityLayer?.copyBackground != true
             let graphCandidate = hasEffects && provider.utilityLayer == nil
-            guard independentRawSource || graphCandidate
+            let backgroundComposition = hasEffects && provider.parentID == nil
+                && provider.utilityLayer?.kind == .composition
+                && provider.utilityLayer?.copyBackground == true
+                && provider.utilityLayer?.framebufferSource == nil
+            guard independentRawSource || graphCandidate || backgroundComposition
             else { return nil }
         }
         return Binding(consumerLayerID: layer.id, providerLayerID: provider.id,

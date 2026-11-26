@@ -126,11 +126,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 485,
-      "bytes": 96037
+      "bytes": 95682
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 376916
+      "bytes": 377781
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 62,
-      "bytes": 8429
+      "bytes": 8389
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2b57c654fbee3d82bf4555ab7c8212c1d0e403c1311db7d5cd5866481f38e891",
-      "after": "c741dd51d20a2eb8e2b8876e13be2af26c33d0160ba42dacfc7c574d3fd01d5b",
-      "owner": "Scene particles and camera",
-      "reason": "以真实红束双姿态、独立雨迹与官版四格剔除替换离线预测。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#sprite-trail-canvas-width-338"
+      "before": "ac3b4da03f511eeb67fb0566033f89bd364619ee4f07dd9d2cfb6b8896fc25f4",
+      "after": "78d4cdb450887e74715ff552448df9002d88d012bbb5f4e187c860a88bf6c7b9",
+      "owner": "Scene composition and named graph output",
+      "reason": "登记原包剑刃恢复、早晚时序、失败恢复与透明分支剩余断点。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#forward-composition-named-recovery"
     },
     {
       "section": "bodies",

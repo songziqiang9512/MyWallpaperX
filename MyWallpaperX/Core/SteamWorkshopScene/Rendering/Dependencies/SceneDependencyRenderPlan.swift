@@ -77,6 +77,8 @@ nonisolated struct SceneDependencyRenderPlan {
         let providersBeforeLayerID: [Int: [Int]]
         let scheduledGraphProviderLayerIDs: Set<Int>
         let authoredRawProviderLayerIDs: Set<Int>
+        let previousProvidersByConsumerLayerID: [Int: Set<Int>]
+        let previousProviderLayerIDs: Set<Int>
     }
 
     nonisolated enum IssueKind: String {

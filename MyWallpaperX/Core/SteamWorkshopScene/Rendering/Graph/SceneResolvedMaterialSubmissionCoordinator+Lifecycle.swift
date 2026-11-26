@@ -1,6 +1,33 @@
 import Foundation
+import Metal
 
 extension SceneResolvedMaterialSubmissionCoordinator {
+    func namedGraphHistory(retaining providers: Set<Int>) -> [Int: SceneNamedGraphOutput] {
+        lock.lock()
+        defer { lock.unlock() }
+        completedNamedGraphOutputs = completedNamedGraphOutputs.filter { providers.contains($0.key) }
+        return completedNamedGraphOutputs
+    }
+
+    func discardNamedGraphHistory(for providerLayerID: Int) {
+        lock.lock()
+        completedNamedGraphOutputs.removeValue(forKey: providerLayerID)
+        lock.unlock()
+    }
+
+    func stageNamedGraphOutput(_ output: SceneNamedGraphOutput, providerLayerID: Int,
+                               commandBuffer: MTLCommandBuffer) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard output.frameEpoch == frame?.textureRegistrySnapshot.frameEpoch,
+              let transaction = preparedLedgerByLayerID[providerLayerID],
+              let ledger = activeByID[transaction],
+              ledger.phase == .encoded, ledger.commandBuffer === commandBuffer
+        else { return false }
+        preparedNamedGraphOutputs[providerLayerID] = output
+        return true
+    }
+
     var shouldDeferFrame: Bool {
         lock.lock()
         defer { lock.unlock() }
@@ -62,6 +89,12 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         lock.lock()
         defer { lock.unlock() }
         assert(!frameIsActive && activeTransactions.isEmpty)
+        for layerID in layerIDs {
+            completedNamedGraphOutputs.removeValue(forKey: layerID)
+            for index in pendingSubmissions.indices {
+                pendingSubmissions[index].namedGraphOutputs.removeValue(forKey: layerID)
+            }
+        }
         var retiredPins: [SceneGraphRenderTargetResidencyPin] = []
         func keepingLiveTails(_ tails: [Graph.EffectKey: Tail]) -> [Graph.EffectKey: Tail] {
             tails.filter { effect, tail in
@@ -106,6 +139,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         }
         completedSceneColor?.persistenceReservation?.lease.retention.release()
         completedSceneColor = nil
+        completedNamedGraphOutputs.removeAll()
+        preparedNamedGraphOutputs.removeAll()
         let committedPins = committedTails.values.compactMap(\.historyPin)
         if pendingSubmissions.isEmpty {
             releasePins(committedPins)
@@ -240,6 +275,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         framePreparationComplete = false
         preparedLedgerByLayerID.removeAll(keepingCapacity: true)
         frameLocalFallbacks.removeAll(keepingCapacity: true)
+        preparedNamedGraphOutputs.removeAll(keepingCapacity: true)
         lock.unlock()
         emit(emission)
         if let reportLine { logSink(reportLine) }

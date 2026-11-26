@@ -184,6 +184,9 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 // State and history ownership become visible together while
                 // the serial lock is held. Observation failures cannot undo promotion.
                 committedTails = head.finalTails
+                if !head.namedGraphOutputs.isEmpty {
+                    completedNamedGraphOutputs.merge(head.namedGraphOutputs) { _, current in current }
+                }
                 head.displayScratchPin?.release()
                 if let sceneColor = head.sceneColor {
                     let promoted = completeSceneColorLocked(sceneColor, succeeded: true)

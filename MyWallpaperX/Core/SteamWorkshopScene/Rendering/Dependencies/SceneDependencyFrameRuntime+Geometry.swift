@@ -128,14 +128,11 @@ extension SceneDependencyFrameRuntime {
         extent: (width: Int, height: Int),
         sourceExtent: (width: Int, height: Int),
         geometryProduct: SceneGeometryProduct? = nil,
+        avoiding previous: MTLTexture? = nil,
         frameEpoch: UInt64,
         failureReason: inout String?
     ) -> MTLTexture? {
         synchronizeReservations(to: frameEpoch)
-        if plan.requiredGraphOutputProviderLayerIDs.contains(providerLayerID) {
-            demandedGraphOutputProviderLayerIDs.insert(providerLayerID)
-        }
-
         let texture: MTLTexture
         if let reservation = reservationsByProviderLayerID[providerLayerID] {
             guard reservation.frameEpoch == frameEpoch,
@@ -158,7 +155,8 @@ extension SceneDependencyFrameRuntime {
             guard let reservedTexture = targetPool.texture(
                       for: providerLayerID,
                       width: extent.width,
-                      height: extent.height
+                      height: extent.height,
+                      avoiding: previous
                   ), reservedTexture.width == extent.width,
                   reservedTexture.height == extent.height,
                   Self.isValidDependencyTexture(reservedTexture) else {
@@ -182,6 +180,9 @@ extension SceneDependencyFrameRuntime {
             texture = reservedTexture
         }
 
+        if plan.requiredGraphOutputProviderLayerIDs.contains(providerLayerID) {
+            demandedGraphOutputProviderLayerIDs.insert(providerLayerID)
+        }
         return texture
     }
 

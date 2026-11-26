@@ -295,6 +295,7 @@ extension SceneMetalRenderer {
             topologyRevision: layerTopology?.topologyRevision ?? 0,
             sourceAfterLayerIDByLayerID: {
                 var points: [Int: Int] = [:]
+                var previousEligible = Set<Int>()
                 for layer in orderedLayers {
                     guard let utility = layer.utilityLayer else { continue }
                     if utility.copyBackground || utility.kind == .fullscreen
@@ -305,9 +306,19 @@ extension SceneMetalRenderer {
                 for plans in frameProjection.utilityExecution.plansByTriggerLayerID.values {
                     for plan in plans where availableExecutionLayerIDs.contains(plan.layerID) {
                         points[plan.layerID] = plan.triggerLayerID
+                        if plan.kind == .composition, !plan.usesIsolatedGroupTarget,
+                           dependencyRuntime.requiresGraphOutputCapture(for: plan.layerID),
+                           !frameVisibleLayerIDs.contains(plan.layerID),
+                           let layer = frameLayersByID[plan.layerID],
+                           layer.parentID == nil, layer.childLayerIDs.isEmpty,
+                           layer.utilityLayer?.copyBackground == true,
+                           layer.utilityLayer?.framebufferSource == nil {
+                            previousEligible.insert(plan.layerID)
+                        }
                     }
                 }
-                return points
+                return (points, previousEligible, previousEligible.isEmpty ? []
+                    : Set(frameProjection.utilityExecution.memberRootsByLayerID.keys))
             }
         ) else {
             imageCompositor.recordResolvedMaterialFramePreflightFailure(

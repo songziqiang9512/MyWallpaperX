@@ -143,7 +143,11 @@ enum Harness {
         _ descriptor: SceneRenderDescriptor,
         admittedReferences: Set<SceneDependencyRenderPlan.Reference>? = nil,
         consumer: Int = consumerID,
-        sourceAfter: [Int: Int] = [:]
+        sourceAfter: [Int: Int] = [:],
+        executionOrder: [Int]? = nil,
+        previousEligible: Set<Int> = [],
+        previousIneligibleConsumers: Set<Int> = [],
+        excluded: [Int: Set<SceneEffectPassSlot>] = [:]
     ) -> [String: Any] {
         let consumerID = consumer
         let direct = SceneDependencyGraphAnalysis.references(
@@ -214,6 +218,7 @@ enum Harness {
             "runtimeReferences": plan.references.map(referenceRow),
             "runtimeBindings": plan.bindingsByConsumerLayerID.values
                 .map { $0.slot.effectID }.sorted(),
+            "runtimeAggregateConsumers": plan.multiProviderAggregatesByConsumerLayerID.keys.sorted(),
             "runtimeRequiresProgram": plan.bindingsByConsumerLayerID[consumerID]?
                 .requiresResolvedMaterialProgram ?? false,
             "runtimeProviders": plan.requiredProviderLayerIDs.sorted(),
@@ -250,17 +255,77 @@ enum Harness {
             .sorted { $0.consumerLayerID < $1.consumerLayerID }.map { bindingRow($0) }
         let graphs = Set(descriptor.layers.filter { $0.effects.contains { $0.visible != false } }.map(\.id))
         if let sources = preparedPlan.sourcePreparationPlan(
-            authoredLayerIDs: descriptor.renderOrderLayerIDs, availableExecutionLayerIDs: graphs,
+            authoredLayerIDs: executionOrder ?? descriptor.renderOrderLayerIDs, availableExecutionLayerIDs: graphs,
             visibleRootLayerIDs: visible, activeStaticModelConsumerLayerIDs: [],
-            sourceAfterLayerIDByLayerID: sourceAfter) {
-            let schedule = sources.preparationSchedule()
+            sourceAfterLayerIDByLayerID: sourceAfter,
+            previousEligibleProviderLayerIDs: previousEligible,
+            previousIneligibleConsumerLayerIDs: previousIneligibleConsumers) {
+            let schedule = sources.preparationSchedule(excludingSlotsByConsumerLayerID: excluded)
             result["schedule"] = ["preparation": schedule.preparationLayerIDs,
                 "prepass": schedule.prepassProviderLayerIDs,
                 "scheduled": schedule.scheduledGraphProviderLayerIDs.sorted(),
                 "before": Dictionary(uniqueKeysWithValues:
                     schedule.providersBeforeLayerID.map { (String($0.key), $0.value) })] as [String: Any]
+            result["previousProviders"] = schedule.previousProviderLayerIDs.sorted()
+            result["previousConsumers"] = Dictionary(uniqueKeysWithValues:
+                schedule.previousProvidersByConsumerLayerID.map { (String($0.key), $0.value.sorted()) })
         }
         return result
+    }
+
+    static func compositionNamedCuts(renamed: Bool, arm: String) -> [String: Any] {
+        let p = renamed ? 719 : 101, c = renamed ? 354 : 202, d = renamed ? 912 : 303
+        let trigger = renamed ? 802 : 410
+        let bridge = renamed ? 815 : 411
+        let resource = renamed ? "effects/alternate/canvas/effect.json" : "effects/owned/paint/effect.json"
+        let early = effect(id: renamed ? "early-relabel" : "early", visible: true,
+            kind: nil, namedProviderID: p, file: resource)
+        let second = effect(id: renamed ? "alternate-slot" : "second", visible: true,
+            kind: nil, namedProviderID: p, slot: 3, file: resource)
+        let late = effect(id: renamed ? "late-relabel" : "late", visible: true,
+            kind: nil, namedProviderID: p, file: resource)
+        var utility = SceneUtilityLayer(kind: .composition)
+        utility.copyBackground = arm != "transparent"
+        if arm == "framebuffer" { utility.framebufferSource = "shaders/alternate" }
+        var provider = SceneRenderDescriptor.Layer(id: p, contentKind: "composition",
+            utilityLayer: utility, dependencyLayerIDs: [],
+            childLayerIDs: arm == "members" ? [trigger] : [], visible: arm == "provider-visible",
+            effects: [.init(id: "producer", file: resource, visible: true, passes: [])])
+        if arm == "nested-provider" { provider.parentID = trigger }
+        let consumer = SceneRenderDescriptor.Layer(id: c, contentKind: "image", utilityLayer: nil,
+            dependencyLayerIDs: [p], childLayerIDs: [], visible: arm != "hidden-chain",
+            effects: [early, second])
+        let later = SceneRenderDescriptor.Layer(id: d, contentKind: "image", utilityLayer: nil,
+            dependencyLayerIDs: [p], childLayerIDs: [],
+            visible: !["early-only", "all-inactive", "hidden-chain"].contains(arm),
+            effects: [late])
+        let mark = SceneRenderDescriptor.Layer(id: trigger, contentKind: "image", utilityLayer: nil,
+            dependencyLayerIDs: [], childLayerIDs: [], visible: true, effects: [])
+        let downstream = SceneRenderDescriptor.Layer(id: bridge, contentKind: "image", utilityLayer: nil,
+            dependencyLayerIDs: [c], childLayerIDs: [], visible: true,
+            effects: [effect(id: "downstream", visible: true, kind: nil, namedProviderID: c, file: resource)])
+        let layers = [provider, consumer, mark, later] + (arm == "hidden-chain" ? [downstream] : [])
+        let order: [Int] = (arm == "expanded" ? [p, c, trigger, d] : [c, trigger, p, d])
+            + (arm == "hidden-chain" ? [bridge] : [])
+        let executionOrder = arm == "expanded" ? [c, trigger, p, d] : order
+        let descriptor = SceneRenderDescriptor(layers: layers, renderOrderLayerIDs: order)
+        let eligible: Set<Int> = arm == "not-eligible" ? [] : [p]
+        let excluded: Set<SceneEffectPassSlot>
+        switch arm {
+        case "one-off":
+            excluded = [.init(effectID: early.id, passIndex: 0, slotIndex: 1)]
+        case "both-off", "all-inactive":
+            excluded = [.init(effectID: early.id, passIndex: 0, slotIndex: 1),
+                .init(effectID: second.id, passIndex: 0, slotIndex: 3)]
+        default:
+            excluded = []
+        }
+        var row = inspect(descriptor, consumer: c, sourceAfter: [p: p],
+            executionOrder: executionOrder, previousEligible: eligible,
+            previousIneligibleConsumers: arm == "different-attachment" ? [c] : [],
+            excluded: [c: excluded])
+        row["provider"] = p; row["early"] = c; row["late"] = d; row["bridge"] = bridge
+        return row
     }
 
     static func forwardVisibleChain(
@@ -421,6 +486,13 @@ enum Harness {
         }
         for fault in ["no-program", "wrong-slot", "secondary", "missing", "background"] {
             payload["forward-\(fault)"] = forwardVisibleChain(puppet: true, fault: fault)
+        }
+        for arm in ["both", "expanded", "early-only", "one-off", "both-off", "all-inactive", "hidden-chain",
+                    "not-eligible", "different-attachment", "provider-visible", "transparent",
+                    "members", "nested-provider", "framebuffer"] {
+            for renamed in [false, true] {
+                payload["composition-\(arm)-\(renamed)"] = compositionNamedCuts(renamed: renamed, arm: arm)
+            }
         }
         payload["graphWrongProvider"] = inspect(graphDescriptor(optionalProviderID: 999))
         payload["graphWrongSlot"] = inspect(graphDescriptor(optionalSlot: 2))
@@ -712,6 +784,44 @@ class SceneInactiveOptionalNamedDependencyTests(unittest.TestCase):
                 self.assertTrue(carrier[0]["requiresProgram"])
         self.assertTrue(self.results["preparedCycle"]["hasCycle"])
         self.assertEqual(self.results["preparedCycle"]["providers"], [])
+
+    def test_background_composition_early_reader_keeps_one_authored_write(self) -> None:
+        for arm in ("both", "expanded", "early-only", "one-off", "hidden-chain"):
+            for renamed in ("false", "true"):
+                with self.subTest(arm=arm, renamed=renamed):
+                    row = self.results[f"composition-{arm}-{renamed}"]
+                    provider, early, late, bridge = (row[k] for k in ("provider", "early", "late", "bridge"))
+                    self.assertEqual(row["carrierKinds"], ["resolvedMaterial"] * 2)
+                    self.assertEqual(row["preparedForward"], [arm != "expanded"] * 2)
+                    if arm != "expanded":
+                        self.assertNotIn(early, row["runtimeAggregateConsumers"])
+                    self.assertEqual(row["previousProviders"], [provider])
+                    self.assertEqual(row["previousConsumers"], {str(early): [provider]})
+                    expected = [early, provider]
+                    if arm == "hidden-chain":
+                        expected.append(bridge)
+                    elif arm != "early-only":
+                        expected.append(late)
+                    self.assertEqual(row["schedule"], {
+                        "preparation": expected, "prepass": [], "scheduled": [], "before": {},
+                    })
+
+    def test_history_demand_tracks_selected_slots_and_preserves_late_reads(self) -> None:
+        for arm in ("both-off", "all-inactive", "different-attachment", "not-eligible", "provider-visible"):
+            row = self.results[f"composition-{arm}-false"]
+            with self.subTest(arm=arm):
+                self.assertEqual(row["previousProviders"], [])
+                self.assertEqual(row["previousConsumers"], {})
+                self.assertEqual(row["schedule"]["preparation"], [row["early"]] if arm == "all-inactive"
+                                 else [row["early"], row["provider"], row["late"]])
+                self.assertEqual(row["schedule"]["prepass"], [])
+
+    def test_background_composition_candidate_leaves_other_utility_sources_unchanged(self) -> None:
+        for arm in ("transparent", "members", "nested-provider", "framebuffer"):
+            row = self.results[f"composition-{arm}-false"]
+            with self.subTest(arm=arm):
+                self.assertEqual(row["carrierKinds"], [])
+                self.assertEqual(row["previousProviders"], [])
 
     def test_debug_switch_controls_legacy_route_not_prepared_program_inputs(self) -> None:
         for name in ("inactiveSystem", "inactiveProperty", "activeSystem", "activeDirect"):
