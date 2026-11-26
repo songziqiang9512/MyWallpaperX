@@ -110,7 +110,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 552,
-      "bytes": 125564
+      "bytes": 125837
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 110,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 398410
+      "bytes": 399257
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 56,
-      "bytes": 7399
+      "bytes": 7212
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -468,15 +468,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "d35a2178faf6784fe1f8a0647f84d175e4127403880aa35962ec473dee4b8ec3",
-      "after": "9c8f37d3e780a3e7110797eba998ce14292659c3e857b392e9caabae027d929c",
-      "owner": "Scene perspective image terminal depth",
-      "reason": "明确普通终端的默认 alpha 与作者深度测试。",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
-    },
-    {
-      "section": "bodies",
       "path": "docs/release/bundle-content.md",
       "before": "9320ffb3f0d5e6abf1cfa44ec4d19363437b1b68c63e5017a0afca00a285833f",
       "after": "5cf34e2b74a836cd19893a610f918df25ef0fcc127548d6de9357902efe8a7a0",
@@ -666,12 +657,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "9c8f37d3e780a3e7110797eba998ce14292659c3e857b392e9caabae027d929c",
+      "after": "cb49d76c6c7c1ef6e5ed01896c80dd53a7746efea26611435a71df25deec7ae7",
+      "owner": "Scene composition",
+      "reason": "记录环字离屏输出采用相机深度的原作者正反例与剩余斜视对照。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "88366a449302ce321e33a844a3847bd6f54e3e9dd4596f8b331241c40bc87178",
-      "after": "a3ad520df8cd0f62d99c1bc5ab4e72ac7e0cc6a6e9d9bc37c2f4acd383dcb040",
-      "owner": "Scene input",
-      "reason": "记录官版同窗的实际属性热切画面，收敛剩余冷恢复范围。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#orb-spin-official-live-376"
+      "before": "a3ad520df8cd0f62d99c1bc5ab4e72ac7e0cc6a6e9d9bc37c2f4acd383dcb040",
+      "after": "c4049092f30d4f8e9c6cbf7df261b8924d4d41141f3874c00a91811dcfc1bccc",
+      "owner": "Scene composition",
+      "reason": "记录环字离屏输出采用相机深度的原作者正反例与剩余斜视对照。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-box-ring-depth-333"
     }
   ]
 }
