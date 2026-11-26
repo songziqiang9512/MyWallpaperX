@@ -392,7 +392,7 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "815223a78a416c506a22136e7035a20add7027834461c06896e736940bf13c65",
+        "sourceSHA256": "8121231bf4c24352c3c47c667c2805c156afc956135ffbfd2fb0f4d42ea937fb",
         "method": "document_registry --audit + document_health --check",
         "scope": "登记签名原设置体积切换、实际回执和画面证据。",
         "limitations": "画面和持续呈现的证据边界见现役工作卡。"

@@ -166,7 +166,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 421950
+      "bytes": 423093
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 54,
-      "bytes": 7105
+      "bytes": 7013
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -705,15 +705,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "1e7c44576a5b9c64a9f4f39815c307eb4b3d02edd318267aa0e9f06c503d2dea",
-      "after": "b76a74d6f04af08a084c9c5f2614f7ca5b3bc70b05cb66be7b77fbf43f08856b",
-      "owner": "Scene particle simulation",
-      "reason": "同步步进寿命数组的就地填充合同、实际交错首帧收益和剩余启动边界。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-life-buffer-evidence"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
       "before": "f22bf40c2909d1dba5332239a63d4928d94776b45ebae8626238261119e384ac",
       "after": "fc7c3dccbf0f2bb2b621fb376b9b1b185c4ba916ba2398511d277239ff62de6f",
@@ -747,6 +738,15 @@
       "owner": "Scene quality rendering",
       "reason": "登记签名原设置体积切换、实际回执和画面证据。",
       "decision": "docs/development/wallpaper-quality-work-card.md#scene-volume-frame-readout"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "b76a74d6f04af08a084c9c5f2614f7ca5b3bc70b05cb66be7b77fbf43f08856b",
+      "after": "ac990be63da659b2db235e862f1317e8415bded4c898d2494206a4ddfdc85d1c",
+      "owner": "Scene effect composition evidence",
+      "reason": "保留两相位的底色覆盖和 Shine 前后对照及官版证据范围。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-chain-matte-286"
     }
   ]
 }

@@ -13,11 +13,11 @@
 
 | 样本 | 本轮反馈 | 复验起点 |
 |---|---|---|
-| 2868108515 | 剑链左侧的叠影仍可见 | [两端原包及只关 Godrays 的对照](../capabilities/runtime-evidence-current.md#author-chain-left-step-286)已定位接缝，单独冻结剑图与 Godrays 未重现原包幅度。复验两端原包的底图采样与效果相位。 |
+| 2868108515 | 剑链左侧的叠影仍可见 | [双底色实测](../capabilities/runtime-evidence-current.md#author-chain-matte-286)确认本机 Shine 加重 Godrays 的弱覆盖，后段影响小。待官版同板同相位核 Shine 输入。 |
 | 3769688830 | 本机玩偶水球持续向左转，用户在官版看到头朝上的往返摆动 | [两端同窗热切](../capabilities/runtime-evidence-current.md#orb-spin-official-live-376)和[本机冷启动读取](../capabilities/runtime-evidence-current.md#orb-spin-cold-defaults-376)已核。待验证真实面板写入及官版冷启动恢复。 |
 | 3673609113 | 人偶运动和音条抖动时出现上一帧残影 | [受控姿态](../capabilities/runtime-evidence-current.md#author-puppet-history-367)定位末级历史，[自然动作与脉冲](../capabilities/runtime-evidence-current.md#author-natural-audio-history-367)核本机图像顺序和频谱同代。余下对齐官版本机的连续呈现与实际频带值，区分整图残影和1552音频累计。 |
 | 3586705329 | 图5的拼贴竖状拉伸随镜头大小变化 | [官版同样出现的 Scroll 边带](../capabilities/runtime-evidence-current.md#author-collage-edge-358)可复用。将反馈图注册到同画幅、镜头和滚动相位，区分已量过的边带与额外变形。 |
-| 3337494481 | 图6斜视时封面与外圈文字位置不合 | [环字深度](../capabilities/runtime-evidence-current.md#author-box-ring-depth-333)已消除背面穿透。[本机原包 front 定位](../capabilities/runtime-evidence-current.md#author-box-oblique-333)已量两层相对位移，剩同视角、同音源官版对照。加载见性能区。 |
+| 3337494481 | 图6封面与环字斜视错位 | [环字深度](../capabilities/runtime-evidence-current.md#author-box-ring-depth-333)已消除背面穿透。[两端冻结投影](../capabilities/runtime-evidence-current.md#author-box-oblique-333)偏移符合作者高度，剩原包同轨迹、同 PCM 对照。加载见性能区。 |
 | 3372715909 | 右上角时钟仍缺失 | [当前本机原包](../capabilities/runtime-evidence-current.md#author-clock-full-337)确认重开后仍由视频盖住钟字，官版原包冷开黑帧后退出。剩余要有官版原包可见帧或用户当时的属性、视频和画面，现有缩减包已确认克隆追加层序。 |
 | 3042492564 | 切「人物动作(动画)」后左人掉下 | [原包热切和冷载对照](../capabilities/runtime-evidence-current.md#author-float-reload-304)中，本机左、右按作者脚本停在 Y665.2/1891.1 并恢复，未复现下坠。本次官版弹窗 CLI 对照仅证明直接绑定生效，仍需通过实际属性面板核热回调和姿态。 |
 
@@ -37,7 +37,7 @@
 
 | 样本 | 剩余瓶颈 |
 |---|---|
-| 3337494481 | [同包并行预热实测](../capabilities/runtime-evidence-current.md#authored-root-prewarm-join)把首屏降至18.32秒，仍有13.31秒聚合预热。余下只跟进当前剖面上可复验的新主导成本，保完整历史及 RNG。 |
+| 3337494481 | [最新同包预热对照](../capabilities/runtime-evidence-current.md#particle-life-buffer-evidence)一对首帧20.86→18.23秒，候选预热13.48秒。只跟进可复验的新热点，保持历史及 RNG。 |
 | 3749463715 | [可比 60fps 运行](../capabilities/runtime-evidence-current.md#gpu-admission-wake-374)实呈从 29.96 提升到 34.80fps，尚低于目标。仅跟进当前路径的新显著成本。 |
 | 3420215721 | [同包实测](../capabilities/runtime-evidence-current.md#scene-playback-triage-342)仍有 GPU 超预算。固定 scene-time 和实际历史源做消融。 |
 | 3673609113 | [实呈与 GPU 回执](../capabilities/runtime-evidence-current.md#inactive-terminal-copy-367)仍显示 GPU 超预算。沿实际帧成本定位，保两级作者历史。人偶及音条残影独立按用户反馈核对。 |
