@@ -621,10 +621,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "141cc78d2d698371746f4ec2ae14199263f0aac61fddab56a36ee38236b538aa",
+      "before": "02d182707f5a3678ca7773363fa2a81b473fbd718afcec50adbebf05277b2592",
       "after": "d683613b778f087bf2c3f775beec398becd5d258a9168cf886895e668866b78d",
       "owner": "Scene main synchronization",
-      "reason": "保留主线粒子初始化、可核证据与质量分支原有记录。",
+      "reason": "从主线已提交的授权预算绑定双方现役证据合并后的正文。",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#instance-color-revision"
     },
     {
@@ -639,10 +639,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4269088fd79b7dc4473699007480ca616c1c00358da84a5634744278a18c8289",
+      "before": "7787d58730e8ec0fd24637a3f8293c4a999e794fa2b6a12c24976e18abb36c78",
       "after": "c30e106350e51a8f27533128629fd60f4564308f52558c10de68c05d39678eee",
       "owner": "Scene main synchronization",
-      "reason": "保留主线粒子初始化、可核证据与质量分支原有记录。",
+      "reason": "从主线已提交的授权预算绑定双方现役证据合并后的正文。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-default-birth-color"
     },
     {
