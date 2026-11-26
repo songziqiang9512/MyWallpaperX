@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 591,
-      "bytes": 150964
+      "lines": 587,
+      "bytes": 148719
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 138151
+      "bytes": 138536
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -138,7 +138,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 326383
+      "bytes": 327674
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -603,11 +603,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f6038d56282161d76a624e7ce1e4780e739ec74ab3795e7acd08d870aa38db9d",
-      "after": "db3a66f4d51c74141fb9d448bbb312fce6dfc496855369bd705f796ddb2bec49",
+      "before": "db3a66f4d51c74141fb9d448bbb312fce6dfc496855369bd705f796ddb2bec49",
+      "after": "22ac78fe9b56a3862d1b080e3b3d1a7cc0d5a035d3510c751c38128c71e1192e",
       "owner": "scene-runtime",
-      "reason": "官方 25 和本机 25／10 FPS 的真实 SceneScript 画面",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-script-interval-phase"
+      "reason": "官版 2.8.0.42 具名窗口反射开关与恢复",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-reflection-targets"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "58d8ef651b873c4599f1d17732877e68cb08578c660d60ffdfbddb7bee4ff0ef",
-      "after": "41fbcc305490ec94cafd942a77d7046b461ac1acd1d991fdd59b0246223dbefc",
+      "before": "41fbcc305490ec94cafd942a77d7046b461ac1acd1d991fdd59b0246223dbefc",
+      "after": "58cae30fc786c375869fbf9bb634f202c16c5f3e823fcce1f5e184855fcb3b85",
       "owner": "scene-runtime",
-      "reason": "SceneScript 低帧率计时策略和验证导航",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-script-interval-phase"
+      "reason": "官版反射对照与关闭档作者环境供货设计",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-reflection-targets"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "22b60b96a1f9282aea73f310379846f013077f32b547fd52a2a2c689a99eedf6",
-      "after": "e6736e9ec7d81fd16cc018e6b4c4ab7eb9ec37fa167f25ddf7bee22777640482",
+      "before": "e6736e9ec7d81fd16cc018e6b4c4ab7eb9ec37fa167f25ddf7bee22777640482",
+      "after": "39b46ee121b9d79dc8e7db0eedf420e067116fdda55d6e9d52c9d39f84930880",
       "owner": "scene-runtime",
-      "reason": "Scene 帧率本批新增作者定时器证据",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-script-interval-phase"
+      "reason": "官版反射目标已具备判别力及近期适配顺序",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-reflection-targets"
     },
     {
       "section": "bodies",

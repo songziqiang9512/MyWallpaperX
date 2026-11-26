@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "105513c1c9a98c9c5d331dd11373e7bd2d7a2d2bfb7c33fcb594eae7d54a2229",
+        "sourceSHA256": "2c352a31ed0ab8d694fa8f2d04f4aeb6b821f5387b3289db39bcef5d2da18052",
         "method": "document_registry --audit + document_health --check",
-        "scope": "SceneScript 低帧率计时策略和验证导航",
-        "limitations": "官版具名窗只验证设置固定时的累计计数。"
+        "scope": "官版反射对照与关闭档作者环境供货设计",
+        "limitations": "本机设计待实施。固定版具名窗口实测边界另见证据。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2e665673abb6239b44bda296e5e6d103581264c9c8de514d18ecf04ff69e09f2",
+        "sourceSHA256": "f66d2eb7a9aa38e037cdaa3b89cacf1ae658ae1442c5f5387b04f61daea75ec5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene 帧率本批新增作者定时器证据",
-        "limitations": "只复核帧率执行段。"
+        "scope": "官版反射目标已具备判别力及近期适配顺序",
+        "limitations": "动态继承、其它目标与 Mac 实现待各自验证。"
       }
     },
     {
@@ -1003,10 +1003,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e122813eb3bc2d6744bea185ca52b1d53a487791eeba3e281d6a6f2a85b20d3d",
+        "sourceSHA256": "19a6afa318e567ef80c09f45f23bd2d3bc985ba8551f7ffa752108d964fbe658",
         "method": "document_registry --audit + document_health --check",
-        "scope": "官方 25 和本机 25／10 FPS 的真实 SceneScript 画面",
-        "limitations": "独立作者单张完成帧用于证明原路径，未量其回调速率。"
+        "scope": "官版 2.8.0.42 具名窗口反射开关与恢复",
+        "limitations": "未验证桌面热继承、物理 mip 数或实际历史年龄。"
       }
     },
     {

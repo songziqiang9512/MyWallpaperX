@@ -2,8 +2,7 @@
 
 <!-- document-role: current-state -->
 
-<a id="scope"></a>
-## 冻结身份
+## 冻结身份 <a id="scope"></a>
 
 2026-11-07已知/新增复测基于`d47a8fa112c6fb189ccd58bd19dd20322967e080`，4414个源码/构建输入前后一致。沿现有`script/build/scene_diagnostic_build.xcconfig`构建：Release加DEBUG、Swift `-O`/C `-Os`、single-file，Developer ID Team `H9QWU9XN8R`、无时间戳，arm64/macOS27.2/Xcode27.2。实际编译argv及有效设置已冻结；该诊断配置不授正式Release或跨配置性能结论。
 
@@ -592,9 +591,10 @@ F165的Z和alpha分别反推两步、约.167模拟秒的新生；撤回候选F13
 
 <a id="child-plane-scale"></a>**Child非等比平面缩放（2026-11-14）**：2657524136/194的FIRE follow/prob1与3485662637/424的GlowNew spawn/prob.4分别为(.5,1.5,1)/(20,3,1)，首错为ChildTransform的XY相等门。按[原几何设计](particle-component-coverage.md#child-plane-scale)，7产品文件净+33行：原共同尺寸sx保留，冷比例sy/sx只沿batch供CameraFrame平面形状，r1复用旧几何；无shader/GPU布局或逐粒字段增长。自有六面板固定0/45度与双向XY；官方2.8.0.42二进制DAAC1EA7…BDA07，v1纹理引用失败、v2仅修引用、v3仅补白标记材质，所有粒子/几何/TEX字节不变。v3官方两张相隔20.481秒：Display ICC的JPEG按标准转sRGB，固定四色与2单位误差不变；uniform0训练的单一亮边reader补足独立轮廓，A=S×R全部通过，B角点差26.6–27.2。中心只缩一次；未把墙钟延时当精确sceneTime。旧原生v3五PNG与v1逐字节相同；新候选五PNG稳定，六父/六子/24角块俱全，对官版最大角点.6534、边1.6063、父中心.4143、子中心.3372单位，旧uniform0/45原始区域与几何逐值相同。签名Debug exec b10ea45e…0f7e9、dylib4ef3d0e6…ec0567、metallib87d66fcf…a1bd，4393构建输入无漂移。真实265/331/348各4秒PASS且排空，三图基本画面正常；FIRE已实际出生，F137的24个Sprite实例进入同帧main/GPU绘制，GlowNew本次只到系统创建，emitter未接纳出生，不授Glow像素恢复。独立331含七个旧比例1 child与refraction。112项既有相关方法通过；新增Debug/Release行为门和生产Frame/Metal门修正夹具时序及像素中心oracle后补跑通过，未放宽断言。产品、测试及两次夹具修正的独立只读审查均无遗留发现；倾转/世界空间扩域、作者完整画面与整体性能不由本批外推。输入、原失败、量测与原始证据归`.artifacts/scene-child-plane-scale-20261114`及`.artifacts/scene-evidence/runs/scene-child-plane-scale-20261114`。
 
-<a id="limits"></a>
-## 未取得的资格
+<a id="script-interval-frame-cadence"></a>**SceneScript 低帧率重复定时器。** Windows Wallpaper Engine 2.8.0.42 的同一 Win32 接收进程，在保存值 25 FPS 上独立打开两次自有具名场景。两臂分别历时 6,016／6,026 ms，作者 `runtime` 增量与 `frametime` 累计各自吻合至毫秒，均为 150 次更新。90／130 ms 两种间隔每次实绘都显示 50／37 次。数据与按到期帧重新计周期相符。沿原相位保余量会在相同窗产生约 66／46 次，属于可观测区别。源机会话只开关具名副本，结束配置字节、原选择和接收进程与之前相同。本机 M4 用相同作者包装入签名 Debug，25 FPS 实绘 150 次更新／6,000 ms，两周期同为 50／37 次。10 FPS 实绘 60 次更新／6,000 ms，两周期为 60／30 次，作者时钟和累计帧时间均为 6,000 ms。独立 Workshop 原包 3079085422 的 layer 253 按作者声明的 148 ms 重复间隔写字，10 FPS 终帧实际显示了部分字样，源与结果经原窗口和完成帧收据核对。原包含随机延迟，单帧和栅格发布不用于推算回调次数。三窗 GPU 完成且排空。原生 QuickJS 门复核到期帧、同 owner 模拟换档、零步长和超长一步，保持现役生产计时。官版具名窗两次 25 FPS 只区分上述累计计数，普通桌面、热改、取消顺序和过载的官版行为仍待验。收据归 `.artifacts/wallpaper-quality-scene-timer-cadence`。
+
+<a id="official-reflection-toggle"></a>**官版反射源的开／关／开。** Windows Wallpaper Engine 2.8.0.42 的同一 Win32 接收进程，以同一第三版自有包和 960×540 具名位置完成原质量面板改档。相同 ICC 的完整裁片两次开档基线和末次重开逐像素相同，关档重开只有四个区域变化。显式 `_rt_MipMappedFrameBuffer` 的 L0／L3 由 RGB (117,251,76)→(0,0,0)→原色，L0 alpha 和映射比例的组合信号持续为白。普通法线材质右侧 (137,169,132)→(128,128,128)→原色，左侧同步，中心保灰。同帧 `_rt_FullFrameBuffer` 和作者自带蓝贴图保持原色。已保存关档时，原具名窗在确认回执后 1.69 秒仍与开档裁片相同。已恢复开档时，关档建立的具名窗在 1.05／16.75 秒仍保关档裁片。每次重开同一位置后采用新档。起止全配置摘要、接收进程、桌面选择和已读质量值一致，已清退私有来宾输入、配置备份及 11 个衍生 shader 缓存。该色板验证请求 LOD 的颜色及 L0 alpha／归一映射信号，物理 mip 数、绝对尺寸、动态历史年龄、独立 `_rt_Reflection` 和桌面热继承各待对应实测。独审裁片与收据归 `.artifacts/wallpaper-quality-official-reflection-toggle`。
+
+## 未取得的资格 <a id="limits"></a>
 
 上述为direct-host诊断、有界静帧及已明示的同daemon切换，不覆盖普通App选择、其余IPC故障/时限、物理多屏、macOS26最低版本、受控音频/媒体/全部pointer或属性分支、连续长稳、完整周期、优化性能/能耗、正式发行或官方同输入像素一致性。资源/组件未观察或无法精确归因的阶段保unknown；主画面成立不关闭局部能力缺口。能力见[索引](README.md#overview)，测量方法见[开发工作流](../development/development-workflow.md#corpus-runtime-measurement)，性能资格见[性能卡](../roadmap/performance-convergence-card.md)。
-
-<a id="script-interval-frame-cadence"></a>**SceneScript 低帧率重复定时器。** Windows Wallpaper Engine 2.8.0.42 的同一 Win32 接收进程，在保存值 25 FPS 上独立打开两次自有具名场景。两臂分别历时 6,016／6,026 ms，作者 `runtime` 增量与 `frametime` 累计各自吻合至毫秒，均为 150 次更新。90／130 ms 两种间隔每次实绘都显示 50／37 次。数据与按到期帧重新计周期相符。沿原相位保余量会在相同窗产生约 66／46 次，属于可观测区别。源机会话只开关具名副本，结束配置字节、原选择和接收进程与之前相同。本机 M4 用相同作者包装入签名 Debug，25 FPS 实绘 150 次更新／6,000 ms，两周期同为 50／37 次。10 FPS 实绘 60 次更新／6,000 ms，两周期为 60／30 次，作者时钟和累计帧时间均为 6,000 ms。独立 Workshop 原包 3079085422 的 layer 253 按作者声明的 148 ms 重复间隔写字，10 FPS 终帧实际显示了部分字样，源与结果经原窗口和完成帧收据核对。原包含随机延迟，单帧和栅格发布不用于推算回调次数。三窗 GPU 完成且排空。原生 QuickJS 门复核到期帧、同 owner 模拟换档、零步长和超长一步，保持现役生产计时。官版具名窗两次 25 FPS 只区分上述累计计数，普通桌面、热改、取消顺序和过载的官版行为仍待验。收据归 `.artifacts/wallpaper-quality-scene-timer-cadence`。
