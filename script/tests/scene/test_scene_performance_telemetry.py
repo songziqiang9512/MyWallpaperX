@@ -86,6 +86,20 @@ import Metal
 @main
 enum Harness {
     static func main() throws {
+        let diagnostics = SceneFramePerformanceTelemetry()
+        precondition(diagnostics.drawablePresentationDiagnosticSample() == nil)
+        diagnostics.reset(recordsDrawablePresentation: true)
+        precondition(diagnostics.drawablePresentationDiagnosticSample()?.streams.isEmpty == true)
+        diagnostics.reset()
+        precondition(diagnostics.drawablePresentationDiagnosticSample() == nil)
+        var notes = SceneFramePerformanceTelemetry.DrawablePresentationCounts()
+        for timestamp in [0.0, -1, .nan, .infinity, 100] {
+            notes.recordCallback(presentedTime: timestamp, isCurrentGeneration: true)
+        }
+        notes.recordCallback(presentedTime: 100, isCurrentGeneration: false)
+        precondition(notes.raw == 6 && notes.stale == 1 && notes.zero == 1
+            && notes.negative == 1 && notes.nonfinite == 2 && notes.valid == 1)
+
         guard let device = MTLCreateSystemDefaultDevice(),
               let queue = device.makeCommandQueue(),
               let commandBuffer = queue.makeCommandBuffer() else {

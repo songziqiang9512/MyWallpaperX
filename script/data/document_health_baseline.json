@@ -98,7 +98,7 @@
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 147122
+      "bytes": 148477
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -710,15 +710,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "5b73306a4d8521c0dce26d07dcbebfe197972f59936d0d497b0bf5ed4a378a3f",
-      "after": "3862312f688a5886e487cfddd485a69f026ca14c124c8fa9ddda4397ce998216",
-      "owner": "Scene root composition and quality",
-      "reason": "Record the actual long-window results and the next proven order of graph and depth consumers.",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-paired-depth-terminal"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/repository-map.md",
       "before": "e1898c3ae929018ee8e2e54335659be2acd358d54912a076e381123fedfa23f8",
       "after": "be44457987066b92d96f17a259449e15f317d13172740e4711ee140c96fcdbe8",
@@ -734,6 +725,15 @@
       "owner": "Playback quality intent and the execution owners",
       "reason": "Record each setting's request, actual consumer, evidence and shared selection contract.",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#reference-and-current"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "3862312f688a5886e487cfddd485a69f026ca14c124c8fa9ddda4397ce998216",
+      "after": "045528915d36b0c234d5c1f5422cc37525bcde1429401cf6893903e4396bb153",
+      "owner": "Scene Debug presentation and quality evidence",
+      "reason": "Describe actual drawable callback comparisons and depth feasibility bounds.",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-aa-four"
     }
   ]
 }

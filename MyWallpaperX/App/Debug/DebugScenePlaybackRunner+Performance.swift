@@ -39,6 +39,11 @@ extension DebugScenePlaybackRunner {
         private var gpuAllocatedSampledPeakBytes: UInt64 = 0
         private var renderTargetPoolSampledPeakBytes: UInt64 = 0
         private var gpuCensusBaseline: [ScenePerformanceMetric: UInt64] = [:]
+        private let recordsDrawablePresentation: Bool
+
+        init(recordsDrawablePresentation: Bool) {
+            self.recordsDrawablePresentation = recordsDrawablePresentation
+        }
 
         func start() {
             isActive = true
@@ -89,6 +94,7 @@ extension DebugScenePlaybackRunner {
         }
 
         private func recordSample() {
+            if recordsDrawablePresentation { recordDrawablePresentationSample() }
             DebugScenePlaybackRunner.runtimeHost.refreshPerformanceResourceGauges()
             let counters = ScenePerformanceCounterHub.shared.snapshot()
             sampleCount += 1
@@ -115,6 +121,24 @@ extension DebugScenePlaybackRunner {
                 if processCPUTimeFailure == nil {
                     processCPUTimeFailure = failure
                 }
+            }
+        }
+
+        private func recordDrawablePresentationSample() {
+            guard let sample = SceneFramePerformanceTelemetry.debugEvidence.drawablePresentationDiagnosticSample()
+            else { return }
+            let surfaces = DebugScenePlaybackRunner.runtimeHost.activeSession?.surfaces ?? [:]
+            let windows = Dictionary(uniqueKeysWithValues: surfaces.map { (UInt64($0.key), $0.value.window) })
+            let streamIDs = Set(sample.streams.keys).union(windows.keys).sorted()
+            NSLog("MWX DEBUG SCENE: phase=performance-presentation elapsed=%.3f submitted=%d completed=%d appActive=%@ streams=%d",
+                  sample.elapsed, sample.submitted, sample.completed, NSApp.isActive ? "true" : "false", streamIDs.count)
+            for streamID in streamIDs {
+                let counts = sample.streams[streamID, default: .init()]
+                let window = windows[streamID]
+                NSLog("MWX DEBUG SCENE: phase=performance-presentation-stream elapsed=%.3f display=%llu window=%d visible=%@ occlusionState=%@ alpha=%.3f armed=%d raw=%d stale=%d zero=%d negative=%d nonfinite=%d valid=%d",
+                      sample.elapsed, streamID, window?.windowNumber ?? 0, window?.isVisible == true ? "true" : "false",
+                      window.map { String($0.occlusionState.rawValue) } ?? "none", Double(window?.alphaValue ?? 0),
+                      counts.armed, counts.raw, counts.stale, counts.zero, counts.negative, counts.nonfinite, counts.valid)
             }
         }
 
@@ -201,10 +225,14 @@ extension DebugScenePlaybackRunner {
         guard let window = candidates.max(by: {
             ($0.end - $0.start) < ($1.end - $1.start)
         }) else { return }
-        let resourceCollector = PerformanceResourceCollector()
+        let recordsDrawablePresentation = ProcessInfo.processInfo.arguments.contains(
+            "--mwx-debug-scene-presentation-diagnostics"
+        )
+        let resourceCollector = PerformanceResourceCollector(recordsDrawablePresentation: recordsDrawablePresentation)
         DispatchQueue.main.asyncAfter(deadline: .now() + window.start) {
             SceneFramePerformanceTelemetry.debugEvidence.reset(
-                targetFPS: targetFPS
+                targetFPS: targetFPS,
+                recordsDrawablePresentation: recordsDrawablePresentation
             )
             resourceCollector.start()
         }

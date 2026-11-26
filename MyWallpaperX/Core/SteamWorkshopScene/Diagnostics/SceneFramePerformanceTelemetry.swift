@@ -141,6 +141,25 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
         var intervals: [TimeInterval] = []
     }
 
+    struct DrawablePresentationCounts: Sendable {
+        var armed = 0
+        var raw = 0
+        var stale = 0
+        var zero = 0
+        var negative = 0
+        var nonfinite = 0
+        var valid = 0
+
+        mutating func recordCallback(presentedTime: TimeInterval, isCurrentGeneration: Bool) {
+            raw += 1
+            if !isCurrentGeneration { stale += 1 }
+            else if !presentedTime.isFinite { nonfinite += 1 }
+            else if presentedTime == 0 { zero += 1 }
+            else if presentedTime < 0 { negative += 1 }
+            else { valid += 1 }
+        }
+    }
+
     private static let frameBudget = 1.0 / 60.0
     private let lock = NSLock()
     private var generation: UInt64 = 0
@@ -153,6 +172,7 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
     private var presented = 0
     private var presentationFrameBudget: TimeInterval = 1.0 / 60.0
     private var presentationStreams: [UInt64: PresentationStream] = [:]
+    private var drawablePresentationCounts: [UInt64: DrawablePresentationCounts]?
     private var cadence = SceneFrameCadencePerformance()
     private var drawableMissed = 0
     private var callbackIntervals: [TimeInterval] = []
@@ -172,7 +192,8 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
 
     func reset(
         at uptime: TimeInterval = ProcessInfo.processInfo.systemUptime,
-        targetFPS: Double = 60
+        targetFPS: Double = 60,
+        recordsDrawablePresentation: Bool = false
     ) {
         if self === Self.debugEvidence {
             SceneGPUStageTimestampHook.invalidate(reason: "telemetry-reset")
@@ -188,6 +209,7 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
             presented = 0
             presentationFrameBudget = 1.0 / targetFPS
             presentationStreams.removeAll(keepingCapacity: true)
+            drawablePresentationCounts = recordsDrawablePresentation ? [:] : nil
             cadence = .init()
             drawableMissed = 0
             callbackIntervals.removeAll(keepingCapacity: true)
@@ -395,13 +417,27 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
     }
 
     func recordWillPresent(_ drawable: CAMetalDrawable, streamID: UInt64) {
-        let token = withLock { generation }
+        let token = withLock {
+            drawablePresentationCounts?[streamID, default: .init()].armed += 1
+            return generation
+        }
         drawable.addPresentedHandler { [weak self] presentedDrawable in
             self?.recordPresented(
                 at: presentedDrawable.presentedTime,
                 streamID: streamID,
-                generation: token
+                generation: token,
+                fromDrawable: true
             )
+        }
+    }
+
+    func drawablePresentationDiagnosticSample() -> (
+        elapsed: TimeInterval, submitted: Int, completed: Int, streams: [UInt64: DrawablePresentationCounts]
+    )? {
+        withLock {
+            guard let drawablePresentationCounts else { return nil }
+            return (ProcessInfo.processInfo.systemUptime - measurementStart,
+                    submitted, completed, drawablePresentationCounts)
         }
     }
 
@@ -528,11 +564,16 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
     private func recordPresented(
         at uptime: TimeInterval,
         streamID: UInt64,
-        generation token: UInt64
+        generation token: UInt64,
+        fromDrawable: Bool = false
     ) {
-        guard uptime.isFinite, uptime > 0 else { return }
         withLock {
-            guard generation == token else { return }
+            let isCurrentGeneration = generation == token
+            if fromDrawable {
+                drawablePresentationCounts?[streamID, default: .init()]
+                    .recordCallback(presentedTime: uptime, isCurrentGeneration: isCurrentGeneration)
+            }
+            guard isCurrentGeneration, uptime.isFinite, uptime > 0 else { return }
             presented += 1
             let previous = presentationStreams[streamID]?.lastPresentation ?? 0
             presentationStreams[streamID, default: PresentationStream()].presented += 1
