@@ -93,6 +93,13 @@ PERSPECTIVE_CASES.append(case(
     perspective=PERSPECTIVE_CASES[0]["perspective"], backCull=True,
 ))
 
+PERSPECTIVE_FACING_CASES = [
+    case(f"canvas-width-facing-{depth}-{cull}", velocity=(1, 0, 0), size=80, stretch=2,
+         perspective={"yaw": 0, "offsetX": 0, "depth": depth}, backCull=cull)
+    for depth in (1200, 3000)
+    for cull in (False, True)
+]
+
 HARNESS_SOURCE = r'''
 import Foundation
 import Metal
@@ -241,7 +248,7 @@ class SceneParticleAffineTrailTests(unittest.TestCase):
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
         cases_path = directory / "cases.json"
-        cases = CASES + PREPARED_WORLD_CASES + PERSPECTIVE_CASES
+        cases = CASES + PREPARED_WORLD_CASES + PERSPECTIVE_CASES + PERSPECTIVE_FACING_CASES
         cases_path.write_text(json.dumps(cases), encoding="utf-8")
         binary = directory / "scene-particle-affine"
         sources = swift_sources()
@@ -425,7 +432,9 @@ class SceneParticleAffineTrailTests(unittest.TestCase):
                 tail_u1, tail_u0 = corners[0], corners[2]
                 tail_u_order[name] = tail_u0[1] / tail_u0[3] - tail_u1[1] / tail_u1[3]
                 visible[name] = row["visiblePixels"]
-                self.assertGreater(visible[name], extent * extent // 20, name)
+                # The fixed canvas eye narrows this tilted fixture while its
+                # near-clipped tail still covers more than 4% of the target.
+                self.assertGreater(visible[name], extent * extent // 25, name)
                 self.assertLess(row["bounds"][1], extent // 4, name)
                 self.assertGreaterEqual(row["bounds"][3], extent // 4, name)
                 self.assertLess(row["bounds"][3], extent // 2,
@@ -440,6 +449,18 @@ class SceneParticleAffineTrailTests(unittest.TestCase):
             self.assertGreater(tail_u_order["perspective-front"] * tail_u_order[name], 0, name)
         self.assertEqual(self.rows["perspective-reflected-cull"]["coveredRuns"],
                          self.rows["perspective-front"]["coveredRuns"])
+
+    def test_canvas_shader_eye_controls_trail_facing_before_the_projection_eye(self):
+        near, near_culled, far, far_culled = (
+            self.rows[value["name"]] for value in PERSPECTIVE_FACING_CASES
+        )
+        for row in (near, near_culled, far, far_culled):
+            self.assertTrue(row["encoded"] and row["gpuCompleted"], row["name"])
+            self.assertTrue(all(vertex[3] > 0 for vertex in row["probePositions"]), row["name"])
+        self.assertGreater(near["visiblePixels"], 10)
+        self.assertGreater(far["visiblePixels"], 10)
+        self.assertEqual(near_culled["coveredRuns"], near["coveredRuns"])
+        self.assertEqual(far_culled["visiblePixels"], 0)
 
 
 if __name__ == "__main__":

@@ -270,7 +270,7 @@ ChildGraphExpansion 为已对照的局部 Follow 与 Static 准备声明 `flags=
 
 Sprite、SpriteTrail、RopeTrail、refraction 与 depth 复用原几何、材质和目标。保 TEX 帧与非方宽高比；Rope 按整图取样。 <a id="world-sprite-trail-length"></a>根世界 SpriteTrail 以同帧绘制线性基把模拟速度映到场景，再用世界速率乘作者 length、限制于作者上下界。实例上传同域单位方向与已限伸展，Metal 沿此方向应用粒径和原帧宽高比，退出纵轴的第二次图层缩放；零速度没有纵向位移。局部 SpriteTrail 仍先在局部限长再变换，子系统和端点型 Rope 沿原几何。无新模拟状态；组件计划一次求速度与方向。验收保同纹理单粒/叠加、上下限、局部对照、旋转镜像和改名，并用原景与独立作者比可见足迹。
 
-本地尺寸透视根 SpriteTrail 的 Screen 宽轴取局部眼线与速度的垂向，随模型变换，绕序随手性，过眼平面时 U 连续。CameraFrame 每批投影一次眼点，退出会放大近眼尾部的宽度反解。共线用相机横轴，模型不可逆沿局部朝向。其余几何模式各用原宽轴规则。
+本地尺寸透视根 SpriteTrail 的 Screen 宽轴取局部眼线与速度的垂向。完整作者画布沿 CameraFrame 的 shader 眼位（画布中心、Z2000）定宽，中心投影与裁剪沿拟合 VP。宽轴同时决定横向 U 和四角绕序，随原模型手性校正；背面剔除沿材质状态。原生透视及不完整画布沿原投影眼位，每批转一次局部眼点。共线用相机横轴，模型不可逆沿局部朝向。其余几何各用原宽轴。[实帧与剔除对照](runtime-evidence-current.md#sprite-trail-canvas-width-338)
 
 <a id="multiple-renderer-outputs"></a>
 ### 同一模拟的多个 renderer 输出
