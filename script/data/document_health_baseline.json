@@ -154,7 +154,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 414,
-      "bytes": 78585
+      "bytes": 78795
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 485,
@@ -162,7 +162,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 400479
+      "bytes": 402303
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -193,8 +193,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 56,
-      "bytes": 6831
+      "lines": 57,
+      "bytes": 7071
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -621,11 +621,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "9be46f8e448bdaa64699e48d78c1b0b3a864385c7d312e8d7111ba2b4c8e91c7",
-      "after": "141cc78d2d698371746f4ec2ae14199263f0aac61fddab56a36ee38236b538aa",
-      "owner": "Scene 与三引擎画质",
-      "reason": "从主分支正文核对已合入的 Scene 合同和画质证据，保留双方工作及合并正文的实际预算。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+      "before": "141cc78d2d698371746f4ec2ae14199263f0aac61fddab56a36ee38236b538aa",
+      "after": "d683613b778f087bf2c3f775beec398becd5d258a9168cf886895e668866b78d",
+      "owner": "Scene main synchronization",
+      "reason": "保留主线粒子初始化、可核证据与质量分支原有记录。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#instance-color-revision"
     },
     {
       "section": "bodies",
@@ -639,11 +639,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "500f924ece399409eb307fc27cb570fcadfd6d4a593a051b814f68bb9458020b",
-      "after": "4269088fd79b7dc4473699007480ca616c1c00358da84a5634744278a18c8289",
-      "owner": "Scene particle composition",
-      "reason": "按主线父提交核对合并后的拖尾复测与画质证据预算。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ember-mature-cohort-repeat-376"
+      "before": "4269088fd79b7dc4473699007480ca616c1c00358da84a5634744278a18c8289",
+      "after": "c30e106350e51a8f27533128629fd60f4564308f52558c10de68c05d39678eee",
+      "owner": "Scene main synchronization",
+      "reason": "保留主线粒子初始化、可核证据与质量分支原有记录。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-default-birth-color"
     },
     {
       "section": "bodies",
@@ -693,10 +693,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a78bc555bb54b999f11060fea874d2fd26f960de35f64fd7f439cc73e7272dff",
-      "after": "2d8c7af5157433d5343dc1a35d2b0dc1d1e2e4c05bc9aa56da3a5239b86f2f99",
-      "owner": "Scene author audio history",
-      "reason": "更新前景问题到已证幅度历史后的实际定位。",
+      "before": "1588d0efdb41250814959fefce5f5acd2692c9597a422fcc5f22515689522c71",
+      "after": "5508f96625aa65a17e8fe4b063761690a0d5626fe4cce5cba42e5f575d335fa1",
+      "owner": "Scene particle simulation",
+      "reason": "用已测高倍率覆盖差替换旧左缘猜测，并登记实测HSV出生差异。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {

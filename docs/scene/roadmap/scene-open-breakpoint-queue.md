@@ -29,7 +29,8 @@
 | 定位 | 已确认的差异与下一步 |
 |---|---|
 | 3463406101 · 前景回亮 | [归一后历史](../capabilities/runtime-evidence-current.md#forefront-normalized-history-346)已接入。[原低多音](../capabilities/runtime-evidence-current.md#forefront-recovery-346)的早期回亮仍有残差。沿同源分析代次核分母与实际供值。 |
-| 2927205881 · 左端短 | [固定速率及淡出对照](../capabilities/runtime-evidence-current.md#particle-rate-alpha-envelope)后原作者 699 左端仍短。用同画幅、同声源核出生相位、实际存量及 Sprite 栅格，单独对照稳态与动态切换。 |
+| 2927205881 · 高倍率粒群密度 | [原 699 同画幅](../capabilities/runtime-evidence-current.md#particle-rate-coverage-292)固定倍率两端左缘接近，高倍率官版轨迹明显更稀。固定年龄、出生节拍及深度，随后以同音源复验原包动态切换。 |
+| HSV 粒子出生色 | [同板实测](../capabilities/runtime-evidence-current.md#particle-hsv-birth-color-oracle)省略 `huesteps` 时官版着色，本机保白。分开步数缺省、实际色相和两种实例色输入。 |
 | Sphere 全零方向 | [隔离对照](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)中官版无像素，本机出现静点。原作者盘点未发现活动声明；用实际子事件或占槽对照区分出生和可见性。 |
 | 粒子高阻尼和侧转 | [同龄大阻尼](../capabilities/runtime-evidence-current.md#particle-movement-half-life)的 drag40 官/本相差约 15 px，drag20 在容差内。[正交 Sprite](../capabilities/runtime-evidence-current.md#particle-around-phase-frame)的精确 90° 另有投影差。各自核实际步长与局部 quad。 |
 | GLSL 作用域与采样声明 | 双阶段 varying/uniform 同名在真编译中触发重定义。另一个实际反例是 slot0 sampler 的宏别名被冷接口拒绝。沿现有 stage ABI 与预处理接口复现，保持健康相邻声明。 |

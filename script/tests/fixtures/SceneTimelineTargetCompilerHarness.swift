@@ -407,7 +407,7 @@ enum Harness {
             simulator.advance(by: 0.25)
             return simulator.particles.map(\.color)
         }
-        for version in [3, 4, 5] {
+        for version in [1, 3, 4, 5] {
             let name = "version-\(version)"
             let (descriptor, program) = try compile(scene(wrapper, layerID: id, resource: resource, version: version,
                 scriptedAlpha: true), admittedAlphaFor: id)
@@ -461,6 +461,19 @@ enum Harness {
 
             let plain = try authoredBirthColors(scene(nil, layerID: id, resource: resource, version: version))
             checks[name + "-no-override-preserves-color-initializer"] = plain == [directLegacy]
+
+            let uncoloredDefinition = particle(material: "materials/default-birth-color.json")
+            let uncolored = SceneParticleSimulator(definition: uncoloredDefinition, instanceOverride: authored,
+                seed: 31, fixedTimeStep: 0.25)
+            uncolored.advance(by: 0.25)
+            uncolored.advance(by: 0.25, dynamicInstanceOverride: resolved)
+            checks[name + "-default-birth-color-keeps-authored-override"] = uncolored.particles.map(\.color) == [
+                SIMD3<Double>(0.25, 0.5, 0.75), SIMD3<Double>(0.75, 0, 0.25),
+            ]
+            let uncoloredLegacy = SceneParticleSimulator(definition: uncoloredDefinition, instanceOverride: legacyAuthored,
+                seed: 31, fixedTimeStep: 0.25)
+            uncoloredLegacy.advance(by: 0.25)
+            checks[name + "-default-birth-color-keeps-legacy-255-override"] = uncoloredLegacy.particles.map(\.color) == [directLegacy]
             observations[name] = ["timeline": quarter[target].map { describe($0.value) } ?? "missing",
                 "first": first.map { vector($0.color) }, "second": second.map { vector($0.color) },
                 "explicit": explicit.map(vector), "restored": restored.map(vector),

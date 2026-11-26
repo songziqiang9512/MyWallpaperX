@@ -151,6 +151,11 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             instanceOverride: instanceOverride, hasLayerImageMap: layerImageEmissionMap != nil
         )
         self.definition = definition
+        var instanceOverride = instanceOverride
+        if instanceOverride?.usesLegacyColorTransfer == true,
+           !definition.initializers.contains(where: { $0.kind.writesBirthColor }) {
+            instanceOverride?.usesLegacyColorTransfer = nil
+        }
         self.instanceOverride = instanceOverride
         let activeOverride = initialDynamicInstanceOverride ?? instanceOverride
         self.activeInstanceOverride = activeOverride
