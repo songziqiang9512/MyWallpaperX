@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 356998
+      "bytes": 357433
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 240,
-      "bytes": 67919
+      "bytes": 68102
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f838a111a1c2583a538fda3d53265af7b818e187a57814001ab64aef4beb8605",
-      "after": "65b1ff2e25ade01acda8aec8dcb4281d117f9a7cf74a134d17d63d60cfd60130",
+      "before": "65b1ff2e25ade01acda8aec8dcb4281d117f9a7cf74a134d17d63d60cfd60130",
+      "after": "43e0578c544259446044669ead44021adbab36d797a46b444eade95bb153d868",
       "owner": "Scene",
-      "reason": "记录固定公共峰的同尾动态对照与相位停止条件",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#forefront-recovery-346"
+      "reason": "保留当前GPU实测的未选末段复制和单帧证据边界",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#inactive-terminal-copy-367"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "81b8ad06baa66b579ae17ac3277c8cbc7556dd8d74e3774c693e30a1e964c950",
-      "after": "c4eb8debf69ad348482016bc730faee8174142a8cba1d7c657b1e84e0f2d798e",
+      "before": "c4eb8debf69ad348482016bc730faee8174142a8cba1d7c657b1e84e0f2d798e",
+      "after": "ce1ec96d7ba0b64cf697c5dd9cab4a09049030b467eba53c08d793b7c79c49e5",
       "owner": "Scene",
-      "reason": "记录固定公共峰的同尾动态对照与相位停止条件",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "reason": "保留当前GPU实测的未选末段复制和单帧证据边界",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
     },
     {
       "section": "bodies",

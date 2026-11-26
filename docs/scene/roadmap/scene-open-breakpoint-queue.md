@@ -178,7 +178,7 @@
 | 密集预热 · 3337494481 | [原包交错实测](../capabilities/runtime-evidence-current.md#particle-turbulence-borrow)确认签名优化态可启动，普通Debug超时仅限该取证配置。单root去隐藏轨迹的隔离计时重叠，候选退出。实际首屏仍以完整预热为主；继续依据可移除的工作，保作者时序、随机、历史和首帧。 |
 | 3749463715 | [现役历史结算唤醒](../capabilities/runtime-evidence-current.md#gpu-admission-wake-374)已降低等待。[末端消融](../capabilities/runtime-evidence-current.md#terminal-main-ablation)每帧去掉五个离屏材质，实呈与GPU时间持平，候选已撤回。后续只追有新证据的显著成本，保跨帧历史与回滚；不重跑末端消融、不放宽容量或按重叠时戳删材质。 |
 | 3420215721 | [同包实测](../capabilities/runtime-evidence-current.md#scene-playback-triage-342)确认 GPU 超预算，稳定帧 history split 已减少 seed copy。[运行时失败反例](../capabilities/runtime-evidence-current.md#stale-history-seed)补查历史保持；后续只补同 scene-time 像素 A/B、真实 descriptor/reset 与 activation 切换的未覆盖范围，不重复已有效的构建和稳定帧测量，不增 pin 或 history owner。 |
-| 3673609113 | 续等、零覆盖、HDR末段及[截取合并](../capabilities/runtime-evidence-current.md#shared-capture-material-pass)已验。GPU仍超预算，保两级作者历史。 |
+| 3673609113 | 续等、零覆盖、HDR末段及[截取合并](../capabilities/runtime-evidence-current.md#shared-capture-material-pass)已验。GPU仍超预算。[当前逐段](../capabilities/runtime-evidence-current.md#inactive-terminal-copy-367)定位3347末段显隐仅复制；先证真实末端成员交接可省拷贝，保已命名输出和两级作者历史。 |
 
 测量与退出规则只归[性能方法](performance-convergence-card.md)，本表不沿用旧实验数值或认领收益。
 
