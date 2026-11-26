@@ -265,23 +265,35 @@ extension SceneMetalRenderer {
             else { return nil }
             return first
         }
-        // Graph-free terminal depth can be decided before the private camera
-        // pool, so native and single-sample paths never reserve it together.
+        var rootMultisample: RootMultisamplePlan?
         if let targets = nativeRootTargets, !ordinaryDepthLayerIDs.isEmpty,
            requestedFramebufferSources.isEmpty,
            dependencyRuntime.nonStaticModelProviderLayerIDs.isEmpty,
+           dependencyRuntime.previousProviderLayerIDs.isEmpty,
            runtime?.hasSourceMaterialSceneEnvironmentConsumer != true,
-           executionLayerIDs.isDisjoint(with: frameVisibleLayerIDs),
-           !utilityExecution.plansByTriggerLayerID.values.contains(where: { plans in
-               plans.contains { Self.executesUtilityPlan($0, framePlans: [:], layers: frameLayersByID) }
-           }),
            (!allowsSceneReflection || staticModelResources.reflectiveLayerIDs.isDisjoint(with: frameVisibleLayerIDs)),
-           mainLayersAllowMultisampling(orderedLayers, visible: frameVisibleLayerIDs, allowsOrdinaryLayer: {
-               allowsNativeOrdinaryLayer($0, samples: targets.sampleCount)
-           }),
-           firstNativeModelLayer() != nil,
-           let attachments = targets.forTarget(mainTarget) {
-            mainPass.prepareMultisampling(attachments)
+           let plan = clearRootMultisamplePlan(orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
+               graphLayers: executionLayerIDs.intersection(frameVisibleLayerIDs),
+               utility: utilityExecution, layersByID: frameLayersByID,
+               allowsOrdinaryLayer: { allowsNativeOrdinaryLayer($0, samples: targets.sampleCount) },
+               canPrepareLocalOutput: { layer in
+                   guard layer.contentKind == "image", ordinaryDepthLayerIDs.contains(layer.id),
+                         imageTextures.initialVideoReadiness?[layer.id] == nil,
+                         !dependencyRuntime.isStaticModelSourceProvider(layer.id),
+                         runtime?.requiresSceneEnvironment(layerID: layer.id) != true,
+                         let claim = imageCompositor.preflightResolvedMaterialClaim(layerID: layer.id).execution
+                   else { return false }
+                   return claim.sourceRoute == .capturedLayerTexture
+                       && claim.dependencyOwnership == .none && claim.sceneBackgroundRequirement == nil
+               }, firstModelIndex: { firstNativeModelLayer() },
+               tailUsesCameraDepth: { layer in
+                   (modelFrame.prepared?[layer.id]?.isEmpty == false)
+                       || modelFrame.imageMaterialStates[layer.id]?.requiresDepthAttachment == true
+                       || particleBatchesByID[layer.id]?.isEmpty == false
+               }),
+           let attachments = targets.forTarget(mainTarget),
+           mainPass.prepareMultisampling(attachments) {
+            rootMultisample = plan
         }
         let unavailableDepthConsumers = unavailableSharedTerminalDepthLayers(
             requestedFramebufferSources, state: modelFrame, orderedLayers: orderedLayers,
@@ -490,8 +502,7 @@ extension SceneMetalRenderer {
         func requiresLiveImageReflection() -> Bool {
             allowsSceneReflection && requiresImageReflection()
         }
-        var seededMultisample: (layerID: Int, targets: MainMultisampleTargets)?
-        if mainPass.multisampleAttachments == nil, let multisampleTargets = nativeRootTargets,
+        if rootMultisample == nil, let multisampleTargets = nativeRootTargets,
            !hasReadyReflectiveModel {
             func allowsOrdinaryLayer(_ layer: SceneRenderDescriptor.Layer) -> Bool {
                 modelFrame.imageMaterialStates[layer.id] == nil
@@ -508,7 +519,9 @@ extension SceneMetalRenderer {
                !requiresLiveImageReflection(),
                let start = firstNativeModelLayer(shadowCandidates) {
                 if startsAtClear, let attachments = multisampleTargets.forTarget(mainTarget) {
-                    mainPass.prepareMultisampling(attachments)
+                    if mainPass.prepareMultisampling(attachments) {
+                        rootMultisample = .clear(localOutput: nil, resolvesBeforeUtility: nil)
+                    }
                 } else if !startsAtClear {
                     let suffix = orderedLayers[start...]
                     let safeSuffix = suffix.allSatisfy { layer in
@@ -524,7 +537,7 @@ extension SceneMetalRenderer {
                     }
                     if safeSuffix && mainLayersAllowMultisampling(suffix, visible: frameVisibleLayerIDs,
                         allowsOrdinaryLayer: allowsOrdinaryLayer) {
-                        seededMultisample = (orderedLayers[start].id, multisampleTargets)
+                        rootMultisample = .afterColor(layerID: orderedLayers[start].id, targets: multisampleTargets)
                     }
                 }
             }
@@ -696,8 +709,24 @@ extension SceneMetalRenderer {
             return .dropped(reasonCode: "resolved-material-frame-preparation-rejected")
         }
         var stopsAfterClaimedFailure = false
-        var forwardGraphProviderLayerIDs: Set<Int> = []
-        if let imagePipeline {
+        var preparedGraphOutputLayerIDs: Set<Int> = []
+        if case let .clear(localID?, _) = rootMultisample,
+           let localPlan = resolvedMaterialFrameTargetPlans[localID], let runtime {
+            switch imageCompositor.resolvedMaterialClaim(layerID: localID) {
+            case let .claimed(claim):
+                if case let .encoded(texture, ticket) = imageCompositor.executeResolvedMaterialClaim(
+                    runtime: runtime, claim: claim, framePlan: localPlan, layerID: localID,
+                    mainPass: mainPass, executionTrace: effectExecutionTrace, executionOrigin: .image
+                ), case .consumed = runtime.markOutputReady(ticket, texture: texture) {
+                    preparedGraphOutputLayerIDs.insert(localID)
+                } else { stopsAfterClaimedFailure = true }
+            case .rejected:
+                stopsAfterClaimedFailure = true
+            case .unclaimed, .localFallback:
+                break
+            }
+        }
+        if !stopsAfterClaimedFailure, let imagePipeline {
 #if DEBUG
             performanceTelemetry?.beginStage("prepass-forward-providers")
 #endif
@@ -718,7 +747,7 @@ extension SceneMetalRenderer {
                 commandBuffer: commandBuffer,
                 executionTrace: effectExecutionTrace
             ) {
-                forwardGraphProviderLayerIDs = prepared
+                preparedGraphOutputLayerIDs.formUnion(prepared)
             } else {
                 stopsAfterClaimedFailure = true
             }
@@ -732,7 +761,7 @@ extension SceneMetalRenderer {
             if let reason = prepareOrderedModelShadow(state: modelFrame, lights: shadowLights, lighting: frameLightSnapshot,
                 orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
                 activeNamedModels: activeStaticModelNamedAlbedoLayerIDs,
-                forwardGraphProviders: forwardGraphProviderLayerIDs,
+                forwardGraphProviders: preparedGraphOutputLayerIDs,
                 framePlans: resolvedMaterialFrameTargetPlans, imageTextures: imageTextures,
                 imagePipeline: imagePipeline, frameContext: frameContext, worldFrames: frameWorldFrames,
                 cameraFrame: cameraFrame, parallax: parallaxConfiguration, viewportSize: viewportSize,
@@ -776,7 +805,7 @@ extension SceneMetalRenderer {
             initiallyStopped: stopsAfterClaimedFailure,
             needsTerminalScratch: sceneColor == nil && displayMappingPostProcess != nil
                 && displayMappingInput == .textureSource,
-            forwardGraphProviderLayerIDs: forwardGraphProviderLayerIDs,
+            preparedGraphOutputLayerIDs: preparedGraphOutputLayerIDs,
             preparationSchedule: preparationSchedule,
             frameVisibleLayerIDs: frameVisibleLayerIDs,
             omittedPrivateLayerIDs: omittedPrivateLayerIDs,
@@ -797,7 +826,7 @@ extension SceneMetalRenderer {
             environmentSource: environmentSource,
             modelFrame: modelFrame,
             mainPass: mainPass,
-            seededMultisample: seededMultisample,
+            rootMultisample: rootMultisample,
             compositionGroupRuntime: compositionGroupRuntime,
             commandBuffer: commandBuffer,
             effectExecutionTrace: effectExecutionTrace,

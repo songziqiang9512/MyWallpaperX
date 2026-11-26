@@ -21,6 +21,7 @@ from script.scene.scene_wallpaper_graph_output_metrics import (
 )
 from script.tests.scene.test_scene_composition_authored_order_integration import fixture_entries as composition_fixture
 from script.tests.scene.test_scene_directional_shadow_integration import quad
+from script.tests.scene.test_scene_fullscreen_visibility_integration import fixture_entries as fullscreen_fixture
 from script.tests.scene.test_scene_named_model_shadow import named_fixture
 from script.tests.scene.test_scene_native_world_composition import (
     DEPTH_CARD_COLORS,
@@ -46,6 +47,21 @@ BACKGROUND_LAYER, ALPHA_LAYER, TEXT_LAYER, UNPREPARED_SPOT_LAYER = 29, 30, 31, 3
 
 
 def model_input(variant):
+    if variant in ("local-then-root-tail", "root-read-before-model"):
+        entries = perspective_image_depth_entries(7)
+        scene = json.loads(entries["scene.json"])
+        scene["objects"] = [layer for layer in scene["objects"] if layer["id"] == 21 or "model" in layer]
+        _, fullscreen = fullscreen_fixture()
+        consumer = json.loads(fullscreen.pop("scene.json"))["objects"][1]
+        consumer.pop("visible")
+        consumer.update(id=87, origin="0 0 0", perspective=False)
+        if variant == "local-then-root-tail":
+            scene["objects"].append(consumer)
+        else:
+            scene["objects"].insert(-1, consumer)
+        entries.update(fullscreen)
+        entries["scene.json"] = json.dumps(scene).encode()
+        return entries, [layer["id"] for layer in scene["objects"] if "model" in layer]
     if variant in ("shared-depth", "shared-depth-renamed"):
         entries = perspective_image_depth_entries(7)
         scene = json.loads(entries["scene.json"])
@@ -183,7 +199,7 @@ class SceneMultisampleIntegrationTests(unittest.TestCase):
         if any(sha256(Path(path)) != digest for path, digest in cls.identity.items()):
             raise AssertionError("signed App changed between the paired observations")
 
-    def run_arm(self, folder, content, samples):
+    def run_arm(self, folder, content, samples, *, requires_presentation):
         home = folder / "home"
         home.mkdir(parents=True)
         evidence = folder / "evidence"
@@ -201,6 +217,7 @@ class SceneMultisampleIntegrationTests(unittest.TestCase):
                    "--mwx-debug-scene-evidence-dir", str(evidence), "--mwx-debug-scene-duration", "7",
                    "--mwx-debug-scene-after-snapshot-delay", "3.25", "--mwx-debug-scene-audio-silence-fixture",
                    "--mwx-debug-scene-performance-warmup", "1",
+                   "--mwx-debug-scene-presentation-diagnostics",
                    "-mwx.playback.quality",
                    f"{{ sceneAntiAliasingMode = {mode}; }}"]
         log_file = folder / "app.log"
@@ -211,7 +228,9 @@ class SceneMultisampleIntegrationTests(unittest.TestCase):
         self.assertIn("gpuDrained=true", log)
         self.assertFalse(METAL_FAILURE.findall(log))
         presented = re.findall(r"phase=performance [^\n]+?\bpresented=(\d+)", log)
-        self.assertTrue(presented and int(presented[-1]) > 0, log[-4500:])
+        self.assertTrue(presented, log[-4500:])
+        if requires_presentation:
+            self.assertGreater(int(presented[-1]), 0, log[-4500:])
         observation = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
         self.assertEqual(observation["parse_errors"], 0)
         capture = terminal_snapshot_metrics(evidence, log)
@@ -220,6 +239,7 @@ class SceneMultisampleIntegrationTests(unittest.TestCase):
         event, = [frame for frame in observation["events"] if frame["captureRequestID"] == capture["request_id"]
                   and frame["commandBufferToken"] == capture["command_buffer_token"]]
         self.assertTrue(event["presentRequested"], event)
+        self.assertEqual(event["gpuStatus"], "completed", event)
         self.assertEqual(event["truncatedRows"], 0, event)
         self.assertEqual((capture["source_width"], capture["source_height"]),
                          (capture["output_width"], capture["output_height"]))
@@ -228,7 +248,7 @@ class SceneMultisampleIntegrationTests(unittest.TestCase):
         with Image.open(capture["path"]) as image:
             return image.convert("RGB"), event["rows"]
 
-    def comparison(self, name):
+    def comparison(self, name, *, requires_presentation=True):
         entries, model_ids = model_input(name)
         folder = self.work / name
         content = folder / "input"
@@ -237,7 +257,8 @@ class SceneMultisampleIntegrationTests(unittest.TestCase):
         project.write_text(json.dumps({"type": "scene", "file": "scene.json"}))
         package.write_bytes(make_package(list(entries.items())))
         before = (sha256(project), sha256(package))
-        arms = [(samples, self.run_arm(folder / f"requested-{samples}", content, samples))
+        arms = [(samples, self.run_arm(folder / f"requested-{samples}", content, samples,
+                                      requires_presentation=requires_presentation))
                 for samples in (1, 2, 4)]
         self.assertEqual((sha256(project), sha256(package)), before)
         self.assertEqual(len({image.size for _, (image, _) in arms}), 1)
@@ -413,6 +434,44 @@ class SceneMultisampleIntegrationTests(unittest.TestCase):
                 self.assertEqual(native["details"]["sampleCount"], str(samples))
                 self.assertEqual(native["details"]["depthSamples"], str(samples))
                 self.assertEqual(native["details"]["depthClear"], "0.0")
+
+    def test_local_graph_reuses_native_depth_before_the_single_sample_root_reader(self):
+        arms, model_ids = self.comparison("local-then-root-tail", requires_presentation=False)
+        for samples, (_, rows) in arms:
+            openings = [row for row in rows if row["kind"] == "main-raster-open"]
+            root = openings[0]["target"]["textureToken"]
+            models = [row for row in rows if row["kind"] == "model"]
+            self.assertEqual([row["layerID"] for row in models], model_ids)
+            local, = [row for row in rows if row["kind"] == "ordinary" and row.get("layerID") == 21]
+            source, = [row for row in rows if row["kind"] == "sourceCapture" and row.get("layerID") == 21]
+            read, = [row for row in rows if row["kind"] == "sourceCapture" and row.get("layerID") == 87]
+            self.assertNotEqual(source["source"]["textureToken"], root)
+            self.assertEqual(local["target"]["textureToken"], root)
+            self.assertEqual(read["source"]["textureToken"], root)
+            self.assertTrue(rows.index(models[0]) < rows.index(local) < rows.index(models[-1]) < rows.index(read))
+            if samples == 1:
+                self.assertTrue(all(row["details"]["sampleCount"] == "1" for row in openings))
+                self.assertGreater(rows.index(source), rows.index(models[0]))
+                continue
+            native, tail = openings
+            self.assertLess(rows.index(source), rows.index(native))
+            self.assertEqual(native["details"]["sampleCount"], str(samples))
+            self.assertEqual(native["details"]["depthSamples"], str(samples))
+            self.assertEqual(tail["target"]["textureToken"], root)
+            self.assertEqual((tail["details"]["sampleCount"], tail["details"]["colorLoad"]), ("1", "1"))
+            self.assertNotIn("depthSamples", tail["details"])
+            self.assertLess(rows.index(read), rows.index(tail))
+
+    def test_root_read_followed_by_a_depth_consumer_preserves_single_sample(self):
+        arms, _ = self.comparison("root-read-before-model", requires_presentation=False)
+        baseline = arms[0][1][0].tobytes()
+        for _, (image, rows) in arms:
+            self.assertEqual(image.tobytes(), baseline)
+            openings = [row for row in rows if row["kind"] == "main-raster-open"]
+            self.assertTrue(openings and all(row["details"]["sampleCount"] == "1" for row in openings))
+            reader = next(row for row in rows if row["kind"] == "sourceCapture" and row.get("layerID") == 87)
+            model = next(row for row in rows if row["kind"] == "model" and row.get("layerID") == 30)
+            self.assertLess(rows.index(reader), rows.index(model))
 
     def test_authored_consumers_preserve_the_original_single_sample_output(self):
         for name in ("color-blend", "current-color", "named", "history"):

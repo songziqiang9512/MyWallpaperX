@@ -41,6 +41,39 @@ extension SceneMetalRenderer {
         }
     }
 
+    enum RootMultisamplePlan {
+        case clear(localOutput: Int?, resolvesBeforeUtility: Int?)
+        case afterColor(layerID: Int, targets: MainMultisampleTargets)
+    }
+
+    func clearRootMultisamplePlan(
+        orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>, graphLayers: Set<Int>,
+        utility: SceneUtilityLayerRuntimePlanner.Execution, layersByID: [Int: SceneRenderDescriptor.Layer],
+        allowsOrdinaryLayer: (SceneRenderDescriptor.Layer) -> Bool,
+        canPrepareLocalOutput: (SceneRenderDescriptor.Layer) -> Bool,
+        firstModelIndex: () -> Int?,
+        tailUsesCameraDepth: (SceneRenderDescriptor.Layer) -> Bool
+    ) -> RootMultisamplePlan? {
+        let cut = orderedLayers.firstIndex { layer in
+            utility.plansByTriggerLayerID[layer.id]?.contains {
+                graphLayers.contains($0.layerID) || Self.executesUtilityPlan($0, framePlans: [:], layers: layersByID)
+            } == true
+        }
+        let rootEnd = cut.map { $0 + 1 } ?? orderedLayers.count
+        let geometry = orderedLayers.prefix(rootEnd)
+        var localOutput: Int?
+        for layer in geometry where layer.utilityLayer == nil && graphLayers.contains(layer.id) {
+            guard localOutput == nil, canPrepareLocalOutput(layer) else { return nil }
+            localOutput = layer.id
+        }
+        if let localOutput,
+           orderedLayers.first(where: { graphLayers.contains($0.id) })?.id != localOutput { return nil }
+        guard mainLayersAllowMultisampling(geometry, visible: visible, allowsOrdinaryLayer: allowsOrdinaryLayer),
+              let firstModel = firstModelIndex(), firstModel < rootEnd else { return nil }
+        if let cut, orderedLayers.dropFirst(cut + 1).contains(where: tailUsesCameraDepth) { return nil }
+        return .clear(localOutput: localOutput, resolvesBeforeUtility: cut.map { orderedLayers[$0].id })
+    }
+
     func mainLayersAllowMultisampling(
         _ orderedLayers: some Collection<SceneRenderDescriptor.Layer>, visible: Set<Int>,
         allowsOrdinaryLayer: (SceneRenderDescriptor.Layer) -> Bool

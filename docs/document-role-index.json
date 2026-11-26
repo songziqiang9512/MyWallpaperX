@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4e563c6449b4880c8f86eb272b0ba799635f518f860d2ef1e7f727973cf7427e",
+        "sourceSHA256": "71ab24cb901e793a6d20bd7aaa2e0b7cb856240ac85026012d3476e7486730ac",
         "method": "document_registry --audit + document_health --check",
-        "scope": "校对普通终端实际样本与相机深度的接线和代表证据。",
-        "limitations": "桌面短窗及原生深度门；含局部图和实际根读回的默认月亮仍待收敛。"
+        "scope": "校对独立局部图、根采样决定、实际解析与设置时序。",
+        "limitations": "仅签名桌面短窗和原生 GPU 门。跨段读取逐样本深度，以及其他机型和稳态功耗另验。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4b3f5b2e866aee25f9de4c245bbc3f71808ab3cc919c0844bd5d199496d94479",
+        "sourceSHA256": "8b938709db32566cdfeded39fc915208ebd59f1a75ab995ec2f2d228abb8a273",
         "method": "document_registry --audit + document_health --check",
-        "scope": "校对普通终端实际样本与相机深度的接线和代表证据。",
-        "limitations": "桌面短窗及原生深度门；含局部图和实际根读回的默认月亮仍待收敛。"
+        "scope": "校对独立局部图、根采样决定、实际解析与设置时序。",
+        "limitations": "仅签名桌面短窗和原生 GPU 门。跨段读取逐样本深度，以及其他机型和稳态功耗另验。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2bee4d914de16b668bed0e9e80dc9572e16744b710fa243bf4d6ae3d12041679",
+        "sourceSHA256": "987ad781b3434748ec6652b4ecf37924db7c81bfc261bc3324abd07796f8316f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "校对普通终端实际样本与相机深度的接线和代表证据。",
-        "limitations": "桌面短窗及原生深度门；含局部图和实际根读回的默认月亮仍待收敛。"
+        "scope": "校对独立局部图、根采样决定、实际解析与设置时序。",
+        "limitations": "仅签名桌面短窗和原生 GPU 门。跨段读取逐样本深度，以及其他机型和稳态功耗另验。"
       }
     },
     {
@@ -886,10 +886,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c4d5d5a30aab76cd5db99e5bc1db37c7dcab61e699d4b3da9c108f9c052874d0",
+        "sourceSHA256": "9c5768b91e085431a33137d282caed273ed5f123c29c56353431a6353154c3ae",
         "method": "document_registry --audit + document_health --check",
-        "scope": "校对普通终端实际样本与相机深度的接线和代表证据。",
-        "limitations": "桌面短窗及原生深度门；含局部图和实际根读回的默认月亮仍待收敛。"
+        "scope": "校对独立局部图、根采样决定、实际解析与设置时序。",
+        "limitations": "仅签名桌面短窗和原生 GPU 门。跨段读取逐样本深度，以及其他机型和稳态功耗另验。"
       }
     },
     {

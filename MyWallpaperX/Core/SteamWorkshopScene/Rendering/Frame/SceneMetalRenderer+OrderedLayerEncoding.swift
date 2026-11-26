@@ -175,7 +175,7 @@ extension SceneMetalRenderer {
         orderedLayers: [SceneRenderDescriptor.Layer],
         initiallyStopped: Bool,
         needsTerminalScratch: Bool,
-        forwardGraphProviderLayerIDs: Set<Int>,
+        preparedGraphOutputLayerIDs: Set<Int>,
         preparationSchedule: SceneDependencyRenderPlan.PreparationSchedule,
         frameVisibleLayerIDs: Set<Int>,
         omittedPrivateLayerIDs: Set<Int>,
@@ -196,7 +196,7 @@ extension SceneMetalRenderer {
         environmentSource: @escaping (MTLCommandBuffer) -> SceneFrameTextureResource?,
         modelFrame: StaticModelFrame,
         mainPass: SceneMainPassEncoder,
-        seededMultisample: (layerID: Int, targets: MainMultisampleTargets)?,
+        rootMultisample: RootMultisamplePlan?,
         compositionGroupRuntime: SceneCompositionGroupFrameRuntime?,
         commandBuffer: MTLCommandBuffer,
         effectExecutionTrace: SceneEffectExecutionFrameTrace?,
@@ -219,7 +219,7 @@ extension SceneMetalRenderer {
         var dynamicPassthroughLayerCount = 0
         var pointLitStaticModelLayerIDs: [Int] = []
 #endif
-        var graphProviderLayerIDs = forwardGraphProviderLayerIDs
+        var readyGraphOutputLayerIDs = preparedGraphOutputLayerIDs
         var stopsAfterClaimedFailure = initiallyStopped
         var lastLayerPass: SceneMainPassEncoder?
 #if DEBUG
@@ -233,6 +233,11 @@ extension SceneMetalRenderer {
             if stopsAfterClaimedFailure || modelFrame.depthDeferralReason != nil
                 || modelFrame.sceneDepthFailureReason != nil { break frameLayers }
             defer {
+                if !stopsAfterClaimedFailure,
+                   case let .clear(_, trigger?) = rootMultisample, trigger == layer.id,
+                   !mainPass.resolveForSingleSampleTail() {
+                    stopsAfterClaimedFailure = true
+                }
                 if !stopsAfterClaimedFailure,
                    !renderUtilityPlans(triggeredBy: layer.id,
                     frameVisibleLayerIDs: frameVisibleLayerIDs,
@@ -294,17 +299,17 @@ extension SceneMetalRenderer {
                     stopsAfterClaimedFailure = true
                     break frameLayers
                 }
-                graphProviderLayerIDs.formUnion(prepared)
+                readyGraphOutputLayerIDs.formUnion(prepared)
             }
             if skipsGroupMember || omittedPrivateLayerIDs.contains(layer.id) { continue }
-            let reusesForwardOutput = graphProviderLayerIDs.contains(layer.id)
-            if !reusesForwardOutput, !frameVisibleLayerIDs.contains(layer.id),
+            let reusesPreparedOutput = readyGraphOutputLayerIDs.contains(layer.id)
+            if !reusesPreparedOutput, !frameVisibleLayerIDs.contains(layer.id),
                preparationSchedule.scheduledGraphProviderLayerIDs.contains(layer.id) { continue }
-            if reusesForwardOutput && !frameVisibleLayerIDs.contains(layer.id) { continue }
+            if reusesPreparedOutput && !frameVisibleLayerIDs.contains(layer.id) { continue }
             let baseSelection: SceneBaseMaterialTextureSelection
             switch layer.contentKind {
             case "image", "solid", "text":
-                baseSelection = reusesForwardOutput ? .missing : baseMaterialTextureSelection(
+                baseSelection = reusesPreparedOutput ? .missing : baseMaterialTextureSelection(
                     for: layer,
                     imageTextures: imageTextures,
                     readyProviderUsesAuthoredLayerColor:
@@ -348,7 +353,7 @@ extension SceneMetalRenderer {
 #endif
 
             }
-            if !reusesForwardOutput,
+            if !reusesPreparedOutput,
                let providerGraphEncoded = executeDependencyGraphProviderIfRequired(
                 layer: layer,
                 isVisibleExecutionRoot: frameVisibleLayerIDs.contains(layer.id),
@@ -406,7 +411,7 @@ extension SceneMetalRenderer {
                     initialVideoPresentation?.pendingLayerIDs.insert(layer.id)
                 }
                 let observesOrdinaryVideo: Bool
-                if reusesForwardOutput || layerMainPass !== mainPass {
+                if reusesPreparedOutput || layerMainPass !== mainPass {
                     observesOrdinaryVideo = false
                 } else if case .provider(.video)? = baseSource?.candidate?.identity {
                     observesOrdinaryVideo = true
@@ -417,12 +422,12 @@ extension SceneMetalRenderer {
                 } else {
                     observesOrdinaryVideo = false
                 }
-                guard baseSource != nil || observesOrdinaryVideo || reusesForwardOutput else { continue }
-                let layerAlpha = reusesForwardOutput ? 1 : SceneDynamicLayerValues.alpha(
+                guard baseSource != nil || observesOrdinaryVideo || reusesPreparedOutput else { continue }
+                let layerAlpha = reusesPreparedOutput ? 1 : SceneDynamicLayerValues.alpha(
                     layerID: layer.id, authoredValue: layer.alpha,
                     snapshot: frameContext.dynamicValues
                 )
-                let sourceMaterialAlpha: Float = reusesForwardOutput ? 1 : baseMaterialProviderBindings.sourceMaterialAlpha(
+                let sourceMaterialAlpha: Float = reusesPreparedOutput ? 1 : baseMaterialProviderBindings.sourceMaterialAlpha(
                     layer: layer, snapshot: frameContext.dynamicValues
                 )
                 let usesPerspective = cameraFrame.resolvesPerspective(for: layer)
@@ -456,7 +461,7 @@ extension SceneMetalRenderer {
                     }
                 }
                 let imageResult: (stop: Bool, outcome: SceneImageLayerCompositor.DrawOutcome?)
-                if reusesForwardOutput {
+                if reusesPreparedOutput {
                     imageResult = encodePreparedImageLayerOutput(layer: layer,
                         geometryProduct: imageTextures.geometryProducts[layer.id], imagePipeline: imagePipeline,
                         model: model, mvp: mvp, cameraFrame: cameraFrame, usesPerspective: usesPerspective,
@@ -510,7 +515,7 @@ extension SceneMetalRenderer {
                     }
                 }
 #endif
-                if !reusesForwardOutput {
+                if !reusesPreparedOutput {
                     dependencyRuntime.recordBindingIfRequired(
                         for: layer.id,
                         encoded: drawOutcome.consumedDependency,
@@ -562,10 +567,10 @@ extension SceneMetalRenderer {
                         }
                     }
                 }
-                if let seededMultisample, seededMultisample.layerID == layer.id,
+                if case let .afterColor(layerID, targets) = rootMultisample, layerID == layer.id,
                    let imagePipeline, let offscreenTexturePool {
                     _ = mainPass.beginMultisamplingAfterColorPrefix(
-                        attachmentsForTarget: seededMultisample.targets.forTarget
+                        attachmentsForTarget: targets.forTarget
                     ) { target, buffer in
                         guard let snapshot = offscreenTexturePool.reserveDisplayScratch(width: target.width,
                             height: target.height, commandBuffer: buffer),
@@ -705,7 +710,8 @@ extension SceneMetalRenderer {
 
         let mainEncoded = mainPass.finishEnsuringClear()
         reflection.mainSourceCompleted = mainEncoded
-        if !mainEncoded && (sceneColor != nil || mainPass.rasterSampleCount > 1) {
+        if !mainEncoded && (sceneColor != nil || mainPass.rasterSampleCount > 1
+            || (mainPass.submittedRasterSampleCount ?? 1) > 1) {
             return .dropped(reasonCode: "scene-color-main-encoder-unavailable")
         }
 #if DEBUG

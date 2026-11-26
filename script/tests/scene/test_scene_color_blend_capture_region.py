@@ -225,7 +225,8 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
             self.skipTest("the device does not support Apple memoryless 2× attachments")
         if self.result["unsupportedEight"]["device"].split()[:2] == ["Apple", "M4"]:
             self.assertTrue(result["supportsFour"])
-        for check in ("historyRejected", "differentSizeRejected", "singleColorRejected", "readRejected"):
+        for check in ("historyRejected", "differentSizeRejected", "singleColorRejected", "readRejected",
+                      "unexpectedCloseRejected"):
             self.assertTrue(result[check], check)
         rows = result["rows"]
         self.assertEqual([row["samples"] for row in rows], [1, 2, 4] if result["supportsFour"] else [1, 2])
@@ -235,15 +236,17 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
             samples = row["samples"]
             with self.subTest(samples=samples):
                 for check in ("finished", "completed", "reused", "offscreenBeforeClear",
-                              "actualResolveTarget", "lateSelectionRejected"):
+                              "actualResolveTarget", "lateSelectionRejected", "resolvedTail"):
                     self.assertTrue(row[check], check)
-                self.assertFalse(row["reopened"])
-                self.assertEqual((row["opens"], row["targetSamples"]), (1, 1))
+                self.assertEqual(row["submittedSamples"], samples)
+                self.assertEqual((row["opens"], row["targetSamples"]), (2 if samples > 1 else 1, 1))
                 self.assertEqual(row["passDetails"]["depthSamples"], str(samples))
                 self.assertEqual(row["passDetails"]["depthClear"], "0.0")
                 if samples > 1:
                     self.assertEqual(row["passDetails"]["depthStore"], "0")
                     self.assertEqual(row["passDetails"]["colorStore"], "2")
+                    self.assertEqual(row["tailDetails"]["colorLoad"], "1")
+                    self.assertNotIn("depthSamples", row["tailDetails"])
                 pixels = resolved_pixels(row)
                 self.assertEqual(len(pixels), width * height)
                 self.assertIn((128, 0, 0, 128), pixels)

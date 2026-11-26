@@ -304,14 +304,19 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
             draw(near, SIMD4(0.5, 0, 0, 0.5), on: first)
             let second = pass.encoder(depthTexture: attachment, clearsDepth: false)!
             draw(far, SIMD4(0, 1, 0, 1), on: second)
-            pass.closeForOffscreen()
-            let reopened = samples > 1 && pass.encoder(required: false) != nil
+            let resolvedTail = samples == 1 || (
+                pass.resolveForSingleSampleTail()
+                && pass.rasterSampleCount == 1
+                && pass.withReadableTarget { source, _ in source === output } == true
+                && pass.encoder() != nil
+            )
             let finished = pass.finishEnsuringClear()
             command.commit(); command.waitUntilCompleted()
             let opens = trace.frozenCompositionObservation()!.rows.filter { $0.kind == "main-raster-open" }
-            rows.append(["samples": pass.rasterSampleCount, "targetSamples": output.sampleCount,
+            rows.append(["samples": samples, "targetSamples": output.sampleCount,
                 "finished": finished, "completed": command.status == .completed, "reused": first === second,
-                "offscreenBeforeClear": offscreenBeforeClear, "reopened": reopened, "opens": opens.count,
+                "offscreenBeforeClear": offscreenBeforeClear, "resolvedTail": resolvedTail, "opens": opens.count,
+                "submittedSamples": pass.submittedRasterSampleCount ?? 0, "tailDetails": opens.last?.details ?? [:],
                 "lateSelectionRejected": lateSelectionRejected,
                 "passDetails": opens.first?.details ?? [:], "actualResolveTarget": opens.first?.target?.textureToken
                     == String(UInt(bitPattern: ObjectIdentifier(output))),
@@ -326,7 +331,12 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
         let blockedRead = SceneMainPassEncoder(commandBuffer: queue.makeCommandBuffer()!, target: output,
             clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
         precondition(blockedRead.prepareMultisampling(pair))
-        return ["supported": true, "supportsFour": supportsFour, "rows": rows,
+        let interrupted = SceneMainPassEncoder(commandBuffer: queue.makeCommandBuffer()!, target: output,
+            clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
+        precondition(interrupted.prepareMultisampling(pair) && interrupted.encoder() != nil)
+        interrupted.closeForOffscreen()
+        return ["supported": true, "unexpectedCloseRejected": !interrupted.resolveForSingleSampleTail()
+                    && !interrupted.finishEnsuringClear(), "supportsFour": supportsFour, "rows": rows,
                 "size": [width, height], "triangleClipXY": near.map { [$0.x, $0.y] },
                 "historyRejected": !noClear.prepareMultisampling(pair) && noClear.rasterSampleCount == 1,
                 "differentSizeRejected": !wrongSize.prepareMultisampling(pair) && wrongSize.rasterSampleCount == 1,

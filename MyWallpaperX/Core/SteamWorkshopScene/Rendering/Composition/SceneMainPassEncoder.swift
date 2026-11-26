@@ -247,7 +247,7 @@ final class SceneMainPassEncoder {
             return nil
         }
         encoder.label = "Scene main layer composite"
-        submittedRasterSampleCount = rasterSampleCount
+        submittedRasterSampleCount = max(submittedRasterSampleCount ?? 1, rasterSampleCount)
 #if DEBUG
         SceneGPUCensus.recordMainPassRender(usesDepth: descriptor.depthAttachment.texture != nil)
         if let trace = compositionTrace, trace.isCompositionSelected {
@@ -280,6 +280,20 @@ final class SceneMainPassEncoder {
     }
 
     func closeForOffscreen() {
+        if multisampleAttachments != nil, activeEncoder != nil { encodingFailed = true }
+        endEncoder()
+    }
+
+    func resolveForSingleSampleTail() -> Bool {
+        guard !encodingFailed, !isFinished else { return false }
+        guard multisampleAttachments != nil else { return true }
+        if activeEncoder == nil, encoder() == nil { return false }
+        endEncoder()
+        multisampleAttachments = nil
+        return true
+    }
+
+    private func endEncoder() {
 #if DEBUG
         if let activeEncoder { SceneGPUStageTimestampHook.endedMain(activeEncoder) }
 #endif
@@ -312,7 +326,7 @@ final class SceneMainPassEncoder {
     func finishEnsuringClear() -> Bool {
         guard !isFinished else { return !encodingFailed }
         if initialLoadAction != nil { _ = encoder() }
-        closeForOffscreen()
+        endEncoder()
         isFinished = true
         return !encodingFailed
     }

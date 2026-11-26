@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 66,
-      "bytes": 24098
+      "bytes": 24163
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 580,
-      "bytes": 170910
+      "bytes": 171574
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 149859
+      "bytes": 150551
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 307,
-      "bytes": 64791
+      "bytes": 65105
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -696,42 +696,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "6c314ccfe11d790711dba3bc27922fde1d1b7eafe55c8d8595a8ec464ecb6bca",
-      "after": "eea6e8c1f648c6e753295e557476991ece7e923c2e04b65c10970547a74affd6",
-      "owner": "Scene root raster and playback quality",
-      "reason": "Record the shared native camera depth timing, source ownership, and actual playback and pressure evidence.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "818ac49df340988d72f8de4575abbfd7a0bb5cb4927569bba8f565f27c790e61",
-      "after": "113e2ae378f20fb8c9f05e9b85606f1d5f3639b248ee082acd2a6b0af735da84",
-      "owner": "Scene root raster and playback quality",
-      "reason": "Record the shared native camera depth timing, source ownership, and actual playback and pressure evidence.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "a8ca7ca71dde8ec711f5ee3e35da1f089c897ea3a8d8ee1bc9f9a266645e377c",
-      "after": "76f150f33128ec9bdbe92b8961f0e5e14fb2e695220b139ed45c41c8fc4ce948",
-      "owner": "Scene root raster and playback quality",
-      "reason": "Record the shared native camera depth timing, source ownership, and actual playback and pressure evidence.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "6e8dffd9c90e936938af9a36b5c28f36ddeac7d41069864944fe53e7e7d63296",
-      "after": "b254e05a5447c7fe2d7568c17b90989888d57b219a438222a74f7d4da11f267f",
-      "owner": "Scene root raster and playback quality",
-      "reason": "Record the shared native camera depth timing, source ownership, and actual playback and pressure evidence.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "015f68f2d1a28c0df5748d1d8b008a7d2e8c542cfbed787ad7d7e864dbf10f74",
       "after": "e0f0cfa09b07f125fb9416d4a4b4d986dfc11312ca8e4ed34b478f6d9c22fd88",
@@ -747,6 +711,42 @@
       "owner": "Scene particles and quality evidence",
       "reason": "Preserve upstream particle and runtime evidence together with the integrated quality branch authorities.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "eea6e8c1f648c6e753295e557476991ece7e923c2e04b65c10970547a74affd6",
+      "after": "b2fbd9ace285bef9197e80a4854b28d5637b13cf0123114f196fc17077d2187c",
+      "owner": "Scene root raster and playback quality",
+      "reason": "Record the local graph execution boundary, one root resolve, and actual default-scene menu and rendering evidence.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-settings-plan.md",
+      "before": "113e2ae378f20fb8c9f05e9b85606f1d5f3639b248ee082acd2a6b0af735da84",
+      "after": "388ca39cb302e7a1b2eaa260b37b1449b0aa8ded73d37ffb5c40f7d82d4a23ac",
+      "owner": "Scene root raster and playback quality",
+      "reason": "Record the local graph execution boundary, one root resolve, and actual default-scene menu and rendering evidence.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "76f150f33128ec9bdbe92b8961f0e5e14fb2e695220b139ed45c41c8fc4ce948",
+      "after": "5ac3c68015cb8c9a81639bae2a0a4677135d89d063495493d6e79accb2746203",
+      "owner": "Scene root raster and playback quality",
+      "reason": "Record the local graph execution boundary, one root resolve, and actual default-scene menu and rendering evidence.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "b254e05a5447c7fe2d7568c17b90989888d57b219a438222a74f7d4da11f267f",
+      "after": "50072fc99f629e629e2fc668f92aceb242b4987d9532473f48e5f3ed1aeaa21d",
+      "owner": "Scene root raster and playback quality",
+      "reason": "Record the local graph execution boundary, one root resolve, and actual default-scene menu and rendering evidence.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
     }
   ]
 }
