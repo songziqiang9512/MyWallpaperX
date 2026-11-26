@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 396166
+      "bytes": 397024
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 57,
-      "bytes": 7620
+      "bytes": 7640
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -648,15 +648,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "624ff26cce861cb2428330a37d7b9dec61323c9bf057f6e15951e463929f6086",
-      "after": "83962074438454dc02459c98bfa0023ae8d4dab31fdc02672a4b79dfd0a0608d",
-      "owner": "Scene particles",
-      "reason": "登记当前原包启动基线与独立预热短栈。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "7e8fceb821f23309a281998e571b6f64a504565a8a03852b9f75da108462559a",
       "after": "015f68f2d1a28c0df5748d1d8b008a7d2e8c542cfbed787ad7d7e864dbf10f74",
@@ -667,11 +658,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "3dd105019c0510181d1bb497e174190902a8cd8ba52fe5a09fb48debde5b8218",
-      "after": "70edc4c36b959c09e231cfd3cbcc8c8d81e13de087e1b3a34dc41cc803af43f9",
-      "owner": "Scene particles",
-      "reason": "登记同包实测首屏、算法位值和独立作者复验。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#simplex-cold-start-333"
+      "before": "70edc4c36b959c09e231cfd3cbcc8c8d81e13de087e1b3a34dc41cc803af43f9",
+      "after": "9eeaeade76e02644bda496e85f6d368ec09150e5845ee4b0821144d8da226583",
+      "owner": "Scene composition",
+      "reason": "登记两端受控人偶姿态的末级历史实测，保留自然运动和音条的开放范围。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-puppet-history-367"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "3aacbab07c03cf51c339a1139c713fa807c929109e82d4fc4b41951145c904be",
+      "after": "dbdd5d9a10fbf527f12ea1bb37bae1e7924ecf6d4e94b337fe4454a7e6564d1e",
+      "owner": "Scene composition",
+      "reason": "登记两端受控人偶姿态的末级历史实测，保留自然运动和音条的开放范围。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
 }
