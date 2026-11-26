@@ -13,7 +13,6 @@
 
 | 样本 | 本轮反馈 | 复验起点 |
 |---|---|---|
-| 3603711180 | 歌曲文字位置错 | [标题、艺人、时间和封面供给](../capabilities/runtime-evidence-current.md#author-player-text-current-360)有同输入对照。以同媒体、字体和画幅比较首行与次行的盒位置。 |
 | 3781003282 | 指针粒子移到浅色区时中央有半透明白方 | [旧红尾随鼠标](../capabilities/runtime-evidence-current.md#pointer-halo-378)。在浅、深背景重复同一路径，检查中央 Sprite 的覆盖与混合。 |
 | 2868108515 | 剑链左侧仍有蜘蛛网状叠影 | 沿[旧高通对照](../capabilities/runtime-evidence-current.md#author-chain-godrays-local-grid)，按新叠影位置固定同场景时刻，比较 39/e43181 开关下的残差。 |
 | 3769688830 | 本机玩偶水球持续向左转，用户在官版看到头朝上的往返摆动 | [旧实测含 spinorb/e524 与父层摆动](../capabilities/runtime-evidence-current.md#orb-spin-parent-motion-376)。对齐自转属性、父层相位和默认版本，分别比较静止头向和摆动轨迹。 |
