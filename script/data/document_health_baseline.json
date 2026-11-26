@@ -162,7 +162,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 408267
+      "bytes": 408697
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -193,8 +193,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 59,
-      "bytes": 8044
+      "lines": 58,
+      "bytes": 7798
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -711,29 +711,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "04d3538bf6b83177508c7f02eed0714fc2621b74da8f783cf7186727eced8b43",
+      "before": "0549c5663deb3b9fbf2dd1145f6b30988f541e32bedf07632707aec61340ade4",
       "after": "2f42e458d8ba69c9806720db14ac5b2e78e0ea24729d69bea13883f2927d4733",
-      "owner": "Scene graph composition and ordered text",
-      "reason": "Retain both the main text-effect evidence and quality-contract coverage after integration.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6c3f9f3ebd11706f022040263c6a49ed8550baa598e10879f6daa6ff73ae99b9",
-      "after": "7bfc8030cc8043d57bc46c87530fc1ac1f6c81dc3b380150e428482c8c462bb8",
-      "owner": "Scene graph composition and ordered text",
-      "reason": "Retain both the main text-effect evidence and quality-contract coverage after integration.",
+      "owner": "Scene graph composition and quality evidence",
+      "reason": "Preserve the integrated graph, authored-text anchoring and quality evidence from both worktrees.",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "0624ce9b52f3c2ddf4fc15624c9a9fc6fb7fb652f87bb02cfe9980560678aeff",
+      "before": "44a2220f6c0577d8e5030882c1abf840fbc399ec5820b192ae708290a277e915",
       "after": "6e5f700bdf5f8a3a26a6242379f1b1ef7261bd171375fccb885e3c0c295e1eba",
-      "owner": "Scene graph composition and ordered text",
-      "reason": "Retain both the main text-effect evidence and quality-contract coverage after integration.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
+      "owner": "Scene graph composition and quality evidence",
+      "reason": "Preserve the integrated graph, authored-text anchoring and quality evidence from both worktrees.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "7bfc8030cc8043d57bc46c87530fc1ac1f6c81dc3b380150e428482c8c462bb8",
+      "after": "5aee2e38f1634403d7bf72d520ce3bcbda03deaa341dd115304590fcaeb30fa6",
+      "owner": "Scene graph composition and quality evidence",
+      "reason": "Preserve the integrated authored-text anchoring and quality evidence from both worktrees.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-player-text-current-360"
     }
   ]
 }
