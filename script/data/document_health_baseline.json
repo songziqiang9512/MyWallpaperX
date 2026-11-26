@@ -157,12 +157,12 @@
       "bytes": 78585
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 474,
-      "bytes": 93961
+      "lines": 485,
+      "bytes": 96320
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 393355
+      "bytes": 393125
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 62,
-      "bytes": 8303
+      "bytes": 8429
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -630,11 +630,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "0dfa8cbf08520fd4eeb81300181fd45ea6023c7eef57ac0cb86d09558e122dd5",
-      "after": "307672ca09b0a372213dda58ee3c79ec8dccf362ffd7fb3ad2e564f503020070",
-      "owner": "Scene 与三引擎画质",
-      "reason": "从主分支正文核对已合入的 Scene 合同和画质证据，保留双方工作及合并正文的实际预算。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+      "before": "307672ca09b0a372213dda58ee3c79ec8dccf362ffd7fb3ad2e564f503020070",
+      "after": "8ba7954e60fc26951f61514257324090eb4b19390edb6271c802a1ada97d2ce3",
+      "owner": "Scene Composition",
+      "reason": "将主分支已验证的前置合成输出行为与画质分支正文合并。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
     },
     {
       "section": "bodies",
@@ -693,11 +693,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c83644ced4ef7f10cbf7255e0c0ecdee0f49e2c77c37676b1e2f270386df5b89",
-      "after": "d43e33ec4d77aa1a3080167417c0b91c7db94661d3c29a283bf9bbd826b2c7a5",
-      "owner": "Scene Timeline and SceneScript",
-      "reason": "登记作者热切与冷载证据、四种速度的实帧及属性倍率设计。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-float-reload-304"
+      "before": "4665e0f4be9616bd651ba91a860f75d6188cd1508b349d0105b1a1578f56cc5e",
+      "after": "212e343cb59a7ac01885802716d631cadcc44bad94214f7398b57fd40b71bf69",
+      "owner": "Scene composition and named graph output",
+      "reason": "记录已验证的具名图时序及对应的现役设计入口。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
     },
     {
       "section": "bodies",
