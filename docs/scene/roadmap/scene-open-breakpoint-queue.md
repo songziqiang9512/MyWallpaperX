@@ -29,7 +29,6 @@
 
 | 定位 | 已确认的差异与下一步 |
 |---|---|
-| 斜置 X-Ray · 遮罩位置 | [同包斜卡实帧](../capabilities/runtime-evidence-current.md#xray-tilted-projection)均随指针移动并复位，移动轨迹的 RGB 响应仍不同。先用同几何基图注册两端，区分相机斜卡映射和效果局部着点。 |
 | 3463406101 · 前景回亮 | [低多音动态边对照](../capabilities/runtime-evidence-current.md#forefront-recovery-346)显示官版 Pulse .569 时本机尾段 .033。先区分窗内取样与动态邻档，再用独立低频输入核释放时间。 |
 | 3769761761 · 成熟右侧亮段 | [同龄右区](../capabilities/runtime-evidence-current.md#ember-mature-trail-luminance)非零面积接近，亮段分布仍不同。维持同龄与相机对照，分离权重及轨迹重叠。 |
 | 2927205881 · 左端短 | [固定速率及淡出对照](../capabilities/runtime-evidence-current.md#particle-rate-alpha-envelope)后原作者 699 左端仍短。用同画幅、同声源核出生相位、实际存量及 Sprite 栅格，单独对照稳态与动态切换。 |

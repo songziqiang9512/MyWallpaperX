@@ -158,11 +158,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 485,
-      "bytes": 96246
+      "bytes": 96229
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 395968
+      "bytes": 396504
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -193,8 +193,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 59,
-      "bytes": 7558
+      "lines": 58,
+      "bytes": 7282
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -639,11 +639,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9bc2b0b9ac4ded63704f0cf9f66caadb8205b503e26aece771fdd57ca7a7c1a6",
-      "after": "a0b10b88a50683bf265c2785e11eefa55d9e8c2d1e427d0f813d9af256b605f8",
-      "owner": "Scene perspective image terminal depth",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-box-cover-depth-333",
-      "reason": "保合并双方的终端深度合同与实绘证据，按主父提交和合并正文核对实际预算。"
+      "before": "a0b10b88a50683bf265c2785e11eefa55d9e8c2d1e427d0f813d9af256b605f8",
+      "after": "023ddcca9957eced2abcddee7465f13434f1b4162c310bacf15127f57dec9c5e",
+      "owner": "Scene effect texture projection",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#xray-tilted-projection",
+      "reason": "按质量父提交与合并正文核对作者画布投影合同与运行证据的预算。"
     },
     {
       "section": "bodies",

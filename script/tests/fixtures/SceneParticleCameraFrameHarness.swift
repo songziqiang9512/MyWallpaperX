@@ -260,6 +260,32 @@ enum Harness {
             camera: nativeCamera,
             viewportSize: viewport
         )
+        let maskViewport = CGSize(width: 960, height: 624)
+        let maskCamera = canvasCamera(SIMD2(7680, 4320), fov: 95)
+        let maskFrame = SceneParticleCameraFrame(camera: maskCamera, viewportSize: maskViewport)
+        let changedFOV = SceneParticleCameraFrame(
+            camera: canvasCamera(SIMD2(7680, 4320), fov: 65), viewportSize: maskViewport)
+        let maskCard = SceneMatrix.translation(SIMD3(3860, 2140, 100))
+            * SceneMatrix.rotationY(0.52) * SceneMatrix.rotationX(-0.38)
+            * SceneMatrix.scale(SIMD3(7680, -4320, 1))
+        let maskProjectionRows = [(maskFrame, true), (changedFOV, true), (maskFrame, false)].map {
+            frame, perspective in
+            let mvp = frame.viewProjection(usesPerspective: perspective) * maskCard
+            let inverse = SceneLayerCursorGeometry.preciseInverseModelViewProjection(mvp)
+            let relative = SceneLayerCursorGeometry.effectTextureProjectionInverse(
+                inverseModelViewProjection: inverse, projectedOrigin: mvp.columns.3, required: true)!
+            let anchored = SceneLayerCursorGeometry.effectTextureProjectionInverse(
+                inverseModelViewProjection: inverse, projectedOrigin: mvp.columns.3,
+                canvasReference: frame.effectTextureCanvasReference(usesPerspective: perspective)!,
+                required: true)!
+            let pointer = SIMD4<Float>(-0.55, -0.1, 0, 1)
+            return [
+                "shaderPoint": ndc(anchored, pointer),
+                "oldShaderPoint": ndc(relative, pointer),
+                "raster": ndc(mvp, SIMD4<Float>(0.25, 0.15, 0, 1)),
+                "directionsUnchanged": (0..<3).allSatisfy { anchored[$0] == relative[$0] },
+            ] as [String: Any]
+        }
         let activeCameraWorld = SceneMatrix.translation(SIMD3(0, 0, 6))
         let activeCameraOverride = SceneParticleCameraFrame.NativePerspectiveOverride(
             worldFrame: activeCameraWorld,
@@ -478,6 +504,8 @@ enum Harness {
             "ropeCameraPolicy": ropePolicy,
             "selectedVPAxes": selectedVPAxes,
             "defaultProjectionRows": defaultProjectionRows,
+            "maskProjectionRows": maskProjectionRows,
+            "nativeKeepsGeometryRelativeMask": nativeFrame.effectTextureCanvasReference(usesPerspective: true) == nil,
             "invalidFOVRows": invalidFOVRows,
             "dynamicFOVRows": dynamicFOVRows,
             "nativeOverrideKeepsNativePolicy": nativePolicy.perspectiveViewProjection == nativePolicyWithOverride.perspectiveViewProjection,

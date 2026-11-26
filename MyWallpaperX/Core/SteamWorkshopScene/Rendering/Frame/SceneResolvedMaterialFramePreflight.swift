@@ -572,12 +572,16 @@ extension SceneMetalRenderer {
             }
             let cursorInverse = SceneLayerCursorGeometry
                 .preciseInverseModelViewProjection(effectProjectionMVP)
+            let requiresEffectProjection = claim.frameInputContract.requiresInvertibleEffectTextureProjection
+            let canvasReference = requiresEffectProjection && claim.sourceRoute == .capturedLayerTexture
+                ? cameraFrame.effectTextureCanvasReference(usesPerspective: cameraFrame.resolvesPerspective(for: layer))
+                : nil
             guard let effectTextureProjectionMatrixInverse =
                     SceneLayerCursorGeometry.effectTextureProjectionInverse(
                         inverseModelViewProjection: cursorInverse,
                         projectedOrigin: effectProjectionMVP.columns.3,
-                        required: claim.frameInputContract
-                            .requiresInvertibleEffectTextureProjection
+                        canvasReference: canvasReference,
+                        required: requiresEffectProjection
                     ) else {
                 return invalid("layer-\(layerID)-effect-projection-inverse-invalid")
             }

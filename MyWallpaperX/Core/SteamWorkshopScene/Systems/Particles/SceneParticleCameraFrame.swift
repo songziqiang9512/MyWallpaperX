@@ -64,6 +64,7 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
     let perspectiveEyePosition: SIMD3<Float>
     let canvasShaderEyePosition: SIMD3<Float>
     private let hasAuthoredCanvasExtent: Bool
+    private let canvasPerspectiveEyeDistance: Float?
     let defaultsToPerspective: Bool
     // Shares the immutable frame value payload; no per-camera dictionary copy.
     private let dynamicValues: SceneDynamicSnapshot?
@@ -174,6 +175,7 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
             cameraRight = native.right
             cameraUp = native.cameraUp
             perspectiveEyePosition = eye
+            canvasPerspectiveEyeDistance = nil
             defaultsToPerspective = true
             return
         }
@@ -192,6 +194,7 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
             cameraUp = SIMD3(0, 1, 0)
             cameraForward = SIMD3(0, 0, -1)
             perspectiveEyePosition = safeOrigin
+            canvasPerspectiveEyeDistance = nil
             defaultsToPerspective = false
             return
         }
@@ -224,6 +227,7 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         let eyeDistance = safeOrigin.z > camera.nearZ
             ? safeOrigin.z
             : fittedEyeDistance ?? Self.perspectiveEyeDistance
+        canvasPerspectiveEyeDistance = hasAuthoredCanvasExtent ? eyeDistance : nil
         let eye = sceneCenter + SIMD3<Float>(0, 0, eyeDistance)
         if let staticWorld {
             let worldEye = staticWorld * SIMD4(eye, 1)
@@ -286,6 +290,24 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
 
     func viewProjection(usesPerspective: Bool) -> simd_float4x4 {
         usesPerspective ? perspectiveViewProjection : orthographicViewProjection
+    }
+
+    /// Clip Z/W of the shader reference point, normalized by the W of
+    /// the zero-depth canvas so pointer XY continues to span that canvas.
+    func effectTextureCanvasReference(usesPerspective: Bool) -> SIMD2<Double>? {
+        guard let canvasPerspectiveEyeDistance else { return nil }
+        let canvasDistance = Double(canvasPerspectiveEyeDistance)
+        let forward = SIMD3<Double>(cameraForward)
+        let center = SIMD3<Double>(perspectiveEyePosition) + forward * canvasDistance
+        let point = SIMD4(center + forward * Double(canvasShaderEyePosition.z), 1)
+        let matrix = viewProjection(usesPerspective: usesPerspective)
+        let depth = SIMD4<Double>(Double(matrix.columns.0.z), Double(matrix.columns.1.z),
+            Double(matrix.columns.2.z), Double(matrix.columns.3.z))
+        let clipZ = simd_dot(depth, point)
+        guard usesPerspective else { return SIMD2(clipZ, 1) }
+        let w = SIMD4<Double>(Double(matrix.columns.0.w), Double(matrix.columns.1.w),
+            Double(matrix.columns.2.w), Double(matrix.columns.3.w))
+        return SIMD2(clipZ, simd_dot(w, point)) / simd_dot(w, SIMD4(center, 1))
     }
 
     func reverseDepthViewProjection(

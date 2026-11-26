@@ -173,21 +173,27 @@ nonisolated enum SceneLayerCursorGeometry {
         return inverse
     }
 
-    /// In effect coordinates, clip Z=0 is at the output geometry's origin
-    /// depth. DepthParallax and similar effects also read the direction basis.
+    /// Effect coordinates use the prepared canvas reference or the output
+    /// origin. Effects can read the same inverse's direction basis separately.
     static func effectTextureProjectionInverse(
         inverseModelViewProjection: simd_double4x4?,
         projectedOrigin: SIMD4<Float>,
+        canvasReference: SIMD2<Double>? = nil,
         required: Bool
     ) -> simd_float4x4? {
         guard required else { return matrix_identity_float4x4 }
         guard let inverseModelViewProjection else { return nil }
         let (x, y, depth, translation) = inverseModelViewProjection.columns
-        let origin = SIMD4<Double>(projectedOrigin)
-        // Inverse times projected origin is (0,0,0,1). Use that identity
-        // to shift clip depth without subtracting nearly equal depth terms.
-        let relativeTranslation = origin.w == 0 ? translation
-            : (SIMD4(0, 0, 0, 1) - x * origin.x - y * origin.y) / origin.w
+        let relativeTranslation: SIMD4<Double>
+        if let canvasReference {
+            relativeTranslation = depth * canvasReference.x + translation * canvasReference.y
+        } else {
+            let origin = SIMD4<Double>(projectedOrigin)
+            // Inverse times projected origin is (0,0,0,1). Use that identity
+            // to shift clip depth without subtracting nearly equal depth terms.
+            relativeTranslation = origin.w == 0 ? translation
+                : (SIMD4(0, 0, 0, 1) - x * origin.x - y * origin.y) / origin.w
+        }
         let scale = SIMD4<Double>(2, 2, 1, 1)
         return floatInverseModelViewProjection(simd_double4x4(columns: (
             x * scale,
