@@ -267,6 +267,7 @@ enum Harness {
             "nearSilentPeak": nearSilent.left64.max() ?? 0,
             "reentry": reentryChecks(active: dcFrame, quiet: nearSilentFrame),
             "sharedAttack": sharedAttackChecks(),
+            "normalizedHistory": normalizedHistoryChecks(),
             "bandSteps": bandStepChecks(),
             "groupRelease": groupReleaseChecks(),
             "usesTail": arrays(freshAuthor(sameTail, sampleRate: sampleRate)) == arrays(center),
@@ -361,16 +362,29 @@ enum Harness {
         }
     }
 
+    static func normalizedHistoryChecks() -> [Float] {
+        let right = zip(tone(3101.9627, amplitude: 0.010977), tone(505.5050, amplitude: 0.0155102)).map(+)
+        let held = captured([tone(7743.4179, amplitude: 0.00530908), right])
+        let pressure = captured([tone(7743.4179, amplitude: 0.01083936), right])
+        let analyzer = SystemAudioSceneSpectrumAnalyzer()!
+        func at(_ frame: SystemAudioCapturedFrame, _ tick: Int) -> Float {
+            analyzer.analyzeAuthor(frame, sampleRate: sampleRate, timestamp: Double(tick) * 0.04).right64[21]
+        }
+        for tick in 0..<75 { _ = at(held, tick) }
+        return [at(held, 75), at(pressure, 76), at(held, 76), at(pressure, 77)]
+    }
+
     static func groupReleaseChecks() -> [[Float]] {
         func stepDown(_ peak: Float, intervals: [Double]) -> [Float] {
             let before = captured([tone(1_493.537578, amplitude: peak)])
             let after = captured([tone(1_493.537578, amplitude: peak / 2)])
             let analyzer = SystemAudioSceneSpectrumAnalyzer()!
-            for tick in 0...75 {
+            for tick in 0..<75 {
                 _ = analyzer.analyzeAuthor(before, sampleRate: sampleRate, timestamp: Double(tick) / 25)
             }
             var time = 3.0
-            return intervals.map { interval in
+            let held = analyzer.analyzeAuthor(before, sampleRate: sampleRate, timestamp: time).left64[36]
+            return [held] + intervals.map { interval in
                 time += interval
                 return analyzer.analyzeAuthor(after, sampleRate: sampleRate, timestamp: time).left64[36]
             }
@@ -379,7 +393,7 @@ enum Harness {
         let high = stepDown(0.048, intervals: slowTicks)
         let low = stepDown(0.012, intervals: slowTicks)
         let split = stepDown(0.012, intervals: [0.04, 0.04, 0.02, 0.02])
-        return [high, low, [low[2], split[3]]]
+        return [high, low, split]
     }
 
     static func tone(_ frequency: Double, amplitude: Float, at sourceSampleRate: Float = sampleRate) -> [Float] {

@@ -21,8 +21,8 @@
       "bytes": 18243
     },
     "docs/architecture/system-audio-spectrum-design.md": {
-      "lines": 50,
-      "bytes": 8480
+      "lines": 51,
+      "bytes": 8829
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 200,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 381403
+      "bytes": 382774
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 58,
-      "bytes": 7348
+      "bytes": 7327
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -361,11 +361,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "aa654dc68242a363c3ac093b2da326052959c279e3fbc8fb6b6a139a6a25827e",
-      "after": "8c8b1f7d01bd30b9a3b63c4e033381801c49f93aca56aa85ee09710bcf10efd1",
-      "owner": "Scene particle audio",
-      "reason": "Report steady-emitter use of the shared author bands.",
-      "decision": "docs/architecture/system-audio-spectrum-design.md"
+      "before": "8c8b1f7d01bd30b9a3b63c4e033381801c49f93aca56aa85ee09710bcf10efd1",
+      "after": "813d81425506a46e9a87619cb6d80fb420999b8a17da83ad09aff0ed1f1f28ba",
+      "owner": "Scene author audio history",
+      "reason": "登记实际归一化历史、双向频带换峰和分母隔离后的终帧证据。",
+      "decision": "docs/architecture/system-audio-spectrum-design.md#author-spectrum-normalized-history"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4f451f8beb892084098cc327a69bf184f02393e7da1a60ae2a528f3083532f8e",
-      "after": "edf3f9477b0d26abf37a0d626ad7fb1837c2276a392fc9719da331c6974ccdb9",
+      "before": "edf3f9477b0d26abf37a0d626ad7fb1837c2276a392fc9719da331c6974ccdb9",
+      "after": "f1eb92f3d667d1a2cfcc80a0751e2d7b83c3453fceeadf262243683d65ee75ed",
       "owner": "Scene author audio history",
-      "reason": "保留同源频谱历史反例、跨声道实机对照及可复验边界。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#forefront-magnitude-history-346"
+      "reason": "登记实际归一化历史、双向频带换峰和分母隔离后的终帧证据。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#forefront-normalized-history-346"
     },
     {
       "section": "bodies",

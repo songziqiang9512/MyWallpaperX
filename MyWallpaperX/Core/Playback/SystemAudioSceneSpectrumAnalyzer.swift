@@ -296,13 +296,13 @@ private extension SystemAudioSceneSpectrumAnalyzer {
         private var lastTimestamp: TimeInterval?
         private var quietDuration: TimeInterval = 0
         private var denominators = Array(repeating: onsetDenominator, count: 2 * groupCount)
-        private var lastActiveLevels = AuthorLevels.silence
+        private var lastActiveLevels: AuthorLevels?
 
         mutating func reset() {
             lastTimestamp = nil
             quietDuration = 0
             seedOnset()
-            lastActiveLevels = .silence
+            lastActiveLevels = nil
         }
 
         mutating func analyze(
@@ -313,7 +313,7 @@ private extension SystemAudioSceneSpectrumAnalyzer {
         ) -> AuthorLevels {
             let time = timestamp.flatMap { $0.isFinite ? $0 : nil }
             if let time, let lastTimestamp, time <= lastTimestamp {
-                return quietDuration > 0 ? .silence : lastActiveLevels
+                return quietDuration > 0 ? .silence : lastActiveLevels ?? .silence
             }
             guard let first = frame.signedChannels.first, sampleRate.isFinite, sampleRate > 0 else {
                 reset()
@@ -336,7 +336,7 @@ private extension SystemAudioSceneSpectrumAnalyzer {
             var right = channels == 2 ? window.bands(frame.signedChannels[1], fftSetup: fftSetup) : nil
             let peak = max(left.max() ?? 0, right?.max() ?? 0)
             guard peak.isFinite else {
-                lastActiveLevels = .silence
+                lastActiveLevels = nil
                 return .silence
             }
             let dt = Float(elapsed)
@@ -355,18 +355,24 @@ private extension SystemAudioSceneSpectrumAnalyzer {
                 return .silence
             }
 
+            let previous = lastActiveLevels ?? .silence
+            let historyWeight: Float = lastActiveLevels == nil || quietDuration > 0
+                ? 0 : pow(0.2, dt / 0.04)
             quietDuration = 0
             let sharedTarget = max(peak / 3, Self.minimumDenominator)
             let rise = 0.12 * dt
             let release = 1 - exp2(-dt / 0.04)
-            normalize(&left, previousBands: lastActiveLevels.left64,
-                      channelOffset: 0, sharedTarget: sharedTarget, rise: rise, fall: fall, release: release)
+            normalize(&left, previousBands: previous.left64,
+                      channelOffset: 0, sharedTarget: sharedTarget, rise: rise, fall: fall, release: release,
+                      historyWeight: historyWeight)
             if right != nil {
-                normalize(&right!, previousBands: lastActiveLevels.right64,
-                          channelOffset: Self.groupCount, sharedTarget: sharedTarget, rise: rise, fall: fall, release: release)
+                normalize(&right!, previousBands: previous.right64,
+                          channelOffset: Self.groupCount, sharedTarget: sharedTarget, rise: rise, fall: fall, release: release,
+                          historyWeight: historyWeight)
             }
-            lastActiveLevels = AuthorLevels(left64: left, right64: right)
-            return lastActiveLevels
+            let levels = AuthorLevels(left64: left, right64: right)
+            lastActiveLevels = levels
+            return levels
         }
 
         private mutating func seedOnset() {
@@ -380,7 +386,8 @@ private extension SystemAudioSceneSpectrumAnalyzer {
             sharedTarget: Float,
             rise: Float,
             fall: Float,
-            release: Float
+            release: Float,
+            historyWeight: Float
         ) {
             for group in 0..<Self.groupCount {
                 let samples = (group * 8)..<((group + 1) * 8)
@@ -392,8 +399,10 @@ private extension SystemAudioSceneSpectrumAnalyzer {
                 let next = max(Self.minimumDenominator, previous + change)
                 denominators[index] = next
                 for band in samples {
+                    let normalized = bands[band] / next
                     let previousValue = previousBands[band]
-                    bands[band] = min(previousValue + 1, max(previousValue - 1, bands[band] / next))
+                    let filtered = normalized + (previousValue - normalized) * historyWeight
+                    bands[band] = min(previousValue + 1, max(previousValue - 1, filtered))
                 }
             }
         }
