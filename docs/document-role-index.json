@@ -144,9 +144,9 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4c604d498ce4ac25ee024705ed00f1cce6c3d857b665483895e3c62a4f7d1d9a",
+        "sourceSHA256": "1aa72dd4873057219f318fc8d17c3a03cf789e13477d0ecfee62947f6b36b008",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对实际阴影规格、有效的受光绑定、逐屏完成回执和原启动事务。",
+        "scope": "登记体积回执的实际编码、完成观察和 AppKit 消费。",
         "limitations": "画面和持续呈现的证据边界见现役工作卡。"
       }
     },
@@ -392,9 +392,9 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "993b3e309aae51e67c6b346e1a2be55ec3fbe21e0e3e9caa70af1f1dfb93e558",
+        "sourceSHA256": "815223a78a416c506a22136e7035a20add7027834461c06896e736940bf13c65",
         "method": "document_registry --audit + document_health --check",
-        "scope": "匹配逐屏设置回执、实际窗口及独立测试的同帧 GPU 绑定。",
+        "scope": "登记签名原设置体积切换、实际回执和画面证据。",
         "limitations": "画面和持续呈现的证据边界见现役工作卡。"
       }
     },
@@ -886,9 +886,9 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bd22bc80f97a6be151f9d3821acd0ef1ea8f1ef3d184b0a8dd8d35326fd0a383",
+        "sourceSHA256": "d894302a147c59eee543d0781f9c48251d6d4e3215e4e3a257fa922905093826",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对实际阴影规格、有效的受光绑定、逐屏完成回执和原启动事务。",
+        "scope": "说明体积完成帧回执的算法、实际编码与失败边界。",
         "limitations": "画面和持续呈现的证据边界见现役工作卡。"
       }
     },

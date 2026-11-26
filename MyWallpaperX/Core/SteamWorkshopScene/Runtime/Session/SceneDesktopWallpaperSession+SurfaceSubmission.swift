@@ -8,6 +8,7 @@ extension SceneDesktopWallpaperSession {
             let samples: Int?
             let didFailPreparation: Bool
             let shadow: SceneShadowUse?
+            let volume: SceneVolumeUse?
         }
 
         struct Observation {
@@ -21,10 +22,12 @@ extension SceneDesktopWallpaperSession {
         private var latestCompletion: UInt64 = 0
 
         mutating func observe(
-            _ samples: Int?, didFailPreparation: Bool = false, shadow: SceneShadowUse? = nil
+            _ samples: Int?, didFailPreparation: Bool = false, shadow: SceneShadowUse? = nil,
+            volume: SceneVolumeUse? = nil
         ) -> Observation? {
-            guard samples != nil || shadow != nil else { return nil }
-            let use = Use(samples: samples, didFailPreparation: samples == 1 && didFailPreparation, shadow: shadow)
+            guard samples != nil || shadow != nil || volume != nil else { return nil }
+            let use = Use(samples: samples, didFailPreparation: samples == 1 && didFailPreparation,
+                          shadow: shadow, volume: volume)
             if use == completed, inFlight.isEmpty || (inFlight.count == 1 && inFlight[use] != nil) { return nil }
             inFlight[use, default: 0] += 1
             latestSubmission &+= 1
@@ -54,7 +57,8 @@ extension SceneDesktopWallpaperSession {
             } else {
                 fallback = nil
             }
-            return .init(displayID: displayID, samples: use?.samples, fallback: fallback, shadow: use?.shadow)
+            return .init(displayID: displayID, samples: use?.samples, fallback: fallback,
+                         shadow: use?.shadow, volume: use?.volume)
         }
     }
 
@@ -228,7 +232,8 @@ extension SceneDesktopWallpaperSession {
             ? candidate.renderUse.flatMap { use in
                 surface.qualityStatus.observe(use.rasterSampleCount,
                     didFailPreparation: use.didFailMultisamplePreparation,
-                    shadow: use.shadow.map { shadowsDisabled ? .disabled : $0 })
+                    shadow: use.shadow.map { shadowsDisabled ? .disabled : $0 },
+                    volume: use.volume.map { allowsProjectedSpotVolume ? $0 : .disabled })
             }
             : nil
         guard awaitsInitialPresentation || sceneClock.isPaused

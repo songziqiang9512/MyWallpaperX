@@ -195,6 +195,7 @@ extension SceneMetalRenderer {
         reflection: ReflectionFrame,
         environmentSource: @escaping (MTLCommandBuffer) -> SceneFrameTextureResource?,
         modelFrame: StaticModelFrame,
+        volumeUse: inout SceneVolumeUse.Rendered,
         mainPass: SceneMainPassEncoder,
         rootMultisample: RootMultisamplePlan?,
         compositionGroupRuntime: SceneCompositionGroupFrameRuntime?,
@@ -612,13 +613,15 @@ extension SceneMetalRenderer {
                 }
             case "spotLight":
                 guard let spotLightRuntime, layer.spotLight?.castsVolumetrics == true else { continue }
-                spotLightRuntime.render(
+                if spotLightRuntime.render(
                     layerID: layer.id, worldFrame: frameWorldFrames[layer.id],
                     frame: .init(
                         frameContext: frameContext, cameraFrame: cameraFrame,
                         mainPass: layerMainPass, commandBuffer: commandBuffer
                     )
-                )
+                ) {
+                    volumeUse.spot = true
+                }
             case "particle":
                 guard let particlePipeline,
                       let layerBatches = particleBatchesByID[layer.id] else { continue }
@@ -687,25 +690,32 @@ extension SceneMetalRenderer {
                     forward: cameraFrame.cameraForward, far: farPlane.z,
                     horizontal: cameraFrame.cameraRight * (farPlane.x / farPlane.z),
                     vertical: cameraFrame.cameraUp * (farPlane.y / farPlane.z)
-                ), viewport: mainPass.targetExtent),
-           let depth = encodeVolumeOccluderDepth(state: modelFrame, pass: mainPass,
+                ), viewport: mainPass.targetExtent) {
+            volumeUse.point = .unavailable
+            if let depth = encodeVolumeOccluderDepth(state: modelFrame, pass: mainPass,
                 pool: offscreenTexturePool, groups: compositionGroupRuntime,
                 needsTerminalScratch: needsTerminalScratch),
-           let encoder = mainPass.encoder(required: false) {
-            pointVolumePipeline.draw(volume, depth: depth, encoder: encoder)
+               let encoder = mainPass.encoder(required: false) {
+                pointVolumePipeline.draw(volume, depth: depth, encoder: encoder)
+                if volume.usesOnlyAnalyticIntegration {
+                    volumeUse.point = .analytic
+                } else {
+                    volumeUse.point = pointVolumePipeline.quadraturePointCount == 6 ? .sixPoint : .fourPoint
+                }
 #if DEBUG
-            if let trace = mainPass.compositionTrace, trace.isCompositionSelected {
-                let coverage = volume.scissor.map { "\($0.x),\($0.y),\($0.width),\($0.height)" } ?? "full"
-                trace.recordComposition(.init(kind: "point-volume",
-                    source: .init(depth, role: "model-camera-depth"),
-                    target: mainPass.compositionTarget, access: "texture-bind", outcome: "draw-encoded",
-                    details: ["screenCoverage": coverage,
-                              "quadrature": String(pointVolumePipeline.quadraturePointCount),
-                              "layerIDs": frameLightSnapshot.point.compactMap {
-                        $0.volume == nil ? nil : $0.layerID.map(String.init)
-                    }.joined(separator: ",")]))
-            }
+                if let trace = mainPass.compositionTrace, trace.isCompositionSelected {
+                    let coverage = volume.scissor.map { "\($0.x),\($0.y),\($0.width),\($0.height)" } ?? "full"
+                    trace.recordComposition(.init(kind: "point-volume",
+                        source: .init(depth, role: "model-camera-depth"),
+                        target: mainPass.compositionTarget, access: "texture-bind", outcome: "draw-encoded",
+                        details: ["screenCoverage": coverage,
+                                  "quadrature": String(pointVolumePipeline.quadraturePointCount),
+                                  "layerIDs": frameLightSnapshot.point.compactMap {
+                            $0.volume == nil ? nil : $0.layerID.map(String.init)
+                        }.joined(separator: ",")]))
+                }
 #endif
+            }
         }
 
         let mainEncoded = mainPass.finishEnsuringClear()

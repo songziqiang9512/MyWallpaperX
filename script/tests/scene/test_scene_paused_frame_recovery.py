@@ -271,6 +271,7 @@ def production_harness(sources=None):
         method(quality, "nonisolated struct AnimationFrameRate:"),
         method(quality, "nonisolated enum ScenePostProcessingMode:"),
         method(quality, "nonisolated enum SceneShadowUse:"),
+        method(quality, "nonisolated enum SceneVolumeUse:"),
         method(quality, "nonisolated struct SceneFrameRenderUse:"),
         "enum SceneDisplayMappingPostProcess {\n" + swift_declaration(display, "enum Output:") + "\n}",
     ]))

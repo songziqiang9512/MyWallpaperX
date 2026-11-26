@@ -158,6 +158,8 @@ extension Notification.Name {
     // ACTUAL_RENDER_READOUT_TITLE
     // ACTUAL_RENDER_READOUT_DISPLAY
     // ACTUAL_SHADOW_USE_DESCRIPTION
+    // ACTUAL_VOLUME_USE_DESCRIPTION
+    // ACTUAL_EFFECT_READOUT
     // ACTUAL_SETTINGS_ROW
     // ACTUAL_LEADING_ROW_CONTENT
     // ACTUAL_ROW_ICON
@@ -573,6 +575,32 @@ extension Notification.Name {
         NotificationCenter.default.post(name: .sceneDaemonRasterSamplesDidChange, object: daemon)
         pump()
         checks["native-shadow-readout-clears-on-stop"] = shadowLabel.isHidden && shadowLabel.toolTip == nil
+
+        daemon.activePreparedRenderQuality = .init(volumeLighting: .ultra)
+        let volumeLabel = view.sceneVolumeUseLabel
+        let volumes: [(SceneVolumeUse, String)] = [
+            (.disabled, "Disabled"),
+            (.rendered(.init()), "No volumetric lighting drawn"),
+            (.rendered(.init(spot: true)), "Spotlight cone"),
+            (.rendered(.init(point: .analytic)), "Analytic point volume"),
+            (.rendered(.init(point: .fourPoint)), "Four-point volume (reduced order)"),
+            (.rendered(.init(point: .sixPoint, spot: true)), "Six-point volume / Spotlight cone"),
+            (.rendered(.init(point: .unavailable, spot: true)), "Point volume unavailable / Spotlight cone"),
+        ]
+        for (use, title) in volumes {
+            daemon.activeRasterDisplayStatuses = [.init(displayID: testDisplays[0], samples: 4, volume: use)]
+            view.refreshSceneRenderReadouts(.init(volumeLighting: .ultra))
+            checks["native-rendered-volume-\(title)"] = volumeLabel.stringValue == title && !volumeLabel.isHidden
+        }
+        volumePopup.selectItem(at: volumePopup.indexOfItem(withRepresentedObject: SceneVolumeLightingQuality.disabled.rawValue))
+        _ = volumePopup.sendAction(volumePopup.action, to: view)
+        checks["native-volume-pending-keeps-the-actual-previous-result"] =
+            PlaybackQualityPreference.current.scene.volumeLighting == .disabled
+            && volumeLabel.stringValue == "Previous setting in use: Point volume unavailable / Spotlight cone"
+        daemon.activePreparedRenderQuality = nil
+        daemon.activeRasterDisplayStatuses = []
+        view.refreshSceneRenderReadouts()
+        checks["native-volume-readout-clears-on-stop"] = volumeLabel.isHidden && volumeLabel.toolTip == nil
 
         let locale = UserDefaults.standard.string(forKey: "AppleLocale")
         let separator = locale == "de_DE" ? "," : "."

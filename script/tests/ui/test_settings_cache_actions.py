@@ -22,13 +22,14 @@ class SettingsCacheActionsTests(unittest.TestCase):
     def test_interval_draft_uses_the_native_field_editor_across_unrelated_publications(self):
         settings = ROOT / "MyWallpaperX/Shared/Settings/AppKitSettingsView.swift"
         layout = ROOT / "MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift"
+        readouts = settings.with_name("AppKitSettingsView+SceneRenderReadouts.swift")
         dependency = ROOT / "MyWallpaperX/Shared/Settings/AppSettingsPanelDependency.swift"
         quality = ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift"
         settings_components = ROOT / "MyWallpaperX/Shared/Components/AppKitSettingsComponents.swift"
         fixture = ROOT / "script/tests/fixtures/SettingsIntervalEditingHarness.swift"
         display_configuration = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient+DisplayConfiguration.swift"
         daemon_protocol = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonProtocol.swift"
-        paths = [daemon_protocol, settings, layout, dependency, quality, settings_components, fixture, display_configuration, Path(__file__).resolve()]
+        paths = [daemon_protocol, settings, layout, readouts, dependency, quality, settings_components, fixture, display_configuration, Path(__file__).resolve()]
         hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
         source = settings.read_text()
         refresh = declaration(source, "    func refreshFromState()")
@@ -36,12 +37,16 @@ class SettingsCacheActionsTests(unittest.TestCase):
         # NSTextField/NSWindow. Unrelated settings groups are outside this gate.
         refresh = refresh[:refresh.index("        // 登录项开关")] + "        _ = visibilityBefore\n    }"
         actual = fixture.read_text().replace("// ACTUAL_INTERVAL_REFRESH", refresh)
-        actual = actual.replace("// ACTUAL_SHADOW_LABEL", declaration(source, "    let sceneShadowUseLabel:") + "()")
+        readout_source = readouts.read_text()
+        labels = [line for line in source.splitlines()
+                  if line.lstrip().startswith(("let sceneShadowUseLabel =", "let sceneVolumeUseLabel ="))]
+        actual = actual.replace("// ACTUAL_SHADOW_LABEL", "\n".join(
+            [*labels, declaration(readout_source, "    static func makeSceneEffectReadout(")]))
         actual = actual.replace("// ACTUAL_CONFIGURED_WALLPAPER_SCREENS", declaration(
             display_configuration.read_text(), "    var configuredWallpaperScreens:"))
         actual += "\n" + declaration(settings_components.read_text(), "final class SettingsGroupView:") + "\n"
         actual += "\n" + declaration(daemon_protocol.read_text(), "nonisolated struct SceneRasterDisplayStatus:") + "\n"
-        layout_source = layout.read_text()
+        layout_source = layout.read_text() + "\n" + readout_source
         for marker, signature in (
             ("// ACTUAL_SCENE_POST_PROCESSING_MENU", "    func refreshScenePostProcessingMenu("),
             ("// ACTUAL_SCENE_REAPPLY_TITLE", "    func refreshSceneQualityReapplyTitle("),
@@ -50,6 +55,8 @@ class SettingsCacheActionsTests(unittest.TestCase):
             ("// ACTUAL_RENDER_READOUT_TITLE", "    private func sceneRenderReadoutTitle("),
             ("// ACTUAL_RENDER_READOUT_DISPLAY", "    private func sceneRenderReadoutDisplayName("),
             ("// ACTUAL_SHADOW_USE_DESCRIPTION", "    private func shadowUseDescription("),
+            ("// ACTUAL_VOLUME_USE_DESCRIPTION", "    private func volumeUseDescription("),
+            ("// ACTUAL_EFFECT_READOUT", "    private func refreshSceneEffectReadout("),
             ("// ACTUAL_SETTINGS_ROW", "    private func makeSettingRow("),
             ("// ACTUAL_LEADING_ROW_CONTENT", "    private func makeLeadingRowContent("),
             ("// ACTUAL_ROW_ICON", "    private func makeRowIconView("),

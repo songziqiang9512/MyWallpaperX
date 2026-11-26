@@ -48,20 +48,21 @@ final class SceneSpotLightRuntime {
         self.pipeline = preparedPipeline
     }
 
+    @discardableResult
     func render(
         layerID: Int,
         worldFrame: @autoclosure () -> simd_float4x4?,
         frame: @autoclosure () -> Frame
-    ) {
+    ) -> Bool {
         guard let plan = plansByLayerID[layerID], let pipeline else {
             telemetry.recordFailure(layerID: layerID)
-            return
+            return false
         }
         let frame = frame()
         guard let worldFrame = worldFrame(),
               let encoder = frame.mainPass.encoder() else {
             telemetry.recordFailure(layerID: layerID)
-            return
+            return false
         }
         let color = SceneDynamicLayerValues.color(
             layerID: layerID,
@@ -74,7 +75,7 @@ final class SceneSpotLightRuntime {
             snapshot: frame.dynamicValues
         ) else {
             telemetry.recordFailure(layerID: layerID)
-            return
+            return false
         }
         let encoded = pipeline.draw(
             plan: plan,
@@ -97,6 +98,7 @@ final class SceneSpotLightRuntime {
         }
 #endif
         telemetry.record(layerID: layerID, encoded: encoded, on: frame.commandBuffer)
+        return encoded
     }
 
     func reportLines(candidateCount: Int) -> [String] {

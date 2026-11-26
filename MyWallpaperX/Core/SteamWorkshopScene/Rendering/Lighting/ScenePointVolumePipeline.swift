@@ -27,6 +27,7 @@ final class ScenePointVolumePipeline {
         fileprivate let lights: [Light]
         fileprivate let camera: Camera
         let scissor: MTLScissorRect?
+        let usesOnlyAnalyticIntegration: Bool
     }
 
     private struct ScreenProjection {
@@ -105,9 +106,7 @@ final class ScenePointVolumePipeline {
     }
 
     private let state: MTLRenderPipelineState
-#if DEBUG
     let quadraturePointCount: Int
-#endif
 
     init?(device: MTLDevice, library: MTLLibrary, pixelFormat: MTLPixelFormat,
           usesSixPointQuadrature: Bool = false) {
@@ -118,8 +117,8 @@ final class ScenePointVolumePipeline {
               let fragment = try? library.makeFunction(name: "scenePointVolumeFragment", constantValues: constants)
         else { return nil }
         let descriptor = MTLRenderPipelineDescriptor()
-#if DEBUG
         quadraturePointCount = usesSixPointQuadrature ? 6 : 4
+#if DEBUG
         descriptor.label = usesSixPointQuadrature ? "Scene point volume GL6" : "Scene point volume GL4"
 #endif
         descriptor.vertexFunction = vertex
@@ -146,6 +145,7 @@ final class ScenePointVolumePipeline {
         let frame = SIMD4(0, 0, viewport.width, viewport.height)
         let projection = clipsScreenCoverage ? ScreenProjection(camera) : nil
         var bounds = SIMD4(frame.z, frame.w, 0, 0)
+        var usesOnlyAnalyticIntegration = true
         let packed: [Light] = lights.compactMap { light in
             guard let volume = light.volume else { return nil }
             let power = Double(light.intensity) * Double(volume.density) * 0.05
@@ -153,18 +153,28 @@ final class ScenePointVolumePipeline {
             guard radiance.x.isFinite, radiance.y.isFinite, radiance.z.isFinite else { return nil }
             let packed = Light(centerAndRadius: SIMD4(light.position, light.radius),
                          radianceAndExponent: SIMD4(radiance, volume.exponent))
-            if let projection, bounds != frame, let rect = projection.bounds(of: packed, in: frame) {
-                bounds = SIMD4(min(bounds.x, rect.x), min(bounds.y, rect.y),
-                               max(bounds.z, rect.z), max(bounds.w, rect.w))
+            if let projection {
+                if bounds != frame || (usesOnlyAnalyticIntegration && volume.exponent != 0),
+                   let rect = projection.bounds(of: packed, in: frame) {
+                    bounds = SIMD4(min(bounds.x, rect.x), min(bounds.y, rect.y),
+                                   max(bounds.z, rect.z), max(bounds.w, rect.w))
+                    usesOnlyAnalyticIntegration = usesOnlyAnalyticIntegration && volume.exponent == 0
+                }
+            } else {
+                usesOnlyAnalyticIntegration = usesOnlyAnalyticIntegration && volume.exponent == 0
             }
             return packed
         }
         guard !packed.isEmpty else { return nil }
-        if projection == nil || bounds == frame { return .init(lights: packed, camera: camera, scissor: nil) }
-        guard bounds.x < bounds.z, bounds.y < bounds.w else { return nil }
-        let scissor = MTLScissorRect(x: bounds.x, y: bounds.y,
-                                    width: bounds.z - bounds.x, height: bounds.w - bounds.y)
-        return .init(lights: packed, camera: camera, scissor: scissor)
+        let scissor: MTLScissorRect?
+        if projection == nil || bounds == frame {
+            scissor = nil
+        } else {
+            guard bounds.x < bounds.z, bounds.y < bounds.w else { return nil }
+            scissor = .init(x: bounds.x, y: bounds.y, width: bounds.z - bounds.x, height: bounds.w - bounds.y)
+        }
+        return .init(lights: packed, camera: camera, scissor: scissor,
+                     usesOnlyAnalyticIntegration: usesOnlyAnalyticIntegration)
     }
 
     func draw(_ prepared: PreparedDraw, depth: MTLTexture, encoder: MTLRenderCommandEncoder) {

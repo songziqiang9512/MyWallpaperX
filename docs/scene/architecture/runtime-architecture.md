@@ -150,6 +150,8 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 <a id="scene-volume-lighting-policy"></a>
 体积照明沿同一 Scene 准备请求生效，已显示会话保本代资源直到重载。禁用退出点光、专用遮挡深度和聚光锥的 Plan、PSO 及主域／组域绘制。高档保旧 `enabled`，沿现有点光 PSO 槽采用四点。超高冷准备六点，创建失败沿同一槽退四点，聚光仍沿原作者几何，排序截点来自当前可见的可绘计划。点光按实际相机射线与目标像素尺寸求保守光球投影并集，空范围退出遮挡重放，有界时收紧一次原尺寸积分的 scissor。眼内与跨近面走全屏。主相机深度、表面光、作者阴影、父组程式与具名输出各走原链。点光独立重放在确认本帧有可绘积分后结束原生根段，解析至原主色再用 1× 加光。已解析的 utility 尾段复用原主色。可选容量拒绝时保已画根色。 [点光合同](../capabilities/advanced-object-coverage.md#point-light-volume) · [聚光合同](../capabilities/advanced-object-coverage.md#spot-light-frame)
 
+完成帧的体积回执由实际编码端登记。点光同时有可覆盖非零指数灯时报告实用四点／六点管线，仅有指数零时报告解析积分。计划已准备而遮挡深度或终端编码未成时保点光不可用；未录到生产的完成帧显示未绘制。聚光登记已编码的作者锥，组内的锥能否进入最终主色沿原合成，像素另取证。每屏与抗锯齿和阴影共用完成观察、活动请求、持久主色及去重事件。
+
 <a id="scene-reflection-quality-policy"></a>
 场景反射档在冷准备选择可选模型反射管线和普通图像的默认屏幕反射。关闭时保模型材质声明与原 HDR 发光、颜色和深度。普通图像的原 [光照 profile](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialLightingProfile.swift) 供直绘与基础图像捕获，共用作者 alpha、直接光及剩余有效纹理需求。显式或 Shader 缺省选择 `_rt_MipMappedFrameBuffer` 的作者 Program／源材质按同一资格供货。开档采原完成颜色。根段可采用模型当前混合方式的原生 2×／4× 反射管线，缺所需样本变体时在开根前保 1×。首帧无完成环境时保同采样基础材质。图像与作者 Program、晚到具名模型各沿原深度及供货条件。关档按实际绑定需求用原池的同尺寸完整 mip 私有 R8，swizzle 输出不透明黑，发布携 `clearedSceneEnvironment` 来源。必需终端和实际深度优先，预算不足只走原环境局部回退。同帧前缀、作者贴图、独立 Reflection 和持久 raw 仍由各自原 owner 生产。 [反射合同](../capabilities/advanced-object-coverage.md#static-model-screen-reflection)
 

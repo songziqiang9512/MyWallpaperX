@@ -58,10 +58,23 @@ nonisolated enum SceneShadowUse: Hashable, Sendable {
     case active([Map])
 }
 
+nonisolated enum SceneVolumeUse: Hashable, Sendable {
+    enum Point: String, Hashable, Sendable { case analytic, fourPoint, sixPoint, unavailable }
+
+    struct Rendered: Hashable, Sendable {
+        var point: Point?
+        var spot = false
+    }
+
+    case disabled
+    case rendered(Rendered)
+}
+
 nonisolated struct SceneFrameRenderUse: Equatable, Sendable {
     let rasterSampleCount: Int?
     let didFailMultisamplePreparation: Bool
     let shadow: SceneShadowUse?
+    var volume: SceneVolumeUse? = nil
 }
 
 nonisolated enum SceneVolumeLightingQuality: String, Sendable {

@@ -102,6 +102,16 @@ class ScenePointVolumeTests(unittest.TestCase):
                 self.assertEqual(row["encoded"], bool(rect), row)
                 self.assertEqual(row["rect"], rect, row)
 
+    def test_offscreen_numerical_light_keeps_analytic_visible_execution(self):
+        analytic = self.pixels["analyticOnlyFull"]
+        clipped = self.pixels["analyticOnlyWithClippedNumeric"]
+        mixed = self.pixels["analyticWithVisibleNumeric"]
+        self.assertTrue(analytic["encoded"] and analytic["analyticOnly"])
+        self.assertEqual(clipped, analytic)
+        self.assertTrue(mixed["encoded"])
+        self.assertFalse(mixed["analyticOnly"])
+        self.assertGreater(mixed["center"][0], analytic["center"][0])
+
     def test_high_exponent_center_crossing_matches_analytic_integral(self):
         uniform = self.pixels["hdrUniformDensity"]
         peaked = self.pixels["hdrHighExponent"]

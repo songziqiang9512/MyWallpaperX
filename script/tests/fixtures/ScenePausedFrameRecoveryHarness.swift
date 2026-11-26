@@ -182,6 +182,7 @@ final class SceneMetalView {
     let metalDevice = Device()
     var videoPresentation: SceneMetalRenderer.InitialVideoPresentation?
     var renderQuality: (samples: Int?, shadow: SceneShadowUse?) = (nil, nil)
+    var renderVolumeUse: SceneVolumeUse?
     var presentationFlags: [Bool] = []
     var plan: Plan = .prepared
     var draws = 0, commits = 0, cancels = 0
@@ -208,7 +209,7 @@ final class SceneMetalView {
         let candidate = SceneMetalRenderer.PreparedFrame(commandBuffer: buffer,
             initialVideoPresentation: collectsInitialVideoReadiness ? (videoPresentation ?? .init()) : nil,
             renderUse: .init(rasterSampleCount: renderQuality.samples,
-                didFailMultisamplePreparation: false, shadow: renderQuality.shadow),
+                didFailMultisamplePreparation: false, shadow: renderQuality.shadow, volume: renderVolumeUse),
             submit: { [self] present in commits += 1; presentationFlags.append(present); buffer.commit() },
             cancel: { [self] in cancels += 1 })
         buffers.append(buffer)
@@ -270,6 +271,7 @@ final class SceneDesktopWallpaperSession {
     var pausedFrameRetryDeadline: CFTimeInterval?
     var onFirstFrameCompletion: ((CGDirectDisplayID, Bool) -> Void)?
     var shadowsDisabled = false
+    var allowsProjectedSpotVolume = true
     var onDisplayQualityChanged: (() -> Void)?
     var videoTextureSourceRegistry: VideoProviders?
     var soundPlaybackRegistry: SoundProviders?
@@ -832,6 +834,7 @@ final class SceneDesktopWallpaperSession {
         var qualityChanges = 0
         owner.onDisplayQualityChanged = { qualityChanges += 1 }
         view.renderQuality = (1, .active([.init(family: .spot, face: 512)]))
+        view.renderVolumeUse = .rendered(.init(point: .sixPoint))
         healthy.metalView.videoPresentation = .init(readyLayerIDs: [1])
         view.videoPresentation = .init(pendingLayerIDs: [2], pendingSurfaceLayerIDs: [2])
         view.onRenderInvalidated?(); DispatchQueue.main.drain()
@@ -854,6 +857,7 @@ final class SceneDesktopWallpaperSession {
         precondition(surface.lastSubmittedPresentationSources == [videoC] && surface.videoSwitchDeadline == nil)
         complete(view, 3, true)
         precondition(qualityChanges == 1 && surface.qualityStatus.completed?.shadow == view.renderQuality.shadow)
+        precondition(surface.qualityStatus.completed?.volume == view.renderVolumeUse)
         precondition(healthy.metalView.draws == 1 && providers.commits == 4)
         stopped(owner); frozen(owner, before)
     }

@@ -514,6 +514,22 @@ import Foundation
             SceneDaemonProtocol.rasterDisplayStatuses([["displayID": 7, "samples": 4, "shadow": shadow]])
                 == [.init(displayID: 7, samples: 4)]
         }
+        let volumeOutcomes: [SceneVolumeUse?] = [
+            nil, .disabled, .rendered(.init()), .rendered(.init(spot: true)),
+            .rendered(.init(point: .analytic)), .rendered(.init(point: .fourPoint)),
+            .rendered(.init(point: .sixPoint, spot: true)), .rendered(.init(point: .unavailable, spot: true))
+        ]
+        let volumeDisplays = volumeOutcomes.enumerated().map { index, use in
+            SceneRasterDisplayStatus(displayID: UInt32(index + 1), samples: 4, volume: use)
+        }
+        let volumeRoundTrips = SceneDaemonProtocol.rasterDisplayStatuses(volumeDisplays.map(\.wireObject)) == volumeDisplays
+        let malformedVolumePreservesOtherQuality = [
+            ["spot": 1], ["spot": true, "point": "unknown"], ["point": "sixPoint"]
+        ].allSatisfy { volume in
+            SceneDaemonProtocol.rasterDisplayStatuses([[
+                "displayID": 7, "samples": 4, "shadow": "disabled", "volume": volume
+            ]]) == [.init(displayID: 7, samples: 4, shadow: .disabled)]
+        }
         let duplicateDisplayRejected: Bool
         if case .failure(.invalidPayload("setDisplayConfiguration")) = decode([
             "v": 2, "cmd": "setDisplayConfiguration", "screens": [
@@ -697,6 +713,8 @@ import Foundation
             "cadenceEventValid": cadenceEventValid,
             "rasterSamplesValid": rasterSamplesValid,
             "malformedShadowPreservesRaster": malformedShadowPreservesRaster,
+            "volumeRoundTrips": volumeRoundTrips,
+            "malformedVolumePreservesOtherQuality": malformedVolumePreservesOtherQuality,
             "duplicateDisplayRejected": duplicateDisplayRejected,
             "badBookmarkRejected": badBookmarkRejected,
             "audioValid": audioValid,

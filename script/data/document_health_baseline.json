@@ -13,8 +13,8 @@
       "bytes": 9730
     },
     "docs/architecture/repository-map.md": {
-      "lines": 66,
-      "bytes": 25202
+      "lines": 68,
+      "bytes": 25725
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -102,7 +102,7 @@
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 155922
+      "bytes": 156623
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -117,8 +117,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 307,
-      "bytes": 65884
+      "lines": 309,
+      "bytes": 66372
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -669,24 +669,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "aa75f007909885d52837637438261d6a2bde588d9ef8c8e0642829c579e926d7",
-      "after": "384ac0cd421d494c78fc14dd9b031f3b74cb1b991262ab6c1a3f5937dfde93a5",
-      "owner": "Scene playback quality",
-      "reason": "明确阴影实际绑定、灯图规格及共用的逐屏反馈职责。",
-      "decision": "docs/architecture/repository-map.md#wallpaper-quality"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "7a6375845f7a11c8536132ce15c28e776ec0db13fc587b68f3fc3cfc3d71ea25",
-      "after": "747e76134817e4af4ba2a221010fc37df41bf5f68f79baa5a902472d10519d72",
-      "owner": "Scene playback quality",
-      "reason": "明确阴影实际绑定、灯图规格及共用的逐屏反馈职责。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#effective-quality-policy"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "c8af9cb79fd58bedb2f99c16341a51f92975dea4f3f8a68a584c22a598c11d6c",
       "after": "c94da1aeab644add1f78d71c2e4425fb01e97fb37521b882d5d292c78cc443c0",
@@ -741,12 +723,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "aa9f036fc27c62af121531ade1f1b018d48aaa41d33a50706777b16c3b51531f",
-      "after": "6cf29caf6104af268c16cad089ce3efcf74ab7463118d6214b2f8ea0d98191da",
+      "path": "docs/architecture/repository-map.md",
+      "before": "384ac0cd421d494c78fc14dd9b031f3b74cb1b991262ab6c1a3f5937dfde93a5",
+      "after": "4fcaccd6618d928348dd5d4a978cfca905ffe06ae29c49a779d137cab75cf2ad",
       "owner": "Scene quality rendering",
-      "reason": "登记点光扩档的实际控件和同帧终图收据。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-point-shadow-density-trial"
+      "reason": "登记体积回执的实际编码、完成观察和 AppKit 消费。",
+      "decision": "docs/architecture/repository-map.md#wallpaper-quality"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "747e76134817e4af4ba2a221010fc37df41bf5f68f79baa5a902472d10519d72",
+      "after": "020615eaef534811005253c930fa6ceab37518f7dc5a12aba0140cea60c44c98",
+      "owner": "Scene quality rendering",
+      "reason": "说明体积完成帧回执的算法、实际编码与失败边界。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#scene-volume-lighting-policy"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "6cf29caf6104af268c16cad089ce3efcf74ab7463118d6214b2f8ea0d98191da",
+      "after": "c9b81013fdd56853efd8a8d589428f4750110dbdeebe6071d3f07faaaa4d1ae9",
+      "owner": "Scene quality rendering",
+      "reason": "登记签名原设置体积切换、实际回执和画面证据。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-volume-frame-readout"
     }
   ]
 }

@@ -103,6 +103,7 @@ nonisolated struct SceneRasterDisplayStatus: Equatable, Sendable {
     let samples: Int?
     var fallback: Fallback? = nil
     var shadow: SceneShadowUse? = nil
+    var volume: SceneVolumeUse? = nil
 
     var wireObject: [String: Any] {
         var object: [String: Any] = ["displayID": displayID]
@@ -120,6 +121,14 @@ nonisolated struct SceneRasterDisplayStatus: Equatable, Sendable {
                 row["limit"] = map.limit?.rawValue
                 return row
             }
+        }
+        switch volume {
+        case nil: break
+        case .disabled: object["volume"] = "disabled"
+        case .rendered(let use):
+            var row: [String: Any] = ["spot": use.spot]
+            row["point"] = use.point?.rawValue
+            object["volume"] = row
         }
         return object
     }
@@ -152,9 +161,17 @@ nonisolated enum SceneDaemonProtocol {
             let fallback = (object["fallback"] as? String).flatMap(SceneRasterDisplayStatus.Fallback.init(rawValue:))
             if object["fallback"] != nil, (samples != 1 || fallback == nil) { return nil }
             statuses.append(.init(displayID: id, samples: samples.map(Int.init), fallback: fallback,
-                shadow: shadowUse(object["shadow"])))
+                shadow: shadowUse(object["shadow"]), volume: volumeUse(object["volume"])))
         }
         return statuses
+    }
+
+    private static func volumeUse(_ raw: Any?) -> SceneVolumeUse? {
+        if raw as? String == "disabled" { return .disabled }
+        guard let row = raw as? [String: Any], let spot = boolean(row["spot"]) else { return nil }
+        let point = (row["point"] as? String).flatMap(SceneVolumeUse.Point.init(rawValue:))
+        if row["point"] != nil, point == nil { return nil }
+        return .rendered(.init(point: point, spot: spot))
     }
 
     private static func shadowUse(_ raw: Any?) -> SceneShadowUse? {

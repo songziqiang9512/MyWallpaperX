@@ -104,13 +104,10 @@ final class AppKitSettingsContainerView: NSView {
     let scenePostProcessingPopup = NSPopUpButton()
     let sceneTextureQualityPopup = NSPopUpButton()
     let sceneShadowsPopup = NSPopUpButton()
-    let sceneShadowUseLabel: NSTextField = {
-        let label = NSTextField(wrappingLabelWithString: "")
-        label.font = .systemFont(ofSize: 11)
-        label.textColor = .secondaryLabelColor
-        return label
-    }()
+    let sceneShadowUseLabel = AppKitSettingsContainerView.makeSceneEffectReadout()
     let sceneVolumeLightingPopup = NSPopUpButton()
+    let sceneVolumeUseLabel = AppKitSettingsContainerView.makeSceneEffectReadout()
+
     let sceneReflectionsSwitch = NSSwitch()
     let sceneMediaInfoSwitch = NSSwitch()
     let webFrameRatePopup = NSPopUpButton()

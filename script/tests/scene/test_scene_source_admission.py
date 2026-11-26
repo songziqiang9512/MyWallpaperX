@@ -300,7 +300,7 @@ enum SceneDaemonProtocol {
             '    static func animationCadenceEvent(', '    private static func animationFrameRate(',
             '    private static func integer(', '    private static func finiteDouble(',
             '    private static func unsignedInteger(', '    static func rasterDisplayStatuses(',
-            '    private static func shadowUse(',
+            '    private static func shadowUse(', '    private static func volumeUse(',
             '    static func writeRenderQuality(')) + r'''
 }
 struct DaemonPlaybackProcessRegistry {static let shared=Self();let acceptsNewProcesses=true}

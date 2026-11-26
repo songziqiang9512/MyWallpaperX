@@ -584,6 +584,7 @@ class SceneDaemonSwitchCancellationTests(unittest.TestCase):
             "private static func unsignedInteger(_ raw: Any?) -> UInt64?",
             "static func rasterDisplayStatuses(_ raw: Any?) -> [SceneRasterDisplayStatus]?",
             "private static func shadowUse(_ raw: Any?) -> SceneShadowUse?",
+            "private static func volumeUse(_ raw: Any?) -> SceneVolumeUse?",
         )))
         support = support.replace("    var activeRequestID:UUID?", "\n".join((
             "    var activeRequestID:UUID?",

@@ -87,6 +87,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() {} }
                     "uncovered": pixel(target, x: 32, y: 36),
                     "shoulder": pixel(target, x: 40, y: 32),
                     "outside": pixel(target, x: 49, y: 32)]
+            if let prepared { result["analyticOnly"] = prepared.usesOnlyAnalyticIntegration }
             if wholeFrame {
                 let bytesPerRow = width * (format == .rgba16Float ? 8 : 4)
                 var pixels = Data(count: bytesPerRow * side)
@@ -135,6 +136,13 @@ final class SceneGraphRenderTargetResidencyPin { func release() {} }
             "hdrHighExponent": render([point(position, radius: 1.75, intensity: 8,
                 volume: .init(density: 1, exponent: 10))], format: .rgba16Float, pipeline: hdr),
         ]
+        let fullAnalytic = point(SIMD3(0, 0, -0.5), radius: 2, volume: .init(density: 1, exponent: 0))
+        let clippedNumeric = point(SIMD3(0, 0, -28), radius: 1.75)
+        result["analyticOnlyFull"] = render([fullAnalytic], pipeline: ldr, clipsScreenCoverage: true)
+        result["analyticOnlyWithClippedNumeric"] =
+            render([fullAnalytic, clippedNumeric], pipeline: ldr, clipsScreenCoverage: true)
+        result["analyticWithVisibleNumeric"] =
+            render([fullAnalytic, red], pipeline: ldr, clipsScreenCoverage: true)
         let partialFar = 5 + 0.65 * 1.75 * sqrt(Float(1 - 0.05 * 0.05))
         let precisionProbes: [(String, Float, SIMD3<Float>, Float)] = [
             ("center-16", 16, position, 20),

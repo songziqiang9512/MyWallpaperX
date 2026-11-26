@@ -181,6 +181,7 @@ struct SceneMetalRenderer {
         let sceneColor = colorStart.reservation
         let mainTarget = sceneColor?.raw ?? drawable.texture
         var displayMappingInput: SceneDisplayMappingPostProcess.Input = .textureSource
+        var volumeUse = SceneVolumeUse.Rendered()
         var particleBatches: [SceneParticleMetalPipeline.PreparedBatch] = []
         var particlePerformanceObservations: [SceneParticlePerformanceObservation]? =
             performanceTelemetry == nil ? nil : []
@@ -223,6 +224,7 @@ struct SceneMetalRenderer {
                 mainTarget: mainTarget,
                 sceneColor: sceneColor,
                 displayMappingInput: &displayMappingInput,
+                volumeUse: &volumeUse,
                 frameDepthLeases: &frameDepthLeases,
                 particleBatches: &particleBatches,
                 particlePerformanceObservations: &particlePerformanceObservations,
@@ -244,7 +246,8 @@ struct SceneMetalRenderer {
         let renderUse = sceneColor?.requiresDraw == false ? sceneColor?.renderUse : SceneFrameRenderUse(
             rasterSampleCount: mainPassForSubmission?.submittedRasterSampleCount,
             didFailMultisamplePreparation: mainPassForSubmission?.didFailMultisamplePreparation == true,
-            shadow: modelFrame.shadowUse)
+            shadow: modelFrame.shadowUse,
+            volume: .rendered(volumeUse))
         if let failure = encodeTerminalColor(
             sourceCompleted: sceneColor?.requiresDraw == false || reflectionFrame?.mainSourceCompleted == true,
             sceneColor: sceneColor, target: drawable.texture,
