@@ -632,23 +632,30 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                      worldSpaceFrame: emitterWorldFrame, hasChildStreamOrigin: hasChildStreamOrigin)
             }
         }
-        normalizedLives.removeAll(keepingCapacity: true)
-        normalizedLives.reserveCapacity(particles.count)
+        let countDelta = particles.count - normalizedLives.count
+        if countDelta > 0 {
+            normalizedLives.reserveCapacity(particles.count)
+            normalizedLives.append(contentsOf: repeatElement(0, count: countDelta))
+        } else if countDelta < 0 {
+            normalizedLives.removeLast(-countDelta)
+        }
         let resetsAlpha = operatorResetsAlpha
         let resetsSize = operatorResetsSize
         let resetsColor = operatorResetsColor
-        particles.withUnsafeMutableBufferPointer { buffer in
-            for index in buffer.indices {
-                if resetsAlpha { buffer[index].alpha = buffer[index].initialAlpha }
-                if resetsSize { buffer[index].size = buffer[index].initialSize }
-                if resetsColor { buffer[index].color = buffer[index].initialColor }
-                // Newborns can move on their birth step while remaining at age zero.
-                if !updatesByFrame && buffer[index].id < existingParticleIDUpperBound {
-                    buffer[index].age += duration
+        normalizedLives.withUnsafeMutableBufferPointer { lives in
+            particles.withUnsafeMutableBufferPointer { buffer in
+                for index in buffer.indices {
+                    if resetsAlpha { buffer[index].alpha = buffer[index].initialAlpha }
+                    if resetsSize { buffer[index].size = buffer[index].initialSize }
+                    if resetsColor { buffer[index].color = buffer[index].initialColor }
+                    // Newborns can move on their birth step while remaining at age zero.
+                    if !updatesByFrame && buffer[index].id < existingParticleIDUpperBound {
+                        buffer[index].age += duration
+                    }
+                    lives[index] = min(max(
+                        buffer[index].age / max(buffer[index].lifetime, 1e-12), 0
+                    ), 1)
                 }
-                normalizedLives.append(min(max(
-                    buffer[index].age / max(buffer[index].lifetime, 1e-12), 0
-                ), 1))
             }
         }
         for (operatorIndex, value) in definition.operators.enumerated() {

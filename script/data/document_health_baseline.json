@@ -121,8 +121,8 @@
       "bytes": 7411
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 431,
-      "bytes": 82956
+      "lines": 434,
+      "bytes": 83459
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 493,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 405376
+      "bytes": 406316
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 54,
-      "bytes": 7192
+      "bytes": 7105
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -639,15 +639,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "015f68f2d1a28c0df5748d1d8b008a7d2e8c542cfbed787ad7d7e864dbf10f74",
-      "after": "f46aa9de9fdfe629718e5f46e995f0ca7b76b4ccf788c70001c1f7426fc12950",
-      "owner": "Scene particle launch preparation",
-      "reason": "登记根模拟并行边界、原包首屏收益、单根反例与队列剩余范围。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "c7f971b149770d676a9076edffe016a733b5acd4b0c80e433241b2633d6c7991",
       "after": "feeca538834cdd9deeaee04d487efd1facde1e29c2cdc16fa312d27ff6d71aed",
@@ -657,12 +648,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "f46aa9de9fdfe629718e5f46e995f0ca7b76b4ccf788c70001c1f7426fc12950",
+      "after": "078e1860e685d85d51dfda9a0eb2b6b003c2b162834690f0f78abc90e21adff3",
+      "owner": "Scene particle simulation",
+      "reason": "同步步进寿命数组的就地填充合同、实际交错首帧收益和剩余启动边界。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#particle-normalized-life-step"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "c46463ae27a7b06e54707eeef03afc5e3d90341958d4a947089360937f8b76aa",
-      "after": "54722e4bd8079da2e3ea53bc24a9eacaa0b74d70afd5ed6b1a1e4018806df167",
-      "owner": "Scene shader compatibility evidence",
-      "reason": "登记官版拒绝声明宏别名、本机局部旁路和队列退出依据。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#sampler-declaration-official"
+      "before": "54722e4bd8079da2e3ea53bc24a9eacaa0b74d70afd5ed6b1a1e4018806df167",
+      "after": "3650e174f79ae580423d3f7ad76fb047d50548a6f5431f7f8cc853f55e5dfb34",
+      "owner": "Scene particle simulation",
+      "reason": "同步步进寿命数组的就地填充合同、实际交错首帧收益和剩余启动边界。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-life-buffer-evidence"
     }
   ]
 }
