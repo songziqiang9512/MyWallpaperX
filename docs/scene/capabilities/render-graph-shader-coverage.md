@@ -58,7 +58,7 @@ Program仍准备一个数值binding，主身份供原ABI/语义身份、直user�
 
 两阶段各有作者值作用域。仅顶点声明的 varying 与片元的数值 uniform 可以同名；共享 std140 块不得把片元字段的无实例声明注入顶点后遮住作者 varying。Generic 归一保原 uniform 字段名、排序、绑定槽和材质键，以原 varying 位置排序为仅发生冲突的顶点声明分配唯一后端名。沿顶点的精确 lexical references 改真实读写，保局部、形参和成员。片元转换使用本阶段的 uniform 形状，也不把该字段交给片元 varying 的本地化。Artifact Builder 沿 SPIRV-Cross 生成的 MWXUniforms 接收者收集活字段并改 ABI 名，避免把同名的普通结构体成员登记为另一阶段的材质输入。由原 glslang 联合链接、SPIR-V 反射与 Metal 验证最终接口。
 
-同阶段冲突、真实接口类型不合与无生产者沿原失败路径。没有碰撞的源码保持原命名与冷准备；不另建解析器、uniform ABI、材质别名、运行时状态或普通帧工作。用原有严格链接和 GPU 门核真实旧失败、异型和等价表达式、变量及资源改名和遮蔽反例，再经生产 Program 验证反射与执行。sampler 宏声明的冷入口单独验收。
+同阶段冲突、真实接口类型不合与无生产者沿原失败路径。没有碰撞的源码保持原命名与冷准备；不另建解析器、uniform ABI、材质别名、运行时状态或普通帧工作。用原有严格链接和 GPU 门核真实旧失败、异型和等价表达式、变量及资源改名和遮蔽反例，再经生产 Program 验证反射与执行。采样器仍依[作者槽位合同](https://docs.wallpaperengine.io/en/scene/shader/variables.html#define-new-texture)使用明示的0–7槽位。[官版对照](runtime-evidence-current.md#sampler-declaration-official)确认槽0可用宏读取，声明直接或经 include 展开为槽0时未得到有效绘制；现有失败仅限该材质。
 
 <a id="generic-varying-array-budget"></a>
 ### 固定数组接口的准入设计

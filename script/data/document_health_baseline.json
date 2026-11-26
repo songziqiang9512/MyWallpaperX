@@ -162,11 +162,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 493,
-      "bytes": 97657
+      "bytes": 97957
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 420463
+      "bytes": 421010
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -197,8 +197,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 55,
-      "bytes": 7545
+      "lines": 54,
+      "bytes": 7192
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -696,24 +696,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "2f42e458d8ba69c9806720db14ac5b2e78e0ea24729d69bea13883f2927d4733",
-      "after": "f52c1636e26bc81b41f57989377ab5697e32fdc95474db579190c8ae77403a37",
-      "owner": "Scene Generic shader compiler",
-      "reason": "记录跨阶段数值名称与普通结构成员的编译合同、签名实绘和回归边界。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#stage-scoped-varying-symbols"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b97309c7e8e82687fc4e4e3c9d37580fbb30eebc6626d31115014ecf9ef2c550",
-      "after": "0efe4042bbdf658118dafeddd27c54f48a4181ae3a4324e4e3240f6e148699c2",
-      "owner": "Scene visual composition evidence",
-      "reason": "登记作者自然动作、两类音频图形与末级画面历史的顺序和两端对照边界。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-natural-audio-history-367"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "c8af9cb79fd58bedb2f99c16341a51f92975dea4f3f8a68a584c22a598c11d6c",
       "after": "c94da1aeab644add1f78d71c2e4425fb01e97fb37521b882d5d292c78cc443c0",
@@ -747,6 +729,24 @@
       "owner": "Scene quality combination evidence",
       "reason": "登记签名 M4 冷池中点光扩档挤掉实际体积光的对照。",
       "decision": "docs/development/wallpaper-quality-work-card.md#scene-point-shadow-density-trial"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "f52c1636e26bc81b41f57989377ab5697e32fdc95474db579190c8ae77403a37",
+      "after": "356b088789baa22241b4798020bfa31276c1a870bdf00d1d92836e0c0deac4f4",
+      "owner": "Scene shader compatibility evidence",
+      "reason": "登记官版拒绝声明宏别名、本机局部旁路和队列退出依据。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#stage-scoped-varying-symbols"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "0efe4042bbdf658118dafeddd27c54f48a4181ae3a4324e4e3240f6e148699c2",
+      "after": "1e7c44576a5b9c64a9f4f39815c307eb4b3d02edd318267aa0e9f06c503d2dea",
+      "owner": "Scene shader compatibility evidence",
+      "reason": "登记官版拒绝声明宏别名、本机局部旁路和队列退出依据。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#sampler-declaration-official"
     }
   ]
 }
