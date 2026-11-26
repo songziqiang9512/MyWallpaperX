@@ -6,7 +6,7 @@
 <a id="execution"></a>
 ## 当前批与接手步骤
 
-独立工作树 `Fluxo/wallpaper-quality-settings` 已合入主线 `01dc22263`，Scene 捕获与 Web 帧率回归已恢复。[点光候选](#scene-point-shadow-density-trial)用同步后源码复验预算回退、真实深度和跨面采样，缺省 60 FPS 长稳待测。[作者 mip 快照](#scene-embedded-mip-snapshot-result)因整场峰值回退退出。[体积清深度直查](wallpaper-quality-settings-plan.md#scene-volume-clear-depth-table)的真实 SDR 阶段节省逾 32%，整帧未复现有意义收益，HDR 和大坐标负例均超门，路线退出。初始隐藏纹理已接通同源选档，现优先修复典型原作者场景的 MSAA 全帧退档与纹理的全场景别名否决。以常规作者属性下各项真实消费者和窗口为验收范围，继续补官版低／中档、反射对照与点光阴影独立长窗。 [MSAA 混合段](wallpaper-quality-settings-plan.md#scene-aa-depth-independent-tail) · [隐藏纹理选档](wallpaper-quality-settings-plan.md#scene-texture-deferred-quality) [技术设计](wallpaper-quality-settings-plan.md#decision) · [源码地图](../architecture/repository-map.md#wallpaper-quality) · [验证流程](repository-workflow.md#设计判定与记录)
+独立工作树 `Fluxo/wallpaper-quality-settings` 已合入主线 `fcf969274`，Scene 捕获与 Web 帧率回归已恢复。[点光候选](#scene-point-shadow-density-trial)用同步后源码复验预算回退、真实深度和跨面采样，缺省 60 FPS 长稳待测。[作者 mip 快照](#scene-embedded-mip-snapshot-result)因整场峰值回退退出。[体积清深度直查](wallpaper-quality-settings-plan.md#scene-volume-clear-depth-table)的真实 SDR 阶段节省逾 32%，整帧未复现有意义收益，HDR 和大坐标负例均超门，路线退出。高性能纹理已解除全场景脚本别名否决，3264246690 实绘由 5120×1440 变为 1280×360。现优先修复典型原作者场景的 MSAA 全帧退档。以常规作者属性下各项真实消费者和窗口为验收范围，继续补官版低／中档、反射对照与点光阴影独立长窗。 [MSAA 混合段](wallpaper-quality-settings-plan.md#scene-aa-depth-independent-tail) · [隐藏纹理选档](wallpaper-quality-settings-plan.md#scene-texture-deferred-quality) [技术设计](wallpaper-quality-settings-plan.md#decision) · [源码地图](../architecture/repository-map.md#wallpaper-quality) · [验证流程](repository-workflow.md#设计判定与记录)
 
 M4 单内屏已验证四档预设、10–120 FPS、Scene MSAA 至 4×、泛光和显示 HDR、三种纹理策略、阴影五档、反射启停及真实桌面接管。Scene 冷档直接编辑与显式重试共用实际准备回执和在途撤单。导入同类画质可连续播放。真实 Web 作者验证 FPS 建议与绘制，Video 保原片并已实测 PQ／HLG／HDR10+ 实窗。体积保禁用、高／超高，低／中原尺寸网格已验画面与回退，整帧收益未复现，暂退出发布。[本地 Video 原片恢复](wallpaper-quality-settings-plan.md#video-inspector-source-recovery)已在同窗更新实际尺寸和标称帧率，原生同窗切换实证[冷海报等比定位、暖切保留原画及留黑](wallpaper-quality-settings-plan.md#video-candidate-poster)及[同源淡入亮度连续](wallpaper-quality-settings-plan.md#video-crossfade-luminance)。直接调档已实测自动采纳、在途精确撤单与三引擎导入连续。后续继续官版运行对照及混合显示拓扑、8× 和长稳功耗的硬件复验。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
 
@@ -340,13 +340,13 @@ M4 内置当前 120 Hz 下，签名短窗 61／90／119／120 实呈 60.75／89.
 <a id="scene-texture-rollout"></a>
 ### Scene 普通图像作者 mip 尾
 
-原准备期只在用途已经证明为静态根图、唯一受支持的普通本地采样、归一 UV 的颜色消费者时允许降低物理规格。复用现有材质与依赖分析，精确作者程式、带填充、atlas、动画、mask、深度／named 供货和粒子像素读取各保全规格。实例和材质定义的具名来源都保原规格。普通图像中可能缩小的一组在原 Program 准备出已接纳的动态创建者后选择规格，其余图片继续原并行。实际接纳的模型创建或图层变更 owner 会令模型别名保全规格，覆盖无字面量请求的计算路径。每个基础图仍只准备一种表示。ImageIO 独立图片、原生 BC／raw、自动占用投影分析分开取证。 [纹理技术评估](wallpaper-quality-settings-plan.md#scene-texture-quality) · [官版 L0 路径](wallpaper-quality-settings-plan.md#official-texture-resolution) · [一级试验与保留决定](wallpaper-quality-settings-plan.md#scene-one-level-texture-trial)
+原准备期只在用途已经证明为静态根图、唯一受支持的普通本地采样、归一 UV 的颜色消费者时允许降低物理规格。复用现有材质与依赖分析，精确作者程式、带填充、atlas、动画、mask、深度／named 供货和粒子像素读取各保全规格。实例和材质定义的具名来源都保原规格。普通图像中可能缩小的一组在原 Program 准备出已接纳的动态创建者后选择规格，其余图片继续原并行。实际接纳的动态模型查找让同模型、同源的冷别名供体保全规格。明确请求的模型分别解析，计算路径继续消费原目录。高性能对不参与冷目录的普通图独立选级，延迟图依原时机才上传。Auto 仍保未知脚本几何变换的限制。ImageIO 独立图片、原生 BC／raw、自动占用投影分析分开取证。 [纹理技术评估](wallpaper-quality-settings-plan.md#scene-texture-quality) · [官版 L0 路径](wallpaper-quality-settings-plan.md#official-texture-resolution) · [一级试验与保留决定](wallpaper-quality-settings-plan.md#scene-one-level-texture-trial)
 
 高性能试验沿现有 TEXB3 嵌入图解码，取长边不超过 2048 的首个合格作者 mip 及其原尾链。只有原首级等于实际映射范围时采用。原作者布局、归一比例、颜色／直通 alpha、采样和寻址由当前契约提供。GPU 表示缓存键区分真正的基级；原 source revision 和 CPU 解码共享。偏好走同一 Scene 质量请求的冷准备快照。高质量保现役精度。先用真实 1695673397/12、独立 3383210272/184 和带填充 BC3 邻例查物理 extent、像素、同原文件双用途顺序和缓存、画布与边缘、预算。记录实际栅格化、上传或 Metal 驻留差异，完整解码仍运行时按原事实记录。
 
 真实签名 App 的 1695673397 第 12 层用 4000×4268 → 1000×1067，独立 3383210272 第 184 层用 3910×2200 → 1955×1100。两组均保完整归一 UV，完成 GPU 并取得实屏像素。1695673397 第 71 层的图和特效采样保规格。3437487219 第 70／87 层带真实 padding，两档保 4448×1824／4448×1792 及原 UV 比。真实 Metal 像素门，验证同源反序加载不串规格、实际分配减少、原尾链 RGBA 字节与单级／数据／padding 反例。当前不以整机帧率或功耗为这批结论。高性能首批仍遍历原嵌入图解码路径，自动投影、ImageIO 散图和其它用途继续独立验收。
 
-独立审查找到材质定义命名槽、无字面量的有状态脚本生成两条路径。早版签名 App 在两处都实际提交 2048×2。修正后两者保 4096×4，未受引用的同文件普通图继续用 2048×2。计算得到模型路径的脚本副本在实屏中央显示作者 RGB (230,25,15)，早版在该处为背景 (178,178,178)。修正后的同签名两部真实作者仍命中各自 mip。 [签名回归](../../script/tests/scene/test_scene_texture_quality_integration.py)
+独立审查找到材质定义命名槽、无字面量的有状态脚本生成两条路径。早版签名 App 在两处都实际提交 2048×2。修正后两者保 4096×4，未受引用的同文件普通图继续用 2048×2。计算得到模型路径的脚本副本在实屏中央显示作者 RGB (230,25,15)，早版在该处为背景 (178,178,178)。两部独立真实作者仍命中各自 mip。随后用保留原包字节的 3264246690 验证，层 3197 的原可见性脚本实际执行，原 Combo 使层 28 延迟显示后高性能绑定 1280×360、高质量 5120×1440。两档完成同一窗口 GPU 绘制，实际普通输入像素数差 16 倍。收据归 `.artifacts/wallpaper-quality-texture-alias-20261127`。 [签名回归](../../script/tests/scene/test_scene_texture_quality_integration.py)
 
 <a id="scene-native-bc-author-mips"></a>
 ### 原生压缩作者 mip 的资格

@@ -76,6 +76,32 @@ extension ScenePreparedBaseImageResources {
         }
     }
 
+    static func mipAliasDonors(
+        _ layers: [SceneRenderDescriptor.Layer], deferred: Set<Int>, entries: [Int: Entry],
+        materials: ScenePreparedImageMaterialCatalog,
+        resolver: SceneTexturePathResolver, loader: SceneTextureLoader
+    ) throws -> [Int: SceneBaseMaterialLightingProfile] {
+        var donors: [Int: SceneBaseMaterialLightingProfile] = [:]
+        for layer in layers where layer.contentKind == "image" && !deferred.contains(layer.id) {
+            guard let model = layer.imagePath, let entry = entries[layer.id] else { continue }
+            donors[layer.id] = try modelDefaultProfile(layer, model: model, entry: entry,
+                materials: materials, resolver: resolver, loader: loader)
+        }
+        return donors
+    }
+
+    static func modelDefaultProfile(
+        _ layer: SceneRenderDescriptor.Layer, model: String, entry: Entry,
+        materials: ScenePreparedImageMaterialCatalog, resolver: SceneTexturePathResolver, loader: SceneTextureLoader
+    ) throws -> SceneBaseMaterialLightingProfile? {
+        guard let profile = materials.profiles[SceneModelResourceIdentity(model).value],
+              layer.puppetMeshPath == nil || !profile.surfaceEnabled else { return nil }
+        if layer.staticBaseTexturePath == nil { return profile }
+        guard let modelInput = resolver.resolvePrimaryTexture(modelPath: model),
+              try (modelInput == entry.input || loader.sourceKey(for: modelInput) == entry.source) else { return nil }
+        return profile
+    }
+
     static func keepPublishedAutomaticTails(
         _ plans: [SceneTextureLoader.SourceKey: AutomaticMipPlan], entries: [Int: Entry],
         deferredLayerIDs: Set<Int>, loader: SceneTextureLoader

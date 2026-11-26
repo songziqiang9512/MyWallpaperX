@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 66,
-      "bytes": 23256
+      "bytes": 23310
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -94,11 +94,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 168533
+      "bytes": 169264
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 144892
+      "bytes": 145363
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -114,7 +114,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 307,
-      "bytes": 63586
+      "bytes": 63712
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -386,15 +386,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "f3b7e42aa4e6ee81c910a4469163208808faf614b15e9290e33ec673da2ccf83",
-      "after": "f1e401ab1f7d3c2fcdccc40ae0417c3d4f3f87e7ac44a9cd61c849f3462664ca",
-      "owner": "Scene deferred base textures",
-      "reason": "记录同一资源所有者的选档、显现、跨尺寸与实际签名验收。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-texture-deferred-quality"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/steam-workshop-acquisition-contract.md",
       "before": "106b7f3cf498969caea81ac69b40f9f636908c833a3598c3a8b38ca7d1c614f9",
       "after": "5ea2b7ecc76721bf5949b0d4dd504ef62b48b3359abb1bc8c8a009ea2d526a45",
@@ -503,24 +494,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "c8a3272b571babc6e770858f543e86bfb90af918776a6a93fc8c25454593acb2",
-      "after": "0e1c366468bda56c2fd8f907be5a91c058e8f19b6975f91292316519fc950653",
-      "owner": "Scene deferred base textures",
-      "reason": "记录同一资源所有者的选档、显现、跨尺寸与实际签名验收。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-texture-deferred-quality"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "e5f670b73c5712b00840a0b031f843f79f4e3d1cb2fe6ba0e36c21b2e4ffe404",
-      "after": "5b863c21812661267bb6aed46de3e46be69b5e3c585ca1525c7e3b687bb90692",
-      "owner": "Scene deferred base textures",
-      "reason": "记录同一资源所有者的选档、显现、跨尺寸与实际签名验收。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
-    },
-    {
-      "section": "bodies",
       "path": "docs/release/bundle-content.md",
       "before": "9320ffb3f0d5e6abf1cfa44ec4d19363437b1b68c63e5017a0afca00a285833f",
       "after": "5cf34e2b74a836cd19893a610f918df25ef0fcc127548d6de9357902efe8a7a0",
@@ -545,15 +518,6 @@
       "owner": "Scene ordered capture receipts",
       "reason": "Define source-order qualification and exact periodic PNG input in the existing offline reader. Record original357 archive transport and independent288 byte replay without changing old verdicts; remove solved reader queue item and bound violin followup. No new App/GPU/build. Exact body budget.",
       "decision": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md#capture-receipts"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "38f15b8263ae534d7acb08a214b3442b527f5ec36be11e5003976031aeaec2a4",
-      "after": "3f1583b95a7853c180b02ef7d0f88e673434626904fcd71711259c9bd4d18e84",
-      "owner": "Scene deferred base textures",
-      "reason": "记录同一资源所有者的选档、显现、跨尺寸与实际签名验收。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-texture-deferred-quality"
     },
     {
       "section": "bodies",
@@ -734,6 +698,42 @@
       "owner": "Scene particle runtime and evidence",
       "reason": "Preserve the current main particle birth palette and the existing quality evidence on the merge.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "f1e401ab1f7d3c2fcdccc40ae0417c3d4f3f87e7ac44a9cd61c849f3462664ca",
+      "after": "369bfbd9b7aadc7fd1a2b355a8ba6f0d7e22a1aa5093d330892931cf7b3a9ba7",
+      "owner": "Scene base images and quality settings",
+      "reason": "Specify and verify texture mip selection at actual ordinary and dynamic-model consumers.",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-texture-deferred-quality"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-settings-plan.md",
+      "before": "0e1c366468bda56c2fd8f907be5a91c058e8f19b6975f91292316519fc950653",
+      "after": "4aea851d1098668cfe1d74ac8c35c1286478ed2e62493034c193653d6149f4c1",
+      "owner": "Scene base images and quality settings",
+      "reason": "Specify and verify texture mip selection at actual ordinary and dynamic-model consumers.",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-texture-deferred-quality"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "5b863c21812661267bb6aed46de3e46be69b5e3c585ca1525c7e3b687bb90692",
+      "after": "dfdd5a8463c5aa9337cb84979bb9497c42d75b0993d94c966ed7b7cc6e8641c8",
+      "owner": "Scene base images and quality settings",
+      "reason": "Specify and verify texture mip selection at actual ordinary and dynamic-model consumers.",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-texture-deferred-quality"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "3f1583b95a7853c180b02ef7d0f88e673434626904fcd71711259c9bd4d18e84",
+      "after": "ff2273cb11bb4794586ad30941b5286b68fd9f80c40047f76d0a1b8d67179544",
+      "owner": "Scene base images and quality settings",
+      "reason": "Specify and verify texture mip selection at actual ordinary and dynamic-model consumers.",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-texture-deferred-quality"
     }
   ]
 }

@@ -333,26 +333,27 @@ final class ScenePreparedBaseImageResources {
                 try loadInitialImage(layer)
             }
             let planning = try dynamicImageRequestsProvider?() ?? .init(models: dynamicImageModelPaths)
-            // Admitted mutation owners can use model aliases without literal requests.
             let requestedModels = planning.models
-            let canReduceModelDefaults = requestedModels.isEmpty && !planning.retainsModelDefaultAliases
+            let imageMaterials = ScenePreparedImageMaterialCatalog(descriptor: descriptor)
+            let hasDynamicModelLookup = planning.retainsModelDefaultAliases || !requestedModels.isEmpty
+            let performanceSelection = ordinaryColorMipLongEdge.map(SceneOrdinaryImageMipSelection.maximumLongEdge)
+            let aliases = performanceSelection != nil && hasDynamicModelLookup
+                ? try Self.mipAliasDonors(mipTailLayers, deferred: deferredLayerIDs, entries: entries,
+                    materials: imageMaterials, resolver: resolver, loader: textureLoader) : [:]
             let automaticPlans = Self.automaticMipPlans(automaticSources, cover: automaticCover,
-                exactSources: exactSources, constraints: canReduceModelDefaults ? planning.automaticMipConstraints : nil)
-            let performanceSelection = canReduceModelDefaults
-                ? ordinaryColorMipLongEdge.map(SceneOrdinaryImageMipSelection.maximumLongEdge) : nil
+                exactSources: exactSources, constraints: hasDynamicModelLookup ? nil : planning.automaticMipConstraints)
             var deferredMipSelections: [Int: SceneOrdinaryImageMipSelection] = [:]
             for layer in mipTailLayers {
                 if deferredLayerIDs.contains(layer.id) {
                     deferredMipSelections[layer.id] = performanceSelection
                 } else {
                     let selection = imageRequests[layer.id].flatMap { automaticPlans[$0.source]?.selection } ?? performanceSelection
-                    try loadInitialImage(layer, mipSelection: selection)
+                    try loadInitialImage(layer, mipSelection: aliases[layer.id] == nil ? selection : nil)
                 }
             }
 
             var dynamicImageResources: [String: ScenePreparedDynamicImageResource] = [:]
             var videoFiles: [SceneTextureLoader.SourceKey: Result<SceneVideoOwnedFile, Error>] = [:]
-            let imageMaterials = ScenePreparedImageMaterialCatalog(descriptor: descriptor)
             for modelPath in requestedModels.union(videoModelPaths).sorted() {
                 try cancellationCheck()
                 // Puppet resources enter below through mesh + straight atlas, never a quad.
@@ -490,15 +491,11 @@ final class ScenePreparedBaseImageResources {
                 try cancellationCheck()
                 guard let modelPath = layer.imagePath,
                       dynamicImageResources[modelPath.lowercased()] == nil,
-                      let profile = imageMaterials.profiles[SceneModelResourceIdentity(modelPath).value],
-                      layer.puppetMeshPath == nil || !profile.surfaceEnabled,
                       let entry = entries[layer.id], automaticMipTails[entry.source] == nil,
-                      let modelURL = resolver.resolvePrimaryTexture(modelPath: modelPath),
-                      try (modelURL == entry.input || textureLoader.sourceKey(for: modelURL) == entry.source),
-                      case let .loaded(loaded)? = entry.outcome,
-                      loaded.animation == nil,
-                      let candidate = loaded.candidate,
-                      candidate.texture === loaded.texture else { continue }
+                      case let .loaded(loaded)? = entry.outcome, loaded.animation == nil,
+                      let candidate = loaded.candidate, candidate.texture === loaded.texture,
+                      let profile = try (aliases[layer.id] ?? Self.modelDefaultProfile(layer, model: modelPath,
+                        entry: entry, materials: imageMaterials, resolver: resolver, loader: textureLoader)) else { continue }
                 let pose = puppets.defaultPose(for: layer)
                 guard layer.puppetMeshPath == nil || pose != nil else { continue }
                 dynamicImageResources[modelPath.lowercased()] = .init(

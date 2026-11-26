@@ -914,8 +914,25 @@ enum Checks {
         let exactSharing = try prepare([hidden, exact], deferred: [hidden.id], auto: true)
         let exactStaysFull = reveal(exactSharing, hidden.id)
             && width(exactSharing, exact.id) == 4096 && width(exactSharing, hidden.id) == 4096
+        let modelKey = eager.imagePath!
         let alias = try prepare([hidden], deferred: [hidden.id], auto: false, retainsAliases: true)
-        let aliasStaysFull = reveal(alias, hidden.id) && width(alias, hidden.id) == 4096
+        let dormantIsNotAnAlias = reveal(alias, hidden.id) && width(alias, hidden.id) == 2048
+            && alias.dynamicImageResources[modelKey] == nil
+        let sharedAlias = try prepare([eager, hidden], deferred: [hidden.id], auto: false, retainsAliases: true)
+        let eagerAliasKeepsMipZero = reveal(sharedAlias, hidden.id) && width(sharedAlias, hidden.id) == 2048
+            && width(sharedAlias, eager.id) == 4096 && sharedAlias.dynamicImageResources[modelKey]?.renderSizeWH == [4096, 2048]
+        let automaticAlias = try prepare([eager, hidden], deferred: [hidden.id], auto: true, retainsAliases: true)
+        let automaticKeepsUnknownScriptGeometryFull = reveal(automaticAlias, hidden.id)
+            && width(automaticAlias, hidden.id) == 4096 && width(automaticAlias, eager.id) == 4096
+        descriptor.modelMaterialLinks += [.init(modelPath: "models/literal.json", materialPath: "materials/shared.json"),
+            .init(modelPath: "models/plain.json", materialPath: "materials/plain.json")]
+        descriptor.materialPasses.append(.init(materialPath: "materials/plain.json", texturePaths: [texturePath],
+            textureSlots: [texturePath], combos: ["VERSION": 2, "VARIANT": 0]))
+        let plain = SceneRenderDescriptor.Layer(id: 40, imagePath: "models/plain.json", scalableStaticColorSource: true)
+        let requested = try prepare([eager, plain], deferred: [], auto: false, models: ["models/literal.json"])
+        let requestProtectsOnlyAliasDonors = width(requested, plain.id) == 2048 && width(requested, eager.id) == 4096
+            && requested.dynamicImageResources[modelKey]?.renderSizeWH == [4096, 2048]
+            && requested.dynamicImageResources["models/literal.json"]?.renderSizeWH == [4096, 2048]
 
         let concurrent = try prepare([eager, hidden], deferred: [hidden.id], auto: true)
         let started = DispatchSemaphore(value: 0)
@@ -974,7 +991,9 @@ enum Checks {
             "coldSharedProjection": coldSharedProjection, "autoRevealsSameMip": autoRevealsSameMip,
             "autoRevealReusesTexture": autoRevealReusesTexture, "staleAliasRejected": staleAliasRejected,
             "promotedPeers": promotedPeers, "resizedBeforeReveal": resizedBeforeReveal,
-            "exactStaysFull": exactStaysFull, "aliasStaysFull": aliasStaysFull, "newerRevealWon": newerRevealWon,
+            "exactStaysFull": exactStaysFull, "dormantIsNotAnAlias": dormantIsNotAnAlias, "newerRevealWon": newerRevealWon,
+            "eagerAliasKeepsMipZero": eagerAliasKeepsMipZero, "automaticKeepsUnknownScriptGeometryFull": automaticKeepsUnknownScriptGeometryFull,
+            "requestProtectsOnlyAliasDonors": requestProtectsOnlyAliasDonors,
             "firstReadyAtLatestSize": firstReadyAtLatestSize, "discardedMipReleased": discardedMipReleased]
     }
 }
