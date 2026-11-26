@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 399257
+      "bytes": 399955
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 56,
-      "bytes": 7212
+      "lines": 55,
+      "bytes": 6857
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -667,11 +667,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a3ad520df8cd0f62d99c1bc5ab4e72ac7e0cc6a6e9d9bc37c2f4acd383dcb040",
-      "after": "c4049092f30d4f8e9c6cbf7df261b8924d4d41141f3874c00a91811dcfc1bccc",
-      "owner": "Scene composition",
-      "reason": "记录环字离屏输出采用相机深度的原作者正反例与剩余斜视对照。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-box-ring-depth-333"
+      "before": "c4049092f30d4f8e9c6cbf7df261b8924d4d41141f3874c00a91811dcfc1bccc",
+      "after": "a8efd13f7a02374a8d41d15803a22c9cfa416781f46ebf359886cbc3fc77d7b5",
+      "owner": "Scene particle color",
+      "reason": "用当前原包和只移除目标层的对照结清短横线呈白复报。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#floor-beam-color-338"
     }
   ]
 }
