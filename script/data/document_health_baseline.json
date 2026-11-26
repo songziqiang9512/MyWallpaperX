@@ -639,10 +639,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "1ad6561ac765ee86b78d103cdb0517da19a8ecad718b9da043a296196b1ff57f",
+      "before": "98a0e0146a3bdce7cccad77bc66d10303b1e3f79ccb81851d07fc87f20e1b0c6",
       "after": "3583d1759ae212f006947afb09812d538615223123f25ba1f8b7d96f305b7fdd",
       "owner": "Scene background attachment addressing",
-      "reason": "按画质父提交核对合并后的滚动边条实测及保留的画质分支证据。",
+      "reason": "按主线父提交核对合并后的滚动边条与画质实测正文预算。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-collage-strip-358"
     },
     {
