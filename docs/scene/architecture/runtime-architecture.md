@@ -191,6 +191,19 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 
 验收分真实 Parser/Simulator、Runtime→生产 Metal 和作者 batch→最终捕获；官方局部点位和定性尺寸顺序不能升级成全域公式、完整动画或逐像素一致。未消费选项及未资格组合留在[开放问题](../roadmap/scene-open-breakpoint-queue.md)，不能变成隐藏的整链许可。
 
+<a id="particle-child-control-stream"></a>
+### 粒子子系统的控制点与生命周期
+
+ChildGraphExpansion 在原声明中一次准备实际需要的父粒子控制点输入。已测 declaration bit 1 从 `controlpointstartindex` 起按直接父系统的存活顺序覆盖槽位，省略索引从 0 开始。供给值是直接父 Simulator 的局部粒子位置，按原 child attachment 和渲染链投影一次。消费顺序与清空保留见[官版证据](../capabilities/runtime-evidence-current.md#thunderbolt-child-control-stream)。[官方 Children 合同](https://docs.wallpaperengine.io/en/scene/particles/component/children.html#child-particle-system-configuration)
+
+默认点先供货，收到的槽留在原 Simulator 的控制点当前值与快照中。只更新实际送达的槽。父粒子死亡后，剩余粒子按当前顺序移入，未再获得供值的槽保留上次值；已测父源清空后新生仍读取该值。原脚本点、原始父点复制和父粒子流保持各自的输入语义。带实际父点复制的 CP 不被父粒子流覆盖；测得的局部 follow 形态使用原定义的默认点，stock world 静态复制仍取父点。不要为无映射的 `parentcontrolpoint` 编辑字段建立许可，混合世界变换及脚本对同槽的优先级按实际消费者验证。
+
+事件节点即使明确无 renderer，也可在原模板中准备活的后代和自身模拟。无绘制节点不用纹理或 batch；坏 renderer 和无活后代的空节点保持原局部失败。嵌套 Static 随直接父系统建立一次，以原 `spawnScopeID` 定位，父发射器的延迟不推迟该 leaf 的创建。预算按每个实际父作用域复用现有深度、系统数、粒子及合并 Rope 上限。启动阶段只创建一级 Static，二级不用全局冷启动或每帧补建。
+
+普通 Follow 源粒子死亡保留已有的跟随位置和存量，后代与父系统各沿原时钟、寿命和预算排空。显式销毁、stop 与快照回滚沿已有 owner。脱离后是否继续接收新发射需单独对照；不借存量尾段授无界发射。现有 attachment 和 per-scope identity 继续负责渲染及失效，不建第二个子系统调度器。
+
+验证按原 GraphExpansion → ChildRuntime → Simulator → Rope/Sprite → Metal。短命不重启、长命尾段、晚出生读旧槽、带/不带复制的相反方向、改名、健康 peer、预算及回滚各走同一链。首个原包交付要求子束实际合成；原子束的周期发射、initial-value 与空间另沿本身消费者验证。
+
 <a id="particle-world-translation"></a>
 ## 粒子祖先平移与参考空间
 

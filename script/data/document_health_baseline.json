@@ -85,8 +85,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 259,
-      "bytes": 48463
+      "lines": 272,
+      "bytes": 51032
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 412,
-      "bytes": 77759
+      "bytes": 77982
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 467,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 366946
+      "bytes": 368519
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 240,
-      "bytes": 68635
+      "bytes": 68881
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "78c3979618d14c77126f3cd8da09b70bf4ae8490a913e527cacaf2effa9b5517",
-      "after": "08908b3584525cadb07642a3ebd923f3bd08c2dc31777c869fabcbc4fd9d8c41",
+      "before": "f3d04dc97a2319148060a066e774251fdf13de5cbcfc78cd238274b6c3fb8620",
+      "after": "df06d39a2af6513c3f0793bb705a9e6bfbbee9fbdcd169d828a4bccddb4f298c",
       "owner": "Scene",
-      "reason": "Record measured natural birth age, runtime evidence and resolved feedback scope.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#natural-birth-lifetime"
+      "reason": "记录子系统父点流、晚生保留与生命周期实测。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#child-declaration-options"
     },
     {
       "section": "bodies",
@@ -478,11 +478,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "ff75624f65dbcf7a1a7e401835c3d2ea4c20750cd0cb90b836b571f8351e3bbe",
-      "after": "a1bf3fc2ed65e7dbcc4ee6111749cbdbdccdf4edca798d5feeea896cf2ba3af5",
+      "before": "a1bf3fc2ed65e7dbcc4ee6111749cbdbdccdf4edca798d5feeea896cf2ba3af5",
+      "after": "a30118866e1a1ece2b67e6f49a0c24d822e4e7f465438018becb28b1fbd9f97b",
       "owner": "Scene",
-      "reason": "记录统一执行计划及原包Rope与同帧波形验收。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#particle-scalar-remap"
+      "reason": "记录子系统父点流、晚生保留与生命周期实测。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#particle-child-control-stream"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "388d2bc0520e9b1c4b787fcfe81c0e25382b1833f6e2de4d0262e3a0946b6902",
-      "after": "3dfadc0964708f295cffe2b4869af94e565c2f00e9ef1a969896a45226e7635a",
+      "before": "3dfadc0964708f295cffe2b4869af94e565c2f00e9ef1a969896a45226e7635a",
+      "after": "911f3662b059988f224f6ca41d755a24a28637f1a5df6da00db8da49433bb354",
       "owner": "Scene",
-      "reason": "登记可见的作者闪电子束与端点验证入口。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#thunderbolt-eventfollow-branch-356"
+      "reason": "记录子系统父点流、晚生保留与生命周期实测。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#thunderbolt-child-control-stream"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "988393a005dcc3ceea2aa184cf671ab62cf3e4570ec8f067cc7aec097555ac1f",
-      "after": "e3ccdabd383d26f4f535fce53c58041837aa80e0bfc36ce861c8eeb30c1f5b0f",
+      "before": "e3ccdabd383d26f4f535fce53c58041837aa80e0bfc36ce861c8eeb30c1f5b0f",
+      "after": "34ffd437f1f17d93abccfa572ba019cdb46afa10ccf7c2ae5ec13ce396ae310c",
       "owner": "Scene",
-      "reason": "登记可见的作者闪电子束与端点验证入口。",
+      "reason": "记录子系统父点流、晚生保留与生命周期实测。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
