@@ -355,6 +355,7 @@ extension SceneMetalRenderer {
                 let model = imageModel(layer, nil)
                 capturedUnitModelMatrix = model
                 let memberLayerIDs = utilityExecution.membersByRootID[layerID]
+                let publishesGraphOutput = dependencyRuntime.requiresGraphOutputCapture(for: layerID)
                 guard let source = SceneResolvedMaterialUtilitySource.prepare(
                     layer: layer, unitModelMatrix: model, cameraFrame: cameraFrame,
                     viewportSize: viewportSize, groups: compositionGroupRuntime,
@@ -363,11 +364,14 @@ extension SceneMetalRenderer {
                     preparedMaterial: preparedSourceMaterial
                 ) else {
                     if utility.framebufferSource != nil { continue }
+                    if publishesGraphOutput, !frameVisibleLayerIDs.contains(layerID) {
+                        graphTargetFallbacks[layerID] = "frame-target-plan-rejected"
+                        continue
+                    }
                     return .rejected(reasonCode: "utility-offscreen-size-unavailable")
                 }
                 utilityCaptureGeometry = source.geometry
                 framebufferSourceMaterial = source.material
-                let publishesGraphOutput = dependencyRuntime.requiresGraphOutputCapture(for: layerID)
                 let usesPerspective = cameraFrame.resolvesPerspective(for: layer)
                 if utility.kind == .project, claim.hasNonUnitFramebufferScale, layer.parentID == nil,
                    layer.childLayerIDs.isEmpty, memberLayerIDs?.isEmpty != false,

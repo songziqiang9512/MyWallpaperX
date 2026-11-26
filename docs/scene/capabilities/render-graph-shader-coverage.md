@@ -369,9 +369,9 @@ Geometry 的 primary named 输入表示 provider 自身的 authored-local 色图
 <a id="forward-composition-named-epoch"></a>
 ### 后置 Composition 具名图的时序
 
-同附件、顶层无子隐藏 Composition 的背景仍从作者截点取得。早读者消费上一成功提交的主具名图，晚读者消费当帧图。[官版与原作者对照](runtime-evidence-current.md#forward-composition-named-oracle)覆盖省略和显式 copy、透明起点及前后读者。本机历史读覆盖带背景的 Composition。显式 false 的有特效前向供货另行处理。
+同附件、顶层无子隐藏 Composition 的具名图仍在作者截点产生。早读者消费上一成功提交的主具名图，晚读者消费当帧图。开启背景复制时由原捕获取作者前缀，显式关闭时由原隔离组提供透明空源。两种来源共享截点、供货和历史目标，显式 framebuffer source 仍沿原路径。[官版与原作者对照](runtime-evidence-current.md#forward-composition-named-oracle)覆盖省略和显式 copy、透明起点及前后读者。
 
-冷准备的 Binding 只保合法来源和实际 effect/pass/slot。原截点计划用 utility 展开后的生产和消费截点判早晚；同一 consumer 对同一 provider 的主槽共享该 consumer 截点。早槽只替换本帧排序中的读取关系，仍向 utility 作者位请求本帧写入。缺上一图不撤掉生产需求。作者位复用原捕获和 Program，只发布一次；用零背景或读者截点提前执行会得到错误内容，重排主合成会改变图层叠放。保同帧准入、实际循环和健康相邻槽；已资格的早槽退出旧前向拒绝。
+冷准备的 Binding 只保合法来源和实际 effect/pass/slot。新增透明来源的前向资格只覆盖隐藏层，保留可见层的原主画准备。原截点计划用 utility 展开后的生产和消费截点判早晚；同一 consumer 对同一 provider 的主槽共享该 consumer 截点。早槽只替换本帧排序中的读取关系，仍向 utility 作者位请求本帧写入。缺上一图不撤掉生产需求。作者位由既有 Composition 来源路由选定输入并运行 Program，只发布一次。具名图的作者位置在 Program 准备失败时仍有效，避免将无特效的透明原始源提前发布给早槽。隐藏提供层无法形成来源几何时沿原局部回退，健康层继续合成。保同帧准入与实际循环边界。
 
 原 named target pool 仅为有实际早读需求的 provider 轮换两个成员，现有 graph-final 复制或降采样直接写候选。Coordinator 复用原供货回执和 GPU 完成顺序接纳准确目标、内容及生产代次。待退休但 GPU 仍持有的目标继续计入原池预算，沿原 submission 保存到终态；双成员预算不足只限早槽。候选服务本帧晚读者，历史读取保生产和消费的两个 epoch，在真实选中槽消费，避免覆盖当前 registry 的同名记录。沿已有完成栅栏约束有历史依赖的提交，纯晚读沿单成员原路径。同生命周期的 GPU 失败保上一成功，首帧无历史只对受影响槽降级。最后早槽停用、来源退休或重新分配时，撤销可读和在途回执提升资格，重新启用首帧为空。仅保晚读后重启早读的官版边界待验证。普通动态值不重置来源。没有额外整图复制或第二个 registry。
 

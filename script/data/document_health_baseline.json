@@ -158,11 +158,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 485,
-      "bytes": 95965
+      "bytes": 96246
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 393990
+      "bytes": 394820
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -193,8 +193,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 62,
-      "bytes": 8389
+      "lines": 61,
+      "bytes": 8052
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -630,19 +630,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "c548b280881bd5a7537e12bdbff40ccc19819a7e78c95a1cb6a323da4d56076a",
-      "after": "2ed33a0a300c007a41151b46ce385f0f05a22c368337a4488cfd8c84b9075ba0",
+      "before": "2ed33a0a300c007a41151b46ce385f0f05a22c368337a4488cfd8c84b9075ba0",
+      "after": "b1728ea0eba6ea43153eb775e2c474e96fa79e8337d28f5fec2b6302112a8c1a",
       "owner": "Scene Composition",
-      "reason": "核对主父提交与具名前置合成合并后的正文预算。",
+      "reason": "保留透明合成发布合同和现有画质证据，按合并正文核对预算。",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "78d4cdb450887e74715ff552448df9002d88d012bbb5f4e187c860a88bf6c7b9",
-      "after": "a1bb27c2ca24d70f5ec20f8642cc05889c720ed3a27df15277d52abe606e1d15",
+      "before": "a1bb27c2ca24d70f5ec20f8642cc05889c720ed3a27df15277d52abe606e1d15",
+      "after": "6ef007d6d7b0dd7bb2c3b111930df346ae800e198dd08597e2928ab13875f342",
       "owner": "Scene Composition",
-      "reason": "核对主父提交与具名前置合成合并后的正文预算。",
+      "reason": "保留透明合成发布合同和现有画质证据，按合并正文核对预算。",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
     },
     {
