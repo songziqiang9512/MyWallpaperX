@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 158419
+      "bytes": 158844
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 139803
+      "bytes": 139786
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "5b203737454d4640c431ca4ca95c9be30c4470e59ff9ac5824157f1e011841c3",
-      "after": "79bc219be63ea4fec28855fd789f22a8bfbe26356e0c3ea16394fabf1bad93f0",
-      "owner": "video-runtime",
-      "reason": "Video 混合画幅原生窗口对照",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-crossfade-aspect"
+      "before": "79bc219be63ea4fec28855fd789f22a8bfbe26356e0c3ea16394fabf1bad93f0",
+      "after": "2bd5e7fd10f453654098f5eb0e3892657d8378258dcbadf0bc89ca81cde2f680",
+      "owner": "scene-runtime",
+      "reason": "以签名画面重复、首页实际端点和外部中断证据收紧阴影验收状态。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-shadow-steady-author"
     },
     {
       "section": "bodies",

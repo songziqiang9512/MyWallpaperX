@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "64d76fe7689873ab2c8c5fc5ea95f554876b463570aad9aa49de3b93b5e959f5",
+        "sourceSHA256": "580637af547c1461484088a261fe88ffe27e95f7a3f98518bf830b2173ad77f9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Video 混合画幅原生窗口对照",
-        "limitations": "M4 本机 SDR 实窗，未取 HDR 超白、物理逐刷新及实际音轨。"
+        "scope": "当前签名 Scene 阴影两次定相出图、正常桌面首窗与环境中断",
+        "limitations": "单内屏。仅一窗正常桌面低档；两轮完整配对、跨档影边几何和功耗待验。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d07788b34a4384632351f2e43c963921e2bec5bdb81ce3c310e3b47366f11639",
+        "sourceSHA256": "82c7087895e25b774627a829107645dfc5fe826b8775a1b7b5f2638560ea6df2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "视频等比淡入实际实施与回归",
-        "limitations": "只复核对应 Video 路线。"
+        "scope": "当前签名 Scene 阴影两次定相出图、正常桌面首窗与环境中断",
+        "limitations": "单内屏。仅一窗正常桌面低档；两轮完整配对、跨档影边几何和功耗待验。"
       }
     },
     {
