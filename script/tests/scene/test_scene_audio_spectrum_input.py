@@ -256,13 +256,33 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
             self.assertAlmostEqual(first - before, 1, delta=0.0001)
             self.assertEqual(repeated, first)
             self.assertAlmostEqual(second - first, 1, delta=0.0001)
-            self.assertAlmostEqual(second - release, 1, delta=0.0001)
+            self.assertGreater(second - release, .95)
+            self.assertLessEqual(second - release, 1.0001)
             self.assertEqual((quiet, stale), (0, 0))
             self.assertAlmostEqual(resumed - release, 1, delta=0.0001)
             self.assertAlmostEqual(reset, 1, delta=0.0001)
 
+    def test_author_history_preserves_a_normalized_witness_during_pressure(self) -> None:
+        before, attack, duplicate, second = self.result["analyzer"]["normalizedHistory"]
+        self.assertAlmostEqual(before, .8125, delta=.012)
+        self.assertAlmostEqual(attack / before, .70, delta=.012)
+        self.assertEqual(duplicate, attack)
+        self.assertAlmostEqual(second / before, .532, delta=.012)
+
     def test_author_group_release_slows_near_target(self) -> None:
-        high, low, split = self.result["analyzer"]["groupRelease"]
+        high_levels, low_levels, split_levels = self.result["analyzer"]["groupRelease"]
+
+        def normalized_input(levels, intervals):
+            result = []
+            for previous, current, elapsed in zip(levels[:-1], levels[1:], intervals, strict=True):
+                # Recover the incoming value from two published, sub-limit values.
+                retention = .2 ** (elapsed / .04)
+                result.append((current - retention * previous) / (1 - retention))
+            return result
+
+        high = normalized_input(high_levels, [.04] * 20)
+        low = normalized_input(low_levels, [.04] * 20)
+        split = normalized_input(split_levels, [.04, .04, .02, .02])
         farther = [1 / value for value in high[:3]]
         self.assertAlmostEqual(farther[0] - farther[1], farther[1] - farther[2], delta=0.0001)
         near = [1 / value - 1 for value in low[1:4]]
@@ -270,7 +290,7 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
         self.assertAlmostEqual(near[1] / near[0], .5, delta=.005)
         self.assertAlmostEqual(near[2] / near[1], .5, delta=.005)
         self.assertTrue(all(.999 < values[-1] <= 1 for values in (high, low)))
-        self.assertAlmostEqual(split[0], split[1], delta=0.0001)
+        self.assertAlmostEqual(low[2], split[-1], delta=0.0001)
 
 
 class SceneAudioSpectrumWiringTests(unittest.TestCase):

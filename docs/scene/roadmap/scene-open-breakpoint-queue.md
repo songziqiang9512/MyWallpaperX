@@ -29,7 +29,7 @@
 
 | 定位 | 已确认的差异与下一步 |
 |---|---|
-| 3463406101 · 前景回亮 | [低多音](../capabilities/runtime-evidence-current.md#forefront-recovery-346)官版 Pulse .569、本机 .033。[幅度历史](../capabilities/runtime-evidence-current.md#forefront-magnitude-history-346)已实测，下一步用同档换峰与独立时标定位归一化和取峰顺序。 |
+| 3463406101 · 前景回亮 | [归一后历史](../capabilities/runtime-evidence-current.md#forefront-normalized-history-346)已接入。[原低多音](../capabilities/runtime-evidence-current.md#forefront-recovery-346)的早期回亮仍有残差。沿同源分析代次核分母与实际供值。 |
 | 3769761761 · 成熟右侧亮段 | [同龄右区](../capabilities/runtime-evidence-current.md#ember-mature-trail-luminance)非零面积接近，亮段分布仍不同。维持同龄与相机对照，分离权重及轨迹重叠。 |
 | 2927205881 · 左端短 | [固定速率及淡出对照](../capabilities/runtime-evidence-current.md#particle-rate-alpha-envelope)后原作者 699 左端仍短。用同画幅、同声源核出生相位、实际存量及 Sprite 栅格，单独对照稳态与动态切换。 |
 | Sphere 全零方向 | [隔离对照](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)中官版无像素，本机出现静点。原作者盘点未发现活动声明；用实际子事件或占槽对照区分出生和可见性。 |
