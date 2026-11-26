@@ -230,6 +230,13 @@ LZ4 首次读取仍经原 TEX 快照、长度和解码总账。同步 Compressio
 
 **实测验收**用固定 world 网格和亚 texel 四相位的原生 Metal 正控，量投影轮廓位移、静态邻点亮度随时间变差、接触间隙、遮挡孔洞和自阴影伪影。动态骨骼、组裁剪、合法屏外 caster、点光六面接缝、聚光锥边界、多灯紧预算、草木 cutout 和原独立实体遮挡为正反例。比较每灯 map 真实物理尺寸、caster draws 和深度 pass、接收者着色成本、纹理计费及连续帧 P95。低档的柔化或边缘跳变须守预定可见容差，关闭时三种可选阴影工作实际归零，且直接光与普通遮挡保持。 [实际投影与覆盖合同](../scene/capabilities/advanced-object-coverage.md#model-directional-shadow-density) · [完整回归与影边成本](../scene/capabilities/model-runtime-evidence.md#model-directional-shadow-filter) · [官版阴影图与滤波](#official-shadow-atlas)
 
+<a id="scene-shadow-steady-author"></a>
+沿现有签名桌面选片和持续呈现门，用 3589454154 的定向阴影低／高档做 A/A/B/B/A，再以独立 3455121165 比较点光与聚光低／中。固定 30 FPS、物理屏幕、同一构建、作者包和当前 1 GiB 解码额度。有效窗口在完成接管后预热 30 秒，再采至少 60 秒。用首帧准备和实际灯图收据确认档位，长稳窗关闭捕获及阶段重诊断。按完整端点收据核实际呈现、周期尾部、漏期、GPU 失败及排空，报告各臂离群。P99 至多比本机 A/A 多一个实际刷新周期，漏期净增至多 1 个百分点。GPU／帧时间变化超过 A/A 波动才归因于档位。如果原版接管、正影图绑定或无并行 GPU 的条件不足，对应窗口不进入配对。 [现有桌面选片基准](../../script/web/wallpaper_startup_benchmark.py)
+
+显示取证独立运行。固定作者时钟，先用禁用档与高档同相定位确由阴影引起的像素边，再量候选和自身重复的轮廓位置及相邻相位。画面不产生可定位的差别时保留该作品只有实际影图接收和呈现证据。复用原已验具名边界和跨面负控，避免用全图颜色距离推断具体影边。长窗数据给实呈及处理时间，插座量能耗另走原门。
+
+M4 以同一 Swift／Metal 载荷冻结作者时间 0.25 秒和相同墙钟，取得五臂 3024×1964 的 Metal 完成帧读回，每张对应实际预览窗口。3589454154 禁用无影图，低／高档由定向灯 259 写出 512²／2048²。独立 3455121165 的聚光灯 101 用 512²／1024²，点光灯 105 用 1536×1024／3072×2048 六面图，各臂正常排空。定向样本的禁用与高档分别在同一会话取两张图。两档各自两张图的同像素差均不超过 2，禁用比高档亮至少 12 个码值，掩模向内缩 1 像素后仍覆盖 11,959 像素。选中线的禁用／高／低档分别约为 181–182／158–173／177。这条线来自单一固定相位，独立重开重复、跨相位影边和长窗仍待实测。另已确认现有产品基准会话实际接纳低档并完成首帧。发现并行 GPU 后中止，未形成有效计时窗。 实屏与签名收据归 `.artifacts/wallpaper-quality-shadow-author-qualification`。
+
 <a id="scene-volume-quality"></a>
 ### 体积照明
 
@@ -549,7 +556,9 @@ Apple Silicon M4 的同签名 App 冷启动两档用两种受控夹具核对。�
 
 独立作者 3465215190 在两档均由原 layer 123 槽 0 取图层颜色，同一 Reflection Program 实际出画、进合成并排空。作者 3228084178 在两档的四张捕获均记录 layer 192 的 Reflection 实绑前序效果颜色和包内 `mask` 槽 1，末端消费和 GPU 已完成。两部作品未锁定动画相位，受控无罩画面负责判断像素上的档位差。颜色板按实际作者包提供同样的效果定义、材质和 Shader。只带定义的起始夹具复现随包材料路径缺失，解析器按材质的原虚拟路径查找。2026-11-26 本机库直下的 984 个 `scene.pkg` 中，实际引用这一定义的 13 个均有根路径资源，暂不调整通用资源查找。
 
-官版通过同类颜色板先在开档 A/A 确立每个非黑正控，再做设置面板的开／关／开。同帧前缀另以截点后覆盖色作时序反例，作者蒙版另取镜像侧和保原色侧。此次真实接收版本 2.8.0.42、单数 `reflection=true` 已只读核实；公开 CLI 没有全局开关入口，虚拟机桌面未能读取，本轮未改共享官版设置。显式历史目标的官版动态结论仍待验证。 [公开 CLI](https://help.wallpaperengine.io/en/functionality/cli.html) · [官版作者 Reflection 效果](https://docs.wallpaperengine.io/en/scene/effects/effect/reflection.html)
+官版通过同类颜色板先在开档 A/A 确立每个非黑正控，再做设置面板的开／关／开。同帧前缀另以截点后覆盖色作时序反例，作者蒙版另取镜像侧和保原色侧。此前已只读核实接收版本 2.8.0.42 及单数 `reflection=true`。全局开关采用原设置面板，公开 CLI 可控制具名窗口和作品属性。显式历史目标的官版动态结论仍待验证。 [公开 CLI](https://help.wallpaperengine.io/en/functionality/cli.html) · [官版作者 Reflection 效果](https://docs.wallpaperengine.io/en/scene/effects/effect/reflection.html)
+
+2026-11-26 用户已授权在运行中的源机临时改档。在原生控制台肉眼核两版具名颜色板。`_rt_FullFrameBuffer` 为绿色，独立贴图为蓝色，显式历史的 L0／L3 在配置为开时都呈黑色。第二版以贯穿视口的绿源和按映射范围归一化的 UV 复核。alpha／尺寸存在标记为白，记录绑定接口返回的状态。第三版加入同轨的普通法线反射材质，暂存目录产生新的 SM4 shader 缓存，此时控制台仍显示已关闭的第二版，无法核第三版像素。另一个具名测试窗在同一会话。此次只做开启资格，结束逐字节核对原配置、原接收进程和桌面来源，清退本轮私有输入与生成的 SM4 缓存。Parallels 命令行捕获未见具名窗像素，收据归 `.artifacts/wallpaper-quality-official-reflection-qualification`。后续在可采集、无并行对照的窗口先验有色历史正控，才做全局开关。 [自有 shader 尺寸接口](https://docs.wallpaperengine.io/en/scene/shader/variables.html) · [自有 shader 显式 mip 接口](https://docs.wallpaperengine.io/en/scene/shader/syntax.html)
 
 <a id="official-global-ab-isolation"></a>
 独占 Windows 执行环境可使用同版已购客户端目录和本地壁纸走官版正常性能面板。先核二进制摘要、选档可正常保存并重启、同一素材在桌面与具名窗均真实出图。桌面及具名窗的冷继承和同接收进程热改分别做 A/B/A。源客体关机时已用 Parallels 完整克隆取得独立虚拟磁盘和 UUID，源配置摘要一致。副本待做会话、离线客户端和采集资格验证。物理 HDR 另要求 Windows HDR 模式、实际出现显示 HDR 档及保留高动态的 FP16 采集，以参考白、灰和超白作对照。独占接收或有效采集无法成立时，继续采用已取得的单档和静态证据。 [官版离线运行 FAQ](https://www.wallpaperengine.io/en) · [Parallels 完整克隆条件](https://kb.parallels.com/en/123907) · [Windows HDR 采集](https://learn.microsoft.com/en-us/windows/win32/direct3darticles/high-dynamic-range)

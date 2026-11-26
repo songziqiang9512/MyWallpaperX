@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 20102
+      "bytes": 20219
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 564,
-      "bytes": 141844
+      "lines": 573,
+      "bytes": 145261
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 137497
+      "bytes": 137704
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "cd9550b8938a81924afdf057bea7267c01a75655cc121e9fb9afe6447a02671b",
-      "after": "752916ec3b781eaba7c9d45e46a5fa936193a28b37613f9dc6e04d621447390d",
+      "before": "752916ec3b781eaba7c9d45e46a5fa936193a28b37613f9dc6e04d621447390d",
+      "after": "b916a618f58797088397e659fec06bcfa3858d81b9b46891e0073df8e3e24e5f",
       "owner": "scene-runtime",
-      "reason": "反射质量、保留目标和适用验证入口",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-reflection-targets"
+      "reason": "Scene 阴影适用验收入口",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-shadow-steady-author"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "a1972d8753d27d8efc34214e343c4fe24b4559ee0825e161c8044d093aa9532d",
-      "after": "c0f770e66cff54ab88ed34f8b21d03999fa6f722df02c2660b334aa90d04e686",
+      "before": "c0f770e66cff54ab88ed34f8b21d03999fa6f722df02c2660b334aa90d04e686",
+      "after": "394acc98cfb27cbea55018e5b06b3b5d7e7d7ab3d5b7750baf93ad3dfc07b0f4",
       "owner": "scene-runtime",
-      "reason": "反射质量两档的作者实屏和官版实验",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-reflection-targets"
+      "reason": "阴影实际作者画面与官版反射开启资格",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-shadow-steady-author"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "46f0fdc8dd1a0c0f9d91a57867ebae45af6ff263de08a756e15c7b891e8579e9",
-      "after": "fb724abd089eb92803021d330df992eb5250e3a4f140b52f9992eb247918f39f",
+      "before": "fb724abd089eb92803021d330df992eb5250e3a4f140b52f9992eb247918f39f",
+      "after": "4a8bb9a807381864b5fd6af99cc20bc14a1a1e5ac90f9c55281ad72e88bbc5e4",
       "owner": "scene-runtime",
-      "reason": "反射收据及独立官版实验顺序",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-reflection-targets"
+      "reason": "阴影持续呈现与官版反射执行路线",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-shadow-steady-author"
     },
     {
       "section": "bodies",

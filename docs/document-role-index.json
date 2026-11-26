@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "129b4c92e11ae64556a8a9343b507662a1db2a985625321c16b2672e96bd5915",
+        "sourceSHA256": "03f99a0dce2da53bd221da553cfc322f946400986f50b69435f3134aa5c0daa4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "反射质量、保留目标和适用验证入口",
-        "limitations": "只复核质量章节的反射路径。"
+        "scope": "Scene 阴影适用验收入口",
+        "limitations": "只复核质量章节的阴影证据链接。"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "13cec3037db88d4d909de77369dcad7ed9ad7ec69d6f9c2cfb6d4f7320030113",
+        "sourceSHA256": "8c23d010349adf5fa3afdd94498df775943e622fad51a1a98649f3fda761ef14",
         "method": "document_registry --audit + document_health --check",
-        "scope": "反射质量两档的作者实屏和官版实验",
-        "limitations": "覆盖无罩固定颜色、两部作者的绑定、当前帧截点及显式或缺省环境采样，官版副本待启动取证。"
+        "scope": "阴影实际作者画面与官版反射开启资格",
+        "limitations": "长窗与官版全局切换待测。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cd829a4485e463d6f48ce438ff3879f36d037974c8226b475b03d47dc7e093d8",
+        "sourceSHA256": "3142466568a014e5ee39204d6071d7aee90d54457813d5f04d2425f7b7a3d682",
         "method": "document_registry --audit + document_health --check",
-        "scope": "反射收据及独立官版实验顺序",
-        "limitations": "只复核质量反射的现役工作路线。"
+        "scope": "阴影持续呈现与官版反射执行路线",
+        "limitations": "只复核本轮两处工作卡。"
       }
     },
     {
