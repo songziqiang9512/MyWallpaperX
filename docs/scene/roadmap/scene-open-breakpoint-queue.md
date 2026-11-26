@@ -31,7 +31,6 @@
 
 | 定位 | 已确认的差异与下一步 |
 |---|---|
-| 属性 Timeline · 播放倍率 | [同包四速实帧](../capabilities/runtime-evidence-current.md#timeline-rate-oracle)官版的 1/0/2/−1 形成四种进度，本机同速。作者 3042492564 的两个速度值使用同一 API。由[播放倍率设计](../capabilities/scenescript-api-coverage.md#property-timeline-rate)接入现有命令和时钟。 |
 | 斜置 X-Ray · 遮罩位置 | [同包斜卡实帧](../capabilities/runtime-evidence-current.md#xray-tilted-projection)均随指针移动并复位，移动轨迹的 RGB 响应仍不同。先用同几何基图注册两端，区分相机斜卡映射和效果局部着点。 |
 | 3383210272 · 323 横宽 | [同包定相位实帧](../capabilities/runtime-evidence-current.md#sprite-trail-canvas-width-338)在基准相位 x=300 的半峰边界，官版 y66–166，本机 y50–186。峰值主轴与无偏航蓝束相合，另一相位横宽近同。先验证画布固定 shader 眼位与拟合投影眼位分离，保中心投影、近眼裁剪和尾部 UV。音频节拍仍是另一项比较。 |
 | 3463406101 · 前景回亮 | [低多音动态边对照](../capabilities/runtime-evidence-current.md#forefront-recovery-346)显示官版 Pulse .569 时本机尾段 .033。先区分窗内取样与动态邻档，再用独立低频输入核释放时间。 |

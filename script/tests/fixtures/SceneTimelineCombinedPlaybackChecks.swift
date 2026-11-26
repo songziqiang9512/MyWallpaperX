@@ -3,6 +3,89 @@ import Foundation
 /// Behavioral checks on a Program produced by the real parser/descriptor/compiler.
 /// Observation restore here exercises the Runtime API, not an absent host rollback caller.
 enum SceneTimelineCombinedPlaybackChecks {
+    static func rates(_ program: SceneTimelineProgram) throws -> [String: Bool] {
+        let loop = SceneDynamicTarget.layer(layerID: 10, field: .alpha)
+        let single = SceneDynamicTarget.layer(layerID: 30, field: .alpha)
+        let aliases: Set<SceneDynamicTarget> = [.camera(.origin), .camera(.zoom)]
+        let runtime = SceneTimelinePlaybackRuntime(program: program)
+        let reference = SceneTimelinePlaybackRuntime(program: program)
+        try reference.apply([.init(target: single, command: .play)], sceneTime: 0).get()
+        func seek(_ target: SceneDynamicTarget, _ command: SceneTimelinePlaybackCommand,
+                  at time: Double) throws {
+            try runtime.apply([.init(target: target, command: command)], sceneTime: time).get()
+        }
+        func value(_ target: SceneDynamicTarget, _ time: Double) -> SceneDynamicValue? {
+            runtime.values(sceneTime: time)[target]
+        }
+        var facts = ["defaults": runtime.rate(for: loop) == 1 && runtime.rate(for: single) == 1
+            && runtime.rate(for: .layer(layerID: 999, field: .alpha)) == nil]
+        try seek(loop, .setRate(0), at: 0.5)
+        facts["freezesCurrentPosition"] = value(loop, 0.5) == .scalar(0.5)
+            && value(loop, 3) == .scalar(0.5) && runtime.rate(for: loop) == 0
+        try seek(loop, .setRate(2), at: 3)
+        facts["doublesWithoutJump"] = value(loop, 3) == .scalar(0.5)
+            && value(loop, 3.125) == reference.values(sceneTime: 0.75)[loop]
+            && runtime.rate(for: loop) == 2
+        try seek(loop, .setRate(-1), at: 3.125)
+        let beforeZero = reference.values(sceneTime: 0.75)[loop]
+        let afterZero = reference.values(sceneTime: 1.75)[loop]
+        facts["reversesThroughZero"] = value(loop, 3.125) == beforeZero
+            && value(loop, 3.875) == .scalar(0) && value(loop, 4.125) == afterZero
+        try seek(loop, .setRate(1), at: 4.125)
+        facts["fromNegativePhase"] = value(loop, 4.125) == afterZero
+            && value(loop, 4.375) == .scalar(0)
+
+        let mirror = SceneTimelineAnimation(lanes: [], options: .init(fps: 1, length: 10,
+            mode: .mirror, startsPaused: false, wrapsLoop: false, smoothing: nil,
+            stiffness: nil, parent: nil, children: []), isRelative: false, previewValue: nil)
+        facts["signedMirror"] = [-2, -8, -12, -18, -20].map {
+            SceneTimelineEvaluator.framePosition(of: mirror, elapsedFrames: $0)
+        } == [2, 8, 8, 2, 0]
+
+        facts["pausedPeerUnaffected"] = value(single, 4.375) == .scalar(1)
+            && runtime.rate(for: single) == 1
+        try seek(single, .play, at: 5)
+        try seek(single, .setRate(-1), at: 12)
+        try seek(single, .play, at: 12)
+        let reverseValue = reference.values(sceneTime: 1.5)[single]
+        facts["singleReversesFromCompletedEnd"] = value(single, 12) == .scalar(0)
+            && value(single, 12.5) == reverseValue
+        try seek(single, .pause, at: 12.5)
+        try seek(single, .setRate(2), at: 13)
+        facts["settingRateDoesNotResumePause"] = value(single, 14) == reverseValue
+        try seek(single, .setFrame(30), at: 14)
+        try seek(single, .play, at: 15)
+        facts["seekAndPlayKeepRate"] = value(single, 15) == .scalar(0.5)
+            && value(single, 15.25) == reverseValue
+        try seek(single, .stop, at: 16)
+        facts["stopResetsPositionOnly"] = value(single, 17) == .scalar(1)
+            && runtime.rate(for: single) == 2
+
+        let before = runtime.values(sceneTime: 17)
+        let preview = try runtime.preview([.init(target: .camera(.zoom), command: .setRate(2))],
+                                          sceneTime: 17).get()
+        facts["sharedPreviewDoesNotCommitRate"] = preview == before.filter { aliases.contains($0.key) }
+            && Set(preview.keys) == aliases && aliases.allSatisfy { runtime.rate(for: $0) == 1 }
+        try seek(.camera(.zoom), .setRate(-1), at: 17)
+        facts["sharedRateCommitsToBoth"] = aliases.allSatisfy { runtime.rate(for: $0) == -1 }
+        let observations = runtime.observationSnapshot()
+        facts["invalidRateRollsBack"] = [Double.nan, .infinity, -.infinity].allSatisfy { rate in
+            let batch: [SceneTimelinePlaybackMutation] = [
+                .init(target: .camera(.origin), command: .setRate(0)),
+                .init(target: loop, command: .setRate(rate)),
+            ]
+            guard case .failure(.invalidRate(loop)) = runtime.apply(batch, sceneTime: 17) else { return false }
+            return runtime.preview(batch, sceneTime: 17) == .failure(.invalidRate(loop))
+                && runtime.observationSnapshot() == observations
+                && aliases.allSatisfy { runtime.rate(for: $0) == -1 }
+                && runtime.rate(for: loop) == 1
+        }
+        runtime.retire(targets: [.camera(.origin)])
+        facts["survivingMemberKeepsRate"] = runtime.rate(for: .camera(.origin)) == nil
+            && runtime.rate(for: .camera(.zoom)) == -1
+        return facts
+    }
+
     static func unsupportedEventScope(_ program: SceneTimelineProgram) -> [String: Bool] {
         let bindings = program.bindings.filter { binding in
             guard !binding.animation.options.events.isEmpty else { return false }
@@ -59,6 +142,27 @@ enum SceneTimelineCombinedPlaybackChecks {
         facts["pausedHoldsCursor"] = runtime.sample(sceneTime: 105).animationEvents.isEmpty
         try runtime.apply([.init(target: child, command: .play)], sceneTime: 105).get()
         facts["resumedNaturalEndpoint"] = runtime.sample(sceneTime: 105.75).animationEvents == end
+
+        let sped = SceneTimelinePlaybackRuntime(program: program)
+        try sped.apply([.init(target: child, command: .play)], sceneTime: 0).get()
+        try sped.apply([.init(target: owner, command: .setRate(2))], sceneTime: 1).get()
+        let crossing = sped.sample(sceneTime: 1)
+        facts["rateChangePreservesPendingCrossing"] = crossing.animationEvents == mid
+        try sped.apply([.init(target: child, command: .setRate(-1)),
+            .init(target: owner, command: .setRate(1))], sceneTime: 1).get()
+        let resumedCrossing = sped.sample(sceneTime: 1)
+        facts["sameFrameReverseRoundTripPreservesUnacceptedEvent"] = resumedCrossing.animationEvents == mid
+        sped.acceptPublishedEvents(from: resumedCrossing)
+        try sped.apply([.init(target: owner, command: .setRate(0))], sceneTime: 1).get()
+        facts["zeroRateDoesNotRepeatEvents"] = sped.sample(sceneTime: 5).animationEvents.isEmpty
+        try sped.apply([.init(target: child, command: .setRate(2))], sceneTime: 5).get()
+        let spedEnd = sped.sample(sceneTime: 5.5)
+        facts["rateEventsKeepEndpointOrder"] = spedEnd.animationEvents == end
+        sped.acceptPublishedEvents(from: spedEnd)
+        try sped.apply([.init(target: owner, command: .setRate(-1))], sceneTime: 6).get()
+        facts["reverseHasNoEvents"] = sped.sample(sceneTime: 7.5).animationEvents.isEmpty
+        try sped.apply([.init(target: owner, command: .setRate(1))], sceneTime: 7.5).get()
+        facts["forwardEventsResumeFromReversePosition"] = sped.sample(sceneTime: 8).animationEvents == mid
 
         let sought = SceneTimelinePlaybackRuntime(program: program)
         try sought.apply([.init(target: child, command: .play)], sceneTime: 0).get()

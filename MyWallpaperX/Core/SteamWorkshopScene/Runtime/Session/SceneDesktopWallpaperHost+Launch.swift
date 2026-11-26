@@ -612,6 +612,14 @@ extension SceneDesktopWallpaperHost {
         let sceneScriptStorageSession = recordID.map {
             SceneScriptLocalStorageSession(recordID: $0, defersPersistence: true)
         }
+        let timelinePlaybackRuntime = SceneTimelinePlaybackRuntime(program: timelineProgram)
+        let timelineAnimationTargets = timelineProgram.bindings.map {
+            (target: $0.target, name: $0.animation.options.name ?? "")
+        }
+        let timelinePlaybackOwners: [SceneDynamicTarget: SceneDynamicTarget] = Dictionary(
+            uniqueKeysWithValues: timelineProgram.bindings.compactMap {
+            $0.target == $0.playbackOwnerTarget ? nil : ($0.target, $0.playbackOwnerTarget)
+        })
         let compileSceneScriptPrograms: (
             Set<SceneDynamicTarget>, Set<SceneDynamicTarget>
         ) throws -> SceneScriptQuickJSProgramCandidate = {
@@ -625,9 +633,9 @@ extension SceneDesktopWallpaperHost {
                 ), routeExcludedTargets: excludedVectorTargets,
                 userPropertyDefinitions: model.project.userProperties.definitions,
                 timelineTargets: timelineTargets,
-                namedAnimations: timelineProgram.bindings.compactMap { binding in
-                    binding.animation.options.name.map { (binding.target, $0) }
-                },
+                namedAnimations: timelineAnimationTargets,
+                timelinePlaybackOwners: timelinePlaybackOwners,
+                timelineRateLookup: timelinePlaybackRuntime.rate(for:),
                 scalarExcludedTargets: scalarExcludedTargets,
                 stringExcludedTargets: sceneScriptStringExcludedTargets,
                 admittedVectorPassTargets: vectorPassTargets,
@@ -834,9 +842,7 @@ extension SceneDesktopWallpaperHost {
             preparedDeviceResources: preparedDeviceResources,
             preparedFirstSurfaceRuntime: preparedFirstSurfaceRuntime,
             timelineProgram: timelineProgram,
-            timelinePlaybackRuntime: SceneTimelinePlaybackRuntime(
-                program: timelineProgram
-            ),
+            timelinePlaybackRuntime: timelinePlaybackRuntime,
             textureAnimationPlaybackRuntime:
                 SceneTextureAnimationPlaybackRuntime(),
             puppetAnimationPlaybackRuntime: ScenePuppetAnimationPlaybackRuntime(),

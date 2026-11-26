@@ -614,9 +614,14 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_animation_target(
     uint32_t available,
     uint32_t effect_index,
     uint32_t pass_index,
+    uint32_t target_index,
+    uint32_t playback_index,
     char *diagnostic,
     size_t diagnostic_capacity
 );
+
+void mwx_scene_quickjs_domain_bind_animation_rate_lookup(
+    MWXSceneQuickJSDomain *, MWXSceneQuickJSAnimationRateLookup, void *);
 
 // Configure once after authored layer descriptors and before callbacks. Names
 // are 1...256 bytes; count is at most 4096. Invalid input publishes no catalog.

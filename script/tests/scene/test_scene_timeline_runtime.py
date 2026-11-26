@@ -580,7 +580,7 @@ enum Harness {
         payload["cameraPlayback"] = camera.facts
         payload["cameraSeekSnapshot"] = camera.seekSnapshot
         payload["eventScope"] = SceneTimelineCombinedPlaybackChecks.unsupportedEventScope(program)
-
+        payload["rates"] = try SceneTimelineCombinedPlaybackChecks.rates(program)
         let pausedTarget = SceneDynamicTarget.layer(layerID: 30, field: .alpha)
         let playback = SceneTimelinePlaybackRuntime(program: program)
         func playbackScalar(_ time: Double, _ target: SceneDynamicTarget) -> Double? {
@@ -626,7 +626,6 @@ enum Harness {
         }
         playbackPayload["afterRejected"] = playbackScalar(11, pausedTarget) ?? -1
         payload["playback"] = playbackPayload
-
         let replay = SceneTimelinePlaybackRuntime(program: program)
         func replayScalar(_ time: Double) -> Double {
             guard case let .scalar(value)? = replay.values(sceneTime: time)[pausedTarget]
@@ -841,6 +840,7 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
                 self.assertEqual(entry["source"], "timeline")
 
     def test_playback_runtime_resumes_pauses_stops_and_rejects_atomically(self) -> None:
+        self.assertTrue(all(self.result["rates"].values()), self.result["rates"])
         playback = self.result["playback"]
         self.assertAlmostEqual(playback["paused"], 1.0)
         self.assertAlmostEqual(playback["autoplay"], 1.0)

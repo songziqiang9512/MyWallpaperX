@@ -135,7 +135,7 @@ C entry 的读取作用域归原 primitive owner：在 video-ended 前序分发�
 
 | 领域 | 当前实际入口 |
 |---|---|
-| Property Animation | 原 animation handle → TimelinePlaybackRuntime；play/pause/stop/setFrame 与同一轨道 state |
+| Property Animation | 原 animation handle → TimelinePlaybackRuntime；play/pause/stop/setFrame/rate 共用同一轨道状态 |
 | TEX animation | `getTextureAnimation` → TextureAnimationPlaybackRuntime；typed handle 入口检查存活一次，命令保原 next-frame 顺序 |
 | Particle | 原 Layer/ParticleInstance host 的 play/pause/stop/isPlaying/emitParticles 与 typed override；真实出生和预算由原模拟器处理 |
 | Puppet | 原 animation/bone handle、会话 animation runtime 与每屏 pose；未接入 clip/channel 不从 handle 存在推定可播 |
@@ -159,20 +159,20 @@ C entry 的读取作用域归原 primitive owner：在 video-ended 前序分发�
 
 [公开接口](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IThisPropertyObject.html)允许省略name取得当前属性动画。本机effect pass的当前/具名查询沿原动画句柄执行，同pass其他属性可查，跨pass/effect/layer不兜底；固定官方2.8.0.42和同输入App的九卡资格见[运行证据](runtime-evidence-current.md#component-animation-scope)。观察只覆盖该pass场景，不扩大其他组件或原ILayer/scene查询范围；本pass歧义仍保原局部拒绝，不据跨pass重名卡推一般first-match。
 
-已编译Timeline bindings→原冷catalog→C handle→原有序animation journal→同PlaybackRuntime preview/commit→typed snapshot保持唯一链。原完整target的layer/effect/pass只在冷配置投影，target index与压缩catalog index、current-property sentinel各保身份。一个C动画target配置入口取代旧current-only ABI，原named许可位退为component scope身份；不新增registry、clock、播放状态或逐帧作者树查询，保原目标存活、句柄/owner寿命和事务失败范围。
+已编译Timeline bindings→原冷catalog→C handle→原有序animation journal→同PlaybackRuntime preview/commit→typed snapshot保持唯一链。原完整target的layer/effect/pass只在冷配置投影，当前和具名句柄共用稳定目标索引，具名查找另有压缩catalog索引。一个C动画target配置入口携带component scope身份，共用目标存活、句柄/owner寿命和事务失败范围。
 
 pass Combined wrapper依原timelineTargets精确匹配已编译目标，供hasCurrentAnimation，不把animation字段当已准备轨。原ValueOwner用真实exports和当次init/pending消费区分值返回与无update的input转发；原coordinator保同一角色，vector与scalar沿原preview在admission回接真实Timeline输入。仅转发输入的事件/idle owner不造值writer；真实init本次返回和真实update（包括return input）仍是值writer。已提交无Timeline值归原EvaluationTransaction，pending初始化寿命不延长，无持久输入副本或值相等猜测。两lane只遍历本帧实际转发target集合，退出无关Timeline全表扫描，保原scalar合法域和拒绝过滤。
 
 最近真实C/VM与共享coordinator/Playback/Transaction核同pass/改名、current无参/同名、跨域/missing/duplicate、保留句柄/退休/回滚、精确冷目标、Vec2/Vec3、init/事件/timer及真正update角色；App复用冻结九卡和既有官方oracle。作者后继输入、材质与事件资格统一见[运行证据](runtime-evidence-current.md#component-animation-scope)，静态九卡不升级为完整作者动画、其他组件或持续播放；不强制显隐或重复旧矩阵。
 
 <a id="property-timeline-rate"></a>
-### 属性 Timeline 的播放倍率设计
+### 属性 Timeline 的播放倍率
 
-[IAnimation.rate](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IAnimation.html) 读写当前属性动画的速度。本机属性句柄还未将此值交给播放状态。当次设置走已有动画命令、目标身份、顺序准入及回滚。原 PlaybackRuntime 的共享轨道状态持有倍率，默认 1。切换在 SceneClock 的当前进度重新锚定，0 保持位置，负值向前一个关键帧方向推进。Loop 的负进度按完整周期取模，关键帧插值继续由原求值器处理。暂停、停止、改进度与播放继续通过同一状态。状态边界及事件回放沿实际对照核准。
+[IAnimation.rate](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IAnimation.html) 读写属性动画的播放倍率，默认 1。PlaybackRuntime 在 SceneClock 当前进度重新锚定，0 保持位置，负值倒放。Loop 和 Mirror 用完整周期归一负进度，Single 从端点可立即反向。暂停和停止保留倍率，停止回到首帧，显式负帧 seek 钳到首帧，插值仍归原求值器。反向期间不发布正向事件，越过已确认位置后恢复正向才重开事件游标。上述事件策略及 Single、Mirror 的精确官版边界仍待实机对照。
 
-在冷准备统一当前属性和具名句柄的既有目标索引，别名与联动成员回到同一播放状态。getter 经原句柄存活检查，读取本次有序 journal 中最近的已写倍率或向原运行时按目标查询已提交值。旧 JS 对象上自行长出的 `rate` 字段退役。沿现有同步域负责寿命，不设第二份播放表、逐帧快照或额外时钟。错误类型在写入入口拒绝，后继失败走现有 owner 回滚。
+冷准备为同一联动组配置共享播放 owner 索引。getter 经原句柄存活检查，用该索引从当次回调 journal 读取最近写入，或以实际目标索引从 PlaybackRuntime 查询已提交值。setter 用实际目标进入原有动画命令、准入与回滚，取代 JS 对象上自行长出的 `rate` 字段。主机不再另存倍率，错误类型或非有限值在命令入口拒绝。
 
-验收用真实接口核 1/0/2/−1、改变速度的连续起点、跨零回绕、别名读取、停止/暂停与不受影响的邻轨，保回调失败和健康 peer。验证分别保独立形状和作者速度项的实际画面。[实帧对照](runtime-evidence-current.md#timeline-rate-oracle)。
+行为门覆盖别名读取、改速连续起点、跨零回绕、停止与暂停、同帧负速再转正和无效写入。1/0/2/−1、热改速与独立作者速度项的实绘范围见[运行证据](runtime-evidence-current.md#timeline-rate-oracle)。
 
 <a id="animation-events"></a>
 ### Property 与 Puppet 的共同 animationEvent 接收

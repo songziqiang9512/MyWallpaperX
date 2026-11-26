@@ -31,25 +31,24 @@ nonisolated enum SceneTimelineEvaluator {
         )
     }
 
-    /// 把已由播放状态机累计的本地帧映射到作者 mode。播放、暂停和 stop 只改变
-    /// `elapsedFrames`；关键帧插值仍由同一纯函数执行。
+    /// 把播放状态给出的有符号本地进度映射到作者 mode；关键帧插值仍由同一纯函数执行。
     nonisolated static func framePosition(
         of animation: SceneTimelineAnimation,
         elapsedFrames: Double
     ) -> Double {
         let options = animation.options
         guard elapsedFrames.isFinite, options.length > 0 else { return 0 }
-        let elapsed = max(0, elapsedFrames)
         switch options.mode {
         case .single:
-            return min(elapsed, options.length)
+            return min(max(0, elapsedFrames), options.length)
         case .loop:
-            return elapsed.truncatingRemainder(dividingBy: options.length)
+            let phase = elapsedFrames.truncatingRemainder(dividingBy: options.length)
+            return phase < 0 ? phase + options.length : phase
         case .mirror:
             // 三角波：到末帧后按同速反向。端点不重复采样，官方未定义该边界，
             // 见开发计划 §1.4-6。
             let period = options.length * 2
-            let phase = elapsed.truncatingRemainder(dividingBy: period)
+            let phase = abs(elapsedFrames.truncatingRemainder(dividingBy: period))
             return phase <= options.length ? phase : period - phase
         }
     }

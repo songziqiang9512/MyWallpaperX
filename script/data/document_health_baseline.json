@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 376511
+      "bytes": 376844
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 239,
-      "bytes": 44877
+      "bytes": 44643
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 120,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 64,
-      "bytes": 9081
+      "lines": 63,
+      "bytes": 8723
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "c9b8c0ccf8be8ce8f06af639e76b3cb6ab9be989e8c159235d24fbe9b216a0af",
-      "after": "17e5afe395a8e168a912d89b00b238a297b117b3246026a7f39e88e02d7da469",
+      "before": "17e5afe395a8e168a912d89b00b238a297b117b3246026a7f39e88e02d7da469",
+      "after": "2b57c654fbee3d82bf4555ab7c8212c1d0e403c1311db7d5cd5866481f38e891",
       "owner": "Scene Timeline and SceneScript",
-      "reason": "登记作者热切与冷载证据、四种速度的实帧及属性倍率设计。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-float-reload-304"
+      "reason": "收录实际渲染的四档倍率、热切连续性及独立作者零速对照。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#timeline-rate-oracle"
     },
     {
       "section": "bodies",

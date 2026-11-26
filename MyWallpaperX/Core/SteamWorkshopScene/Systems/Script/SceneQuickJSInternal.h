@@ -57,9 +57,10 @@ typedef struct MWXSceneQuickJSMaterialFunctionMutationRecord {
 typedef struct MWXSceneQuickJSAnimationCommandRecord {
     MWXSceneQuickJSAnimationCommand command;
     uint32_t target_index;
-    double frame;
+    double value;
     uint64_t callback_epoch;
     uint32_t ordinal;
+    uint32_t playback_index;
 } MWXSceneQuickJSAnimationCommandRecord;
 
 typedef struct MWXSceneQuickJSNamedAnimationRecord {
@@ -70,6 +71,7 @@ typedef struct MWXSceneQuickJSNamedAnimationRecord {
     char name[MWX_SCENE_QUICKJS_MAX_ANIMATION_NAME + 1];
     uint32_t scene_only;
     uint32_t effect_index, pass_index;
+    uint32_t playback_index;
 } MWXSceneQuickJSNamedAnimationRecord;
 
 enum LayerProperty {
@@ -428,6 +430,8 @@ struct MWXSceneQuickJSDomain {
     MWXSceneQuickJSNamedAnimationRecord *named_animations;
     size_t named_animation_count;
     bool named_animations_configured;
+    MWXSceneQuickJSAnimationRateLookup animation_rate_lookup;
+    void *animation_rate_opaque;
     // All callbacks run serially, but their dynamic topology edits remain
     // provisional until the host frame barrier. The baseline plus operation
     // journal lets the domain replay only committed/pending owner ranges when
@@ -556,6 +560,7 @@ struct MWXSceneQuickJSOwner {
     bool current_animation_available;
     bool animation_target_configured;
     uint32_t animation_effect_index, animation_pass_index;
+    uint32_t animation_target_index, animation_playback_index;
     bool puppet_animation_configured, puppet_animation_available;
     bool handles_animation_events;
     uint32_t animation_event_failure;

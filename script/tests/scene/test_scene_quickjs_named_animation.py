@@ -146,7 +146,7 @@ static void retained_and_scopes(void) {
         "export function update(v){if(v===2)shared.getter('same').play();"
         "if(v===3){a.stop();throw new Error('late');}return v;}";
     MWXSceneQuickJSOwner *o = owner(d, source, 1);
-    check(mwx_scene_quickjs_owner_configure_animation_target(o, 1, UINT32_MAX, UINT32_MAX,
+    check(mwx_scene_quickjs_owner_configure_animation_target(o, 1, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX,
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "current animation compatible");
     update(o, 1, 0, MWX_SCENE_QUICKJS_OK);
     check(mwx_scene_quickjs_owner_animation_command_count(o) == 5, "one mixed journal");
@@ -355,9 +355,9 @@ static void component_scopes(void) {
         "thisScene.getAnimation('scene-only').pause();return v;}"
         "export function update(v){if(v===2){peer.pause();getter('renamed-peer').stop();}"
         "if(v===3){peer.play();throw new Error('rollback');}return v;}", 0);
-    check(mwx_scene_quickjs_owner_configure_animation_target(o, 1, 3, 5,
+    check(mwx_scene_quickjs_owner_configure_animation_target(o, 1, 3, 5, UINT32_MAX, UINT32_MAX,
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "component target configures");
-    check(mwx_scene_quickjs_owner_configure_animation_target(o, 1, 3, 6,
+    check(mwx_scene_quickjs_owner_configure_animation_target(o, 1, 3, 6, UINT32_MAX, UINT32_MAX,
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_INVALID_ARGUMENT,
         "component target cannot change under retained handles");
     update(o, 1, 0, MWX_SCENE_QUICKJS_OK);
@@ -382,7 +382,7 @@ static void component_scopes(void) {
         "export function update(v){let rejected=false;try{thisObject.getAnimation();}"
         "catch(e){rejected=e instanceof RangeError;}if(!rejected)throw new Error('current');"
         "thisObject.getAnimation('renamed-peer').play();return v;}", 0);
-    check(mwx_scene_quickjs_owner_configure_animation_target(without_current, 0, 3, 5,
+    check(mwx_scene_quickjs_owner_configure_animation_target(without_current, 0, 3, 5, UINT32_MAX, UINT32_MAX,
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
         "component names do not require a current-property Timeline");
     update(without_current, 1, 0.2, MWX_SCENE_QUICKJS_OK);
@@ -421,7 +421,7 @@ static void seek_frames(void) {
         "thisScene.getLayer('B').getAnimation('same').setFrame(1e100);return v;}"
         "export function update(v){if(v===2)a.setFrame(-7.125);"
         "if(v===3){a.setFrame(9);a.setFrame(Infinity);}return v;}", 0);
-    check(mwx_scene_quickjs_owner_configure_animation_target(o, 1, UINT32_MAX, UINT32_MAX,
+    check(mwx_scene_quickjs_owner_configure_animation_target(o, 1, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX,
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "seek current target");
     update(o, 1, 0, MWX_SCENE_QUICKJS_OK);
     check(mwx_scene_quickjs_owner_animation_command_count(o) == 3,
@@ -489,9 +489,66 @@ static void readonly_and_budget(void) {
     mwx_scene_quickjs_owner_destroy(o); mwx_scene_quickjs_domain_destroy(d);
 }
 
+static uint32_t rate_lookup(void *opaque, uint32_t target, double *rate) {
+    const double *group_rate = opaque;
+    if (target == 7 || target == 11) *rate = *group_rate;
+    else if (target == 12) *rate = 0.75;
+    else return 0;
+    return 1;
+}
+
+static void rate_aliases(void) {
+    MWXSceneQuickJSDomain *d = domain(); if (d == NULL) return;
+    MWXSceneQuickJSNamedAnimation entries[] = {
+        {.target_index=7, .layer_id=17, .name="root", .name_length=4, .playback_index=7},
+        {.target_index=11, .layer_id=42, .name="alias", .name_length=5, .playback_index=7},
+        {.target_index=12, .layer_id=17, .name="peer", .name_length=4, .playback_index=12},
+    };
+    check(mwx_scene_quickjs_domain_configure_named_animations(d, entries, 3,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "rate target catalog");
+    double committed = 1;
+    mwx_scene_quickjs_domain_bind_animation_rate_lookup(d, rate_lookup, &committed);
+    MWXSceneQuickJSOwner *o = owner(d,
+        "let calls=0; export function update(v){"
+        "const a=thisObject.getAnimation(), b=thisScene.getAnimation('alias');"
+        "const c=thisScene.getAnimation('peer');"
+        "if(c.rate!==.75)throw new Error('neighbor');"
+        "if(calls++){if(a.rate!==4 || b.rate!==4)throw new Error('committed');return v;}"
+        "if(a.rate!==1 || b.rate!==1)throw new Error('default');"
+        "a.rate=-2;if(b.rate!==-2)throw new Error('current to alias');"
+        "b.rate=0;if(a.rate!==0 || c.rate!==.75)throw new Error('alias to current');"
+        "for(const bad of [Infinity,NaN,'2']){let rejected=false;"
+        "try{a.rate=bad;}catch(e){rejected=true;}if(!rejected)throw new Error('type');}"
+        "a.play();return v;}", 1);
+    check(mwx_scene_quickjs_owner_configure_animation_target(o, 1, UINT32_MAX, UINT32_MAX,
+        7, 7, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "current rate identity");
+    update(o, 1, 0, MWX_SCENE_QUICKJS_OK);
+    check(mwx_scene_quickjs_owner_animation_command_count(o)==3, "rate writes share the existing journal");
+    command(o, 0, MWX_SCENE_QUICKJS_ANIMATION_SET_RATE, 7, -2);
+    command(o, 1, MWX_SCENE_QUICKJS_ANIMATION_SET_RATE, 11, 0);
+    command(o, 2, MWX_SCENE_QUICKJS_ANIMATION_PLAY, 7, 0);
+    committed = 4;
+    update(o, 1, 1, MWX_SCENE_QUICKJS_OK);
+    check(mwx_scene_quickjs_owner_animation_command_count(o)==0, "rate reads stage no writes");
+    mwx_scene_quickjs_owner_destroy(o);
+
+    o = owner(d, "export function update(v){const a=thisObject.getAnimation();"
+        "a.rate=2;thisScene.destroyLayer(thisLayer);"
+        "for(const op of [()=>a.rate,()=>a.rate=0]){let stale=false;"
+        "try{op();}catch(e){stale=e instanceof TypeError;}"
+        "if(!stale)throw new Error('destroyed current track');}return v;}", 1);
+    check(mwx_scene_quickjs_owner_configure_animation_target(o, 1, UINT32_MAX, UINT32_MAX,
+        7, 7, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "destroyable current rate identity");
+    update(o, 1, 0, MWX_SCENE_QUICKJS_OK);
+    check(mwx_scene_quickjs_owner_animation_command_count(o)==1, "destroyed target stages no new rate");
+    mwx_scene_quickjs_owner_discard_layer_mutations(o);
+    mwx_scene_quickjs_owner_destroy(o);
+    mwx_scene_quickjs_domain_destroy(d);
+}
+
 int main(void) {
     invalid_catalogs(); retained_and_scopes(); rejection_and_deletion();
-    scene_scopes(); component_scopes(); seek_frames(); readonly_and_budget();
+    scene_scopes(); component_scopes(); seek_frames(); readonly_and_budget(); rate_aliases();
     return failures == 0 ? 0 : 1;
 }
 '''
