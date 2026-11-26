@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 397921
+      "bytes": 398410
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 56,
-      "bytes": 7425
+      "bytes": 7399
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -657,21 +657,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9eeaeade76e02644bda496e85f6d368ec09150e5845ee4b0821144d8da226583",
-      "after": "88366a449302ce321e33a844a3847bd6f54e3e9dd4596f8b331241c40bc87178",
-      "owner": "Scene input",
-      "reason": "记录作者骨坐标与绘制视差的分工及半径边界回归。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-drag-parallax-318"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "51ab0c44e7ee50643e905f9f62e62c2451dec75db0bc1757d8f8ca88f64c2c57",
       "after": "01ab3b1eee3aadf18ef6654299f22c0bd42cbde422fe25052b0f14eab0a27404",
       "owner": "Scene input",
       "reason": "记录作者骨坐标与绘制视差的分工及半径边界回归。",
       "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#cursor-puppet-surface"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "88366a449302ce321e33a844a3847bd6f54e3e9dd4596f8b331241c40bc87178",
+      "after": "a3ad520df8cd0f62d99c1bc5ab4e72ac7e0cc6a6e9d9bc37c2f4acd383dcb040",
+      "owner": "Scene input",
+      "reason": "记录官版同窗的实际属性热切画面，收敛剩余冷恢复范围。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#orb-spin-official-live-376"
     }
   ]
 }
