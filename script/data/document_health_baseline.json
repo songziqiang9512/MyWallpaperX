@@ -157,8 +157,8 @@
       "bytes": 172229
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 428,
-      "bytes": 81731
+      "lines": 429,
+      "bytes": 82343
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 486,
@@ -166,7 +166,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 408697
+      "bytes": 409511
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -197,8 +197,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 58,
-      "bytes": 7798
+      "lines": 57,
+      "bytes": 7558
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -678,15 +678,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "2bf3796cd6f511d06054070589d7592ab4a375d30abd39883f60dab0657f6115",
-      "after": "b81c50afdc0be645bf6eab76512f2c87d3e1c360d3c19c307cac085edf0ec25b",
-      "owner": "Scene particle and quality evidence owners",
-      "reason": "Bind both retained evidence scopes to the current main particle color baseline.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/repository-map.md",
       "before": "e1898c3ae929018ee8e2e54335659be2acd358d54912a076e381123fedfa23f8",
       "after": "be44457987066b92d96f17a259449e15f317d13172740e4711ee140c96fcdbe8",
@@ -741,12 +732,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "b81c50afdc0be645bf6eab76512f2c87d3e1c360d3c19c307cac085edf0ec25b",
+      "after": "135c92c5a81abd342f4cd79e92ac1bffd78b84d16adcae19ccc186ab897ca618",
+      "owner": "Scene composition and quality evidence",
+      "reason": "Preserve integrated author Sprite coverage and runtime evidence from both worktrees.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "255b9aae1e78de041269cde289e7269a39ae18b6168cfe4967c07f35b22eb3c6",
-      "after": "5aee2e38f1634403d7bf72d520ce3bcbda03deaa341dd115304590fcaeb30fa6",
-      "owner": "Scene graph composition and quality evidence",
-      "reason": "Preserve upstream player text anchoring and both integrated current evidence scopes.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-player-text-current-360"
+      "before": "5aee2e38f1634403d7bf72d520ce3bcbda03deaa341dd115304590fcaeb30fa6",
+      "after": "e720af2346be32c98ca68b1bfa7cbdf17e514752de98298ee7f6bcc856c0f4bf",
+      "owner": "Scene composition and quality evidence",
+      "reason": "Preserve integrated author Sprite coverage and runtime evidence from both worktrees.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md"
     }
   ]
 }
