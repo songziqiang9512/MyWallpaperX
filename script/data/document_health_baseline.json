@@ -639,10 +639,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6ef007d6d7b0dd7bb2c3b111930df346ae800e198dd08597e2928ab13875f342",
+      "before": "0b227c1bea0fc81b5d089a9f0b5f7b62167814626396ed84ef7d58e53bf5f3cb",
       "after": "e81ae75a49a2c92f973ad87731cc910d3f7790f19eab8fe2bde987e3a77b0887",
       "owner": "Scene authored video order",
-      "reason": "按合并后的作者视频层序证据正文核对预算。",
+      "reason": "按主父提交与合并后的作者视频层序证据核对预算。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-clock-video-order-337"
     },
     {
