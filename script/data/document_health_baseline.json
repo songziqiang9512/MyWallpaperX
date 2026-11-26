@@ -166,7 +166,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 413555
+      "bytes": 414044
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 56,
-      "bytes": 7425
+      "bytes": 7399
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -732,21 +732,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4b46f763a16cc91c7c878adc0289cebd45b801e4418757e5072d00edf2b2e1ef",
-      "after": "df83445b25848bef9bc7ffe60c9805beff1ccef4a5db5a37d4a34809e44d8b9c",
-      "owner": "Scene input and playback quality",
-      "reason": "Preserve the upstream author-world puppet behavior and existing quality evidence.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-drag-parallax-318"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "51ab0c44e7ee50643e905f9f62e62c2451dec75db0bc1757d8f8ca88f64c2c57",
       "after": "01ab3b1eee3aadf18ef6654299f22c0bd42cbde422fe25052b0f14eab0a27404",
       "owner": "Scene input and playback quality",
       "reason": "Preserve the upstream author-world puppet behavior and existing quality evidence.",
       "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#cursor-puppet-surface"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "df83445b25848bef9bc7ffe60c9805beff1ccef4a5db5a37d4a34809e44d8b9c",
+      "after": "2f0cc7f98f74dd91493a5cc8e6447f41af9d6e208784cb0569c8e1ff32d96186",
+      "owner": "Scene input and playback quality",
+      "reason": "Preserve upstream live orb control evidence and existing quality findings.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#orb-spin-official-live-376"
     }
   ]
 }
