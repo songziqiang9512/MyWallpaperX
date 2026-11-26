@@ -110,7 +110,7 @@ Scene 后处理与阴影沿同一质量请求。阴影在重新应用、重载�
 
 3455121165 原视角月影约宽 2 px。副本改用固定 `engine.runtime` 与 5° 视场，保作者模型、材质与两种灯。三相位各 72 条测线，原三角面校验解析参考最大偏差 0.082 px。1024／1280／1536 平均影边误差为 0.959／0.733／0.634 px，10%–90% 宽为 4.621／3.787／3.218 px，线性 sRGB 误差为 1.464／1.026／0.880 px。4.02 s 单相位的显示码误差高档小于超高 0.018 px。各档与点光关重跑测区逐像素一致。合入透明 Composition 后重建，3.99 s 三档逐像素复现。几何与签名收据归 `.artifacts/wallpaper-quality-author-shadow-geometry-20261126`。
 
-未改 3455121165 原包的候选超高写 4608×3072，较现役多约 30 MiB，聚光仍为 1024²。三个 30 FPS 短窗各呈现 374 帧，P99 均为 41.67 ms，GPU P95 为 12.66／10.95／11.74 ms，零 GPU 失败。发布前须在同一未改原包上按兼容默认 60 FPS、超高阴影完成 A/A/B/B/A 正常桌面持续呈现，候选现留隔离构建。 [持续呈现门](wallpaper-quality-settings-plan.md#scene-shadow-steady-author)
+3455121165 的 30 FPS 受控短窗各呈现 374 帧，P99 均为 41.67 ms，GPU P95 为 12.66／10.95／11.74 ms，零 GPU 失败。同步后的两份签名构建用原包与默认作者属性正常选片，请求及生效上限均为 60 FPS，约 6 秒各实呈 337／357 帧并排空 GPU。另两份同代码诊断包核灯 105 的点光图从 3072×2048 到 4608×3072，单图逻辑载荷增 30 MiB。灯 101 聚光图两侧均为 1024²。两灯各三帧匹配写入、接收模型与 GPU 完成。短窗只验出画与灯图，正式 A/A/B/B/A 须在独占 GPU 上复测。签名收据和不同相位的终图归 `.artifacts/wallpaper-quality-point-tier-desktop-qualification-20261127`。 [持续呈现门](wallpaper-quality-settings-plan.md#scene-shadow-steady-author)
 
 <a id="scene-shadow-low-filter"></a>
 **低档缩减定向滤波试验** 固定真实 512²、原 map、投影和偏差，现役三 texel 滤波对照一次 gather 的双线性四 tap，各 tap 独立校正深度。原生 Metal 先确认宽边中心、受光域内外及点／聚光邻例，量孤立遮挡和孤立亮孔的四分之一 texel 相位。孤立特征任一轴的连续四分之一相位亮度跳变须 ≤0.125（全照明跨度的八分之一），且比现役最多多 0.10；宽影轮廓漂移 ≤0.25 阴影 texel，接触、全亮、全暗与相邻两灯语义不退。通过才跑同 512 的冻结 3589454154 和独立 3455121165 点／聚邻例，核真实镂空、局部相位和主合成 GPU／连续帧 P95；阶段收益超同机 A/A 波动且中位至少 10% 方可采用。任一画面门失败即保现役滤波，退出候选。 [官版静态路径](wallpaper-quality-settings-plan.md#official-shadow-atlas) · [现役微影证据](../scene/capabilities/model-runtime-evidence.md#model-directional-shadow-filter)

@@ -98,7 +98,7 @@
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 144065
+      "bytes": 144394
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -513,11 +513,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "8307c376e056d219099a00fbe7c39c963556e9d1c20dfe6684ba23eb07671808",
-      "after": "756947d6cca07ec8409024a4240c5fa09686158d56289d75b2eb5777101bf9c1",
-      "owner": "Scene 聚光照明与排序",
-      "reason": "记录可绘聚光计划的排序和绘制边界、保持作者依赖及实测条件。",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
+      "before": "e7d3d5ced320b070dce26fc91edfeb7cebf2e1fccd24a5ff991bd2530fe8bb99",
+      "after": "1568844fbca06bd29c7f73b5e8c1562f6c09a99eeb1e6a7c072e121fb88cccec",
+      "owner": "Scene point shadow quality",
+      "reason": "补同步后原作者默认值的桌面短窗与同代码诊断图收据，保留独占 GPU 长稳门。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-point-shadow-density-trial"
     },
     {
       "section": "bodies",
