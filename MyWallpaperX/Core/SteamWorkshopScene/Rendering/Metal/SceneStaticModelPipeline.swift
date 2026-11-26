@@ -105,6 +105,9 @@ private struct SceneStaticModelUniforms {
 /// caller's current encoder and projection; target lifetime and publication
 /// stay with the renderer that owns that encoder.
 struct SceneStaticModelPipeline {
+    typealias ShadowBinding = (shadow: SceneStaticModelShadow, lightIndex: Int)
+    typealias ShadowBindingObserver = (ArraySlice<ShadowBinding>) -> Void
+
     let state: MTLRenderPipelineState
     let rasterSampleCount: Int
     private let multisampleState: MTLRenderPipelineState?
@@ -425,6 +428,7 @@ struct SceneStaticModelPipeline {
         frameEpoch: UInt64 = 0,
         commandBuffer: MTLCommandBuffer? = nil,
         rasterSampleCount: Int = 1,
+        observeShadowBindings: ShadowBindingObserver? = nil,
         encoder: MTLRenderCommandEncoder
     ) -> Bool {
         guard Self.isFinite(modelMatrix),
@@ -472,7 +476,7 @@ struct SceneStaticModelPipeline {
         // Modern shadow indices and color uniforms use the same light order.
         let staticModelPoints = legacy == nil ? lighting.point.filter(\.illuminatesStaticModels)
             : Array(lighting.point.lazy.filter { !$0.illuminatesStaticModels }.prefix(SceneLightSnapshot.maximumLightCount))
-        let acceptedShadows = (legacy == nil ? shadows : []).compactMap { value -> (SceneStaticModelShadow, Int)? in
+        let acceptedShadows = (legacy == nil ? shadows : []).compactMap { value -> ShadowBinding? in
             guard value.frameEpoch == frameEpoch, value.commandBuffer === commandBuffer else { return nil }
             let index: Int?
             switch value.projection {
@@ -487,7 +491,7 @@ struct SceneStaticModelPipeline {
         }
         let maps = (0..<SceneLightSnapshot.maximumLightCount).map { index in
             acceptedShadows.indices.contains(index)
-                ? SceneModelShadowUniforms(acceptedShadows[index].0, lightIndex: acceptedShadows[index].1)
+                ? SceneModelShadowUniforms(acceptedShadows[index].shadow, lightIndex: acceptedShadows[index].lightIndex)
                 : SceneModelShadowUniforms()
         }
         let lightEnergyScale: Float = material.surfaceProfile == nil && legacy == nil
@@ -662,7 +666,7 @@ struct SceneStaticModelPipeline {
             // Unused slots are never sampled. Reuse an already-pinned depth
             // binding when available; the no-shadow draw needs no allocation.
             let texture = acceptedShadows.indices.contains(index)
-                ? acceptedShadows[index].0.texture : acceptedShadows.first?.0.texture
+                ? acceptedShadows[index].shadow.texture : acceptedShadows.first?.shadow.texture
             encoder.setFragmentTexture(texture, index: 2 + index)
         }
         encoder.setFragmentTexture(texture, index: 0)
@@ -702,6 +706,9 @@ struct SceneStaticModelPipeline {
         SceneGPUStageTimestampHook.drew(encoder)
                 ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
 #endif
+        if legacy == nil && material.receivesLighting {
+            observeShadowBindings?(acceptedShadows.prefix(SceneLightSnapshot.maximumLightCount))
+        }
         return true
     }
 
@@ -850,17 +857,8 @@ struct SceneStaticModelPipeline {
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.tube3) == 1648
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.tubeFalloffExponents) == 1696
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.tubeCount) == 1712
-        && MemoryLayout<SceneModelShadowUniforms>.stride == 112
-        && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.positionRadius) == 64
-        && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.parameters) == 80
-        && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.identity) == 96
-        && MemoryLayout<SceneStaticModelShadowUniforms>.stride == 288
-        && MemoryLayout<SceneStaticModelShadowUniforms>.offset(of: \.modelMatrix) == 64
-        && MemoryLayout<SceneStaticModelShadowUniforms>.offset(of: \.worldToLight) == 128
-        && MemoryLayout<SceneStaticModelShadowUniforms>.offset(of: \.positionRadius) == 192
-        && MemoryLayout<SceneStaticModelShadowUniforms>.offset(of: \.viewport) == 224
-        && MemoryLayout<SceneStaticModelShadowUniforms>.offset(of: \.textureFrame0) == 240
-        && MemoryLayout<SceneStaticModelShadowUniforms>.offset(of: \.coverage) == 272
+        && SceneModelShadowUniforms.hasExpectedABI
+        && SceneStaticModelShadowUniforms.hasExpectedABI
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.shadow0) == 880
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.shadow3) == 1216
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.surfaceMaterial) == 1328

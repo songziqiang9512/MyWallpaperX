@@ -51,7 +51,7 @@ extension Harness {
         stopped(owner)
     }
     static func rasterSamples() {
-        var status = SceneDesktopWallpaperSession.RasterSampleStatus()
+        var status = SceneDesktopWallpaperSession.SurfaceQualityStatus()
         let initial = status.observe(4)!
         precondition(status.complete(initial, succeeded: true) && status.observe(4) == nil)
         let compositionFallback = status.observe(1)!
@@ -73,5 +73,38 @@ extension Harness {
         precondition(status.complete(success, succeeded: true))
         precondition(status.completed?.samples == 4 && status.completed?.didFailPreparation == false)
         precondition(status.observe(4) == nil)
+
+        let owner = SceneDesktopWallpaperSession()
+        let surface = owner.attach()
+        var changes = 0
+        owner.onDisplayQualityChanged = { changes += 1 }
+        let view = surface.metalView
+        let shadow: SceneShadowUse = .active([.init(family: .point, face: 1024, limit: .lightFamily)])
+        view.renderQuality = (4, shadow)
+        _ = owner.renderSurfaces()
+        precondition(changes == 0 && surface.qualityStatus.completed == nil)
+        complete(view, 0, true)
+        precondition(changes == 1 && surface.qualityStatus.completed?.shadow == shadow)
+
+        // Retained color has no new quality observations.
+        view.renderQuality = (nil, nil)
+        _ = owner.renderSurfaces()
+        complete(view, 1, true)
+        precondition(changes == 1 && surface.qualityStatus.completed?.shadow == shadow)
+
+        view.renderQuality = (4, .noReceiver)
+        _ = owner.renderSurfaces()
+        complete(view, 2, false)
+        precondition(changes == 1 && surface.qualityStatus.completed?.shadow == shadow)
+        _ = owner.renderSurfaces()
+        let replacement = owner.attach()
+        complete(view, 3, true)
+        precondition(changes == 1 && replacement.qualityStatus.completed == nil)
+
+        owner.shadowsDisabled = true
+        replacement.metalView.renderQuality = (1, .noReceiver)
+        _ = owner.renderSurfaces()
+        complete(replacement.metalView, 0, true)
+        precondition(changes == 2 && replacement.qualityStatus.completed?.shadow == .disabled)
     }
 }

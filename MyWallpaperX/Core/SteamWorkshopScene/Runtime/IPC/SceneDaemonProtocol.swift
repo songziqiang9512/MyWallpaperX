@@ -102,11 +102,25 @@ nonisolated struct SceneRasterDisplayStatus: Equatable, Sendable {
     let displayID: UInt32
     let samples: Int?
     var fallback: Fallback? = nil
+    var shadow: SceneShadowUse? = nil
 
     var wireObject: [String: Any] {
         var object: [String: Any] = ["displayID": displayID]
         object["samples"] = samples
         object["fallback"] = fallback?.rawValue
+        switch shadow {
+        case nil: break
+        case .disabled: object["shadow"] = "disabled"
+        case .noReceiver: object["shadow"] = "noReceiver"
+        case .unavailable: object["shadow"] = "unavailable"
+        case let .active(maps):
+            object["shadow"] = maps.map { map -> [String: Any] in
+                var row: [String: Any] = ["family": map.family.rawValue]
+                row["face"] = map.face
+                row["limit"] = map.limit?.rawValue
+                return row
+            }
+        }
         return object
     }
 }
@@ -137,9 +151,30 @@ nonisolated enum SceneDaemonProtocol {
             if object["samples"] != nil, samples != 1 && samples != 2 && samples != 4 { return nil }
             let fallback = (object["fallback"] as? String).flatMap(SceneRasterDisplayStatus.Fallback.init(rawValue:))
             if object["fallback"] != nil, (samples != 1 || fallback == nil) { return nil }
-            statuses.append(.init(displayID: id, samples: samples.map(Int.init), fallback: fallback))
+            statuses.append(.init(displayID: id, samples: samples.map(Int.init), fallback: fallback,
+                shadow: shadowUse(object["shadow"])))
         }
         return statuses
+    }
+
+    private static func shadowUse(_ raw: Any?) -> SceneShadowUse? {
+        switch raw as? String {
+        case "disabled": return .disabled
+        case "noReceiver": return .noReceiver
+        case "unavailable": return .unavailable
+        default: break
+        }
+        guard let rows = raw as? [[String: Any]] else { return nil }
+        var maps: [SceneShadowUse.Map] = []
+        for row in rows {
+            guard let family = (row["family"] as? String).flatMap(SceneShadowUse.Family.init(rawValue:)) else { return nil }
+            let face = unsignedInteger(row["face"]).flatMap(Int.init(exactly:))
+            let limit = (row["limit"] as? String).flatMap(SceneShadowUse.Limit.init(rawValue:))
+            if row["face"] != nil, (face ?? 0) <= 0 { return nil }
+            if row["limit"] != nil, limit == nil || face == nil { return nil }
+            maps.append(.init(family: family, face: face, limit: limit))
+        }
+        return maps.contains { $0.face != nil } ? .active(maps) : nil
     }
 
     static func sourceObject(_ source: ScenePlaybackSource) throws -> [String: Any] {

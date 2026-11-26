@@ -231,7 +231,7 @@ def production_harness(sources=None):
             "private func armFrameDriver(", "private func waitForFrameAdmission(", "private func advanceFrameTiming(",
         ]),
         *(method(submission, signature) for signature in [
-            "struct RasterSampleStatus",
+            "struct SurfaceQualityStatus",
             "func renderSurfaces(", "var awaitsInitialPresentation:",
             "private func observeSurfaceCompletion(", "private func deliverInitialPresentationCohort(",
         ]),
@@ -270,6 +270,8 @@ def production_harness(sources=None):
         read("Runtime/Session/SceneInitialPresentationCohort.swift"),
         method(quality, "nonisolated struct AnimationFrameRate:"),
         method(quality, "nonisolated enum ScenePostProcessingMode:"),
+        method(quality, "nonisolated enum SceneShadowUse:"),
+        method(quality, "nonisolated struct SceneFrameRenderUse:"),
         "enum SceneDisplayMappingPostProcess {\n" + swift_declaration(display, "enum Output:") + "\n}",
     ]))
     return harness.replace("// PRODUCTION_FRAME_TYPES", "\n".join([

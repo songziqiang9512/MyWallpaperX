@@ -46,6 +46,12 @@ def vectors():
     add("zero-distant-receiver", receivers=[receiver, dict(distant, clip=ZERO)],
         witnesses=[[0, 0, .5], [0, 0, -100]])
     add("outside-only", receivers=[dict(distant, clip=IDENTITY)])
+    add("no-caster-overlap", casters=[box([2, 2, .75], [3, 3, .8])])
+    add("no-caster-bounds", casters=[])
+    invalid_world = list(IDENTITY)
+    invalid_world[12] = 1e39
+    add("invalid-caster", casters=[dict(caster, world=invalid_world)])
+    add("invalid-receiver", receivers=[dict(receiver, clip=None, world=invalid_world)])
     add("nil-only", receivers=[distant], witnesses=[[0, 0, -100]])
     add("zero-only", receivers=[dict(distant, clip=ZERO)], witnesses=[[0, 0, -100]])
     wide_caster = box([-5, -5, .75], [5, 5, .8])
@@ -166,8 +172,18 @@ class SceneDirectionalShadowFitTests(unittest.TestCase):
         # Its real intersection is inside the literal unit clip square.
         self.assertLess(max(row["worldUnitsPerTexel"]), 2.1/1024)
 
-    def test_outside_receiver_does_not_request_a_shadow_map(self):
-        self.assertFalse(self.rows["outside-only"]["present"])
+    def test_outside_receiver_and_noninfluencing_caster_do_not_request_a_shadow_map(self):
+        for name in ("outside-only", "no-caster-overlap", "no-caster-bounds"):
+            with self.subTest(case=name):
+                self.assertFalse(self.rows[name]["present"])
+                self.assertTrue(self.rows[name]["noInfluence"])
+
+    def test_invalid_geometry_remains_distinct_from_absent_influence(self):
+        for name in ("invalid-caster", "invalid-receiver"):
+            with self.subTest(case=name):
+                self.assertFalse(self.rows[name]["present"])
+                self.assertFalse(self.rows[name]["noInfluence"])
+        self.assertFalse(self.rows["base"]["noInfluence"])
 
     def test_reverse_native_and_canvas_domains_keep_their_receivers(self):
         for name in ["opposite-reverse-depth", "native-perspective"]:

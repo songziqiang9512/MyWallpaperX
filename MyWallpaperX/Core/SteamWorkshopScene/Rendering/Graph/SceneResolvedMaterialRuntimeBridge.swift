@@ -407,8 +407,9 @@ final class SceneResolvedMaterialRuntimeBridge {
                                           commandBuffer: commandBuffer)
     }
 
-    func markSceneColorOutput(on commandBuffer: MTLCommandBuffer, mapped: Bool) -> Bool {
-        submissions.markSceneColorOutput(on: commandBuffer, mapped: mapped)
+    func markSceneColorOutput(on commandBuffer: MTLCommandBuffer, mapped: Bool,
+                              renderUse: SceneFrameRenderUse?) -> Bool {
+        submissions.markSceneColorOutput(on: commandBuffer, mapped: mapped, renderUse: renderUse)
     }
 
     func reserveSceneColor(pool: SceneOffscreenTexturePool, width: Int, height: Int,

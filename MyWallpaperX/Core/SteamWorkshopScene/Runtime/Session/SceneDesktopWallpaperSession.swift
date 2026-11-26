@@ -37,7 +37,7 @@ final class SceneDesktopWallpaperSession {
         var pendingPausedFrame: SceneMetalRenderer.PreparedFrame?
         var lastSubmittedPresentationSources: Set<UUID> = []
         var videoSwitchDeadline: TimeInterval?
-        var rasterSampleStatus = RasterSampleStatus()
+        var qualityStatus = SurfaceQualityStatus()
 
         init(
             window: NSWindow,
@@ -67,7 +67,7 @@ final class SceneDesktopWallpaperSession {
     var isOutputActive = true
     var audioDemand = (spectrum: false, currentProcess: false)
     var onAudioDemandChanged: (() -> Void)?
-    var onRasterSamplesChanged: (() -> Void)?
+    var onDisplayQualityChanged: (() -> Void)?
     var onFirstFrameCompletion: ((CGDirectDisplayID, Bool) -> Void)?
     var initialPresentationCohort = SceneInitialPresentationCohort()
     var drainCallbacks: [@MainActor (Bool) -> Void] = []
@@ -76,7 +76,7 @@ final class SceneDesktopWallpaperSession {
     var drainStarted = false
     var drainResult: Bool?
     var surfaces: [CGDirectDisplayID: Surface] = [:] {
-        didSet { onRasterSamplesChanged?() }
+        didSet { onDisplayQualityChanged?() }
     }
     var preparedSurfaceIDs: Set<CGDirectDisplayID> = []
     var launchContext: SceneDesktopWallpaperLaunchContext?
@@ -147,6 +147,7 @@ final class SceneDesktopWallpaperSession {
     private var displayCadenceLimit = SceneScreenTopology.conservativeCadenceLimit
     private(set) var scenePostProcessing: ScenePostProcessingMode
     let allowsProjectedSpotVolume: Bool
+    let shadowsDisabled: Bool
     let allowsSceneReflection: Bool
 
     var effectiveAnimationFPS: Double { min(Double(animationFrameRate.rawValue), displayCadenceLimit) }
@@ -189,7 +190,7 @@ final class SceneDesktopWallpaperSession {
     init(textureDecodeCacheBudget: SceneTextureDecodeCacheBudget,
          surfacePreparationQueue: DispatchQueue,
          scenePostProcessing: ScenePostProcessingMode,
-         allowsProjectedSpotVolume: Bool = true,
+         shadowsDisabled: Bool = false, allowsProjectedSpotVolume: Bool = true,
          allowsSceneReflection: Bool = true,
          userShortcutOpener: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) }) {
         self.userShortcutOpener = userShortcutOpener
@@ -197,6 +198,7 @@ final class SceneDesktopWallpaperSession {
         self.surfacePreparationQueue = surfacePreparationQueue
         self.scenePostProcessing = scenePostProcessing
         self.allowsProjectedSpotVolume = allowsProjectedSpotVolume
+        self.shadowsDisabled = shadowsDisabled
         self.allowsSceneReflection = allowsSceneReflection
         installObservers()
     }

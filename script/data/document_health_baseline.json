@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 66,
-      "bytes": 24941
+      "bytes": 25202
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 150,
-      "bytes": 26424
+      "bytes": 26818
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -97,12 +97,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 586,
-      "bytes": 173575
+      "lines": 593,
+      "bytes": 175634
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 152537
+      "bytes": 153466
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 307,
-      "bytes": 65616
+      "bytes": 65884
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -678,51 +678,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "55dd17ee122c1de91f127b3fc6710e41be0dc7113db077a5ef39d0f49f6fd39a",
-      "after": "aa75f007909885d52837637438261d6a2bde588d9ef8c8e0642829c579e926d7",
-      "owner": "Scene playback quality",
-      "reason": "Record native sample-compatible model reflection and preserve its real environment and depth boundaries.",
-      "decision": "docs/architecture/repository-map.md#wallpaper-quality"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "47c62a6abdee20f3ffe9f64567d09e4b75574d20ca91b548b395042d31c55567",
-      "after": "1bd5a21f088d3489b808a31ff38bbe48bc718c7ae8df04398c7521f5030221f0",
-      "owner": "Scene playback quality",
-      "reason": "Record native sample-compatible model reflection and preserve its real environment and depth boundaries.",
-      "decision": "docs/architecture/wallpaper-quality-execution-contract.md#quality-combination-checks"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "58a50156b42daac7ac4320d936946428be5a6e9d9c7f780e59569a5aa2009f8d",
-      "after": "d68cfc25c4d9123e247481aa31a5f0cd25eacf55a1b233ad954f3c794a81767c",
-      "owner": "Scene playback quality",
-      "reason": "Record native sample-compatible model reflection and preserve its real environment and depth boundaries.",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-model-reflection"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "fc80d81abda1fcbb156b12a5b6fa1c7fde233e4073f4cbda1ec999a54844e860",
-      "after": "8915d6f2c649b3e7c6bd343f4317c36d98b23a7528f024f2eaa799dcce0066be",
-      "owner": "Scene playback quality",
-      "reason": "Record native sample-compatible model reflection and preserve its real environment and depth boundaries.",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "a306b43905b263acc72638bf1ce3a78c19bfd7c624420254982175d4144d85ad",
-      "after": "7a6375845f7a11c8536132ce15c28e776ec0db13fc587b68f3fc3cfc3d71ea25",
-      "owner": "Scene playback quality",
-      "reason": "Record native sample-compatible model reflection and preserve its real environment and depth boundaries.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#scene-reflection-quality-policy"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "e0f0cfa09b07f125fb9416d4a4b4d986dfc11312ca8e4ed34b478f6d9c22fd88",
       "after": "2deee7a646013b9011eeff1197a2de5e79b8c61b0608a20dffbe49ff6f6116bc",
@@ -747,6 +702,51 @@
       "owner": "Scene particle launch preparation",
       "reason": "登记根模拟并行边界、原包首屏收益、单根反例与队列剩余范围。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#authored-root-prewarm-join"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "aa75f007909885d52837637438261d6a2bde588d9ef8c8e0642829c579e926d7",
+      "after": "384ac0cd421d494c78fc14dd9b031f3b74cb1b991262ab6c1a3f5937dfde93a5",
+      "owner": "Scene playback quality",
+      "reason": "明确阴影实际绑定、灯图规格及共用的逐屏反馈职责。",
+      "decision": "docs/architecture/repository-map.md#wallpaper-quality"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/wallpaper-quality-execution-contract.md",
+      "before": "1bd5a21f088d3489b808a31ff38bbe48bc718c7ae8df04398c7521f5030221f0",
+      "after": "01cec9fda26c33131b9467327385ca2dffded38d2a2c9da649e84d57bf8be99d",
+      "owner": "Scene playback quality",
+      "reason": "明确阴影实际绑定、灯图规格及共用的逐屏反馈职责。",
+      "decision": "docs/architecture/wallpaper-quality-execution-contract.md#quality-lighting"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-settings-plan.md",
+      "before": "d68cfc25c4d9123e247481aa31a5f0cd25eacf55a1b233ad954f3c794a81767c",
+      "after": "de447a9fe6f51e38d68a3d795bee99e6690b5366c108144f353e9e4998973024",
+      "owner": "Scene playback quality",
+      "reason": "明确阴影实际绑定、灯图规格及共用的逐屏反馈职责。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-shadow-feedback"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "8915d6f2c649b3e7c6bd343f4317c36d98b23a7528f024f2eaa799dcce0066be",
+      "after": "1af0d98bc87e3b628b096682127869c9bd868d71469ba0ca3b9307c28f316a91",
+      "owner": "Scene playback quality",
+      "reason": "明确阴影实际绑定、灯图规格及共用的逐屏反馈职责。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-shadow-readout"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "7a6375845f7a11c8536132ce15c28e776ec0db13fc587b68f3fc3cfc3d71ea25",
+      "after": "747e76134817e4af4ba2a221010fc37df41bf5f68f79baa5a902472d10519d72",
+      "owner": "Scene playback quality",
+      "reason": "明确阴影实际绑定、灯图规格及共用的逐屏反馈职责。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#effective-quality-policy"
     }
   ]
 }

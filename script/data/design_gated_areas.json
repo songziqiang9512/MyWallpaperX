@@ -945,7 +945,7 @@
       "owner": "现有播放偏好及各引擎质量消费者",
       "status": "approved",
       "designDoc": "docs/development/wallpaper-quality-settings-plan.md",
-      "design_notes": "现役顺序见 docs/development/wallpaper-quality-work-card.md#execution。Scene 质量从原 App/IPC 接入后处理和阴影冷准备，八项请求与执行边界见 docs/architecture/wallpaper-quality-execution-contract.md#quality-option-semantics，两个超高后处理共享同一准备投影，根采样域与资源预约见 designDoc#scene-quality-interactions。点体积末段的实际解析见 designDoc#scene-aa-point-volume-tail。模型原生反射见 designDoc#scene-aa-model-reflection。Scene 冷档直接编辑与显式重试共用同源重载，见 designDoc#scene-cold-auto-adoption。Scene FPS 为 10–120，Web 按文档原属性包与作者回调交付 FPS 建议。Video 保原片，规格选择和详情只沿现有下载与真实源轨道。本地恢复与同路径换版沿现有目录文件探测、Inspector 投递和原视图读取，屏保保持独立当前输入，见 designDoc#video-inspector-source-recovery。其它档按技术评估的验收裁决。",
+      "design_notes": "现役顺序见 docs/development/wallpaper-quality-work-card.md#execution。Scene 质量从原 App/IPC 接入后处理和阴影冷准备，八项请求与执行边界见 docs/architecture/wallpaper-quality-execution-contract.md#quality-option-semantics，两个超高后处理共享同一准备投影，根采样域与资源预约见 designDoc#scene-quality-interactions。点体积末段的实际解析见 designDoc#scene-aa-point-volume-tail。模型原生反射见 designDoc#scene-aa-model-reflection。阴影的实际规格与逐屏完成回执见 designDoc#scene-shadow-feedback。Scene 冷档直接编辑与显式重试共用同源重载，见 designDoc#scene-cold-auto-adoption。Scene FPS 为 10–120，Web 按文档原属性包与作者回调交付 FPS 建议。Video 保原片，规格选择和详情只沿现有下载与真实源轨道。本地恢复与同路径换版沿现有目录文件探测、Inspector 投递和原视图读取，屏保保持独立当前输入，见 designDoc#video-inspector-source-recovery。其它档按技术评估的验收裁决。",
       "matchPatterns": [
         "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift",
         "MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift",

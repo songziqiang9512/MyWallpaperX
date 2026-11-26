@@ -65,6 +65,9 @@ extension Notification.Name {
     let sceneRasterSamplesLabel = NSTextField(labelWithString: "")
     let scenePostProcessingPopup = NSPopUpButton(), sceneTextureQualityPopup = NSPopUpButton()
     let sceneShadowsPopup = NSPopUpButton(), sceneVolumeLightingPopup = NSPopUpButton()
+    // ACTUAL_SHADOW_LABEL
+    lazy var shadowRow = makeSettingRow(title: "Scene Shadows", iconSystemName: "shadow",
+        subtitle: "Some effect changes require reloading the wallpaper", trailing: sceneShadowsPopup, readout: sceneShadowUseLabel)
     let sceneReflectionsSwitch = NSSwitch(), webFrameRatePopup = NSPopUpButton()
     let reapplySceneQualityButton = NSButton(title: "Reapply Current Scene", target: nil, action: nil)
     let qualitySection = SettingsGroupView(title: nil)
@@ -144,12 +147,21 @@ extension Notification.Name {
         if let loginItemSyncFailureObserver { NotificationCenter.default.removeObserver(loginItemSyncFailureObserver) }
     }
     func layoutVisibilitySignature() -> [Bool] { [] }
+    func scheduleDocumentFrameUpdate() {}
     func presentLoginItemSyncFailure(_ note: Notification) {}
     // ACTUAL_INTERVAL_REFRESH
     // ACTUAL_SETTINGS_OBSERVER
     // ACTUAL_SCENE_POST_PROCESSING_MENU
     // ACTUAL_SCENE_REAPPLY_TITLE
+    // ACTUAL_RENDER_READOUTS
     // ACTUAL_RASTER_SAMPLE_READOUT
+    // ACTUAL_RENDER_READOUT_TITLE
+    // ACTUAL_RENDER_READOUT_DISPLAY
+    // ACTUAL_SHADOW_USE_DESCRIPTION
+    // ACTUAL_SETTINGS_ROW
+    // ACTUAL_LEADING_ROW_CONTENT
+    // ACTUAL_ROW_ICON
+    // ACTUAL_SANITIZED_ROW_IDENTIFIER
     // ACTUAL_RESTORE_QUALITY_CONTROLS
     // ACTUAL_REFRESH_SCENE_QUALITY_PRESET
     // ACTUAL_QUALITY_ACTION
@@ -476,6 +488,91 @@ extension Notification.Name {
         NotificationCenter.default.post(name: .sceneDaemonRasterSamplesDidChange, object: daemon)
         pump()
         checks["native-raster-readout-clears-on-empty-active-state"] = view.sceneRasterSamplesLabel.isHidden
+
+        shadows.selectItem(at: shadows.indexOfItem(withRepresentedObject: SceneShadowQuality.adaptive.rawValue))
+        _ = shadows.sendAction(shadows.action, to: view)
+        daemon.activePreparedRenderQuality = PlaybackQualityPreference.current.scene.preparationQuality
+        let savesBeforeShadowStatus = requests.requests.count
+        let shadowLabel = view.sceneShadowUseLabel
+        let extent = "\(2048.formatted()) × \(2048.formatted())"
+        let smallerExtent = "\(1024.formatted()) × \(1024.formatted())"
+        let usedMaps: SceneShadowUse = .active([
+            .init(family: .directional, face: 2048, limit: .receiverExtent),
+            .init(family: .point, face: 1024, limit: .lightFamily),
+            .init(family: .spot, face: nil),
+        ])
+        daemon.activeRasterDisplayStatuses = [.init(displayID: testDisplays[0], samples: 1, shadow: usedMaps)]
+        NotificationCenter.default.post(name: .sceneDaemonRasterSamplesDidChange, object: daemon)
+        pump()
+        let confirmed = shadowLabel.stringValue
+        checks["native-shadow-readout-shows-confirmed-maps-with-per-light-reasons"] =
+            !shadowLabel.isHidden && confirmed.contains("Directional: \(extent) – Receiver target size limit")
+            && confirmed.contains("Point (each face): \(smallerExtent) – Light type limit")
+            && confirmed.contains("Spotlight: Unavailable")
+            && PlaybackQualityPreference.current.scene.shadows == .adaptive
+            && requests.requests.count == savesBeforeShadowStatus
+        let shadowRow = view.shadowRow
+        shadowRow.frame = NSRect(x: 0, y: 0, width: 460, height: 130)
+        shadowRow.layoutSubtreeIfNeeded()
+        let readoutFrame = shadowRow.convert(shadowLabel.bounds, from: shadowLabel)
+        let popupFrame = shadowRow.convert(shadows.bounds, from: shadows)
+        checks["native-shadow-readout-wraps-without-covering-the-popup"] =
+            shadowRow.bounds.contains(readoutFrame) && readoutFrame.height > 16 && readoutFrame.maxX < popupFrame.minX
+
+        daemon.activeRasterDisplayStatuses = [
+            .init(displayID: testDisplays[0], samples: 1, shadow: usedMaps),
+            .init(displayID: testDisplays[1], samples: 1, shadow: .noReceiver),
+            .init(displayID: testDisplays[2], samples: nil),
+        ]
+        NotificationCenter.default.post(name: .sceneDaemonRasterSamplesDidChange, object: daemon)
+        pump()
+        let shadowScreens = shadowLabel.toolTip ?? ""
+        checks["native-shadow-readout-distinguishes-display-results"] =
+            shadowLabel.stringValue == "Varies by display"
+            && shadowScreens.contains("Display \(testDisplays[0].formatted()): Directional: \(extent)")
+            && shadowScreens.contains("Display \(testDisplays[1].formatted()): No applicable shadows")
+            && shadowScreens.contains("Display \(testDisplays[2].formatted()): Awaiting render result")
+
+        let inactiveShadows: [(SceneShadowUse, String)] = [
+            (.noReceiver, "No applicable shadows"), (.unavailable, "Shadow maps unavailable"),
+        ]
+        for (use, title) in inactiveShadows {
+            daemon.activeRasterDisplayStatuses = [.init(displayID: testDisplays[0], samples: 1, shadow: use)]
+            NotificationCenter.default.post(name: .sceneDaemonRasterSamplesDidChange, object: daemon)
+            pump()
+            checks["native-shadow-readout-\(title)"] = shadowLabel.stringValue == title
+        }
+
+        daemon.activeRasterDisplayStatuses = [.init(displayID: testDisplays[0], samples: 1,
+            shadow: .active([.init(family: .directional, face: 1024, limit: .reduced)]))]
+        NotificationCenter.default.post(name: .sceneDaemonRasterSamplesDidChange, object: daemon)
+        pump()
+        let reduced = "Directional: \(smallerExtent) – Reduced resolution"
+        checks["native-shadow-readout-shows-reduced-resolution"] = shadowLabel.stringValue == reduced
+
+        shadows.selectItem(at: shadows.indexOfItem(withRepresentedObject: SceneShadowQuality.disabled.rawValue))
+        _ = shadows.sendAction(shadows.action, to: view)
+        checks["native-shadow-edit-retains-the-actual-previous-result"] =
+            shadowLabel.stringValue == "Previous setting in use: \(reduced)"
+            && PlaybackQualityPreference.current.scene.shadows == .disabled
+            && requests.requests.count == savesBeforeShadowStatus + 1
+
+        daemon.activePreparedRenderQuality = PlaybackQualityPreference.current.scene.preparationQuality
+        daemon.activeRasterDisplayStatuses = []
+        NotificationCenter.default.post(name: .sceneDaemonPreparedQualityDidChange, object: daemon)
+        pump()
+        checks["native-shadow-readout-awaits-the-new-output"] =
+            !shadowLabel.isHidden && shadowLabel.toolTip == nil && shadowLabel.stringValue == "Awaiting render result"
+        daemon.activeRasterDisplayStatuses = [.init(displayID: testDisplays[0], samples: 1, shadow: .disabled)]
+        NotificationCenter.default.post(name: .sceneDaemonRasterSamplesDidChange, object: daemon)
+        pump()
+        checks["native-shadow-readout-shows-confirmed-disabled"] = shadowLabel.stringValue == "Disabled"
+
+        daemon.activeRasterDisplayStatuses = []
+        daemon.activePreparedRenderQuality = nil
+        NotificationCenter.default.post(name: .sceneDaemonRasterSamplesDidChange, object: daemon)
+        pump()
+        checks["native-shadow-readout-clears-on-stop"] = shadowLabel.isHidden && shadowLabel.toolTip == nil
 
         let locale = UserDefaults.standard.string(forKey: "AppleLocale")
         let separator = locale == "de_DE" ? "," : "."

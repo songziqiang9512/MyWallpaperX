@@ -158,8 +158,8 @@ final class SceneDaemonRuntime {
     private var didReportNonSilentAudioPublication = false
 #endif
     private var currentRequestID: UUID?
-    private var rasterStatusScheduled = false
-    private var lastReportedRaster: (requestID: UUID, displays: [SceneRasterDisplayStatus])?
+    private var displayQualityStatusScheduled = false
+    private var lastReportedDisplayQuality: (requestID: UUID, displays: [SceneRasterDisplayStatus])?
     private var lastPropertyRevision: UInt64 = 0
     private var shouldPausePlayback = false
     private var isShuttingDown = false
@@ -634,30 +634,30 @@ final class SceneDaemonRuntime {
         emitActiveAnimationCadence()
     }
 
-    private func emitActiveAnimationCadence(rasterChangeOnly: Bool = false) {
+    private func emitActiveAnimationCadence(qualityChangeOnly: Bool = false) {
         guard !isShuttingDown, host.unconfirmedPromotion == nil,
               let session = host.activeSession, let requestID = session.launchRequestID else { return }
         let displays = session.rasterDisplayStatuses
-        guard !rasterChangeOnly || requestID != lastReportedRaster?.requestID
-            || displays != lastReportedRaster?.displays else { return }
-        lastReportedRaster = (requestID, displays)
+        guard !qualityChangeOnly || requestID != lastReportedDisplayQuality?.requestID
+            || displays != lastReportedDisplayQuality?.displays else { return }
+        lastReportedDisplayQuality = (requestID, displays)
         emit(["v": SceneDaemonProtocol.version, "event": "animationCadenceChanged",
               "requestID": requestID.uuidString, "requestedFPS": session.animationFrameRate.rawValue,
               "effectiveFPS": session.effectiveAnimationFPS, "rasterDisplays": displays.map(\.wireObject)])
     }
 
-    private func scheduleRasterStatus() {
-        guard !rasterStatusScheduled else { return }
-        rasterStatusScheduled = true
+    private func scheduleDisplayQualityStatus() {
+        guard !displayQualityStatusScheduled else { return }
+        displayQualityStatusScheduled = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             guard let self else { return }
-            self.rasterStatusScheduled = false
-            self.emitActiveAnimationCadence(rasterChangeOnly: true)
+            self.displayQualityStatusScheduled = false
+            self.emitActiveAnimationCadence(qualityChangeOnly: true)
         }
     }
 
     private func installObservers() {
-        host.rasterSamplesChangedHandler = { [weak self] in self?.scheduleRasterStatus() }
+        host.displayQualityChangedHandler = { [weak self] in self?.scheduleDisplayQualityStatus() }
         observers.append(NotificationCenter.default.addObserver(
             forName: .sceneWallpaperLaunchStateDidChange,
             object: nil,

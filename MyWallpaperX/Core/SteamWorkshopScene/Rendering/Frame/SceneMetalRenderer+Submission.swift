@@ -20,6 +20,7 @@ extension SceneMetalRenderer {
         reflectionFrame: ReflectionFrame?,
         modelFrame: StaticModelFrame,
         mainPassForSubmission: SceneMainPassEncoder?,
+        renderUse: SceneFrameRenderUse?,
         particleBatches: [SceneParticleMetalPipeline.PreparedBatch],
         particlePipeline: SceneParticleMetalPipeline?,
         initialVideoPresentation: InitialVideoPresentation? = nil
@@ -36,8 +37,7 @@ extension SceneMetalRenderer {
         compositionSurface = nil
 #endif
         return PreparedFrame(commandBuffer: commandBuffer, initialVideoPresentation: initialVideoPresentation,
-            rasterSampleCount: mainPassForSubmission?.submittedRasterSampleCount,
-            didFailMultisamplePreparation: mainPassForSubmission?.didFailMultisamplePreparation == true,
+            renderUse: renderUse,
             observeCompositionSurface: compositionSurface, submit: { present in
 #if DEBUG
             if !SceneGPUStageTimestampHook.isSelected(commandBuffer) {

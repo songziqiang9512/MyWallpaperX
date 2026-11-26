@@ -437,8 +437,10 @@ extension AppKitSettingsContainerView {
             sceneShadowsPopup.addItem(withTitle: title)
             sceneShadowsPopup.lastItem?.representedObject = tier.rawValue
         }
+        sceneShadowsPopup.setAccessibilityLabel(String(localized: "Scene Shadows"))
         qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Shadows"), iconSystemName: "shadow",
-            subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: sceneShadowsPopup))
+            subtitle: String(localized: "Some effect changes require reloading the wallpaper"),
+            trailing: sceneShadowsPopup, readout: sceneShadowUseLabel))
         let volumeTiers: [(SceneVolumeLightingQuality, String)] = [
             (.disabled, String(localized: "Disabled")),
             (.enabled, String(localized: "High")),
@@ -490,7 +492,7 @@ extension AppKitSettingsContainerView {
         }
         webFrameRatePopup.selectItem(at: quality.webFrameRateMode == .display ? 0 : 1)
         sceneAntiAliasingPopup.selectItem(at: sceneAntiAliasingPopup.indexOfItem(withRepresentedObject: quality.scene.antiAliasing.rawValue))
-        refreshSceneRasterSampleReadout()
+        refreshSceneRenderReadouts(quality.scene)
         refreshScenePostProcessingMenu(quality.scene.postProcessing)
         sceneTextureQualityPopup.selectItem(at: sceneTextureQualityPopup.indexOfItem(withRepresentedObject: quality.scene.textures.rawValue))
         sceneShadowsPopup.selectItem(at: sceneShadowsPopup.indexOfItem(withRepresentedObject: quality.scene.shadows.rawValue))
@@ -507,9 +509,30 @@ extension AppKitSettingsContainerView {
         sceneQualityPresetPopup.selectItem(at: index)
     }
 
-    func refreshSceneRasterSampleReadout() {
+    func refreshSceneRenderReadouts(_ requested: SceneRenderQuality = PlaybackQualityPreference.current.scene) {
         let daemon = SceneDaemonClient.shared
         let displays = daemon.activeRasterDisplayStatuses
+        let prepared = daemon.activePreparedRenderQuality
+        let screens = displays.isEmpty ? [] : AppKit.NSScreen.screens
+        let names = displays.map { sceneRenderReadoutDisplayName($0.displayID, screens: screens) }
+        let waiting = String(localized: "Awaiting render result", table: "SceneQuality")
+        refreshSceneRasterSampleReadout(displays, names: names, waiting: waiting,
+            pending: prepared.map { $0.antiAliasing != requested.antiAliasing } ?? false)
+        let details = displays.map { $0.shadow.map(shadowUseDescription) ?? waiting }
+        let summary = Set(details).count > 1 ? String(localized: "Varies by display", table: "SceneQuality") : details.first ?? waiting
+        let previous = prepared.map { $0.shadows != requested.shadows } == true && displays.contains { $0.shadow != nil }
+        let title = previous ? sceneRenderReadoutTitle(summary, previous: true) : summary
+        let hidden = displays.isEmpty && prepared == nil
+        if hidden != sceneShadowUseLabel.isHidden || title != sceneShadowUseLabel.stringValue { scheduleDocumentFrameUpdate() }
+        sceneShadowUseLabel.isHidden = hidden
+        sceneShadowUseLabel.stringValue = title
+        sceneShadowUseLabel.toolTip = displays.isEmpty ? nil : zip(names, details).map { name, detail in
+            "\(name): \(detail)"
+        }.joined(separator: "\n")
+    }
+
+    private func refreshSceneRasterSampleReadout(_ displays: [SceneRasterDisplayStatus], names: [String],
+                                                waiting: String, pending: Bool) {
         sceneRasterSamplesLabel.isHidden = displays.isEmpty
         sceneRasterSamplesLabel.toolTip = nil
         guard !displays.isEmpty else { return }
@@ -517,24 +540,10 @@ extension AppKitSettingsContainerView {
         let counts = Set(displays.compactMap(\.samples)).sorted()
         let values = counts.map { "\($0.formatted())×" }
         let awaitingResult = displays.contains { $0.samples == nil }
-        let pending = daemon.activePreparedRenderQuality.map {
-            $0.antiAliasing != PlaybackQualityPreference.current.scene.antiAliasing
-        } ?? false
-        let waiting = String(localized: "Awaiting render result", table: "SceneQuality")
         let summary = (values + (awaitingResult ? [waiting] : [])).joined(separator: " / ")
-        if values.isEmpty {
-            sceneRasterSamplesLabel.stringValue = waiting
-        } else if pending {
-            sceneRasterSamplesLabel.stringValue = String(localized: "Previous setting in use: \(summary)", table: "SceneQuality")
-        } else {
-            sceneRasterSamplesLabel.stringValue = String(localized: "In use: \(summary)", table: "SceneQuality")
-        }
+        sceneRasterSamplesLabel.stringValue = values.isEmpty ? waiting : sceneRenderReadoutTitle(summary, previous: pending)
 
-        let screens = AppKit.NSScreen.screens
-        let details = displays.map { display in
-            let name = screens.first {
-                ($0.deviceDescription[NSDeviceDescriptionKey(rawValue: "NSScreenNumber")] as? NSNumber)?.uint32Value == display.displayID
-            }?.localizedName ?? String(localized: "Display \(display.displayID.formatted())", table: "SceneQuality")
+        let details = zip(displays, names).map { display, name in
             let detail = display.samples.map { "\($0.formatted())×" } ?? waiting
             let reason: String? = switch display.fallback {
             case .deviceUnsupported: String(localized: "Device limit for requested MSAA", table: "SceneQuality")
@@ -553,6 +562,40 @@ extension AppKitSettingsContainerView {
             }
         }
         sceneRasterSamplesLabel.toolTip = details.map { $0.1 }.joined(separator: "\n")
+    }
+
+    private func sceneRenderReadoutTitle(_ summary: String, previous: Bool) -> String {
+        previous ? String(localized: "Previous setting in use: \(summary)", table: "SceneQuality")
+                 : String(localized: "In use: \(summary)", table: "SceneQuality")
+    }
+
+    private func sceneRenderReadoutDisplayName(_ id: UInt32, screens: [AppKit.NSScreen]) -> String {
+        screens.first { ($0.deviceDescription[NSDeviceDescriptionKey(rawValue: "NSScreenNumber")] as? NSNumber)?.uint32Value == id }?
+            .localizedName ?? String(localized: "Display \(id.formatted())", table: "SceneQuality")
+    }
+
+    private func shadowUseDescription(_ use: SceneShadowUse) -> String {
+        switch use {
+        case .disabled: return String(localized: "Disabled")
+        case .noReceiver: return String(localized: "No applicable shadows", table: "SceneQuality")
+        case .unavailable: return String(localized: "Shadow maps unavailable", table: "SceneQuality")
+        case .active(let maps): return maps.map { map in
+            let light = switch map.family {
+            case .directional: String(localized: "Directional", table: "SceneQuality")
+            case .point: String(localized: "Point (each face)", table: "SceneQuality")
+            case .spot: String(localized: "Spotlight", table: "SceneQuality")
+            }
+            let size = map.face.map { "\($0.formatted()) × \($0.formatted())" }
+            let reason: String? = switch map.limit {
+            case .receiverExtent: String(localized: "Receiver target size limit", table: "SceneQuality")
+            case .lightFamily: String(localized: "Light type limit", table: "SceneQuality")
+            case .reduced: String(localized: "Reduced resolution", table: "SceneQuality")
+            case nil: nil
+            }
+            let detail = size ?? String(localized: "Unavailable", table: "SceneQuality")
+            return ["\(light): \(detail)", reason].compactMap { $0 }.joined(separator: " – ")
+        }.joined(separator: " / ")
+        }
     }
 
     private func updateSceneFrameRateLabels(_ requested: Int) {
@@ -648,7 +691,7 @@ extension AppKitSettingsContainerView {
         saveEditedQuality(quality, previousPreparation: previousPreparation)
         refreshSceneQualityPreset(quality)
         refreshSceneQualityReapplyTitle(quality.scene)
-        if sender === sceneAntiAliasingPopup { refreshSceneRasterSampleReadout() }
+        if sender === sceneAntiAliasingPopup || sender === sceneShadowsPopup { refreshSceneRenderReadouts(quality.scene) }
     }
 
     @objc private func reapplySceneQuality() {
@@ -722,7 +765,8 @@ extension AppKitSettingsContainerView {
     }
 
 
-    private func makeSettingRow(title: String, iconSystemName: String? = nil, subtitle: String? = nil, trailing: NSView, leadingInset: CGFloat = 0) -> NSView {
+    private func makeSettingRow(title: String, iconSystemName: String? = nil, subtitle: String? = nil,
+                                trailing: NSView, leadingInset: CGFloat = 0, readout: NSTextField? = nil) -> NSView {
         // 标题在左、控件在右，中间留伸缩空白，保持系统设置类页面的稳定对齐。
         let titleLabel = NSTextField(labelWithString: title)
         titleLabel.font = .systemFont(ofSize: 13, weight: .regular)
@@ -740,6 +784,7 @@ extension AppKitSettingsContainerView {
             subtitleLabel.maximumNumberOfLines = 3
             subtitleLabel.toolTip = subtitle
             let textStack = NSStackView(views: [titleLabel, subtitleLabel])
+            if let readout { textStack.addArrangedSubview(readout) }
             textStack.orientation = .vertical
             textStack.alignment = .leading
             textStack.distribution = .gravityAreas

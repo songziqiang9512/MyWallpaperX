@@ -30,6 +30,7 @@ class SceneRendererSubmissionStageTests(unittest.TestCase):
             built = subprocess.run([
                 "xcrun", "swiftc", "-DDEBUG", "-parse-as-library", str(stage),
                 str(FRAME / "SceneMetalRenderer+FrameOutcome.swift"),
+                str(ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift"),
                 str(FRAME / "SceneSourceUpdateTransaction.swift"), str(FIXTURE),
                 "-module-cache-path", str(scratch / "cache"), "-o", str(binary),
             ], capture_output=True, text=True, timeout=90)

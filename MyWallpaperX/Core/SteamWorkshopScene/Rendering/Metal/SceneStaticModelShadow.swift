@@ -2,6 +2,15 @@ import Metal
 import simd
 
 struct SceneStaticModelShadowUniforms {
+    static let hasExpectedABI =
+        MemoryLayout<Self>.stride == 288
+        && MemoryLayout<Self>.offset(of: \.modelMatrix) == 64
+        && MemoryLayout<Self>.offset(of: \.worldToLight) == 128
+        && MemoryLayout<Self>.offset(of: \.positionRadius) == 192
+        && MemoryLayout<Self>.offset(of: \.viewport) == 224
+        && MemoryLayout<Self>.offset(of: \.textureFrame0) == 240
+        && MemoryLayout<Self>.offset(of: \.coverage) == 272
+
     var modelToLightClip: simd_float4x4
     var modelMatrix: simd_float4x4
     var worldToLight: simd_float4x4
@@ -14,6 +23,12 @@ struct SceneStaticModelShadowUniforms {
 }
 
 struct SceneModelShadowUniforms {
+    static let hasExpectedABI =
+        MemoryLayout<Self>.stride == 112
+        && MemoryLayout<Self>.offset(of: \.positionRadius) == 64
+        && MemoryLayout<Self>.offset(of: \.parameters) == 80
+        && MemoryLayout<Self>.offset(of: \.identity) == 96
+
     var transform: simd_float4x4 = matrix_identity_float4x4
     var positionRadius: SIMD4<Float> = .zero
     var parameters: SIMD4<Float> = .zero
@@ -45,15 +60,25 @@ struct SceneDirectionalShadowProjection {
     let worldToClip: simd_float4x4
     let depthBias: Float
 
+    private enum Region {
+        case bounds(SIMD3<Double>, SIMD3<Double>)
+        case outsideView
+        case invalid
+    }
+
     static func make(
         bounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4)],
         receiverBounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4,
                           clip: simd_float4x4?)],
-        directionTowardLight: SIMD3<Float>, resolution: Int
+        directionTowardLight: SIMD3<Float>, resolution: Int, noInfluence: (() -> Void)? = nil
     ) -> Self? {
         let toward = SIMD3<Double>(directionTowardLight)
         let magnitude = simd_length(toward)
-        guard magnitude.isFinite, magnitude > 0, !bounds.isEmpty else { return nil }
+        guard magnitude.isFinite, magnitude > 0 else { return nil }
+        guard !bounds.isEmpty else {
+            noInfluence?()
+            return nil
+        }
         let z = -toward / magnitude
         let reference = abs(z.y) < 0.9 ? SIMD3<Double>(0, 1, 0) : SIMD3<Double>(1, 0, 0)
         let x = simd_normalize(simd_cross(reference, z))
@@ -61,26 +86,37 @@ struct SceneDirectionalShadowProjection {
         let light = simd_double4x4(rows: [SIMD4(x, 0), SIMD4(y, 0), SIMD4(z, 0), SIMD4(0, 0, 0, 1)])
         var receiverMinimum = SIMD3<Double>(repeating: .infinity)
         var receiverMaximum = SIMD3<Double>(repeating: -.infinity)
+        var invalidReceiver = false
         for item in receiverBounds {
-            guard let region = receiverRegion(minimum: item.minimum, maximum: item.maximum,
-                world: item.world, clip: item.clip, light: light) else { continue }
-            receiverMinimum = simd_min(receiverMinimum, region.minimum)
-            receiverMaximum = simd_max(receiverMaximum, region.maximum)
+            switch receiverRegion(minimum: item.minimum, maximum: item.maximum,
+                world: item.world, clip: item.clip, light: light) {
+            case let .bounds(low, high):
+                receiverMinimum = simd_min(receiverMinimum, low)
+                receiverMaximum = simd_max(receiverMaximum, high)
+            case .invalid: invalidReceiver = true
+            case .outsideView: break
+            }
         }
-        guard receiverMinimum.x <= receiverMaximum.x else { return nil }
+        guard receiverMinimum.x <= receiverMaximum.x else {
+            if !invalidReceiver { noInfluence?() }
+            return nil
+        }
         var minimum = SIMD3<Double>(repeating: .infinity)
         var maximum = SIMD3<Double>(repeating: -.infinity)
         for item in bounds {
-            guard let region = fullRegion(minimum: item.minimum, maximum: item.maximum,
+            guard case let .bounds(low, high) = fullRegion(minimum: item.minimum, maximum: item.maximum,
                 world: item.world, light: light) else { return nil }
-            let overlapMinimum = simd_max(region.minimum, receiverMinimum)
-            let overlapMaximum = simd_min(region.maximum, receiverMaximum)
+            let overlapMinimum = simd_max(low, receiverMinimum)
+            let overlapMaximum = simd_min(high, receiverMaximum)
             guard overlapMinimum.x <= overlapMaximum.x, overlapMinimum.y <= overlapMaximum.y,
-                  region.minimum.z <= receiverMaximum.z else { continue }
-            minimum = simd_min(minimum, SIMD3(overlapMinimum.x, overlapMinimum.y, region.minimum.z))
+                  low.z <= receiverMaximum.z else { continue }
+            minimum = simd_min(minimum, SIMD3(overlapMinimum.x, overlapMinimum.y, low.z))
             maximum = simd_max(maximum, SIMD3(overlapMaximum.x, overlapMaximum.y, receiverMaximum.z))
         }
-        guard minimum.x <= maximum.x else { return nil }
+        guard minimum.x <= maximum.x else {
+            noInfluence?()
+            return nil
+        }
         minimum.z = min(minimum.z, receiverMinimum.z)
         let span = maximum - minimum
         let xyScale = max(span.x, span.y, 0.0001)
@@ -121,7 +157,7 @@ struct SceneDirectionalShadowProjection {
 
     private static func fullRegion(minimum: SIMD3<Float>, maximum: SIMD3<Float>,
         world: simd_float4x4, light: simd_double4x4
-    ) -> (minimum: SIMD3<Double>, maximum: SIMD3<Double>)? {
+    ) -> Region {
         var low = SIMD3<Double>(repeating: .infinity)
         var high = SIMD3<Double>(repeating: -.infinity)
         for corner in 0..<8 {
@@ -129,17 +165,17 @@ struct SceneDirectionalShadowProjection {
                 corner & 1 == 0 ? minimum.x : maximum.x,
                 corner & 2 == 0 ? minimum.y : maximum.y,
                 corner & 4 == 0 ? minimum.z : maximum.z, 1)
-            guard transformed.x.isFinite, transformed.y.isFinite, transformed.z.isFinite else { return nil }
+            guard transformed.x.isFinite, transformed.y.isFinite, transformed.z.isFinite else { return .invalid }
             let point = light * SIMD4<Double>(transformed)
             let xyz = SIMD3(point.x, point.y, point.z)
             low = simd_min(low, xyz); high = simd_max(high, xyz)
         }
-        return (low, high)
+        return .bounds(low, high)
     }
 
     private static func receiverRegion(minimum: SIMD3<Float>, maximum: SIMD3<Float>,
         world: simd_float4x4, clip: simd_float4x4?, light: simd_double4x4
-    ) -> (minimum: SIMD3<Double>, maximum: SIMD3<Double>)? {
+    ) -> Region {
         guard let clip else {
             return fullRegion(minimum: minimum, maximum: maximum, world: world, light: light)
         }
@@ -189,7 +225,7 @@ struct SceneDirectionalShadowProjection {
                 }
             }
         }
-        return low.x <= high.x ? (low, high) : nil
+        return low.x <= high.x ? .bounds(low, high) : .outsideView
     }
 
     private static func clipInterval(_ a: SIMD4<Double>, _ b: SIMD4<Double>) -> ClosedRange<Double>? {
@@ -314,10 +350,13 @@ enum SceneStaticModelShadowProjection {
 }
 
 struct SceneStaticModelShadow {
+    enum ResolutionLimit { case ceiling, reduced }
+
     let texture: MTLTexture
     let frameEpoch: UInt64
     let generation: UInt64
     let lightLayerID: Int
     let projection: SceneStaticModelShadowProjection
     let commandBuffer: MTLCommandBuffer
+    var resolutionLimit: ResolutionLimit? = nil
 }

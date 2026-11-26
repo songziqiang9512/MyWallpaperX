@@ -145,7 +145,7 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 
 兼容降低 HDR 工作域时，带 `clear=false` 的作者场景继续通过原 `sceneColor` 保存跨帧 raw。用当前 SDR 附件描述建立资源，终端把完成 raw 复制到当前 drawable，普通 Bloom 在显示副本上执行。暂停重导出及 GPU 完成保持原身份规则。普通作者 SDR 的 `clear=false` 仍沿其原合成路径。
 
-质量请求在 [Scene 冷准备](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift)将阴影档投影给原静态模型和光空间深度图。有模型但没有启用投影的潜在定向、聚光或模型点光时，模型资源沿禁用的阴影路径准备，避开阴影管线和逐帧阴影列表。初始隐藏的作者灯仍是潜在生产者。全部作者灯继续供直接受光、体积及几何消费者读取。定向阴影的低／中／高／超高实际封顶分别为 512／1024／2048／4096。低档点光和聚光用 512 单面，其余档用 1024 单面。沿原 PCF、受光域拟合和预算回退，每次新准备在候选中固定阴影档，旧会话持续用已准备资源。重新应用、属性重载和 daemon 恢复会采用新意图。 [阴影密度合同](../capabilities/advanced-object-coverage.md#model-directional-shadow-density)
+质量请求在 [Scene 冷准备](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift)将阴影档投影给原静态模型和光空间深度图。有模型但没有启用投影的潜在定向、聚光或模型点光时，模型资源沿禁用的阴影路径准备，避开阴影管线和逐帧阴影列表。初始隐藏的作者灯仍是潜在生产者。全部作者灯继续供直接受光、体积及几何消费者读取。定向阴影的低／中／高／超高实际封顶分别为 512／1024／2048／4096。低档点光和聚光用 512 单面，其余档用 1024 单面。沿原 PCF、受光域拟合和预算回退，每次新准备在候选中固定阴影档，旧会话持续用已准备资源。重新应用、属性重载和 daemon 恢复会采用新意图。 阴影实际值沿原 Surface 完成观察与 MSAA 合并发送。以当前帧真实受光绑定为依据，每屏保留已使用规格、确定的限制和未获准的影图。重呈保留色时从同一完成主色取得画质回执，按该次呈现完成发布。 [阴影密度合同](../capabilities/advanced-object-coverage.md#model-directional-shadow-density)
 
 <a id="scene-volume-lighting-policy"></a>
 体积照明沿同一 Scene 准备请求生效，已显示会话保本代资源直到重载。禁用退出点光、专用遮挡深度和聚光锥的 Plan、PSO 及主域／组域绘制。高档保旧 `enabled`，沿现有点光 PSO 槽采用四点。超高冷准备六点，创建失败沿同一槽退四点，聚光仍沿原作者几何，排序截点来自当前可见的可绘计划。点光按实际相机射线与目标像素尺寸求保守光球投影并集，空范围退出遮挡重放，有界时收紧一次原尺寸积分的 scissor。眼内与跨近面走全屏。主相机深度、表面光、作者阴影、父组程式与具名输出各走原链。点光独立重放在确认本帧有可绘积分后结束原生根段，解析至原主色再用 1× 加光。已解析的 utility 尾段复用原主色。可选容量拒绝时保已画根色。 [点光合同](../capabilities/advanced-object-coverage.md#point-light-volume) · [聚光合同](../capabilities/advanced-object-coverage.md#spot-light-frame)

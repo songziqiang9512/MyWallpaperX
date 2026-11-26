@@ -100,6 +100,7 @@ struct ScenePreparedStaticModelResources {
 
     let pipeline: SceneStaticModelPipeline?
     let directionalShadowDimensionLimit: Int?
+    let failedShadowReceiverLayerIDs: Set<Int>
     private let entriesByLayerID: [Int: [Entry]]
     private let animationsByLayerID: [Int: Animation]
     let namedAlbedoLayerIDs: Set<Int>
@@ -108,9 +109,11 @@ struct ScenePreparedStaticModelResources {
 
     private init(pipeline: SceneStaticModelPipeline?, directionalShadowDimensionLimit: Int?, entriesByLayerID: [Int: [Entry]],
                  animationsByLayerID: [Int: Animation] = [:], reflectiveLayerIDs: Set<Int> = [],
-                 videoAlbedoAssetsByLayerID: [Int: Set<SceneAssetTextureIdentity>] = [:]) {
+                 videoAlbedoAssetsByLayerID: [Int: Set<SceneAssetTextureIdentity>] = [:],
+                 failedShadowReceiverLayerIDs: Set<Int> = []) {
         self.pipeline = pipeline
         self.directionalShadowDimensionLimit = directionalShadowDimensionLimit
+        self.failedShadowReceiverLayerIDs = failedShadowReceiverLayerIDs
         self.entriesByLayerID = entriesByLayerID
         self.animationsByLayerID = animationsByLayerID
         namedAlbedoLayerIDs = Set(entriesByLayerID.compactMap {
@@ -380,7 +383,14 @@ struct ScenePreparedStaticModelResources {
                 preparesCameraDepth: pointVolumeEnabled && descriptor.camera.clearEnabled && descriptor.layers.contains {
                     $0.pointLight?.unshadowedVolume != nil
                 }, preparesShadows: shadowDimensionLimit != nil,
-                rasterSampleCount: rasterSampleCount) else { return .empty }
+                rasterSampleCount: rasterSampleCount) else {
+                guard shadowDimensionLimit != nil else { return .empty }
+                let failedReceivers = Set(entries.compactMap { layerID, parts in
+                    parts.contains { $0.material.receivesLighting && $0.material.legacyLighting == nil } ? layerID : nil
+                })
+                return .init(pipeline: nil, directionalShadowDimensionLimit: nil, entriesByLayerID: [:],
+                    failedShadowReceiverLayerIDs: failedReceivers)
+            }
             return ScenePreparedStaticModelResources(
                 pipeline: pipeline,
                 directionalShadowDimensionLimit: shadowDimensionLimit,

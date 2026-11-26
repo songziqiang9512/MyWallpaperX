@@ -54,6 +54,9 @@ struct TerminalCompositor {
 }
 // Terminal-only carrier: these frame/group entrypoints are outside this
 // gate's asserted source and deliberately trap if accidentally exercised.
+enum SceneUtilityLayerRuntimePlan {
+    var layerID: Int { switch self {} }
+}
 enum SceneUtilityLayerRuntimePlanner {
     enum BackgroundSource { case enclosing, scenePrefix }
     struct Execution {
@@ -62,6 +65,9 @@ enum SceneUtilityLayerRuntimePlanner {
         let orderedRootIDs: [Int]
         let backgroundSourcesByRootID: [Int: BackgroundSource]
         var localSourceRootIDs: Set<Int> = []
+        var plansByTriggerLayerID: [Int: [SceneUtilityLayerRuntimePlan]] {
+            fatalError("terminal fixture must not plan utility layers")
+        }
     }
 }
 final class SceneCompositionGroupFrameRuntime {
@@ -91,6 +97,11 @@ struct SceneMetalRenderer {
     let bloomPostProcess: SceneBloomPostProcess?
     let displayMappingPostProcess: SceneDisplayMappingPostProcess?
     var spotLightRuntime: TerminalSpotLightRuntime? { nil }
+    static func executesUtilityPlan(_ plan: SceneUtilityLayerRuntimePlan,
+                                    framePlans: [Int: SceneResolvedMaterialFrameTargetPlan],
+                                    layers: [Int: SceneRenderDescriptor.Layer]) -> Bool {
+        switch plan {}
+    }
 }
 '''
 BLIT_FAULT_HEADER = """

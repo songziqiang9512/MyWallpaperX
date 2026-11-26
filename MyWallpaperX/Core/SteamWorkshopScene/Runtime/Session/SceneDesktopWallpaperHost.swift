@@ -67,7 +67,7 @@ final class SceneDesktopWallpaperHost {
     /// Direct DEBUG hosts leave this nil and preserve their local transaction.
     var candidatePreparedHandler: ((UUID, SceneRenderQuality) -> Void)?
     var requestResourcesReleasedHandler: ((UUID, Bool) -> Void)?
-    var rasterSamplesChangedHandler: (() -> Void)?
+    var displayQualityChangedHandler: (() -> Void)?
     var candidatePromotion: (requestID: UUID, promote: () -> Void)?
     var unconfirmedPromotion: (requestID: UUID, previous: SceneDesktopWallpaperSession?)?
     var presentationDeadline: DispatchWorkItem?
@@ -235,10 +235,10 @@ final class SceneDesktopWallpaperHost {
         session.debugDropDynamicValuesFrameIndex = debugDropDynamicValuesFrameIndex
 #endif
         session.onAudioDemandChanged = { [weak self] in self?.reconcileAudioDemand() }
-        if rasterSamplesChangedHandler != nil {
-            session.onRasterSamplesChanged = { [weak self, weak session] in
+        if displayQualityChangedHandler != nil {
+            session.onDisplayQualityChanged = { [weak self, weak session] in
                 guard let self, let session, self.activeSession === session else { return }
-                self.rasterSamplesChangedHandler?()
+                self.displayQualityChangedHandler?()
             }
         }
     }

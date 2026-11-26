@@ -3,10 +3,11 @@ import QuartzCore
 
 // Session owns submission transactions and its startup-only surface cohort.
 extension SceneDesktopWallpaperSession {
-    struct RasterSampleStatus {
+    struct SurfaceQualityStatus {
         struct Use: Hashable {
-            let samples: Int
+            let samples: Int?
             let didFailPreparation: Bool
+            let shadow: SceneShadowUse?
         }
 
         struct Observation {
@@ -19,8 +20,11 @@ extension SceneDesktopWallpaperSession {
         private var latestSubmission: UInt64 = 0
         private var latestCompletion: UInt64 = 0
 
-        mutating func observe(_ samples: Int, didFailPreparation: Bool = false) -> Observation? {
-            let use = Use(samples: samples, didFailPreparation: samples == 1 && didFailPreparation)
+        mutating func observe(
+            _ samples: Int?, didFailPreparation: Bool = false, shadow: SceneShadowUse? = nil
+        ) -> Observation? {
+            guard samples != nil || shadow != nil else { return nil }
+            let use = Use(samples: samples, didFailPreparation: samples == 1 && didFailPreparation, shadow: shadow)
             if use == completed, inFlight.isEmpty || (inFlight.count == 1 && inFlight[use] != nil) { return nil }
             inFlight[use, default: 0] += 1
             latestSubmission &+= 1
@@ -41,16 +45,16 @@ extension SceneDesktopWallpaperSession {
     var rasterDisplayStatuses: [SceneRasterDisplayStatus] {
         let rasterRequest = launchContext?.rasterSamples
         return surfaces.sorted { $0.key < $1.key }.map { displayID, surface in
-            let use = surface.rasterSampleStatus.completed
+            let use = surface.qualityStatus.completed
             let fallback: SceneRasterDisplayStatus.Fallback?
-            if let use, let rasterRequest, use.samples < rasterRequest.requested {
+            if let use, let samples = use.samples, let rasterRequest, samples < rasterRequest.requested {
                 if rasterRequest.device < rasterRequest.requested { fallback = .deviceUnsupported }
                 else if use.didFailPreparation { fallback = .preparationFailed }
                 else { fallback = .compatiblePathUnavailable }
             } else {
                 fallback = nil
             }
-            return .init(displayID: displayID, samples: use?.samples, fallback: fallback)
+            return .init(displayID: displayID, samples: use?.samples, fallback: fallback, shadow: use?.shadow)
         }
     }
 
@@ -119,7 +123,7 @@ extension SceneDesktopWallpaperSession {
             var presentsFrame = true
             var hasPendingVideo = false
             var readySources: Set<UUID> = []
-            if case let .prepared(candidate) = frameOutcomes[outcomeIndex] {
+            if case let .prepared(candidate) = frameOutcomes[outcomeIndex], candidate.isReady {
                 readySources = videoTextureSourceRegistry?.sourceIncarnations(
                     for: candidate.initialVideoPresentation?.readyLayerIDs ?? [],
                     deviceRegistryID: surface.metalView.metalDevice.registryID
@@ -220,18 +224,21 @@ extension SceneDesktopWallpaperSession {
         surface: Surface, displayID: CGDirectDisplayID,
         attempt: SceneInitialPresentationCohort.AttemptToken?, presentsFrame: Bool
     ) {
-        let rasterAttempt = onRasterSamplesChanged != nil && presentsFrame
-            ? candidate.rasterSampleCount.flatMap {
-                surface.rasterSampleStatus.observe($0, didFailPreparation: candidate.didFailMultisamplePreparation)
-            } : nil
+        let qualityAttempt = onDisplayQualityChanged != nil && presentsFrame
+            ? candidate.renderUse.flatMap { use in
+                surface.qualityStatus.observe(use.rasterSampleCount,
+                    didFailPreparation: use.didFailMultisamplePreparation,
+                    shadow: use.shadow.map { shadowsDisabled ? .disabled : $0 })
+            }
+            : nil
         guard awaitsInitialPresentation || sceneClock.isPaused
-            || surface.videoSwitchDeadline != nil || rasterAttempt != nil else { return }
+            || surface.videoSwitchDeadline != nil || qualityAttempt != nil else { return }
         if sceneClock.isPaused { surface.pendingPausedFrame = candidate }
         candidate.whenCompleted { [weak self, weak surface, weak candidate] succeeded in
             DispatchQueue.main.async {
                 guard let self, let surface, self.surfaces[displayID] === surface else { return }
-                if let rasterAttempt, surface.rasterSampleStatus.complete(rasterAttempt, succeeded: succeeded) {
-                    self.onRasterSamplesChanged?()
+                if let qualityAttempt, surface.qualityStatus.complete(qualityAttempt, succeeded: succeeded) {
+                    self.onDisplayQualityChanged?()
                 }
                 if !succeeded, let deadline = surface.videoSwitchDeadline {
                     surface.videoSwitchDeadline = min(deadline, CACurrentMediaTime())

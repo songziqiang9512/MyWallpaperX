@@ -42,6 +42,28 @@ nonisolated enum SceneShadowQuality: String, Sendable {
     case adaptive = "ultra"
 }
 
+nonisolated enum SceneShadowUse: Hashable, Sendable {
+    enum Family: String, Sendable { case directional, point, spot }
+    enum Limit: String, Sendable { case receiverExtent, lightFamily, reduced }
+
+    struct Map: Hashable, Sendable {
+        let family: Family
+        let face: Int?
+        var limit: Limit? = nil
+    }
+
+    case disabled
+    case noReceiver
+    case unavailable
+    case active([Map])
+}
+
+nonisolated struct SceneFrameRenderUse: Equatable, Sendable {
+    let rasterSampleCount: Int?
+    let didFailMultisamplePreparation: Bool
+    let shadow: SceneShadowUse?
+}
+
 nonisolated enum SceneVolumeLightingQuality: String, Sendable {
     case disabled
     case enabled

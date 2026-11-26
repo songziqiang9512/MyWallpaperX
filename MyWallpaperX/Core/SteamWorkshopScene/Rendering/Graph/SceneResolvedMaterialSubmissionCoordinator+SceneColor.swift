@@ -30,6 +30,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         let producerReceipt: SceneCompletedColorSourceIdentity
         let requiresDraw: Bool
         let commandBufferID: ObjectIdentifier
+        var renderUse: SceneFrameRenderUse? = nil
         var displayMapped: Bool? = nil
         var snapshotCopied = false
         /// Detached candidates never publish, but their pins stay in the
@@ -109,18 +110,21 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             frameIndex: frameIndex, member: member,
             previous: prior.map { lease.targets.raw($0.member) },
             previousReceipt: prior?.producerReceipt, producerReceipt: receipt,
-            requiresDraw: draws, commandBufferID: ObjectIdentifier(commandBuffer))
+            requiresDraw: draws, commandBufferID: ObjectIdentifier(commandBuffer),
+            renderUse: draws ? nil : prior?.persistenceReservation?.renderUse)
         preparedSceneColor = value
         return value
     }
 
-    func markSceneColorOutput(on commandBuffer: MTLCommandBuffer, mapped: Bool) -> Bool {
+    func markSceneColorOutput(on commandBuffer: MTLCommandBuffer, mapped: Bool,
+                              renderUse: SceneFrameRenderUse? = nil) -> Bool {
         lock.lock()
         defer { lock.unlock() }
         guard commandBuffer.status == .notEnqueued,
               preparedSceneColor?.commandBufferID == ObjectIdentifier(commandBuffer),
               preparedSceneColor?.intent == .persistence,
               preparedSceneColor?.displayMapped == nil else { return false }
+        if preparedSceneColor?.requiresDraw == true { preparedSceneColor?.renderUse = renderUse }
         preparedSceneColor?.displayMapped = mapped
         return true
     }

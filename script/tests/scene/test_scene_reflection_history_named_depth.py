@@ -91,6 +91,7 @@ class SceneReflectionHistoryNamedDepthAppTests(unittest.TestCase):
                    Path(particle_fixture_module.__file__),
                    app_runner.REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+StaticModel.swift",
                    app_runner.REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyFrameRuntime+StaticModel.swift",
+                   app_runner.REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ModelShadow.swift",
                    app_runner.REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+SceneDrawing.swift",
                    app_runner.REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift"]
         cls.source_identity.update({str(path): app_runner.sha256(path) for path in sources})

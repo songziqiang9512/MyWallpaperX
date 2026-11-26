@@ -36,6 +36,7 @@ class SettingsCacheActionsTests(unittest.TestCase):
         # NSTextField/NSWindow. Unrelated settings groups are outside this gate.
         refresh = refresh[:refresh.index("        // 登录项开关")] + "        _ = visibilityBefore\n    }"
         actual = fixture.read_text().replace("// ACTUAL_INTERVAL_REFRESH", refresh)
+        actual = actual.replace("// ACTUAL_SHADOW_LABEL", declaration(source, "    let sceneShadowUseLabel:") + "()")
         actual = actual.replace("// ACTUAL_CONFIGURED_WALLPAPER_SCREENS", declaration(
             display_configuration.read_text(), "    var configuredWallpaperScreens:"))
         actual += "\n" + declaration(settings_components.read_text(), "final class SettingsGroupView:") + "\n"
@@ -44,7 +45,15 @@ class SettingsCacheActionsTests(unittest.TestCase):
         for marker, signature in (
             ("// ACTUAL_SCENE_POST_PROCESSING_MENU", "    func refreshScenePostProcessingMenu("),
             ("// ACTUAL_SCENE_REAPPLY_TITLE", "    func refreshSceneQualityReapplyTitle("),
-            ("// ACTUAL_RASTER_SAMPLE_READOUT", "    func refreshSceneRasterSampleReadout("),
+            ("// ACTUAL_RENDER_READOUTS", "    func refreshSceneRenderReadouts("),
+            ("// ACTUAL_RASTER_SAMPLE_READOUT", "    private func refreshSceneRasterSampleReadout("),
+            ("// ACTUAL_RENDER_READOUT_TITLE", "    private func sceneRenderReadoutTitle("),
+            ("// ACTUAL_RENDER_READOUT_DISPLAY", "    private func sceneRenderReadoutDisplayName("),
+            ("// ACTUAL_SHADOW_USE_DESCRIPTION", "    private func shadowUseDescription("),
+            ("// ACTUAL_SETTINGS_ROW", "    private func makeSettingRow("),
+            ("// ACTUAL_LEADING_ROW_CONTENT", "    private func makeLeadingRowContent("),
+            ("// ACTUAL_ROW_ICON", "    private func makeRowIconView("),
+            ("// ACTUAL_SANITIZED_ROW_IDENTIFIER", "    private func sanitizedIdentifierComponent("),
             ("// ACTUAL_RESTORE_QUALITY_CONTROLS", "    func refreshQualityControls("),
             ("// ACTUAL_REFRESH_SCENE_QUALITY_PRESET", "    private func refreshSceneQualityPreset("),
             ("// ACTUAL_QUALITY_ACTION", "    @objc private func handleQualityChange("),

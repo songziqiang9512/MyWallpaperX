@@ -314,6 +314,7 @@ extension SceneMetalRenderer {
                              dynamicValues: SceneDynamicSnapshot, commandBuffer: MTLCommandBuffer,
                              output: SceneDisplayMappingPostProcess.Output = .sRGB,
                              input: SceneDisplayMappingPostProcess.Input = .textureSource,
+                             renderUse: SceneFrameRenderUse? = nil,
                              compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil,
                              executionTrace: SceneEffectExecutionFrameTrace? = nil) -> FrameOutcome? {
         // Consume the existing main-pass completion fact (or completed paused
@@ -363,7 +364,7 @@ extension SceneMetalRenderer {
             }
 #endif
             guard imageCompositor.resolvedMaterialRuntime?.markSceneColorOutput(
-                on: commandBuffer, mapped: mapped) == true else {
+                on: commandBuffer, mapped: mapped, renderUse: renderUse) == true else {
                 return .dropped(reasonCode: "scene-color-output-identity-rejected")
             }
         } else {
@@ -372,7 +373,7 @@ extension SceneMetalRenderer {
                     return .dropped(reasonCode: "scene-color-display-export-unavailable")
                 }
                 guard imageCompositor.resolvedMaterialRuntime?.markSceneColorOutput(
-                    on: commandBuffer, mapped: false) == true else {
+                    on: commandBuffer, mapped: false, renderUse: renderUse) == true else {
                     return .dropped(reasonCode: "scene-color-output-identity-rejected")
                 }
             }

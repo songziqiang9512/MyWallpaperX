@@ -45,7 +45,12 @@ enum SceneResolvedMaterialRuntimeBridge {
     enum FramePreparationRequest {}
 }
 enum SceneResolvedMaterialFrameResourceBundle {}
-struct SceneEffectExecutionFrameTrace {}
+enum SceneDependencyRenderPlan { enum PreparationSchedule {} }
+struct SceneEffectExecutionFrameTrace {
+    let isCompositionSelected = false
+    func setCompositionSurface(displayID: UInt32, identity: String) {}
+    func setCompositionPresentRequested(_ present: Bool) {}
+}
 struct SceneParticlePerformanceObservation {}
 final class SceneEffectExecutionTelemetry {
     let events: Events
@@ -53,6 +58,7 @@ final class SceneEffectExecutionTelemetry {
     func observeSharedCommandBuffer(for trace: SceneEffectExecutionFrameTrace, on buffer: MTLCommandBuffer) {
         events.add("effect.observe")
     }
+    func recordCompositionCancellation(for trace: SceneEffectExecutionFrameTrace) {}
 }
 final class SceneFramePerformanceTelemetry {
     let events: Events
@@ -76,6 +82,8 @@ final class SceneParticleDepthTargetLease {
 }
 final class SceneMainPassEncoder {
     let events: Events
+    let submittedRasterSampleCount: Int? = nil
+    let didFailMultisamplePreparation = false
     init(_ events: Events) { self.events = events }
     func armCompositionPins() { events.add("pins.arm") }
     func cancelCompositionPins() { events.add("pins.cancel") }
@@ -134,6 +142,7 @@ struct SceneRendererSubmissionStageHarness {
             sourceUpdateTransaction: source, frameDepthLeases: [.init(events)],
             reflectionFrame: .init(events), modelFrame: .init(events),
             mainPassForSubmission: .init(events),
+            renderUse: .init(rasterSampleCount: 1, didFailMultisamplePreparation: false, shadow: .noReceiver),
             particleBatches: [.pending], particlePipeline: .init(events))
     }
     static func main() throws {
@@ -141,6 +150,7 @@ struct SceneRendererSubmissionStageHarness {
         let submitted = Events(), buffer = MTLCommandBuffer(submitted)
         let prepared = candidate(submitted, buffer: buffer)
         checks["preparationDoesNotSubmitOrCancel"] = submitted.values.isEmpty && prepared.isReady
+        checks["preparedCandidateCarriesActualShadowUse"] = prepared.renderUse?.shadow == .noReceiver && prepared.renderUse?.rasterSampleCount == 1
         prepared.whenCompleted { submitted.add("observer.\($0)") }
         checks["submittedOutcome"] = SceneMetalRenderer.submitPreparedFrame(.prepared(prepared)) == .submitted
         checks["submissionOrder"] = submitted.values == ["readback", "willPresent", "present", "effect.observe",

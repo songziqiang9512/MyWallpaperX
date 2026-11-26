@@ -69,7 +69,8 @@ import Metal
         var checks: [String: Bool] = [:]
         var frames: [[String: Any]] = []
         // Product owner, not the fixture, chooses candidate/current and draw/export.
-        func prepare(_ index: UInt64, size: Int = 4, append: Bool = false, bloomEnabled: Bool = false, mappingFault: Bool = false)
+        func prepare(_ index: UInt64, size: Int = 4, append: Bool = false, bloomEnabled: Bool = false,
+                     mappingFault: Bool = false, renderUse: SceneFrameRenderUse? = nil)
             -> (Coordinator.SceneColorReservation, MTLCommandBuffer, MTLTexture) {
             begin(owner, index, size)
             let cb = queue.makeCommandBuffer()!
@@ -97,7 +98,7 @@ import Metal
             let mapped = mapping.encode(source: scratch, target: target, commandBuffer: cb)
             if mappingFault { MWXArmEncoderFault(cb, 0) }
             if !mapped { copy(reservation.raw, target, cb) }
-            precondition(owner.markSceneColorOutput(on: cb, mapped: mapped))
+            precondition(owner.markSceneColorOutput(on: cb, mapped: mapped, renderUse: renderUse))
             precondition(owner.sealFrame(on: cb)); _ = owner.endFrame()
             return (reservation, cb, target)
         }
@@ -109,9 +110,14 @@ import Metal
             // GPU commands themselves complete. This is not a device fault claim.
             owner.completeCommandBuffer(identity: id, observationID: observation, status: status)
         }
+        let newRawQuality = SceneFrameRenderUse(rasterSampleCount: 4, didFailMultisamplePreparation: false,
+            shadow: .active([.init(family: .point, face: 1024)]))
+        let staleRepublish = SceneFrameRenderUse(rasterSampleCount: 1, didFailMultisamplePreparation: true,
+            shadow: .noReceiver)
         for i in 0..<8 {
-            let (r, cb, display) = prepare(1)
+            let (r, cb, display) = prepare(1, renderUse: i == 0 ? newRawQuality : staleRepublish)
             checks["drawOnlyInitial-\(i)"] = r.requiresDraw == (i == 0)
+            checks["reexportGetsRenderUseFromExactCompletedRaw-\(i)"] = r.renderUse == (i == 0 ? nil : newRawQuality)
             checks["emptyGraphHasPendingTerminal-\(i)"] = owner.pendingSubmissions.count == 1
                 && owner.pendingSubmissions[0].ledgerIDs.isEmpty && owner.shouldDeferFrame
             complete(cb)
@@ -119,6 +125,7 @@ import Metal
             checks["rawStable-\(i)"] = raw == [3, 0.25, 0.5, 1]
             checks["completedAndReleased-\(i)"] = owner.pendingSubmissions.isEmpty && !owner.shouldDeferFrame
                 && owner.completedSceneColor?.frameIndex == 1
+                && owner.completedSceneColor?.persistenceReservation?.renderUse == newRawQuality
             frames.append(["gpuCompleted": true, "rgb": Array(shown.prefix(3)), "alpha": shown[3]])
         }
         var alphaFrames: [[Float]] = []

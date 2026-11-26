@@ -474,9 +474,15 @@ import Foundation
                 "requestID": candidateID.uuidString, "requestedFPS": 120, "effectiveFPS": true
             ]) == nil
         let displayed: [SceneRasterDisplayStatus] = [
-            .init(displayID: 2, samples: 1, fallback: .compatiblePathUnavailable),
-            .init(displayID: 7, samples: 4),
-            .init(displayID: 9, samples: nil),
+            .init(displayID: 2, samples: 1, fallback: .compatiblePathUnavailable, shadow: .active([
+                .init(family: .directional, face: 2048, limit: .receiverExtent),
+                .init(family: .point, face: 1024, limit: .reduced),
+                .init(family: .spot, face: nil),
+            ])),
+            .init(displayID: 7, samples: 4, shadow: .disabled),
+            .init(displayID: 9, samples: nil, shadow: .noReceiver),
+            .init(displayID: 10, samples: 1, shadow: .unavailable),
+            .init(displayID: 11, samples: 2),
         ]
         let invalidDisplays: [Any?] = [
             nil,
@@ -495,6 +501,19 @@ import Foundation
         let rasterSamplesValid = SceneDaemonProtocol.rasterDisplayStatuses(displayed.map(\.wireObject)) == displayed
             && SceneDaemonProtocol.rasterDisplayStatuses([]) == []
             && invalidDisplays.allSatisfy { SceneDaemonProtocol.rasterDisplayStatuses($0) == nil }
+        let malformedShadowUses: [Any] = [
+            "unknown",
+            [["family": "directional", "face": true]],
+            [["family": "point", "face": -1]],
+            [["family": "spot", "face": 0]],
+            [["family": "area", "face": 4096]],
+            [["family": "point", "face": 1024, "limit": "guessed"]],
+            [["family": "directional", "limit": "reduced"]],
+        ]
+        let malformedShadowPreservesRaster = malformedShadowUses.allSatisfy { shadow in
+            SceneDaemonProtocol.rasterDisplayStatuses([["displayID": 7, "samples": 4, "shadow": shadow]])
+                == [.init(displayID: 7, samples: 4)]
+        }
         let duplicateDisplayRejected: Bool
         if case .failure(.invalidPayload("setDisplayConfiguration")) = decode([
             "v": 2, "cmd": "setDisplayConfiguration", "screens": [
@@ -677,6 +696,7 @@ import Foundation
             "debugTopologyPreservesCadence": debugTopologyPreservesCadence(),
             "cadenceEventValid": cadenceEventValid,
             "rasterSamplesValid": rasterSamplesValid,
+            "malformedShadowPreservesRaster": malformedShadowPreservesRaster,
             "duplicateDisplayRejected": duplicateDisplayRejected,
             "badBookmarkRejected": badBookmarkRejected,
             "audioValid": audioValid,

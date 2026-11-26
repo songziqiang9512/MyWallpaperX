@@ -318,6 +318,7 @@ class SceneDebugFrameCaptureTests(unittest.TestCase):
                     str(CAPTURE_SOURCE),
                     str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift"),
                     str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+FrameOutcome.swift"),
+                    str(REPOSITORY_ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift"),
                     str(harness),
                     "-o",
                     str(binary),

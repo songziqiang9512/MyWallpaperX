@@ -710,6 +710,7 @@ extension SceneMetalRenderer {
 
         let mainEncoded = mainPass.finishEnsuringClear()
         reflection.mainSourceCompleted = mainEncoded
+        modelFrame.finishShadowUse(drewCompleteMainColor: mainEncoded && !stopsAfterClaimedFailure)
         if !mainEncoded && (sceneColor != nil || mainPass.rasterSampleCount > 1
             || (mainPass.submittedRasterSampleCount ?? 1) > 1) {
             return .dropped(reasonCode: "scene-color-main-encoder-unavailable")

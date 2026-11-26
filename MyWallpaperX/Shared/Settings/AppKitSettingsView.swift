@@ -7,7 +7,6 @@ import AppKit
 import Combine
 import ServiceManagement
 import UniformTypeIdentifiers
-import Foundation
 
 enum AppSettingsSection: String, CaseIterable {
     case playbackModes
@@ -18,7 +17,6 @@ enum AppSettingsSection: String, CaseIterable {
     case quality
     case display
     case maintenance
-
 }
 
 final class AppKitSettingsContainerView: NSView {
@@ -106,6 +104,12 @@ final class AppKitSettingsContainerView: NSView {
     let scenePostProcessingPopup = NSPopUpButton()
     let sceneTextureQualityPopup = NSPopUpButton()
     let sceneShadowsPopup = NSPopUpButton()
+    let sceneShadowUseLabel: NSTextField = {
+        let label = NSTextField(wrappingLabelWithString: "")
+        label.font = .systemFont(ofSize: 11)
+        label.textColor = .secondaryLabelColor
+        return label
+    }()
     let sceneVolumeLightingPopup = NSPopUpButton()
     let sceneReflectionsSwitch = NSSwitch()
     let sceneMediaInfoSwitch = NSSwitch()
@@ -497,13 +501,14 @@ final class AppKitSettingsContainerView: NSView {
             .store(in: &cancellables)
         NotificationCenter.default.publisher(for: .sceneDaemonRasterSamplesDidChange)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.refreshSceneRasterSampleReadout() }
+            .sink { [weak self] _ in self?.refreshSceneRenderReadouts() }
             .store(in: &cancellables)
         NotificationCenter.default.publisher(for: .sceneDaemonPreparedQualityDidChange)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                self?.refreshSceneQualityReapplyTitle(PlaybackQualityPreference.current.scene)
-                self?.refreshSceneRasterSampleReadout()
+                let requested = PlaybackQualityPreference.current.scene
+                self?.refreshSceneQualityReapplyTitle(requested)
+                self?.refreshSceneRenderReadouts(requested)
             }
             .store(in: &cancellables)
         // 静音可能来自开关/热键/状态栏三种入口；volume>0 时静音不产生

@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fe0b28c5cb8a325ffac870f1cea1323173e8f044e0c2ef490a69490d4800de3f",
+        "sourceSHA256": "4c604d498ce4ac25ee024705ed00f1cce6c3d857b665483895e3c62a4f7d1d9a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对实时模型反射的样本管线、环境供货和根段约束。",
-        "limitations": "作者组合和实际画面覆盖以现役工作卡为准。"
+        "scope": "核对实际阴影规格、有效的受光绑定、逐屏完成回执和原启动事务。",
+        "limitations": "画面和持续呈现的证据边界见现役工作卡。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "49618976986d7bf734a2569e6f54e57b482f7a87b9d1f9e0a645b8065f8b76b0",
+        "sourceSHA256": "3e08e0f7d4344f7655549dd7818512856efe3db623a785e32c32dee6d460d67e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对实时模型反射的样本管线、环境供货和根段约束。",
-        "limitations": "作者组合和实际画面覆盖以现役工作卡为准。"
+        "scope": "核对实际阴影规格、有效的受光绑定、逐屏完成回执和原启动事务。",
+        "limitations": "画面和持续呈现的证据边界见现役工作卡。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e21b3306f0cfb202b0bf0de2eba89d70d60bd3d1f0ef63c1ff158cb11bfd7a3f",
+        "sourceSHA256": "0f628839d5835700088f754eafa4679948eaaf0af08c1f42eb72927cef6e3998",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对实时模型反射的样本管线、环境供货和根段约束。",
-        "limitations": "作者组合和实际画面覆盖以现役工作卡为准。"
+        "scope": "核对实际阴影规格、有效的受光绑定、逐屏完成回执和原启动事务。",
+        "limitations": "画面和持续呈现的证据边界见现役工作卡。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "50e1424bcc15f9737abc70fb906fb55fce508fb04a1f64d88852e4d52ba5efa1",
+        "sourceSHA256": "3db9d412d1112806923a24a2052ca51b336c905acb4c96a5b471dfcc8f83315f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对实时模型反射的样本管线、环境供货和根段约束。",
-        "limitations": "作者组合和实际画面覆盖以现役工作卡为准。"
+        "scope": "核对实际阴影规格、有效的受光绑定、逐屏完成回执和原启动事务。",
+        "limitations": "画面和持续呈现的证据边界见现役工作卡。"
       }
     },
     {
@@ -886,10 +886,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "afc9aba7e205150c60a7dc107d5a6e7b6d16243bb3b2bc3245fc51dfe3724d03",
+        "sourceSHA256": "bd22bc80f97a6be151f9d3821acd0ef1ea8f1ef3d184b0a8dd8d35326fd0a383",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对实时模型反射的样本管线、环境供货和根段约束。",
-        "limitations": "作者组合和实际画面覆盖以现役工作卡为准。"
+        "scope": "核对实际阴影规格、有效的受光绑定、逐屏完成回执和原启动事务。",
+        "limitations": "画面和持续呈现的证据边界见现役工作卡。"
       }
     },
     {

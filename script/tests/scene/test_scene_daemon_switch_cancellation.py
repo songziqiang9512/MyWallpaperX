@@ -546,8 +546,13 @@ IDLE_TAIL = r'''
             data.append(0x0a)
             rasterClient.consumeOutput(data, generation: generation)
         }
-        let firstDisplays: [SceneRasterDisplayStatus] = [.init(displayID: 17, samples: 4), .init(displayID: 29, samples: nil)]
-        let nextDisplays: [SceneRasterDisplayStatus] = [.init(displayID: 17, samples: 1, fallback: .compatiblePathUnavailable)]
+        let firstDisplays: [SceneRasterDisplayStatus] = [
+            .init(displayID: 17, samples: 4, shadow: .active([.init(family: .point, face: 1024, limit: .lightFamily)])),
+            .init(displayID: 29, samples: nil, shadow: .noReceiver),
+        ]
+        let nextDisplays: [SceneRasterDisplayStatus] = [
+            .init(displayID: 17, samples: 1, fallback: .compatiblePathUnavailable, shadow: .disabled),
+        ]
         try deliver(rasterRequest, 7, firstDisplays)
         try deliver(UUID(), 7, nextDisplays)
         try deliver(rasterRequest, 6, nextDisplays)
@@ -578,6 +583,7 @@ class SceneDaemonSwitchCancellationTests(unittest.TestCase):
             "private static func integer(_ raw: Any?) -> Int?",
             "private static func unsignedInteger(_ raw: Any?) -> UInt64?",
             "static func rasterDisplayStatuses(_ raw: Any?) -> [SceneRasterDisplayStatus]?",
+            "private static func shadowUse(_ raw: Any?) -> SceneShadowUse?",
         )))
         support = support.replace("    var activeRequestID:UUID?", "\n".join((
             "    var activeRequestID:UUID?",

@@ -181,6 +181,7 @@ final class SceneMetalView {
     struct Device { let registryID: UInt64 = 1 }
     let metalDevice = Device()
     var videoPresentation: SceneMetalRenderer.InitialVideoPresentation?
+    var renderQuality: (samples: Int?, shadow: SceneShadowUse?) = (nil, nil)
     var presentationFlags: [Bool] = []
     var plan: Plan = .prepared
     var draws = 0, commits = 0, cancels = 0
@@ -206,6 +207,8 @@ final class SceneMetalView {
         let buffer = MTLCommandBuffer()
         let candidate = SceneMetalRenderer.PreparedFrame(commandBuffer: buffer,
             initialVideoPresentation: collectsInitialVideoReadiness ? (videoPresentation ?? .init()) : nil,
+            renderUse: .init(rasterSampleCount: renderQuality.samples,
+                didFailMultisamplePreparation: false, shadow: renderQuality.shadow),
             submit: { [self] present in commits += 1; presentationFlags.append(present); buffer.commit() },
             cancel: { [self] in cancels += 1 })
         buffers.append(buffer)
@@ -237,7 +240,7 @@ final class SceneDesktopWallpaperSession {
         var pendingPausedFrame: SceneMetalRenderer.PreparedFrame?
         var lastSubmittedPresentationSources: Set<UUID> = []
         var videoSwitchDeadline: TimeInterval?
-        var rasterSampleStatus = RasterSampleStatus()
+        var qualityStatus = SurfaceQualityStatus()
         func teardownParticlePlayback(reason: SceneGraphExecutionResetReason) {}
     }
     var sceneClock = SceneClock(hostTime: 0)
@@ -266,7 +269,8 @@ final class SceneDesktopWallpaperSession {
     var pendingParticleFrameInterval: TimeInterval = 0
     var pausedFrameRetryDeadline: CFTimeInterval?
     var onFirstFrameCompletion: ((CGDirectDisplayID, Bool) -> Void)?
-    var onRasterSamplesChanged: (() -> Void)?
+    var shadowsDisabled = false
+    var onDisplayQualityChanged: (() -> Void)?
     var videoTextureSourceRegistry: VideoProviders?
     var soundPlaybackRegistry: SoundProviders?
     let userShortcutInput = UserShortcutInput()
@@ -825,6 +829,9 @@ final class SceneDesktopWallpaperSession {
     static func videoSwitchRecovery() {
         let (owner, surface, before, providers) = seededVideo()
         let view = surface.metalView, healthy = owner.attach(2)
+        var qualityChanges = 0
+        owner.onDisplayQualityChanged = { qualityChanges += 1 }
+        view.renderQuality = (1, .active([.init(family: .spot, face: 512)]))
         healthy.metalView.videoPresentation = .init(readyLayerIDs: [1])
         view.videoPresentation = .init(pendingLayerIDs: [2], pendingSurfaceLayerIDs: [2])
         view.onRenderInvalidated?(); DispatchQueue.main.drain()
@@ -833,6 +840,7 @@ final class SceneDesktopWallpaperSession {
         precondition(view.commits == 2 && view.publicationCommits == 2 && providers.commits == 2)
         precondition(surface.lastSubmittedPresentationSources == [videoA] && view.publicationDiscards == 0)
         complete(view, 1, true); complete(healthy.metalView, 0, true)
+        precondition(qualityChanges == 0 && surface.qualityStatus.completed == nil)
         TransportTime.now = deadline - 0.05; view.plan = .deferred
         precondition(RunLoop.main.fireNext() && surface.videoSwitchDeadline == deadline)
         precondition(providers.discards == 1 && healthy.metalView.draws == 1)
@@ -845,6 +853,7 @@ final class SceneDesktopWallpaperSession {
         precondition(RunLoop.main.fireNext() && view.presentationFlags.last == true)
         precondition(surface.lastSubmittedPresentationSources == [videoC] && surface.videoSwitchDeadline == nil)
         complete(view, 3, true)
+        precondition(qualityChanges == 1 && surface.qualityStatus.completed?.shadow == view.renderQuality.shadow)
         precondition(healthy.metalView.draws == 1 && providers.commits == 4)
         stopped(owner); frozen(owner, before)
     }

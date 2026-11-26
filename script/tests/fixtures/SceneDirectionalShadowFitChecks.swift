@@ -70,12 +70,16 @@ struct SceneDirectionalShadowFitChecks {
             // Only the call shape changes for the saved old implementation;
             // exactly the same authored geometric payload reaches both runs.
             let suppliedReceivers = receivers.map { (minimum: $0.minimum, maximum: $0.maximum, world: $0.world) }
-            #else
-            let suppliedReceivers = receivers
-            #endif
             let fit = SceneDirectionalShadowProjection.make(bounds: casters, receiverBounds: suppliedReceivers,
                 directionTowardLight: vector(item["towardLight"]!), resolution: item["resolution"] as! Int)
-            var row: [String: Any] = ["name": name, "present": fit != nil]
+            let noInfluence = false
+            #else
+            var noInfluence = false
+            let fit = SceneDirectionalShadowProjection.make(bounds: casters, receiverBounds: receivers,
+                directionTowardLight: vector(item["towardLight"]!), resolution: item["resolution"] as! Int,
+                noInfluence: { noInfluence = true })
+            #endif
+            var row: [String: Any] = ["name": name, "present": fit != nil, "noInfluence": noInfluence]
             if let worldShift { row["worldShift"] = [worldShift.x, worldShift.y, worldShift.z] }
             if let fit {
                 returnedFits[name] = fit

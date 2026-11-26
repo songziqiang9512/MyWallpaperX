@@ -241,12 +241,16 @@ struct SceneMetalRenderer {
 #endif
         if let failure = encodeReflectionSnapshot(reflectionFrame, source: mainTarget,
             commandBuffer: commandBuffer) { return failure }
+        let renderUse = sceneColor?.requiresDraw == false ? sceneColor?.renderUse : SceneFrameRenderUse(
+            rasterSampleCount: mainPassForSubmission?.submittedRasterSampleCount,
+            didFailMultisamplePreparation: mainPassForSubmission?.didFailMultisamplePreparation == true,
+            shadow: modelFrame.shadowUse)
         if let failure = encodeTerminalColor(
             sourceCompleted: sceneColor?.requiresDraw == false || reflectionFrame?.mainSourceCompleted == true,
             sceneColor: sceneColor, target: drawable.texture,
             offscreenTexturePool: offscreenTexturePool, dynamicValues: frameContext.dynamicValues,
             commandBuffer: commandBuffer, output: displayOutput,
-            input: displayMappingInput,
+            input: displayMappingInput, renderUse: renderUse,
             compositionGroupRuntime: compositionGroupRuntime,
             executionTrace: effectExecutionTrace) { return failure }
         let preparedFrame = makePreparedFrame(
@@ -262,7 +266,7 @@ struct SceneMetalRenderer {
             frameDepthLeases: frameDepthLeases,
             reflectionFrame: reflectionFrame,
             modelFrame: modelFrame,
-            mainPassForSubmission: mainPassForSubmission,
+            mainPassForSubmission: mainPassForSubmission, renderUse: renderUse,
             particleBatches: particleBatches,
             particlePipeline: particlePipeline,
             initialVideoPresentation: initialVideoPresentation

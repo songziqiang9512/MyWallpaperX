@@ -44,23 +44,42 @@
             emissiveColor: .zero, emissiveBrightness: 0, brightness: 1,
             usesHDRBrightness: false, viewTint: nil)
         material.cullMode = .none
+        if item["legacy"] as? Bool == true {
+            material.legacyLighting = .init(halfLambert: 0, rimStrength: 0,
+                highlightExponent: 1, highlightStrength: 0)
+        }
         let entry = ScenePreparedStaticModelResources.Entry(
             materialPath: item["materialPath"] as? String ?? "density-surface",
             dynamicMaterialPath: "", mesh: mesh, albedo: PreparedTexture(texture: source),
             material: material)
-        let layers = [SceneRenderDescriptor.Layer(id: layerID)]
+        var layer = SceneRenderDescriptor.Layer(id: layerID)
+        let disjointCaster = item["disjointCaster"] as? Bool == true
+        if disjointCaster || item["caster"] as? Bool == false { layer.modelShadowCastIntent = .disabled }
+        var layers = [layer]
+        var entries = [layerID: [entry]]
+        let casterID = layerID + 1
+        if disjointCaster {
+            layers.append(.init(id: casterID))
+            entries[casterID] = [entry]
+        }
         let renderer = SceneMetalRenderer(device: device,
-            resources: .init(pipeline: pipeline, entries: [layerID: [entry]],
+            resources: .init(pipeline: pipeline, entries: entries,
                 directionalShadowDimensionLimit: directionalLimit))
         let cameraDescriptor = SceneRenderDescriptor.CameraDescriptor(
             eye: [0, 0, 0], center: [0, 0, -1], up: [0, 1, 0],
             orthoWidth: 64, orthoHeight: 64, fovDegrees: nil,
             perspectiveOverrideFOVDegrees: nil, nearZ: 0.01, farZ: 1000)
         renderer.renderDescriptor = .init(lighting: nil, layers: layers,
-            renderOrderLayerIDs: [layerID], camera: cameraDescriptor)
+            renderOrderLayerIDs: layers.map(\.id), camera: cameraDescriptor)
         let camera = SceneParticleCameraFrame(camera: cameraDescriptor,
             viewportSize: CGSize(width: width, height: height))
-        let world = [layerID: SceneMatrix.scale(SIMD3<Float>(1, -1, 1))]
+        let receiverWorld = SceneMatrix.scale(SIMD3<Float>(1, -1, 1))
+        var world = [layerID: receiverWorld]
+        if disjointCaster {
+            var casterWorld = receiverWorld
+            casterWorld.columns.3.x = 512
+            world[casterID] = casterWorld
+        }
         var directionals: [SceneLightSnapshot.Directional] = []
         var points: [SceneLightSnapshot.Point] = []
         var spots: [SceneLightSnapshot.Spot] = []
@@ -103,8 +122,9 @@
         let pool = SceneOffscreenTexturePool(device: device, pixelFormat: .bgra8Unorm,
             residentByteBudget: item["budgetBytes"] as! Int)
         let state = SceneMetalRenderer.StaticModelFrame(commandBuffer: cb)
+        state.shadowLights = directionalLimit == nil ? [] : lights
         let dynamic = SceneDynamicSnapshot.empty(frameIndex: 1, generation: 1)
-        let visible: Set<Int> = [layerID]
+        let visible = Set(layers.map(\.id))
         let candidates = renderer.shadowDrawCandidates(orderedLayers: layers, visible: visible,
             worldFrames: world, snapshot: dynamic, groups: nil)!
         var leases: [SceneParticleDepthTargetLease] = []
@@ -155,10 +175,27 @@
             }
             return row
         }
+        let receiverLighting = item["unbindLights"] as? Bool == true
+            ? SceneLightSnapshot(ambient: lighting.ambient, skylight: lighting.skylight,
+                directional: [], point: [], spot: [], overflowCount: 0)
+            : lighting
         let colorEncodedLit = renderer.drawStaticModel(layer: layers[0], state: state,
             worldFrames: world, frameContext: .init(dynamicValues: dynamic), cameraFrame: camera,
-            lighting: lighting, pass: pass, commandBuffer: cb, leases: &leases)
+            lighting: receiverLighting, pass: pass, commandBuffer: cb, leases: &leases)
         let finished = pass.finishEnsuringClear()
+        state.finishShadowUse(drewCompleteMainColor: finished)
+        let observed: [String: Any] = switch state.shadowUse {
+        case .active(let active):
+            ["state": "active", "maps": active.map { map -> [String: Any] in
+                ["family": map.family.rawValue,
+                    "face": map.face as Any? ?? NSNull(),
+                    "limit": map.limit?.rawValue as Any? ?? NSNull()]
+            }]
+        case .noReceiver: ["state": "noReceiver"]
+        case .unavailable: ["state": "unavailable"]
+        case .disabled: ["state": "disabled"]
+        case nil: ["state": "unknown"]
+        }
         leases.forEach { $0.arm(on: cb) }
         state.arm(on: cb)
         cb.commit()
@@ -169,7 +206,7 @@
                 from: MTLRegionMake2D(width / 2, height / 2, 1, 1), mipmapLevel: 0)
         }
         return ["name": item["name"]!, "physicalExtent": [output.width, output.height],
-            "maps": maps, "colorRGBA": [pixel[2], pixel[1], pixel[0], pixel[3]],
+            "maps": maps, "shadowUse": observed, "colorRGBA": [pixel[2], pixel[1], pixel[0], pixel[3]],
             "colorEncodedLit": colorEncodedLit, "finished": finished,
             "completed": cb.status == .completed && cb.error == nil,
             "shadowResidentBytes": pool.residentByteCost, "shadowPipelinesSkipped": shadowPipelinesSkipped]

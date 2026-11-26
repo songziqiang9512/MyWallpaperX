@@ -460,6 +460,11 @@ extension SceneMetalRenderer {
         let hubPrepassStart = ProcessInfo.processInfo.systemUptime
 #endif
         let shadowLights = staticModelResources.directionalShadowDimensionLimit == nil ? [] : frameLightSnapshot.shadowLights
+        modelFrame.shadowLights = shadowLights
+        if !staticModelResources.failedShadowReceiverLayerIDs.isDisjoint(with: frameVisibleLayerIDs),
+           !frameLightSnapshot.shadowLights.isEmpty {
+            modelFrame.hadEligibleShadowReceiver = true
+        }
         let hasShadowReceiver = !shadowLights.isEmpty && orderedLayers.contains { layer in
             frameVisibleLayerIDs.contains(layer.id)
                 && staticModelResources[layer.id]?.contains(where: { $0.material.receivesLighting }) == true
