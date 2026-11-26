@@ -256,16 +256,30 @@ extension SceneMetalRenderer {
             } ?? true
         }
         func firstNativeModelLayer(_ precomputed: [Int: [StaticModelDraw]]? = nil) -> Int? {
-            guard let draws = modelFrame.prepared ?? precomputed ?? shadowDrawCandidates(orderedLayers: orderedLayers,
+            guard let pipeline = staticModelResources.pipeline,
+                  let draws = modelFrame.prepared ?? precomputed ?? shadowDrawCandidates(orderedLayers: orderedLayers,
                 visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames,
                 snapshot: frameContext.dynamicValues, groups: nil, state: modelFrame),
                   let first = orderedLayers.firstIndex(where: {
                       draws[$0.id]?.isEmpty == false
                   }) else { return nil }
             modelFrame.prepared = draws
-            guard staticModelResources.pipeline?.supportsMultisampleAdditive == true
-                || !draws.values.contains(where: { $0.contains { $0.entry.materialBlending == .additive } })
-            else { return nil }
+            let missingAdditive = pipeline.hasMissingMultisampleAdditive
+            let missingReflection = pipeline.hasMissingMultisampleReflection
+            if missingAdditive || missingReflection {
+                let incompatible = draws.contains { id, parts in
+                    let checksReflection = missingReflection
+                        && staticModelResources.reflectiveLayerIDs.contains(id)
+                        && frameLayersByID[id].map { cameraFrame.resolvesPerspective(for: $0) } == true
+                    return parts.contains { draw in
+                        let additive = draw.entry.materialBlending == .additive
+                        return additive && missingAdditive
+                            || checksReflection && (draw.material.surfaceProfile?.reflectivity ?? 0) > 0
+                                && !pipeline.preservesReflectionInMultisample(additiveRGB: additive)
+                    }
+                }
+                if incompatible { return nil }
+            }
             return first
         }
         var rootMultisample: RootMultisamplePlan?
@@ -274,7 +288,6 @@ extension SceneMetalRenderer {
            dependencyRuntime.nonStaticModelProviderLayerIDs.isEmpty,
            dependencyRuntime.previousProviderLayerIDs.isEmpty,
            runtime?.hasSourceMaterialSceneEnvironmentConsumer != true,
-           (!allowsSceneReflection || staticModelResources.reflectiveLayerIDs.isDisjoint(with: frameVisibleLayerIDs)),
            let plan = clearRootMultisamplePlan(orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
                graphLayers: executionLayerIDs.intersection(frameVisibleLayerIDs),
                utility: utilityExecution, layersByID: frameLayersByID,
@@ -459,7 +472,7 @@ extension SceneMetalRenderer {
         // All callers inspect the same pre-source image/plan facts. Preserve
         // their short cuts while avoiding duplicate reflection-demand scans.
         let hasReadyReflectiveModel = staticModelResources.reflectiveLayerIDs.contains { id in
-            guard frameVisibleLayerIDs.contains(id),
+            guard let pipeline = staticModelResources.pipeline, frameVisibleLayerIDs.contains(id),
                   frameProjection.utilityExecution.memberRootsByLayerID[id] == nil,
                   !activeStaticModelNamedAlbedoLayerIDs.contains(id),
                   let layer = frameLayersByID[id], cameraFrame.resolvesPerspective(for: layer)
@@ -467,7 +480,8 @@ extension SceneMetalRenderer {
             let draws = modelFrame.prepared?[id] ?? staticModelDraws(layer: layer,
                 worldFrames: frameWorldFrames, snapshot: frameContext.dynamicValues, state: modelFrame)
             return draws?.contains {
-                $0.alpha > 0 && ($0.material.surfaceProfile?.reflectivity ?? 0) > 0
+                ($0.material.surfaceProfile?.reflectivity ?? 0) > 0
+                    && pipeline.supportsReflection(additiveRGB: $0.entry.materialBlending == .additive)
             } == true
         }
         var sourceConsumers: [SceneResolvedMaterialRuntimeBridge.SourceMaterialConsumer]?
@@ -504,8 +518,7 @@ extension SceneMetalRenderer {
         func requiresLiveImageReflection() -> Bool {
             allowsSceneReflection && requiresImageReflection()
         }
-        if rootMultisample == nil, let multisampleTargets = nativeRootTargets,
-           !hasReadyReflectiveModel {
+        if rootMultisample == nil, let multisampleTargets = nativeRootTargets {
             func allowsOrdinaryLayer(_ layer: SceneRenderDescriptor.Layer) -> Bool {
                 modelFrame.imageMaterialStates[layer.id] == nil
                     && allowsNativeOrdinaryLayer(layer, samples: multisampleTargets.sampleCount)

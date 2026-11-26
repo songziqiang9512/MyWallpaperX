@@ -316,7 +316,8 @@ extension SceneMetalRenderer {
                 modelEncoder = pass.encoder()
             }
             guard let encoder = modelEncoder else { continue }
-            let environment = usesPerspective && pipeline.supportsReflection
+            let additiveRGB = draw.entry.materialBlending == .additive
+            let environment = usesPerspective && pipeline.supportsReflection(additiveRGB: additiveRGB)
                 && (draw.material.surfaceProfile?.reflectivity ?? 0) > 0 ? reflection : nil
             let encoded = pipeline.draw(mesh: draw.mesh, texture: draw.texture,
                 colorTextureIsPremultiplied: draw.premultiplied,
@@ -333,7 +334,7 @@ extension SceneMetalRenderer {
                 textureFrame: draw.textureFrame, sampling: draw.sampling,
                 layerAlpha: draw.alpha, material: draw.material,
                 materialColorIsOpaque: draw.entry.materialBlending == .normal,
-                additiveRGB: draw.entry.materialBlending == .additive, lighting: lighting,
+                additiveRGB: additiveRGB, lighting: lighting,
                 writesDepth: draw.entry.writesDepth, testsDepth: draw.entry.testsDepth, shadows: state.shadows,
                 reflectionTexture: environment?.publication.texture,
                 frameEpoch: textureRegistry.frameEpoch, commandBuffer: commandBuffer,

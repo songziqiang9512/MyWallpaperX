@@ -19,6 +19,9 @@ import tempfile
 import unittest
 
 
+from script.tests.scene.test_scene_prepared_script_resource_catalog import swift_declaration
+
+
 ROOT = Path(__file__).resolve().parents[3]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 PIPELINE = SCENE / "Rendering/Metal/SceneStaticModelPipeline.swift"
@@ -41,8 +44,7 @@ class SceneStaticModelVertexStreamTests(unittest.TestCase):
         pipeline = PIPELINE.read_text()
         # Extract the real immutable mesh/view and factory/ABI declarations.
         # The pipeline PSOs are outside this CPU storage-lifecycle gate.
-        mesh = pipeline[pipeline.index("struct SceneStaticModelMesh {"):
-                        pipeline.index("private struct SceneStaticModelShadowUniforms")]
+        mesh = swift_declaration(pipeline, "struct SceneStaticModelMesh {") + "\n"
         factory = pipeline[pipeline.index("    func makeVertexStream("):
                            pipeline.index("    /// Encodes into the caller's current render pass.")]
         abi = pipeline[pipeline.index("    private static let hasExpectedVertexABI ="):
@@ -129,8 +131,7 @@ class SceneStaticModelVertexStreamTests(unittest.TestCase):
             inputs = [*SWIFT_SOURCES, STREAM, TRANSACTION, PIPELINE, FIXTURE, Path(__file__)]
             before = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
             pipeline = PIPELINE.read_text()
-            mesh = pipeline[pipeline.index("struct SceneStaticModelMesh {"):
-                            pipeline.index("private struct SceneStaticModelShadowUniforms")]
+            mesh = swift_declaration(pipeline, "struct SceneStaticModelMesh {") + "\n"
             factory = pipeline[pipeline.index("    func makeVertexStream("):
                                pipeline.index("    /// Encodes into the caller's current render pass.")]
             abi = pipeline[pipeline.index("    private static let hasExpectedVertexABI ="):

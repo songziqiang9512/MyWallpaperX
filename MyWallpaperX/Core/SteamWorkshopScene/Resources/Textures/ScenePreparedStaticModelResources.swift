@@ -355,8 +355,16 @@ struct ScenePreparedStaticModelResources {
             }
 
             guard !entries.isEmpty else { return .empty }
+            var preparesReflection = false
+            var preparesAdditiveReflection = false
             let reflectiveLayerIDs: Set<Int> = modelReflectionsEnabled ? Set(entries.compactMap { id, parts in
-                parts.contains { ($0.material.surfaceProfile?.reflectivity ?? 0) > 0 } ? id : nil
+                var reflects = false
+                for part in parts where (part.material.surfaceProfile?.reflectivity ?? 0) > 0 {
+                    reflects = true
+                    if part.materialBlending == .additive { preparesAdditiveReflection = true }
+                    else { preparesReflection = true }
+                }
+                return reflects ? id : nil
             }) : []
             let shadowDimensionLimit: Int? = directionalShadowDimensionLimit.flatMap { limit in
                 descriptor.layers.contains { layer in
@@ -366,8 +374,9 @@ struct ScenePreparedStaticModelResources {
             }
             guard let pipeline = SceneStaticModelPipeline(
                 device: device, colorPixelFormat: descriptor.colorTargetFormat.metalPixelFormat,
-                preparesReflection: !reflectiveLayerIDs.isEmpty,
+                preparesReflection: preparesReflection,
                 preparesAdditive: entries.values.contains { $0.contains { $0.materialBlending == .additive } },
+                preparesAdditiveReflection: preparesAdditiveReflection,
                 preparesCameraDepth: pointVolumeEnabled && descriptor.camera.clearEnabled && descriptor.layers.contains {
                     $0.pointLight?.unshadowedVolume != nil
                 }, preparesShadows: shadowDimensionLimit != nil,

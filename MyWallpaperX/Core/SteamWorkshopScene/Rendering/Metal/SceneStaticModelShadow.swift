@@ -1,6 +1,44 @@
 import Metal
 import simd
 
+struct SceneStaticModelShadowUniforms {
+    var modelToLightClip: simd_float4x4
+    var modelMatrix: simd_float4x4
+    var worldToLight: simd_float4x4
+    var positionRadius: SIMD4<Float>
+    var projectionParameters: SIMD4<Float>
+    var viewport: SIMD4<Float>
+    var textureFrame0: SIMD4<Float>
+    var textureFrame1: SIMD4<Float>
+    var coverage: SIMD4<Float>
+}
+
+struct SceneModelShadowUniforms {
+    var transform: simd_float4x4 = matrix_identity_float4x4
+    var positionRadius: SIMD4<Float> = .zero
+    var parameters: SIMD4<Float> = .zero
+    var identity: SIMD4<UInt32> = .zero
+
+    init(_ shadow: SceneStaticModelShadow? = nil, lightIndex: Int = 0) {
+        guard let shadow else { return }
+        switch shadow.projection {
+        case .directional(let value):
+            transform = value.worldToClip
+            parameters.z = value.depthBias
+            identity = SIMD4(0, UInt32(lightIndex), 1, 0)
+        case .spot(let value):
+            transform = value.worldToLight
+            positionRadius = SIMD4(value.position, value.radius)
+            parameters = SIMD4(value.tanHalfAngle, value.outerCosine, value.depthBias, 0)
+            identity = SIMD4(1, UInt32(lightIndex), 1, 0)
+        case .point(let value):
+            positionRadius = SIMD4(value.position, value.radius)
+            parameters.z = value.depthBias
+            identity = SIMD4(2, UInt32(lightIndex), 1, 0)
+        }
+    }
+}
+
 /// Fit the existing light map to visible receivers without dropping offscreen
 /// occluders that can cast into that region.
 struct SceneDirectionalShadowProjection {

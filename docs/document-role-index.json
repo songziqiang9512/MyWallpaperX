@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "17184f9a42e9cef82214562d5a7851079a4e9fdf18d06c3af5e02a94bcbf75b2",
+        "sourceSHA256": "fe0b28c5cb8a325ffac870f1cea1323173e8f044e0c2ef490a69490d4800de3f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对点光体积遮挡重放、根采样解析与原主色合成。",
-        "limitations": "实际覆盖和作者输入范围以现役工作卡为准。"
+        "scope": "核对实时模型反射的样本管线、环境供货和根段约束。",
+        "limitations": "作者组合和实际画面覆盖以现役工作卡为准。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f5113a1a1f11d173fea7fa30ac749ce03cc61d75bcb7f35b1c8f6b51998e9c88",
+        "sourceSHA256": "49618976986d7bf734a2569e6f54e57b482f7a87b9d1f9e0a645b8065f8b76b0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对点光体积遮挡重放、根采样解析与原主色合成。",
-        "limitations": "实际覆盖和作者输入范围以现役工作卡为准。"
+        "scope": "核对实时模型反射的样本管线、环境供货和根段约束。",
+        "limitations": "作者组合和实际画面覆盖以现役工作卡为准。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fcfde88b53adcce0f02533d4eb6f52d38505b257e0fb1a86ed8725b3ee435994",
+        "sourceSHA256": "e21b3306f0cfb202b0bf0de2eba89d70d60bd3d1f0ef63c1ff158cb11bfd7a3f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对点光体积遮挡重放、根采样解析与原主色合成。",
-        "limitations": "实际覆盖和作者输入范围以现役工作卡为准。"
+        "scope": "核对实时模型反射的样本管线、环境供货和根段约束。",
+        "limitations": "作者组合和实际画面覆盖以现役工作卡为准。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b695ac4a802415c108686fc51162cb0bb6daa2ba395d008c2ec8ab62795cbc5d",
+        "sourceSHA256": "217796061fa2fe210537e313ce95b648297d05f4d4396d1ddc8653be808ee565",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对点光体积遮挡重放、根采样解析与原主色合成。",
-        "limitations": "实际覆盖和作者输入范围以现役工作卡为准。"
+        "scope": "核对实时模型反射的样本管线、环境供货和根段约束。",
+        "limitations": "作者组合和实际画面覆盖以现役工作卡为准。"
       }
     },
     {
@@ -886,10 +886,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fd6ad5362cb351293a6b21fc0d612d9bb703ddd1c14f913ce68566b32ef74301",
+        "sourceSHA256": "afc9aba7e205150c60a7dc107d5a6e7b6d16243bb3b2bc3245fc51dfe3724d03",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对点光体积遮挡重放、根采样解析与原主色合成。",
-        "limitations": "实际覆盖和作者输入范围以现役工作卡为准。"
+        "scope": "核对实时模型反射的样本管线、环境供货和根段约束。",
+        "limitations": "作者组合和实际画面覆盖以现役工作卡为准。"
       }
     },
     {

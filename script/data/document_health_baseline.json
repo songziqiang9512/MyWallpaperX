@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 66,
-      "bytes": 24650
+      "bytes": 24941
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 150,
-      "bytes": 26243
+      "bytes": 26424
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -97,12 +97,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 583,
-      "bytes": 172401
+      "lines": 586,
+      "bytes": 173575
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 151631
+      "bytes": 152537
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 307,
-      "bytes": 65419
+      "bytes": 65616
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -687,51 +687,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "dc5d9aa6e29e9b3324f5bcbb3b88f54f7628940900a132147856485aaed24f47",
-      "after": "55dd17ee122c1de91f127b3fc6710e41be0dc7113db077a5ef39d0f49f6fd39a",
-      "owner": "Scene playback quality",
-      "reason": "Specify the existing color resolve and independent point-volume tail with verified authored coverage.",
-      "decision": "docs/architecture/repository-map.md#wallpaper-quality"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "da767b10d863f57d32c4d6cc28e2e108af9a197954e08a4e2f45649d4869d442",
-      "after": "47c62a6abdee20f3ffe9f64567d09e4b75574d20ca91b548b395042d31c55567",
-      "owner": "Scene playback quality",
-      "reason": "Specify the existing color resolve and independent point-volume tail with verified authored coverage.",
-      "decision": "docs/architecture/wallpaper-quality-execution-contract.md#quality-combination-checks"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "2bd7a65d628da0de8b5f9271b234832d603d3149d0bd6d43f08bdb017dd70a6d",
-      "after": "58a50156b42daac7ac4320d936946428be5a6e9d9c7f780e59569a5aa2009f8d",
-      "owner": "Scene playback quality",
-      "reason": "Specify the existing color resolve and independent point-volume tail with verified authored coverage.",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-point-volume-tail"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "1f62847749b37f18ed01f5d560cb1842327e3f05f4a156e0b45a2b5c3a3f4b82",
-      "after": "fc80d81abda1fcbb156b12a5b6fa1c7fde233e4073f4cbda1ec999a54844e860",
-      "owner": "Scene playback quality",
-      "reason": "Specify the existing color resolve and independent point-volume tail with verified authored coverage.",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "e8bf48a201cc2d0f03db34784faa05458487d1c0704edce1c424fc83e93d4e28",
-      "after": "a306b43905b263acc72638bf1ce3a78c19bfd7c624420254982175d4144d85ad",
-      "owner": "Scene playback quality",
-      "reason": "Specify the existing color resolve and independent point-volume tail with verified authored coverage.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "89808e4a35623a95e11e6fadad50433bb795444b80288ecdbdf075e32df4373e",
       "after": "8052fdeb7551fff2c722c00c09f40eefa6c4d43616496107c85c580a3896c0a8",
@@ -747,6 +702,51 @@
       "owner": "Scene composition and playback quality",
       "reason": "Preserve the upstream offscreen terminal depth behavior and existing quality evidence.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-box-ring-depth-333"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "55dd17ee122c1de91f127b3fc6710e41be0dc7113db077a5ef39d0f49f6fd39a",
+      "after": "aa75f007909885d52837637438261d6a2bde588d9ef8c8e0642829c579e926d7",
+      "owner": "Scene playback quality",
+      "reason": "Record native sample-compatible model reflection and preserve its real environment and depth boundaries.",
+      "decision": "docs/architecture/repository-map.md#wallpaper-quality"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/wallpaper-quality-execution-contract.md",
+      "before": "47c62a6abdee20f3ffe9f64567d09e4b75574d20ca91b548b395042d31c55567",
+      "after": "1bd5a21f088d3489b808a31ff38bbe48bc718c7ae8df04398c7521f5030221f0",
+      "owner": "Scene playback quality",
+      "reason": "Record native sample-compatible model reflection and preserve its real environment and depth boundaries.",
+      "decision": "docs/architecture/wallpaper-quality-execution-contract.md#quality-combination-checks"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-settings-plan.md",
+      "before": "58a50156b42daac7ac4320d936946428be5a6e9d9c7f780e59569a5aa2009f8d",
+      "after": "d68cfc25c4d9123e247481aa31a5f0cd25eacf55a1b233ad954f3c794a81767c",
+      "owner": "Scene playback quality",
+      "reason": "Record native sample-compatible model reflection and preserve its real environment and depth boundaries.",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-model-reflection"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "fc80d81abda1fcbb156b12a5b6fa1c7fde233e4073f4cbda1ec999a54844e860",
+      "after": "8915d6f2c649b3e7c6bd343f4317c36d98b23a7528f024f2eaa799dcce0066be",
+      "owner": "Scene playback quality",
+      "reason": "Record native sample-compatible model reflection and preserve its real environment and depth boundaries.",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "a306b43905b263acc72638bf1ce3a78c19bfd7c624420254982175d4144d85ad",
+      "after": "7a6375845f7a11c8536132ce15c28e776ec0db13fc587b68f3fc3cfc3d71ea25",
+      "owner": "Scene playback quality",
+      "reason": "Record native sample-compatible model reflection and preserve its real environment and depth boundaries.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#scene-reflection-quality-policy"
     }
   ]
 }

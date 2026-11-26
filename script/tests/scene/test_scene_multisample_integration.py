@@ -47,6 +47,20 @@ BACKGROUND_LAYER, ALPHA_LAYER, TEXT_LAYER, UNPREPARED_SPOT_LAYER = 29, 30, 31, 3
 
 
 def model_input(variant):
+    if variant == "additive-reflection":
+        entries = model_reflection_entries(1)
+        material = json.loads(entries["materials/receiver.json"])
+        material["passes"][0]["blending"] = "additive"
+        entries["materials/receiver.json"] = json.dumps(material).encode()
+        scene = json.loads(entries["scene.json"])
+        models = [layer["id"] for layer in scene["objects"] if "model" in layer]
+        scene["objects"][0]["alpha"] = 0.5
+        scene["objects"].insert(0, {
+            "id": 60, "image": "models/util/solidlayer.json", "origin": "80 62 0",
+            "size": "20 20", "color": "0 0.25 0",
+        })
+        entries["scene.json"] = json.dumps(scene).encode()
+        return entries, models
     if variant in ("local-then-root-tail", "root-read-before-model"):
         entries = perspective_image_depth_entries(7)
         scene = json.loads(entries["scene.json"])
@@ -371,6 +385,26 @@ class SceneMultisampleIntegrationTests(unittest.TestCase):
             for count in text_count[1:]:
                 self.assertAlmostEqual(count, text_count[0], delta=0.05 * text_count[0])
             (self.work / name / "glyph-pixels.json").write_text(json.dumps(text_count) + "\n")
+
+    def test_additive_reflection_preserves_underlying_color_with_native_samples(self):
+        arms, _ = self.comparison("additive-reflection")
+        baseline = None
+        for samples, (image, rows) in arms:
+            with self.subTest(samples=samples):
+                reflector, = [row for row in rows if row["kind"] == "model-reflection" and row["layerID"] == 10]
+                root = next(row for row in reversed(rows[:rows.index(reflector)]) if row["kind"] == "main-raster-open")
+                self.assertEqual((root["details"]["sampleCount"], root["details"]["depthSamples"]),
+                                 (str(samples), str(samples)))
+                self.assertEqual(reflector["slot"], 6)
+                self.assertEqual(reflector["target"]["textureToken"], root["target"]["textureToken"])
+                x, y = MODEL_ROIS["grazing"]
+                color = image.crop(canvas_box(image, x - 1, y - 1, x + 1, y + 1)).getpixel((0, 0))
+                self.assertGreater(color[0], 10)
+                self.assertAlmostEqual(color[1], 64, delta=2)
+                self.assertLessEqual(color[2], 2)
+                if baseline is None:
+                    baseline = color
+                self.assert_color(image, "grazing", baseline)
 
     def test_plain_translucent_writer_shares_the_native_camera_depth(self):
         regions = {

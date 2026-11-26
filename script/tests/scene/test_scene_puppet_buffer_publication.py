@@ -11,6 +11,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from script.tests.scene.test_scene_prepared_script_resource_catalog import swift_declaration
 from script.tests.scene.test_scene_puppet_playback import SCENE_ROOT, SWIFT_SOURCES
 from script.tests.scene.test_scene_puppet_direct_playback import EXTRA_SOURCES
 
@@ -44,8 +45,7 @@ PLAYBACK_SOURCES += [item for item in EXTRA_SOURCES if item not in PLAYBACK_SOUR
 def static_model_carrier_source() -> str:
     """Real mesh/factory/ABI; this direct publication probe needs no model PSO."""
     source = PIPELINE.read_text()
-    mesh = source[source.index("struct SceneStaticModelMesh {"):
-                  source.index("private struct SceneStaticModelShadowUniforms")]
+    mesh = swift_declaration(source, "struct SceneStaticModelMesh {") + "\n"
     upload = source[source.index("    static func makeMesh(model:"):
                     source.index("    /// One layer/surface owns this stream;")]
     factory = source[source.index("    func makeVertexStream("):

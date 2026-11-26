@@ -23,44 +23,6 @@ struct SceneStaticModelMesh {
     }
 }
 
-private struct SceneStaticModelShadowUniforms {
-    var modelToLightClip: simd_float4x4
-    var modelMatrix: simd_float4x4
-    var worldToLight: simd_float4x4
-    var positionRadius: SIMD4<Float>
-    var projectionParameters: SIMD4<Float>
-    var viewport: SIMD4<Float>
-    var textureFrame0: SIMD4<Float>
-    var textureFrame1: SIMD4<Float>
-    var coverage: SIMD4<Float>
-}
-
-private struct SceneModelShadowUniforms {
-    var transform: simd_float4x4 = matrix_identity_float4x4
-    var positionRadius: SIMD4<Float> = .zero
-    var parameters: SIMD4<Float> = .zero
-    var identity: SIMD4<UInt32> = .zero
-
-    init(_ shadow: SceneStaticModelShadow? = nil, lightIndex: Int = 0) {
-        guard let shadow else { return }
-        switch shadow.projection {
-        case .directional(let value):
-            transform = value.worldToClip
-            parameters.z = value.depthBias
-            identity = SIMD4(0, UInt32(lightIndex), 1, 0)
-        case .spot(let value):
-            transform = value.worldToLight
-            positionRadius = SIMD4(value.position, value.radius)
-            parameters = SIMD4(value.tanHalfAngle, value.outerCosine, value.depthBias, 0)
-            identity = SIMD4(1, UInt32(lightIndex), 1, 0)
-        case .point(let value):
-            positionRadius = SIMD4(value.position, value.radius)
-            parameters.z = value.depthBias
-            identity = SIMD4(2, UInt32(lightIndex), 1, 0)
-        }
-    }
-}
-
 private struct SceneModelTubeUniforms {
     var positionRadius: SIMD4<Float>
     var directionLength: SIMD4<Float>
@@ -147,13 +109,35 @@ struct SceneStaticModelPipeline {
     let rasterSampleCount: Int
     private let multisampleState: MTLRenderPipelineState?
     private let multisampleAdditiveState: MTLRenderPipelineState?
-    var supportsMultisampleAdditive: Bool { multisampleAdditiveState != nil }
+    let hasMissingMultisampleAdditive: Bool
     private let reflectionState: MTLRenderPipelineState?
     private let additiveState: MTLRenderPipelineState?
     private let additiveReflectionState: MTLRenderPipelineState?
+    private let multisampleReflectionState: MTLRenderPipelineState?
+    private let multisampleAdditiveReflectionState: MTLRenderPipelineState?
     private let cameraDepthState: MTLRenderPipelineState?
     var supportsReflection: Bool { reflectionState != nil || additiveReflectionState != nil }
     var supportsCameraDepth: Bool { cameraDepthState != nil }
+    var hasMissingMultisampleReflection: Bool {
+        !preservesReflectionInMultisample(additiveRGB: false)
+            || !preservesReflectionInMultisample(additiveRGB: true)
+    }
+
+    func supportsReflection(additiveRGB: Bool) -> Bool {
+        reflectionStates(additiveRGB: additiveRGB).single != nil
+    }
+
+    func preservesReflectionInMultisample(additiveRGB: Bool) -> Bool {
+        let states = reflectionStates(additiveRGB: additiveRGB)
+        return states.single == nil || states.multisample != nil
+    }
+
+    private func reflectionStates(additiveRGB: Bool) -> (
+        single: MTLRenderPipelineState?, multisample: MTLRenderPipelineState?
+    ) {
+        additiveRGB ? (additiveReflectionState, multisampleAdditiveReflectionState)
+            : (reflectionState, multisampleReflectionState)
+    }
 
     private let device: MTLDevice
     private let writingDepthState: MTLDepthStencilState
@@ -172,6 +156,7 @@ struct SceneStaticModelPipeline {
         depthPixelFormat: MTLPixelFormat = .depth32Float,
         preparesReflection: Bool = false,
         preparesAdditive: Bool = false,
+        preparesAdditiveReflection: Bool = false,
         preparesCameraDepth: Bool = false,
         preparesShadows: Bool = true,
         rasterSampleCount: Int = 1
@@ -245,28 +230,39 @@ struct SceneStaticModelPipeline {
         }
         multisampleState = makeMultisampleState()
         self.rasterSampleCount = multisampleState == nil ? 1 : rasterSampleCount
-        let reflectiveFragment = preparesReflection ? fragment(reflection: true) : nil
-        if let reflectiveFragment {
+        let reflectiveFragment = preparesReflection || preparesAdditiveReflection ? fragment(reflection: true) : nil
+        if preparesReflection, let reflectiveFragment {
             descriptor.label = "Scene static model reflection"
             descriptor.fragmentFunction = reflectiveFragment
             reflectionState = try? device.makeRenderPipelineState(descriptor: descriptor)
-        } else { reflectionState = nil }
+            multisampleReflectionState = multisampleState != nil && reflectionState != nil ? makeMultisampleState() : nil
+        } else {
+            reflectionState = nil
+            multisampleReflectionState = nil
+        }
         if preparesAdditive {
             attachment.destinationRGBBlendFactor = .one
             descriptor.label = "Scene additive model"
             descriptor.fragmentFunction = baseFragment
             additiveState = try? device.makeRenderPipelineState(descriptor: descriptor)
             multisampleAdditiveState = multisampleState == nil ? nil : makeMultisampleState()
-            if let reflectiveFragment {
+            if preparesAdditiveReflection, let reflectiveFragment {
                 descriptor.label = "Scene additive model reflection"
                 descriptor.fragmentFunction = reflectiveFragment
                 additiveReflectionState = try? device.makeRenderPipelineState(descriptor: descriptor)
-            } else { additiveReflectionState = nil }
+                multisampleAdditiveReflectionState = multisampleAdditiveState != nil && additiveReflectionState != nil
+                    ? makeMultisampleState() : nil
+            } else {
+                additiveReflectionState = nil
+                multisampleAdditiveReflectionState = nil
+            }
         } else {
             additiveState = nil
             multisampleAdditiveState = nil
             additiveReflectionState = nil
+            multisampleAdditiveReflectionState = nil
         }
+        hasMissingMultisampleAdditive = preparesAdditive && multisampleAdditiveState == nil
         self.writingDepthState = writingDepthState
         self.nonwritingDepthState = nonwritingDepthState
         self.disabledDepthState = disabledDepthState
@@ -454,14 +450,18 @@ struct SceneStaticModelPipeline {
                 : matrix_identity_float3x3 else {
             return false
         }
-        let reflectiveState = reflectionTexture != nil && (material.surfaceProfile?.reflectivity ?? 0) > 0
-            ? (additiveRGB ? additiveReflectionState : reflectionState) : nil
+        let reflection = reflectionTexture != nil && (material.surfaceProfile?.reflectivity ?? 0) > 0
+            ? reflectionStates(additiveRGB: additiveRGB) : nil
         let colorState: MTLRenderPipelineState?
+        let reflectiveState: MTLRenderPipelineState?
         if rasterSampleCount == 1 {
             colorState = additiveRGB ? additiveState : state
+            reflectiveState = reflection?.single
         } else {
-            guard rasterSampleCount == self.rasterSampleCount, reflectiveState == nil else { return false }
+            guard rasterSampleCount == self.rasterSampleCount,
+                  reflection?.single == nil || reflection?.multisample != nil else { return false }
             colorState = additiveRGB ? multisampleAdditiveState : multisampleState
+            reflectiveState = reflection?.multisample
         }
         guard let colorState else { return false }
         let depthState: MTLDepthStencilState? = testsDepth

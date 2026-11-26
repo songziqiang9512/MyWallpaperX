@@ -596,8 +596,9 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
                 self.assertGreater(delta[0], 40, delta)
                 self.assertLessEqual(max(abs(delta[1]), abs(delta[2])), PIXEL_TOLERANCE, delta)
 
-    def settled_composition(self, work, log):
-        capture = terminal_snapshot_metrics(work / "evidence", log)
+    def settled_composition(self, work, log, *, snapshot=None):
+        evidence = work / "evidence"
+        capture = terminal_snapshot_metrics(evidence, log, snapshot_path=evidence / snapshot if snapshot else None)
         observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
         self.assertEqual(observations["parse_errors"], 0)
         receipt = terminal_composition_snapshot(capture, observations)
@@ -702,15 +703,33 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
         arguments = ("--mwx-debug-scene-start-paused", "--mwx-debug-scene-resize-sequence", "2:0.8",
                      "--mwx-debug-scene-after-snapshot-delay", "4")
         reference_red = None
-        for name, reflection, reflectivity, stem in (
-            ("off", 0, 1, "receiver"), ("zero", 1, 0, "receiver"),
-            ("on", 1, 1, "receiver"), ("renamed", 1, 1, "moved-surface"),
+        for name, reflection, reflectivity, stem, samples in (
+            ("off", 0, 1, "receiver", 4), ("zero", 1, 0, "receiver", 4),
+            ("on", 1, 1, "receiver", 1), ("native", 1, 1, "receiver", 2),
+            ("renamed", 1, 1, "moved-surface", 4),
         ):
             with self.subTest(material=name):
+                mode = {1: "none", 2: "msaa2", 4: "msaa4"}[samples]
+                quality = ("-mwx.playback.quality", f"{{ sceneAntiAliasingMode = {mode}; }}")
                 result = self.run_case(reflection, capture=True, name=f"model-{name}", rois=MODEL_ROIS,
                     entries=model_reflection_entries(reflection, reflectivity=reflectivity, stem=stem),
-                    material_input_path=f"materials/{stem}.json", extra_arguments=arguments,
+                    material_input_path=f"materials/{stem}.json", extra_arguments=arguments + quality,
                     initial_snapshot=cold)
+                work = self.evidence_root / f"model-{name}"
+                log = (work / "app.log").read_text()
+                for snapshot in (cold, warm):
+                    frame = self.settled_composition(work, log, snapshot=snapshot)
+                    rows = frame["rows"]
+                    openings = [row for row in rows if row["kind"] == "main-raster-open"]
+                    self.assertEqual(max(int(row["details"]["sampleCount"]) for row in openings), samples)
+                    bindings = [row for row in rows if row["kind"] == "model-reflection"]
+                    self.assertEqual([row["slot"] for row in bindings],
+                                     [6, 6] if snapshot == warm and reflection and reflectivity else [])
+                    for binding in bindings:
+                        root = next(row for row in reversed(rows[:rows.index(binding)])
+                                    if row["kind"] == "main-raster-open")
+                        self.assertEqual((root["details"]["sampleCount"], root["details"]["depthSamples"]),
+                                         (str(samples), str(samples)))
                 first, settled = result["pixels"][cold], result["pixels"][warm]
                 self.assertNotEqual(first["size"], result["pixels"]["scene-ready-window.png"]["size"])
                 self.assertEqual(first["size"], settled["size"])
