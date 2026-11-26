@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 360738
+      "bytes": 361891
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 240,
-      "bytes": 68251
+      "bytes": 68429
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f35d39e37f565fc0da8cf56d4160b93d016a92d6acfef9e476fd5ffbecdf99a5",
-      "after": "e22b8fa568787b4ac17207635103371fe337719814f4c4715d081f251226e0f0",
+      "before": "e22b8fa568787b4ac17207635103371fe337719814f4c4715d081f251226e0f0",
+      "after": "cf5f449de88ffa6216c872d469eb3e6feb890cff849d3eddf2dae57f2feabf8f",
       "owner": "Scene",
-      "reason": "登记两次实机时标、同窗候选与低频形状门的正反例。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#forefront-spectral-clock-346"
+      "reason": "登记同步单音各边的端点、峰值与动态谱形验证。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#forefront-synchronous-edges-346"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7d4e1b2b62b777db352d7864f9ef3324b255a9261a9f32647b46ab336c18f971",
-      "after": "cd6610bc9718fa22b020fc6cb69b50dee7725fa5496b58cf9aa5da5ac5959e43",
+      "before": "cd6610bc9718fa22b020fc6cb69b50dee7725fa5496b58cf9aa5da5ac5959e43",
+      "after": "304da9cb3294b9e68cdaeacda8316000386f88a6fe5a098509fed22973704363",
       "owner": "Scene",
-      "reason": "据新相位证据收窄前景回亮待查入口。",
+      "reason": "更新346前景回亮的证实断点与重启条件。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     },
     {
