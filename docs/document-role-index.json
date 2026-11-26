@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5b54527961bb196ef27906255d58280be4bb67ca51dab4015d36bd939a2fc35e",
+        "sourceSHA256": "2b4200ce10f8d4adc5d936f82bdce280232711903e243a53919f21ce8510af2b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Web daemon 无进程空档的最新控制、首个作者建议与实窗恢复",
-        "limitations": "签名单物理屏，主文档和 Canvas 实绘。媒体 PTS、物理节律、WebKit WebContent 单独重启待专门验证。"
+        "scope": "WebContent 退出后宿主导航的当前已生效建议和暂停种子",
+        "limitations": "单屏主文档，受控延迟握手与独立作者及时握手。作者自主导航、跨屏和媒体时序另验。"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "83cc2e0aabd65c64240e4dfbafa8cb4d555eb5af65602c032d40844c9f315860",
+        "sourceSHA256": "f9a2da49eca661136ec41d8a1145f55ce082b04a7f2c5d84ec96c418aafe829b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Web daemon 无进程空档的最新控制、首个作者建议与实窗恢复",
-        "limitations": "签名单物理屏，主文档和 Canvas 实绘。媒体 PTS、物理节律、WebKit WebContent 单独重启待专门验证。"
+        "scope": "WebContent 退出后宿主导航的当前已生效建议和暂停种子",
+        "limitations": "单屏主文档，受控延迟握手与独立作者及时握手。作者自主导航、跨屏和媒体时序另验。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1fcb859eaa1c54868deecea0a8c3c3b225d2db1580db455b119fb7a605e8439a",
+        "sourceSHA256": "972e7f1b14a8d79c5d663720bd5bba027113a00b7503545ab40abec0633e1ee8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Web daemon 无进程空档的最新控制、首个作者建议与实窗恢复",
-        "limitations": "签名单物理屏，主文档和 Canvas 实绘。媒体 PTS、物理节律、WebKit WebContent 单独重启待专门验证。"
+        "scope": "WebContent 退出后宿主导航的当前已生效建议和暂停种子",
+        "limitations": "单屏主文档，受控延迟握手与独立作者及时握手。作者自主导航、跨屏和媒体时序另验。"
       }
     },
     {
@@ -1133,10 +1133,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0264b81968be0a086b994db05e9b250e93e4e6449cff91cddce37e8b3e548625",
+        "sourceSHA256": "d05ec8b74a7f7e3b864bd802ca0aa38608b74e9a346a303bfe0703188f80fa0e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Web daemon 无进程空档的最新控制、首个作者建议与实窗恢复",
-        "limitations": "签名单物理屏，主文档和 Canvas 实绘。媒体 PTS、物理节律、WebKit WebContent 单独重启待专门验证。"
+        "scope": "WebContent 退出后宿主导航的当前已生效建议和暂停种子",
+        "limitations": "单屏主文档，受控延迟握手与独立作者及时握手。作者自主导航、跨屏和媒体时序另验。"
       }
     },
     {

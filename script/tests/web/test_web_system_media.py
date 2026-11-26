@@ -33,19 +33,20 @@ SERVICE = r'''
 }
 '''
 ADAPTER = r'''
+let testPlaybackScript = webWallpaperPlaybackScript
 @MainActor final class Adapter {
-    struct Request { var id = UUID(); var language = "zh-cn" }
     struct Surface { let webView: WKWebView }
     struct MediaGate { func setSuspended(_ suspended: Bool) {} }
     enum Severity { case warning, info }
     var surfaces: [CGDirectDisplayID: Surface] = [:]
-    var currentRequest: Request? = Request()
+    var currentRequest: WallpaperEngine.WebWallpaperLaunchRequest? = .init()
     var paused = false
     var effectiveMediaSuspended: Bool { paused }
     var currentFrameRateSuggestion: Int?
     var appliedFrameRateSuggestion: Int?
     var defersFrameHello = false
     var effectiveVolume: Float = 0.4
+    var currentPlaybackRate: Float = 1
     var frameEndpointRegistry = WebWallpaperFrameEndpointRegistry()
     let systemMediaConsumerID = UUID()
     var systemMediaSubscriptionNeedsContent: Bool?
@@ -61,6 +62,9 @@ ADAPTER = r'''
     func ensureFrameEndpointLeaseRenewalTimer() {}
     func refreshAudioSpectrumDemand() {}
     func applyCompatibilitySnapshot(to endpoint: WebWallpaperFrameEndpointRegistry.Endpoint, webView: WKWebView) {}
+    static func webWallpaperPlaybackScript(paused: Bool) -> String {
+        testPlaybackScript.replacingOccurrences(of: "__MWX_INITIAL_PAUSED__", with: paused ? "true" : "false")
+    }
     // ADAPTER_METHODS
 }
 '''
@@ -136,6 +140,7 @@ SCENARIOS = r'''
             try await generalFPSWithoutHello(initiallyPaused: false, lateFPS: 60)
             try await generalFPSWithoutHello(initiallyPaused: true, lateFPS: 60)
             try await generalFPSWithoutHello(initiallyPaused: false, lateFPS: 25)
+        case "general-fps-reload-seed": try await generalFPSReloadSeed()
         case "backpressure": try await backpressureAndRevocation()
         default: fatalError("unknown scenario")
         }
@@ -539,6 +544,51 @@ SCENARIOS = r'''
         try await host.waitUntil("JSON.stringify(suggestions) === '[\(finalFPS)]'", label: "live state applies after hello recovers")
     }
 
+    static func generalFPSReloadSeed() async throws {
+        let page = """
+        <canvas id="mark" width="1" height="1"></canvas>
+        <script>
+          window.receipts = [];
+          wallpaperPropertyListener = { applyGeneralProperties(value) {
+            receipts.push([value.fps, wallpaperEngine_paused]);
+            const canvas = document.getElementById('mark').getContext('2d');
+            canvas.fillStyle = 'rgb(' + value.fps + ',0,0)';
+            canvas.fillRect(0,0,1,1);
+          }};
+        </script>
+        """
+        let adapter = Adapter()
+        adapter.appliedFrameRateSuggestion = 15
+        let host = PageHost(html: page, crossOriginChildHTML: page, adapter: adapter,
+                            documentURL: URL(string: "mwx-probe://origin/index"),
+                            initialGeneralPropertiesJSON: #"{"fps":15}"#, awaitCurrentGeneralProperties: true)
+        defer { host.close() }
+        try await host.open()
+        try await host.waitUntil("receipts[0]?.[0] === 15", label: "original author suggestion")
+        let originalNonce = try await host.script("__myWallpaperHostFrameDocumentNonce") as! String
+        adapter.applyFrameRateSuggestion(37)
+        try await host.waitUntil("receipts.at(-1)?.[0] === 37", label: "effective old-document suggestion")
+        adapter.paused = true
+        adapter.applyFrameRateSuggestion(43)
+        adapter.frameEndpointRegistry.revokeAll(in: host.view)
+        adapter.defersFrameHello = true
+        adapter.installDocumentStartScripts(in: host.view.configuration.userContentController, screenID: 1)
+        expect(host.view.reload() != nil, "real same-view reload")
+        let nonce = WebWallpaperHostSupport.javaScriptQuotedString(originalNonce)
+        try await host.waitUntil("__myWallpaperHostFrameDocumentNonce !== \(nonce) && window.__myWallpaperHostFrameEndpointAck !== true && JSON.stringify(receipts) === '[[37,true]]'",
+                                 label: "replacement starts paused using 37 with no hello")
+        let pixel = try await host.script("document.getElementById('mark').getContext('2d').getImageData(0,0,1,1).data[0]") as? Int
+        expect(pixel == 37, "fallback draws the current effective suggestion")
+        host.endpointStub.releaseHellos()
+        try await host.waitUntil("__myWallpaperHostFrameEndpointAck === true", label: "late hello reaches the new document")
+        let settled = try await host.script("JSON.stringify(receipts)") as? String
+        expect(settled == "[[37,true]]", "equal late value does not replay the author callback")
+        adapter.paused = false
+        adapter.appliedFrameRateSuggestion = adapter.currentFrameRateSuggestion
+        adapter.applyPausedState(false, to: host.view, frameRateChanged: true)
+        try await host.waitUntil("receipts.at(-1)?.[0] === 43 && wallpaperEngine_paused === false", label: "resume adopts the pending setting")
+    }
+
     static func backpressureAndRevocation() async throws {
         let service = SystemMediaService.shared
         service.publish(snapshot("start", revision: 20))
@@ -640,6 +690,7 @@ class WebSystemMediaTests(unittest.TestCase):
                             "        window.setFrameOrigin(NSPoint(x: -10000, y: -10000))\n"
                             "        window.orderFrontRegardless()", 1)
         base = base.replace(source_block(base, "final class Adapter"), ADAPTER)
+        base = base.replace("var propertiesJSON: String? }", "var propertiesJSON: String?; var id = UUID(); var language = \"zh-cn\" }")
         base = base.replace(source_block(base, "final class WebWallpaperFrameEndpointRegistry"),
                             source_block(types, "final class WebWallpaperSpectrumPush") + "\n"
                             + source_block(types, "final class WebWallpaperFrameEndpointRegistry"))
@@ -648,6 +699,8 @@ class WebSystemMediaTests(unittest.TestCase):
         base = base.replace("// RUNTIME_HELPERS", SERVICE + "\n"
                             + source_block(NETWORK_FIXTURE.read_text(), "final class NetworkBridgeStub"))
         methods = method(types, "static func webCompatibilityScript(")
+        methods += "\n" + method((HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+Surface.swift").read_text(),
+                                  "func installDocumentStartScripts(")
         methods += "\n" + method((HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+Lifecycle.swift").read_text(),
                                   "func handleFrameEndpointHello(")
         runtime = (HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+RuntimeBridge.swift").read_text()
@@ -709,6 +762,9 @@ class WebSystemMediaTests(unittest.TestCase):
 
     def test_frame_rate_suggestion_has_document_seed_fallback(self):
         self.scenario("general-fps-no-hello")
+
+    def test_frame_rate_reload_seeds_applied_suggestion_while_paused(self):
+        self.scenario("general-fps-reload-seed")
 
     def test_complete_latest_snapshot_and_endpoint_revocation(self):
         self.scenario("backpressure")

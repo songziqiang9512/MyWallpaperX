@@ -89,6 +89,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                   self.surfaces[surface.screenID]?.webView === surface.webView else {
                 return
             }
+            self.installDocumentStartScripts(in: surface.webView.configuration.userContentController, screenID: surface.screenID)
 #if DEBUG
             self.debugStartupSurfaceTimings?[surface.screenID]?.loadIssuedAt = ProcessInfo.processInfo.systemUptime
 #endif
@@ -110,16 +111,15 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     func reloadTrackedNavigation(on surface: HostSurface, requestID: UUID) -> Bool {
+        guard currentRequest?.id == requestID,
+              surfaces[surface.screenID]?.webView === surface.webView else { return false }
 #if DEBUG
         debugStartupSurfaceTimings?.removeValue(forKey: surface.screenID)
 #endif
         invalidatePresentation(on: surface)
         navigationOwnershipByScreen.removeValue(forKey: surface.screenID)
+        installDocumentStartScripts(in: surface.webView.configuration.userContentController, screenID: surface.screenID)
         guard let navigation = surface.webView.reload() else { return false }
-        guard currentRequest?.id == requestID,
-              surfaces[surface.screenID]?.webView === surface.webView else {
-            return false
-        }
         navigationOwnershipByScreen[surface.screenID] = NavigationOwnership(
             requestID: requestID,
             navigation: navigation,

@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 21317
+      "bytes": 21461
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 160329
+      "bytes": 160839
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 140392
+      "bytes": 140932
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -186,7 +186,7 @@
     },
     "docs/web/current-state.md": {
       "lines": 141,
-      "bytes": 53345
+      "bytes": 53510
     },
     "docs/web/dedicated-host-process-design.md": {
       "lines": 92,
@@ -378,10 +378,10 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "879495ca12598e07ec756c4a2def3d7d2ab06df065326bab11418cd6bf729b7f",
-      "after": "4b03eda07a3ee8d26be94143a3601d7ffb86aa0c4c6e64f9c32bf34953fbeb95",
+      "before": "4b03eda07a3ee8d26be94143a3601d7ffb86aa0c4c6e64f9c32bf34953fbeb95",
+      "after": "1c588cd56f4fdd103e8bc95348b91fd8c18870ae6623885f483f0cfd24dcb095",
       "owner": "web-runtime",
-      "reason": "登记实际 Web 退避恢复控制接线和签名单屏作者证据。",
+      "reason": "回写宿主重载时的种子职责与实际 WebContent 退出证据。",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
     },
     {
@@ -405,10 +405,10 @@
     {
       "section": "bodies",
       "path": "docs/web/current-state.md",
-      "before": "3543ced972ac36ec9abb6dcde4d4ea31d8d4dd2e844b9850b493edaea577016d",
-      "after": "78f9aae4d4df060233d72812832763eff15de04bf3092b295d2a5447c428940a",
+      "before": "78f9aae4d4df060233d72812832763eff15de04bf3092b295d2a5447c428940a",
+      "after": "cb60df2ed56c9eb7aacadf600e1afed7a0a5dae2d834a913993a2d9b5c972279",
       "owner": "web-runtime",
-      "reason": "登记实际 Web 退避恢复控制接线和签名单屏作者证据。",
+      "reason": "回写宿主重载时的种子职责与实际 WebContent 退出证据。",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
     },
     {
@@ -675,10 +675,10 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "82daecf54f554d18387d639a02ee595c8fff2a8f221f5b291565a049e8283666",
-      "after": "24ecc9b64850279fd85653f6d41bc0562bbc64b3ae5e03599c0f2725693ccd2e",
+      "before": "24ecc9b64850279fd85653f6d41bc0562bbc64b3ae5e03599c0f2725693ccd2e",
+      "after": "e53ed141adb89cf268ecb6c5e498f1acdc71eb87c19850c96653eb7c57b4174a",
       "owner": "web-runtime",
-      "reason": "登记实际 Web 退避恢复控制接线和签名单屏作者证据。",
+      "reason": "回写宿主重载时的种子职责与实际 WebContent 退出证据。",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
     },
     {
@@ -702,10 +702,10 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "59dc7d9858541d9c0cdd5f01553edb4a7bd507d11a27a2e73efc9f6be09d4d59",
-      "after": "0cdcd3ade924027bd10e598c6a123068dc5877535a3c5f030b08ff70d9035165",
+      "before": "0cdcd3ade924027bd10e598c6a123068dc5877535a3c5f030b08ff70d9035165",
+      "after": "b3844fce4a4a22d3932fc1266b26abb7cc6f86b7a710108705d1ffc23583d95c",
       "owner": "web-runtime",
-      "reason": "登记实际 Web 退避恢复控制接线和签名单屏作者证据。",
+      "reason": "回写宿主重载时的种子职责与实际 WebContent 退出证据。",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
     },
     {

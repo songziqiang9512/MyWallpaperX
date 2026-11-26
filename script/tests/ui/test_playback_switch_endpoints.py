@@ -162,9 +162,19 @@ extension WallpaperEngine {
 PREPARATION_PRODUCER_SUPPORT = r'''
 #if DEBUG
 final class WKNavigation {}
+final class WKUserContentController {
+    var readyForNavigation = false
+}
 final class WKWebView {
-    func load(_ request: URLRequest) -> WKNavigation? { WKNavigation() }
-    func reload() -> WKNavigation? { WKNavigation() }
+    struct Configuration { let userContentController = WKUserContentController() }
+    let configuration = Configuration()
+    func load(_ request: URLRequest) -> WKNavigation? { startNavigation() }
+    func reload() -> WKNavigation? { startNavigation() }
+    private func startNavigation() -> WKNavigation {
+        precondition(configuration.userContentController.readyForNavigation)
+        configuration.userContentController.readyForNavigation = false
+        return WKNavigation()
+    }
     func stopLoading() {}
 }
 final class DedicatedWebWallpaperHostPlaceholderAdapter {
@@ -181,6 +191,9 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter {
     var generation: UInt64 = 0
     func advanceNavigationGeneration() -> UInt64 { generation += 1; return generation }
     func invalidatePresentation(on surface: HostSurface) {}
+    func installDocumentStartScripts(in controller: WKUserContentController, screenID: UInt32) {
+        controller.readyForNavigation = true
+    }
     func screenID(for view: WKWebView) -> UInt32? { surfaces.first { $0.value.webView === view }?.key }
     func runtimeEntryURL(for request: WallpaperEngine.WebWallpaperLaunchRequest, localEntryURL: URL,
                          surface: HostSurface, completion: (URL) -> Void) { completion(localEntryURL) }

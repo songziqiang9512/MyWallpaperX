@@ -10,6 +10,66 @@ import CoreGraphics
 import CryptoKit
 
 extension DedicatedWebWallpaperHostPlaceholderAdapter {
+    func installDocumentStartScripts(in controller: WKUserContentController, screenID: CGDirectDisplayID) {
+        controller.removeAllUserScripts()
+        controller.addUserScript(WKUserScript(
+            source: Self.webWallpaperPlaybackScript(paused: paused),
+            injectionTime: .atDocumentStart, forMainFrameOnly: false
+        ))
+#if DEBUG
+        // navigation.blocked 的 WebView 侧通道：主框架导航被取消后页面可查询
+        // 阻断计数与末次目标（宿主经 evaluateJavaScript 累加，见 NavigationDelegate）。
+        controller.addUserScript(WKUserScript(
+            source: Self.webNavigationStateScript,
+            injectionTime: .atDocumentStart, forMainFrameOnly: true
+        ))
+#endif
+        // 兼容 API 面与种子按 frame 各自建立（种子只是本 frame 的初始值，
+        // 属性/媒体/指针状态都存储在 window 上），因此与暂停门、远程样式表
+        // 脚本保持同一注入面：iframe 壁纸同样拿到完整 API。
+        controller.addUserScript(
+            WKUserScript(
+                source: Self.webCompatibilityScript(
+                    for: currentRequest,
+                    generalPropertiesJSON: currentGeneralPropertiesJSON(for: screenForGeneralProperties(screenID), screenID: screenID),
+                    volume: effectiveVolume,
+                    playbackRate: currentPlaybackRate,
+                    paused: paused,
+                    awaitCurrentGeneralProperties: true
+                ),
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: false
+            )
+        )
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--mwx-debug-web-stall-animation-frame") {
+            controller.addUserScript(
+                WKUserScript(
+                    source: """
+                    window.requestAnimationFrame = function() { return 1; };
+                    window.__myWallpaperDebugAnimationFrameStalled = true;
+                    try {
+                      window.webkit.messageHandlers.wallpaperHostLog.postMessage({
+                        type: 'debug.animation-frame.suppressed',
+                        message: 'active'
+                      });
+                    } catch (_) {}
+                    """,
+                    injectionTime: .atDocumentStart,
+                    forMainFrameOnly: true
+                )
+            )
+        }
+        #endif
+        controller.addUserScript(
+            WKUserScript(
+                source: webRemoteStylesheetCompatibilityScript,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: false
+            )
+        )
+    }
+
     func makeSurface(for screen: NSScreen, screenID: CGDirectDisplayID) -> HostSurface {
 #if DEBUG
         if debugStartupSurfaceTimings != nil {
@@ -55,62 +115,6 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         controller.add(self, name: "wallpaperHostNetworkRequest")
         // D5：frame endpoint hello/续约通道（每个注入文档一条）。
         controller.add(self, name: "wallpaperHostFrameEndpoint")
-        controller.addUserScript(WKUserScript(
-            source: Self.webWallpaperPlaybackScript(paused: paused),
-            injectionTime: .atDocumentStart, forMainFrameOnly: false
-        ))
-#if DEBUG
-        // navigation.blocked 的 WebView 侧通道：主框架导航被取消后页面可查询
-        // 阻断计数与末次目标（宿主经 evaluateJavaScript 累加，见 NavigationDelegate）。
-        controller.addUserScript(WKUserScript(
-            source: Self.webNavigationStateScript,
-            injectionTime: .atDocumentStart, forMainFrameOnly: true
-        ))
-#endif
-        // 兼容 API 面与种子按 frame 各自建立（种子只是本 frame 的初始值，
-        // 属性/媒体/指针状态都存储在 window 上），因此与暂停门、远程样式表
-        // 脚本保持同一注入面：iframe 壁纸同样拿到完整 API。
-        controller.addUserScript(
-            WKUserScript(
-                source: Self.webCompatibilityScript(
-                    for: request,
-                    generalPropertiesJSON: currentGeneralPropertiesJSON(for: screen, screenID: screenID),
-                    volume: effectiveVolume,
-                    playbackRate: currentPlaybackRate,
-                    paused: paused,
-                    awaitCurrentGeneralProperties: true
-                ),
-                injectionTime: .atDocumentStart,
-                forMainFrameOnly: false
-            )
-        )
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--mwx-debug-web-stall-animation-frame") {
-            controller.addUserScript(
-                WKUserScript(
-                    source: """
-                    window.requestAnimationFrame = function() { return 1; };
-                    window.__myWallpaperDebugAnimationFrameStalled = true;
-                    try {
-                      window.webkit.messageHandlers.wallpaperHostLog.postMessage({
-                        type: 'debug.animation-frame.suppressed',
-                        message: 'active'
-                      });
-                    } catch (_) {}
-                    """,
-                    injectionTime: .atDocumentStart,
-                    forMainFrameOnly: true
-                )
-            )
-        }
-        #endif
-        controller.addUserScript(
-            WKUserScript(
-                source: webRemoteStylesheetCompatibilityScript,
-                injectionTime: .atDocumentStart,
-                forMainFrameOnly: false
-            )
-        )
         let schemeHandler = WebWallpaperLocalSchemeHandler(
             rootURL: request?.rootURL ?? URL(fileURLWithPath: "/"),
             strictSymlinkPolicy: request?.runtimeProfile.strictLocalResourcePolicy ?? false
