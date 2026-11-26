@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 359421
+      "bytes": 360738
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 240,
-      "bytes": 68076
+      "bytes": 68251
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "977b31a07a9f8398ffa224d9fc79bb15ba86884c978e5657e0bab8b1201c70fe",
-      "after": "f35d39e37f565fc0da8cf56d4160b93d016a92d6acfef9e476fd5ffbecdf99a5",
+      "before": "f35d39e37f565fc0da8cf56d4160b93d016a92d6acfef9e476fd5ffbecdf99a5",
+      "after": "e22b8fa568787b4ac17207635103371fe337719814f4c4715d081f251226e0f0",
       "owner": "Scene",
-      "reason": "收录固定版本官方色板和原包媒体图层的前后证据与验证范围。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#scalar-return-layer-write"
+      "reason": "登记两次实机时标、同窗候选与低频形状门的正反例。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#forefront-spectral-clock-346"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "ce1ec96d7ba0b64cf697c5dd9cab4a09049030b467eba53c08d793b7c79c49e5",
-      "after": "125dcd0059e73e25bac754de21783a70dc5d63596354908d32fc586b9cf9ad35",
+      "before": "7d4e1b2b62b777db352d7864f9ef3324b255a9261a9f32647b46ab336c18f971",
+      "after": "cd6610bc9718fa22b020fc6cb69b50dee7725fa5496b58cf9aa5da5ac5959e43",
       "owner": "Scene",
-      "reason": "把已取得可比收益的末段复制标记完成，保留其余GPU预算缺口",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
+      "reason": "据新相位证据收窄前景回亮待查入口。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     },
     {
       "section": "bodies",
