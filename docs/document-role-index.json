@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "589ffff5f31a93f464d3900bf0ef6858e32108f3a2e6be1d76dc4f995983757e",
+        "sourceSHA256": "17184f9a42e9cef82214562d5a7851079a4e9fdf18d06c3af5e02a94bcbf75b2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对逐档执行职责、组合与逐屏抗锯齿回执路由。",
-        "limitations": "现役运行结果以工作卡的实测范围为准。"
+        "scope": "核对点光体积遮挡重放、根采样解析与原主色合成。",
+        "limitations": "实际覆盖和作者输入范围以现役工作卡为准。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ea8e9a2112276483ab9046dafc7bdd1bd282aa2cbc01d4eb8af304e7ee67012c",
+        "sourceSHA256": "f5113a1a1f11d173fea7fa30ac749ce03cc61d75bcb7f35b1c8f6b51998e9c88",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对逐档执行职责、组合与逐屏抗锯齿回执路由。",
-        "limitations": "现役运行结果以工作卡的实测范围为准。"
+        "scope": "核对点光体积遮挡重放、根采样解析与原主色合成。",
+        "limitations": "实际覆盖和作者输入范围以现役工作卡为准。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "117c8d20a9311156dc2a6baa222d0cbfd889bf9375c5014364ee71c79a1bf929",
+        "sourceSHA256": "fcfde88b53adcce0f02533d4eb6f52d38505b257e0fb1a86ed8725b3ee435994",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对逐档执行职责、组合与逐屏抗锯齿回执路由。",
-        "limitations": "现役运行结果以工作卡的实测范围为准。"
+        "scope": "核对点光体积遮挡重放、根采样解析与原主色合成。",
+        "limitations": "实际覆盖和作者输入范围以现役工作卡为准。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0c5d2d921fc07ab81314562f81a56c42772ac27ea9d4b1fe5c8f15e760b00d2e",
+        "sourceSHA256": "2a2fa665078fd7fc414a38ad0702ca7a0006e077e71a581abe046d96bccce453",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对逐档执行职责、组合与逐屏抗锯齿回执路由。",
-        "limitations": "现役运行结果以工作卡的实测范围为准。"
+        "scope": "核对点光体积遮挡重放、根采样解析与原主色合成。",
+        "limitations": "实际覆盖和作者输入范围以现役工作卡为准。"
       }
     },
     {
@@ -886,10 +886,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e7d5903eacd0ed123652e22f8a6ebb4311d1756657cff66fd4a612ea5cd8f955",
+        "sourceSHA256": "fd6ad5362cb351293a6b21fc0d612d9bb703ddd1c14f913ce68566b32ef74301",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对逐档执行职责、组合与逐屏抗锯齿回执路由。",
-        "limitations": "现役运行结果以工作卡的实测范围为准。"
+        "scope": "核对点光体积遮挡重放、根采样解析与原主色合成。",
+        "limitations": "实际覆盖和作者输入范围以现役工作卡为准。"
       }
     },
     {

@@ -82,9 +82,10 @@ class ScenePointVolumeIntegrationTests(unittest.TestCase):
         (cls.evidence_root / "regions.json").write_bytes(world.encoded(REGIONS))
         print(f"Point-volume App evidence: {cls.evidence_root}", flush=True)
 
-    def run_volume_case(self, name, *, quality, variant="base", contributes=False):
+    def run_volume_case(self, name, *, quality, variant="base", contributes=False, samples=1):
+        mode = {1: "none", 2: "msaa2", 4: "msaa4"}[samples]
         defaults = ("{ scenePostProcessingMode = enabled; sceneShadowQuality = disabled; "
-                    f"scenePointVolumeQuality = {quality}; }}")
+                    f"scenePointVolumeQuality = {quality}; sceneAntiAliasingMode = {mode}; }}")
         with patch.object(app_runner, "measure_capture",
                           lambda path: world.measure_capture(path, REGIONS)):
             result = app_runner.SceneReflectionHistoryIntegrationTests.run_case(
@@ -105,6 +106,21 @@ class ScenePointVolumeIntegrationTests(unittest.TestCase):
             depth = [row for row in rows if row["kind"] == "volume-occluder-depth"]
             volume = [row for row in rows if row["kind"] == "point-volume"]
             self.assertEqual((len(depth), len(volume)), (int(contributes), int(contributes)), rows)
+            if samples > 1:
+                openings = [row for row in rows if row["kind"] == "main-raster-open"]
+                expected = [str(samples), "1"] if contributes else [str(samples)]
+                self.assertEqual([row["details"]["sampleCount"] for row in openings], expected)
+                root = openings[0]
+                self.assertEqual((root["details"]["depthSamples"], root["details"]["colorStore"]),
+                                 (str(samples), "2"))
+                self.assertNotEqual(root["source"]["textureToken"], root["target"]["textureToken"])
+                if contributes:
+                    tail = openings[1]
+                    self.assertEqual(tail["details"]["colorLoad"], "1")
+                    self.assertNotIn("depthSamples", tail["details"])
+                    self.assertEqual(root["target"]["textureToken"], tail["target"]["textureToken"])
+                    self.assertNotEqual(depth[0]["target"]["textureToken"], root["details"]["depthToken"])
+                    self.assertTrue(rows.index(root) < rows.index(depth[0]) < rows.index(tail) < rows.index(volume[0]))
             if contributes:
                 seal = next(row for row in rows if row["kind"] == "frame-seal" and row["outcome"] == "sealed")
                 self.assertEqual(depth[0]["details"]["partCount"], "2")
@@ -134,6 +150,20 @@ class ScenePointVolumeIntegrationTests(unittest.TestCase):
                 self.assertGreater(off["occluded"]["mean"][1], 100)
                 for region in ("direct", "occluded", "outside"):
                     self.assertEqual(on[region]["mean"], off[region]["mean"], (region, on, off))
+
+    def test_multisample_resolves_before_independent_point_volume(self):
+        two, two_package = self.run_volume_case("volume-2x", quality="enabled", contributes=True, samples=2)
+        four, four_package = self.run_volume_case("volume-4x", quality="ultra", contributes=True, samples=4)
+        off, off_package = self.run_volume_case("no-volume-4x", quality="disabled", samples=4)
+        no_writer, _ = self.run_volume_case("no-writer-4x", quality="enabled", variant="no-writer", samples=4)
+        self.assertEqual(two_package, four_package)
+        self.assertEqual(four_package, off_package)
+        self.assertEqual(two, four)
+        self.assertEqual(no_writer, off)
+        for phase, on in four.items():
+            self.assertGreater(on["halo"]["mean"][0], off[phase]["halo"]["mean"][0] + 30)
+            for region in ("direct", "occluded", "outside"):
+                self.assertEqual(on[region]["mean"], off[phase][region]["mean"], (phase, region))
 
     def test_user_enabled_does_not_change_author_or_camera_admission(self):
         for variant in ("author-disabled", "author-shadow", "no-writer", "accumulating", "orthographic"):

@@ -418,7 +418,7 @@ extension SceneMetalRenderer {
         groups: SceneCompositionGroupFrameRuntime?, needsTerminalScratch: Bool
     ) -> MTLTexture? {
         guard !state.volumeOccluders.isEmpty, let pipeline = staticModelResources.pipeline,
-              let pool else { return nil }
+              let pool, pass.resolveForSingleSampleTail() else { return nil }
         let extent = pass.targetExtent
         return pass.withReadableTarget { color, commandBuffer -> MTLTexture? in
             if needsTerminalScratch, groups?.terminalScratch(matching: color, on: commandBuffer) == nil {

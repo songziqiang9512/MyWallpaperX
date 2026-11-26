@@ -240,7 +240,7 @@ extension SceneMetalRenderer {
         let runtime = imageCompositor.resolvedMaterialRuntime
         let executionLayerIDs = runtime?.executionLayerIDs ?? []
         let nativeRootTargets = frameDescriptor.camera.clearEnabled && groups == nil
-            && !modelFrame.collectsVolumeOccluders && activeStaticModelNamedAlbedoLayerIDs.isEmpty
+            && activeStaticModelNamedAlbedoLayerIDs.isEmpty
             ? multisampleTargets : nil
         func allowsNativeOrdinaryLayer(_ layer: SceneRenderDescriptor.Layer, samples: Int) -> Bool {
             guard imagePipeline?.multisampleRasterSampleCount == samples,

@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 66,
-      "bytes": 24493
+      "bytes": 24650
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 150,
-      "bytes": 26152
+      "bytes": 26243
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -97,12 +97,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 580,
-      "bytes": 171446
+      "lines": 583,
+      "bytes": 172401
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 150766
+      "bytes": 151631
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 307,
-      "bytes": 65225
+      "bytes": 65419
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -678,57 +678,12 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "113e2ae378f20fb8c9f05e9b85606f1d5f3639b248ee082acd2a6b0af735da84",
-      "after": "388ca39cb302e7a1b2eaa260b37b1449b0aa8ded73d37ffb5c40f7d82d4a23ac",
-      "owner": "Scene root raster and playback quality",
-      "reason": "Record the local graph execution boundary, one root resolve, and actual default-scene menu and rendering evidence.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "3aacbab07c03cf51c339a1139c713fa807c929109e82d4fc4b41951145c904be",
       "after": "dbdd5d9a10fbf527f12ea1bb37bae1e7924ecf6d4e94b337fe4454a7e6564d1e",
       "owner": "Scene composition",
       "reason": "Preserve the upstream controlled puppet history evidence and the integrated quality evidence.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "0e91933206c8a5cdf6a6edc9675d7d8e3e5641e61ce3c9c33258b53ea22f70ba",
-      "after": "da767b10d863f57d32c4d6cc28e2e108af9a197954e08a4e2f45649d4869d442",
-      "owner": "Playback Quality",
-      "reason": "Define actionable outcomes, per-option semantics, resource rules and verified effect combinations.",
-      "decision": "docs/architecture/wallpaper-quality-execution-contract.md#quality-feedback"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "50072fc99f629e629e2fc668f92aceb242b4987d9532473f48e5f3ed1aeaa21d",
-      "after": "e8bf48a201cc2d0f03db34784faa05458487d1c0704edce1c424fc83e93d4e28",
-      "owner": "Playback Quality",
-      "reason": "Replace the aggregate sample readout with its per-display source and fallback boundary.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "b2fbd9ace285bef9197e80a4854b28d5637b13cf0123114f196fc17077d2187c",
-      "after": "dc5d9aa6e29e9b3324f5bcbb3b88f54f7628940900a132147856485aaed24f47",
-      "owner": "Playback Quality",
-      "reason": "Route from the consumer to the existing per-display IPC and settings readout.",
-      "decision": "docs/architecture/repository-map.md#wallpaper-quality"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "5ac3c68015cb8c9a81639bae2a0a4677135d89d063495493d6e79accb2746203",
-      "after": "1f62847749b37f18ed01f5d560cb1842327e3f05f4a156e0b45a2b5c3a3f4b82",
-      "owner": "Playback Quality",
-      "reason": "Record the signed native settings contrast, current evidence and follow-up.",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
@@ -747,6 +702,51 @@
       "owner": "Scene input and playback quality",
       "reason": "Preserve upstream live orb control evidence and existing quality findings.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#orb-spin-official-live-376"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "dc5d9aa6e29e9b3324f5bcbb3b88f54f7628940900a132147856485aaed24f47",
+      "after": "55dd17ee122c1de91f127b3fc6710e41be0dc7113db077a5ef39d0f49f6fd39a",
+      "owner": "Scene playback quality",
+      "reason": "Specify the existing color resolve and independent point-volume tail with verified authored coverage.",
+      "decision": "docs/architecture/repository-map.md#wallpaper-quality"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/wallpaper-quality-execution-contract.md",
+      "before": "da767b10d863f57d32c4d6cc28e2e108af9a197954e08a4e2f45649d4869d442",
+      "after": "47c62a6abdee20f3ffe9f64567d09e4b75574d20ca91b548b395042d31c55567",
+      "owner": "Scene playback quality",
+      "reason": "Specify the existing color resolve and independent point-volume tail with verified authored coverage.",
+      "decision": "docs/architecture/wallpaper-quality-execution-contract.md#quality-combination-checks"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-settings-plan.md",
+      "before": "2bd7a65d628da0de8b5f9271b234832d603d3149d0bd6d43f08bdb017dd70a6d",
+      "after": "58a50156b42daac7ac4320d936946428be5a6e9d9c7f780e59569a5aa2009f8d",
+      "owner": "Scene playback quality",
+      "reason": "Specify the existing color resolve and independent point-volume tail with verified authored coverage.",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-point-volume-tail"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "1f62847749b37f18ed01f5d560cb1842327e3f05f4a156e0b45a2b5c3a3f4b82",
+      "after": "fc80d81abda1fcbb156b12a5b6fa1c7fde233e4073f4cbda1ec999a54844e860",
+      "owner": "Scene playback quality",
+      "reason": "Specify the existing color resolve and independent point-volume tail with verified authored coverage.",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "e8bf48a201cc2d0f03db34784faa05458487d1c0704edce1c424fc83e93d4e28",
+      "after": "a306b43905b263acc72638bf1ce3a78c19bfd7c624420254982175d4144d85ad",
+      "owner": "Scene playback quality",
+      "reason": "Specify the existing color resolve and independent point-volume tail with verified authored coverage.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
     }
   ]
 }

@@ -1086,6 +1086,8 @@
         "script/tests/fixtures/ScenePointVolumeChecks.swift",
         "script/tests/scene/test_scene_point_volume.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+SceneDrawing.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift",
         "script/tests/scene/test_scene_point_volume_integration.py"
       ],
       "modules": [

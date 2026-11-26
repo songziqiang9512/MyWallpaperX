@@ -7,7 +7,7 @@
 ## 当前批与接手步骤
 
 - 独立工作树 `Fluxo/wallpaper-quality-settings` 已合入主线 `0c012812a`。以[执行合同](../architecture/wallpaper-quality-execution-contract.md#quality-option-semantics)核逐档、纹理用途、灯种、效果组合与回显，官方工作流和采样待验保留在下文。签名默认音条在 1× 前缀后进 4× 根段，默认月亮由 2×／4× 根段解析后交给 1× 像素化。高性能纹理解除无关脚本别名否决，3264246690 实绘 5120×1440→1280×360。体积清深度直查未改善整帧且有画面负例，作者 mip 快照使整场峰值回退，两项退出。HDR 目标屏选择已过受控 AppKit 门，物理混合屏待验。 [根域](wallpaper-quality-settings-plan.md#scene-aa-depth-independent-tail) · [纹理](wallpaper-quality-settings-plan.md#scene-texture-deferred-quality) · [体积试验](wallpaper-quality-settings-plan.md#scene-volume-clear-depth-table) · [源码地图](../architecture/repository-map.md#wallpaper-quality)
-- MSAA 已接入[逐屏实际回执](../architecture/wallpaper-quality-execution-contract.md#quality-feedback)。活动根样本、已知设备限制、准备失败和未进入多样本路径各有准确回显，应用新档前可读旧画面状态。M4 单内屏用 AppKit 依次选无／2×／4×／无。3477054430 实际提交 1／2／4／1，独立 3453730450 为 1／1／1／1，中间两档显示单采样路径。每次取得同一接管请求的画面，转 Web 后清除。受控回归覆盖交换屏、单屏未知、旧请求、附件与种色准备失败，设备限制和混合屏尚无物理证据。收据归 `.artifacts/wallpaper-quality-raster-status-20261127`。下一步缩小与体积／实时环境／具名供货共同退 1× 的范围，并让后处理／EDR、纹理基级、各灯影图和体积路径、反射来源逐项使用原消费者回执。优先补有真实执行、用户却看不到采用结果的控件。持续补官版低／中档、反射对照和[点光阴影长窗](#scene-point-shadow-density-trial)。
+- MSAA 已接入[逐屏实际回执](../architecture/wallpaper-quality-execution-contract.md#quality-feedback)。活动根样本、已知设备限制、准备失败和未进入多样本路径各有准确回显，应用新档前可读旧画面状态。M4 单内屏用 AppKit 依次选无／2×／4×／无。3477054430 实际提交 1／2／4／1，独立 3453730450 为 1／1／1／1，中间两档显示单采样路径。每次取得同一接管请求的画面，转 Web 后清除。受控回归覆盖交换屏、单屏未知、旧请求、附件与种色准备失败，设备限制和混合屏尚无物理证据。收据归 `.artifacts/wallpaper-quality-raster-status-20261127`。点光体积已可在合格多样本根段后的独立尾部绘制。缩小实时环境、具名供货和已有 1× 深度前缀的限档范围，并让后处理／EDR、纹理基级、各灯影图和体积路径、反射来源逐项使用原消费者回执。优先补有真实执行、用户却看不到采用结果的控件。持续补官版低／中档、反射对照和[点光阴影长窗](#scene-point-shadow-density-trial)。
 - M4 单内屏已验证四档预设、10–120 FPS、Scene MSAA 至 4×、泛光和显示 HDR、三种纹理策略、阴影五档、反射启停及真实桌面接管。Scene 冷档直接编辑与显式重试共用实际准备回执和在途撤单。导入同类画质可连续播放。真实 Web 作者验证 FPS 建议与绘制，Video 保原片并已实测 PQ／HLG／HDR10+ 实窗。体积保禁用、高／超高，低／中原尺寸网格已验画面与回退，整帧收益未复现，暂退出发布。[本地 Video 原片恢复](wallpaper-quality-settings-plan.md#video-inspector-source-recovery)已在同窗更新实际尺寸和标称帧率，原生同窗切换实证[冷海报等比定位、暖切保留原画及留黑](wallpaper-quality-settings-plan.md#video-candidate-poster)及[同源淡入亮度连续](wallpaper-quality-settings-plan.md#video-crossfade-luminance)。直接调档已实测自动采纳、在途精确撤单与三引擎导入连续。后续继续官版运行对照及混合显示拓扑、8× 和长稳功耗的硬件复验。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
 
 每批先冻结输入、画面口径及同机噪声，再改现有职责并走最近门、独立审查和窄提交。轮次完成后保必要证据，退出诊断和已失效的边界。未越过收益门的候选停止推进。 [实测门槛](wallpaper-quality-settings-plan.md#quality-release-gates)
@@ -138,7 +138,7 @@ Apple M4 的两臂均在 Metal 完成。宽边中心均为 −0.5 阴影 texel�
 
 使用原准备和呈现入口，比较同一透视 MDL 场景的光晕与前景遮挡。对照作者禁用、作者阴影开配用户阴影关、无合格根域写深度实体、正交和不清屏画布，并跑独立真作者点光源。区分直接光、实际遮挡重放和加光贡献。聚光原光锥留现有顺序，另验组和显式具名供货关闭对照后再扩大显示范围。先稳住当前四点积分，求积阶数和中间尺寸按可比画面、完整 GPU 时间和能耗决定。
 
-签名隔离 Debug 在同一合成包测到点光晕红通道均值 197.67／255 降到 0，直接受光和前遮挡对应探针保持 65、180。启用侧原深度纹理与积分绑定在同一 GPU 提交，禁用侧这两道工作消失。作者关闭、作者阴影开、无合格实体、正交与累积五个真实 App 反例均未加入体积。独立作者 3455121165 固定太阳体积属性、SceneTime 和壁钟，两档真实输出均排空，太阳光团随档出现或退出。该片未量聚光、官方全局档的质量级数或长稳功耗。
+签名隔离 Debug 在同一合成包测到点光晕红通道均值 197.67／255 降到 0，直接受光和前遮挡对应探针保持 65、180。启用侧原深度纹理与积分绑定在同一 GPU 提交，禁用侧这两道工作消失。作者关闭、作者阴影开、无合格实体、正交与累积五个真实 App 反例均未加入体积。独立作者 3455121165 固定太阳体积属性、SceneTime 和壁钟，两档真实输出均排空，太阳光团随档出现或退出。该片未量聚光、官方全局档的质量级数或长稳功耗。 [点光 MSAA 尾段](wallpaper-quality-settings-plan.md#scene-aa-point-volume-tail)以 M4 签名原包 3453730450 配作者属性和全局关反射验证。相同高体积配置，旧 1× 根，候选 2×／4× 根解析至原主色后加光，灯 39 分别实绘四点，高档改超高以 4× 根实绘六点。两构建关体积均保 4× 且无重放。独立 3455121165 保真实灯 85 与前缀 1× 深度，原默认复杂组合和反射边界仍有效。受控 2×／4× 的光晕红通道均为 197.67／255，关闭或无合格写深实体为 0，直接受光与遮挡探针不变。同一门在旧版实绘 1× 时失败。作者的同帧 GPU 完成与终图已配对，跨进程的动画相位未逐帧配对。 实绘对照归 `.artifacts/wallpaper-quality-aa-point-volume-20261127`。
 
 ### 点光求积阶数的测量结论
 
