@@ -549,11 +549,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "15d349cbaf94c611d8ef3b73855fac845f58d46ece9958ec3b445e971528eb70",
+      "before": "3dbfd8a2ce24e15a0fcbd6afb7d0311b3ad596efab19e6a31a956f97a17726a6",
       "after": "38f15b8263ae534d7acb08a214b3442b527f5ec36be11e5003976031aeaec2a4",
-      "owner": "Scene 聚光照明与排序",
-      "reason": "记录可绘聚光计划的排序和绘制边界、保持作者依赖及实测条件。",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
+      "owner": "Scene 与三引擎画质",
+      "reason": "从主分支正文核对已合入的 Scene 合同和画质证据，保留双方工作及合并正文的实际预算。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
@@ -576,20 +576,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/scene-resource-admission.md",
-      "before": "e8367761c23f5564c4b8c79e6d1ad6dd949b3ed11e5d49dd2e60107f1bea541a",
+      "before": "0c4bfeee431dc47d0a5ac1a48fe6b8c50ba83bbd45d3812180b6d1b01300020b",
       "after": "57bcb10271115e94630022a7ac74f49298c98234a36b96c3603fbbaea68befc9",
       "owner": "Scene 与三引擎画质",
-      "reason": "合入主线已落库正文及其现行职责。",
+      "reason": "从主分支正文核对已合入的 Scene 合同和画质证据，保留双方工作及合并正文的实际预算。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "adf6a2a0d0062e5b3f36a73909413652cda1b1f1efcb6a024a1670afb5591fce",
+      "before": "d35a2178faf6784fe1f8a0647f84d175e4127403880aa35962ec473dee4b8ec3",
       "after": "f1e8d0db82cff76b17da667dae740a9ea5964be0c1f3153a2336c26c63536b12",
-      "owner": "Scene 聚光照明与排序",
-      "reason": "记录可绘聚光计划的排序和绘制边界、保持作者依赖及实测条件。",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
+      "owner": "Scene 与三引擎画质",
+      "reason": "从主分支正文核对已合入的 Scene 合同和画质证据，保留双方工作及合并正文的实际预算。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
@@ -621,28 +621,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "959df4d0458be9ad616ed874a8e9aebdd6417414cfab91cde9a6c1cb4a09ef85",
+      "before": "9be46f8e448bdaa64699e48d78c1b0b3a864385c7d312e8d7111ba2b4c8e91c7",
       "after": "141cc78d2d698371746f4ec2ae14199263f0aac61fddab56a36ee38236b538aa",
       "owner": "Scene 与三引擎画质",
-      "reason": "将主分支的 Scene 行为与质量分支证据合入同一现役正文，按合并正文重算预算。",
+      "reason": "从主分支正文核对已合入的 Scene 合同和画质证据，保留双方工作及合并正文的实际预算。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "899a8c8d15481209c70794c76dd5eb50b386e6f9dcbd20760cd743c8301e0bce",
+      "before": "0dfa8cbf08520fd4eeb81300181fd45ea6023c7eef57ac0cb86d09558e122dd5",
       "after": "307672ca09b0a372213dda58ee3c79ec8dccf362ffd7fb3ad2e564f503020070",
       "owner": "Scene 与三引擎画质",
-      "reason": "合并画质与主线的执行合同及不同构建身份下的证据，保持单一现役入口。",
+      "reason": "从主分支正文核对已合入的 Scene 合同和画质证据，保留双方工作及合并正文的实际预算。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2c83007844eb112dd5b5f2b3d263aa263c4c3a881bc85510cc0d260326870b13",
+      "before": "c741dd51d20a2eb8e2b8876e13be2af26c33d0160ba42dacfc7c574d3fd01d5b",
       "after": "18090dda1ab00673307a53ec7056dca5e6b78d05a53959d492a405541b02f892",
       "owner": "Scene 与三引擎画质",
-      "reason": "将主分支的 Scene 行为与质量分支证据合入同一现役正文，按合并正文重算预算。",
+      "reason": "从主分支正文核对已合入的 Scene 合同和画质证据，保留双方工作及合并正文的实际预算。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
@@ -657,10 +657,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "87ea653be930eeba06b6a15cc350a89f5b16f4be54e498343578f579725beec7",
+      "before": "e5889cb011af4a6be2162d7d8f9d2d72751156c37b88d0182da34c551f3f9c8b",
       "after": "6d2a740a4df47e5d979b682fbc1970f15102bcecd8bd067cbbff8a2773445bb9",
       "owner": "Scene 与三引擎画质",
-      "reason": "将主分支的 Scene 行为与质量分支证据合入同一现役正文，按合并正文重算预算。",
+      "reason": "从主分支正文核对已合入的 Scene 合同和画质证据，保留双方工作及合并正文的实际预算。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
