@@ -46,7 +46,7 @@ extension SceneMetalRenderer {
         visible: Set<Int>, cameraFrame: SceneParticleCameraFrame, snapshot: SceneDynamicSnapshot,
         worldFrames: [Int: simd_float4x4],
         utility: SceneUtilityLayerRuntimePlanner.Execution, backgroundCuts: Set<Int>,
-        particleBatches: [Int: [SceneParticleMetalPipeline.PreparedBatch]], particlePipeline: SceneParticleMetalPipeline?
+        particleBatches: [Int: [SceneParticleMetalPipeline.PreparedBatch]]
     ) -> [SceneRenderDescriptor.Layer]? {
         func drawsOpaqueModel(_ layer: SceneRenderDescriptor.Layer) -> Bool {
             layer.contentKind == "model" && cameraFrame.resolvesPerspective(for: layer)
@@ -75,13 +75,9 @@ extension SceneMetalRenderer {
             case "container", "sound", "pointLight", "directionalLight", "tubeLight": return false
             case "spotLight": return spotLightRuntime != nil && layer.spotLight?.castsVolumetrics == true
             case "particle":
-                let canReadSceneDepth = cameraFrame.defaultsToPerspective
-                    && cameraFrame.resolvesPerspective(for: layer)
                 return particleBatches[layer.id]?.contains {
                     $0.draw.refraction != nil || $0.draw.renderState.depthWriteEnabled
                         || $0.draw.renderState.blendMode != .additive
-                        || (canReadSceneDepth && $0.draw.readsSceneDepth
-                            && particlePipeline?.supportsSceneDepth(for: $0.draw.renderState.blendMode) == true)
                 } ?? false
             case "image", "solid", "text":
                 guard (layer.colorBlendMode ?? 0) == 0,
@@ -182,12 +178,10 @@ extension SceneMetalRenderer {
         forwardGraphProviderLayerIDs: Set<Int>,
         preparationSchedule: SceneDependencyRenderPlan.PreparationSchedule,
         frameVisibleLayerIDs: Set<Int>,
-        activeStaticModelNamedAlbedoLayerIDs: Set<Int>,
+        omittedPrivateLayerIDs: Set<Int>,
         imageTextures: SceneBaseImageTextureSnapshot,
         imagePipeline: SceneImageLayerPipeline?,
         specializedBaseTextureSamplings: [Int: SceneTextureSampling],
-        spriteAnimations: [Int: SceneSpriteAnimation],
-        spriteAnimationPlaybackTimes: [Int: Float],
         resolvedMaterialFrameTargetPlans: [Int: SceneResolvedMaterialFrameTargetPlan],
         frameContext: SceneFrameContext,
         frameWorldFrames: [Int: simd_float4x4],
@@ -301,7 +295,7 @@ extension SceneMetalRenderer {
                 }
                 graphProviderLayerIDs.formUnion(prepared)
             }
-            if skipsGroupMember { continue }
+            if skipsGroupMember || omittedPrivateLayerIDs.contains(layer.id) { continue }
             let reusesForwardOutput = graphProviderLayerIDs.contains(layer.id)
             if !reusesForwardOutput, !frameVisibleLayerIDs.contains(layer.id),
                preparationSchedule.scheduledGraphProviderLayerIDs.contains(layer.id) { continue }
@@ -372,11 +366,7 @@ extension SceneMetalRenderer {
                 }
                 continue
             }
-            if !reusesForwardOutput, let imagePipeline, dependencyRuntime.requiresCapture(
-                for: layer.id,
-                activeStaticModelConsumerLayerIDs:
-                    activeStaticModelNamedAlbedoLayerIDs
-            ) {
+            if let imagePipeline, preparationSchedule.authoredRawProviderLayerIDs.contains(layer.id) {
                 let captureResult = captureRawDependencyProvider(layer: layer, source: baseSource,
                     imageTextures: imageTextures, imagePipeline: imagePipeline, frameContext: frameContext,
                     worldFrames: frameWorldFrames, cameraFrame: cameraFrame,
@@ -480,8 +470,6 @@ extension SceneMetalRenderer {
                         imageTextures: imageTextures,
                         imagePipeline: imagePipeline,
                         specializedBaseTextureSamplings: specializedBaseTextureSamplings,
-                        spriteAnimations: spriteAnimations,
-                        spriteAnimationPlaybackTimes: spriteAnimationPlaybackTimes,
                         resolvedMaterialFrameTargetPlans: resolvedMaterialFrameTargetPlans,
                         frameContext: frameContext,
                         frameWorldFrames: frameWorldFrames,

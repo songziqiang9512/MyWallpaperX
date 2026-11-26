@@ -5,6 +5,15 @@ enum SceneDeferredBaseImageStatus: Equatable {
     case failed(String)
 }
 
+struct FixtureConditionalUpdates {
+    var baseImages: [Int: Bool] = [:]
+    var assets: [String: Bool] = [:]
+}
+
+struct FixtureMaterialCatalog {
+    func replaceConditionalAssets(_ updates: [String: Bool]) {}
+}
+
 final class FixtureResources {
     let deferredLayerIDs: Set<Int>
     var statuses: [Int: SceneDeferredBaseImageStatus]
@@ -29,7 +38,7 @@ final class FixtureResources {
     func requestConditionalAtlases(_ selections: [Int: Set<UInt32>], generation: UInt64) {}
     func conditionalStatus(generation: UInt64) -> SceneDeferredBaseImageStatus { .notDeferred }
     @discardableResult
-    func finishConditionalAtlases(generation: UInt64, commit: Bool) -> [Int: Bool] { [:] }
+    func finishConditionalAtlases(generation: UInt64, commit: Bool) -> FixtureConditionalUpdates { .init() }
 }
 
 final class FixtureAdoption {
@@ -68,7 +77,7 @@ final class FixtureView {
         committed.formUnion(layerIDs)
         staged.subtract(layerIDs)
     }
-    func replaceConditionalAtlases(_ updates: [Int: Bool]) {}
+    func replacePreparedBaseImages(_ updates: [Int: Bool]) {}
 }
 
 final class FixtureSound {
@@ -96,6 +105,7 @@ struct SceneDesktopWallpaperLaunchContext {
     var liveState: ScenePropertyLiveUpdateState
     let runtimeInput: FixtureRuntimeInput
     let preparedDeviceResources: FixtureDeviceResources
+    let materialAssetCatalog = FixtureMaterialCatalog()
     var particleLayerIDs: Set<Int> = []
     var particleVisibilityRequirements: [Int: Set<Int>] = [:]
     var preparedParticleVisibilityLayerIDs: Set<Int> {

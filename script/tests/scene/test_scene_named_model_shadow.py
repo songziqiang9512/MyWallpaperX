@@ -265,6 +265,7 @@ DEPENDENCY_SOURCES = list(dict.fromkeys([
     dependency_fixture.AGGREGATE_VALIDATION_RUNTIME_SOURCE,
     dependency_fixture.GEOMETRY_RUNTIME_SOURCE,
     dependency_fixture.EFFECT_INPUT_RESOLUTION_RUNTIME_SOURCE,
+    dependency_fixture.BASE_IMAGE_SAMPLE_SOURCE,
     SCENE/'Rendering/Dependencies/SceneNamedRenderTargetPool.swift', SCENE/'Rendering/Dependencies/SceneDependencyCaptureFault.swift',
     SCENE/'Rendering/Metal/SceneMetalPipeline.swift', SCENE/'Runtime/Frame/SceneMaterialRenderState.swift',
     SCENE/'Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift',

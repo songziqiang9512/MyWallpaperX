@@ -166,6 +166,12 @@ final class SceneResolvedMaterialPassEncoder {
         )
     }
 
+    func prepareCaptureTail(program: SceneResolvedMaterialProgram, target: MTLTexture) -> PreparedPass? {
+        guard case let .success(pass) = prepareAuthorizedResult(program: program, target: target,
+            attachmentStorage: .color, role: .offscreenAttachmentOverwrite) else { return nil }
+        return pass
+    }
+
     private func prepareAuthorizedResult(
         program: SceneResolvedMaterialProgram,
         target: MTLTexture,
@@ -303,7 +309,7 @@ final class SceneResolvedMaterialPassEncoder {
         _ pass: PreparedPass,
         copies: [ObjectIdentifier: MTLTexture]
     ) -> PreparedPass? {
-        guard pass.role != .offscreenOverwrite,
+        guard !pass.role.isOffscreen,
               pass.ownerToken == ownerToken,
               pass.resetGeneration == withLock({ resetGeneration }) else { return nil }
         var result = pass
@@ -315,7 +321,7 @@ final class SceneResolvedMaterialPassEncoder {
         return result
     }
 
-    func terminalDraw(
+    func drawInsideExistingEncoder(
         _ pass: PreparedPass,
         target: MTLTexture,
         commandBuffer: MTLCommandBuffer
@@ -324,7 +330,7 @@ final class SceneResolvedMaterialPassEncoder {
               target === pass.target,
               isValid(pass, commandBuffer: commandBuffer) else {
 #if DEBUG
-            recordComposition(pass, encoded: false, reason: "terminal-draw-rejected")
+            recordComposition(pass, encoded: false, reason: "shared-encoder-draw-rejected")
 #endif
             return nil
         }
@@ -414,6 +420,9 @@ final class SceneResolvedMaterialPassEncoder {
 #endif
         encoder.setRenderPipelineState(pass.pipeline)
         encoder.setCullMode(.none)
+        if pass.role == .offscreenAttachmentOverwrite {
+            encoder.setFrontFacing(.clockwise)
+        }
         if !pass.uniformBytes.isEmpty {
             pass.uniformBytes.withUnsafeBytes { bytes in
                 guard let baseAddress = bytes.baseAddress else { return }
@@ -451,8 +460,8 @@ final class SceneResolvedMaterialPassEncoder {
     private func recordComposition(_ pass: PreparedPass, encoded: Bool, reason: String? = nil) {
         if let trace = pass.compositionTrace {
             for var row in pass.compositionRows {
-                row.kind = pass.role == .offscreenOverwrite ? "material" : "terminal-material-replay"
-                row.target = .init(pass.target, role: pass.role == .offscreenOverwrite ? "graph-material-target" : "terminal-replay-target")
+                row.kind = pass.role.isOffscreen ? "material" : "terminal-material-replay"
+                row.target = .init(pass.target, role: pass.role.isOffscreen ? "graph-material-target" : "terminal-replay-target")
                 if let slot = row.slot, let binding = pass.bindings.first(where: { $0.slot == slot }) {
                     let readsAttachment = slot == pass.attachmentReadSlot
                     let actual = readsAttachment ? pass.target : binding.texture
@@ -606,8 +615,8 @@ final class SceneResolvedMaterialPassEncoder {
         descriptor.fragmentFunction = fragment
         descriptor.rasterSampleCount = sampleCount
         descriptor.colorAttachments[0].pixelFormat = pixelFormat
-        descriptor.colorAttachments[0].isBlendingEnabled = passRole != .offscreenOverwrite
-        if passRole != .offscreenOverwrite {
+        descriptor.colorAttachments[0].isBlendingEnabled = !passRole.isOffscreen
+        if !passRole.isOffscreen {
             let additive = passRole.terminalReplayBlendMode == 31
             let straight = passRole == .terminalStraightSourceOver
                 || passRole == .terminalStraightAdditive

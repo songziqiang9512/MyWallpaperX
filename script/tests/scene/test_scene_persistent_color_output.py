@@ -93,7 +93,10 @@ struct SceneMetalRenderer {
     var spotLightRuntime: TerminalSpotLightRuntime? { nil }
 }
 '''
-BLIT_FAULT_HEADER = "void MWXArmBlitFault(id<MTLCommandBuffer> buffer, NSUInteger mask); NSUInteger MWXBlitAttempts(void);"
+BLIT_FAULT_HEADER = """
+void MWXArmBlitFault(id<MTLCommandBuffer> buffer, NSUInteger mask);
+NSUInteger MWXBlitAttempts(void);
+"""
 BLIT_FAULT_SOURCE = r'''
 static id blitBuffer;
 static NSUInteger blitMask, blitAttempts;

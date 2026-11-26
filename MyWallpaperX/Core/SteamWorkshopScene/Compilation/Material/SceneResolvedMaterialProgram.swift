@@ -75,7 +75,6 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
         case shaderFrontendFailed
         case uniformBindingInvalid
         case activeUniformSchemaMissing
-        case uniformDeclarationConflict
         case staticUniformBindingInvalid
         case hostUniformDeclarationConflict
         case hostUniformBindingInvalid

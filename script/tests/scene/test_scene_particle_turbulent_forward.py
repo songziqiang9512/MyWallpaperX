@@ -236,7 +236,8 @@ class SceneParticleTurbulentForwardTests(unittest.TestCase):
                 self.assert_vector(birth["positions"][0], [value * .125 for value in velocity])
                 self.assert_vector(after["positions"][0], [value * 2 for value in velocity])
                 self.assertEqual(after["time"], 2)
-                self.assertEqual(after["ages"], [2])
+                self.assertEqual(birth["ages"], [0])
+                self.assertEqual(after["ages"], [2 - .125])
                 self.assertTrue(after["gpuFinite"])
                 self.assertEqual(after["ids"], birth["ids"])
 

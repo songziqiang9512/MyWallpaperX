@@ -101,7 +101,7 @@ enum SceneResolvedMaterialGraphObservationBuilder {
             historyRehydrateCopyCount: value.historyRehydrateCopyCount,
             historyContentDiscarded: value.historyContentDiscarded,
             composeSlotBefore: failed ? .none : slot(value.pairStep.inputMember),
-            composeSlotAfter: failed ? .none : slot(value.pairStep.outputMember),
+            composeSlotAfter: failed ? .none : slot(value.actualOutputMember ?? value.pairStep.outputMember),
             historyState: failed
                 ? failedHistoryState(committedBaseState)
                 : historyState(value),

@@ -22,15 +22,34 @@ LayerImage 继续使用原 compiler：原 base-image owner 将 provider 缺 outc
 
 预热沿原固定步进、RNG、出生/死亡和 SnapshotRecorder，预热期不再记录 birth/death 事件（原每步排空成空操作；显式发射候选预算按实际 capacity 起算），保部分末步和后续 live 随机序列；作者 starttime 以模拟秒推进；实时入口只把固定墙钟步长乘一次实例 rate，预热直接提交原模拟 slice。同一 step 消费已投影的时间，保粒龄、出生、积分和历史同域，不暂换实例字段或另建时钟。所有 root 沿 worker 完整准备，退役3,600步、四百万加权关卡及专属工作计数；static/frame-created child 仍保240步及截断诊断。入口无效时长、容量与资源边界不变。
 
-存量基线、Movement、AlphaFade 和 Turbulence 各一次同步借用原粒子数组，保算子及逐粒顺序、半衰积分、Vortex 半径和局部失败。AlphaFade 复用当步归一寿命，保淡入后淡出两次乘法的原次序及边界。Turbulence 的 keyed 随机只取已借用的实例 ID、系统 seed 与算子键，复用当步时间和音频输入，保原噪声、速度范围与有限值写入。指针不逃逸。见[基线](runtime-evidence-current.md#particle-baseline-borrow)与[Movement](runtime-evidence-current.md#particle-movement-borrow)。同一 Simulator 按原序收集死亡事件并清振荡缓存。粒子存储的连续 live 区间是死亡前缀之后的后缀：队首死亡只前移区间起点（O(1)），累计前缀达到 64 时做一次摊销压缩；遇到首个非队首死亡仍按原 read/write 压紧已读存活段。reset、operator、事件与快照只观察连续 live 区间；renderer 和 child 的 live-range 交接直接共享 ArraySlice，保留视图时由原 Array COW 隔离后续写入；Sprite 当前回调仅在合并 transient births 时物化并排序样本。Rope/RopeTrail 的既有几何准备保持，顺序、payload 与 rollback 不变。死亡扫描仅为 live 事件或振荡缓存复制死亡 payload；预热不生成事件，见[死亡移除证据](runtime-evidence-current.md#particle-death-compaction)、[前缀存储证据](runtime-evidence-current.md#particle-lead-death-buffer)与[预热证据](runtime-evidence-current.md#particle-prewarm-hotpath)。reset 仅写实际算子改变的 alpha/size/color，其余属性自出生保持初值。步进内 GPU 有限性接受与拒绝边界不变，仅把逐 lane 转换合为一次 `SIMD3<Float>` 转换。两者都不改算子次序、固定步进、RNG、出生/死亡、快照与 live handoff；实测与限制见[预热热路径](runtime-evidence-current.md#particle-prewarm-hotpath)。
+存量基线、Movement、AlphaFade 和 Turbulence 各一次同步借用原粒子数组，保算子及逐粒顺序、半衰积分、Vortex 半径和局部失败。AlphaFade 复用当步归一寿命，保淡入后淡出两次乘法的原次序及边界。Turbulence 的空间场、时钟及随机采样见[持续力合同](#continuous-turbulence)。指针不逃逸。见[基线](runtime-evidence-current.md#particle-baseline-borrow)与[Movement](runtime-evidence-current.md#particle-movement-borrow)。同一 Simulator 按原序收集死亡事件并清振荡缓存。粒子存储的连续 live 区间是死亡前缀之后的后缀：队首死亡只前移区间起点（O(1)），累计前缀达到 64 时做一次摊销压缩；遇到首个非队首死亡仍按原 read/write 压紧已读存活段。reset、operator、事件与快照只观察连续 live 区间；renderer 和 child 的 live-range 交接直接共享 ArraySlice，保留视图时由原 Array COW 隔离后续写入；Sprite 当前回调仅在合并 transient births 时物化并排序样本。Rope/RopeTrail 的既有几何准备保持，顺序、payload 与 rollback 不变。死亡扫描仅为 live 事件或振荡缓存复制死亡 payload；预热不生成事件，见[死亡移除证据](runtime-evidence-current.md#particle-death-compaction)、[前缀存储证据](runtime-evidence-current.md#particle-lead-death-buffer)与[预热证据](runtime-evidence-current.md#particle-prewarm-hotpath)。reset 仅写实际算子改变的 alpha/size/color，其余属性自出生保持初值。步进内 GPU 有限性接受与拒绝边界不变，仅把逐 lane 转换合为一次 `SIMD3<Float>` 转换。两者都不改算子次序、固定步进、RNG、出生/死亡、快照与 live handoff；实测与限制见[预热热路径](runtime-evidence-current.md#particle-prewarm-hotpath)。
 
-Turbulence、Turbulent Velocity、Remap 和 Position Offset 共用梯度噪声。格点先选两个带符号偏移，再按原操作数顺序求一次和，保 hash、八角、插值、时间及 mask。用原生状态位值和首屏计时验收。`prewarmStepBudget` 只截断本次模拟，Snapshot 无续热游标。默认隐藏 root 在零步初始 advance 清人口和轨迹，保 RNG、ID、模拟时间及已完成 emitter，未完成者沿原 rearm。
+Remap 和 Position Offset 保现有八角三维梯度噪声，格点求和及插值顺序有原生位值和首屏计时验收。`prewarmStepBudget` 只截断本次模拟，Snapshot 无续热游标。默认隐藏 root 在零步初始 advance 清人口和轨迹，保 RNG、ID、模拟时间及已完成 emitter，未完成者沿原 rearm。
+
+<a id="natural-birth-lifetime"></a>
+### 普通发射的首步粒龄
+
+在模拟步内出生的粒子立即参与作者算子，包括首步位移。其外观曲线仍从粒龄 0 读值，此后按原实际子步累计并在作者寿命处退休。官版短寿命板的前后连续状态及两档 rate 见[出生到消失对照](runtime-evidence-current.md#ember-birth-lifetime-376)。位移积分与年龄起点同归原 Simulator。
+
+原步内发射前已有的粒子身份分界用于同一 reset 循环，只推进进入该步时已存在的粒子。冷预热与实时使用同一步骤，显式发射在步前已经入列，继续随现存粒子推进。正常绘制消费算子后的活粒子；同一回调内出生又死亡时，临时绘制仍取算子前的出生样本。低帧率下一次绘制可能已跨过多个模拟子步。
+
+<a id="continuous-turbulence"></a>
+### 持续 Turbulence
+
+冷准备解析场尺度、时钟频率、三轴掩码、相位跨度、速度端点和生命混合。Scene 相机的正交分支缺省 scale .01、timescale 20、mask (1,1,0)、speed 500…1000；其他投影缺省 .5、1、(1,1,1)、1…5。作者显式值保留有符号。相位两端缺省 0，运行只消费跨度。粒子用同一个稳定单位样本选择相位跨度和速度区间，随机单位从现有身份推导，每步至多取一次且不消费出生序列。
+
+场坐标为 `(粒子当前位置 + Scene 秒 × (作者时钟尺度 × 实例 rate) + 相位跨度 × 单位样本) × 空间尺度`。在粒子既有空间按三个循环轴序 (x,y,z)、(z,x,y)、(y,z,x) 求三维 simplex 有符号标量，只取非零掩码的分量。使用公开 Perlin 置换及四个角的紧支撑权重，最高角梯度寻址保官版经验证的第三轴索引。零尺度得到零力。以掩码、实例 speed、稳定采样速度、生命混合和模拟步长累加存量速度。音频沿已有频带峰值与曲线作用于采样速度。低于 40 Hz，沿真实 Scene 帧间隔以 `(0.025 / 帧秒)^0.7` 衰减持续力，同一 Surface 帧只算一次。首场预热使用全强度，事件产生的子实例预热读同帧因子，粒龄仍走原步进。继承相机、时钟和音频的现有准备路径；不建第二时钟、缓存或逐粒子状态。
+
+以 Scene 帧间隔独立计量后比较同龄粒子轨迹，覆盖零空间、负尺度、非零时钟、相同相位跨度、两档实例 rate、三轴掩码和顺序反例。用原包和使用同一算子的独立原包核对终端合成。移动的成熟光带覆盖仍需独立的同龄链路证据。[官版作者参数](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html#turbulence) · [同龄轨迹与原包复验](runtime-evidence-current.md#particle-continuous-turbulence-field)
 
 <a id="initializer-execution"></a>
 初始化分派继续由原 `SceneParticleInitializerExecutionPlan` 冷准备，按作者顺序为每个 initializer 保留一个带对应 payload 的 enum case。出生只枚举这一个执行序列，退出每次复制完整 raw initializer、再索引九组 optional 聚合计划的双链。Scalar/Vector/Color 的必备 payload 由 case 直接持有，退役不可能缺失的热 guard；原 Definition 仍拥有作者事实、冷准入和诊断名称，不另存 kind 镜像、计划表或缓存。CP 需求收集和显式发射工作量同样消费原有序计划；原预算值和失败半径保持。
 
 <a id="turbulent-velocity-speed-range"></a>
-出生 `turbulentvelocityrandom` 的速度端点独立缺省为 100/250，相位端点独立缺省为 0。保显式值、非负速度域、反序取样及原 RNG 顺序。幅值沿 Forward 长度、绕轴转向和实例速度进入 Movement。持续 Turbulence 由其自身计划供值。[速度对照](runtime-evidence-current.md#ember-turbulent-birth-speed) · [相位对照](runtime-evidence-current.md#ember-turbulent-birth-phase)
+<a id="turbulent-birth-clock"></a>
+出生 `turbulentvelocityrandom` 沿当前 Scene 帧时钟采样一维 simplex 梯度噪声。相位端点独立缺省为 0/.1，音频响应作用于相位跨度。采样输入为 `(Scene 秒 + 相位) × (作者时钟尺度 × 实例 rate)`，预热在当前 Scene 时刻采样，内部年龄仍逐步推进。按有符号的角尺度乘 π 加方向偏移，绕单位化的作者 Right 旋转整个 Forward，保留其长度。固定位置、同场不同年龄、负尺度和零时钟分别验收。随机速度沿原采样及 Movement，正交速度缺省已核 100/250，其他投影待独立验证。
+
+冷准备形成旋转基，出生只消费帧时间、实例 rate、音频及两次原顺序随机取样。位置和第二路方向噪声退出；显式发射和事件建立的子实例接同帧 typed 时间，子预热复用同帧频谱。持续 Turbulence 保自身位置、相位与作用力合同。[速度对照](runtime-evidence-current.md#ember-turbulent-birth-speed) · [出生方向与预热对照](runtime-evidence-current.md#ember-birth-scene-simplex)
 
 真正不可用的 HSV/list、Turbulent、Offset、Around/Between payload 仍保原 case、ordinal 和原诊断：HSV/list nil 只 attempted；Turbulent/Offset 即使 nil 仍 unknown，Turbulent nil 保 helper 的普通零/strict NaN；Around/Between nil 只局部 break，已具计划但本次 CP 不可用时 strict 才拒当前出生。事件继承只准备 operation，本次 parent context、audio、位置和时间继续由原 live 消费者供给。不得借本批前移随机区间减法、消耗或省略 RNG、改变 pow/乘加顺序、浮点环境、writer 顺序、快照和后继 live 状态。
 
@@ -47,16 +66,32 @@ Turbulence、Turbulent Velocity、Remap 和 Position Offset 共用梯度噪声�
 | Initializers | 位置、速度、旋转、尺寸、寿命、颜色、sequence 等 typed writer | 后写者及 General override 保作者顺序；未知字段只影响相关组件；HSV/Mirror/Position Around 等仍有未资格组合 |
 | Operators | movement、gravity/力、颜色/alpha/size/旋转、noise、Remap、Vortex、Plane/[Sphere](#sphere-collision)/[Bounds](#bounds-collision) Collision、[单点半径](#control-point-radius)与[双点搬移](#between-control-points)等原计划 | 不支持操作不假装执行；与 child、CP、世界空间和 lifecycle blend 分别限定 |
 | Control Points | 0…7 typed identity、静态/动态位置及 emitter、initializer、force、约束消费者 | 按 authored ID 而非数组位置；CP0/system origin 与其他 world source 不混用，未知 flags/angles/parent 不猜 |
-| Instance overrides | 已有颜色、发射、速度、播放及 typed 动态输入 | 新生 writer 与存量粒子不同；不以新属性自动改写既有粒子 |
+| Instance overrides | 已有颜色、发射、速度、播放及 typed 动态输入 | 出生保各自基值。存量按实际算子消费，尺寸见 [SizeChange](#size-change-instance-override) |
 
 <a id="instance-color"></a>
 ### 实例颜色覆盖
 
-`instanceoverride.color` 除以255一次，优先于 `colorn`，在 initializer 后替换新生直色。属性只改变后续出生。
+`instanceoverride.color` 除以255一次，优先于 `colorn`，在 initializer 后替换新生直色。属性和颜色轨只改变后续出生，存量保留出生色。[官版时序](runtime-evidence-current.md#particle-instance-color-revision)
+
+<a id="instance-color-revision"></a>场景 JSON 的整数版本早于 5 或未提供可用整数时，实例覆盖色逐通道平方。5 起直读。覆盖色含负通道时保初始化器颜色。`SceneDocument` 准备版本规则，脚本绑定投影和子模板保留该规则。选色在作者空间插值后完成，Simulator 仅在所选输入变化时更新出生色。预热、显式发射和快照沿原实例生命周期。Color Random 与后续颜色算子保持各自值域。旧/新版本、同轨分批出生、真实作者及 Metal 对照归[运行证据](runtime-evidence-current.md#particle-instance-color-revision)。
 <a id="hdr-instance-brightness"></a>
 `instanceoverride.brightness` 在场景装载时由 HDR 与 Bloom 同开选中，强度为0也有效。沿原 typed slider 和 Simulator 出生 writer 给直色乘有限标量，缺省或不可用取1。三类颜色均可乘，保零值、超白、alpha、后继 writer 与材质 `overbright`。热值只供有绑定的根实例，不传 child 模板。父事件颜色仍是实际出生值。禁用颜色覆盖沿原实现，官版 bit8、运行中切换 Bloom、脚本和动画供值待证。[运行对照](runtime-evidence-current.md#hdr-particle-instance-brightness)
 
-<a id="neutral-mask-trail-color"></a>普通无光照、SDR 半透明 SpriteTrail 使用实际 R8 白色覆盖纹理及独立根 `colorn` 时，原普通片元对已有 PMA RGB 限至 `alpha`，等价于先把增亮后的直色限制到1，再乘一次覆盖率。裁幅随已准备绘制状态传入原 uniform，保现有 blend、采样和 PSO。Legacy `color`、HDR、折射、有色纹理、后继颜色写入与子系统的材质裁幅沿原路径。双背景、改名和独立纹理的[验收](runtime-evidence-current.md#neutral-mask-trail-382)。
+<a id="ordinary-particle-sdr-material-gain"></a>
+### 普通粒子在归一化颜色附件的材质增亮
+
+共用普通非折射片元的 Sprite、SpriteTrail、Rope 和 RopeTrail 先在直色空间过滤纹理，以作者 tint 和材质 `overbright` 乘 RGB。在 BGRA8／RGBA8 归一化附件，每个片元在乘覆盖前把各颜色通道裁到 1；等价地，以片元的纹理与粒子联合 alpha 裁 PMA RGB。该 alpha 同时继续供原透叠或加色混合，多个片元各自裁幅后仍照常叠加。16 位浮点保留中间超白；折射与 A2C 的独立片元继续使用各自合同。
+
+由原 Metal Pipeline 按目标格式冷选普通片元变体，删除按 Trail、R8、实例颜色来源和算子筛选的窄许可。沿原纹理、实例与材质传递输出，不增加帧分支、资源读取或 PSO 数量。验收取有色纹理、不同增益和 alpha、非黑底、半透明、两层加色、等价改名及浮点反例。原包核脚边光、独立原包核高增益青光，复用零增益、未超白和原白掩码的健康对照。
+
+<a id="neutral-mask-trail-color"></a>3823864170 的白色 R8 半透明 SpriteTrail 是该裁幅的特例。双背景、改名和独立纹理的[验收](runtime-evidence-current.md#neutral-mask-trail-382)。
+
+<a id="size-change-instance-override"></a>
+### SizeChange 的实例尺寸
+
+出生将有效 `instanceoverride.size` 纳入尺寸基值。模拟步从该基值重置，再按作者顺序执行各尺寸算子。每条 `sizechange` 将按寿命进度插值的原曲线值与当前有效尺寸倍率相乘，再乘入粒子尺寸。缺省倍率及禁用位128为1。单条和多条沿同一规则。热倍率随原 typed 输入进入模拟步，存量曲线读取当前值，出生基值继续保留；新生同时取得当时的出生倍率。无 SizeChange 的普通卡和其它尺寸算子沿各自既有规则。
+
+原模拟器统一取得有效倍率，每条 SizeChange 在粒子循环外取值一次。现有曲线、预热、实例载体、GPU 几何和混合路径继续使用。验收覆盖单位值、放大和缩小、禁用位、等价端点、多条顺序、其它 writer、重复步、热重绑，以及原包与独立作者的实际 GPU 帧。脚本 `instance.size` 沿[原句柄事务](scenescript-api-coverage.md#particle-instance-scalars)供同一倍率，显式出生使用已发布快照。
 
 <a id="control-point-position"></a>
 ### 控制点位置的取值职责
@@ -106,6 +141,15 @@ Sphere 固定零半径时，出生位移为零，初速使用同一次球面抽�
 
 原 initializer、实例乘数和坐标变换之后才校验寿命与Float/GPU可表示性；失败只丢该新生，显式命令沿原 exact-n 事务回滚。固定轴、速度符号和端点、溢出、改名及原作者见[运行证据](runtime-evidence-current.md#world-sphere-launch-speed-365)。
 
+<a id="continuous-emitter-audio-response"></a>
+### 普通持续发射的音频响应
+
+符合原普通持续 Sphere／Box 发射合同的音频模式直接读取共享的作者16档。Left／Right 取相应侧，Center 对每个选中档先取双侧平均。含首尾的选择区间取峰值。峰值按作者 bounds 归一到0…1，先做 smoothstep，再取作者指数幂。持续发射的指数接受有限正值，删除原16上限。允许超过1的上游频谱进入 bounds 运算。
+
+原发射计划在准备时选择公式，原普通速率积分、余量、出生顺序及容量继续承接响应。静音不产生新出生，已出生粒子按原寿命播放。沿原合格模式、范围与时序准入，坏声明只影响相应发射器。初始化器与算子共享输入并沿各自原响应。无需额外的频谱、副本或时钟，调试回执与产品用同一次选带。
+
+验收含错频、左右错档、边界、超过1、E1／E100、坏模式、关闭音频及改名，相邻初始化器与算子保原行为。复用官版选频板和原曲，核原包出生与画面、独立作者和静音邻例。[选带与曲线实证](runtime-evidence-current.md#floor-beam-emitter-338211)
+
 <a id="emitter-sign"></a>
 ### 发射方向字段
 
@@ -126,7 +170,7 @@ Sphere 的 sign 逐轴按原有限值选边，零取双侧，任意非零含小�
 
 原 DefinitionParser → SpawnPlan → EmitterState → Simulator 承接周期数量。`maxtoemitperperiod` 只解析一次并进入原周期计划；缺省、0与负数沿无上限路径，正数由原自然发射消费者逐活动窗执行，不能因存在该字段拒绝整个发射器。当前 `count` 同时缩放发射率与周期上限，有效上限取正数乘积向下取整，再减去本周期已消费的自然请求数量；中途更新 `count` 不重置已用数量。每个 emitter 只在原 State 增加一个计数值，进入新活动窗及既有 rearm 清零；不保存倍率副本或第二份剩余额度，不建许可表、调度器或缓存。
 
-沿原窗口时钟/RNG推进，触顶只抑制本窗额外自然请求，不提前进入间隔，不停止小数余量积分；余量跨间隔与周期保留。跨多个窗的单步须在原循环内逐窗限额和重置，不能先合并所有活动秒再限一次。无上限仍保原活动秒聚合后一次积分的运算顺序。准备期的字段/时间区间检查、原1024窗口工作预算与非有限 accumulator 的局部失败保持；此消费者不借 cap 开放其他尚无消费者的 flags/audio/burst/duration 组合。
+沿原窗口时钟/RNG推进，触顶只抑制本窗额外自然请求。余量跨间隔与周期保留，单步跨窗逐窗扣额度，无上限沿原活动秒聚合。有限非负 `duration` 沿原发射时钟扣掉初延迟，从活动开始计时，到期只停新生。间隔保有限、有序和原最小时间，长间隔降低窗频率，退出一小时上限。原1024窗口预算与坏字段的局部失败保持，额外 flags、audio 与 burst 组合沿原边界。
 
 自然出生仍按作者 emitter 顺序，经过原系统容量裁剪与 constructor；额度按原 maximumParticleCount 有界的调度请求消费是本引擎当前策略，容量饱和时的官方计费点尚未确定。官方短命满槽对照中，无上限也会延后出生，不能据它选择计费公式；该通用调度差异独立留在[队列](../roadmap/scene-open-breakpoint-queue.md)。不为未证组合新增播放许可或改动已可用路径。显式 exact-n 沿原调用点/事务及容量处理，不扣自然额度，不把 cap guard 搬到整个 preparedPlaybackWork；早期显式调用对自然相位的官方差异另列队列，不以晚命令仍贡献证明完整交互一致。
 
@@ -154,10 +198,17 @@ Sphere沿原DefinitionParser一次准备显式local origin、radius及bouncefact
 
 验收用真实 Parser/Simulator 复现作者 891 的同 ID 入向越界和反弹，核画布边界、切向、朝内、未碰触、同顺序与改名，以及缩放/旋转、预热和无有效画布的反例。经原 Runtime→生产 Metal 验证固定输入的轨迹与最终像素，原作者须保原折射材质、显隐和主景；独立作者至少复测相邻 Sphere/Plane 和原相机取景。官方右边界控制只限定已测行为，不用于拟合作者画面。
 
+<a id="scalar-oscillation"></a>
+### Alpha 与 Size 振荡
+
+两种标量算子共用冷准备的相位、频率及尺度跨度。以稳定粒子单位样本 `u` 同时在相位与频率区间取值，振荡系数为 `scaleMin + u × (scaleMax − scaleMin) × (sin((粒龄秒 + 相位) × 频率) + 1) / 2`。频率缺省 1…10，相位 0…2π。Alpha 尺度缺省0…1，Size .8…1.2。固定尺度直接采用作者值。粒龄沿原固定模拟步，blend 以归一寿命把系数向 1 混合后乘当前属性。基线重置及作者顺序继续归原 Simulator。
+
+与持续 Turbulence 共用原粒子身份取样语义，不进发射 RNG，也不新增逐粒缓存。退役旧相位外加、余弦起点及不受粒子幅值约束的各自采样。Position 振荡仍消费自身向量与位移合同。验收覆盖固定频率/相位、相位变体、Size 与 Alpha 同源、固定端点、作者混合及既有 position 邻例。固定实机轨迹以单粒亮度和卡片宽度测量，真实作者以原图层实际合成验证。成熟覆盖继续以同龄 Sprite/Trail 分别比较。[官方作者说明](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html#oscillate-alpha) · [定相位与原包复验](runtime-evidence-current.md#particle-scalar-oscillation)
+
 <a id="operators"></a>
 ## 需要保留的数值边界
 
-- Remap 仍由原 `SceneParticleRemapValue` 准备 velocity/simplex 与 scalar-speed/FBM 两条有界计划；真实input selector/range、其他输出/操作及外层lifecycle blend尚缺完整消费者。独立静态范围、晚EventDeath实例与sine正控的当前资格见[运行证据](runtime-evidence-current.md)；场景对齐候选类不等于所有时钟/预热/rate行为已定，sine及作者缺省参数仍未资格。新实现沿[标量Remap合同](../architecture/runtime-architecture.md#particle-scalar-remap)替换两份平行可选计划，保原noise/RNG行为；不能用猜公式或新增字段组合白名单补第三路径。
+- Remap 由原 Operator 一次准备。时间到透明度支持线性或 sine、值域、Multiply/Remap 及生命周期混合，按作者顺序作用于当前 alpha。只在有已准备的透明度 writer 时恢复每步的出生基值。原 velocity/simplex 与 speed/FBM 保留既有行为。[数值合同](../architecture/runtime-architecture.md#particle-scalar-remap) · [原包及终端证据](runtime-evidence-current.md#particle-remap-native-output)
 - Vortex classic 与 v2 有不同 flags/轴/CP/audio 资格。现有默认原点的 v2 固定半径及强度为项目有界响应。显式控制点的方案见[定向 Vortex](#oriented-vortex)。
 - Plane Collision消费原准备平面；静态Sphere由[球体合同](#sphere-collision)维护。壁纸画布边界的实现范围归[Bounds合同](#bounds-collision)。
 - Position Around Count 是序列除数，支持大于等于 1 的有限作者数值，保留小数。整数可沿 ID 取余，小数沿原分段余数，超出 ID 范围的除数直接消费原 ID；计数只参与相位计算。准备时由同一 typed plan 汇合控制点和发射源约束，出生只消费该计划。未资格的轴、Mirror、periodic 与空间组合仍沿原边界。
@@ -197,11 +248,11 @@ CameraFrame 在原 screen 几何处形成 `linear × diag(1, ratio, 1) × billbo
 <a id="child-declaration-options"></a>
 ### Child声明选项与实际输入需求
 
-ChildGraphExpansion先解析已有trigger/transform并取得asset，再按原typed selector/可执行plan判断CP读取需求。无CP消费者的leaf沿原事件、constructor、实例、预算和draw执行；不解释的declaration flags或未消费start index保一次准备诊断，不用flags==0或{0,1}作播放许可。CP需求判断只在冷准备且有非零未解释声明flags时执行；flags0的start index是被动参数，不启用绑定或触发读取许可。无新增状态、时钟、CP表或逐帧定义扫描。
+ChildGraphExpansion 为已对照的局部 Follow 与 Static 准备声明 `flags=1` 的父粒子流。开始槽取 `controlpointstartindex`，缺省0。值来自直接父系统的存活粒子顺序和局部位置。收到的槽写进原 Simulator 控制点，清空时沿当前值保留。仅已收到流的 CP0 可作为 Sphere/Box 的隐式发射原点。显式 CP 输入沿原消费者，`flags=0` 的 start index 与没有复制位的 CP `parentcontrolpoint` 保持被动。已对照的局部 Follow 复制槽取自身作者默认点，一级 Static 的 raw-parent copy 保留原供值。
 
-CP需求不能用CP数组或共同controlpoint字段猜：Emitter的实际source（含隐式pointer CP0）、Around/Between initializer、Radius/Maintain、Force、Reduce及Vortex v2的CP0分别沿各自既有typed计划取事实；Sphere残留CP333不产生读取。非零未解释声明遇到真实reader或未资格子树时，仅该child template保持绑定不可用，父和健康peer继续；不能删请求后读默认点。原flags0/startnil与static raw-parent copy路径保持，旧parent-mapping诊断缺口独立留队列，不借本批改变其未知位置语义。
+未解释的声明组合由原 typed reader 决定影响范围。无 CP 消费的 leaf 走原事件链。实际 Emitter、Around/Between、Radius/Maintain、Force、Reduce、Vortex 读取到未知绑定时，局部保留诊断，父和健康 peer 继续。显式空 renderer 的事件节点在有可执行后代时只模拟，二级局部 Static 随直接父作用域建立一次。直接父粒群清空仍保末点，作用域结束后仅排空存量。快照与预算沿[原子系统](../architecture/runtime-architecture.md#particle-child-control-stream)。
 
-公开[Children合同](https://docs.wallpaperengine.io/en/scene/particles/component/children.html#child-particle-system-configuration)规定death在父末位置创建及可选控制点设置，但没有declaration位表。官方同输入flags0/1的无CP/无继承leaf三点L，在真实death、晚父存活和死亡后平移条件下等位稳定，支持此base切片；flags0/start1的CP正控保持真实静态半径读取；另一CP支线白蓝重合，parent-particle来源和位义仍未知，不能外推所有flags、General world位或祖先镜像组合。验收用真实GraphExpansion→事件→child Simulator/Metal，核活跃CP及隐式源反例、改名/无关metadata、正常死亡/显式销毁、健康peer、快照及实际作者捕获；不以准备放行或root draw代child贡献。
+官方[端点与生命周期对照](runtime-evidence-current.md#thunderbolt-child-control-stream)覆盖出生、逐步读取、清空、局部 Follow 默认点与一级 world Static 原始复制。General world 粒子流、脚本同槽优先级及脱离后的持续新发射仍在[开放队列](../roadmap/scene-open-breakpoint-queue.md)。验收沿真实 GraphExpansion→子 Simulator→Metal，分别核变体、健康 peer、回滚及子 batch 对最终像素的贡献。
 
 <a id="event-value-inheritance"></a>
 ### 事件值继承的职责合同
@@ -272,9 +323,16 @@ RopeTrail复用[公共renderer Worldspace选项](https://docs.wallpaperengine.io
 
 材质 Catalog 在唯一入口保留纹理槽位并把缺省值投影为 `[String?]`。Planner 对可选第二槽只消费这个 typed 值：省略槽和显式 nil 都交给原无 normal 分支；非空引用继续经过真实资源解析、装载与格式判断，显式缺失或坏文件只使受影响资产不可用。不能通过 compactMap 把后续纹理移入空槽，也不为已解析的 nil 增加原始字段复验、默认纹理或资源 owner。条件/user texture 的动态生产者保持独立职责。
 
-原 TextureLoader 的 nil 分支复用既有绑定并以 authoredFormat=nil 供 Pipeline 的原无 normal 标记；生产 shader 跳过 normal sample/displacement，继续实际背景采样、albedo、tint、coverage 与 overbright。本合同沿用本引擎已有的 canonical 无 normal 语义，不定义新的位移单位或公式。官方省略/null 的有界同外观结果只支持可选输入等价；合法 normal 的可定位位移仍未知，原完整对照未通过，不能写成官方零位移或完整一致。
+原 TextureLoader 的 nil 分支复用既有绑定并以 authoredFormat=nil 供 Pipeline 的原无 normal 标记；生产 shader 跳过 normal sample/displacement，继续实际背景采样、albedo、tint、coverage 与 overbright。本合同沿用本引擎已有的 canonical 无 normal 语义，不定义新的位移单位或公式。官方省略/null 的同外观结果支持可选输入等价。有效 normal 的横向位移另见[普通混合对照](runtime-evidence-current.md#particle-refraction-normal-2860569355)。
 
 验收在真实 Catalog→Planner/AssetGraph 检查省略、null、空值和资源改名的等价，以及显式正常/缺失 normal 与健康后继；复用原无 normal/有效 normal 的生产 Metal 像素门，再核原作者两个活动资产的实际纹理、实例、目标、command buffer 与最终捕获。不能以准备放行或全景非黑代替实际编码，不以本修复授全部材质输入、Rope/动画组合或逐输入像素贡献。
+
+<a id="particle-refraction-normal-blend"></a>
+### REFRACT 的普通混合
+
+有效 REFRACT 的 `normal` 直接替换 RGB，使用原背景、normal 位移与非预乘 albedo/tint。粒子 alpha 控制位移，贴图与粒子 alpha 均不缩放替换 RGB。本机先从位移点的预乘背景还原颜色，零 alpha 不供色。PSO 再按当前目标 alpha 关联替换色并保留目标覆盖率，使透明目标仍满足原存储合同。半透明与加法保持原单次预乘覆盖。只在有需求时准备替换变体，共用现有资源和背景快照。
+
+验收用不同色背景及贴图与粒子 alpha 独立变化核 RGB、正负位移、缺 normal、改名与紧邻合法 blend。原包须实际恢复波纹，另验独立旧 blend 作者。官版桌面只核 RGB，本机预乘存储由实际 Metal 验证。Composition 官版内部 alpha 和取样域另行资格。
 
 <a id="ambient-particle-lighting"></a>
 ### 无直接灯的粒子 ambient 消费
@@ -333,11 +391,11 @@ Rope 整图路径不构造 SpriteAnimation，只传整图消费选择和原纹�
 <a id="native-particle-main-depth"></a>
 ### 原生透视粒子读取主画布深度
 
-原生透视 Sprite 已沿 SceneCamera 投影。普通颜色批次按材质开启测试且关闭写入时，在实际主画布的作者绘制位置借用同一 pass、同 command buffer 已由透视模型写入的 reverse-Z 深度。沿原层变换、实例缓冲、透明混合和唯一颜色输出，用已有反向 VP 与只读 `.greaterEqual`。当前深度域保留写入的投影事实，若已混入正交模型写入、没有同域写入或附件不可用，沿原无深度批次。借用只 load，不分配、清空、复制或延后帧。
+原生透视 Sprite 已沿 SceneCamera 投影。普通颜色批次按材质开启测试且关闭写入时，在最终主画布绘制位置借用同一 pass、同 command buffer 已由透视模型写入的 reverse-Z 深度。沿原层变换、实例缓冲、透明混合和唯一颜色输出，用已有反向 VP 与只读 `.greaterEqual`。当前深度域保留写入的投影事实，若已混入正交模型写入、没有同域写入或附件不可用，沿原无深度批次。借用只 load，不分配、清空、复制或延后帧。
 
 原生透视根层的普通 translucent Sprite 以作者 `depthtest` 决定读取，`depthwrite` 不产生写入。冷准备只给无附着、无 child 系统且全部有效 renderer 为普通 Sprite 的根层带出此意图。原上传步骤按当前相机与实际目标把写入投影为关闭，后续排序、预约与编码消费同一批次状态。能测试时借既有只读深度，测试关闭或还没有可共用的深度时直接画颜色。原私有正向路径继续用于其他投影、同根有正交实体写入的场景、组、混合 renderer、child、折射、加色和 coverage 的实际写入。
 
-PSO 在原冷准备同时登记实际可达的无附件与 `depth32Float` 变体。可选投影缺失时保原必需绘制。只读粒子在主画布采样边界保住前后实体顺序。资源状态以实际绘制写入为准，预留不算有效写入。此次退出合格批次的私有 depth 预约、清除和读写，复用实际 MainPass 的原 owner。
+冷准备登记可达的无附件与 `depth32Float` PSO，缺可选变体时保必需绘制。只读加色粒子按 [Composition 背景截点](effect-execution-coverage.md#perspective-composition-prefix) 调度。实际绘制写入建立深度有效性。合格批次复用 MainPass，免私有深度预约、清除和读写。
 
 验收分别单关 `depthtest` 和 `depthwrite`，保原粒子材质、同一固定相机和几何。在前置实体覆盖及外区验证读入，在实际后绘粒子和普通透视实体验证无新增遮挡。改名、无匹配深度、异相机、组、加色写入和具名画布截点保实际边界。原包需验证后继画布读取与文字合成，独立作者须保实际私有深度或同域只读的原行为。纹理覆盖阈值及其他粒子写入仍需各自证据。
 

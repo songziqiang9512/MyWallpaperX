@@ -710,19 +710,33 @@ extension Harness {
             pixelFormat: adaptedRG.pixelFormat, textureType: .type2D,
             levels: 1..<2, slices: 0..<1, swizzle: adaptedRG.swizzle) else { return [:] }
         let maskTint = SIMD3<Float>(0.98, 0.775, 0.833)
-        let maskCases: [(String, Float, Float, Bool)] = [
-            ("unit-black", 1, 0, true), ("partial-black", 1.15, 0, true),
-            ("bright-black", 1.33, 0, true),
-            ("bright-gray", 1.33, 0.7, true), ("ordinary-black", 1.33, 0, false),
+        let maskCases: [(String, Float, Float, MTLPixelFormat)] = [
+            ("unit-black", 1, 0, .bgra8Unorm), ("partial-black", 1.15, 0, .bgra8Unorm),
+            ("bright-black", 1.33, 0, .rgba8Unorm),
+            ("bright-gray", 1.33, 0.7, .bgra8Unorm), ("float-black", 1.33, 0, .rgba16Float),
         ]
-        let maskPixels = Dictionary(uniqueKeysWithValues: maskCases.map { name, gain, background, clips in
+        let maskPixels = Dictionary(uniqueKeysWithValues: maskCases.map { name, gain, background, target in
             (name, SceneParticleOffscreenReadbackHarness.centerPixel(texture: adaptedR8Texture,
                 particleAlpha: 0.4, background: background, overbright: gain,
-                particleColor: maskTint, usesStraightMaskTint: clips))
+                particleColor: maskTint, targetFormat: target))
         })
+        let colorDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false)
+        colorDescriptor.usage = .shaderRead
+        colorDescriptor.storageMode = .shared
+        guard let colorTexture = device.makeTexture(descriptor: colorDescriptor) else { return [:] }
+        var rgba: [UInt8] = [128, 64, 192, 128]
+        colorTexture.replace(region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
+                             withBytes: &rgba, bytesPerRow: 4)
+        let gains = [SceneParticlePipelineBlendMode.additive, .translucent].map { blend in
+            SceneParticleOffscreenReadbackHarness.centerPixel(texture: colorTexture,
+                particleAlpha: 0.5, blendMode: blend, background: 0.125, overbright: 3,
+                particleColor: SIMD3(1, 0.8, 0.5))
+        }
         return [
             "rawR8": rawR8, "adaptedR8": adaptedR8,
             "maskTint": maskPixels,
+            "colorGain": gains,
             "rgMipCount": adaptedRG.mipmapLevelCount,
             "rgPixel": SceneParticleOffscreenReadbackHarness.centerPixel(texture: adaptedRG),
             "rgSecondMip": SceneParticleOffscreenReadbackHarness.centerPixel(texture: secondMipView),

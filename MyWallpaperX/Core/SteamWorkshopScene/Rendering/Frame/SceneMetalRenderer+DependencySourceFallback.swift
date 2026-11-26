@@ -41,6 +41,7 @@ extension SceneMetalRenderer {
             layer: provider,
             sourceTexture: baseSource?.texture,
             sourceCandidate: baseSource?.candidate,
+            spriteFrame: baseSource?.spriteFrame,
             usesAuthoredLayerColor:
                 baseSource?.usesAuthoredLayerColor ?? true,
             layerMVP: cameraFrame.viewProjection(for: provider) * model,

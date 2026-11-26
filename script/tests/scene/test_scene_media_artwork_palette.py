@@ -98,10 +98,8 @@ nonisolated enum PaletteCases {
         for color in colors {
             for index in 0..<3 { precondition(color[index].isFinite && (0...1).contains(color[index])) }
         }
-        precondition(contrast(palette.primaryColor, palette.textColor) >= 4.5)
-        precondition(palette.highContrastColor == black || palette.highContrastColor == white)
-        let best = max(contrast(palette.primaryColor, black), contrast(palette.primaryColor, white))
-        precondition(abs(contrast(palette.primaryColor, palette.highContrastColor) - best) < 1e-10)
+        precondition(contrast(palette.primaryColor, palette.textColor) >= 2.5)
+        precondition(palette.highContrastColor == (contrast(palette.primaryColor, black) >= 2.5 ? black : white))
         return palette
     }
 
@@ -112,12 +110,11 @@ nonisolated enum PaletteCases {
             let data = Fixtures.png(width: 7, height: 5, pixels: Array(repeating: pixel, count: 35))
             let palette = extract(data)
             close(palette.primaryColor, SIMD3<Double>(37, 126, 219) / 255)
-            precondition(palette.secondaryColor == palette.primaryColor)
-            precondition(palette.tertiaryColor == palette.primaryColor)
+            precondition(palette.secondaryColor == black && palette.tertiaryColor == black)
             precondition(palette == extract(data))
-            for pixel in [Fixtures.black, Fixtures.white] {
+            for pixel in [Fixtures.black, [128, 128, 128, 255], Fixtures.white] {
                 let value = extract(Fixtures.regions([(pixel, 1)]))
-                close(value.primaryColor, SIMD3<Double>(Double(pixel[0]), Double(pixel[1]), Double(pixel[2])) / 255)
+                precondition(value.primaryColor == black && value.textColor == white)
             }
         case "areas":
             let data = Fixtures.regions([(Fixtures.red, 16), (Fixtures.green, 8),
@@ -132,18 +129,40 @@ nonisolated enum PaletteCases {
             let wide = extract(Fixtures.png(width: 64, height: 8, pixels: widePixels))
             close(wide.primaryColor, red)
             close(wide.secondaryColor, blue)
+            let blueAccent: [UInt8] = [38, 75, 224, 255]
+            let greenAccent: [UInt8] = [24, 207, 99, 255]
+            let blueAnchor = extract(Fixtures.regions([([87, 125, 227, 255], 86),
+                                                       (blueAccent, 36), (greenAccent, 28)]))
+            let greenAnchor = extract(Fixtures.regions([([27, 157, 76, 255], 86),
+                                                        (blueAccent, 36), (greenAccent, 28)]))
+            close(blueAnchor.secondaryColor, SIMD3<Double>(24, 207, 97) / 255)
+            close(greenAnchor.secondaryColor, SIMD3<Double>(38, 75, 223) / 255)
         case "quantization":
             let palette = extract(Fixtures.regions([(Fixtures.red, 3), ([245, 0, 0, 255], 2),
                                                    (Fixtures.green, 4)]))
             close(palette.primaryColor, SIMD3<Double>(251.0 / 255.0, 0, 0), tolerance: 0.004)
             close(palette.secondaryColor, green)
-            precondition(palette.tertiaryColor == palette.primaryColor)
+            precondition(palette.tertiaryColor == black)
+            // The official published duo-orange thumbnail contains these uniform rows.
+            let bands: [([UInt8], Int)] = [
+                ([233, 27, 63, 255], 100), ([233, 27, 62, 255], 1), ([232, 26, 63, 255], 2),
+                ([240, 71, 42, 255], 1), ([242, 80, 38, 255], 1), ([241, 78, 39, 255], 1),
+                ([242, 79, 39, 255], 44)
+            ]
+            let closeAccents = extract(Fixtures.png(width: 150, height: 150,
+                pixels: bands.flatMap { Array(repeating: $0.0, count: 150 * $0.1) }))
+            close(closeAccents.secondaryColor, SIMD3<Double>(241, 76, 38) / 255, tolerance: 1.0 / 255)
+            close(closeAccents.tertiaryColor, SIMD3<Double>(242, 78, 38) / 255, tolerance: 1.0 / 255)
         case "alpha":
             let weighted = extract(Fixtures.regions([(Fixtures.red, 1), ([0, 0, 255, 64], 2),
                                                      ([0, 255, 0, 0], 8)]))
-            close(weighted.primaryColor, red)
-            close(weighted.secondaryColor, blue)
-            precondition(weighted.tertiaryColor == weighted.primaryColor)
+            close(weighted.primaryColor, blue)
+            close(weighted.secondaryColor, red)
+            precondition(weighted.tertiaryColor == black)
+            let boundary = extract(Fixtures.regions([(Fixtures.red, 3), ([0, 0, 255, 16], 2),
+                                                     ([0, 255, 0, 15], 2)]))
+            close(boundary.secondaryColor, blue)
+            precondition(boundary.tertiaryColor == black)
             let half = extract(Fixtures.regions([([200, 80, 40, 128], 4)]))
             close(half.primaryColor, SIMD3<Double>(200, 80, 40) / 255)
             let transparent = extract(Fixtures.regions([([255, 0, 0, 0], 2), ([0, 255, 0, 0], 3)]))
@@ -151,29 +170,25 @@ nonisolated enum PaletteCases {
             precondition(transparent.tertiaryColor == black && transparent.textColor == white)
             precondition(transparent.highContrastColor == white)
             let alphaMean = extract(Fixtures.regions([([240, 0, 0, 255], 1), ([254, 0, 0, 128], 1)]))
-            // Both colors share a bucket. Weighting the mean also uses alpha.
-            close(alphaMean.primaryColor, SIMD3<Double>((240.0 * 255 + 254.0 * 128) / (383 * 255), 0, 0))
+            close(alphaMean.primaryColor, SIMD3<Double>(247.0 / 255, 0, 0), tolerance: 1.0 / 255)
         case "contrast":
-            let secondary = extract(Fixtures.regions([(Fixtures.white, 6), (Fixtures.blue, 3),
-                                                     (Fixtures.black, 1)]))
-            close(secondary.textColor, blue)
-            precondition(secondary.highContrastColor == black)
-            let tertiary = extract(Fixtures.regions([(Fixtures.white, 6), ([255, 255, 0, 255], 3),
-                                                    (Fixtures.blue, 1)]))
-            close(tertiary.textColor, blue)
-            let light = extract(Fixtures.regions([([128, 128, 128, 255], 6),
-                                                 ([192, 192, 192, 255], 3), (Fixtures.red, 1)]))
-            precondition(light.textColor == black && light.highContrastColor == black)
-            let dark = extract(Fixtures.regions([([32, 32, 32, 255], 6),
-                                                ([64, 64, 64, 255], 3), ([96, 0, 0, 255], 1)]))
+            let moderate = extract(Fixtures.regions([([167, 0, 0, 255], 4)]))
+            precondition(moderate.textColor == black && moderate.highContrastColor == black)
+            precondition(contrast(moderate.primaryColor, black) < contrast(moderate.primaryColor, white))
+            let dark = extract(Fixtures.regions([([0, 0, 128, 255], 20)]))
             precondition(dark.textColor == white && dark.highContrastColor == white)
+            let accents = extract(Fixtures.regions([([0, 0, 128, 255], 20), (Fixtures.red, 5),
+                                                    (Fixtures.green, 3)]))
+            close(accents.secondaryColor, red)
+            close(accents.tertiaryColor, green)
+            close(accents.textColor, green)
         case "tie":
             let first = extract(Fixtures.regions([(Fixtures.red, 1), (Fixtures.green, 1), (Fixtures.blue, 1)]))
             let reverse = extract(Fixtures.regions([(Fixtures.blue, 1), (Fixtures.green, 1), (Fixtures.red, 1)]))
             precondition(first == reverse)
-            close(first.primaryColor, blue)
-            close(first.secondaryColor, green)
-            close(first.tertiaryColor, red)
+            close(first.primaryColor, red)
+            close(first.secondaryColor, blue)
+            close(first.tertiaryColor, green)
         case "srgb":
             let palette = extract(Fixtures.png(width: 2, height: 2,
                 pixels: Array(repeating: [64, 128, 192, 255], count: 4), linear: true))
@@ -246,7 +261,7 @@ class SystemMediaArtworkPaletteTests(unittest.TestCase):
         self.assertEqual(report["case"], mode)
         self.assertTrue(report["worker"])
 
-    def test_solid_color_and_repeat_primary(self):
+    def test_solid_color_keeps_accent_slots_empty(self):
         self.run_case("solid")
 
     def test_dominant_areas_select_three_colors(self):
@@ -255,7 +270,7 @@ class SystemMediaArtworkPaletteTests(unittest.TestCase):
     def test_close_colors_share_a_quantized_bucket(self):
         self.run_case("quantization")
 
-    def test_alpha_weights_straight_colors_and_transparent_fallback(self):
+    def test_alpha_threshold_and_straight_colors(self):
         self.run_case("alpha")
 
     def test_contrast_priority_and_black_white_fallback(self):

@@ -55,6 +55,7 @@ final class SceneResolvedMaterialRuntimeBridge {
 struct SceneImageLayerCompositor { let resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge? = nil }
 struct SceneBaseImageTextureSnapshot {
     var textures: [Int: MTLTexture] = [:]
+    let spriteFrames: [Int: SceneBaseImageTextureSample] = [:]
     var initialVideoReadiness: [Int: SceneOrdinaryVideoFrameReadiness]? = nil
     subscript(id: Int) -> MTLTexture? { textures[id] }
     func candidate(for id: Int, matching texture: MTLTexture) -> SceneTextureCandidate? { nil }

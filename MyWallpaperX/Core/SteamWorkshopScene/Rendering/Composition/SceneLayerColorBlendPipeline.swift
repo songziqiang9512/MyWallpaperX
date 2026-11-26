@@ -45,15 +45,18 @@ inline float4 sceneLayerColorBlend(
         : clipMask.sample(linearClipSampler,
             input.modelPosition * clipTransform.zw + clipTransform.xy).r;
     float4 layer = layerTexture.sample(sampler2d, input.texcoord);
-    float3 straightLayer = blend.y == 1u ? layer.rgb
-        : layer.a > 0.0 ? layer.rgb / layer.a : float3(0.0);
     const float shapeCoverage = input.vertexCoverage * clipCoverage;
     const bool usesFog = distanceFog.color.w > 0.5;
     // Authored opacity participates in color blending before Fog. Geometry
     // coverage instead bounds the entire visible result, including its Fog;
     // a clipped mesh part must not darken the background around its shape.
-    float3 blended = sceneApplyBlending(int(blend.x), background.rgb, straightLayer,
-        layer.a * (usesFog ? 1.0 : shapeCoverage));
+    const float opacity = layer.a * (usesFog ? 1.0 : shapeCoverage);
+    float3 blended = background.rgb;
+    if (opacity != 0.0 || (blend.y & 2u) == 0u) {
+        const float3 straightLayer = (blend.y & 1u) != 0u ? layer.rgb
+            : layer.a > 0.0 ? layer.rgb / layer.a : float3(0.0);
+        blended = sceneApplyBlending(int(blend.x), background.rgb, straightLayer, opacity);
+    }
     if (usesFog) {
         blended = mix(background.rgb,
             sceneImageDistanceFog(blended, input.modelPosition, distanceFog), shapeCoverage);
@@ -243,7 +246,9 @@ final class SceneLayerColorBlendPipeline {
         encoder: MTLRenderCommandEncoder
     ) {
         var mvpCopy = mvp
-        var mode = SIMD2<UInt32>(UInt32(blendMode), sourceIsStraightAlpha ? 1 : 0)
+        let flags: UInt32 = (sourceIsStraightAlpha ? 1 : 0)
+            | (SceneBlendModeShaderSource.keepsBackdropAtZeroOpacity(blendMode) ? 2 : 0)
+        var mode = SIMD2(UInt32(blendMode), flags)
         var fog = distanceFog
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
@@ -375,19 +380,31 @@ enum SceneLayerColorBlendRenderer {
             return true
         }
         let captured = mainPass.withReadableTarget { target, commandBuffer in
-            // This fragment reads background only at its current pixel. Custom
-            // geometry and unproven projection keep the full capture contract.
-            let region = geometryProduct == nil
-                ? SceneLayerSourcePassthroughPlan.projectedGeometry(for: mvp)?
+            // The fragment reads the frozen background at its current pixel.
+            let region: MTLRegion?
+            if let geometryProduct {
+                if mainPass.isSceneRoot, let backgroundBounds = geometryProduct.backgroundBounds,
+                   geometryProduct.isPreparedForPublication(commandBuffer), let bounds = backgroundBounds() {
+                    region = SceneLayerSourcePassthroughPlan.projectedRegion(bounds: bounds, mvp: mvp,
+                        width: target.width, height: target.height)
+                } else {
+                    region = nil
+                }
+            } else {
+                region = SceneLayerSourcePassthroughPlan.projectedGeometry(for: mvp)?
                     .pixelRegion(width: target.width, height: target.height)
-                : nil
+            }
             let snapshot = colorBlendPipeline.snapshot(
                 target: target, commandBuffer: commandBuffer, region: region)
 #if DEBUG
             if let snapshot, let trace = mainPass.compositionTrace, trace.isCompositionSelected {
                 trace.recordComposition(.init(kind: "background-copy", layerID: layer.id,
                     source: .init(target, role: "main-color"), target: .init(snapshot, role: "background-snapshot"),
-                    access: "copy-source", outcome: "encoded"))
+                    access: "copy-source", outcome: "encoded", details: [
+                        "x": String(region?.origin.x ?? 0), "y": String(region?.origin.y ?? 0),
+                        "width": String(region?.size.width ?? target.width),
+                        "height": String(region?.size.height ?? target.height)
+                    ]))
             }
 #endif
             return snapshot

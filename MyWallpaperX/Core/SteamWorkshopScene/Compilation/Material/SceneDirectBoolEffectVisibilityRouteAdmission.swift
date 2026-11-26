@@ -49,31 +49,15 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
         dependencyPlan: SceneDependencyRenderPlan,
         scriptOwnedCandidates: Set<SceneDynamicTarget> = []
     ) -> Set<SceneDynamicTarget> {
-        targets(
-            in: descriptor,
-            candidates: candidates,
-            visibleLayerIDs: visibleLayerIDs,
-            dependencyPlan: dependencyPlan,
-            requiresInitiallyInactiveEffect: true,
-            scriptOwnedCandidates: scriptOwnedCandidates
-        )
-    }
-
-    private static func targets(
-        in descriptor: SceneRenderDescriptor,
-        candidates: Set<SceneDynamicTarget>,
-        visibleLayerIDs: Set<Int>,
-        dependencyPlan: SceneDependencyRenderPlan,
-        requiresInitiallyInactiveEffect: Bool,
-        scriptOwnedCandidates: Set<SceneDynamicTarget> = []
-    ) -> Set<SceneDynamicTarget> {
         let layersByID = Dictionary(
             uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) }
         )
-        let dependencyConsumerLayerIDs = Set(
-            dependencyPlan.references.map(\.consumerLayerID)
-        )
-            .union(dependencyPlan.namedReferenceConsumerLayerIDs)
+        // The graph compiler owns a layer's primary pair input. Only the
+        // remaining dependencies can require a separate utility owner.
+        let dependencyConsumerLayerIDs = Set(dependencyPlan.references.compactMap { reference in
+            reference.consumerLayerID == reference.providerLayerID && reference.variant == .primary
+                ? nil : reference.consumerLayerID
+        })
             .union(dependencyPlan.requiredEffectConsumerLayerIDs)
             .union(dependencyPlan.bindingsByConsumerLayerID.keys)
         let dependencyProviderLayerIDs = dependencyPlan.requiredProviderLayerIDs
@@ -82,8 +66,7 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
             guard case let .effectVisibility(layerID, effectIndex) = target,
                   let layer = layersByID[layerID],
                   layer.effects.indices.contains(effectIndex),
-                  (layer.effects[effectIndex].visible == false)
-                    == requiresInitiallyInactiveEffect,
+                  layer.effects[effectIndex].visible == false,
                   visibleLayerIDs.contains(layerID) else { return nil }
             let layerTarget = SceneDynamicTarget.layer(layerID: layerID, field: .visibility)
             let ordinaryHierarchy = SceneDynamicLayerVisibilityRouteAdmission.targets(

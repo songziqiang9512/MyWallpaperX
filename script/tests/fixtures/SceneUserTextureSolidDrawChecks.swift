@@ -29,6 +29,9 @@ final class Texture: MTLTexture {
     var usage: MTLTextureUsage = .shaderRead
 }
 struct MTLSamplerState {}
+struct MTLRenderCommandEncoder {}
+struct SceneMainPassEncoder {}
+struct SceneMaterialRenderState {}
 enum MTLSamplerMinMagFilter { case nearest, linear }
 enum MTLSamplerAddressMode { case `repeat`, clampToEdge }
 final class MTLSamplerDescriptor {
@@ -108,8 +111,11 @@ struct SceneDynamicSnapshot {
     }
     static func empty(frameIndex: Int) -> Self { .init() }
 }
+enum SceneOrdinaryVideoFrameReadiness { case pending }
 struct SceneBaseImageTextureSnapshot {
     let textures: [Int: MTLTexture]
+    let spriteFrames: [Int: SceneBaseImageTextureSample] = [:]
+    let initialVideoReadiness: [Int: SceneOrdinaryVideoFrameReadiness]? = nil
     subscript(_ layerID: Int) -> MTLTexture? { textures[layerID] }
     func candidate(for layerID: Int, matching texture: MTLTexture) -> SceneTextureCandidate? { nil }
 }
@@ -120,7 +126,7 @@ struct SceneMetalRenderer {
 struct SceneEffectTextureInput {
     enum Kind { case system, property }
 }
-struct SceneBaseMaterialLightingProfile {}
+struct SceneBaseMaterialLightingProfile { let surfaceEnabled = false }
 enum SceneNamedTextureReference {
     enum Variant { case primary }
     init(providerLayerID: Int, variant: Variant) { self = .placeholder }
@@ -159,10 +165,11 @@ struct SceneLayerFragmentUniforms {
     let dependencyBlendMode: UInt32
     let usesDependencyBlend: UInt32
     let cursorUV: SIMD2<Float>
-    let sourceSampling: SIMD2<UInt32>
+    var sourceSampling: SIMD2<UInt32>
     var tint: SIMD4<Float>
     let textureFrame0: SIMD4<Float>
     let textureFrame1: SIMD4<Float>
+    var sourceCaptureProjection: simd_float4x4? = nil
 }
 
 @main

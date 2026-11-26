@@ -54,8 +54,6 @@ struct SceneMetalRenderer {
             SceneUserPropertyTextureIdentity: SceneTextureProviderState
         ] = [:],
         mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot = .empty,
-        spriteAnimations: [Int: SceneSpriteAnimation],
-        spriteAnimationPlaybackTimes: [Int: Float],
         specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:],
         imagePipeline: SceneImageLayerPipeline?,
         frameProjection: SceneMetalRendererFrameWorldProjection,
@@ -205,8 +203,6 @@ struct SceneMetalRenderer {
                 userPropertyTextures: userPropertyTextures,
                 userPropertyTextureStates: userPropertyTextureStates,
                 mediaThumbnail: mediaThumbnail,
-                spriteAnimations: spriteAnimations,
-                spriteAnimationPlaybackTimes: spriteAnimationPlaybackTimes,
                 specializedBaseTextureSamplings: specializedBaseTextureSamplings,
                 imagePipeline: imagePipeline,
                 frameProjection: frameProjection,

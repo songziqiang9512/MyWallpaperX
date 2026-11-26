@@ -141,6 +141,15 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
                 if not row["name"].startswith(("giant-", "large-")):
                     self.assertTrue(row["changed"], row)
 
+    def test_zero_opacity_keeps_hdr_background_with_nonfinite_straight_color(self):
+        rows = self.result["transparentHDR"]
+        self.assertEqual({(row["mode"], row["full"]) for row in rows},
+                         {(15, False), (15, True), (31, False), (31, True)})
+        for row in rows:
+            self.assertTrue(row["backgroundPreserved"], row)
+            if row["full"]:
+                self.assertEqual(row["copies"], 1)
+
     def test_large_finite_unit_quad_bounds_keep_the_entire_viewport_strip(self):
         for row in self.result["rows"]:
             if row["name"].startswith("giant-"):
@@ -177,6 +186,19 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
             self.assertEqual(row["left"], [0, 128, 255, 255] if row["writer"] else [255, 0, 0, 255], row)
             self.assertEqual(row["right"], [255, 0, 0, 255], row)
             self.assertEqual(row["farPeer"], [0, 255, 0, 255], row)
+
+    def test_bounded_mesh_preserves_frozen_pixels_and_falls_back_without_current_projection(self):
+        rows = self.result["geometryRows"]
+        self.assertEqual(len(rows), 12)
+        for row in rows:
+            with self.subTest(name=row["name"]):
+                self.assertTrue(row["equal"] and row["changed"] and row["capacityEqual"], row)
+                self.assertEqual(row["copies"], 1, row)
+                if row["name"] in ("varying-w", "stale-pose", "group"):
+                    self.assertEqual(row["bytes"], row["fullBytes"], row)
+                else:
+                    self.assertGreater(row["bytes"], 0, row)
+                    self.assertLess(row["bytes"], row["fullBytes"], row)
 
     def test_repeated_attachment_reads_and_finish_keep_pixels_without_extra_passes(self):
         rows = self.result["repeatedAttachmentReads"]

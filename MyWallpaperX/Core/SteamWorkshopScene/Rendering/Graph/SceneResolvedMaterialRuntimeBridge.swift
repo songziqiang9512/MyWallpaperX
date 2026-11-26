@@ -435,6 +435,10 @@ final class SceneResolvedMaterialRuntimeBridge {
         capabilities.executionLayerIDs
     }
 
+    var privateLayerAlphaPreservingIDs: Set<Int> {
+        capabilities.privateLayerAlphaPreservingIDs
+    }
+
     func resolveStageActivations(
         claim: ClaimedExecution, frameInputs: inout FrameInputs
     ) -> Set<SceneEffectPassSlot> {

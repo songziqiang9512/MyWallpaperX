@@ -139,7 +139,6 @@ private func fragmentSource(
     uniformSchemaInvalid: Bool = false,
     dynamicUniform: Bool = false,
     staticUniformMissingDefault: Bool = false,
-    uniformDeclarationConflict: Bool = false,
     hostUniformDeclarationConflict: Bool = false,
     pixelTransform: Int? = nil,
     scalarProducer: Bool = false,
@@ -205,11 +204,7 @@ private func fragmentSource(
             ? #"uniform float u_Gain; // {"material":"Gain","default":1}"#
             : staticUniformMissingDefault
                 ? #"uniform float u_Static; // {"material":"Static"}"#
-                : uniformDeclarationConflict
-                    ? #"uniform float u_Alpha; // {"material":"alpha"}"#
-                    : hostUniformDeclarationConflict
-                        ? "uniform float g_Time;"
-                        : ""
+                : hostUniformDeclarationConflict ? "uniform float g_Time;" : ""
     let sampleCoordinate = repeatProbe
         ? "v_TexCoord + vec2(1.0)" : "v_TexCoord"
     let blendHelper = mixedSystemNamedBlend ? """
@@ -244,9 +239,6 @@ private func fragmentSource(
     } else if staticUniformMissingDefault {
         "vec4 color = texSample2D(g_Texture0, v_TexCoord);"
             + " color.rgb *= u_Static; gl_FragColor = color;"
-    } else if uniformDeclarationConflict {
-        "vec4 color = texSample2D(g_Texture0, v_TexCoord);"
-            + " color.rgb *= u_Alpha; gl_FragColor = color;"
     } else if hostUniformDeclarationConflict {
         "vec4 color = texSample2D(g_Texture0, v_TexCoord);"
             + " color.rgb *= g_Time; gl_FragColor = color;"

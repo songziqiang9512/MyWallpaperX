@@ -199,381 +199,197 @@ enum Harness {
         ]
     }
 
-    // MARK: - Analyzer
+    // MARK: - Author analysis
+
+    typealias AuthorLevels = SystemAudioSceneSpectrumAnalyzer.AuthorLevels
 
     static func analyzerChecks() -> [String: Any] {
-        guard SystemAudioSceneSpectrumAnalyzer() != nil else {
-            return ["available": false]
-        }
-        let bandCount = SystemAudioSceneSpectrumAnalyzer.bandCount
-        let frameCount = 4_096
+        let frameCount = SystemAudioSceneSpectrumAnalyzer.analysisWindowCount(sampleRate: sampleRate)
+        let zero = Array(repeating: Float(0), count: frameCount)
+        let centerTone = tone(275.730014, amplitude: 0.12)
+        let halfTone = tone(287.218765, amplitude: 0.12)
+        let highTone = tone(4_800, amplitude: 0.28)
+        let centerFrame = captured([centerTone])
+        let stereoFrame = captured([centerTone, highTone])
 
-        let silence = Array(repeating: Float(0), count: frameCount)
-        let silent = analyzeFresh(
-            signedChannels: [silence, silence],
-            sampleRate: sampleRate
-        )
+        let center = freshAuthor(centerFrame, sampleRate: sampleRate)
+        let half = freshAuthor(captured([halfTone]), sampleRate: sampleRate)
+        let dcFrame = captured([Array(repeating: 0.125, count: frameCount)])
+        let dc = freshAuthor(dcFrame, sampleRate: sampleRate)
+        let stereo = freshAuthor(stereoFrame, sampleRate: sampleRate)
+        let hotAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
+        let hotFrame = captured([highTone, zero])
+        _ = hotAnalyzer.analyzeAuthor(hotFrame, sampleRate: sampleRate, timestamp: 1)
+        let hot = hotAnalyzer.analyzeAuthor(hotFrame, sampleRate: sampleRate, timestamp: 1.04)
+        let silent = freshAuthor(captured([zero]), sampleRate: sampleRate)
+        let nearSilentFrame = captured([tone(275.730014, amplitude: 0.000_001)])
+        let nearSilent = freshAuthor(nearSilentFrame, sampleRate: sampleRate)
 
-        let toneA = sineWave(frequency: 440, frameCount: frameCount)
-        let toneB = sineWave(frequency: 5_000, frameCount: frameCount)
-        let quietToneA = sineWave(
-            frequency: 440,
-            frameCount: frameCount,
-            amplitude: 0.05
+        let ignoredPrefix = Array(repeating: Float(0.8), count: frameCount - 1_392)
+        let sameTail = captured([ignoredPrefix + Array(centerTone.suffix(1_392))])
+        let incompleteTail = SystemAudioCapturedFrame(
+            signedChannels: [Array(centerTone.suffix(1_391))]
         )
-        let noiseFloorTone = sineWave(
-            frequency: 440,
-            frameCount: frameCount,
-            amplitude: 0.002
-        )
-        let stereo = analyzeFresh(
-            signedChannels: [toneA, toneB],
-            sampleRate: sampleRate
-        )
-        let bassOnly = analyzeFresh(
-            signedChannels: [
-                sineWave(frequency: 120, frameCount: frameCount, amplitude: 0.12)
-            ],
-            sampleRate: sampleRate
-        )
-        let bassOnlyQuiet = analyzeFresh(
-            signedChannels: [
-                sineWave(frequency: 120, frameCount: frameCount, amplitude: 0.06)
-            ],
-            sampleRate: sampleRate
-        )
-        let bassContinuityAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
-        let bassCapture = SystemAudioSpectrumTestCapture()
-        var previousBass: [Float]?
-        var bassUpperChangesLate = 0
-        for frame in 0 ..< 96 {
-            let amplitude = 0.06 + 0.05 * (0.5 + 0.5 * sin(
-                Float(frame) * 2 * .pi / 24
-            ))
-            precondition(bassCapture.append([sineWave(frequency: 120, frameCount: 1_600,
-                amplitude: amplitude, startSample: frame * 1_600)], sampleRate: sampleRate))
-            guard let captured = bassCapture.latestFrame(sampleRate: sampleRate) else { continue }
-            let levels = bassContinuityAnalyzer.analyze(captured, sampleRate: sampleRate)
-            if frame >= 48, let previousBass,
-               zip(levels.left.dropFirst(bandCount / 2), previousBass.dropFirst(bandCount / 2))
-                    .contains(where: { abs($0 - $1) > 0.001 }) {
-                bassUpperChangesLate += 1
-            }
-            previousBass = levels.left
-        }
-        let quiet = analyzeFresh(
-            signedChannels: [quietToneA],
-            sampleRate: sampleRate
-        )
-        let noiseFloor = analyzeFresh(
-            signedChannels: [noiseFloorTone],
-            sampleRate: sampleRate
-        )
-        let repeated = analyzeFresh(
-            signedChannels: [toneA, toneB],
-            sampleRate: sampleRate
-        )
-        let mono = analyzeFresh(signedChannels: [toneA], sampleRate: sampleRate)
-        let mirroredStereo = analyzeFresh(signedChannels: [toneA, toneA], sampleRate: sampleRate)
+        let mirroredStereo = freshAuthor(captured([centerTone, centerTone]), sampleRate: sampleRate)
 
-        let channelSwitchAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
-        _ = channelSwitchAnalyzer.analyze(SystemAudioSpectrumTestCapture.frame([toneA, toneB], sampleRate: sampleRate),
-            sampleRate: sampleRate
-        )
-        let monoAfterStereo = channelSwitchAnalyzer.analyze(SystemAudioSpectrumTestCapture.frame([toneA], sampleRate: sampleRate),
-            sampleRate: sampleRate
-        )
-        let freshMonoAfterStereo = analyzeFresh(
-            signedChannels: [toneA],
-            sampleRate: sampleRate
-        )
+        let changedRate: Float = 44_100
+        let changedFrame = captured([tone(275.730014, amplitude: 0.12, at: changedRate)], at: changedRate)
+        let formatAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
+        let first = formatAnalyzer.analyzeAuthor(stereoFrame, sampleRate: sampleRate, timestamp: 1)
+        let stale = formatAnalyzer.analyzeAuthor(changedFrame, sampleRate: changedRate, timestamp: 0.95)
+        let afterStale = formatAnalyzer.analyzeAuthor(stereoFrame, sampleRate: sampleRate, timestamp: 1.04)
+        let uninterrupted = SystemAudioSceneSpectrumAnalyzer()!
+        _ = uninterrupted.analyzeAuthor(stereoFrame, sampleRate: sampleRate, timestamp: 1)
+        let expectedAfterStale = uninterrupted.analyzeAuthor(stereoFrame, sampleRate: sampleRate, timestamp: 1.04)
+        let switched = formatAnalyzer.analyzeAuthor(changedFrame, sampleRate: changedRate, timestamp: 2)
+        let returned = formatAnalyzer.analyzeAuthor(stereoFrame, sampleRate: sampleRate, timestamp: 3)
+        let invalid = formatAnalyzer.analyzeAuthor(stereoFrame, sampleRate: 0, timestamp: 4)
+        let afterInvalid = formatAnalyzer.analyzeAuthor(stereoFrame, sampleRate: sampleRate, timestamp: 5)
 
-        let changedSampleRate: Float = 44_100
-        let changedRateTone = sineWave(
-            frequency: 440,
-            frameCount: frameCount,
-            at: changedSampleRate
-        )
-        let rateSwitchAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
-        _ = rateSwitchAnalyzer.analyze(SystemAudioSpectrumTestCapture.frame([toneB], sampleRate: sampleRate),
-            sampleRate: sampleRate
-        )
-        let afterRateSwitch = rateSwitchAnalyzer.analyze(SystemAudioSpectrumTestCapture.frame([changedRateTone], sampleRate: changedSampleRate),
-            sampleRate: changedSampleRate
-        )
-        let freshChangedRate = analyzeFresh(
-            signedChannels: [changedRateTone],
-            sampleRate: changedSampleRate
-        )
-
-        let invalidRate = SystemAudioSceneSpectrumAnalyzer()!.analyze(
-            SystemAudioSpectrumTestCapture.frame([toneA, toneB], sampleRate: sampleRate), sampleRate: 0)
-        let emptyCaptureHasNoFrame = SystemAudioSpectrumTestCapture().latestFrame(sampleRate: sampleRate) == nil
-        let highSampleRate: Float = 192_000
-        let highRateTone = (0 ..< SystemAudioSceneSpectrumAnalyzer.analysisWindowCount(sampleRate: highSampleRate)).map { index in
-            sin(2 * .pi * 440 * Float(index) / highSampleRate) * 0.5
-        }
-        let highRate = analyzeFresh(
-            signedChannels: [highRateTone],
-            sampleRate: highSampleRate
-        )
-
-        var withNaN = toneA
-        withNaN[10] = .nan
-        withNaN[11] = .infinity
-        let sanitizedTone = analyzeFresh(
-            signedChannels: [withNaN],
-            sampleRate: sampleRate
-        )
-
-        // 直流偏置不应把能量堆到最低频段。
-        let biased = toneA.map { $0 + 0.5 }
-        let biasedResult = analyzeFresh(
-            signedChannels: [biased],
-            sampleRate: sampleRate
-        )
-
-        let envelopeAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
-        let attackFirst = envelopeAnalyzer.analyze(SystemAudioSpectrumTestCapture.frame([toneA], sampleRate: sampleRate),
-            sampleRate: sampleRate
-        )
-        let attackSecond = envelopeAnalyzer.analyze(SystemAudioSpectrumTestCapture.frame([toneA], sampleRate: sampleRate),
-            sampleRate: sampleRate
-        )
-        let releaseFirst = envelopeAnalyzer.analyze(SystemAudioSpectrumTestCapture.frame([silence], sampleRate: sampleRate),
-            sampleRate: sampleRate
-        )
-        let releaseSecond = envelopeAnalyzer.analyze(SystemAudioSpectrumTestCapture.frame([silence], sampleRate: sampleRate),
-            sampleRate: sampleRate
-        )
-
-        let primingAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
-        let primingCapture = SystemAudioSpectrumTestCapture()
-        precondition(primingCapture.append([sineWave(frequency: 440, frameCount: 1_000)], sampleRate: sampleRate))
-        let firstPartialHasNoFrame = primingCapture.latestFrame(sampleRate: sampleRate) == nil
-        precondition(primingCapture.append([
-            sineWave(frequency: 440, frameCount: 3_096, startSample: 1_000)], sampleRate: sampleRate))
-        let secondPartial = primingAnalyzer.analyze(primingCapture.latestFrame(sampleRate: sampleRate)!, sampleRate: sampleRate)
-
-        let continuityAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
-        let continuityCapture = SystemAudioSpectrumTestCapture()
-        var previousContinuity: [Float]?
-        var changedUpperBands = Set<Int>()
-        var changedUpperBandsLate = Set<Int>()
-        var lateConsecutiveShapeChanges = 0
-        var continuityFirstBandRatio: Float = 0
-        let partialFrameCount = 1_600
-        var continuityPhase: Double = 0
-        for frame in 0 ..< 192 {
-            let targetBand = 8 + (frame / 12) % 8
-            let centerProgress = (Float(targetBand) + 0.5) / 16
-            let frequency = 32 * pow(16_000 / 32, centerProgress)
-            // Keep phase continuous across frequency steps. Restarting phase
-            // creates real broadband transients, not a DC-removal regression.
-            let input = (0..<partialFrameCount).map { _ -> Float in
-                continuityPhase += 2 * Double.pi * Double(frequency) / Double(sampleRate)
-                return Float(0.12 * sin(continuityPhase)) + 0.25
-            }
-            precondition(continuityCapture.append([input], sampleRate: sampleRate))
-            guard let captured = continuityCapture.latestFrame(sampleRate: sampleRate) else { continue }
-            let levels = continuityAnalyzer.analyze(captured, sampleRate: sampleRate)
-            if let peak = levels.left.max(), peak > 0 {
-                continuityFirstBandRatio = max(continuityFirstBandRatio, levels.left[0] / peak)
-            }
-            if let previousContinuity {
-                for index in 8 ..< 16
-                where abs(levels.left[index] - previousContinuity[index]) > 0.001 {
-                    changedUpperBands.insert(index)
-                    if frame >= 96 {
-                        changedUpperBandsLate.insert(index)
-                    }
-                }
-                if frame >= 96,
-                   zip(levels.left[8 ..< 16], previousContinuity[8 ..< 16])
-                    .contains(where: { pair in abs(pair.0 - pair.1) > 0.001 }) {
-                    lateConsecutiveShapeChanges += 1
-                }
-            }
-            previousContinuity = levels.left
-        }
-
-        // A fixed spectral shape with a deterministic amplitude pulse is the
-        // smallest producer-side rhythm probe. It must rise and fall with the
-        // PCM envelope; this does not assert a private FFT constant or an
-        // official beat detector.
-        let rhythmAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
-        let rhythmCapture = SystemAudioSpectrumTestCapture()
-        var rhythmPeaks: [Float?] = []
-        var rhythmBandCounts: [Int?] = []
-        let rhythmFrameCount = 1_600
-        for frame in 0 ..< 96 {
-            let pulse = 0.04 + 0.42 * (0.5 + 0.5 * sin(
-                Float(frame) * 2 * .pi / 24
-            ))
-            let input = (0 ..< rhythmFrameCount).map { index in
-                let sample = Float(frame * rhythmFrameCount + index)
-                return pulse * (
-                    0.42 * sin(2 * .pi * 110 * sample / sampleRate)
-                    + 0.28 * sin(2 * .pi * 440 * sample / sampleRate)
-                    + 0.18 * sin(2 * .pi * 2_200 * sample / sampleRate)
-                    + 0.12 * sin(2 * .pi * 8_000 * sample / sampleRate)
-                )
-            }
-            precondition(rhythmCapture.append([input], sampleRate: sampleRate))
-            guard let captured = rhythmCapture.latestFrame(sampleRate: sampleRate) else {
-                rhythmPeaks.append(nil)
-                rhythmBandCounts.append(nil)
-                continue
-            }
-            let levels = rhythmAnalyzer.analyze(captured, sampleRate: sampleRate)
-            rhythmPeaks.append(levels.left64.max() ?? 0)
-            rhythmBandCounts.append(levels.left64.filter { $0 > 0.03 }.count)
-        }
-        let rhythmFirstRise = rhythmPeaks.dropFirst(24).prefix(12).compactMap { $0 }.max() ?? 0
-        let rhythmFirstFall = rhythmPeaks.dropFirst(36).prefix(12).compactMap { $0 }.min() ?? 0
-        let rhythmSecondRise = rhythmPeaks.dropFirst(48).prefix(12).compactMap { $0 }.max() ?? 0
-        let rhythmSecondFall = rhythmPeaks.dropFirst(60).prefix(12).compactMap { $0 }.min() ?? 0
+        let display = SystemAudioSceneSpectrumAnalyzer()!
+        let displayReference = SystemAudioSceneSpectrumAnalyzer()!
+        _ = display.analyze(stereoFrame, sampleRate: sampleRate, timestamp: 1)
+        _ = displayReference.analyze(stereoFrame, sampleRate: sampleRate, timestamp: 1)
+        _ = display.analyzeAuthor(stereoFrame, sampleRate: sampleRate, timestamp: 2)
+        display.resetAuthor()
+        let displayNext = display.analyze(stereoFrame, sampleRate: sampleRate, timestamp: 1.04)
+        let displayExpected = displayReference.analyze(stereoFrame, sampleRate: sampleRate, timestamp: 1.04)
+        let restartedAuthor = display.analyzeAuthor(stereoFrame, sampleRate: sampleRate, timestamp: 2)
 
         return [
-            "available": true,
-            "bandCount": bandCount,
-            "extendedBandCount": SystemAudioSceneSpectrumAnalyzer.extendedBandCount,
-            "mediumBandCount": SystemAudioSceneSpectrumAnalyzer.mediumBandCount,
-            "silentLeft": silent.left,
-            "silentRight": silent.right,
-            "stereoLeft": stereo.left,
-            "stereoRight": stereo.right,
-            "stereoLeft64": stereo.left64,
-            "stereoRight64": stereo.right64,
-            "bassOnlyPeak": bassOnly.left.max() ?? 0,
-            "bassOnlyUpperNonZero": bassOnly.left.dropFirst(bandCount / 2)
-                .filter { $0 > 0 }.count,
-            "bassOnlyUpperPeak": bassOnly.left.dropFirst(bandCount / 2).max() ?? 0,
-            "bassOnlyQuietUpperPeak": bassOnlyQuiet.left
-                .dropFirst(bandCount / 2).max() ?? 0,
-            "bassUpperChangesLate": bassUpperChangesLate,
-            "stereoLeft32": stereo.left32,
-            "stereoRight32": stereo.right32,
-            "stereoLeftPeakBand": peakBand(stereo.left),
-            "stereoRightPeakBand": peakBand(stereo.right),
-            "stereoLeft64PeakBand": peakBand(stereo.left64),
-            "stereoRight64PeakBand": peakBand(stereo.right64),
-            "stereoLeft32PeakBand": peakBand(stereo.left32),
-            "stereoRight32PeakBand": peakBand(stereo.right32),
-            "loudPeak": mono.left.max() ?? 0,
-            "quietPeak": quiet.left.max() ?? 0,
-            "noiseFloorPeak": noiseFloor.left.max() ?? 0,
-            "attackFirstPeak": attackFirst.left64.max() ?? 0,
-            "attackSecondPeak": attackSecond.left64.max() ?? 0,
-            "releaseFirstPeak": releaseFirst.left64.max() ?? 0,
-            "releaseSecondPeak": releaseSecond.left64.max() ?? 0,
-            "left16PeakMatches64Group": peakBand(stereo.left64) / 4
-                == peakBand(stereo.left),
-            "right16PeakMatches64Group": peakBand(stereo.right64) / 4
-                == peakBand(stereo.right),
-            "left32PeakMatches64Group": peakBand(stereo.left64) / 2
-                == peakBand(stereo.left32),
-            "right32PeakMatches64Group": peakBand(stereo.right64) / 2
-                == peakBand(stereo.right32),
-            "firstPartialHasNoFrame": firstPartialHasNoFrame,
-            "secondPartialNonZero": secondPartial.left.contains { $0 > 0 },
-            "changedUpperBandCount": changedUpperBands.count,
-            "changedUpperBandCountLate": changedUpperBandsLate.count,
-            "lateConsecutiveShapeChanges": lateConsecutiveShapeChanges,
-            "continuityFirstBandRatio": continuityFirstBandRatio,
-            "rhythmFirstRise": rhythmFirstRise,
-            "rhythmFirstFall": rhythmFirstFall,
-            "rhythmSecondRise": rhythmSecondRise,
-            "rhythmSecondFall": rhythmSecondFall,
-            "rhythmPeakRange": (rhythmPeaks.compactMap { $0 }.max() ?? 0) - (rhythmPeaks.compactMap { $0 }.min() ?? 0),
-            "rhythmBandCountRange": (rhythmBandCounts.compactMap { $0 }.max() ?? 0)
-                - (rhythmBandCounts.compactMap { $0 }.min() ?? 0),
-            "deterministic": repeated.left == stereo.left
-                && repeated.right == stereo.right
-                && repeated.left32 == stereo.left32
-                && repeated.right32 == stereo.right32
-                && repeated.left64 == stereo.left64
-                && repeated.right64 == stereo.right64,
-            "monoMirrors": mono.left == mono.right
-                && mono.left32 == mono.right32
-                && mono.left64 == mono.right64,
-            "monoMatchesStereoLeft": mono.left == mirroredStereo.left
-                && mono.left32 == mirroredStereo.left32
-                && mono.left64 == mirroredStereo.left64,
-            "channelSwitchMatchesFresh": levelsEqual(
-                monoAfterStereo,
-                freshMonoAfterStereo
-            ) && monoAfterStereo.left == monoAfterStereo.right
-                && monoAfterStereo.left32 == monoAfterStereo.right32
-                && monoAfterStereo.left64 == monoAfterStereo.right64,
-            "sampleRateSwitchMatchesFresh": levelsEqual(
-                afterRateSwitch,
-                freshChangedRate
-            ),
-            "invalidRateLeft": invalidRate.left,
-            "emptyCaptureHasNoFrame": emptyCaptureHasNoFrame,
-            "highRateNonZero": highRate.left.contains { $0 > 0 },
-            "sanitizedToneFinite": sanitizedTone.left.allSatisfy { $0.isFinite },
-            "sanitizedTonePeakBand": peakBand(sanitizedTone.left),
-            "biasedPeakBand": peakBand(biasedResult.left),
-            "biasedFirstBand": biasedResult.left[0],
-            "unbiasedFirstBand": mono.left[0],
-            "biasedToneDelta": meanAbsoluteDelta(biasedResult.left, mono.left),
-            "allFinitePositive": (stereo.left + stereo.right)
-                .allSatisfy { $0.isFinite && $0 >= 0 }
-                && (stereo.left32 + stereo.right32)
-                    .allSatisfy { $0.isFinite && $0 >= 0 }
-                && (stereo.left64 + stereo.right64)
-                    .allSatisfy { $0.isFinite && $0 >= 0 },
+            "center64": center.left64,
+            "half64": half.left64,
+            "dc64": dc.left64,
+            "stereo": arrays(stereo),
+            "hotPeak": hot.left64.max() ?? 0,
+            "hotRightSilent": hot.right64.allSatisfy { $0 == 0 },
+            "silent": arrays(silent).joined().allSatisfy { $0 == 0 },
+            "nearSilentPeak": nearSilent.left64.max() ?? 0,
+            "reentry": reentryChecks(active: dcFrame, quiet: nearSilentFrame),
+            "sharedAttack": sharedAttackChecks(),
+            "bandSteps": bandStepChecks(),
+            "groupRelease": groupReleaseChecks(),
+            "usesTail": arrays(freshAuthor(sameTail, sampleRate: sampleRate)) == arrays(center),
+            "incompleteTailSilent": arrays(freshAuthor(incompleteTail, sampleRate: sampleRate))
+                .joined().allSatisfy { $0 == 0 },
+            "monoMirrors": center.left64 == center.right64 && center.left32 == center.right32 && center.left == center.right,
+            "monoMatchesStereo": arrays(center) == arrays(mirroredStereo),
+            "staleFormatPreservesCurrent": arrays(stale) == arrays(first)
+                && arrays(afterStale) == arrays(expectedAfterStale),
+            "newRateMatchesFresh": arrays(switched) == arrays(freshAuthor(changedFrame, sampleRate: changedRate)),
+            "changedRate64": switched.left64,
+            "returnTo48kMatchesFresh": arrays(returned) == arrays(stereo),
+            "invalidRateSilent": arrays(invalid).joined().allSatisfy { $0 == 0 },
+            "recoveryMatchesFresh": arrays(afterInvalid) == arrays(stereo),
+            "authorResetMatchesFresh": arrays(restartedAuthor) == arrays(stereo),
+            "authorResetPreservesDisplay": displayNext.left64 == displayExpected.left64
+                && displayNext.right64 == displayExpected.right64,
         ]
     }
 
-    static func analyzeFresh(
-        signedChannels: [[Float]],
-        sampleRate: Float
-    ) -> SystemAudioSceneSpectrumAnalyzer.Levels {
-        SystemAudioSceneSpectrumAnalyzer()!.analyze(SystemAudioSpectrumTestCapture.frame(signedChannels, sampleRate: sampleRate),
-            sampleRate: sampleRate
-        )
+    static func captured(_ signedChannels: [[Float]], at sourceSampleRate: Float = sampleRate) -> SystemAudioCapturedFrame {
+        SystemAudioSpectrumTestCapture.frame(signedChannels, sampleRate: sourceSampleRate)
     }
 
-    static func sineWave(
-        frequency: Float,
-        frameCount: Int,
-        amplitude: Float = 0.5,
-        startSample: Int = 0,
-        at sourceSampleRate: Float = Harness.sampleRate
-    ) -> [Float] {
-        (0 ..< frameCount).map { index in
-            sin(
-                2 * .pi * frequency * Float(startSample + index) / sourceSampleRate
-            ) * amplitude
+    static func freshAuthor(_ frame: SystemAudioCapturedFrame, sampleRate: Float) -> AuthorLevels {
+        SystemAudioSceneSpectrumAnalyzer()!.analyzeAuthor(frame, sampleRate: sampleRate, timestamp: 1)
+    }
+
+    static func reentryChecks(active: SystemAudioCapturedFrame, quiet: SystemAudioCapturedFrame) -> [String: Float] {
+        func restart(quietSeconds: Double, cadence: Int) -> Float {
+            let analyzer = SystemAudioSceneSpectrumAnalyzer()!
+            for tick in 0...90 {
+                _ = analyzer.analyzeAuthor(active, sampleRate: sampleRate, timestamp: Double(tick) / 30)
+            }
+            for tick in 1...Int((quietSeconds * Double(cadence)).rounded()) {
+                _ = analyzer.analyzeAuthor(quiet, sampleRate: sampleRate, timestamp: 3 + Double(tick) / Double(cadence))
+            }
+            let output = analyzer.analyzeAuthor(active, sampleRate: sampleRate, timestamp: 3 + quietSeconds + 1 / 30)
+            return output.left64[0]
+        }
+        return [
+            "short30": restart(quietSeconds: 0.2, cadence: 30),
+            "long30": restart(quietSeconds: 0.7, cadence: 30),
+            "long60": restart(quietSeconds: 0.7, cadence: 60),
+            "fresh": freshAuthor(active, sampleRate: sampleRate).left64[0],
+        ]
+    }
+
+    static func sharedAttackChecks() -> [[Float]] {
+        let right = zip(
+            tone(758.257539, amplitude: 0.03964522),
+            tone(9_604.595500, amplitude: 0.00114217)
+        ).map { reference, witness in reference + witness }
+        let quiet = captured([tone(1_102.920057, amplitude: 0.03426054), right])
+        let pressure = captured([tone(1_493.537578, amplitude: 0.36), right])
+        let analyzer = SystemAudioSceneSpectrumAnalyzer()!
+        func at(_ frame: SystemAudioCapturedFrame, tick: Int) -> [Float] {
+            let bands = analyzer.analyzeAuthor(frame, sampleRate: sampleRate, timestamp: Double(tick) / 30)
+            return [bands.right64[30], bands.right64[57]]
+        }
+        for tick in 0..<90 { _ = at(quiet, tick: tick) }
+        let before = at(quiet, tick: 90)
+        let attack = at(pressure, tick: 91)
+        for tick in 92..<180 { _ = at(pressure, tick: tick) }
+        return [before, attack, at(pressure, tick: 180)]
+    }
+
+    static func bandStepChecks() -> [[Float]] {
+        let reference = tone(758.257539, amplitude: 0.03964522)
+        let low = captured([tone(1_102.920057, amplitude: 0.03426054), reference])
+        let high = captured([tone(1_493.537578, amplitude: 0.36), reference])
+        let zero = Array(repeating: Float(0), count: reference.count)
+        let silent = captured([zero, zero])
+
+        return [1.0 / 60, 1.0 / 24].map { interval in
+            let analyzer = SystemAudioSceneSpectrumAnalyzer()!
+            func at(_ frame: SystemAudioCapturedFrame, _ time: Double) -> Float {
+                analyzer.analyzeAuthor(frame, sampleRate: sampleRate, timestamp: time).left64[36]
+            }
+            for tick in 0..<90 { _ = at(low, Double(tick) / 30) }
+            let before = at(low, 3)
+            let first = at(high, 3 + interval)
+            let repeatTime = at(high, 3 + interval)
+            let second = at(high, 3 + 2 * interval)
+            let release = at(low, 3 + 3 * interval)
+            let quiet = at(silent, 3.3)
+            let staleWhileQuiet = at(high, 3.3)
+            for tick in 1...21 { _ = at(silent, 3.3 + Double(tick) / 30) }
+            let resumed = at(high, 4.04)
+            analyzer.resetAuthor()
+            return [before, first, repeatTime, second, release, quiet, staleWhileQuiet, resumed, at(high, 4.08)]
         }
     }
 
-    static func levelsEqual(
-        _ lhs: SystemAudioSceneSpectrumAnalyzer.Levels,
-        _ rhs: SystemAudioSceneSpectrumAnalyzer.Levels
-    ) -> Bool {
-        lhs.left == rhs.left && lhs.right == rhs.right
-            && lhs.left32 == rhs.left32 && lhs.right32 == rhs.right32
-            && lhs.left64 == rhs.left64 && lhs.right64 == rhs.right64
-    }
-
-    static func peakBand(_ levels: [Float]) -> Int {
-        var bestIndex = -1
-        var bestValue: Float = 0
-        for (index, value) in levels.enumerated() where value > bestValue {
-            bestValue = value
-            bestIndex = index
+    static func groupReleaseChecks() -> [[Float]] {
+        func stepDown(_ peak: Float, intervals: [Double]) -> [Float] {
+            let before = captured([tone(1_493.537578, amplitude: peak)])
+            let after = captured([tone(1_493.537578, amplitude: peak / 2)])
+            let analyzer = SystemAudioSceneSpectrumAnalyzer()!
+            for tick in 0...75 {
+                _ = analyzer.analyzeAuthor(before, sampleRate: sampleRate, timestamp: Double(tick) / 25)
+            }
+            var time = 3.0
+            return intervals.map { interval in
+                time += interval
+                return analyzer.analyzeAuthor(after, sampleRate: sampleRate, timestamp: time).left64[36]
+            }
         }
-        return bestIndex
+        let slowTicks = Array(repeating: 0.04, count: 20)
+        let high = stepDown(0.048, intervals: slowTicks)
+        let low = stepDown(0.012, intervals: slowTicks)
+        let split = stepDown(0.012, intervals: [0.04, 0.04, 0.02, 0.02])
+        return [high, low, [low[2], split[3]]]
     }
 
-    static func meanAbsoluteDelta(_ lhs: [Float], _ rhs: [Float]) -> Float {
-        guard lhs.count == rhs.count, !lhs.isEmpty else { return .infinity }
-        return zip(lhs, rhs).reduce(0) { partial, pair in
-            partial + abs(pair.0 - pair.1)
-        } / Float(lhs.count)
+    static func tone(_ frequency: Double, amplitude: Float, at sourceSampleRate: Float = sampleRate) -> [Float] {
+        let count = SystemAudioSceneSpectrumAnalyzer.analysisWindowCount(sampleRate: sourceSampleRate)
+        return (0..<count).map { sample in
+            amplitude * Float(sin(2 * .pi * frequency * Double(sample) / Double(sourceSampleRate)))
+        }
+    }
+
+    static func arrays(_ levels: AuthorLevels) -> [[Float]] {
+        [levels.left64, levels.right64, levels.left32, levels.right32, levels.left, levels.right]
     }
 }

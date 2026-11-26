@@ -98,13 +98,13 @@
       "role": "navigation",
       "entrypoint": "AGENTS.md",
       "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。",
-      "lastReviewed": "2026-11-03",
+      "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "09022ee25167f21daa4f2e656b75b204528b0c0ea756a5d8a72772f5c684c79d",
+        "sourceSHA256": "748d148660441e85eec0aff15fd5cdd069b8577109ef73dc9f4fe406f03a0a20",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
-        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
+        "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
+        "limitations": "导航复核，实际渲染证据仍绑定其原构建。"
       }
     },
     {
@@ -208,13 +208,13 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "用户认可效果图后按唯一执行计划完成全功能与旧 UI 退役验收；稳定职责交回 AppKit/业务合同，不保并列旧 UI 目标。",
-      "lastReviewed": "2026-11-13",
+      "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f98c750f5e23a7d96f75297976dad54b28d0f1216295a600c38c79056786bc55",
+        "sourceSHA256": "8237f4463fdcd8f6295853112e5f6915d47c48cea9674f0250bdd0429f283c63",
         "method": "document_registry --audit + document_health --check",
-        "scope": "P0 参考源码、当前功能入口、视觉规范与分阶段退役/验收设计；用户确认前无产品 UI 实施。",
-        "limitations": "设计与导航审查，不证明 AppKit 画布、性能、真实在线账号、下载、播放或系统宿主已验收。"
+        "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
+        "limitations": "导航复核，实际渲染证据仍绑定其原构建。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2b9c09e6b1fca224ff3a5142f9a67eba3f00d6827d9b17756cdad26c7609940a",
+        "sourceSHA256": "acfb725384321ddeedbe5969b6d06b30a9a1b1bce2080c0248432bcd80834ea9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene 主域采样的设置读数和实绘覆盖",
-        "limitations": "真实设备验证为单屏 M4。"
+        "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
+        "limitations": "导航复核，实际渲染证据仍绑定其原构建。"
       }
     },
     {
@@ -871,10 +871,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b120fa2367d54677468c6e1a2acc3fb6f9ff04c5233f272540b8b298df64bfe7",
+        "sourceSHA256": "0ff329dbb21ca14e70cbe39e818c4efbb319b27c63c1831c4170ac5c34891d81",
         "method": "document_registry --audit + document_health --check",
-        "scope": "主域采样经过成功提交与活动会话到设置的投递",
-        "limitations": "只表达最近成功且请求呈现的主域，物理多屏待验。"
+        "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
+        "limitations": "导航复核，实际渲染证据仍绑定其原构建。"
       }
     },
     {
@@ -913,13 +913,13 @@
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene 资源计费与使用期",
       "currentStateAuthority": "docs/scene/capabilities/advanced-object-coverage.md",
-      "lastReviewed": "2026-11-25",
+      "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "dd4dc08a1f244f2cbf8bb39ba441fb405183b4f830a7033ce01684d4502ba8b3",
+        "sourceSHA256": "99874609d3645cbf9a9ca0e51f3c3da213eb358bf9ab095f9e4a8247db4b3cbb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "纹理快照、压缩输入和输出 Data 职责",
-        "limitations": "保原长度和预算检查"
+        "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
+        "limitations": "导航复核，实际渲染证据仍绑定其原构建。"
       }
     },
     {
@@ -948,13 +948,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "模型、Puppet 与光照",
-      "lastReviewed": "2026-11-25",
+      "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "13edefa5c266ecec70a82f2b7c3fcdf1a162be4b3df7099782c3941682c06bc4",
+        "sourceSHA256": "2fbd0335c6e31048e58437939869b313f8ee8e093969088df09833abd14597c4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "真实阴影档的世界网格、纹理与回退职责。",
-        "limitations": "未将物理宽度等同帧时间或功耗。"
+        "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
+        "limitations": "导航复核，实际渲染证据仍绑定其原构建。"
       }
     },
     {
@@ -1003,10 +1003,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "18b5ae6bb75f4ecf9ada3a4640776955a4cce843fed9e17fbe1fbb95d22e40c0",
+        "sourceSHA256": "46556cc495fdff15fbcd8964a38121c9a84c778c3a142ea55ff5f7163243da3f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同请求 4×／1×／4× 及独立样本的签名设置收据",
-        "limitations": "真实单屏和中英文，混合结果仅原生控件，不量耗时。"
+        "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
+        "limitations": "导航复核，实际渲染证据仍绑定其原构建。"
       }
     },
     {
@@ -1044,10 +1044,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "97421270d15b85685f5facbf44fc31255bc1f84b80b072d660c285b02695569a",
+        "sourceSHA256": "b9e7712cfdf43e7a300f290b0884d9ce57b21ce6f0e1c01b309a591bc860cbf5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "重复计时到期帧及现役状态归属",
-        "limitations": "只复核作者计时段。"
+        "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
+        "limitations": "导航复核，实际渲染证据仍绑定其原构建。"
       }
     },
     {

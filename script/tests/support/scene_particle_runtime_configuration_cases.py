@@ -67,6 +67,66 @@ def compile_runtime_configurations(cls, source_root, swift_sources, harness_sour
 
 
 class SceneParticleRuntimeConfigurationCases:
+    def test_synthetic_nested_children_follow_depth_limit_and_budget(self) -> None:
+        result = self.run_harness("nested-synthetic")
+        self.assertEqual(result["trailCounts"], [0, 1, 2, 3, 4, 4])
+        heads = result["headPositions"]
+        origins = result["trailOrigins"]
+        self.assertEqual(len(heads), 5)
+        self.assertEqual(len(origins), 5)
+        for origin, head in zip(origins, heads[1:] + heads[-1:]):
+            self.assertAlmostEqual(origin, head, delta=0.01)
+        for index in range(1, len(heads)):
+            self.assertAlmostEqual(heads[index] - heads[index - 1], 1.0, delta=0.01)
+        self.assertGreater(heads[0], 40)
+        self.assertIn(
+            "particles/depth-three.json:nestedDepthUnsupported", result["depthDetails"]
+        )
+        self.assertEqual(result["staticDetails"], [])
+        self.assertEqual(result["staticLeafCounts"], [1, 2, 3, 4, 5, 6])
+        self.assertIn(
+            "nestedAggregateSystemBudget:depth=2:systems=64:particleCapacity=65536",
+            result["budgetDetails"],
+        )
+        self.assertEqual(result["budgetTrailCounts"][0], 0)
+        self.assertEqual(result["budgetTrailCounts"][1], 64)
+        self.assertEqual(result["nestedUnsupportedLayers"], [])
+
+    def test_rendererless_follow_preserves_nested_static_stream_and_composes_sprite(self) -> None:
+        result = self.run_harness("nested-follow-control-stream")
+        frames = result["frames"]
+
+        self.assertEqual([x for frame in frames for x in frame["short"]], [-20, 0])
+        second_short = next(frame for frame in frames if 0 in frame["short"])
+        self.assertTrue(any(origin == -16 for origin, _ in second_short["source"]))
+        self.assertFalse(any(origin == 4 for origin, _ in second_short["source"]))
+        source_positions = {tuple(source) for frame in frames for source in frame["source"]}
+        self.assertEqual(source_positions, {(-16, 9), (-16, 10), (4, 9), (4, 10)})
+        self.assertEqual({x for frame in frames for x in frame["late"]}, {-6, 14})
+        self.assertEqual({x for frame in frames for x in frame["fallback"]}, {-20, 0})
+        for origin, target in [(-16, -6), (4, 14)]:
+            delayed_birth = next(frame for frame in frames if target in frame["late"])
+            self.assertGreater(delayed_birth["rootCount"], 0)
+            self.assertIn(origin, delayed_birth["sourceOrigins"])
+            self.assertFalse(any(source == origin for source, _ in delayed_birth["source"]))
+            empty_source = [frame for frame in frames if origin in frame["sourceOrigins"]
+                            and all(source != origin for source, _ in frame["source"])]
+            self.assertGreaterEqual(sum(target in frame["continuous"] for frame in empty_source), 2)
+            last_source = max(i for i, frame in enumerate(frames) if origin in frame["sourceOrigins"])
+            self.assertFalse(any(target in frame["continuous"] for frame in frames[last_source + 2:]))
+
+        self.assertTrue(any(frame["late"] and frame["rootCount"] == 0 for frame in frames))
+        self.assertFalse(any(frame["followDraws"] for frame in frames))
+        self.assertEqual(max(len(set(frame["scopes"])) for frame in frames), 2)
+        self.assertEqual(frames[-1]["systemIDs"], [])
+        self.assertTrue(result["replayed"])
+
+        width, height, sum_x, sum_y = result["firstLatePixels"]
+        self.assertGreater(width, 0)
+        self.assertGreater(height, 0)
+        self.assertAlmostEqual((sum_x + 1) / 2, 32 - 6, delta=1)
+        self.assertAlmostEqual((sum_y + 1) / 2, 32, delta=1)
+
     def test_child_plane_scale_cold_batches_preserve_centers_and_local_renderer_failure(self) -> None:
         for configuration in ("debug", "release"):
             result = self.run_harness("child-plane-scale-synthetic", configuration=configuration)

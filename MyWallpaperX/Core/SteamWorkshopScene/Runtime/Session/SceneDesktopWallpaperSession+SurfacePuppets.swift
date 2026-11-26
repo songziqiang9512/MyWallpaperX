@@ -115,14 +115,16 @@ extension SceneDesktopWallpaperSession.Surface {
         let size = layer.renderSizeWH ?? []
         let width = size.first ?? 0
         let height = size.count > 1 ? size[1] : 0
+        let tracksBackgroundBounds = (layer.colorBlendMode ?? 0) != 0
         if let (selection, evaluator, kind) = evaluated {
             switch ScenePuppetMeshGeometry.prepare(layerID: layer.id, mesh: asset.mesh,
                 atlasTexture: atlasTexture, layerWidth: width, layerHeight: height,
                 device: metalView.metalDevice, pipeline: preparedResources.imageLayerPipeline,
-                clipping: clipping, animated: true) {
+                clipping: clipping, animated: true, tracksBackgroundBounds: tracksBackgroundBounds) {
             case let .success(output):
                 let state = ScenePuppetPlaybackState.make(layerID: layer.id, mesh: asset.mesh,
-                    evaluator: evaluator, selection: selection, attachments: asset.attachments)
+                    evaluator: evaluator, selection: selection, attachments: asset.attachments,
+                    tracksBackgroundBounds: tracksBackgroundBounds)
                 if case let .failure(failure) = playbackRuntime.register(layerID: layer.id,
                     selection: selection, authoredLayers: layer.puppetAnimationLayers,
                     availableSingleAnimations: pose.availableSingleAnimations) {
@@ -155,7 +157,7 @@ extension SceneDesktopWallpaperSession.Surface {
         switch ScenePuppetMeshGeometry.prepare(layerID: layer.id, mesh: asset.mesh,
             atlasTexture: atlasTexture, layerWidth: width, layerHeight: height,
             device: metalView.metalDevice, pipeline: preparedResources.imageLayerPipeline,
-            clipping: clipping) {
+            clipping: clipping, tracksBackgroundBounds: tracksBackgroundBounds) {
         case let .success(output):
             metalView.puppetGeometries[layer.id] = output.geometry
             return .init(geometryProduct: output.product, allowsMissingMeshTextureProduct: false,

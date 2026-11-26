@@ -110,7 +110,7 @@ General基准与CameraTransforms相对倍率共用此值求解顺序但保独立
 
 暂停重绘只消费冻结帧。媒体只在 generation、terminal publication 和完整同帧 cohort 匹配时刷新；不采新 Inbox 或重跑 VM。候选首呈现有独立 cohort，稳态不等待所有屏幕。原暂停重试窗口、异步失败恢复与 stale completion 都归 [FrameDriver](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift)、[pre-script骨骼](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppetBones.swift)、[SurfaceSimulation](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSimulation.swift)、[SurfaceSubmission](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSubmission.swift)。
 
-稳态 tick 到期且当前各屏均等待原材质 GPU 提交时，FrameDriver 可在消费本次模拟输入之前等至下一名义 tick。原 Coordinator 结算并释放历史后，首个恢复准入的当前屏唤醒同一个一次性计时器。截止时照常推进一次模拟，延后的 tick 从实际执行时刻排下一帧，避免追赶时额外触发 VM。健康屏存在时照常前进，媒体、drawable 和编码失败仍走原路径。暂停、换屏、退役沿原计时器与 Surface 身份取消。保原历史提交和失败回滚，不重画旧模拟或放宽串行约束。以原包实际呈现间隔、CPU 每秒成本及独立媒体邻例核验。
+稳态 tick 到期若各屏均等待材质 GPU 提交，FrameDriver 延后模拟，每个名义间隔复查准入。原 Coordinator 释放历史后，首个恢复准入的当前屏唤醒一次性计时器，延后帧按实际起帧时刻排下一帧。任一屏可用即照常前进，媒体、drawable 和编码失败沿原路径。暂停、换屏、退役凭原计时器与 Surface 身份取消。以原包实呈间隔、CPU 每秒成本及独立样本核验。
 
 <a id="rendering"></a>
 ## 材质、图与输出
@@ -226,6 +226,19 @@ App 以 10–120 整数保存动画帧率，Scene 启动和热更新沿原数值
 
 验收分真实 Parser/Simulator、Runtime→生产 Metal 和作者 batch→最终捕获；官方局部点位和定性尺寸顺序不能升级成全域公式、完整动画或逐像素一致。未消费选项及未资格组合留在[开放问题](../roadmap/scene-open-breakpoint-queue.md)，不能变成隐藏的整链许可。
 
+<a id="particle-child-control-stream"></a>
+### 粒子子系统的控制点与生命周期
+
+ChildGraphExpansion 在原声明中一次准备实际需要的父粒子控制点输入。已测 declaration bit 1 从 `controlpointstartindex` 起按直接父系统的存活顺序覆盖槽位，省略索引从 0 开始。供给值是直接父 Simulator 的局部粒子位置，按原 child attachment 和渲染链投影一次。消费顺序与清空保留见[官版证据](../capabilities/runtime-evidence-current.md#thunderbolt-child-control-stream)。[官方 Children 合同](https://docs.wallpaperengine.io/en/scene/particles/component/children.html#child-particle-system-configuration)
+
+默认点先供货，收到的槽留在原 Simulator 的控制点当前值与快照中。只更新实际送达的槽。父粒子死亡后，剩余粒子按当前顺序移入，未再获得供值的槽保留上次值；已测父源清空后新生仍读取该值。原脚本点、原始父点复制和父粒子流保持各自的输入语义。带实际父点复制的 CP 不被父粒子流覆盖；测得的局部 follow 形态使用原定义的默认点，stock world 静态复制仍取父点。不要为无映射的 `parentcontrolpoint` 编辑字段建立许可，混合世界变换及脚本对同槽的优先级按实际消费者验证。
+
+显式空 renderer 的事件节点可准备活的后代和自身模拟，跳过纹理准备及 batch。坏 renderer 和无活后代的空节点保持原局部失败。嵌套 Static 随直接父系统建立一次，以原 `spawnScopeID` 定位，父发射器的延迟不推迟该 leaf 的创建。预算复用现有深度、系统数、粒子及合并 Rope 上限。二级 Static Rope 按每深度可驻留的64个系统核算，覆盖旧尾段和新作用域重叠；启动阶段仅直接创建一级 Static。
+
+普通 Follow 源粒子死亡后保留末挂点和存量。二级 Static 在直接父系统存续时继续按原时钟工作，父作用域退休后停止新发射并排空存量。显式销毁、stop 和快照回滚沿原 owner。脱离后是否继续接收新发射需单独对照。现有 attachment 和 `spawnScopeID` 继续负责渲染及失效。
+
+验证按原 GraphExpansion → ChildRuntime → Simulator → Rope/Sprite → Metal。短命不重启、长命尾段、晚出生读旧槽、带/不带复制的相反方向、改名、健康 peer、预算及回滚各走同一链。首个原包交付要求子束实际合成；原子束的周期发射、initial-value 与空间另沿本身消费者验证。
+
 <a id="particle-world-translation"></a>
 ## 粒子祖先平移与参考空间
 
@@ -246,9 +259,9 @@ Root 新生沿原 birthPositionOffset 进入 reference。Child 复用原系统 o
 
 Remap 的 input、range、transform、operation、output 和原 lifecycle blend 分别准备、消费；不得再以一组字段形状授执行许可，或另加“某input+某output+某flags”的样本式 profile。新增消费者沿原 Parser → OperatorExecutionPlan → Simulator → batch/GPU，不增加时钟、组件注册表或每帧解析。外层 blend 已由 Operator 解析，Remap 不重复将其判为未知字段。
 
-首个待接通的 input 是作者 `particlesystemtime`，首个输出是 opacity。其供值必须与 range/缺省 transform 分开资格，不能按字段名称直接别名为含预热和 rate 缩放的 `Simulator.simulationTime`。现有 SceneClock/SceneFrameTiming 是 typed 时间载体，不因此替未资格的 input 定义语义；沿原 frame→runtime→step 只传消费者需要的值，不增加第二时钟。与源/目标无关的标量范围、变换及运算使用同一准备与求值路径；系统级时间变换每个操作每步只求一次，粒子只处理自身当前值、作者顺序和 blend。原 vector simplex 与 scalar speed FBM 的既有行为保留在同一执行计划中，替换平行可选计划，不增加第三份专用许可；超出已有真实消费者的源或值维度保持局部不可用。
+作者 `particlesystemtime` 与 opacity 沿原类型化 Operator 准备。该作者输入取与 `g_Time` 同源的现役 `SceneParticleFrameTiming.sceneTime`，实时及预热子步使用传入的 Scene 帧值。粒龄仍只决定生命周期混合。与源/目标无关的标量范围、变换及运算使用同一准备与求值路径；系统级时间变换每个操作每步只求一次，粒子只处理自身当前值、作者顺序和 blend。原 vector simplex 与 scalar speed FBM 与新标量消费者共用一个准备计划，存入已有 Operator kind，替代两个平行槽位和重复诊断准备。超出已有消费者的源或值维度保持局部不可用。
 
-缺省 operation、input/output range、sine 的相位/单位/幅度及实际 clock 必须先有可区分证据，再写入数值合同，不能猜公式或沿用 noise 近似。先做一组有界官方控制：缺省与显式参数、常量输出运算、可见时钟与冻结相位、预热；无法区分时保留问题，重新评估下一项，不反复扩大矩阵。数值验收含有限值、0 scale、逆序范围、真正无效输入、改名与既有噪声/RNG邻例，不增加编辑器数值上限或整壁纸拒绝。
+官版 flags 0 的标量 sine 先归一 `q = (input − inputMin) / (inputMax − inputMin)`，再取 `(1 − cos(π × q × scale)) / 2`，结果线性映入输出范围。已测越界输入仍进入波形。省略 scale 取 2，显式 0 给最低输出，负值按该式。首个时间/透明度消费者的缺省输入和输出均为 0…1。省略 operation 与 multiply 一致，将当前 alpha 乘映射值；显式 remap 赋值。原 lifecycle blend 在当前 alpha 与运算结果之间插值。实机依据见[标量 Remap 波形与帧时钟](../capabilities/runtime-evidence-current.md#particle-remap-sine-clock)。有限非零输入跨度和输出跨度按有符号端点计算。零宽输入暂不执行该算子，额外 flags 与非法值保持局部失败。最终 alpha 只在当前写回检查可转成 Float，保留前序有效值。
 
 完成条件是新值经实际 Simulator alpha、Rope/Sprite batch 与生产 Metal 消费，并在相同作者输入下核活动 Remap 与最终捕获；未取得同步像素或完整子束资格时保持对应边界。证据和当前能力仍由原组件与运行证据卡维护。
 
@@ -264,7 +277,7 @@ Remap 的 input、range、transform、operation、output 和原 lifecycle blend 
 - **仅移除的退休与消费者**：先从实际map取走removed对象，再共用原单屏CPU/窗口退休步骤：只使该View的graph失效、退休粒子/Puppet、关窗，并由原retireSurface保GPU与capture至终态。全量teardown同批改用同一单屏步骤，退出复制的释放顺序；其全局输入/clock/VM/provider停止仍只归完整teardown。preparedSurfaceIDs同步为survivors，原storage identity在2→1时切唯一屏（失败仍global-only），音频需求按实际survivors一次更新；这三项在原Session共用成员发布步骤。不停健康cadence、不改committed/adopted frame、pendingProviderUpdate或共享媒体/声音。原stop继续join retiringSurfaceDrain，晚GPU/geometry回调沿既有对象身份检查失效，不新增退出队列或epoch。
 - **输入来源与移除**：既有CursorPendingEvent只补optional surfaceID，由record入口写真实sample.surfaceID；跨屏leave消费该sample前原previousSurfaceID，不新增另一份leaving identity。原cursor owner仅撤removed的capture、previous hit/pointer/surface上下文及pending重试，保健康pending与单一物理previousPrimaryButtonIsDown；不合成leave/up/click，不全局empty/revoke shortcut watermark。dispatch到owner commit/finalize在原主线程无await，GPU completion不restore cursor；协调在此段外，不为假想跨段rollback添candidate过滤、tombstone或代次。真实按住移除后不能在survivor伪造down/click。
 - **共享供货与候选**：同 Session 固定 prepared device，video registry 的 layer/device binding 不是 per-screen 引用计数。增减屏均不 withdraw 作者源、begin/completeSurfaceRebuild、重置 binding 或重新 prime initial videos；新增 View 从当前 source owner/key/device 与采用时最后实际接纳的 user publication 幂等取得原源，不另加缓存/计数。初始视频、动态 Store 与启动 cohort 仍只归初始启动；正式 display 入口由 Host 先 cancel pending/unconfirmed，再交 active Session。source incarnation/时钟及后续 decoded 消费若授连续性须实测。
-- **新实例时间与意图**：全部 root 在原 worker 按 job-start typed size/rate/alpha/CP/层变换与 audio 完整执行作者 starttime；audio 在 root/static-child warmup 前进入原 Simulator。pointer 仍按无历史指针预热，安装时才按新屏几何零步投影，不借他屏局部坐标。新屏不补当前 sceneTime 或排队墙钟；SceneClock/VM/Timeline 仍属 Session。采用前仅对新实例按当前 destroyed 整层退休并直接对齐 root 当前 intent/revision：stop 清 root 人口，pause 保人口，play 沿原 rearm 语义；emit 只增 revision 不得伪造 play/rearm，加入消费者前的 emit 不补放。普通 static/frame-created child 原240步及独立 aging 不借本批扩张；全部 root 离主线程后退役3,600步/加权四百万的旧关卡与参数。
+- **新实例时间与意图**：全部 root 在原 worker 按 job-start typed size/rate/alpha/CP/层变换与 audio 完整执行作者 starttime；audio 在 root/static-child warmup 前进入原 Simulator。pointer 仍按无历史指针预热，安装时才按新屏几何零步投影，不借他屏局部坐标。新屏不按排队时长推进粒子年龄。出生的[一维时域噪声](../capabilities/particle-component-coverage.md#turbulent-birth-clock)用入队时采样的 SceneClock 时间；SceneClock/VM/Timeline 仍属 Session。采用前仅对新实例按当前 destroyed 整层退休并直接对齐 root 当前 intent/revision：stop 清 root 人口，pause 保人口，play 沿原 rearm 语义；emit 只增 revision 不得伪造 play/rearm，加入消费者前的 emit 不补放。普通 static/frame-created child 原240步及独立 aging 不借本批扩张；全部 root 离主线程后退役3,600步/加权四百万的旧关卡与参数。
 - **零步首帧与装配**：同一单屏装配职责消费必需的独占 PlaybackState/material runtime，供 initial 与 added 共用；删除主线程 cold-root fallback。窗口/View/pipeline/Puppet GPU 仍主线程，Session 共享 Store/VM/源不重建。新增实例在进入 actual map 前，仅对自己按当前 committed dynamic/topology、共享动画/媒体/audio 与 SceneClock 时间生成零 delta SimulationFrame；不跑 VM、发动画事件或更新 retained simulation/pose。paused 原 driver 因全部屏已有帧只重绘，playing 原 timer 不重启；实际空过或 paused 才唤醒 driver。首 GPU/capture 继续归原输出 owner，不增加 handoff 屏障或复用 startup cohort 续证。
 - **混合、无保留屏与失败**：retained 是 actual∩resolved，始终沿原 cadence；obsolete actual−resolved 立即按单屏退休，不让已不 desired 或已迁移的窗口等新增屏。disjoint 准备期间 actual 可空，保同一 Session/VM/clock/共享源，允许输出空窗，首个新屏装好再唤醒 driver。可选图像/pipeline 失败局部降级；新增单屏失败不拆健康屏，不自动无限重做长预热。无健康屏且工作结束、没有更新目标待准备时沿原 revoke/stop；空 resolver 与正在准备的空 actual 分别处理。终态回流原请求/UI 的未资格边界仍独立取证。
 - **新增屏异步工作与退出**：复用 Host 唯一 preparation queue；Session 仅持一个短寿命 pending 工作（覆盖 IDs、原 cancellation），入队前登记原 retiringSurfaceDrain。部分 ID 过时只丢弃其结果，全部不需、stop 或 Host 接受新壁纸请求时取消；切换先让新 candidate 入原队列，旧工作实际收尾后若还需补屏，其下一项排在 candidate 后，在原逐步取消检查点让路；不承诺抢占单步或最大切换延迟。worker 完成后主线程采用/teardown 全部产品并对同 primary loader eviction，最后才清 pending/leave，随后按最新 desired 补尚未准备的新 ID。不用 serial queue 返回冒充 loader 已完成交接，不增锁、任务列表、dirty flag 或取消代次。stop 等这项 CPU 尾、原上传队列、Surface GPU/capture；before-start 取消也必须到实际处置尾才结束工作。

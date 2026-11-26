@@ -5,10 +5,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         _ template: Template,
         node: Graph.Node,
         producers: DynamicProducerCatalog,
-        variants: SceneResolvedMaterialVariantCache?
+        variants: SceneResolvedMaterialVariantCache
     ) -> Rejection? {
+        let selected = variants.launchEnvelopeCapabilitySnapshot().dynamicUniforms
         for declaration in template.uniformDeclarations {
-            guard case let .dynamic(dynamic) = declaration.value else { continue }
+            guard case let .dynamic(dynamic) = declaration.value,
+                  selected.contains(dynamic) else { continue }
             guard case let .effectConstant(
                 layerID, effectIndex, passIndex, name
             ) = dynamic.target,

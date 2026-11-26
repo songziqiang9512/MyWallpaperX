@@ -61,6 +61,7 @@ nonisolated extension SceneParticleSimulator {
     }
 
     struct EmissionContext: Equatable, Sendable {
+        var sceneTime: Double = 0
         var controlPoints: [Int: SIMD3<Double>] = [:]
         var controlPointAngles: [Int: SIMD3<Double>] = [:]
         var instanceOverride: SceneParticleInstanceOverride? = nil

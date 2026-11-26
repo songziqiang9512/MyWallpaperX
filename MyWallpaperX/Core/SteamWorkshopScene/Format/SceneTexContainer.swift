@@ -53,6 +53,12 @@ nonisolated struct SceneTexContainer {
     enum Condition: Hashable, Sendable {
         case boolean(propertyKey: String)
         case equals(propertyKey: String, value: String)
+
+        var propertyKey: String {
+            switch self {
+            case let .boolean(key), let .equals(key, _): key
+            }
+        }
     }
 
     struct ConditionalPatch: Sendable {

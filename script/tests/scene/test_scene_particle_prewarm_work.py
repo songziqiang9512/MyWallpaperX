@@ -102,10 +102,11 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
                     self.assertEqual(row["acceptedBirths"], 0)
                     self.assertEqual(row["processedPopulation"], 0)
                 else:
-                    self.assertEqual(row["population"], 0)
+                    self.assertEqual(row["population"], 1000)
                     self.assertGreater(row["processedPopulation"], 0)
                     self.assertEqual(row["acceptedBirths"], row["nextID"])
-                    self.assertEqual(row["deaths"], row["nextID"])
+                    self.assertGreater(row["deaths"], 0)
+                    self.assertEqual(row["deaths"] + row["population"], row["acceptedBirths"])
 
     def test_empty_capacity_keeps_its_simulation_clock(self) -> None:
         rows = self.result["emptySystems"]
@@ -126,7 +127,7 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
         self.assertEqual(row["overTime"], 112.5 + 1 / 32)
         self.assertFalse(row["overLimited"])
         self.assertEqual(row["partialTime"], 8 + 1 / 128)
-        self.assertEqual(row["partialAge"], 8 + 1 / 128)
+        self.assertEqual(row["partialAge"], 8 + 1 / 128 - 1 / 32)
         self.assertEqual(row["partialX"], 512.5)
         self.assertEqual(row["partialHistoryCount"], 8)
         self.assertFalse(row["partialLimited"])
@@ -158,7 +159,7 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
     def test_complete_mode_preserves_the_fractional_last_slice_and_history(self) -> None:
         row = self.result["complete"]["partial"]
         self.assertEqual(row["time"], 128 + 1 / 128)
-        self.assertEqual(row["age"], 128 + 1 / 128)
+        self.assertEqual(row["age"], 128 + 1 / 128 - 1 / 32)
         self.assertEqual(row["x"], 8192.5)
         self.assertTrue(row["samePlainLinearState"])
         self.assertTrue(row["samePlainHistory"])
@@ -199,10 +200,10 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
             with self.subTest(name=name):
                 row = self.result["orderedDeaths"][name]
                 self.assertEqual(row["retainedIDs"], list(range(8)))
-                self.assertEqual(row["retainedAges"], [3 / 32] * 8)
+                self.assertEqual(row["retainedAges"], [2 / 32] * 8)
                 self.assertEqual(row["deaths"], deaths)
                 self.assertEqual(row["deathSizes"], [identity + 1 for identity in deaths])
-                self.assertEqual(row["deathAges"], [4 / 32] * len(deaths))
+                self.assertEqual(row["deathAges"], [3 / 32] * len(deaths))
                 self.assertEqual(row["deathAlphas"], [0.5] * len(deaths))
                 self.assertEqual(row["survivorAlphas"], [0.5] * len(survivors))
                 self.assertEqual(row["survivors"], survivors)
@@ -225,13 +226,49 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
             row = rows[name]
             with self.subTest(name=name):
                 self.assertReplay(row)
-                self.assertEqual(row["prewarm"]["age"], 1)
-                self.assertEqual(row["live"]["age"], 1.25)
+                self.assertEqual(row["prewarm"]["age"], 1 - 1 / 32)
+                self.assertEqual(row["live"]["age"], 1.25 - 1 / 32)
                 for phase in ("prewarm", "live"):
                     state = row[phase]
                     self.assertEqual((state["size"], state["color"]), (size, color))
                     self.assertEqual((state["initialSize"], state["initialColor"]), (7, [1, 0, 1]))
                     self.assertEqual((state["alpha"], state["initialAlpha"]), (alpha, 0.375))
+
+    def test_each_size_change_consumes_the_current_instance_size(self) -> None:
+        self.assertEqual(self.result["sizeChangeInstance"], {
+            "birthOnly": [16, 16, 16, 16, 16, 16],
+            "unit": [8, 8, 4, 4, 8, 8],
+            "smaller": [4, 2, 2, 2, 2, 4],
+            "larger": [16, 32, 8, 8, 32, 16],
+            "renamed": [16, 32, 8, 8, 32, 16],
+            "twice": [16, 64, 4, 4, 64, 16],
+            "disabled": [8, 8, 8, 8, 8, 8],
+            "withOscillation": [16, 96, 24, 24, 96, 16],
+        })
+
+    def test_birth_step_moves_at_zero_age_before_appearance_and_lifetime_advance(self) -> None:
+        row = self.result["birthStep"]
+        frames = row["live"]
+        expected = [
+            [(0, 1, 0, 20, 0.3125)],
+            [(0, 2, 1 / 32, 12, 0.1875), (1, 1, 0, 20, 0.3125)],
+            [(0, 3, 2 / 32, 4, 0.0625), (1, 2, 1 / 32, 12, 0.1875)],
+            [(1, 3, 2 / 32, 4, 0.0625)],
+            [],
+        ]
+        self.assertEqual(len(frames), len(expected))
+        for step, (frame, particles) in enumerate(zip(frames, expected), start=1):
+            with self.subTest(step=step):
+                self.assertEqual(len(frame["particles"]), len(particles))
+                for actual, (identity, x, age, size, alpha) in zip(frame["particles"], particles):
+                    self.assertEqual((actual["id"], actual["x"], actual["age"]), (identity, x, age))
+                    self.assertAlmostEqual(actual["size"], size, places=5)
+                    self.assertAlmostEqual(actual["alpha"], alpha, places=6)
+        self.assertEqual([frame["births"] for frame in frames], [[0], [1], [], [], []])
+        self.assertEqual([[(particle["id"], particle["age"]) for particle in frame["deaths"]]
+                          for frame in frames], [[], [], [], [(0, 3 / 32)], [(1, 3 / 32)]])
+        self.assertEqual(row["prewarm"], {"particles": frames[0]["particles"], "births": [], "deaths": []})
+        self.assertEqual(row["handoff"], frames[1])
 
     def test_leading_death_compaction_keeps_live_order_and_history(self) -> None:
         partial = self.result["compaction"]["partial"]
@@ -240,10 +277,10 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
         self.assertEqual(partial["firstHistory"], [list(range(70, 96))])
         self.assertEqual(partial["deaths"], [])
         self.assertEqual(partial["survivors"], list(range(70, 96)))
-        self.assertEqual(partial["ages"], [5 / 32] * 26)
+        self.assertEqual(partial["ages"], [4 / 32] * 26)
         self.assertEqual(partial["history"], [list(range(70, 96)), list(range(70, 96))])
         self.assertEqual(partial["nextSurvivors"], list(range(70, 96)))
-        self.assertEqual(partial["nextAges"], [6 / 32] * 26)
+        self.assertEqual(partial["nextAges"], [5 / 32] * 26)
         all_row = self.result["compaction"]["all"]
         self.assertEqual(all_row["firstDeaths"], list(range(96)))
         self.assertEqual(all_row["firstSurvivors"], [])
@@ -261,10 +298,10 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
         self.assertEqual(mixed["firstHistory"], [list(range(3, 96))])
         self.assertEqual(mixed["deaths"], [3, 40])
         self.assertEqual(mixed["survivors"], mixed_survivors)
-        self.assertEqual(mixed["ages"], [5 / 32] * 91)
+        self.assertEqual(mixed["ages"], [4 / 32] * 91)
         self.assertEqual(mixed["history"], [list(range(3, 96)), mixed_survivors])
         self.assertEqual(mixed["nextSurvivors"], mixed_survivors)
-        self.assertEqual(mixed["nextAges"], [6 / 32] * 91)
+        self.assertEqual(mixed["nextAges"], [5 / 32] * 91)
 
     def test_live_and_zero_step_render_views_share_nonzero_head_storage(self) -> None:
         rows = self.result["liveRenderStorage"]

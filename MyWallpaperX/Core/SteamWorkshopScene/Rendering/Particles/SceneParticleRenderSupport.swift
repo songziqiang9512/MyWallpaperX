@@ -1,6 +1,7 @@
 import simd
 
 nonisolated enum SceneParticlePipelineBlendMode: String, Hashable, Sendable {
+    case normal
     case translucent
     case additive
     case alphaToCoverage = "alphatocoverage"
@@ -28,6 +29,7 @@ nonisolated struct SceneParticlePipelineVariant: Hashable, Sendable {
         .init(blendMode: .additive),
         .init(blendMode: .translucent, usesDepthAttachment: true),
         .init(blendMode: .additive, usesDepthAttachment: true),
+        .init(isRefraction: true, blendMode: .normal),
         .init(isRefraction: true, blendMode: .translucent),
         .init(isRefraction: true, blendMode: .additive),
     ]
@@ -54,7 +56,6 @@ nonisolated struct SceneParticlePipelineRenderState: Equatable, Sendable {
     let depthTestEnabled: Bool
     var depthWriteEnabled: Bool
     let overbright: Float
-    var usesStraightMaskTint = false
 
     func readsSceneDepth(usesSceneCamera: Bool, isRefraction: Bool) -> Bool {
         usesSceneCamera && !isRefraction && blendMode != .alphaToCoverage

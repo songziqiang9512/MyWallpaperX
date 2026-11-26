@@ -17,8 +17,8 @@ struct SceneLightSnapshot {
     struct Point {
         var layerID: Int? = nil
         var castsShadow: Bool = false
-        /// Raw `lpoint` class, shared by static models and LightingV1 image
-        /// materials. Legacy image materials consume raw `point` instead.
+        /// Raw `lpoint` class for modern static models and LightingV1 imagery.
+        /// Legacy image and generic2 materials consume raw `point` instead.
         var illuminatesStaticModels: Bool = true
         let position: SIMD3<Float>
         let color: SIMD3<Float>
@@ -141,17 +141,16 @@ struct SceneLightSnapshot {
             // and SP1/SP2 black-box, 2026-10-06). The legacy image consumer
             // is NOT config-gated — `point` lights illuminate images with no
             // lightconfig at all (corpus 2815826216 and the IMG6 own-fixture
-            // pair) — so 2D-only `point` lights always enter the snapshot.
-            // They bypass the static-model budget: the four-slot model budget
-            // stays owned by model lights. The 2D packer truncates its own
-            // point+spot payload to the four ABI slots in authored order.
-            let isImageOnlyPointLight = layer.pointLight?.kind == "point"
+            // pair) — so legacy `point` lights always enter the snapshot.
+            // They bypass the modern model budget. Each legacy consumer
+            // selects its own first four authored light slots.
+            let isLegacyPoint = layer.pointLight?.kind == "point"
             // Tube does not participate in the separate legacy point ABI.
-            if !isImageOnlyPointLight && !isTubeLight {
+            if !isLegacyPoint && !isTubeLight {
                 authoredLighting.rejectUnsupportedLight()
             }
             let admitted: Bool
-            if isImageOnlyPointLight {
+            if isLegacyPoint {
                 admitted = true
             } else if layer.pointLight != nil {
                 admitted = descriptor.lighting?.lightClasses.point ?? false
@@ -181,7 +180,7 @@ struct SceneLightSnapshot {
                         snapshot: $0
                     )
                 } ?? authoredRadius : nil
-            if isImageOnlyPointLight {
+            if isLegacyPoint {
                 // Native colors above retain their normalized contract. The
                 // ordinary ABI validates the same frame's raw typed value;
                 // a present invalid target must not fall back to authored white.
@@ -206,7 +205,7 @@ struct SceneLightSnapshot {
                     intensity: intensity, radius: radius
                 )
             }
-            if isImageOnlyPointLight, let light = point(
+            if isLegacyPoint, let light = point(
                 layer: layer, frame: frame, dynamicColor: dynamicColor,
                 intensity: intensity, radius: radius
             ) {

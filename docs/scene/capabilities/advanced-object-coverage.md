@@ -160,11 +160,11 @@ Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先�
 <a id="model-shadow-coverage"></a>
 ### 模型阴影的实际覆盖
 
-具有可见覆盖的半透明材质网格（如星环）已能遮挡其它模型的直接光，Frame按translucent整类拒绝caster的旧门已退出。颜色blending不充作灯域投影许可；唯一作者cast intent与原prepared可见draw决定候选，normal/缺省/additive现有结果保持。阴影与camera depth test/write独立，不按混合、写深度或材质名建立新白名单；明确不投影、hidden/父隐藏与无prepared几何仍沿原路径退出。
+定向投影消费已准备的材质与作者cast intent。已准入 stock `generic4` 的 `translucent` 部件继续绘色、接收阴影，退出定向caster边界与深度绘制。官版已用479全不透明纹理、462带孔纹理分别核实此混合区别。normal、其他材质、点灯和聚光灯沿原资格；相机深度各自消费原声明。Frame保一组部件和定向资格，空caster不申请影图。
 
-复用drawShadow已有自有二值覆盖合同：clamp(material.opacity×layerAlpha,0,1)，只有原textureAlphaIsOpacity才乘实际albedo A，最终coverage>.5写灯空间深度，≤.5/透明孔保持原深度；tint-mask A不误当洞。三灯共用原shader/cull/当前同帧mesh/world/UV/sampler，原定向bounds本已包含有cast intent的半透明几何，不新建范围计算、PSO、map类型或caster状态。新增caster会沿原有每灯map/同提交增加实际绘制，首个caster也可能触发原map申请，不授零成本或性能收益。这里只恢复该既有覆盖消费者的可达性，不宣半透明透射/有色阴影/官方阈值；原additive既可按作者intent投影，未获新反例不另加类别禁令。
+合格部件沿原 `drawShadow` 的二值覆盖计算。先取 clamp(material.opacity×layerAlpha,0,1)，原 textureAlphaIsOpacity 才乘实际 albedo A。最终 coverage>.5 写光域深度，≤.5 保留空孔；tint-mask A 由原颜色消费者使用。三灯共用原 shader、cull 及同帧 mesh/world/UV/sampler。
 
-验收沿真实Frame收集→原灯map→接收者像素及map深度，用translucent有覆盖/孔洞/透明边界，与同输入normal及明确castfalse作可区分对照；核material与layer alpha、mask含义、cull/改名和camera-depth独立，保additive原行为与三灯邻例。冻结真实星环MDL/TEX与接收球面、灯/相机/相位，旧/新App核实际投影和孔洞，另用未参与修复的真实作者保原受光/完整图。官方证据不足时依此明确几何覆盖算法验收；若原景投影难以归因，使用同真实资产的自有控制，不拟合阴影ROI或以caster计数代像素收益。当前资格见[模型运行证据](model-runtime-evidence.md#model-shadow-coverage)。
+验收沿真实 Frame 收集、光域深度及接收像素。用 stock generic4 同纹理 normal/translucent、改名、cast 开关及点聚邻例区分投影与颜色；保覆盖阈值、材质/层 alpha、cull、相机深度与健康 normal 宽影。以冻结原环和独立作者实际绘制验收。范围见[模型运行证据](model-runtime-evidence.md#model-shadow-coverage)。
 
 有序命名来源准备以已就绪部件为当前阴影输入。纯模型raw provider确定无当前源，或模型部件在其准备位置尚拿不到当前publication，只退出缺失部件的本帧投影及接收范围；前后健康层和同层ready部件继续沿原顺序取得必需附件，再用原灯图。部分draw只供本次发图，颜色准备缓存仍只收完整层，使普通绘制在publication晚到后重新取资源；发图截点后的供货随下一帧进入影图。某pass尚无深度决定时，已接纳的当前graph输出在原位置保留颜色深度；raw来源须在可选影图前确有本帧完整发布才预约。尚无发布或已经退役的raw来源不耗该域深度。保原身份失败、混合provider、已有源的容量或编码失败和必需附件优先级，不加跨帧缓存、回放或第二资源owner。验收同时量缺失时的健康投影、普通颜色晚取、完整回供、同层健康部件及原配额和取消反例，以实际接收像素为准。
 
@@ -478,6 +478,17 @@ main/named consumer 分别按实际 extent/MVP、target bounds 和采样密度�
 - HDR scene color/Bloom 与终端 SDR/EDR 映射分开；像素 PNG 不能证明显示器实际 EDR 高光。
 
 源码：[LightSnapshot](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneLightSnapshot.swift)、[2D lit material](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal)。采样/颜色合同见[Shader/Graph](render-graph-shader-coverage.md#color)。
+
+<a id="legacy-generic2-model-lighting"></a>
+### 正交画布上 stock generic2 的旧点光
+
+同一作者网格及两组等值色隔离了封面取色。官版壳面在无灯时混合环境色与天光，有旧 `point` 时再受随世界距离衰减的漫反射与高光。当前固定模型路径在该材质 `LIGHTING=0` 时直接输出原色。stock generic2 自身不以该 combo 选择受光分支，现代 `lpoint` 与旧点光亦分属不同灯组。选原模型材质和现有点光槽承接这个响应，现代 PBR 与旧平面图像入口保各自合同。
+
+原 MaterialPlan 确认同名 stock shader 的两根阶段及各自通用 include 来自 stock，几何法线变体无 normal map、反射及 detail alpha。准备 `Light`、`Metal`、`Rough` 的静态响应系数，缺省为零并保作者已证 `Metal=2`；非有限系数或会使正面/背向入射零点失去定义的幂值沿原模型 fallback。原冻结 draw 保这一个 profile，旧 `LIGHTING` combo 在已接管的材质上退出颜色选择。原相机帧供画布中点 XY 和 Z 2000 的旧 shader 眼位，保模型原 VP、group 局部尺寸及位置。原世界基的前向线性变换给顶点法线，天空与环境插值在该基下复用共享灯快照的半球系数；片元漫反射和高光使用重新归一化的插值法线。
+
+同一光快照中原始 `point` 按作者顺序向该 draw 供最多四灯，不占现代灯或 shadow atlas 预算。片元共用原 point 循环的世界位差和距离，按半径归一余量平方衰减漫反射，`Light` 控制 Lambert 与 half-Lambert 的插值，金属边缘项同属漫反射；Blinn 半角高光按余量一次衰减并加回表面。两种材质响应共用常量槽、顶点/片元路径与最终合成；旧分支复用 rim 向量、相机槽和 material flags，保现有 ABI 大小、纹理、alpha、深度、排序和投影。旧灯不走现代 shadow 采样。由原顶点 shader 应用前向矩阵，免重复逆矩阵及无必要的可逆性检查。无新资源、缓存、pass、所有者或逐帧材料解析。动态材质参数和其余 generic2 贴图/反射分支仍走现有路径，各自待真实结果资格。
+
+验收冻结同网格、同色、零灯、彩色半球、范围内外的单灯、改名以及现代灯和作者覆盖 shader 对照。以相同输入两端的原像素和实际模型到 drawable 的 GPU 完成为准，另核独立作者和现代模型回归；不以重用素材的单包衍生物代替独立作者。分别记录取色与着色结果，剩余取色缺口保持开放。
 
 <a id="tube-light"></a>
 ### 管状光源的线段受光

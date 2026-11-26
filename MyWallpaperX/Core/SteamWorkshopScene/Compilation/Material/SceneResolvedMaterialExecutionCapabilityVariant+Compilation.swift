@@ -274,6 +274,21 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 keySHA256: variantAnalysisKey
             )
         }
+        let preservesGraphInputAlpha: Bool
+        if let carrier = sourceCarriedRGBAFact, carrier.shape == .existing, carrier.transfer == .preserving,
+           let input = implicitFramebufferIdentity,
+           samplers[carrier.sourceSlot]?.mode == .regular,
+           frontend.colorBoundary?.outputRepresentation == .straightAlpha,
+           frontend.colorBoundary?.colorInputSlots.contains(carrier.sourceSlot) == true,
+           let role = Template.GraphTextureRole(rawValue: input.kind.rawValue),
+           template.graphRole.effectInput == role {
+            preservesGraphInputAlpha = SceneResolvedMaterialColorBlendEligibility.sourceSlotSelectsExactInput(
+                carrier.sourceSlot, inputIdentity: input, inputRole: role, template: template,
+                graphInputSourceSlotFacts: graphInputFacts
+            )
+        } else {
+            preservesGraphInputAlpha = false
+        }
         return .init(
             readinessMask: readinessMask,
             textureFormats: variantKey.textureFormats,
@@ -300,7 +315,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             activeUniforms: uniforms,
             neutralTextureResolution: neutralTextureResolution,
             preservesTargetPixelFootprint: SceneAuthoredShaderSamePixelSourceAnalyzer
-                .preservesTargetPixelFootprint(vertexSource: compilerSources.vertex)
+                .preservesTargetPixelFootprint(vertexSource: compilerSources.vertex),
+            preservesGraphInputAlpha: preservesGraphInputAlpha
         )
     }
 

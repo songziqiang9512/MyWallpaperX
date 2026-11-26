@@ -34,6 +34,9 @@ PLAN_FORWARD_SOURCE = RUNTIME_SOURCE.with_name("SceneDependencyRenderPlan+Forwar
 GEOMETRY_PRODUCT_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneGeometryProduct.swift"
 )
+BASE_IMAGE_SAMPLE_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureCandidateSupport.swift"
+)
 
 
 HARNESS_SOURCE = r'''
@@ -63,7 +66,7 @@ struct SceneAuthoredEffectRenderPlan {
 }
 
 struct SceneUtilityLayer {
-    enum Kind { case composition }
+    enum Kind { case composition, fullscreen }
     let kind: Kind
     var copyBackground: Bool = true
 }
@@ -303,6 +306,7 @@ enum SceneTextureSampling {
     }
 }
 enum StubAlpha: Equatable { case premultipliedAlpha, straightAlpha, opaque }
+typealias SceneShaderColorRepresentation = StubAlpha
 enum StubColor: Equatable { case resolved(StubAlpha) }
 enum SceneTextureContent: Equatable {
     case color(StubColor)
@@ -313,6 +317,7 @@ enum SceneTextureContent: Equatable {
 }
 
 enum StubSourceIdentity { case raw }
+typealias SceneTextureResourceIdentity = StubSourceIdentity
 
 struct SceneTextureCandidate {
     let texture: MTLTexture
@@ -321,6 +326,8 @@ struct SceneTextureCandidate {
     let sampling: SceneTextureSampling
     let uvTransform: SceneTextureUVTransform
     var identity: StubSourceIdentity { .raw }
+    var isSpriteSheet: Bool { false }
+    var pixelFormat: MTLPixelFormat { texture.pixelFormat }
     // This older regression shell uses identity-only prepared candidates.
     // Actual metadata admission is exercised by the native-owner gate below.
     var physicalSize: CGSize { CGSize(width: texture.width, height: texture.height) }
@@ -338,6 +345,10 @@ struct SceneTextureCandidate {
 struct SceneTextureUVTransform {
     let uniform0: SIMD4<Float>
     let uniform1: SIMD4<Float>
+    var origin: SIMD2<Float> { .init(uniform0.x, uniform0.y) }
+    var xAxis: SIMD2<Float> { .init(uniform0.z, uniform0.w) }
+    var yAxis: SIMD2<Float> { .init(uniform1.x, uniform1.y) }
+    var isFiniteAndNondegenerate: Bool { fatalError("sprite frame outside graph-only harness") }
     static let identity = Self(
         uniform0: SIMD4(1, 1, 0, 0),
         uniform1: SIMD4(0, 0, 0, 0)
@@ -394,6 +405,7 @@ struct SceneGeometryProduct {
     let samplingTexture: MTLTexture
     let resourceGeneration: UInt64
     let isPreparedForPublication: (MTLCommandBuffer) -> Bool
+    var backgroundBounds: (() -> SIMD4<Float>?)? = nil
     let encode: (
         MTLRenderCommandEncoder,
         MTLTexture,
@@ -1865,6 +1877,7 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     str(EFFECT_INPUT_RESOLUTION_RUNTIME_SOURCE),
                     str(STATIC_MODEL_RUNTIME_SOURCE),
                     str(GEOMETRY_PRODUCT_SOURCE),
+                    str(BASE_IMAGE_SAMPLE_SOURCE),
                     str(
                         REPOSITORY_ROOT
                         / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift"
@@ -2008,6 +2021,7 @@ ATLAS_NATIVE_MAIN = r'''
             report["budget"] = budget(d)
             report["geometryRepresentation"] = geometryRepresentation(d)
             report["rawImageRepresentation"] = rawImageRepresentation(d)
+            report["hiddenSpriteFrames"] = hiddenSpriteFrames(d)
             report["emptyUtilityNamedSource"] = emptyUtilityNamedSource(d)
         }
         print(String(decoding: try JSONSerialization.data(withJSONObject: report,
@@ -2590,6 +2604,31 @@ class SceneAtlasNamedNativeOwnerTests(unittest.TestCase):
                 self.assertEqual(len(row["pixel"]), len(row["expected"]), row)
                 for actual, expected in zip(row["pixel"], row["expected"], strict=True):
                     self.assertAlmostEqual(actual, expected, delta=1, msg=row)
+
+    def test_hidden_sprite_publishes_current_local_frame_with_static_and_missing_neighbors(self):
+        rows = self.report["hiddenSpriteFrames"]
+        self.assertEqual([(row["provider"], row["phase"]) for row in rows],
+                         [(provider, phase) for provider in (700, 963) for phase in range(5)])
+        for row in rows:
+            with self.subTest(provider=row["provider"], phase=row["phase"]):
+                for key in ("completed", "beforeUnpublished", "sourceUnchanged", "mainRemainsClear"):
+                    self.assertTrue(row[key], row)
+                phase = row["phase"]
+                if phase in (2, 3):
+                    self.assertTrue(row["published"].startswith("unavailable:"), row)
+                    self.assertEqual(row["reservationReasons"], ["image-provider-mapping-unavailable"] * 2, row)
+                    self.assertFalse(row["afterPublished"], row)
+                    self.assertEqual(row["consumerCount"], 0, row)
+                    self.assertEqual(row["targetExtent"], [], row)
+                else:
+                    for key in ("afterPublished", "preparedMatchesReady", "sharedDistinctTarget", "publicationIsPMA"):
+                        self.assertTrue(row[key], row)
+                    self.assertEqual(row["published"], "published", row)
+                    self.assertEqual(row["consumerCount"], 2, row)
+                    self.assertEqual(row["reservationReasons"], [], row)
+                    self.assertEqual(row["targetExtent"], [4, 2] if phase == 4 else [2, 2], row)
+                self.assertEqual(row["pixels"], row["expected"], row)
+        self.assertNotEqual(rows[0]["pixels"], rows[1]["pixels"])
 
     def test_empty_raw_utility_clears_only_named_target_once_per_epoch(self):
         row = self.report["emptyUtilityNamedSource"]

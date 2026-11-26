@@ -239,11 +239,11 @@ final class SceneResolvedMaterialFinalizerFailureCases {
                 staticDeclaration("Tint", components: [1]),
             ]
         )),
-        "uniformDeclarationConflict": failureToken(finalize(
-            shader: contract(revision: "uniform-declaration-conflict"),
+        "malformedMaterialKeyWithValidShaderIdentifier": failureToken(finalize(
+            shader: contract(revision: "malformed-material-key-with-valid-shader-identifier"),
             device: self.fixture.device,
             uniformDeclarations: [
-                staticDeclaration("Tint", components: [1, 0, 0]),
+                staticDeclaration("Tint", components: [1]),
                 staticDeclaration("u_Tint", components: [0, 1, 0]),
             ]
         )),
@@ -336,12 +336,12 @@ final class SceneResolvedMaterialFinalizerFailureCases {
             device: self.fixture.device,
             uniformDeclarations: [staticDeclaration("Fractals", components: [.nan])]
         )),
-        "runtimeLoopMultipleProducer": failureToken(finalize(
-            shader: contract(revision: "runtime-loop-multiple", runtimeLoop: true),
+        "runtimeLoopUsesMaterialKey": failureToken(finalize(
+            shader: contract(revision: "runtime-loop-material-key", runtimeLoop: true),
             device: self.fixture.device,
             uniformDeclarations: [
                 staticDeclaration("Fractals", components: [5]),
-                staticDeclaration("u_fractals", components: [5]),
+                staticDeclaration("u_fractals", components: [999]),
             ]
         )),
         "variantSelectionReachabilityIdentity":

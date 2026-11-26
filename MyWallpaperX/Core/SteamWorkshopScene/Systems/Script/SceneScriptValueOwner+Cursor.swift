@@ -74,6 +74,7 @@ nonisolated extension SceneScriptValueOwner {
                                     baseline.particleAlpha,
                                     baseline.particleRate,
                                     baseline.particleCount,
+                                    baseline.particleSize,
                                     baseline.volume,
                                     baseline.pointSize,
                                     [baseline.color.x, baseline.color.y, baseline.color.z],

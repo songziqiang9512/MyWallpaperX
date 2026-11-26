@@ -64,22 +64,6 @@ extension SceneParticleSimulator {
         return pow(factor, exponent)
     }
 
-    nonisolated static func turbulenceRandom(
-        _ first: Double, _ second: Double,
-        particleID: UInt64, seed: UInt64, operatorIndex: Int, salt: Int
-    ) -> Double {
-        // This keyed sample has no subsequent RNG state. Keep the constant
-        // interval arithmetic (including signed zero) without hashing.
-        if first.isFinite, first == second {
-            let lower = min(first, second)
-            return lower + (max(first, second) - lower)
-        }
-        var state = seed ^ (particleID &* 0x9E3779B97F4A7C15)
-        state ^= UInt64(operatorIndex &* 31 &+ salt) &* 0xBF58476D1CE4E5B9
-        var generator = SceneParticleRandomGenerator(state: state)
-        return generator.value(first, second)
-    }
-
     nonisolated func randomSphereBirth(
         _ plan: SceneParticleEmitterSpawnPlan
     ) -> (offset: SIMD3<Double>, launchVector: SIMD3<Double>) {

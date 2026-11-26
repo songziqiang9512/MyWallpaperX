@@ -135,7 +135,7 @@ extension SceneDesktopWallpaperSession {
                 frameInterval: interval, waitingForGPU: waitingForGPU)
 #endif
             self.frameTimer = nil
-            if !waitingForGPU, self.waitForFrameAdmission(until: deadline + interval) {
+            if self.waitForFrameAdmission(after: deadline) {
 #if DEBUG
                 telemetry?.recordAdmissionWait()
 #endif
@@ -149,11 +149,11 @@ extension SceneDesktopWallpaperSession {
         frameTimer = timer
         return timer
     }
-    private func waitForFrameAdmission(until deadline: CFTimeInterval) -> Bool {
+    private func waitForFrameAdmission(after deadline: CFTimeInterval) -> Bool {
         guard isVisible, !sceneClock.isPaused, !surfaces.isEmpty,
-              CACurrentMediaTime() < deadline,
               surfaces.values.allSatisfy({ $0.metalView.shouldDeferResolvedMaterialFrame }) else { return false }
-        let timer = armFrameDriver(at: deadline, waitingForGPU: true)
+        let nextCheck = max(deadline, CACurrentMediaTime()) + sceneFrameInterval
+        let timer = armFrameDriver(at: nextCheck, waitingForGPU: true)
         for (displayID, surface) in surfaces {
             surface.metalView.renderer.imageCompositor.resolvedMaterialRuntime?.submissions
                 .notifyWhenFrameAdmissionOpens { [weak self, weak surface, weak timer] in
@@ -656,7 +656,8 @@ extension SceneDesktopWallpaperSession {
                 }
                 if !mutation.fields.intersection(.particleInstance).isEmpty {
                     let fields: [(SceneScriptLayerMutation.Fields, SceneDynamicParticleField)] = [
-                        (.particleAlpha, .alpha), (.particleRate, .rate), (.particleCount, .count),
+                        (.particleAlpha, .alpha), (.particleRate, .rate),
+                        (.particleCount, .count), (.particleSize, .size),
                     ]
                     for (field, targetField) in fields where mutation.fields.contains(field) {
                         let target = SceneDynamicTarget.particle(layerID: mutation.layerID, field: targetField)

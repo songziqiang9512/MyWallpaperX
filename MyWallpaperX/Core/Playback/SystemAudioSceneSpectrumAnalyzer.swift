@@ -6,9 +6,8 @@
 import Accelerate
 import Foundation
 
-/// The only PCM producer for Video, Web and Scene. Frequency identities, the fixed
-/// decibel response and final-height envelopes belong here; consumers only
-/// average/project the resulting heights. Author shaders/scripts keep their own styling.
+/// Serial analysis of shared capture snapshots. Video and Web consume display
+/// heights; Scene consumes author bands before shader or script styling.
 nonisolated final class SystemAudioSceneSpectrumAnalyzer {
     static let bandCount = SceneAudioSpectrumSnapshot.bandCount
     static let mediumBandCount = SceneAudioSpectrumSnapshot.mediumBandCount
@@ -18,15 +17,33 @@ nonisolated final class SystemAudioSceneSpectrumAnalyzer {
     struct Levels {
         let left64: [Float]
         let right64: [Float]
-        var left: [Float] { SystemAudioSceneSpectrumAnalyzer.resample(left64, count: SystemAudioSceneSpectrumAnalyzer.bandCount) }
-        var right: [Float] { SystemAudioSceneSpectrumAnalyzer.resample(right64, count: SystemAudioSceneSpectrumAnalyzer.bandCount) }
-        var left32: [Float] { SystemAudioSceneSpectrumAnalyzer.resample(left64, count: SystemAudioSceneSpectrumAnalyzer.mediumBandCount) }
-        var right32: [Float] { SystemAudioSceneSpectrumAnalyzer.resample(right64, count: SystemAudioSceneSpectrumAnalyzer.mediumBandCount) }
     }
 
-    /// Fractional area mean: both coarse resolutions and Video retain the same
-    /// display scale. Adding more source bands must not multiply a bar's height.
-    /// Inputs are completed finite display heights from this analyzer.
+    struct AuthorLevels {
+        let left64: [Float]
+        let right64: [Float]
+        let left32: [Float]
+        let right32: [Float]
+        let left: [Float]
+        let right: [Float]
+
+        init(left64: [Float], right64: [Float]? = nil) {
+            self.left64 = left64
+            self.right64 = right64 ?? left64
+            left32 = Self.pairPeaks(left64)
+            right32 = right64.map(Self.pairPeaks) ?? left32
+            left = Self.pairPeaks(left32)
+            right = right64 == nil ? left : Self.pairPeaks(right32)
+        }
+
+        static let silence = AuthorLevels(left64: zeroBands)
+
+        private static func pairPeaks(_ bands: [Float]) -> [Float] {
+            stride(from: 0, to: bands.count, by: 2).map { max(bands[$0], bands[$0 + 1]) }
+        }
+    }
+
+    /// Fractional area mean for projecting finished display heights to Video bars.
     static func resample(_ levels: [Float], count: Int) -> [Float] {
         guard count > 0 else { return [] }
         guard !levels.isEmpty else { return Array(repeating: 0, count: count) }
@@ -48,8 +65,7 @@ nonisolated final class SystemAudioSceneSpectrumAnalyzer {
     }
 
     /// Fixed acoustic dynamic range. Standard dB compression gives weak musical
-    /// detail visible travel without a moving strongest-band denominator. The
-    /// smoothstep shoulder avoids a hard bright ceiling in author visuals.
+    /// detail visible travel without a moving strongest-band denominator.
     static func displayLevels(_ amplitudes: [Float]) -> [Float] {
         amplitudes.map { amplitude in
             guard amplitude > 0 else { return 0 }
@@ -79,6 +95,7 @@ nonisolated final class SystemAudioSceneSpectrumAnalyzer {
     private var leftEnvelope = Array(repeating: Float(0), count: extendedBandCount)
     private var rightEnvelope = Array(repeating: Float(0), count: extendedBandCount)
     private var lastTimestamp: TimeInterval?
+    private var author = AuthorAnalysis()
 
     init?() {
         guard let setup = vDSP_create_fftsetup(14, FFTRadix(kFFTRadix2)) else { return nil }
@@ -88,11 +105,28 @@ nonisolated final class SystemAudioSceneSpectrumAnalyzer {
     deinit { vDSP_destroy_fftsetup(fftSetup) }
 
     func reset() {
+        resetDisplay()
+        resetAuthor()
+    }
+
+    func resetDisplay() {
         analysisSampleRate = 0
         analysisChannelCount = 0
         leftEnvelope = Self.zeroBands
         rightEnvelope = Self.zeroBands
         lastTimestamp = nil
+    }
+
+    func resetAuthor() {
+        author.reset()
+    }
+
+    func analyzeAuthor(
+        _ frame: SystemAudioCapturedFrame,
+        sampleRate: Float,
+        timestamp: TimeInterval? = nil
+    ) -> AuthorLevels {
+        author.analyze(frame, sampleRate: sampleRate, timestamp: timestamp, fftSetup: fftSetup)
     }
 
     func analyze(
@@ -107,7 +141,7 @@ nonisolated final class SystemAudioSceneSpectrumAnalyzer {
         }
         guard sampleRate.isFinite, sampleRate > 0,
               let first = frame.signedChannels.first, !first.isEmpty else {
-            reset()
+            resetDisplay()
             return Self.zeroLevels
         }
         // CaptureBuffer owns raw validation and the complete worker snapshot.
@@ -115,7 +149,7 @@ nonisolated final class SystemAudioSceneSpectrumAnalyzer {
         let inputs = frame.signedChannels.prefix(2)
         let windowCount = Self.analysisWindowCount(sampleRate: sampleRate)
         if analysisSampleRate != sampleRate || analysisChannelCount != inputs.count {
-            reset()
+            resetDisplay()
             analysisSampleRate = sampleRate
             analysisChannelCount = inputs.count
             prepareAnalysis(windowCount: windowCount, sampleRate: sampleRate)
@@ -246,5 +280,221 @@ nonisolated final class SystemAudioSceneSpectrumAnalyzer {
     private static var zeroBands: [Float] { Array(repeating: 0, count: extendedBandCount) }
     private static var zeroLevels: Levels {
         Levels(left64: zeroBands, right64: zeroBands)
+    }
+}
+
+private extension SystemAudioSceneSpectrumAnalyzer {
+    struct AuthorAnalysis {
+        private static let onsetDenominator: Float = 0.1144
+        private static let quietPeak: Float = 0.00002
+        private static let minimumDenominator: Float = 0.000113
+        private static let reentryDelay = 0.5
+        private static let groupCount = extendedBandCount / 8
+
+        private var window: AuthorWindow?
+        private var channelCount = 0
+        private var lastTimestamp: TimeInterval?
+        private var quietDuration: TimeInterval = 0
+        private var denominators = Array(repeating: onsetDenominator, count: 2 * groupCount)
+        private var lastActiveLevels = AuthorLevels.silence
+
+        mutating func reset() {
+            lastTimestamp = nil
+            quietDuration = 0
+            seedOnset()
+            lastActiveLevels = .silence
+        }
+
+        mutating func analyze(
+            _ frame: SystemAudioCapturedFrame,
+            sampleRate: Float,
+            timestamp: TimeInterval?,
+            fftSetup: FFTSetup
+        ) -> AuthorLevels {
+            let time = timestamp.flatMap { $0.isFinite ? $0 : nil }
+            if let time, let lastTimestamp, time <= lastTimestamp {
+                return quietDuration > 0 ? .silence : lastActiveLevels
+            }
+            guard let first = frame.signedChannels.first, sampleRate.isFinite, sampleRate > 0 else {
+                reset()
+                return .silence
+            }
+            let formatChanged = window?.sampleRate != sampleRate
+            if formatChanged {
+                window = AuthorWindow(sampleRate: sampleRate, fftSetup: fftSetup)
+            }
+            let channels = min(2, frame.signedChannels.count)
+            if formatChanged || channels != channelCount {
+                channelCount = channels
+                reset()
+            }
+            guard let window, first.count >= window.sampleCount else { return .silence }
+
+            let elapsed = time.flatMap { time in lastTimestamp.map { min(1, time - $0) } } ?? 1 / 30
+            lastTimestamp = time
+            var left = window.bands(first, fftSetup: fftSetup)
+            var right = channels == 2 ? window.bands(frame.signedChannels[1], fftSetup: fftSetup) : nil
+            let peak = max(left.max() ?? 0, right?.max() ?? 0)
+            guard peak.isFinite else {
+                lastActiveLevels = .silence
+                return .silence
+            }
+            let dt = Float(elapsed)
+            let fall = 0.05634 * dt
+            if peak < Self.quietPeak {
+                if quietDuration < Self.reentryDelay {
+                    quietDuration += elapsed
+                    if quietDuration >= Self.reentryDelay {
+                        seedOnset()
+                    } else {
+                        for index in denominators.indices {
+                            denominators[index] = max(0, denominators[index] - fall)
+                        }
+                    }
+                }
+                return .silence
+            }
+
+            quietDuration = 0
+            let sharedTarget = max(peak / 3, Self.minimumDenominator)
+            let rise = 0.12 * dt
+            let release = 1 - exp2(-dt / 0.04)
+            normalize(&left, previousBands: lastActiveLevels.left64,
+                      channelOffset: 0, sharedTarget: sharedTarget, rise: rise, fall: fall, release: release)
+            if right != nil {
+                normalize(&right!, previousBands: lastActiveLevels.right64,
+                          channelOffset: Self.groupCount, sharedTarget: sharedTarget, rise: rise, fall: fall, release: release)
+            }
+            lastActiveLevels = AuthorLevels(left64: left, right64: right)
+            return lastActiveLevels
+        }
+
+        private mutating func seedOnset() {
+            for index in denominators.indices { denominators[index] = Self.onsetDenominator }
+        }
+
+        private mutating func normalize(
+            _ bands: inout [Float],
+            previousBands: [Float],
+            channelOffset: Int,
+            sharedTarget: Float,
+            rise: Float,
+            fall: Float,
+            release: Float
+        ) {
+            for group in 0..<Self.groupCount {
+                let samples = (group * 8)..<((group + 1) * 8)
+                let target = max(sharedTarget, bands[samples].max()!)
+                let index = channelOffset + group
+                let previous = denominators[index]
+                let delta = target - previous
+                let change = delta < 0 ? max(-fall, delta * release) : min(rise, delta)
+                let next = max(Self.minimumDenominator, previous + change)
+                denominators[index] = next
+                for band in samples {
+                    let previousValue = previousBands[band]
+                    bands[band] = min(previousValue + 1, max(previousValue - 1, bands[band] / next))
+                }
+            }
+        }
+    }
+
+    final class AuthorWindow {
+        let sampleRate: Float
+        let sampleCount: Int
+        private let fftExponent: vDSP_Length
+        private let chirpReal: [Float]
+        private let chirpImaginary: [Float]
+        private let kernelReal: [Float]
+        private let kernelImaginary: [Float]
+        private let binGains: [Float]
+        private let bandEnds: [Int]
+        private var real: [Float]
+        private var imaginary: [Float]
+
+        init?(sampleRate: Float, fftSetup: FFTSetup) {
+            let highestBin = 639
+            let gridPeriod = Double(sampleRate) * (2089 / 48_000.0)
+            let binCount = Int(min(Double(highestBin), gridPeriod / 2))
+            guard binCount > 0 else { return nil }
+            self.sampleRate = sampleRate
+            sampleCount = Int(min(Float(maximumFrameCount - highestBin), max(2, (sampleRate * 0.029).rounded())))
+            // Only lags from -(sampleCount - 1) through binCount affect the output.
+            let exponent = Int.bitWidth - (sampleCount + binCount - 1).leadingZeroBitCount
+            fftExponent = vDSP_Length(exponent)
+            let fftCount = 1 << exponent
+            func angle(_ index: Int) -> Double { .pi * Double(index * index) / gridPeriod }
+            let phases = (0..<sampleCount).map(angle)
+            chirpReal = phases.map { Float(cos($0)) }
+            chirpImaginary = phases.map { -Float(sin($0)) }
+
+            var kernelReal = Array(repeating: Float(0), count: fftCount)
+            var kernelImaginary = kernelReal
+            for lag in (1 - sampleCount)...binCount {
+                let index = lag < 0 ? fftCount + lag : lag
+                let phase = angle(lag)
+                kernelReal[index] = Float(cos(phase))
+                kernelImaginary[index] = Float(sin(phase))
+            }
+            kernelReal.withUnsafeMutableBufferPointer { real in
+                kernelImaginary.withUnsafeMutableBufferPointer { imaginary in
+                    var kernel = DSPSplitComplex(realp: real.baseAddress!, imagp: imaginary.baseAddress!)
+                    vDSP_fft_zip(fftSetup, &kernel, 1, vDSP_Length(exponent), FFTDirection(FFT_FORWARD))
+                }
+            }
+            self.kernelReal = kernelReal
+            self.kernelImaginary = kernelImaginary
+
+            func weight(_ bin: Int) -> Double {
+                let curve = sin(.pi * Double(bin - 1) / 1278)
+                return sqrt(1 + 500 * curve * curve)
+            }
+            let scale = 2 / (Double(sampleCount) * Double(fftCount) * weight(65))
+            binGains = [0] + (1...binCount).map { Float(weight($0) * scale) }
+            bandEnds = (1...extendedBandCount).map { band in
+                let fraction = Double(band) / Double(extendedBandCount)
+                let edge = Int((Double(highestBin) * pow(fraction, 4)).rounded(.up))
+                return min(binCount, max(band, edge))
+            }
+            real = Array(repeating: 0, count: fftCount)
+            imaginary = real
+        }
+
+        func bands(_ samples: [Float], fftSetup: FFTSetup) -> [Float] {
+            real.withUnsafeMutableBufferPointer { real in
+                imaginary.withUnsafeMutableBufferPointer { imaginary in
+                    let offset = samples.count - sampleCount
+                    for index in 0..<sampleCount {
+                        let value = samples[offset + index]
+                        real[index] = value * chirpReal[index]
+                        imaginary[index] = value * chirpImaginary[index]
+                    }
+                    let padding = vDSP_Length(real.count - sampleCount)
+                    vDSP_vclr(real.baseAddress! + sampleCount, 1, padding)
+                    vDSP_vclr(imaginary.baseAddress! + sampleCount, 1, padding)
+                    var signal = DSPSplitComplex(realp: real.baseAddress!, imagp: imaginary.baseAddress!)
+                    vDSP_fft_zip(fftSetup, &signal, 1, fftExponent, FFTDirection(FFT_FORWARD))
+                    for index in real.indices {
+                        let r = real[index]
+                        let i = imaginary[index]
+                        real[index] = r * kernelReal[index] - i * kernelImaginary[index]
+                        imaginary[index] = r * kernelImaginary[index] + i * kernelReal[index]
+                    }
+                    vDSP_fft_zip(fftSetup, &signal, 1, fftExponent, FFTDirection(FFT_INVERSE))
+                }
+            }
+            var lower = 1
+            return bandEnds.map { upper in
+                var peak: Float = 0
+                while lower <= upper {
+                    // The final output chirp is unit magnitude; only its norm is consumed.
+                    let r = real[lower]
+                    let i = imaginary[lower]
+                    peak = max(peak, (r * r + i * i).squareRoot() * binGains[lower])
+                    lower += 1
+                }
+                return peak
+            }
+        }
     }
 }

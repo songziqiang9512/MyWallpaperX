@@ -5,7 +5,7 @@
 <a id="execution"></a>
 ## 当前执行方式
 
-Effect 名称是作者内容与编辑器分类，不是渲染算法选择器。definition/material/shader 先进入共享准备链，GraphExecutor 编码其有序节点，再由唯一 compositor 输出。能读取某个 effect 定义或执行一个节点，不代表整套效果/样本已完成。
+definition/material/shader 进入共享准备链，GraphExecutor 按作者顺序编码，由唯一 compositor 输出。以实际执行和终图核验效果，名称仅作作者分类。
 
 | 类别 | 当前共同消费 | 需要分别证明 |
 |---|---|---|
@@ -15,7 +15,7 @@ Effect 名称是作者内容与编辑器分类，不是渲染算法选择器。d
 | 颜色、叠加与 mask | typed sampler purpose、颜色表示及 blend | 独立信号、数据通道、输出 alpha 与未支持表达 |
 | 生成、光线、Fluid 等 | 已准入作者 Program、source carrier 或共享图 | 多输入、前后背景、反馈及官方同状态画面 |
 
-材质和采样细节见[Shader/Graph](render-graph-shader-coverage.md)，不为每个效果建立独立 runtime、时钟、resource registry 或输出。
+材质和采样归[Shader/Graph](render-graph-shader-coverage.md)，共享 runtime、时钟和资源。
 
 <a id="composition"></a>
 ## Composition、背景与依赖
@@ -36,7 +36,7 @@ quad 由已编译 launch envelope 的完整准备结果、实际 sampler 与 gra
 
 嵌套组与 named provider 沿原 pool、reservation、typed dependency 和 pin 工作。隐藏 provider 仍可能被活 consumer 使用，不能因不可见清除其准备或发布。跨 consumer 的背景 prefix 依赖与独立 prepass 不是同一语义。
 
-Utility provider 在原 source 触发点执行一次，由同一 compositor 发布；当前可见输出继续主合成，隐藏输出只供 named consumer。资源与 ticket 合同见[Named 输入职责](render-graph-shader-coverage.md#named-input-ownership)。
+Utility 在原触发点执行一次。帧预检只为同一捕获计划中的 utility 预约图事务；当前无执行入口时跳过该层，让健康层继续。seal 仍要求已预约事务确实消费。可见输出继续主合成，隐藏输出只供 named consumer。[资源与 ticket](render-graph-shader-coverage.md#named-input-ownership)仍归原 compositor。
 
 无 child 的 captured-main source Program 在帧顺序中的当前层截点捕获并编码，读取同一 attachment 上已提交的颜色。source capture MVP 与最终 output MVP 分开；透视、深度、passthrough 和带依赖 utility 的支持范围由原 SourceRoute/Camera/Dependency owner 决定。声明依赖与实际来源的区分见[Framebuffer 来源合同](render-graph-shader-coverage.md#framebuffer-source-declarations)。
 
@@ -47,18 +47,18 @@ Utility provider 在原 source 触发点执行一次，由同一 compositor 发�
 
 顶级正交 Fullscreen 的根和直属平面子层形成连续作者块时，效果读取该块末尾现存的主画布。前序画面与可见子层已经写入，后置兄弟仍按作者顺序继续。普通子层沿自身 transform、视频、材质及显隐路径各绘一次。取源以块末作者节点为截点，末节点隐藏仍执行该截点。
 
-`SourceRoute` 在准备时沿原层级闭包验证块与截点，`RuntimePlanner`、依赖准备和原 layer-loop defer 共同消费已有的 trigger。本批复用 Fullscreen 原 viewport source、Program、main attachment 和 compositor，无组纹理或普通帧成员遍历。根的有界显隐准备复用同一来源资格，实际 GPU 执行仍由当前帧效果开启与目标供货决定。未知或不可用 Program 沿现有最小降级，健康子层和后继继续绘制。交错、嵌套、专用 framebuffer、外部依赖及子层热显隐仍各沿原边界。
+`SourceRoute` 在准备时验证层级及截点，依赖计划和编码共用原 trigger。已准备的无子满屏图可在自身作者位把同帧 graph-final 供给后置 Program 的实际主具名槽。来源沿原捕获、发布和 pin，只执行一次，主合成不动。后置来源不能提前捕获，缺供货走局部前值。根的显隐与 stage 开关决定当前需供哪些槽，旧 utility 几何、组层级及前缀选择保持各自合同。
 
-验收用官版三色见证区分前序红、直属绿、后绘蓝，验证根效果开关、末子层隐藏和改名。原作者须从当帧视频及贴图命中实际 prefix 采样，经父效果和末合成到 GPU 封帧；独立作者或相邻无子 Fullscreen 检查原播放和显隐。
+块顺序用前序、直属、后绘色标和隐藏末节点验收。具名输入用两个不同作者截点、两路颜色、关闭一段及前向反例核图尾供货和实际 GPU 合成；以原包同窗开关及独立作者复验。
 
 <a id="perspective-composition-prefix"></a>
 ### Composition 透视与嵌套背景
 
-无子层的顶层 composition 在正交场景复制背景时，沿现有局部捕获与回绘接收透视值。此时 passthrough 无成员可透传，开启或关闭均取同一背景截点。有已准备 Program 时，原相机以平面 VP 供局部采样，以输出 VP 回绘一次。有子层、透明输入、依赖和 framebuffer source 各沿原准入边界。
+无子层背景 Composition 以同一世界卡片取样及回绘。父层供 TRS，具名依赖供 Program，均不限制透视。正交场景以平面 VP 取背景，再消费作者或脚本的透视值回绘一次。随父或消费具名输入的原平面捕获保已声明的局部工作尺寸，独立回绘沿用投影尺寸。有成员、透明源及专用 framebuffer 保原路径。
 
-同一无子层背景源在原生透视场景继承当前场景相机，显式平面值仍走平面。背景截取和终端用同一世界卡片、同一视图投影，按投影像素尺寸进入原资源预算。齐次 W 沿卡片变化时，原 source capture 按局部像素做齐次投影来采样当前主画布。正对卡片沿用原仿射采样。原生世界长度按正交画布像素截取的旧通路退出该形状。验收比较 3455121165/296 的实际 Program 输入、钟下音条和官方位置，并覆盖斜卡片、显式平面及独立正交作者。
+原生透视下，截取与回绘共用世界卡片与相机，显式平面值走平面，透视按投影像素预算。卡片的 W 变化时以齐次投影采样主图，正对时沿仿射。验收同媒体的斜封面、显式平面和改名，保同源顺序与尺寸，并验独立作者。3455121165/296 的原生截取也看实际 Program 与钟下音条。
 
-开启 `transparentsorting` 时，原生主画布中可见的无子层背景 Composition 若已有独立的 captured-main Program，以其位置作为透明阶段的背景截点。同区段内晚到的独立不透明透视模型按原相对顺序整次提交到最早截点之前，统一写入原颜色和深度。模型所有已准备部件须为 alpha=1 实体路径并测试及写入深度。可跨原生深度测试的普通图像、文字、已准备独立局部回绘的 solid，以及无折射、无深度附件的 additive 粒子。真实命名供需、其它当前主色观察、分组、非独立模型与未资格终端分界。继续沿该层一次 source capture、原 Program 与一次终端回绘。关闭排序保作者顺序，原文字终端与 Composition 深度政策独立于此调度。
+开启 `transparentsorting` 时，原生主画布以可见、无父子层及具名供需、有独立 captured-main Program 的 Composition 为背景截点。同区间独立不透明透视模型整次移到首截点前，保相对顺序并写原颜色和深度。全部部件须 alpha=1、普通混合、测试及写入深度。可跨原生深度测试的图像、文字、独立局部回绘的 solid，以及无折射、不写深度的 additive 粒子。区间首截点前粒子仍先于这些模型，之后的粒子可读提前写入的深度。具名依赖、其它主色读取、分组及未资格终端分界。Composition 单次截取、原 Program 和单次回绘。关排序保作者顺序，文字与 Composition 的深度政策独立。
 
 原 Frame 排序输出同一顺序给必需深度前缀、命名准备和实际编码。验证排序开关及独立实体前移后的真实采样和终图音条、保留其它背景截点和非写深度模型，并以本机原作者与已冻结官版见证裁定。较近实体对 Composition 终端的遮挡规则另需画面对照。
 

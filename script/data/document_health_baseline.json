@@ -21,8 +21,8 @@
       "bytes": 18931
     },
     "docs/architecture/system-audio-spectrum-design.md": {
-      "lines": 42,
-      "bytes": 6834
+      "lines": 50,
+      "bytes": 8480
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 202,
@@ -36,9 +36,25 @@
       "lines": 249,
       "bytes": 63364
     },
+    "docs/development/immersive-ui-design.md": {
+      "lines": 247,
+      "bytes": 33199
+    },
+    "docs/development/immersive-ui-execution-plan.md": {
+      "lines": 107,
+      "bytes": 14367
+    },
     "docs/development/local-library-loading-design.md": {
       "lines": 173,
       "bytes": 38939
+    },
+    "docs/development/localization-contract.md": {
+      "lines": 390,
+      "bytes": 29354
+    },
+    "docs/development/localization-plan.md": {
+      "lines": 200,
+      "bytes": 20777
     },
     "docs/development/lock-screen-screensaver-design.md": {
       "lines": 118,
@@ -60,6 +76,10 @@
       "lines": 111,
       "bytes": 17968
     },
+    "docs/development/thumbnail-delivery-design.md": {
+      "lines": 180,
+      "bytes": 43570
+    },
     "docs/development/ui-quality-audit.md": {
       "lines": 178,
       "bytes": 37435
@@ -78,7 +98,7 @@
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 141467
+      "bytes": 141782
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -93,8 +113,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 294,
-      "bytes": 60521
+      "lines": 307,
+      "bytes": 63154
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -105,8 +125,8 @@
       "bytes": 9092
     },
     "docs/scene/architecture/scene-resource-admission.md": {
-      "lines": 99,
-      "bytes": 14829
+      "lines": 101,
+      "bytes": 15579
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 73,
@@ -117,32 +137,36 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 541,
-      "bytes": 123576
+      "lines": 552,
+      "bytes": 125331
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 110,
-      "bytes": 17218
+      "bytes": 16744
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 70,
       "bytes": 7963
     },
+    "docs/scene/capabilities/model-runtime-evidence.md": {
+      "lines": 598,
+      "bytes": 172229
+    },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 356,
-      "bytes": 69477
+      "lines": 414,
+      "bytes": 78160
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 445,
-      "bytes": 89175
+      "lines": 467,
+      "bytes": 92877
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 600,
-      "bytes": 339870
+      "lines": 599,
+      "bytes": 387758
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 172,
-      "bytes": 30025
+      "lines": 177,
+      "bytes": 30441
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -154,7 +178,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 228,
-      "bytes": 42449
+      "bytes": 42881
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 120,
@@ -169,8 +193,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 245,
-      "bytes": 69361
+      "lines": 64,
+      "bytes": 8824
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -193,8 +217,8 @@
       "bytes": 19598
     },
     "docs/web/mediaremote-nowplaying-design.md": {
-      "lines": 76,
-      "bytes": 12511
+      "lines": 82,
+      "bytes": 13537
     },
     "docs/web/steam-downloads-failed-items-visibility-design.md": {
       "lines": 60,
@@ -215,30 +239,6 @@
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
       "bytes": 8380
-    },
-    "docs/development/thumbnail-delivery-design.md": {
-      "lines": 180,
-      "bytes": 43570
-    },
-    "docs/development/immersive-ui-design.md": {
-      "lines": 247,
-      "bytes": 33199
-    },
-    "docs/development/immersive-ui-execution-plan.md": {
-      "lines": 107,
-      "bytes": 14367
-    },
-    "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 600,
-      "bytes": 172493
-    },
-    "docs/development/localization-contract.md": {
-      "lines": 390,
-      "bytes": 29354
-    },
-    "docs/development/localization-plan.md": {
-      "lines": 200,
-      "bytes": 20777
     }
   },
   "archives": [
@@ -368,12 +368,21 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "02b91afbe07c1220a346b2140f231dff7009ce300149d77efa0768e1c0a660cb",
-      "after": "5ed51687b798af3e53ee504aceafaccc829e32cc6df02c2c49e41b1f46b96497",
-      "owner": "三引擎画质与 Scene 提交",
-      "reason": "同步实际采样数的投递、用户读数与本地化入口。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
+      "path": "docs/architecture/appkit-migration.md",
+      "before": "e837183ea29c4e646a7e192b21b471648e03fdfc036b337511a216e9efcb6c7b",
+      "after": "bb2ed54842c2bdb56a29a856453daf5e5dc4d25bd4938d4c2bc6f0a6d0cc5272",
+      "owner": "原生详情合同",
+      "reason": "校正同视图恢复的现役元数据与目录发布职责",
+      "decision": "docs/architecture/appkit-migration.md#inspector"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/playback-lifecycle-transaction-design.md",
+      "before": "95c2ef87784c656877f9fcce6c2d521fce754b23a0216a3832188677094cee6e",
+      "after": "e56b8e4ce789db2bda9ecaa41fcbd46ee093bd19dad70317e488289216b74d8c",
+      "owner": "video-runtime",
+      "reason": "明记空窗海报与实际视频共用适配及真实出图对照。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-candidate-poster"
     },
     {
       "section": "bodies",
@@ -383,6 +392,24 @@
       "owner": "三引擎画质与 Scene 提交",
       "reason": "同步实际采样数的投递、用户读数与本地化入口。",
       "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
+      "before": "106b7f3cf498969caea81ac69b40f9f636908c833a3598c3a8b38ca7d1c614f9",
+      "after": "5ea2b7ecc76721bf5949b0d4dd504ef62b48b3359abb1bc8c8a009ea2d526a45",
+      "owner": "Steam Workshop / Video",
+      "reason": "说明已就绪 Video 详情取实际源轨道，原页面标签与播放消费各归原入口。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/system-audio-spectrum-design.md",
+      "before": "3129e1d8ec2186675df643eb29e8018de84d23cc65b9722a597e7d7a6e95af3a",
+      "after": "8c8b1f7d01bd30b9a3b63c4e033381801c49f93aca56aa85ee09710bcf10efd1",
+      "owner": "Scene 与三引擎画质",
+      "reason": "合入主线已落库正文及其现行职责。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
@@ -404,219 +431,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/web/current-state.md",
-      "before": "78f9aae4d4df060233d72812832763eff15de04bf3092b295d2a5447c428940a",
-      "after": "cb60df2ed56c9eb7aacadf600e1afed7a0a5dae2d834a913993a2d9b5c972279",
-      "owner": "web-runtime",
-      "reason": "回写宿主重载时的种子职责与实际 WebContent 退出证据。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "4327d1f54340afb434803d0afb213a285dedab1a5ddb8dee51c1c582929d8ed2",
-      "after": "528cae877612ae0c90714a60b2f26ef3138c948e4c562eeb47a62a0a23c0239f",
-      "owner": "Shared Scene author spectrum",
-      "reason": "Preserves the exact PCM history distinction, static boundary, and measured accuracy and work of the short transform candidate.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
-      "before": "e4686c656bc41c7edfbe764c6a5fdd13688681ef9c140821d3d457d474888955",
-      "after": "6101c81d5a0bb091996a7b50a4c5156eafc1349024b78174f347df44bca9ce43",
-      "owner": "Scene ordered capture receipts",
-      "reason": "Define source-order qualification and exact periodic PNG input in the existing offline reader. Record original357 archive transport and independent288 byte replay without changing old verdicts; remove solved reader queue item and bound violin followup. No new App/GPU/build. Exact body budget.",
-      "decision": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md#capture-receipts"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/material-video-assets.md",
-      "before": "0ef76e52d15f4f20c7fb565d7e3f208785a929b46f4a8bb9ba2fd93d52089094",
-      "after": "39571f9da1381399868fd44063a69cb0d568aad13e600334bc231d34b767ef9c",
-      "owner": "scene-media",
-      "reason": "明确几何前已确认的普通 MP4 来源与运行阶段的既有准入",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-video-tex-redundant-load"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/effect-execution-coverage.md",
-      "before": "2b9097552ec62841fde0f36c1795e368080c423d39dd20206c71fb9d36ec5009",
-      "after": "8035b7f7ec854aced1811acd02ddb8dce731c240d99ed4d9adea59ec366802ab",
-      "owner": "Scene utility source and effect execution",
-      "reason": "Record the proved Fullscreen prefix cutoff and its existing viewport execution and activation ownership.",
-      "decision": "docs/scene/capabilities/effect-execution-coverage.md#fullscreen-ordered-prefix"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
-      "before": "8bd91d0f2502e710022de98d16ce24348bd291494c2a41918fe3a6e6e4141493",
-      "after": "8696d439829492cbc3ad93780b0c6e33296d9b114e45a472d676ead4b7072324",
-      "owner": "Scene static model material preparation",
-      "reason": "Specify batch-local interface proof reuse and retain the measured launch and visual evidence.",
-      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#preparation"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/status-bar-panel-redesign.md",
-      "before": "ed069d383b8ffd1adce6d6b6db999cb9aad18d4d2634bcef1d22dc1a76f257d1",
-      "after": "1b80994208efaa63d2e7663144303c4befe7afd6078aeab240e0d6af2eeb1158",
-      "owner": "Status bar panel",
-      "reason": "Status panel now activates for keyboard focus (Tab/Esc) on open; fact added with the panel focus gate.",
-      "decision": "docs/development/status-bar-panel-redesign.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/main-window-playlists-redesign.md",
-      "before": "5faaabce0e3682e8b2e4106326450920a2d0a57dd771c3497c862ce45f9f51e3",
-      "after": "a15a4ef7a003320cf2629d5478770624ffbbf6445f9c814a8e3bad40ddc120e8",
-      "owner": "App/Shell immersive UI design",
-      "reason": "User-requested complete P0 visual specification, function map and execution/retirement plan plus reviewed generated proposals. Replace old visual authority; product UI implementation remains blocked until user approval.",
-      "decision": "docs/development/immersive-ui-execution-plan.md#entry"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "9c90667ef16f3b0d1bf7ca5ea02d1586e4929a8e9caffc45e7589dc77c07f3ed",
-      "after": "7440a35fac7fc280f70fe41ff72dbc94d43786de4f6f64be7788ab75ce4ac0f6",
-      "owner": "Scene Sphere emitter birth",
-      "reason": "记录出生湍流各自缺省端点、反序取样以及现有实例与RNG职责。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#turbulent-velocity-speed-range"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "10aab4ed5ec094511a7c206612ef79fa410608ea6bd6f48378a625924c702f96",
-      "after": "8b03d7a809a475ced26626270e6ac0e8c86fee6239074ae75fa7d9b30abcd7b4",
-      "owner": "Scene material property binding and prepared uniform",
-      "reason": "Defines the direct missing-seed Slider contract and exact reflected scalar consumer check.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#property-target-fallback"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "61e7f4971701b0676f80ba1d87404913bf6d997c62b572dd55464ea0366cc305",
-      "after": "3dcf7f5d2515f20ef724a8cbcaa458889916bcf55fc547c87645e34549612620",
-      "owner": "scene-runtime",
-      "reason": "重复计时到期帧及现役状态归属",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-script-interval-phase"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "dd9a315b84b819db4d286cf855032bb5f4fe2a05f11d33138fd04c078832c262",
-      "after": "e7a3b11b98c0003e050cba9dac7a248258082a346d9d04263f452efc4de246e2",
-      "owner": "Scene image material replay",
-      "reason": "Document the exact mapped capture cohort and budget fallback",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#isolated-image-source-density"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/scene-resource-admission.md",
-      "before": "8f56f12594856050820e694d8438fdacb2bb95f08ab7fb212d3909e811d2ed37",
-      "after": "e8367761c23f5564c4b8c79e6d1ad6dd949b3ed11e5d49dd2e60107f1bea541a",
-      "owner": "scene-resource",
-      "reason": "TEX 同步输入范围与输出存储合同",
-      "decision": "docs/scene/architecture/scene-resource-admission.md#source-readiness"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "2451917a891d52acc6330cbc6a3ff12af816fd0a1b55ab0b943de7bee1c78dbb",
-      "after": "9f2dd0457ba96e77b708fb4863cbbc7990109781463d4a66177fb042e4175923",
-      "owner": "Scene model runtime",
-      "reason": "Record isolated model movement, cover integration and existing gate limits.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-perspective-parallax-370"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "c217ca108cb2c0f08d2bb4efe5cf41f42f2f38f5d333788e9f43f2509771e9f7",
-      "after": "3ac235e4f1f42349a73d55d1223fca893f0625dab3a37fff81ec24ae2328ca13",
-      "owner": "Scene legacy Puppet constraints",
-      "reason": "Canonical prepared rig, shared pose, and bounded fallback for legacy planar constraints.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-planar-compiled-constraints"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/release/bundle-content.md",
-      "before": "9320ffb3f0d5e6abf1cfa44ec4d19363437b1b68c63e5017a0afca00a285833f",
-      "after": "5cf34e2b74a836cd19893a610f918df25ef0fcc127548d6de9357902efe8a7a0",
+      "path": "docs/development/immersive-ui-execution-plan.md",
+      "before": "b89c7df2ade0e4b58c2176560beabd20c7576a5751f315aa5b342d4267e6bbb5",
+      "after": "bb6adc2f0e1e5d95052bce759af6f90c02ec8c948d70f8fdb5363cb4ff7777f7",
       "owner": "repository-governance",
-      "reason": "Move build/release shell entrypoints into script/build and script/release; update relative links.",
-      "decision": "docs/release/bundle-content.md"
+      "reason": "The Scene design document moved to history; the stale gate-debt note shrinks to state the resolved fact, so the baseline ratchets down.",
+      "decision": "docs/development/immersive-ui-execution-plan.md"
     },
     {
       "section": "bodies",
-      "path": "docs/development/repository-workflow.md",
-      "before": "4e02c759ee869deaa87affa5e0ebe5dbaa832b1b2ca7898c1dc6b4cfcf6c7332",
-      "after": "d7abfe8f8ae37f9880c99d2bc939904c5a0e9419e9f0e90c482733969486c106",
-      "owner": "repository governance",
-      "reason": "Use the current test collection paths and repair the navigation after the script move.",
-      "decision": "docs/development/repository-workflow.md#并行与验证"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/scene-dependency-boundaries.md",
-      "before": "5e4e9e652b2cdbc812c29b2e8409ff4d7ed8b7248c3bcb1730d0e67beae5a186",
-      "after": "25358f5c2434ac041b29be437ab6bab5fdcb3bf831304b2206f0a2f3453882d6",
-      "owner": "repository-governance",
-      "reason": "Move governance tools into script/governance and update relative paths.",
-      "decision": "docs/scene/architecture/scene-dependency-boundaries.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/development/official-client-behavior-research-workflow.md",
-      "before": "2a24fcd4d8da1c03c0eba0af945d45baf77e2fbfc5841c276032c7028a8adf59",
-      "after": "78dc7c325049f97c488f0163f7be944d9f69ebab9e8d7a71188941428662f5e4",
-      "owner": "repository-governance",
-      "reason": "Move asset/evidence tools into collections and update paths.",
-      "decision": "docs/scene/development/official-client-behavior-research-workflow.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
-      "before": "106b7f3cf498969caea81ac69b40f9f636908c833a3598c3a8b38ca7d1c614f9",
-      "after": "5ea2b7ecc76721bf5949b0d4dd504ef62b48b3359abb1bc8c8a009ea2d526a45",
-      "owner": "Steam Workshop / Video",
-      "reason": "说明已就绪 Video 详情取实际源轨道，原页面标签与播放消费各归原入口。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/dedicated-host-process-design.md",
-      "before": "d6407fadb1a3e0d8a3a57e010fa8b551f310daa607a2e1fd1174d2eda23e1f18",
-      "after": "0deb8ade3de8344685f03798e3dcc1166013e78e175760e889770ed9fde3f721",
-      "owner": "repository-governance",
-      "reason": "Move web tools into script/web and update paths.",
-      "decision": "docs/web/dedicated-host-process-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "a2cf1a3745cb5736a0eeabe7c0fd6370a4dc98b8afb4b62405b99aaa95f68306",
-      "after": "052e0984d4ec9c8f14fa7d30964e7720403d1d7aa40fe86584279b1ab3f5e395",
-      "owner": "repository-governance",
-      "reason": "Move scene tools into script/scene and update paths.",
-      "decision": "docs/scene/roadmap/performance-convergence-card.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d7dab82975a75f1cc4fe7a1509e92384d45661a6db581d3d8f7898d77b581164",
-      "after": "ecaf8f49568ef7ee0093c19f51ae1b1f3a3911b5cf4416e5cbc4b0aedfdf4c6e",
-      "owner": "三引擎画质与 Scene 提交",
-      "reason": "同步实际采样数的投递、用户读数与本地化入口。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "3d06b07015ac6d6d1edc3486908fa7372b1fcf0fe15eb6b97a05cd6e311ab545",
-      "after": "1ef5200da31d5985fece01ffe41b838e454aa548ac4f09c1ee9188f0ee742917",
-      "owner": "repository-governance",
-      "reason": "Move remaining script files into collections and update paths.",
-      "decision": "docs/scene/development/development-workflow.md"
+      "path": "docs/development/local-library-loading-design.md",
+      "before": "5cb4c9ebb29ae5864071b95ee6d4d0cd9e0aae543a6231481b39294e615d7848",
+      "after": "13739cb6f26e99565e6984148f7ac0181b529b78aceb4e8ef19b29688620c865",
+      "owner": "本地目录",
+      "reason": "连接索引优先发布与后台已有文件观察",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-inspector-source-recovery"
     },
     {
       "section": "bodies",
@@ -629,84 +458,12 @@
     },
     {
       "section": "bodies",
-      "path": "docs/release/release-signing.md",
-      "before": "727947c6ffbb7b9f875251e4938bbdb5eab4aa53a6a8b38b76d03e387cc8c218",
-      "after": "1f3e40eedcb290a7aefad571d62288783f367b85fd9ad6c5b3588dadb9aa9c20",
-      "owner": "repository-governance",
-      "reason": "Merge the codex localization work with the script collection migration.",
-      "decision": "docs/release/release-signing.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/localization-plan.md",
       "before": "cf88d25a0370617f958dd354dfb0baf47331bcf3d00dfec6d5bcc34751245aac",
       "after": "affcacee5d6921f666cafadf9bba513f165c61c146865e68162010c1d9d1b549",
       "owner": "repository-governance",
       "reason": "Reconcile localization plan budget after the script collection and l10n merge.",
       "decision": "docs/development/localization-plan.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/immersive-ui-execution-plan.md",
-      "before": "b89c7df2ade0e4b58c2176560beabd20c7576a5751f315aa5b342d4267e6bbb5",
-      "after": "bb6adc2f0e1e5d95052bce759af6f90c02ec8c948d70f8fdb5363cb4ff7777f7",
-      "owner": "repository-governance",
-      "reason": "The Scene design document moved to history; the stale gate-debt note shrinks to state the resolved fact, so the baseline ratchets down.",
-      "decision": "docs/development/immersive-ui-execution-plan.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e3a793be4410a19f2dd61cd2c98dd2ea69c7f5a37d9430089f0f7bd756dfde88",
-      "after": "531036f9f81d05b4a869fb6279d785454e1e1a5de2fde2415b198aa03e408373",
-      "owner": "Scene open breakpoint queue",
-      "reason": "按用户要求保留已修复现象和资格锚点，防止接续时重复排查。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#resolved-user-feedback"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/web-wallpaper-benchmark-standard.md",
-      "before": "4a6342b0d7cc82163bb072487a1200708438523fa1c1636afa46f5ec9e8cce23",
-      "after": "f7787e87ae620589aa418402ede996add07bd4512d2a2d14f75763886da1a765",
-      "owner": "repository governance",
-      "reason": "Use the current test collection paths and repair the navigation after the script move.",
-      "decision": "docs/development/repository-workflow.md#并行与验证"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "73c6c7cd1b968ea2f4a92c08b89e8c448ed70e68b7081a50a87e78023e1923e8",
-      "after": "1537cb385d232aaf15eaad3d603ee1e17e59f3ef419029072bfd583d4b5df42c",
-      "owner": "Scene 材质准备",
-      "reason": "同步普通副槽的官版合同、现役导航和启动实测。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#missing-ordinary-material-texture"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/appkit-migration.md",
-      "before": "e837183ea29c4e646a7e192b21b471648e03fdfc036b337511a216e9efcb6c7b",
-      "after": "bb2ed54842c2bdb56a29a856453daf5e5dc4d25bd4938d4c2bc6f0a6d0cc5272",
-      "owner": "原生详情合同",
-      "reason": "校正同视图恢复的现役元数据与目录发布职责",
-      "decision": "docs/architecture/appkit-migration.md#inspector"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/playback-lifecycle-transaction-design.md",
-      "before": "95c2ef87784c656877f9fcce6c2d521fce754b23a0216a3832188677094cee6e",
-      "after": "e56b8e4ce789db2bda9ecaa41fcbd46ee093bd19dad70317e488289216b74d8c",
-      "owner": "video-runtime",
-      "reason": "明记空窗海报与实际视频共用适配及真实出图对照。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-candidate-poster"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "b6c757450098bfb1687f8f6c2c8238f7f487a9aeb70af7afd8246db5a404fd75",
-      "after": "b3c9883c49d5016ecb01b24260abeff25405a861a6cbc8b64f5f1ceeca1076a8",
-      "owner": "三引擎画质与 Scene 提交",
-      "reason": "同步实际采样数的投递、用户读数与本地化入口。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
     },
     {
       "section": "bodies",
@@ -719,12 +476,264 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/local-library-loading-design.md",
-      "before": "5cb4c9ebb29ae5864071b95ee6d4d0cd9e0aae543a6231481b39294e615d7848",
-      "after": "13739cb6f26e99565e6984148f7ac0181b529b78aceb4e8ef19b29688620c865",
-      "owner": "本地目录",
-      "reason": "连接索引优先发布与后台已有文件观察",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-inspector-source-recovery"
+      "path": "docs/development/main-window-playlists-redesign.md",
+      "before": "5faaabce0e3682e8b2e4106326450920a2d0a57dd771c3497c862ce45f9f51e3",
+      "after": "a15a4ef7a003320cf2629d5478770624ffbbf6445f9c814a8e3bad40ddc120e8",
+      "owner": "App/Shell immersive UI design",
+      "reason": "User-requested complete P0 visual specification, function map and execution/retirement plan plus reviewed generated proposals. Replace old visual authority; product UI implementation remains blocked until user approval.",
+      "decision": "docs/development/immersive-ui-execution-plan.md#entry"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/repository-workflow.md",
+      "before": "4e02c759ee869deaa87affa5e0ebe5dbaa832b1b2ca7898c1dc6b4cfcf6c7332",
+      "after": "d7abfe8f8ae37f9880c99d2bc939904c5a0e9419e9f0e90c482733969486c106",
+      "owner": "repository governance",
+      "reason": "Use the current test collection paths and repair the navigation after the script move.",
+      "decision": "docs/development/repository-workflow.md#并行与验证"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/status-bar-panel-redesign.md",
+      "before": "ed069d383b8ffd1adce6d6b6db999cb9aad18d4d2634bcef1d22dc1a76f257d1",
+      "after": "1b80994208efaa63d2e7663144303c4befe7afd6078aeab240e0d6af2eeb1158",
+      "owner": "Status bar panel",
+      "reason": "Status panel now activates for keyboard focus (Tab/Esc) on open; fact added with the panel focus gate.",
+      "decision": "docs/development/status-bar-panel-redesign.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-settings-plan.md",
+      "before": "73c6c7cd1b968ea2f4a92c08b89e8c448ed70e68b7081a50a87e78023e1923e8",
+      "after": "1537cb385d232aaf15eaad3d603ee1e17e59f3ef419029072bfd583d4b5df42c",
+      "owner": "Scene 材质准备",
+      "reason": "同步普通副槽的官版合同、现役导航和启动实测。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#missing-ordinary-material-texture"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "b3c9883c49d5016ecb01b24260abeff25405a861a6cbc8b64f5f1ceeca1076a8",
+      "after": "6ae04ea33db8de7685d9913f69e5f8cbd4fc1a764e2227c6271137675a671fb3",
+      "owner": "Scene 与三引擎画质",
+      "reason": "合并画质与主线的执行合同及不同构建身份下的证据，保持单一现役入口。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/release/bundle-content.md",
+      "before": "9320ffb3f0d5e6abf1cfa44ec4d19363437b1b68c63e5017a0afca00a285833f",
+      "after": "5cf34e2b74a836cd19893a610f918df25ef0fcc127548d6de9357902efe8a7a0",
+      "owner": "repository-governance",
+      "reason": "Move build/release shell entrypoints into script/build and script/release; update relative links.",
+      "decision": "docs/release/bundle-content.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/release/release-signing.md",
+      "before": "727947c6ffbb7b9f875251e4938bbdb5eab4aa53a6a8b38b76d03e387cc8c218",
+      "after": "1f3e40eedcb290a7aefad571d62288783f367b85fd9ad6c5b3588dadb9aa9c20",
+      "owner": "repository-governance",
+      "reason": "Merge the codex localization work with the script collection migration.",
+      "decision": "docs/release/release-signing.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
+      "before": "e4686c656bc41c7edfbe764c6a5fdd13688681ef9c140821d3d457d474888955",
+      "after": "6101c81d5a0bb091996a7b50a4c5156eafc1349024b78174f347df44bca9ce43",
+      "owner": "Scene ordered capture receipts",
+      "reason": "Define source-order qualification and exact periodic PNG input in the existing offline reader. Record original357 archive transport and independent288 byte replay without changing old verdicts; remove solved reader queue item and bound violin followup. No new App/GPU/build. Exact body budget.",
+      "decision": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md#capture-receipts"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "5ed51687b798af3e53ee504aceafaccc829e32cc6df02c2c49e41b1f46b96497",
+      "after": "84213cc6664b1a5e72905c53fbc5ed599b888175256ffa8271ad7f81849bdb3e",
+      "owner": "Scene 与三引擎画质",
+      "reason": "合入主线已落库正文及其现行职责。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-dependency-boundaries.md",
+      "before": "5e4e9e652b2cdbc812c29b2e8409ff4d7ed8b7248c3bcb1730d0e67beae5a186",
+      "after": "25358f5c2434ac041b29be437ab6bab5fdcb3bf831304b2206f0a2f3453882d6",
+      "owner": "repository-governance",
+      "reason": "Move governance tools into script/governance and update relative paths.",
+      "decision": "docs/scene/architecture/scene-dependency-boundaries.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "before": "8bd91d0f2502e710022de98d16ce24348bd291494c2a41918fe3a6e6e4141493",
+      "after": "8696d439829492cbc3ad93780b0c6e33296d9b114e45a472d676ead4b7072324",
+      "owner": "Scene static model material preparation",
+      "reason": "Specify batch-local interface proof reuse and retain the measured launch and visual evidence.",
+      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#preparation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-resource-admission.md",
+      "before": "e8367761c23f5564c4b8c79e6d1ad6dd949b3ed11e5d49dd2e60107f1bea541a",
+      "after": "57bcb10271115e94630022a7ac74f49298c98234a36b96c3603fbbaea68befc9",
+      "owner": "Scene 与三引擎画质",
+      "reason": "合入主线已落库正文及其现行职责。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "b78c97b34cc2dca2c206b0df84937917cfe3311133adc6023deeeaf4db4f5db3",
+      "after": "adf6a2a0d0062e5b3f36a73909413652cda1b1f1efcb6a024a1670afb5591fce",
+      "owner": "Scene 与三引擎画质",
+      "reason": "合入主线已落库正文及其现行职责。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/effect-execution-coverage.md",
+      "before": "2b9097552ec62841fde0f36c1795e368080c423d39dd20206c71fb9d36ec5009",
+      "after": "8035b7f7ec854aced1811acd02ddb8dce731c240d99ed4d9adea59ec366802ab",
+      "owner": "Scene utility source and effect execution",
+      "reason": "Record the proved Fullscreen prefix cutoff and its existing viewport execution and activation ownership.",
+      "decision": "docs/scene/capabilities/effect-execution-coverage.md#fullscreen-ordered-prefix"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/material-video-assets.md",
+      "before": "0ef76e52d15f4f20c7fb565d7e3f208785a929b46f4a8bb9ba2fd93d52089094",
+      "after": "39571f9da1381399868fd44063a69cb0d568aad13e600334bc231d34b767ef9c",
+      "owner": "scene-media",
+      "reason": "明确几何前已确认的普通 MP4 来源与运行阶段的既有准入",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-video-tex-redundant-load"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/model-runtime-evidence.md",
+      "before": "d68b57ad4ea2b3481fc0736d18c3c2f157b72f83c846741a0ccfea6f66ade46c",
+      "after": "5601a91ca514ef21a5e0123c21f2274a6eb1f12481995cbe3b7a320a4530ca6f",
+      "owner": "Scene model rendering",
+      "reason": "Keep the fixed-color official and native model lighting qualification with the current model evidence.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#legacy-generic2-model-lighting"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "b531dceb8270dbb67fbdc83284be9fdf3e0f1f8a293443b3a53decf76ae5c46a",
+      "after": "5bacd0e70d867d376760e5f8f1b2d2d52408ac8ee0cc6dd92a881a49a7d409ef",
+      "owner": "Scene 与三引擎画质",
+      "reason": "合入主线已落库正文及其现行职责。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "9afac01530b6baccc2e0d4aba86dcc69f093720df666ce67a91eb6be2d92aa66",
+      "after": "899a8c8d15481209c70794c76dd5eb50b386e6f9dcbd20760cd743c8301e0bce",
+      "owner": "Scene 与三引擎画质",
+      "reason": "合并画质与主线的执行合同及不同构建身份下的证据，保持单一现役入口。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "ecaf8f49568ef7ee0093c19f51ae1b1f3a3911b5cf4416e5cbc4b0aedfdf4c6e",
+      "after": "ce212bb0d0e9a426288e83a38caa51353aaea614b34d509c6943a7816483e57b",
+      "owner": "Scene 与三引擎画质",
+      "reason": "合并画质与主线的执行合同及不同构建身份下的证据，保持单一现役入口。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "8b03d7a809a475ced26626270e6ac0e8c86fee6239074ae75fa7d9b30abcd7b4",
+      "after": "51ab0c44e7ee50643e905f9f62e62c2451dec75db0bc1757d8f8ca88f64c2c57",
+      "owner": "Scene 与三引擎画质",
+      "reason": "合入主线已落库正文及其现行职责。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "3dcf7f5d2515f20ef724a8cbcaa458889916bcf55fc547c87645e34549612620",
+      "after": "41700f2a4954e0d77edaaafaf1f5bd709d7ef36a99178eb3c7f7bf61629b2e80",
+      "owner": "Scene 与三引擎画质",
+      "reason": "合入主线已落库正文及其现行职责。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "3d06b07015ac6d6d1edc3486908fa7372b1fcf0fe15eb6b97a05cd6e311ab545",
+      "after": "1ef5200da31d5985fece01ffe41b838e454aa548ac4f09c1ee9188f0ee742917",
+      "owner": "repository-governance",
+      "reason": "Move remaining script files into collections and update paths.",
+      "decision": "docs/scene/development/development-workflow.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/official-client-behavior-research-workflow.md",
+      "before": "2a24fcd4d8da1c03c0eba0af945d45baf77e2fbfc5841c276032c7028a8adf59",
+      "after": "78dc7c325049f97c488f0163f7be944d9f69ebab9e8d7a71188941428662f5e4",
+      "owner": "repository-governance",
+      "reason": "Move asset/evidence tools into collections and update paths.",
+      "decision": "docs/scene/development/official-client-behavior-research-workflow.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "a2cf1a3745cb5736a0eeabe7c0fd6370a4dc98b8afb4b62405b99aaa95f68306",
+      "after": "052e0984d4ec9c8f14fa7d30964e7720403d1d7aa40fe86584279b1ab3f5e395",
+      "owner": "repository-governance",
+      "reason": "Move scene tools into script/scene and update paths.",
+      "decision": "docs/scene/roadmap/performance-convergence-card.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "e0bb358fc3f0cb7e5062d59a71dce55063d50cea6a4ca70c8cfe2f03ed965960",
+      "after": "294726741619ccba3e11dcb3b367102d0994058bfcff14f90e1a7827979cdce1",
+      "owner": "Scene",
+      "reason": "登记双宽束实例色版本差异、官版出生时序与实施边界。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/current-state.md",
+      "before": "78f9aae4d4df060233d72812832763eff15de04bf3092b295d2a5447c428940a",
+      "after": "cb60df2ed56c9eb7aacadf600e1afed7a0a5dae2d834a913993a2d9b5c972279",
+      "owner": "web-runtime",
+      "reason": "回写宿主重载时的种子职责与实际 WebContent 退出证据。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/dedicated-host-process-design.md",
+      "before": "d6407fadb1a3e0d8a3a57e010fa8b551f310daa607a2e1fd1174d2eda23e1f18",
+      "after": "0deb8ade3de8344685f03798e3dcc1166013e78e175760e889770ed9fde3f721",
+      "owner": "repository-governance",
+      "reason": "Move web tools into script/web and update paths.",
+      "decision": "docs/web/dedicated-host-process-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/mediaremote-nowplaying-design.md",
+      "before": "dfde33030a243053bc732aaf6d8aeb4b2946185098b536409d39d95b0f3662bf",
+      "after": "3ef727f95c0086706ca1574543c1b3f8a07f37eb3c8a1fd09fbfb5f9f72b7223",
+      "owner": "Scene 与三引擎画质",
+      "reason": "合入主线已落库正文及其现行职责。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/web-wallpaper-benchmark-standard.md",
+      "before": "4a6342b0d7cc82163bb072487a1200708438523fa1c1636afa46f5ec9e8cce23",
+      "after": "f7787e87ae620589aa418402ede996add07bd4512d2a2d14f75763886da1a765",
+      "owner": "repository governance",
+      "reason": "Use the current test collection paths and repair the navigation after the script move.",
+      "decision": "docs/development/repository-workflow.md#并行与验证"
     }
   ]
 }

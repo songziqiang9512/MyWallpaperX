@@ -1,12 +1,10 @@
 """Production terminal replay retains input and rasterizes authored overflow.
 
-Overflow cases use the existing bounded route: the bare Swift carrier has no
-signed compiler license bundle. They exercise real Program/Metal output, not
-App generic compilation, text rasterization, or FramePreflight admission.
-Named cases use the production capability/finalizer and same-frame reserved
-publication; the unequal provider remains a read-only input to terminal replay.
-Density cases retain the existing captured-layer route; captured-main remains
-rejected. They do not cover App FramePreflight or compositor admission.
+The standalone carrier exercises bounded Program and Metal paths.
+Named cases use same-frame publication and retain the unequal read-only input.
+Density cases admit captured-layer input and reject captured-main input.
+App compilation, text, FramePreflight and compositor admission are outside
+the standalone harness.
 """
 import hashlib
 import json
@@ -327,7 +325,7 @@ private func overflowCase(
 private func terminalCase(
     device: MTLDevice, queue: MTLCommandQueue, count: Int,
     inactive: Set<Int> = [], failed: Set<Int> = [], budget: Int = 4096,
-    expectedBypassCopies: Int? = nil,
+    expectedCopies: UInt64 = 0, expectedPins: Int = 0, expectsReplay: Bool = true,
     named: Bool = false, optionalReplayFailure: Bool = false,
     preparationFailure: SceneResolvedMaterialPassEncoder.PreparationFailure =
         .libraryCompilationRejected(diagnostic: "terminal tail regression")
@@ -425,6 +423,9 @@ private func terminalCase(
             return true
         })
     let copyCount = ScenePerformanceCounterHub.shared.snapshot()[.textureCopyPasses]! - copyBefore
+    let overwrittenInputReadback = budget == 0 ? lastActive.flatMap {
+        appendReadback(leases[$0].table.inputTexture, commandBuffer: command)
+    } : nil
     let snapshotTexture: MTLTexture? = pool.allocationCache.locked {
         guard let entry = pool.allocationCache.residents[.current(.terminalInput(
             layerID: layerID, slot: 0, width: 10, height: 10))],
@@ -469,19 +470,19 @@ private func terminalCase(
         && providerReadback?.allPixels == (0..<3).map { _ in providerRow })
     let threshold = named ? 191 : 127
     let transitions = zip(red, red.dropFirst()).filter { ($0 > threshold) != ($1 > threshold) }.count
-    let bypassCount = inactive.union(failed).count
-    let expectedPins = lastActive != nil && bypassCount > 0 && budget > 0 ? 1 : 0
-    let bypassCopies = expectedBypassCopies ?? (lastActive == nil && !hasReplay ? 0 : bypassCount)
-    let highDensity = lastActive == 0 && hasReplay
+    let highDensity = lastActive == 0 && expectsReplay
     let hasStripes = lastActive != nil && (named || (!inactive.contains(0) && !failed.contains(0)))
-    let snapshotMatches = expectedPins == 0 || (snapshotReadback != nil && originalReadback != nil
-        && snapshotReadback!.allPixels == originalReadback!.allPixels)
-    let snapshotDistinct: Bool
-    if let snapshotTexture, let lastActive {
-        snapshotDistinct = snapshotTexture !== leases[lastActive].table.inputTexture
+    let snapshotMatches: Bool
+    if expectedPins == 0 {
+        snapshotMatches = snapshotTexture == nil
+    } else if let snapshotTexture, let lastActive, let snapshotReadback, let originalReadback {
+        snapshotMatches = snapshotTexture !== leases[lastActive].table.inputTexture
             && snapshotTexture.pixelFormat == .bgra8Unorm && snapshotTexture.width == 10
             && snapshotTexture.height == 10 && snapshotTexture.mipmapLevelCount == 1
-    } else { snapshotDistinct = expectedPins == 0 }
+            && snapshotReadback.allPixels == originalReadback.allPixels
+    } else { snapshotMatches = false }
+    let budgetConflictObserved = budget > 0 || (originalReadback != nil && overwrittenInputReadback != nil
+        && originalReadback?.allPixels != overwrittenInputReadback?.allPixels)
     prepared.terminalInputPins.forEach { $0.release() }
 
     // The same still-unsubmitted buffer/main pass isolates reset rejection.
@@ -510,16 +511,15 @@ private func terminalCase(
                 : highDensity ? transitions >= 120 : (1...20).contains(transitions),
             "sourceOrStripesPresent": !hasStripes ? red.allSatisfy { $0 == 255 }
                 : red.min()! < (named ? 160 : 16) && red.max()! > 239,
-            "noActiveMaterialUsesGraph": lastActive != nil || (!hasReplay
-                && prepared.terminalInputPins.isEmpty && snapshotTexture == nil),
             "optionalMissKeepsActiveTail": !optionalReplayFailure || (!hasReplay
                 && prepared.stages.last?.effectLocalActivationBypassReasonCode == nil
                 && prepared.stages.last?.effectLocalFailureReasonCode == nil),
-            "necessaryCopiesOnly": copyCount == UInt64(bypassCopies + expectedPins),
+            "necessaryCopiesOnly": copyCount == expectedCopies,
             "necessaryPinsOnly": prepared.terminalInputPins.count == expectedPins,
-            "snapshotIsExactRealInput": snapshotMatches && snapshotDistinct,
+            "snapshotMatchesExpectation": snapshotMatches,
             "pinHeldUntilCompletion": pinsBeforeCompletion == expectedPins,
-            "budgetFailureUsesGraph": budget > 0 || (!hasReplay && expectedPins == 0),
+            "replayMatchesExpectation": hasReplay == expectsReplay,
+            "budgetFailureHasRealConflict": budgetConflictObserved,
             "activationIsLocal": inactive.allSatisfy {
                 prepared.stages[$0].effectLocalActivationBypassReasonCode != nil
             }, "failureIsLocal": failed.allSatisfy {
@@ -818,22 +818,26 @@ private func densityCase(
     }
     let rows: [String: [String: Any]] = [
         "single": try terminalCase(device: device, queue: queue, count: 1),
-        "singleInactive": try terminalCase(device: device, queue: queue, count: 1, inactive: [0]),
+        "singleInactive": try terminalCase(device: device, queue: queue, count: 1,
+            inactive: [0], expectsReplay: false),
         "active": try terminalCase(device: device, queue: queue, count: 2),
         "inactive": try terminalCase(device: device, queue: queue, count: 2, inactive: [1]),
-        "failed": try terminalCase(device: device, queue: queue, count: 2, failed: [1]),
+        "failed": try terminalCase(device: device, queue: queue, count: 2,
+            failed: [1], expectedCopies: 2, expectedPins: 1),
         "missingPipeline": try terminalCase(device: device, queue: queue, count: 2,
-            failed: [1], preparationFailure: .pipelineNotPrepared),
+            failed: [1], expectedCopies: 2, expectedPins: 1, preparationFailure: .pipelineNotPrepared),
         "twoInactive": try terminalCase(device: device, queue: queue, count: 3, inactive: [1,2],
-            expectedBypassCopies: 1),
+            expectedCopies: 2, expectedPins: 1),
         "interruptedByFailure": try terminalCase(device: device, queue: queue, count: 3,
-            inactive: [0,2], failed: [1], expectedBypassCopies: 3),
-        "interruptedByActive": try terminalCase(device: device, queue: queue, count: 3, inactive: [0,2]),
+            inactive: [0,2], failed: [1], expectedCopies: 2, expectsReplay: false),
+        "interruptedByActive": try terminalCase(device: device, queue: queue, count: 3,
+            inactive: [0,2], expectedCopies: 1),
         "identityThenInactive": try terminalCase(device: device, queue: queue, count: 3, inactive: [2]),
-        "snapshotBudgetRejected": try terminalCase(device: device, queue: queue, count: 2,
-            inactive: [1], budget: 0),
+        // The first inactive stage is intermediate and overwrites e0's replay input.
+        "snapshotBudgetRejected": try terminalCase(device: device, queue: queue, count: 3,
+            inactive: [1,2], budget: 0, expectedCopies: 1, expectsReplay: false),
         "optionalReplayFailure": try terminalCase(device: device, queue: queue, count: 2,
-            optionalReplayFailure: true)]
+            expectsReplay: false, optionalReplayFailure: true)]
     let overflow = [
         "positiveSkew": try overflowCase(device: device, queue: queue, skew: 0.75, offset: 2.5,
             probeX: 50, probeY: 22),
@@ -859,7 +863,8 @@ private func densityCase(
     let named = [
         "active": try terminalCase(device: device, queue: queue, count: 2, named: true),
         "inactive": try terminalCase(device: device, queue: queue, count: 2, inactive: [1], named: true),
-        "failed": try terminalCase(device: device, queue: queue, count: 2, failed: [1], named: true)]
+        "failed": try terminalCase(device: device, queue: queue, count: 2,
+            failed: [1], expectedCopies: 2, expectedPins: 1, named: true)]
     let density = ["original": try densityCase(device: device, queue: queue, renamed: false),
         "renamedEquivalent": try densityCase(device: device, queue: queue, renamed: true),
         "additiveFine": try densityCase(device: device, queue: queue, renamed: false, blendMode: 31),
@@ -964,10 +969,6 @@ class TerminalMaterialGraphTests(unittest.TestCase):
         for name in ('active', 'inactive', 'failed'):
             with self.subTest(case=name):
                 row = self.result['named'][name]
-                if name == 'active':
-                    self.assertTrue(1 <= row['transitions'] <= 20, row)
-                else:
-                    self.assertGreaterEqual(row['transitions'], 120, row)
                 self.assertEqual([k for k, v in row['results'].items() if not v], [], row)
                 self.assertEqual(row['providerExtent'], [7, 3], row)
                 self.assertEqual([k for k, v in row['dependencySizing'].items() if not v], [], row)

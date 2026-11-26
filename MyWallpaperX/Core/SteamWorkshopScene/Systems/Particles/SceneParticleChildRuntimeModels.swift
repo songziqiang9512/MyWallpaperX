@@ -24,11 +24,12 @@ struct SceneParticleChildSystem {
     let templateIndex: Int
     let depth: Int
     let spawnScopeID: UInt64?
-    let parentParticleID: UInt64?
+    var parentParticleID: UInt64?
     let isWorldSpace: Bool
     var origin: SIMD3<Double>
     var particleOrigins: [UInt64: SIMD3<Double>]
     var simulator: SceneParticleSimulator
+    var receivedControlPoints: UInt8 = 0
 }
 
 struct SceneParticleChildParentFrame {
@@ -40,6 +41,7 @@ struct SceneParticleChildParentFrame {
     let births: [SceneParticleState]
     let deaths: [SceneParticleState]
     let particles: ArraySlice<SceneParticleState>
+    let streamPoints: [SIMD3<Double>]
 
     func position(for particle: SceneParticleState) -> SIMD3<Double> {
         (particleOrigins[particle.id] ?? origin) + scale * particle.position

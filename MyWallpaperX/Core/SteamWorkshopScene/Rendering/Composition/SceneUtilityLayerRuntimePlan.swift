@@ -6,6 +6,7 @@ import simd
 struct SceneUtilityLayerRuntimePlan {
     enum Disposition: String {
         case capture
+        case projectColorBlend
         case skippedHidden
         case skippedNoEffect
         case unsupportedDependencies
@@ -24,7 +25,7 @@ struct SceneUtilityLayerRuntimePlan {
     var usesAuthoredLocalSource: Bool = false
     var allowsPerspectiveReplay: Bool = false
 
-    var shouldCapture: Bool { disposition == .capture }
+    var shouldCapture: Bool { disposition == .capture || disposition == .projectColorBlend }
     var usesIsolatedGroupTarget: Bool { isolatedGroupMembers != nil }
 }
 
@@ -147,17 +148,20 @@ enum SceneUtilityLayerRuntimePlanner {
             // Admission may prepare a dynamically visible fullscreen while
             // its layer or effect seed is hidden. Keep its capture route;
             // the committed frame's target plans still gate actual encoding.
-            let preparedFullscreen = utility.kind == .fullscreen
-                && layer.contentKind == "fullscreen"
-                && resolvedMaterialLayerIDs.contains(layer.id)
-                && layer.parentID == nil
-                && layer.dependencyLayerIDs.isEmpty && sourceRoute != nil
             let isolatedGroup = sourceRoute?.usesIsolatedGroupTarget == true
-            let preparedSource = utility.kind != .fullscreen
-                && sourceRoute != nil
+            let preparedSource = sourceRoute != nil
                 && resolvedMaterialLayerIDs.contains(layer.id)
+                && (utility.kind != .fullscreen || (layer.parentID == nil
+                    && (layer.dependencyLayerIDs.isEmpty
+                        || dependencyPlan.bindingsByConsumerLayerID[layer.id]?.requiresResolvedMaterialProgram == true
+                        || dependencyPlan.multiProviderAggregatesByConsumerLayerID[layer.id] != nil)))
             let preparedLocalSource = usesLocalSource && !hasVisibleEffects
-            let preparedUtility = preparedFullscreen || preparedSource || preparedLocalSource
+            let projectColorBlend = utility.kind == .project && utility.copyBackground
+                && !utility.passthrough && layer.effects.isEmpty && layer.childLayerIDs.isEmpty
+                && layer.parentID == nil && layer.usesPerspective != true
+                && descriptor.camera.authoredOrthographicProjectionActive == true
+                && (1...SceneBlendModeShaderSource.maximumMode).contains(layer.colorBlendMode ?? 0)
+            let preparedUtility = preparedSource || preparedLocalSource || projectColorBlend
             // Local sources retain their raster without an active effect.
             if !visibleLayerIDs.contains(layer.id) && !preparedUtility
                 && !(isolatedGroup && !hasVisibleEffects) {
@@ -170,6 +174,8 @@ enum SceneUtilityLayerRuntimePlanner {
                 disposition = .skippedNoEffect
             } else if sourceRoute == nil, !layer.childLayerIDs.isEmpty {
                 disposition = .unsupportedChildren
+            } else if sourceRoute != nil, projectColorBlend {
+                disposition = .projectColorBlend
             } else if sourceRoute != nil,
                       resolvedMaterialLayerIDs.contains(layer.id) || preparedLocalSource {
                 disposition = .capture

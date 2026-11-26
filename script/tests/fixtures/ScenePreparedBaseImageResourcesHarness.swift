@@ -167,18 +167,18 @@ struct ScenePreparedStaticModelResources {
                         cancellationCheck: () throws -> Void) throws -> Self { .init() }
 }
 struct SceneResolvedMaterialExecutionCapabilityCatalog {}
-struct SceneAssetTextureIdentity: Hashable { let path: String; let purpose: String }
+enum SceneTextureLoadPurpose: String { case straightAlbedo, premultipliedColor, normal }
+struct SceneAssetTextureIdentity: Hashable { let path: String; let purpose: SceneTextureLoadPurpose }
 enum SceneAssetTextureLaunchState { case unavailable }
 enum TestProvider: Hashable { case sceneBackground(consumerLayerID: Int) }
 enum TestReference: Hashable { case asset(String), provider(TestProvider), unavailable }
-extension String { static let premultipliedColor = "premultipliedColor" }
 struct TestSampler {
     // Prepared typed facts supplied by the external compiler boundary. This
     // does not replace or test production shader-purpose derivation.
-    let purposes: [TestReference: String]
+    let purposes: [TestReference: SceneTextureLoadPurpose]
 }
 enum SceneResolvedMaterialShaderSchema {
-    static func purpose(for reference: TestReference, sampler: TestSampler) -> String? {
+    static func purpose(for reference: TestReference, sampler: TestSampler) -> SceneTextureLoadPurpose? {
         sampler.purposes[reference]
     }
 }
@@ -186,7 +186,7 @@ enum SceneDynamicTarget: String, Hashable { case declaredLive, declaredInactive 
 struct TestTemplate {
     struct Slot { struct Candidate { let reference: TestReference }; let candidates: [Candidate] }
     struct UniformDeclaration {
-        struct Dynamic { let target: SceneDynamicTarget }
+        struct Dynamic: Hashable { let target: SceneDynamicTarget }
         enum Value { case staticExact, dynamic(Dynamic) }
         let value: Value
     }
@@ -200,6 +200,8 @@ struct TestVariantFixture {
     var precompileAccepted = true
     var allEntriesReady = true
     var variants: [SceneResolvedMaterialVariantCache.Variant] = []
+    var preparedDynamicUniforms: Set<TestTemplate.UniformDeclaration.Dynamic> = []
+    var hasSceneEnvironmentConsumer = false
 }
 struct SceneResolvedMaterialRuntimeCatalog {
     struct Entry {
@@ -218,7 +220,16 @@ struct SceneResolvedMaterialRuntimeCatalog {
     let systemProviderDemands: Set<Never> = []
     var sourceMaterialEntries: [Int: Entry] = [:]
 }
-struct SceneMaterialAssetTextureCatalog { let launchFormatFacts = 0; let launchStates = 0 }
+struct SceneMaterialAssetTextureCatalog {
+    struct ConditionalAsset {
+        let input: SceneResourceView.FileInput
+        let conditions: SceneTextureAtlasConditions
+        let selection: Set<UInt32>
+        let identities: Set<SceneAssetTextureIdentity>
+    }
+    let launchFormatFacts = 0
+    let launchStates = 0
+}
 struct SceneResolvedMaterialVariantCache {
     struct Frontend { let planAvailable: Bool }
     struct Variant {
@@ -231,17 +242,21 @@ struct SceneResolvedMaterialVariantCache {
             let preparedShader: Shader
             let frontendProgram: Frontend
         }
-        struct TextureSelectionFacts { let candidatePurposes: [Int: Set<String>] }
+        struct TextureSelectionFacts { let candidatePurposes: [Int: Set<SceneTextureLoadPurpose>] }
         let activeSamplers: [Int: TestSampler]
         let preparedAssembly: PreparedAssembly
         var textureSelectionFacts: TextureSelectionFacts {
             .init(candidatePurposes: activeSamplers.mapValues { Set($0.purposes.values) })
         }
     }
-    struct Envelope { let allEntriesReady: Bool; let variants: [Variant] }
+    struct Envelope {
+        let allEntriesReady: Bool
+        let variants: [Variant]
+        let dynamicUniforms: Set<TestTemplate.UniformDeclaration.Dynamic>
+    }
     let fixture: TestVariantFixture
     var hasAudioSpectrumConsumer: Bool { false }
-    var hasSceneEnvironmentConsumer: Bool { false }
+    var hasSceneEnvironmentConsumer: Bool { fixture.hasSceneEnvironmentConsumer }
     static func launchValidated(template: TestTemplate,
                                 textureFormatSlots: Result<Set<Int>, TestError>, maximumVariantCount: Int,
                                 assetFormatFacts: Int) -> Result<Self, TestError> {
@@ -254,7 +269,8 @@ struct SceneResolvedMaterialVariantCache {
         fixture.precompileAccepted ? .success(()) : .failure(.controlledPrecompileFailure)
     }
     func launchEnvelopeCapabilitySnapshot() -> Envelope {
-        .init(allEntriesReady: fixture.allEntriesReady, variants: fixture.variants)
+        .init(allEntriesReady: fixture.allEntriesReady, variants: fixture.variants,
+            dynamicUniforms: fixture.preparedDynamicUniforms)
     }
 }
 enum TestError: Error { case controlledSchemaFailure, controlledPrecompileFailure }
@@ -686,14 +702,14 @@ enum Checks {
             -> SceneResolvedMaterialVariantCache.Variant {
             var samplers: [Int: TestSampler] = [:]
             if let samplerZero { samplers[0] = samplerZero }
-            if otherSampler { samplers[2] = .init(purposes: [colorReference: "normal"]) }
+            if otherSampler { samplers[2] = .init(purposes: [colorReference: .normal]) }
             return .init(activeSamplers: samplers, preparedAssembly: .init(
                 preparedShader: .init(cacheKey: key, vertex: .init(frontendSchemaVersion: 1)),
                 frontendProgram: .init(planAvailable: planAvailable)))
         }
-        let colorSampler = TestSampler(purposes: [colorReference: "straightAlbedo"])
+        let colorSampler = TestSampler(purposes: [colorReference: .straightAlbedo])
         let unknownSampler = TestSampler(purposes: [:])
-        let normalSampler = TestSampler(purposes: [colorReference: "normal"])
+        let normalSampler = TestSampler(purposes: [colorReference: .normal])
         let inactiveVariants = [variant("inactive-a"), variant("inactive-b")]
         let activeVariants = [variant("active-a", samplerZero: colorSampler),
                               variant("active-b", samplerZero: colorSampler)]
@@ -701,6 +717,8 @@ enum Checks {
                         variants: [SceneResolvedMaterialVariantCache.Variant],
                         slots: [TestTemplate.Slot?]? = nil,
                         uniformDeclarations: [TestTemplate.UniformDeclaration] = [],
+                        preparedDynamicUniforms: Set<TestTemplate.UniformDeclaration.Dynamic> = [],
+                        hasSceneEnvironmentConsumer: Bool = false,
                         allEntriesReady: Bool = true, schemaAccepted: Bool = true,
                         precompileAccepted: Bool = true,
                         capturesMainTarget: Bool = false,
@@ -709,7 +727,8 @@ enum Checks {
                 uniformDeclarations: uniformDeclarations,
                 fixture: .init(schemaAccepted: schemaAccepted,
                     precompileAccepted: precompileAccepted, allEntriesReady: allEntriesReady,
-                    variants: variants))
+                    variants: variants, preparedDynamicUniforms: preparedDynamicUniforms,
+                    hasSceneEnvironmentConsumer: hasSceneEnvironmentConsumer))
             let catalog = SceneResolvedMaterialRuntimeCatalog(sourceMaterialEntries: [17: .init(
                 key: .init(reportToken: "source:17:renamed-owned-source"),
                 entry: .template(template, textureFormatSlots: .success([])),
@@ -728,7 +747,7 @@ enum Checks {
                 case let .sampledAsset(identity):
                     domain = "sampledAsset"
                     sampledPath = identity.path
-                    sampledPurpose = identity.purpose
+                    sampledPurpose = identity.purpose.rawValue
                 }
             }
             results[name] = [
@@ -736,18 +755,18 @@ enum Checks {
                 "sampledPath": sampledPath, "sampledPurpose": sampledPurpose,
                 "sharedModelPath": prepared[17]?.sharedModelPath ?? "",
                 "declaredDynamicTargets": prepared[17]?.declaredDynamicTargets.map(\.rawValue).sorted() ?? [],
+                "requiresSceneEnvironment": prepared[17]?.requiresSceneEnvironment ?? false,
                 "warmupCalls": encoder.warmupCalls, "warmupPlanCount": encoder.warmupPlanCount,
                 "reasons": logs.compactMap { $0.components(separatedBy: " reason=").dropFirst().first },
                 "logs": logs,
             ]
         }
         sourceCase("sourceInactive", variants: inactiveVariants)
-        sourceCase("sourceDeclaredTargets", variants: inactiveVariants, uniformDeclarations: [
+        sourceCase("sourcePreparedTargets", variants: inactiveVariants, uniformDeclarations: [
             .init(value: .dynamic(.init(target: .declaredLive))),
             .init(value: .dynamic(.init(target: .declaredInactive))),
-            .init(value: .dynamic(.init(target: .declaredLive))),
             .init(value: .staticExact),
-        ])
+        ], preparedDynamicUniforms: [.init(target: .declaredLive)], hasSceneEnvironmentConsumer: true)
         sourceCase("sourceInactiveNoCandidate", variants: inactiveVariants, slots: [])
         sourceCase("sourceOtherSamplerOnly", variants: [variant("other-a", otherSampler: true),
                                                          variant("other-b", otherSampler: true)])

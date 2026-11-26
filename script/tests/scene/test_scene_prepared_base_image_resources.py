@@ -32,6 +32,19 @@ TEXTURE_BOUNDARIES = FIXTURE.with_name("ScenePreparedBaseImageTextureBoundaries.
 PARTICLE_INPUTS = FIXTURE.with_name("ScenePreparedBaseImageParticleInputsChecks.swift")
 
 
+def texture_atlas_declarations() -> str:
+    container = (SCENE / "Format/SceneTexContainer.swift").read_text()
+    catalog = (SCENE / "Resources/Textures/SceneMaterialAssetTextureCatalog.swift").read_text()
+    return "import Foundation\n" + "\n".join([
+        "enum SceneTexContainer {",
+        swift_declaration(container, "    enum Condition:"),
+        swift_declaration(container, "    struct ConditionalPatch:"),
+        swift_declaration(container, "    struct ConditionalVariant:"),
+        "}",
+        swift_declaration(catalog, "nonisolated struct SceneTextureAtlasConditions {"),
+    ])
+
+
 @unittest.skipUnless(platform.system() == "Darwin", "requires native Metal textures")
 class ScenePreparedBaseImageResourceTests(unittest.TestCase):
     @classmethod
@@ -45,6 +58,8 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
         binding.write_text(swift_declaration(
             (SCENE / "Systems/Properties/SceneUserPropertyBindings.swift").read_text(),
             "nonisolated struct SceneUserPropertyBindingReference"))
+        atlas = workspace / "SceneTextureAtlasDeclarations.swift"
+        atlas.write_text(texture_atlas_declarations())
         compile_result = subprocess.run(
             ["xcrun", "swiftc", "-swift-version", "5",
              str(SCENE / "Resources/Assets/SceneResourceIndex.swift"),
@@ -61,7 +76,7 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
              str(SCENE / "Format/SceneJSONValue.swift"),
              str(SCENE / "Resources/Assets/SceneModelResourceIdentity.swift"),
              str(SCENE / "Compilation/Material/ScenePreparedImageMaterialCatalog.swift"),
-             str(FIXTURE), str(TEXTURE_BOUNDARIES), str(PARTICLE_INPUTS),
+             str(FIXTURE), str(TEXTURE_BOUNDARIES), str(PARTICLE_INPUTS), str(atlas),
              str(SCENE / "../PlaybackControl/PlaybackPerformanceProfile.swift"), "-framework", "Metal", "-module-cache-path",
              str(workspace / "modules"), "-o", str(binary)],
             capture_output=True, text=True, timeout=120,
@@ -349,11 +364,12 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
                 self.assertEqual(rejected["warmupCalls"], 0)
                 self.assertEqual(rejected["reasons"], ["source-domain-variant-dependent"])
 
-    def test_source_preparation_hands_off_all_declared_dynamic_targets(self) -> None:
-        case = self.facts["sourceDeclaredTargets"]
+    def test_source_preparation_hands_off_prepared_dynamic_targets_and_environment(self) -> None:
+        case = self.facts["sourcePreparedTargets"]
         self.assertEqual(case["preparedCount"], 1)
         self.assertEqual(case["outputDomain"], "baseImage")
-        self.assertEqual(case["declaredDynamicTargets"], ["declaredInactive", "declaredLive"])
+        self.assertEqual(case["declaredDynamicTargets"], ["declaredLive"])
+        self.assertTrue(case["requiresSceneEnvironment"])
         self.assertEqual(case["warmupCalls"], 1)
         self.assertEqual(case["warmupPlanCount"], 2)
         self.assertEqual(case["reasons"], [])

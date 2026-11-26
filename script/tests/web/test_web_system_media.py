@@ -724,7 +724,9 @@ class WebSystemMediaTests(unittest.TestCase):
         }""")
         extension = (HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+SystemMedia.swift").read_text().replace(
             "extension DedicatedWebWallpaperHostPlaceholderAdapter", "extension Adapter")
-        (cls.directory / "Harness.swift").write_text(base + extension + SCENARIOS)
+        network = (ROOT / "script/tests/fixtures/WebCompatibilityNetworkChecks.swift").read_text()
+        (cls.directory / "Harness.swift").write_text(
+            base + source_block(network, "final class NetworkBridgeStub") + "\n" + extension + SCENARIOS)
         shared = ROOT / "MyWallpaperX/Core/Playback/SystemMedia"
         result = subprocess.run([
             "xcrun", "swiftc", "-parse-as-library", str(shared / "SystemMediaSnapshotStore.swift"),

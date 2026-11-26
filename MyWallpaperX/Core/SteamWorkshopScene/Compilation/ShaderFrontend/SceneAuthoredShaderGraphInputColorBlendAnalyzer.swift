@@ -208,8 +208,8 @@ nonisolated enum SceneAuthoredShaderGraphInputColorBlendAnalyzer {
         fragment: Unit
     ) -> Int? {
         guard tokens.count >= 16,
-              Array(tokens.prefix(4)).map(\.text)
-                == [sourceName, ".", "rgb", "="],
+              isRGBAccess(tokens.prefix(3), sourceName: sourceName),
+              tokens[3].text == "=",
               tokens[4].text == "ApplyBlending",
               tokens[5].text == "(",
               tokens.last?.text == ")",
@@ -220,8 +220,7 @@ nonisolated enum SceneAuthoredShaderGraphInputColorBlendAnalyzer {
               arguments[0].count == 1,
               let rawMode = Int(tokens[arguments[0].lowerBound].text),
               (0 ... maximumBlendMode).contains(rawMode),
-              Array(tokens[arguments[1]]).map(\.text)
-                == [sourceName, ".", "rgb"],
+              isRGBAccess(tokens[arguments[1]], sourceName: sourceName),
               arguments[2].count == 1,
               uniformType(tokens[arguments[2].lowerBound].text, fragment: fragment)
                 .map({ ["vec3", "float3"].contains($0) }) == true,
@@ -230,6 +229,13 @@ nonisolated enum SceneAuthoredShaderGraphInputColorBlendAnalyzer {
             return nil
         }
         return rawMode
+    }
+
+    private static func isRGBAccess(_ tokens: ArraySlice<Token>, sourceName: String) -> Bool {
+        let start = tokens.startIndex
+        return tokens.count == 3 && tokens[start].text == sourceName
+            && tokens[start + 1].text == "."
+            && ["rgb", "xyz", "stp"].contains(tokens[start + 2].text)
     }
 
     private static func opaqueAlphaWrite(

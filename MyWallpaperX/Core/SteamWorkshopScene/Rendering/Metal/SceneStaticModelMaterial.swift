@@ -85,6 +85,13 @@ struct SceneStaticModelViewTint {
 /// Authored alpha meaning is kept separate from storage alpha so tint masks
 /// cannot accidentally punch holes through otherwise opaque geometry.
 struct SceneStaticModelMaterial {
+    struct LegacyLighting {
+        let halfLambert: Float
+        let rimStrength: Float
+        let highlightExponent: Float
+        let highlightStrength: Float
+    }
+
     let color: SIMD3<Float>
     let opacity: Float
     let receivesLighting: Bool
@@ -97,6 +104,7 @@ struct SceneStaticModelMaterial {
     let viewTint: SceneStaticModelViewTint?
     var channelBindings: SceneStaticModelMaterialBindings? = nil
     var surfaceProfile: SceneStaticModelSurfaceProfile? = nil
+    var legacyLighting: LegacyLighting? = nil
     var cullMode: MTLCullMode = .back
 
     var requiresSurfaceNormal: Bool {
@@ -117,6 +125,7 @@ struct SceneStaticModelMaterial {
             viewTint: viewTint?.resolvingBackColor(color),
             channelBindings: channelBindings,
             surfaceProfile: surfaceProfile,
+            legacyLighting: legacyLighting,
             cullMode: cullMode
         )
     }
@@ -149,6 +158,7 @@ struct SceneStaticModelMaterial {
             viewTint: viewTint,
             channelBindings: channelBindings,
             surfaceProfile: surfaceProfile,
+            legacyLighting: legacyLighting,
             cullMode: cullMode
         )
     }

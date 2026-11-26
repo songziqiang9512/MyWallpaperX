@@ -24,12 +24,10 @@ private func runMultiNodeCases(
     ordinaryLease: SceneGraphRenderTargetLease,
     dynamicMultiCapabilities: Capabilities,
     staticUniformMultiNodeCapabilities: Capabilities,
-    declarationConflictMultiNodeCapabilities: Capabilities,
     hostConflictMultiNodeCapabilities: Capabilities,
     dynamicUniformMultiNodeFailure: String,
     staticUniformMultiNodeFailure: String,
     hostConflictMultiNodeFailure: String,
-    declarationConflictMultiNodeFailure: String,
     results: [String: Bool]
 ) {
     let ordinaryGraph = graph(
@@ -159,13 +157,6 @@ private func runMultiNodeCases(
             staticUniformMissingDefaultNodes: [0]
         )
     )
-    let declarationConflictMultiNodeCapabilities = capabilities(
-        ordinaryChain,
-        catalog: catalog(
-            for: ordinaryGraph,
-            uniformDeclarationConflictNodes: [0]
-        )
-    )
     let hostConflictMultiNodeCapabilities = capabilities(
         ordinaryChain,
         catalog: catalog(
@@ -218,13 +209,6 @@ private func runMultiNodeCases(
     )
     let hostConflictMultiNodeUsesWholeEffectPassthrough =
         hostConflictMultiNodeFailure == "success"
-    let declarationConflictMultiNodeFailure = uniformMultiNodeFailure(
-        declarationConflictMultiNodeCapabilities,
-        generation: 12
-    )
-    let declarationConflictMultiNodeUsesWholeEffectPassthrough =
-        declarationConflictMultiNodeFailure == "success"
-
     let dynamicMultiDefinition = SceneDynamicTargetDefinition(
         target: dynamicMultiTarget,
         valueType: .scalar,
@@ -361,8 +345,6 @@ private func runMultiNodeCases(
             staticUniformMultiNodeUsesWholeEffectPassthrough,
         "hostConflictMultiNodeUsesWholeEffectPassthrough":
             hostConflictMultiNodeUsesWholeEffectPassthrough,
-        "declarationConflictMultiNodeUsesWholeEffectPassthrough":
-            declarationConflictMultiNodeUsesWholeEffectPassthrough,
         "fboVisualFailurePassthroughPrepared": fboVisualFailurePrepared,
         "fboVisualFailurePassthroughEncoded": fboVisualFailureEncoded,
         "fboVisualFailurePassthroughGPUCompleted":
@@ -399,12 +381,10 @@ private func runMultiNodeCases(
         ordinaryLease,
         dynamicMultiCapabilities,
         staticUniformMultiNodeCapabilities,
-        declarationConflictMultiNodeCapabilities,
         hostConflictMultiNodeCapabilities,
         dynamicUniformMultiNodeFailure,
         staticUniformMultiNodeFailure,
         hostConflictMultiNodeFailure,
-        declarationConflictMultiNodeFailure,
         results
     )
 }

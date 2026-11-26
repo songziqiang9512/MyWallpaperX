@@ -221,9 +221,10 @@ class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
         if not result["metalAvailable"]:
             self.skipTest("Metal is unavailable")
         rows = {row["case"]: row for row in result["rows"]}
-        self.assertEqual(len(rows), 23)
+        self.assertEqual(len(rows), 24)
         positive = {"fallback": ([51, 102, 153, 255], [.2, .4, .6, 0]),
                     "renamed": ([51, 102, 153, 255], [.2, .4, .6, 0]),
+                    "ignoredIdentifier": ([51, 102, 153, 255], [.2, .4, .6, 0]),
                     "inactive": ([24, 40, 56, 255], [.2, .4, .6, 0]),
                     "liveColor": ([204, 51, 102, 255], [.8, .2, .4, 0]),
                     "liveColorChanged": ([102, 153, 204, 255], [.4, .6, .8, 0]),
@@ -234,14 +235,14 @@ class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
             "sliderAnisotropic", "sliderWrongABI")}
         cold_reasons.update(multiContributor="material-generic-owner-revoked",
                             script="material-generic-owner-revoked")
-        direct_uniform_reasons = {"multiContributor": "material-dynamic-uniform-contributor-policy",
-                                  "script": "material-dynamic-uniform-script-attachment-unproven"}
         frame_failures = {"snapshotMissing", "source", "abi", "bits", "snapshotType"}
         self.assertEqual(set(rows), set(positive) | set(cold_reasons) | frame_failures | {"declarationTarget"})
         for name, row in rows.items():
             with self.subTest(case=name):
                 self.assertEqual(row["sameKeyOtherProducers"], 2, row)
                 self.assertEqual(row["rebuildKeys"], [], row)
+                if name == "ignoredIdentifier":
+                    self.assertFalse(row["ignoredIdentifierIsLive"], row)
                 if "slider" in name.lower():
                     self.assertEqual(row["targetInstructions"], 1, row)
                     self.assertEqual(row["targetValueType"], "scalar", row)
@@ -250,8 +251,6 @@ class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
                     self.assertEqual(row["comboBoolProducerCount"], 2, row)
                     self.assertEqual(row["comboColorInstructions"], 0, row)
                     self.assertTrue(row["comboHasAuthoredDefinition"], row)
-                if name in direct_uniform_reasons:
-                    self.assertEqual(row["directUniformReason"], direct_uniform_reasons[name], row)
                 if name == "declarationTarget":
                     self.assertEqual(row["capability"], "rejected", row)
                     self.assertTrue(any("dynamic-uniform-unavailable" in line for line in row["catalogReports"]), row)

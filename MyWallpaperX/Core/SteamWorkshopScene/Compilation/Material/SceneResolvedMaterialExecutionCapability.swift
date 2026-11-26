@@ -280,17 +280,15 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 }
             }
         }
+        let staticModelGraphOutputProviderLayerIDs = Set(admissionCandidates.compactMap { candidate -> Int? in
+            guard case let .success(admitted) = candidate.result,
+                  admitted.isStaticModelGraphOutputPreparationRoot else { return nil }
+            return admitted.layerID
+        })
         Self.retainExecutableDependencyClosure(
             in: &accepted,
             rejected: &rejected,
-            staticModelGraphOutputProviderLayerIDs: Set(
-                admissionCandidates.compactMap { candidate in
-                    guard case let .success(admitted) = candidate.result,
-                          admitted.isStaticModelGraphOutputPreparationRoot
-                    else { return nil }
-                    return admitted.layerID
-                }
-            )
+            staticModelGraphOutputProviderLayerIDs: staticModelGraphOutputProviderLayerIDs
         )
 #if DEBUG
         SceneResolvedMaterialVariantCompileProfile.logSummaryIfMeasured()
@@ -302,7 +300,11 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             } ? layerID : nil
         })
         var providerConsumers: [SceneSystemProviderTextureIdentity: Set<Int>] = [:]
+        var privateLayerAlphaPreservingIDs: Set<Int> = []
         for (layerID, capability) in accepted {
+            if !staticModelGraphOutputProviderLayerIDs.contains(layerID), capability.preservesPrivateLayerAlpha() {
+                privateLayerAlphaPreservingIDs.insert(layerID)
+            }
             for stage in capability.stages {
                 guard case let .resolved(materials, _) = stage.execution else { continue }
                 for key in materials.keys {
@@ -316,6 +318,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             ownerID: ownerID,
             capabilitiesByLayerID: accepted,
             audioConsumerLayerIDs: audioConsumerLayerIDs,
+            privateLayerAlphaPreservingIDs: privateLayerAlphaPreservingIDs,
             systemProviderConsumerLayerIDs: providerConsumers,
             productAuthorityRejectionReasonsByLayerID: productAuthorityRejectedByLayerID,
             dynamicVisibleRootLayerIDs: dynamicVisibleRootLayerIDs,

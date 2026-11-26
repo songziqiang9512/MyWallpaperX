@@ -26,8 +26,6 @@ extension SceneMetalRenderer {
 
     func preflightResolvedMaterialFrameTargets(
         imageTextures: SceneBaseImageTextureSnapshot,
-        spriteAnimations: [Int: SceneSpriteAnimation],
-        spriteAnimationPlaybackTimes: [Int: Float],
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:],
         imagePipeline: SceneImageLayerPipeline?,
@@ -150,22 +148,14 @@ extension SceneMetalRenderer {
             var framebufferSourceMaterial: SceneResolvedMaterialRuntimeBridge.FramebufferSourceMaterial?
             var effectSourceExtent: SceneLayerEffectSourceExtent?
             var scaledFramebufferBase: SceneGraphRenderTargetPlan.ScaledFramebufferBase?
+            // A utility outside the capture schedule has no encoder to consume its reservation.
+            guard layer.utilityLayer == nil || utilityExecution.captureLayerIDs.contains(layerID) else {
+                continue
+            }
             let preparedSourceMaterial = imageCompositor.resolvedMaterialRuntime?.sourceMaterials[layerID]
             if layer.utilityLayer?.framebufferSource != nil {
                 guard case .capturedMain? = preparedSourceMaterial?.outputDomain,
                       imagePipeline?.supportsReadOnlyDepth == true else { continue }
-            }
-            // A utility composition owns a graph transaction only when its
-            // typed utility plan can actually capture and consume that
-            // transaction.  Keeping an unsupported utility claim in the
-            // prepared ledger would leave it allocation-committed forever;
-            // the strict predecessor gate would then reject an unrelated
-            // later image layer.  The ordinary composition fallback remains
-            // available for this frame-local unsupported unit.
-            if layer.contentKind == "composition",
-               layer.utilityLayer?.kind == .composition,
-               !utilityExecution.captureLayerIDs.contains(layer.id) {
-                continue
             }
             let route = imageCompositor.preflightResolvedMaterialClaim(
                 layerID: layer.id
@@ -414,14 +404,15 @@ extension SceneMetalRenderer {
                 if terminalReplayTarget == nil, !publishesGraphOutput,
                    utility.kind == .composition, utility.copyBackground, source.material == nil,
                    memberLayerIDs == nil, layer.childLayerIDs.isEmpty, selectedMainSource === mainTarget,
-                   !usesPerspective,
+                   !usesPerspective || (!cameraFrame.defaultsToPerspective
+                       && !layer.hasIndependentBackgroundPlacement),
                    let extent = SceneLayerEffectSourceExtent.resolve(
                        publishedRenderSizeWH: nil, authoredRenderSizeWH: layer.renderSizeWH,
                        candidateMappedSize: nil
                    ), let width = Int(exactly: extent.pixelSize.width.rounded(.up)),
                       let height = Int(exactly: extent.pixelSize.height.rounded(.up)) {
                     desiredSize = extent.pixelSize
-                    if max(width, height) > SceneOffscreenResolutionPolicy.standardMaximumDimension {
+                    if !usesPerspective, max(width, height) > SceneOffscreenResolutionPolicy.standardMaximumDimension {
                         preferredExtent = .init(width, height)
                     }
                 } else {
@@ -518,11 +509,7 @@ extension SceneMetalRenderer {
                 sourceTexture = source.texture
                 sourceCandidate = source.candidate
                 sourceUsesAuthoredLayerColor = source.usesAuthoredLayerColor
-                textureFrame = spriteAnimations[layerID].map {
-                    $0.transform(
-                        at: spriteAnimationPlaybackTimes[layerID] ?? 0
-                    )
-                } ?? .identity
+                textureFrame = source.spriteFrame?.textureFrame ?? .identity
                 capturesMainTarget = false
                 if layer.contentKind == "solid" {
                     // Use the accepted solid target, including the authored

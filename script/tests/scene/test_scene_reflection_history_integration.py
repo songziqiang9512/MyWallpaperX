@@ -927,6 +927,48 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
         self.assertRegex(log, r"phase=session-first-frame [^\n]*gpu=completed")
         self.assertFalse(result["completedSourceSubmissions"], result)
 
+    def test_stock_generic2_uses_ambient_and_legacy_point_response(self):
+        cases = (
+            ("ambient", "point", 80, False, None, (41, 20, 0)),
+            ("legacy-point", "point", 200, False, None, (85, 59, 32)),
+            ("renamed", "point", 200, True, None, (85, 59, 32)),
+            ("modern-point", "lpoint", 200, False, None, (41, 20, 0)),
+            ("author-shader", "point", 200, False, "generic2.frag", (102, 51, 0)),
+            ("author-include", "point", 200, False, "common_fragment.h", (102, 51, 0)),
+        )
+        for name, kind, radius, renamed, override, expected in cases:
+            with self.subTest(name=name):
+                model, material, texture = (
+                    ("models/plate.mdl", "materials/paint.json", "materials/base.png") if renamed
+                    else ("models/card.mdl", "materials/glaze.json", "materials/white.png")
+                )
+                model_id, light_id = (843, 976) if renamed else (81, 97)
+                scene = {"version": 3, "general": {
+                    "orthogonalprojection": {"width": CANVAS[0], "height": CANVAS[1]},
+                    "ambientcolor": ".2 .4 .8", "skylightcolor": ".6 .4 0", "lightconfig": {"point": 1},
+                    "clearenabled": True, "clearcolor": "0 0 0", "hdr": False, "bloom": False,
+                }, "objects": [
+                    {"id": model_id, "model": model, "origin": "80 48 0", "perspective": False},
+                    {"id": light_id, "light": kind, "origin": "80 48 100", "radius": radius, "intensity": .5},
+                ]}
+                render_pass = {"shader": "generic2", "textures": [texture], "combos": {"LIGHTING": 0},
+                    "constantshadervalues": {"Color": ".4 .2 0"} if not renamed
+                        else {"Color": "0.400 2e-1 0.0", "Metal": 0, "Light": 0, "Rough": 0},
+                    "blending": "normal", "cullmode": "nocull"}
+                vertices = [((x, y, 0), (0., 0., 1.), (1., 0., 0., 1.), (0., 0.))
+                            for x, y in ((-24., -24.), (24., -24.), (24., 24.), (-24., 24.))]
+                entries = {"scene.json": json.dumps(scene).encode(),
+                    material: json.dumps({"passes": [render_pass]}).encode(), texture: rgba_png((255, 255, 255)),
+                    model: build_model(vertices=vertices, indices=(0, 1, 2, 0, 2, 3),
+                        bounds=(-24., -24., 0., 24., 24., 0.), material=material.encode())}
+                if override:
+                    source = f"shaders/{override}"
+                    stock = REPO / "MyWallpaperX/Resources/SceneStockAssets.bundle/assets" / source
+                    entries[source] = stock.read_bytes() + b"\n// Local shader source.\n"
+                result = self.run_case(0, capture=True, name=f"generic2-{name}", entries=entries,
+                    rois={"surface": (80, 48)}, material_input_path=material)
+                self.assert_pixel(result["pixels"]["scene-after-window.png"]["surface"], expected)
+
     def test_capture_off_product_drawable_remains_legal(self):
         # SceneDebugFrameCapture.configure forces framebufferOnly=false only
         # with evidence-dir. This run exercises the product demand predicate.

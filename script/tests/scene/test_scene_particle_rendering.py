@@ -525,16 +525,24 @@ class SceneParticleRenderingTests(unittest.TestCase):
                 for observed, value in zip(row["bgra"], expected):
                     self.assertAlmostEqual(observed, min(255, value), delta=2)
 
-    def test_neutral_mask_tint_clips_gain_before_particle_and_texture_coverage(self) -> None:
+    def test_normalized_target_clips_mask_gain_without_clipping_float_targets(self) -> None:
         rows = self.result["colorContract"]["maskTint"]
         expected = {"unit-black": [67, 62, 78, 80], "partial-black": [77, 71, 80, 80],
                     "bright-black": [80, 80, 80, 80],
-                    "bright-gray": [203, 203, 203, 80], "ordinary-black": [89, 82, 104, 80]}
+                    "bright-gray": [203, 203, 203, 80], "float-black": [89, 82, 104, 80]}
         self.assertEqual(rows.keys(), expected.keys())
         for name, pixel in rows.items():
             with self.subTest(name=name):
                 for observed, wanted in zip(pixel, expected[name], strict=True):
                     self.assertAlmostEqual(observed, wanted, delta=1)
+
+    def test_colored_gain_clips_after_tint_and_before_each_blend(self) -> None:
+        additive, translucent = self.result["colorContract"]["colorGain"]
+        self.assertEqual(len(additive), 4)
+        self.assertEqual(len(translucent), 4)
+        for pixel, expected in ((additive, [96, 71, 96, 64]), (translucent, [88, 63, 88, 64])):
+            for observed, wanted in zip(pixel, expected, strict=True):
+                self.assertAlmostEqual(observed, wanted, delta=1)
 
     def test_in_flight_instance_slots_are_not_reused_until_completion(self) -> None:
         slots = self.result["instanceBufferSlots"]

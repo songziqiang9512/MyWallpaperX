@@ -540,11 +540,14 @@ extension SceneDesktopWallpaperHost {
             cancellationCheck: { try cancellation?.check() })
         let lightingDemands = Set(baseMaterialProviderBindings.lightingProfileByLayerID.values
             .flatMap { [$0.normalAsset, $0.mapAsset].compactMap { $0 } })
+        let materialAssetDemands = resolvedMaterialCatalog.assetDemands
         let materialAssetCatalog = try SceneMaterialAssetTextureCatalog(
-            demands: resolvedMaterialCatalog.assetDemands.union(lightingDemands)
+            demands: materialAssetDemands.union(lightingDemands)
                 .union(baseMaterialProviderBindings.assetDemands).union(modelMaterialPlan.assetDemands),
             resourceView: model.resourceView,
             descriptor: runtimeInput.renderDescriptor,
+            conditionalDemands: materialAssetDemands,
+            matchesCondition: { $0.matches(runtimeInput.effectivePropertyValues) },
             textureUploadCommandQueue: textureUploadCommandQueue,
             textureDecodeCacheBudget: textureDecodeCacheBudget,
             device: device, collectsSourceIdentities: automaticDrawableExtent != nil,
@@ -801,6 +804,7 @@ extension SceneDesktopWallpaperHost {
             }
         )
         let preparedDeviceResources = try deviceResourcesPreparation.value()
+        preparedDeviceResources.baseImages.addConditionalAssets(materialAssetCatalog.takeConditionalAssets())
         let userTextureDemands = resolvedMaterialCatalog.userPropertyDemands
             .union(baseMaterialProviderBindings.userPropertyDemands)
             .union(preparedDeviceResources.staticModels.userPropertyDemands)

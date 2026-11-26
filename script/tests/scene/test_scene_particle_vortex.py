@@ -287,11 +287,12 @@ def radius_fixtures(base: dict) -> list[dict]:
     population = copy.deepcopy(radial)
     population["emitter"][0].update(rate=60, instantaneous=0)
     population["initializer"][0].update(min=0.05, max=0.05)
+    # Expire each particle after three age-advancing steps following birth.
     add("ring-population", population, stages=[
-        {"delta": 1 / 60}, {"delta": 2 / 60},
+        {"delta": 1 / 60}, {"delta": 3 / 60},
         {"delta": 1 / 60, "instanceSpeed": 0.23},
         {"delta": 1 / 60, "instanceSpeed": 0.23},
-        {"delta": 1 / 60, "instanceSpeed": 0.23}, {"delta": 1 / 60}])
+        {"delta": 2 / 60, "instanceSpeed": 0.23}, {"delta": 1 / 60}])
     real_shape = copy.deepcopy(radial)
     real_shape.update(maxcount=32)
     real_shape["emitter"][0].update(rate=60, instantaneous=1)

@@ -35,6 +35,8 @@ struct SceneGeometryProduct {
     typealias AuxiliaryRetainer = (@escaping () -> Void) -> Void
     typealias ColorBlendBinder = (MTLRenderCommandEncoder, MTLTexture, simd_float4x4) -> Void
     let prepare: ((MTLCommandBuffer, SIMD2<Int>, simd_float4x4, AuxiliaryRetainer) -> Void)? = nil
+    var isPreparedForPublication: (MTLCommandBuffer) -> Bool = { _ in true }
+    var backgroundBounds: (() -> SIMD4<Float>?)? = nil
     let encode: (MTLRenderCommandEncoder, MTLTexture, MTLTexture?, simd_float4x4,
                  SceneLayerFragmentUniforms, ColorBlendBinder?) -> Bool
 }
@@ -634,7 +636,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
                        image: SceneImageLayerPipeline, blend: SceneLayerColorBlendPipeline,
                        matrices: [simd_float4x4], modes: [Int], full: Bool, seed: Int,
                        onRoot: Bool = false, clears: Bool = false, straight: Bool = true,
-                       compositionChildren: [Int] = []) -> Frame {
+                       compositionChildren: [Int] = [], geometry: SceneGeometryProduct? = nil) -> Frame {
         let counters = ScenePerformanceCounterHub.shared.snapshot()
         let command = queue.makeCommandBuffer()!
         let pass = SceneMainPassEncoder(commandBuffer: command, target: target,
@@ -650,7 +652,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
                 childLayerIDs: compositionChildren)
             precondition(SceneLayerColorBlendRenderer.draw(texture: source, mvp: matrices[index],
                 uniforms: uniforms, dependencyTexture: nil, layer: layer, pipeline: image,
-                colorBlendPipeline: blend, geometryProduct: full ? customQuad() : nil, mainPass: pass))
+                colorBlendPipeline: blend, geometryProduct: geometry ?? (full ? customQuad() : nil), mainPass: pass))
         }
         precondition(pass.finishEnsuringClear()); command.commit(); command.waitUntilCompleted()
         precondition(command.status == .completed && command.error == nil)
@@ -658,6 +660,57 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
         return Frame(pixels: pixels(target), copies: (after[.framebufferCaptures] ?? 0) - (counters[.framebufferCaptures] ?? 0),
             bytes: (after[.framebufferCaptureBytes] ?? 0) - (counters[.framebufferCaptureBytes] ?? 0),
             capacity: blend.renderTargetResidentByteCost)
+    }
+
+    static func geometryBlend(_ device: MTLDevice, _ queue: MTLCommandQueue,
+                              image: SceneImageLayerPipeline, state: SceneLayerColorBlendPipelineState)
+        -> [[String: Any]] {
+        let plain = transformed(1.1, 0.7, -0.64, 0.07, angle: 0.38)
+        let mirror = transformed(-0.91, 0.83, 0.48, -0.26, angle: 0.51)
+        var varyingW = plain
+        varyingW.columns.0.w = 0.32
+        let variants: [(name: String, matrix: simd_float4x4, shift: SIMD2<Float>, current: Bool, root: Bool)] = [
+            ("overlapping", plain, .zero, true, true),
+            ("shifted-pose", plain, SIMD2(0.39, -0.36), true, true),
+            ("mirrored", mirror, SIMD2(-0.42, 0.26), true, true),
+            ("varying-w", varyingW, .zero, true, true),
+            ("stale-pose", plain, .zero, false, true),
+            ("group", plain, .zero, true, false),
+        ]
+        let actualBlend = SceneLayerColorBlendPipeline(device: device, state: state)
+        let referenceBlend = SceneLayerColorBlendPipeline(device: device, state: state)
+        return variants.enumerated().map { index, vector in
+            let shift = vector.shift
+            let positions = [SIMD2<Float>(-0.5, -0.5) + shift, SIMD2<Float>(0.72, 0.62) + shift]
+            var strips = [quad.map { SceneQuadVertex(position: $0.position + shift, texcoord: $0.texcoord) },
+                          quad.map { SceneQuadVertex(position: $0.position + shift + SIMD2(0.22, 0.12),
+                              texcoord: SIMD2(1 - $0.texcoord.x, $0.texcoord.y)) }]
+            let full = SceneGeometryProduct { encoder, texture, _, mvp, _, binder in
+                guard let binder else { return false }
+                binder(encoder, texture, mvp)
+                for index in strips.indices {
+                    let byteCount = strips[index].count * MemoryLayout<SceneQuadVertex>.stride
+                    encoder.setVertexBytes(&strips[index], length: byteCount, index: 0)
+                    encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+                }
+                return true
+            }
+            var bounded = full
+            bounded.isPreparedForPublication = { _ in vector.current }
+            bounded.backgroundBounds = { SIMD4(positions[0].x, positions[0].y, positions[1].x, positions[1].y) }
+            let seed = 731 + index
+            let a = target(device, width: 67, height: 43, format: state.pixelFormat, seed: seed)
+            let b = target(device, width: 67, height: 43, format: state.pixelFormat, seed: seed)
+            let original = pixels(a)
+            let layer = source(device, alpha: 0.625, seed: seed)
+            let actual = render(queue, target: a, source: layer, image: image, blend: actualBlend,
+                matrices: [vector.matrix], modes: [23], full: false, seed: seed, onRoot: vector.root, geometry: bounded)
+            let reference = render(queue, target: b, source: layer, image: image, blend: referenceBlend,
+                matrices: [vector.matrix], modes: [23], full: false, seed: seed, onRoot: vector.root, geometry: full)
+            return ["name": vector.name, "equal": actual.pixels == reference.pixels,
+                "changed": actual.pixels != original, "copies": actual.copies,
+                "bytes": actual.bytes, "fullBytes": reference.bytes, "capacityEqual": actual.capacity == reference.capacity]
+        }
     }
 
     static func attachmentBlend(_ device: MTLDevice, _ queue: MTLCommandQueue,
@@ -732,6 +785,29 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
         }
     }
 
+    static func transparentHDR(
+        _ device: MTLDevice, _ queue: MTLCommandQueue, image: SceneImageLayerPipeline,
+        blend: SceneLayerColorBlendPipeline
+    ) -> [[String: Any]] {
+        let transparent = source(device, alpha: 0, seed: 313)
+        let texel: [Float16] = [.nan, .infinity, -0.75, 0]
+        let texels = (0 ..< transparent.width * transparent.height).flatMap { _ in texel }
+        texels.withUnsafeBytes {
+            transparent.replace(region: MTLRegionMake2D(0, 0, transparent.width, transparent.height),
+                mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: transparent.width * 8)
+        }
+        return [15, 31].flatMap { mode in
+            [false, true].map { full in
+                let output = target(device, width: 19, height: 17, format: .rgba16Float, seed: 317)
+                let before = pixels(output)
+                let frame = render(queue, target: output, source: transparent, image: image, blend: blend,
+                    matrices: [transformed(1.5, 1.7, 0, 0)], modes: [mode], full: full, seed: 317, onRoot: true)
+                return ["mode": mode, "full": full, "backgroundPreserved": frame.pixels == before,
+                        "copies": frame.copies]
+            }
+        }
+    }
+
     static func main() throws {
         if CommandLine.arguments.contains("--compile-only") {
             print("{\"compiled\":true,\"gpuExecuted\":false}"); return
@@ -748,12 +824,18 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
         let fog = try String(contentsOfFile: CommandLine.arguments[2], encoding: .utf8)
         var rows: [[String: Any]] = []
         var attachmentRows: [[String: Any]] = []
+        var geometryRows: [[String: Any]] = []
+        var transparency: [[String: Any]] = []
         for format in [MTLPixelFormat.bgra8Unorm, .rgba16Float] {
             let image = SceneImageLayerPipeline(device: device, pixelFormat: format, library: library)!
             let state = SceneLayerColorBlendPipelineState(device: device, pixelFormat: format, fogShaderSource: fog)!
             let localized = SceneLayerColorBlendPipeline(device: device, state: state)
             let reference = SceneLayerColorBlendPipeline(device: device, state: state)
             attachmentRows += attachmentBlend(device, queue, image: image, state: state)
+            geometryRows += geometryBlend(device, queue, image: image, state: state)
+            if format == .rgba16Float {
+                transparency = transparentHDR(device, queue, image: image, blend: localized)
+            }
             for (index, vector) in vectors().enumerated() {
                 for mode in 1...19 {
                     let seed = 61 + index * 101 + mode
@@ -803,7 +885,9 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
                 "copies": plain.copies, "bytes": plain.bytes])
         }
         print(String(decoding: try JSONSerialization.data(withJSONObject:
-            ["rows": rows, "attachmentRows": attachmentRows, "terminalDepth": terminalDepth(device, queue, library),
+            ["rows": rows, "attachmentRows": attachmentRows, "geometryRows": geometryRows,
+             "transparentHDR": transparency,
+             "terminalDepth": terminalDepth(device, queue, library),
              "multisampleResolve": multisampleResolve(device, queue),
              "unsupportedEight": unsupportedEight(device, queue, library),
              "repeatedAttachmentReads": repeatedAttachmentReads(device, queue),

@@ -95,6 +95,7 @@ nonisolated struct SceneParticleControlPointForcePlan {
 nonisolated struct SceneParticleControlPointForceEnvironment: Sendable {
     var defaultMaximumDistance: Double? = nil
     var allowsWorldSource: Bool = false
+    var allowsLocalParentFallback: Bool = false
     static let unavailable = Self()
 }
 
@@ -148,9 +149,9 @@ nonisolated struct SceneParticleControlPointFrame: Equatable, Sendable {
 }
 
 nonisolated extension SceneParticleControlPoint {
-    func hasBoundedStaticInput(identity: Int) -> Bool {
-        guard id == identity, rawFlags == 0, angles == nil,
-              parentControlPoint == nil else { return false }
+    func hasBoundedStaticInput(identity: Int, allowsLocalParentFallback: Bool = false) -> Bool {
+        let usesParentFallback = allowsLocalParentFallback && rawFlags == 4 && parentControlPoint != nil
+        guard id == identity, angles == nil, rawFlags == 0 || usesParentFallback else { return false }
         let value: SIMD3<Double>
         switch offset {
         case nil: value = .zero
@@ -321,11 +322,14 @@ nonisolated extension SceneParticleDefinition {
         preparedOrigin: SIMD3<Double>? = nil,
         controlPointFrame: SceneParticleControlPointFrame? = nil,
         worldSpaceFrame: SceneParticleWorldSpaceFrame? = nil,
-        requiresLiveInput: Bool = true
+        requiresLiveInput: Bool = true,
+        hasChildStreamOrigin: Bool = false
     ) -> SceneParticleEmitterControlPointFrame? {
         let localOrigin = preparedOrigin
             ?? SceneParticleSimulationMath.vector(emitter.origin, fallback: .zero)
-        guard let source = emitterControlPointSource(for: emitter) else {
+        let hasStreamedOrigin = hasChildStreamOrigin
+            && (emitter.kind == .sphereRandom || emitter.kind == .boxRandom)
+        guard let source = emitterControlPointSource(for: emitter) ?? (hasStreamedOrigin ? 0 : nil) else {
             let sphereBasis = flags.isWorldSpace && emitter.kind == .sphereRandom ? worldSpaceFrame : nil
             let position = emitter.origin == nil ? localOrigin
                 : sphereBasis?.localParticleDirection(localOrigin) ?? localOrigin
@@ -422,7 +426,8 @@ nonisolated extension SceneParticleDefinition {
             plan.measuresWorldDistance = flags.isWorldSpace
             return plan
         }
-        if point.hasBoundedStaticInput(identity: plan.controlPoint) {
+        if point.hasBoundedStaticInput(identity: plan.controlPoint,
+                                       allowsLocalParentFallback: environment.allowsLocalParentFallback) {
             return plan
         }
         guard environment.allowsWorldSource, plan.origin == .zero,

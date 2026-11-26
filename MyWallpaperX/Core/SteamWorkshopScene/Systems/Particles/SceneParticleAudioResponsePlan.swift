@@ -33,13 +33,7 @@ nonisolated struct SceneParticleAudioInput: Equatable, Sendable {
     }
 }
 
-/// Project-owned clean-room approximation of particle audio response.
-///
-/// Public author documentation defines channel selection, 16 frequency bands, bounds and
-/// exponent behavior, but does not publish the particle runtime formula. This plan therefore
-/// uses a deliberately simple contract: mean the selected bands, normalize linearly inside
-/// the authored bounds, then apply the exponent. It is independent from the stock effect
-/// shader evaluator and does not claim Wallpaper Engine numeric parity.
+/// The prepared response chooses peak/smoothstep or mean/linear sampling.
 nonisolated struct SceneParticleAudioResponsePlan: Equatable, Sendable {
     nonisolated enum Channel: Int, Equatable, Sendable {
         case left = 1
@@ -51,8 +45,9 @@ nonisolated struct SceneParticleAudioResponsePlan: Equatable, Sendable {
     let bounds: ClosedRange<Double>
     let exponent: Double
     let frequencies: ClosedRange<Int>
+    private let usesPeakResponse: Bool
 
-    nonisolated init?(_ declaration: SceneParticleAudioResponse) {
+    nonisolated init?(_ declaration: SceneParticleAudioResponse, usesPeakResponse: Bool = false) {
         guard let mode = declaration.mode,
               let channel = Channel(rawValue: mode) else { return nil }
 
@@ -73,7 +68,8 @@ nonisolated struct SceneParticleAudioResponsePlan: Equatable, Sendable {
         }
 
         let exponent = declaration.exponent ?? 2
-        guard exponent.isFinite, exponent > 0, exponent <= 16 else { return nil }
+        guard exponent.isFinite, exponent > 0,
+              usesPeakResponse || exponent <= 16 else { return nil }
 
         let first = declaration.frequencyStart ?? 0
         let last = declaration.frequencyEnd ?? 1
@@ -84,68 +80,57 @@ nonisolated struct SceneParticleAudioResponsePlan: Equatable, Sendable {
         self.bounds = bounds
         self.exponent = exponent
         self.frequencies = min(first, last) ... max(first, last)
+        self.usesPeakResponse = usesPeakResponse
     }
 
     nonisolated func evaluate(_ input: SceneParticleAudioInput) -> Double {
-        var total = 0.0
-        for index in frequencies {
-            switch channel {
-            case .left:
-                total += Double(input.left[index])
-            case .right:
-                total += Double(input.right[index])
-            case .center:
-                total += Double(input.left[index]) + Double(input.right[index])
-            }
-        }
-        return boundedResponse(total: total)
+        evaluate(input, countSelected: false).response
     }
 
 #if DEBUG
-    /// Evaluates the authored response and counts positive selected inputs in
-    /// the same ordered traversal. Execution observation calls this only while
-    /// an identity is still unreported, avoiding a second scan of the bands.
     nonisolated func evaluateForExecutionObservation(
         _ input: SceneParticleAudioInput
     ) -> (response: Double, selectedNonZeroInputCount: Int) {
-        var total = 0.0
-        var selectedNonZeroInputCount = 0
-        for index in frequencies {
-            switch channel {
-            case .left:
-                let value = input.left[index]
-                total += Double(value)
-                if value > 0 { selectedNonZeroInputCount += 1 }
-            case .right:
-                let value = input.right[index]
-                total += Double(value)
-                if value > 0 { selectedNonZeroInputCount += 1 }
-            case .center:
-                let left = input.left[index]
-                let right = input.right[index]
-                total += Double(left) + Double(right)
-                if left > 0 { selectedNonZeroInputCount += 1 }
-                if right > 0 { selectedNonZeroInputCount += 1 }
-            }
-        }
-        return (
-            boundedResponse(total: total),
-            selectedNonZeroInputCount
-        )
+        evaluate(input, countSelected: true)
     }
 #endif
 
-    private nonisolated func boundedResponse(total: Double) -> Double {
+    @inline(__always)
+    private nonisolated func evaluate(
+        _ input: SceneParticleAudioInput, countSelected: Bool
+    ) -> (response: Double, selectedNonZeroInputCount: Int) {
+        var level = 0.0
+        var selectedNonZeroInputCount = 0
+        for index in frequencies {
+            let band: Double
+            switch channel {
+            case .left:
+                let value = input.left[index]
+                band = Double(value)
+                if countSelected && value > 0 { selectedNonZeroInputCount += 1 }
+            case .right:
+                let value = input.right[index]
+                band = Double(value)
+                if countSelected && value > 0 { selectedNonZeroInputCount += 1 }
+            case .center:
+                let left = input.left[index]
+                let right = input.right[index]
+                band = Double(left) + Double(right)
+                if countSelected {
+                    if left > 0 { selectedNonZeroInputCount += 1 }
+                    if right > 0 { selectedNonZeroInputCount += 1 }
+                }
+            }
+            level = usesPeakResponse ? max(level, band) : level + band
+        }
         let channelCount = channel == .center ? 2 : 1
-        let count = Double(frequencies.count * channelCount)
-        guard count > 0 else { return 0 }
-        let mean = total / count
+        let count = usesPeakResponse ? channelCount : frequencies.count * channelCount
         let normalized = min(max(
-            (mean - bounds.lowerBound) / (bounds.upperBound - bounds.lowerBound),
+            (level / Double(count) - bounds.lowerBound) / (bounds.upperBound - bounds.lowerBound),
             0
         ), 1)
-        let response = pow(normalized, exponent)
-        return response.isFinite ? min(max(response, 0), 1) : 0
+        let base = usesPeakResponse ? min(normalized * normalized * (3 - 2 * normalized), 1) : normalized
+        return (pow(base, exponent), selectedNonZeroInputCount)
     }
 }
 
@@ -174,78 +159,12 @@ nonisolated struct SceneParticleAudioComponentIdentity: Hashable, Sendable {
 }
 #endif
 
-/// Launch-stable execution inputs for the turbulence operator.
-///
-/// Particle position, simulation time, audio input and speed overrides remain
-/// frame-varying. Everything else comes from the authored definition and is
-/// prepared once with the simulator.
-nonisolated struct SceneParticleTurbulencePlan: Sendable {
-    let scale: Double
-    let timeScale: Double
-    let mask: SIMD3<Double>
-    let minimumSpeed: Double
-    let maximumSpeed: Double
-    let phaseMinimum: Double
-    let phaseMaximum: Double
-    let hasBlendIn: Bool
-    let blendInStart: Double
-    let blendInEnd: Double
-    let hasBlendOut: Bool
-    let blendOutStart: Double
-    let blendOutEnd: Double
-    let audioResponse: SceneParticleAudioResponsePlan?
-
-    nonisolated init?(_ value: SceneParticleOperator) {
-        guard case .turbulence = value.kind else { return nil }
-        let scale = SceneParticleSimulationMath.scalar(value.scale, fallback: 0.005)
-        let timeScale = value.timeScale ?? 0.01
-        let mask = SceneParticleSimulationMath.vector(
-            value.mask, fallback: SIMD3(1, 1, 0)
-        )
-        let rawMinimumSpeed = value.speedMinimum ?? 500
-        let rawMaximumSpeed = value.speedMaximum ?? 1_000
-        guard scale.isFinite, timeScale.isFinite,
-              rawMinimumSpeed.isFinite, rawMaximumSpeed.isFinite else {
-            return nil
-        }
-        self.scale = scale
-        self.timeScale = timeScale
-        self.mask = mask
-        self.minimumSpeed = max(rawMinimumSpeed, 0)
-        self.maximumSpeed = max(rawMaximumSpeed, self.minimumSpeed)
-        self.phaseMinimum = value.phaseMinimum ?? 0
-        self.phaseMaximum = value.phaseMaximum ?? 0
-        self.hasBlendIn = value.blendInStart != nil || value.blendInEnd != nil
-        self.blendInStart = value.blendInStart ?? 0
-        self.blendInEnd = value.blendInEnd ?? 0
-        self.hasBlendOut = value.blendOutStart != nil || value.blendOutEnd != nil
-        self.blendOutStart = value.blendOutStart ?? 1
-        self.blendOutEnd = value.blendOutEnd ?? 1
-        self.audioResponse = SceneParticleAudioResponsePlan(value.audioResponse)
-    }
-
-    nonisolated func blendAmount(_ life: Double) -> Double {
-        var result = 1.0
-        if hasBlendIn {
-            result *= SceneParticleSimulationMath.changeAmount(
-                life, blendInStart, blendInEnd
-            )
-        }
-        if hasBlendOut {
-            result *= 1 - SceneParticleSimulationMath.changeAmount(
-                life, blendOutStart, blendOutEnd
-            )
-        }
-        return result
-    }
-}
-
 nonisolated extension SceneParticleEmitter {
     /// Audio emission currently admits the common root Sphere/Box rate profile only.
     /// Delay, duration, periodic, burst, Layer Image and unknown flag interactions remain
     /// fail closed until they receive their own timing contracts.
     var boundedAudioResponsePlan: SceneParticleAudioResponsePlan? {
-        guard let plan = SceneParticleAudioResponsePlan(audioResponse) else { return nil }
+        guard let plan = SceneParticleAudioResponsePlan(audioResponse, usesPeakResponse: true) else { return nil }
         let supportedKind: Bool = switch kind {
         case .sphereRandom, .boxRandom: true
         case .layerImage, .unsupported: false
@@ -261,12 +180,18 @@ nonisolated extension SceneParticleEmitter {
     }
 }
 
+nonisolated extension SceneParticleTurbulentVelocity {
+    var peakAudioResponsePlan: SceneParticleAudioResponsePlan? {
+        SceneParticleAudioResponsePlan(audioResponse, usesPeakResponse: true)
+    }
+}
+
 nonisolated extension SceneParticleDefinition {
     var hasBoundedAudioConsumer: Bool {
         emitters.contains { $0.boundedAudioResponsePlan != nil }
             || initializers.contains {
                 $0.turbulentVelocity.flatMap {
-                    SceneParticleAudioResponsePlan($0.audioResponse)
+                    $0.peakAudioResponsePlan
                 } != nil
             }
             || operators.contains { value in
@@ -277,13 +202,13 @@ nonisolated extension SceneParticleDefinition {
 
 nonisolated extension SceneParticleOperator {
     var hasBoundedAudioResponse: Bool {
-        guard SceneParticleAudioResponsePlan(audioResponse) != nil else {
-            return false
-        }
-        return switch kind {
-        case .turbulence: true
-        case .vortex: vortexPlan != nil
-        default: false
+        switch kind {
+        case .turbulence:
+            SceneParticleAudioResponsePlan(audioResponse, usesPeakResponse: true) != nil
+        case .vortex:
+            vortexPlan != nil && SceneParticleAudioResponsePlan(audioResponse) != nil
+        default:
+            false
         }
     }
 
@@ -323,7 +248,7 @@ nonisolated extension SceneParticleSimulationMath {
         for initializer in definition.initializers
         where initializer.turbulentVelocity?.audioResponse.isEnabled == true {
             let supported = initializer.turbulentVelocity.flatMap {
-                SceneParticleAudioResponsePlan($0.audioResponse)
+                $0.peakAudioResponsePlan
             } != nil
             add(
                 supported ? .audioResponseBounded : .audioResponseIgnored,

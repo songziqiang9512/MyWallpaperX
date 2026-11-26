@@ -120,12 +120,8 @@ extension ScenePreparedDeviceResources {
             guard report.failedKeyCount == 0, report.readyKeyCount > 0 else {
                 reject("pipeline-warmup"); continue
             }
-            prepared[layerID] = .init(declaredDynamicTargets: Set(
-                template.uniformDeclarations.compactMap { declaration in
-                    if case let .dynamic(value) = declaration.value { return value.target }
-                    return nil
-                }
-            ), hasAudioSpectrumConsumer: variants.hasAudioSpectrumConsumer,
+            prepared[layerID] = .init(declaredDynamicTargets: Set(envelope.dynamicUniforms.map(\.target)),
+                hasAudioSpectrumConsumer: variants.hasAudioSpectrumConsumer,
                 requiresSceneEnvironment: variants.hasSceneEnvironmentConsumer, bindFrame: { input in
                 SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: variants)
             }, pixelFormat: format, outputDomain: outputDomain,

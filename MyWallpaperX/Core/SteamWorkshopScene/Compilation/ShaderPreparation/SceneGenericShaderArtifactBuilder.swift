@@ -372,7 +372,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                     metalSource: terminalSource,
                     metalSourceSHA256: SceneGenericShaderProgramArtifact.sha256(
                         Data(terminalSource.utf8)),
-                    physicalTextureSlots: bindings.map(\.slot).filter { $0 != fact.textureSlot }.sorted())
+                    physicalTextureSlots: bindings.map(\.slot).filter { $0 != fact.textureSlot }.sorted(),
+                    isFragmentLocal: fact.isFragmentLocal)
             } else {
                 attachmentRead = nil
             }

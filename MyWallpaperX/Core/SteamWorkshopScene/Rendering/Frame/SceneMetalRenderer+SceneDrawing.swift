@@ -12,8 +12,6 @@ extension SceneMetalRenderer {
         userPropertyTextures: [String: MTLTexture],
         userPropertyTextureStates: [SceneUserPropertyTextureIdentity: SceneTextureProviderState],
         mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot,
-        spriteAnimations: [Int: SceneSpriteAnimation],
-        spriteAnimationPlaybackTimes: [Int: Float],
         specializedBaseTextureSamplings: [Int: SceneTextureSampling],
         imagePipeline: SceneImageLayerPipeline?,
         frameProjection: SceneMetalRendererFrameWorldProjection,
@@ -223,6 +221,7 @@ extension SceneMetalRenderer {
         if sortsTransparency, cameraFrame.defaultsToPerspective, imagePipeline != nil {
             backgroundCuts = utilityExecution.captureLayerIDs.filter { id in
                 guard frameVisibleLayerIDs.contains(id), let layer = frameLayersByID[id],
+                      layer.hasIndependentBackgroundPlacement,
                       layer.hasPerspectiveGeometryConsumer, cameraFrame.resolvesPerspective(for: layer),
                       !hasWorldOrderTextureDependency(id), (layer.colorBlendMode ?? 0) == 0,
                       let claim = imageCompositor.preflightResolvedMaterialClaim(layerID: id).execution
@@ -236,8 +235,7 @@ extension SceneMetalRenderer {
                 sorting: sortsTransparency, mayOrderText: mayOrderText, modelFrame: modelFrame,
                 visible: frameVisibleLayerIDs, cameraFrame: cameraFrame, snapshot: frameContext.dynamicValues,
                 worldFrames: frameWorldFrames, utility: utilityExecution,
-                backgroundCuts: backgroundCuts, particleBatches: particleBatchesByID,
-                particlePipeline: particlePipeline) : nil
+                backgroundCuts: backgroundCuts, particleBatches: particleBatchesByID) : nil
         let orderedLayers = reorderedLayers ?? frameProjection.orderedLayers
         let unavailableDepthConsumers = unavailableSharedTerminalDepthLayers(
             requestedFramebufferSources, state: modelFrame, orderedLayers: orderedLayers,
@@ -273,9 +271,22 @@ extension SceneMetalRenderer {
 #if DEBUG
         let hubFrameAdmissionStart = ProcessInfo.processInfo.systemUptime
 #endif
+        let resolvedRuntime = imageCompositor.resolvedMaterialRuntime
+        let omittedPrivateLayerIDs = (resolvedRuntime?.privateLayerAlphaPreservingIDs ?? []).filter { id in
+            guard frameVisibleLayerIDs.contains(id), let layer = frameLayersByID[id],
+                  layer.utilityLayer == nil,
+                  SceneBlendModeShaderSource.keepsBackdropAtZeroOpacity(layer.colorBlendMode ?? 0),
+                  imageTextures.geometryProducts[id] != nil || layer.contentKind == "image",
+                  !ordinaryDepthLayerIDs.contains(id),
+                  utilityExecution.memberRootsByLayerID[id] == nil,
+                  frameLightSnapshot.distanceFogColor.w == 0,
+                  !dependencyRuntime.requiresCapture(for: id) else { return false }
+            return SceneDynamicLayerValues.alpha(layerID: id, authoredValue: layer.alpha,
+                snapshot: frameContext.dynamicValues) == 0
+        }
         let liveLayerIDs = frameProjection.renderLayerIDs.subtracting(unavailableTerminalLayers)
-        let availableExecutionLayerIDs = (imageCompositor.resolvedMaterialRuntime?
-            .executionLayerIDs ?? []).intersection(liveLayerIDs)
+            .subtracting(omittedPrivateLayerIDs)
+        let availableExecutionLayerIDs = (resolvedRuntime?.executionLayerIDs ?? []).intersection(liveLayerIDs)
         guard let sourcePlan = dependencyRuntime.sourcePreparationPlan(
             authoredLayerIDs: reorderedLayers?.map(\.id) ?? frameProjection.orderedLayerIDs,
             availableExecutionLayerIDs: availableExecutionLayerIDs,
@@ -284,8 +295,9 @@ extension SceneMetalRenderer {
             topologyRevision: layerTopology?.topologyRevision ?? 0,
             sourceAfterLayerIDByLayerID: {
                 var points: [Int: Int] = [:]
-                for layer in orderedLayers where layer.utilityLayer != nil {
-                    if layer.utilityLayer?.copyBackground == true
+                for layer in orderedLayers {
+                    guard let utility = layer.utilityLayer else { continue }
+                    if utility.copyBackground || utility.kind == .fullscreen
                         || availableExecutionLayerIDs.contains(layer.id) {
                         points[layer.id] = layer.id
                     }
@@ -305,8 +317,6 @@ extension SceneMetalRenderer {
         }
         let resolvedMaterialFrameAdmission = admitResolvedMaterialFrameTargets(
             imageTextures: imageTextures,
-            spriteAnimations: spriteAnimations,
-            spriteAnimationPlaybackTimes: spriteAnimationPlaybackTimes,
             frameVisibleLayerIDs: frameVisibleLayerIDs,
             sourcePlan: sourcePlan,
             performanceTelemetry: performanceTelemetry,
@@ -701,12 +711,10 @@ extension SceneMetalRenderer {
             forwardGraphProviderLayerIDs: forwardGraphProviderLayerIDs,
             preparationSchedule: preparationSchedule,
             frameVisibleLayerIDs: frameVisibleLayerIDs,
-            activeStaticModelNamedAlbedoLayerIDs: activeStaticModelNamedAlbedoLayerIDs,
+            omittedPrivateLayerIDs: omittedPrivateLayerIDs,
             imageTextures: imageTextures,
             imagePipeline: imagePipeline,
             specializedBaseTextureSamplings: specializedBaseTextureSamplings,
-            spriteAnimations: spriteAnimations,
-            spriteAnimationPlaybackTimes: spriteAnimationPlaybackTimes,
             resolvedMaterialFrameTargetPlans: resolvedMaterialFrameTargetPlans,
             frameContext: frameContext,
             frameWorldFrames: frameWorldFrames,

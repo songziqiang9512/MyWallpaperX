@@ -276,6 +276,8 @@ enum Harness {
         )[0]
         harness = snapshot + r'''
 
+struct SceneBaseImageTextureSample {}
+
 enum SceneFrameTextureIdentity: Equatable {
     case layerSource(Int)
 }

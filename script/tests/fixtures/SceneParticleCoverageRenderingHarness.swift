@@ -101,6 +101,8 @@ enum SceneParticleCoverageRenderingHarness {
         case .alphaToCoverage:
             descriptor.isAlphaToCoverageEnabled = true
             descriptor.isAlphaToOneEnabled = true
+        case .normal:
+            preconditionFailure("Normal refraction does not use the coverage fragment")
         case .translucent, .additive:
             color.isBlendingEnabled = true
             color.sourceRGBBlendFactor = .one

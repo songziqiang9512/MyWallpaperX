@@ -29,6 +29,13 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     }
                     var plans = [plan(material.targetFormat.metalPixelFormat,
                                       .offscreenOverwrite)].compactMap { $0 }
+                    if capability.supportsSingleCapturedMaterial,
+                       material.attachmentStorage == .color,
+                       variant.frontendProgram.supportsLocalAttachmentOverwrite,
+                       let captureTail = plan(material.targetFormat.metalPixelFormat,
+                           .offscreenAttachmentOverwrite) {
+                        plans.append(captureTail)
+                    }
                     let fields = variant.frontendProgram.uniformLayout.fields
                     if capability.supportsTerminalMaterialReplay,
                        capability.placementTail.map({ $0 == material.key }) ?? true,

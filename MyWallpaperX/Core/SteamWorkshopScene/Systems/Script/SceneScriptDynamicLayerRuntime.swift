@@ -284,6 +284,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                         (.particleAlpha, .alpha, mutation.particleAlpha),
                         (.particleRate, .rate, mutation.particleRate),
                         (.particleCount, .count, mutation.particleCount),
+                        (.particleSize, .size, mutation.particleSize),
                     ]
                     for (field, targetField, value) in values where mutation.fields.contains(field) {
                         let target = SceneDynamicTarget.particle(layerID: mutation.layerID, field: targetField)

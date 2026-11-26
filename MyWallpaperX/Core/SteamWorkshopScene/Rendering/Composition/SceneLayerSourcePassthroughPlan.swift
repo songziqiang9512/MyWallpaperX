@@ -61,18 +61,28 @@ struct SceneLayerSourcePassthroughPlan {
         let clippedNDCVertices: [SIMD2<Float>]
         let clippedArea: Float
 
-        /// Metal's viewport is Y-down. Include an extra boundary pixel around
-        /// outward-rounded original NDC bounds, then clamp to the viewport.
         /// Float clipping intersections can lose extrema through cancellation
         /// for large finite coordinates, so they must not narrow this footprint.
         func pixelRegion(width: Int, height: Int) -> MTLRegion? {
-            guard width > 0, height > 0, !ndcVertices.isEmpty else { return nil }
-            let xs = ndcVertices.map { (Double($0.x) + 1) * 0.5 * Double(width) }
-            let ys = ndcVertices.map { (1 - Double($0.y)) * 0.5 * Double(height) }
-            let left = Int(max(0, min(Double(width), floor(xs.min()!) - 1)))
-            let right = Int(max(0, min(Double(width), ceil(xs.max()!) + 1)))
-            let top = Int(max(0, min(Double(height), floor(ys.min()!) - 1)))
-            let bottom = Int(max(0, min(Double(height), ceil(ys.max()!) + 1)))
+            guard let first = ndcVertices.first else { return nil }
+            let minimum = ndcVertices.reduce(first, simd_min)
+            let maximum = ndcVertices.reduce(first, simd_max)
+            return Self.pixelRegion(
+                minimum: SIMD2(Double(minimum.x), Double(minimum.y)),
+                maximum: SIMD2(Double(maximum.x), Double(maximum.y)), width: width, height: height)
+        }
+
+        /// Metal's viewport is Y-down; round outward and retain a boundary pixel.
+        static func pixelRegion(
+            minimum: SIMD2<Double>, maximum: SIMD2<Double>, width: Int, height: Int
+        ) -> MTLRegion? {
+            guard width > 0, height > 0 else { return nil }
+            let halfWidth = Double(width) * 0.5
+            let halfHeight = Double(height) * 0.5
+            let left = Int(max(0, min(Double(width), floor((minimum.x + 1) * halfWidth) - 1)))
+            let right = Int(max(0, min(Double(width), ceil((maximum.x + 1) * halfWidth) + 1)))
+            let top = Int(max(0, min(Double(height), floor((1 - maximum.y) * halfHeight) - 1)))
+            let bottom = Int(max(0, min(Double(height), ceil((1 - minimum.y) * halfHeight) + 1)))
             guard right > left, bottom > top else { return nil }
             return MTLRegionMake2D(left, top, right - left, bottom - top)
         }
@@ -382,6 +392,29 @@ struct SceneLayerSourcePassthroughPlan {
             clippedNDCVertices: clipped,
             clippedArea: area
         )
+    }
+
+    static func projectedRegion(
+        bounds: SIMD4<Float>, mvp: simd_float4x4, width: Int, height: Int
+    ) -> MTLRegion? {
+        let w = Double(mvp.columns.3.w)
+        guard mvp.columns.0.w == 0, mvp.columns.1.w == 0,
+              w.isFinite, w > 0.000_001, bounds.x < bounds.z, bounds.y < bounds.w else { return nil }
+        let xAxis = SIMD2(Double(mvp.columns.0.x), Double(mvp.columns.0.y))
+        let yAxis = SIMD2(Double(mvp.columns.1.x), Double(mvp.columns.1.y))
+        let origin = SIMD2(Double(mvp.columns.3.x), Double(mvp.columns.3.y))
+        let x0 = xAxis * Double(bounds.x), x1 = xAxis * Double(bounds.z)
+        let y0 = yAxis * Double(bounds.y), y1 = yAxis * Double(bounds.w)
+        let magnitude = simd_max(simd_abs(x0), simd_abs(x1))
+            + simd_max(simd_abs(y0), simd_abs(y1)) + simd_abs(origin)
+        guard magnitude.x <= Double(Float.greatestFiniteMagnitude),
+              magnitude.y <= Double(Float.greatestFiniteMagnitude) else { return nil }
+        // Bound Float multiply/add and divide rounding, including cancellation
+        // in the vertex shader when the projected rectangle is small.
+        let rounding = magnitude * (8 * Double(Float.ulpOfOne))
+        let minimum = (simd_min(x0, x1) + simd_min(y0, y1) + origin - rounding) / w
+        let maximum = (simd_max(x0, x1) + simd_max(y0, y1) + origin + rounding) / w
+        return ProjectedClippedQuad.pixelRegion(minimum: minimum, maximum: maximum, width: width, height: height)
     }
 
     private enum ViewportEdge: CaseIterable {

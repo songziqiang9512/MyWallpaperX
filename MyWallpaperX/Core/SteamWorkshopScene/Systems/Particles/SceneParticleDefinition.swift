@@ -198,7 +198,7 @@ nonisolated enum SceneParticleOperatorKind: Equatable, Sendable {
     case boids(SceneParticleBoids)
     case vortex(SceneParticleVortex)
     case capVelocity(SceneParticleCapVelocity)
-    case remapValue(SceneParticleRemapValue)
+    case remapValue(SceneParticleRemapPlan?)
     case reduceMovement(SceneParticleReduceMovement)
     case collisionPlane(SceneParticleCollisionPlane)
     case collisionSphere(SceneParticleCollisionSpherePlan?)
@@ -422,4 +422,5 @@ nonisolated struct SceneParticleInstanceOverride: Codable, Equatable, Sendable {
     let controlPoints: [Int: SceneParticleBoundValue]
     let controlPointAngles: [Int: SceneParticleBoundValue]
     var brightness: SceneParticleBoundValue? = nil
+    var usesLegacyColorTransfer: Bool? = nil
 }

@@ -321,21 +321,18 @@ nonisolated extension SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
                 && ["vec4", "float4"].contains(tokens[index - 1].text)
                 && tokens[index + 1].text == "="
         }
-        guard definitions.count == 1, let definition = definitions.first else {
-            return false
+        guard definitions.count == 1, let definition = definitions.first,
+              SceneAuthoredShaderColorTransferAnalyzer.isUnconditionalWrite(
+                definition, tokens: tokens, body: body
+              ), let initializer = SceneAuthoredShaderColorTransferAnalyzer.assignmentExpression(
+                after: definition, in: tokens, body: body
+              ), SceneAuthoredShaderColorTransferAnalyzer.directTextureSampleSlot(initializer) != nil
+        else { return false }
+        // Only the RGB members may escape to an authored expression or helper.
+        return ((definition + 1)..<output).lazy.filter { tokens[$0].text == carrier }.allSatisfy { index in
+            index + 2 < output && tokens[index + 1].text == "."
+                && tokens[index + 2].text.allSatisfy { "rgbxyzstp".contains($0) }
         }
-        for index in (definition + 1)..<output where tokens[index].text == carrier {
-            if index + 1 < output,
-               ["=", "+=", "-=", "*=", "/="].contains(tokens[index + 1].text) {
-                return false
-            }
-            if index + 3 < output, tokens[index + 1].text == ".",
-               ["=", "+=", "-=", "*=", "/="].contains(tokens[index + 3].text),
-               !["rgb", "xyz"].contains(tokens[index + 2].text) {
-                return false
-            }
-        }
-        return true
     }
 
     /// Every non-source sampled slot must be read only per scalar component

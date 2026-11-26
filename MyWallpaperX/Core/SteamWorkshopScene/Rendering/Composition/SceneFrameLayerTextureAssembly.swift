@@ -7,6 +7,7 @@ enum SceneFrameLayerTextureAssembly {
         dynamicText: SceneDynamicTextTextureStore.Snapshot?,
         videoSources: [Int: SceneVideoTextureSource],
         retiredLayerIDs: Set<Int> = [],
+        spriteFrames: [Int: SceneBaseImageTextureSample] = [:],
         timing: SceneFrameTiming,
         collectsInitialVideoReadiness: Bool = false
     ) -> SceneBaseImageTextureSnapshot {
@@ -63,6 +64,7 @@ enum SceneFrameLayerTextureAssembly {
             textures: textures,
             explicitLayerSources: publications,
             layerSourcePublications: layerSourcePublications,
+            spriteFrames: spriteFrames.filter { textures[$0.key] === base[$0.key] },
             pendingLayerSourceIDs: pendingLayerSourceIDs,
             initialVideoReadiness: initialVideoReadiness
         )

@@ -161,17 +161,19 @@ func makePlayback(_ fixture: (SceneMdlPuppetMesh, SceneMdlPuppetRig,
                               ScenePuppetAnimationSelection),
                   device: MTLDevice, pipeline: SceneImageLayerPipeline,
                   atlas: MTLTexture, clipping: ScenePuppetClipping? = nil,
-                  morphVertexAddresses: [Int]? = nil) throws -> Playback {
+                  morphVertexAddresses: [Int]? = nil, tracksBackgroundBounds: Bool = false) throws -> Playback {
     let identity = columns(matrix_identity_float4x4)
     let evaluator = try ScenePuppetAnimationEvaluator(mesh: fixture.0, rig: fixture.1,
         additiveAnimations: fixture.2.clips.map(\.animation), morphVertexAddresses: morphVertexAddresses)
     let state = ScenePuppetPlaybackState.make(layerID: 42, mesh: fixture.0,
         evaluator: evaluator, selection: fixture.2,
         attachments: [.init(boneIndex: 0, name: "tip", isNamedBinding: true,
-            modelLocalFrameColumnMajor: identity, modelBindFrameColumnMajor: identity)])
+            modelLocalFrameColumnMajor: identity, modelBindFrameColumnMajor: identity)],
+        tracksBackgroundBounds: tracksBackgroundBounds)
     let output = try ScenePuppetMeshGeometry.prepare(layerID: 42, mesh: fixture.0,
         atlasTexture: atlas, layerWidth: 16, layerHeight: 16, device: device,
-        pipeline: pipeline, clipping: clipping, animated: true).get()
+        pipeline: pipeline, clipping: clipping, animated: true,
+        tracksBackgroundBounds: tracksBackgroundBounds).get()
     return Playback(state: state, geometry: output.geometry, product: output.product)
 }
 
@@ -181,6 +183,7 @@ struct Frame {
     let draws: UInt64
     let pixels: [UInt8]
     let attachments: [String: simd_float4x4]
+    let backgroundBounds: SIMD4<Float>?
     var report: [String: Any] {
         ["readyBefore": readyBefore, "readyAfter": readyAfter, "drew": drew,
          "differentLiveCommandReady": differentLiveCommandReady,
@@ -220,6 +223,7 @@ func render(_ output: Playback? = nil, sceneTime: Double,
                 frameIndex: UInt64(sceneTime * 10), commandBuffer: command, transaction: transaction)
         }
         let readyAfter = output?.product.isPreparedForPublication(command) ?? false
+        let backgroundBounds = readyAfter ? output?.product.backgroundBounds?() : nil
         let differentLiveCommand = queue.makeCommandBuffer()!
         let differentLiveCommandReady = output?.product.isPreparedForPublication(differentLiveCommand) ?? false
         let target = texture(device, size: 32, renderTarget: true)
@@ -293,7 +297,7 @@ func render(_ output: Playback? = nil, sceneTime: Double,
         return Frame(readyBefore: readyBefore, readyAfter: readyAfter, drew: drew,
                      differentLiveCommandReady: differentLiveCommandReady,
                      previousCommandReleased: previousCommandReleased,
-                     draws: draws, pixels: pixels, attachments: attachments)
+                     draws: draws, pixels: pixels, attachments: attachments, backgroundBounds: backgroundBounds)
     }
 }
 
@@ -476,7 +480,8 @@ func frozenImageChecks(device: MTLDevice, queue: MTLCommandQueue,
             desc.storageMode = .private; desc.usage = [.renderTarget, .shaderRead]
             return device.makeTexture(descriptor: desc).map { .init(texture: $0, release: {}) }
         })
-    let output = try makePlayback((mesh, rig, selection), device: device, pipeline: pipeline, atlas: atlas, clipping: clipping)
+    let output = try makePlayback((mesh, rig, selection), device: device, pipeline: pipeline,
+        atlas: atlas, clipping: clipping, tracksBackgroundBounds: true)
     let a = ScenePuppetAnimationPlaybackRuntime.LayerFrame(samples: [.init(frameA: 0, frameB: 0)])
     let b = ScenePuppetAnimationPlaybackRuntime.LayerFrame(samples: [.init(frameA: 1, frameB: 1)])
     output.state.prepareFrame(animationFrame: a)
@@ -504,6 +509,12 @@ func frozenImageChecks(device: MTLDevice, queue: MTLCommandQueue,
         "frozenPixelCoverage": heldMaximumAlpha == 255 && abs(nextMaximumAlpha - 128) <= 1,
         "heldMaximumAlpha": heldMaximumAlpha, "nextMaximumAlpha": nextMaximumAlpha,
         "frozenROI": !initialROI.isEmpty && initialROI == heldROI && !latestROI.isEmpty && heldROI != latestROI,
+        "frozenBackgroundBounds": initial.backgroundBounds != nil
+            && initial.backgroundBounds == frozen.backgroundBounds
+            && held.backgroundBounds == initial.backgroundBounds
+            && next.backgroundBounds == latest.backgroundBounds
+            && next.backgroundBounds != held.backgroundBounds
+            && !held.differentLiveCommandReady,
         "gpuDoesNotPrepareCPU": revisionAfterHeld == latest.revision && output.state.renderFrame!.revision == latest.revision]
 }
 

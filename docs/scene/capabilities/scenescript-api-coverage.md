@@ -5,7 +5,7 @@
 <a id="contract"></a>
 ## 作者合同与运行模型
 
-SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属性，`init(value)`/`update(value)` 的返回值可写回该目标，直接 setter 可修改其他准入目标。返回值按属性类型校验（本项目合同；官方三列/六色 alpha 探针已验证数值标量的取值行为：仅 Number 生效，字符串 `'0.5'`、`false`、`null`、`[]` 返回均保留 alpha；Number 的 NaN 与 `-Infinity` 渲染不可见（alpha 0），`+Infinity` 与 1.0 不透明（alpha 1））：数值标量只接受 Number；字符串、Bool、`null`、数组/对象（含 Vec3）保留当前值并报 typed bad-return，不做 JS 强转（`[]` 不再变成 0）；`undefined`/无返回保留当前值；布尔属性只接受 Bool，其他返回保留当前值且不报 bad-return。非有限 Number 只经 SceneScript 来源进入 typed snapshot，渲染 alpha（`SceneDynamicLayerValues`）按上述官方映射；粒子 alpha/rate/count 与亮度等 domain 目标保持严格有限，`thisLayer.alpha` getter/runtime field 仍按有限回退；非TRS目标上一帧值原样供 update；authored TRS沿下述当前值交接，authored/user/Timeline 入口仍严格有限。诊断、布尔及非 alpha 目标为项目合同，官方探针未覆盖。`update` 可选；init-only/休眠沿同一脚本数值域投影，仅导出的 update 逐帧调用。声明面见[SceneScript v2.8 类型声明](../development/reference/lib.sceneScript-v2.8.d.ts)；声明存在不表示本项目全部 host API 已实现。
+SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属性，`init(value)`/`update(value)` 的返回值可写回该目标，直接 setter 可修改其他准入目标。返回值按属性类型校验（本项目合同；官方三列/六色 alpha 探针已验证数值标量的取值行为：仅 Number 生效，字符串 `'0.5'`、`false`、`null`、`[]` 返回均保留 alpha；Number 的 NaN 与 `-Infinity` 渲染不可见（alpha 0），`+Infinity` 与 1.0 不透明（alpha 1））：数值标量只接受 Number。字符串、Bool、`null`、数组/对象（含 Vec3）保留当前数值；原值求值事务已记录作者图层写入时，沿原账本继续校验与提交，含同次隐式 init 等合法前缀。纯错型返回仍报 typed bad-return。`undefined`/无返回保留当前值。异常与无效写入继续沿原失败合同；图层账本的溢出哨兵在 Swift 导出入口拒绝并维持原子回滚；布尔属性只接受 Bool，其他返回保留当前值且不报 bad-return。非有限 Number 只经 SceneScript 来源进入 typed snapshot，渲染 alpha（`SceneDynamicLayerValues`）按上述官方映射；粒子 alpha/rate/count 与亮度等 domain 目标保持严格有限，`thisLayer.alpha` getter/runtime field 仍按有限回退；非TRS目标上一帧值原样供 update；authored TRS沿下述当前值交接，authored/user/Timeline 入口仍严格有限。诊断、布尔及非 alpha 目标为项目合同，官方探针未覆盖。`update` 可选；init-only/休眠沿同一脚本数值域投影，仅导出的 update 逐帧调用。声明面见[SceneScript v2.8 类型声明](../development/reference/lib.sceneScript-v2.8.d.ts)；声明存在不表示本项目全部 host API 已实现。
 
 当前使用真实 QuickJS-NG、模块解析和同一 domain 的 heap；不以源码形状、小解释器或 Swift 字典复制 JS 对象。绑定记录 source、owner、target、作者初值及值类型；模块、shared、闭包和脚本 owner 是不同寿命对象。
 
@@ -177,13 +177,13 @@ pass Combined wrapper依原timelineTargets精确匹配已编译目标，供hasCu
 <a id="particle-instance-scalars"></a>
 ### Particle instance 数值
 
-`IParticleLayer.instance` 的 `alpha/rate/count` 复用原 Layer 身份、owner journal、snapshot/commit/discard 与 typed particle target。默认均为1；alpha 供后续出生，count 为自然发射倍数，rate 在原模拟步中缩放时间一次。它们不是粒子存量或绝对发射率；`emitParticles(n)` 保精确请求数量及调用点 alpha 前缀，不能被 count 缩放，也不能让晚 setter 重写早先出生。
+[粒子实例](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystemInstance.html)的 `alpha/size/rate/count` 复用原 Layer 身份、owner journal、snapshot/commit/discard 与 typed particle target，未声明时均为1。alpha 与 size 供出生，存量尺寸由原 SizeChange 等活动作者算子更新；count 缩放自然发射，rate 缩放原模拟步。显式 `emitParticles(n)` 保精确数量与调用点 alpha。该次出生的 size 取原调用所用已发布快照；回调内可立即读回新写入，正式发布后供后续出生。
 
-接入只一般化现有 alpha 访问器和原 C/Swift 记录中的独立字段位；原 publication 一次供三个当前值，替换并退役 alpha-only publication，不新增 owner、缓存、命令或模拟器。原 typed snapshot 和 root/child 的 override 消费者承接数值；getter 按本 owner 当前写入、读值 baseline、已冻结 snapshot 取值，setter 只在原入口检查真实有限 Number。C publication/baseline 的外部入口保 finite，Swift bridge、baseline 准备和 replay 只传已定型值，退出原 alpha 三处重复检查。非粒子、已退休或无实际 instance 消费者的句柄沿原局部失败，不新增幅度、整数或源码形状许可；现有 preparation 集合复用到当帧 admission，不重复扫描每屏资源。
+接入只一般化现有 alpha 访问器和原 C/Swift 记录中的独立字段位；原 publication 一次供四个当前值，显式出生继续读已有 typed 快照，不新增 owner、缓存、命令或模拟器。原 typed snapshot 和 root/child 的 override 消费者承接数值；getter 按本 owner 当前写入、读值 baseline、已冻结 snapshot 取值，setter 只在原入口检查真实有限 Number。C publication/baseline 的外部入口保 finite，Swift bridge、baseline 准备和 replay 只传已定型值，退出原 alpha 三处重复检查。非粒子、已退休或无实际 instance 消费者的句柄沿原局部失败，不新增幅度、整数或源码形状许可；现有 preparation 集合复用到当帧 admission，不重复扫描每屏资源。
 
 当次接纳的 instance journal 进入原 frame projection，附着 scalar 返回继续按原 property-bound 合并次序覆盖同 target；已提交句柄值进入下一 preliminary。相反的自身 setter/返回及隐式 init 的输入交接尚无官方排序资格，不能由既有 alpha 行为升级为官方合同，也不为避开未知组合拒绝合法赋值。该范围不改通用 callback 仲裁或 C primitive 调度；需要改变这些职责时先返回独立设计。
 
-验收复用真实 QuickJS→journal/ABI→Runtime→当帧 snapshot→原 Simulator/Metal，核零/.5/1/2、自然数量与时间/运动、字段互不覆盖、baseline/后继读取、失败 owner/健康 peer、缓存句柄与改名等价表达；保显式 emit 精确 n、调用点 alpha 和 root/child 原继承/禁用位。真实 App 以可区分自有控制及独立作者回归限定结果；未定位可归因作者赋值前不报作者恢复，不以当前 VM 数值授官方 parity。证据和未闭范围分别归运行证据与开放队列。
+验收复用真实 QuickJS→journal/ABI→Runtime→当帧 snapshot→原 Simulator/Metal，核零/.5/1/2、自然数量与时间/运动、字段互不覆盖、baseline/后继读取、失败 owner/健康 peer、缓存句柄与改名等价表达；保显式 emit 精确 n、调用点 alpha 与已发布 size、存量普通粒径、SizeChange 及 root/child 原继承和禁用位。真实 App 以可区分自有控制及独立作者回归限定结果；未定位可归因作者赋值前不报作者恢复，不以当前 VM 数值授官方 parity。证据和未闭范围分别归运行证据与开放队列。
 
 <a id="sound-handle-volume"></a>
 ### Sound 句柄音量

@@ -195,18 +195,18 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         neutralTextureResolution:
             SceneAuthoredShaderNeutralTextureResolutionFact?
     ) throws -> [PreparedUniformBinding] {
-        try fields.map { field in
+        let declarations = Dictionary(uniqueKeysWithValues: template.uniformDeclarations.map {
+            ($0.name, $0.value)
+        })
+        return try fields.map { field in
             let schema = activeUniforms[field.name]
-            let keys = Set(schema?.materialKeys ?? [field.name])
-            let declarations = template.uniformDeclarations.filter {
-                keys.contains($0.name)
-            }
             if let host = SceneResolvedMaterialHostUniformSchema.resolve(
                 field,
                 activeTextureSlots: activeTextureSlots,
                 hasEffectContext: template.effectContext != nil
             ) {
-                guard declarations.isEmpty else {
+                let reservedKeys = schema?.materialKeys ?? [field.name]
+                guard !reservedKeys.contains(where: { declarations[$0] != nil }) else {
                     throw failure(
                         .uniform,
                         .hostUniformDeclarationConflict,
@@ -234,7 +234,9 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                     details: [field.name]
                 )
             }
-            if declarations.isEmpty {
+            // The annotated material key is last, after the GLSL identity used for reflection.
+            let bindingKey = schema.materialKeys.last ?? field.authoredName
+            guard let declaration = declarations[bindingKey] else {
                 if let fact = preparedNeutralTextureResolution(
                     field: field,
                     schema: schema,
@@ -268,15 +270,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 }
                 return .init(field: field, source: .staticValue(encoded))
             }
-            guard declarations.count == 1,
-                  let declaration = declarations.first else {
-                throw failure(
-                    .uniform,
-                    .uniformDeclarationConflict,
-                    details: [field.name]
-                )
-            }
-            switch declaration.value {
+            switch declaration {
             case let .staticExact(value):
                 guard let encoded = SceneResolvedMaterialUniformProjection
                         .encodeAuthoredStatic(

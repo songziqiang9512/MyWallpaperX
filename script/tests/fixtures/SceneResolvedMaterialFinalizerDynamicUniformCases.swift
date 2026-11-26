@@ -689,6 +689,19 @@ final class SceneResolvedMaterialFinalizerDynamicUniformCases {
             device: self.fixture.device,
             uniformDeclarations: [staticDeclaration("sharedShift", components: [0.375])])
         let defaultsResult = finalize(shader: shared, device: self.fixture.device)
+        let dualResults = [[staticDeclaration("alpha", components: [0.375]),
+                staticDeclaration(names[0], components: [0.375])],
+            [staticDeclaration(names[0], components: [0.5]),
+                staticDeclaration("alpha", components: [0.375])],
+            [staticDeclaration(names[0], components: [0.5])]
+        ].map { declarations in
+            finalize(shader: shared, device: self.fixture.device,
+                uniformDeclarations: declarations)
+        }
+        let dualValues = dualResults.compactMap { result -> [Float]? in
+            guard case let .success(program) = result else { return nil }
+            return pair(program)
+        }
         guard case let .success(staticProgram) = staticResult,
               case let .success(renamedProgram) = renamedResult,
               case let .success(defaultsProgram) = defaultsResult,
@@ -761,9 +774,7 @@ final class SceneResolvedMaterialFinalizerDynamicUniformCases {
             "staticShape": failureToken(finalize(shader: shared, device: self.fixture.device,
                 uniformDeclarations: [staticDeclaration("alpha", components: [0.25, 0.5])])),
             "dynamicShape": failureToken(dynamicShape),
-            "declarationConflict": failureToken(finalize(shader: shared, device: self.fixture.device,
-                uniformDeclarations: [staticDeclaration("alpha", components: [0.25]),
-                    staticDeclaration(names[0], components: [0.5])])),
+            "materialKeyValues": dualValues,
             "mixedValues": [Double(sceneResolvedMaterialFixtureFloat(mixed.uniformBytes, at: floatField.offset)),
                 mixed.uniformBytes.withUnsafeBytes { Double($0.loadUnaligned(fromByteOffset: intField.offset, as: Int32.self)) }],
             "mixedFraction": failureToken(finalize(

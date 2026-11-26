@@ -737,24 +737,17 @@ static MWXSceneQuickJSResult call_primitive(
         }
         return failure;
     }
-    if (JS_IsUndefined(result) || (boolean_value && !JS_IsBool(result))) {
-        // A Boolean property accepts a Boolean return only. Other normal
-        // returns leave its value unchanged while the callback's journal
-        // remains eligible to commit; they must not retry initialization.
+    if (!(boolean_value ? JS_IsBool(result) : JS_IsNumber(result))) {
+        // A normal mismatched scalar return does not invalidate a layer write.
+        const bool ignore_return = boolean_value || JS_IsUndefined(result) ||
+            owner->authored_layer_mutation_count > 0;
         *output = input;
         JS_FreeValue(domain->context, result);
-        return MWX_SCENE_QUICKJS_OK;
-    }
-    if (!boolean_value && !JS_IsNumber(result)) {
-        // Scalar properties accept a Number primitive only. Strings, Bool,
-        // null, arrays and objects keep the current value and report a
-        // data-shaped failure; the official client does not coerce them.
-        *output = input;
+        if (ignore_return) return MWX_SCENE_QUICKJS_OK;
         write_diagnostic(
             diagnostic, diagnostic_capacity,
             "callback returned non-number value"
         );
-        JS_FreeValue(domain->context, result);
         return MWX_SCENE_QUICKJS_BAD_RETURN;
     }
     // A scalar Number publishes whatever the callback returned, including

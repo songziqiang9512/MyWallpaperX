@@ -194,7 +194,7 @@ import Foundation
         visibility.advance(by: 0.125); visibilityReference.advance(by: 0.125)
         result["visibilityShowDoesNotRepeatStarttimeWarmup"] = visibility.particles.count == 1
             && visibility.particles[0].id == visibleBefore.nextParticleID
-            && visibility.particles[0].age == 0.25 && visibility.simulationTime == 2.25
+            && visibility.particles[0].age == 0 && visibility.simulationTime == 2.25
             && visibility.frameSnapshot().nextParticleID == visibleBefore.nextParticleID + 1
         result["visibilityFutureBirthKeepsTheRandomSequence"] = visibility.particles.first == visibilityReference.particles.last
             && visibility.frameSnapshot().random.state == visibilityReference.frameSnapshot().random.state
@@ -294,6 +294,21 @@ import Foundation
             sphere.advance(by: 2.25)
             result["cap-sphere-uses-the-same-periodic-consumer"] = sphere.particles.count == 4
                 && sphere.particles.allSatisfy { $0.position == SIMD3(2, 0, 0) }
+            let beam = try make(lifetime: 0.6, maximum: 16, emitter: schedule([
+                "name": "sphererandom", "rate": 100, "distancemax": 0, "delay": 0.2, "duration": 1,
+                "maxtoemitperperiod": 8, "minperiodicdelay": 9999, "maxperiodicdelay": 9999]), step: 1.0 / 64)
+            beam.advance(by: 0.1875)
+            result["finite-periodic-no-early-birth"] = beam.birthEvents.isEmpty && !beam.hasFinishedEmission
+            beam.advance(by: 0.03125)
+            result["finite-periodic-deducts-initial-delay"] = beam.birthEvents.map(\.id) == [0]
+            beam.advance(by: 0.09375)
+            let beamIDs = beam.birthEvents.map(\.id)
+            result["finite-periodic-caps-eight-births"] = beamIDs == [0, 1, 2, 3, 4, 5, 6, 7] && beam.particles.map(\.id) == beamIDs
+            beam.advance(by: 0.875)
+            let beamIsPending = !beam.hasFinishedEmission
+            beam.advance(by: 0.03125)
+            result["finite-periodic-stops-at-duration-and-drains"] = beamIsPending && beam.hasFinishedEmission
+                && beam.particles.isEmpty && beam.birthEvents.map(\.id) == beamIDs && beam.deathEvents.map(\.id) == beamIDs
             for (count, cap, expected) in [(0.25, 2, 0), (0.5, 3, 1), (1.24, 2, 2), (1.15, 2, 2)] {
                 let values = parser.parseInstanceOverride(["count": count])
                 let fields = schedule(["maxtoemitperperiod": cap,
@@ -376,14 +391,16 @@ import Foundation
                 && independent.particles.filter { $0.position.x == 10 }.count == 2
                 && independent.particles.filter { $0.position.x == 20 }.count == 10
             let malformedCaps: [Any] = [true, 1.5, "bad", Double.infinity, Double.nan]
-            for (index, malformed) in malformedCaps.enumerated() {
-                let bad = schedule(["maxtoemitperperiod": malformed, "distancemax": 0])
+            let malformedFields = malformedCaps.map { ("maxtoemitperperiod", $0) }
+                + [("duration", true), ("duration", -1), ("duration", Double.infinity)]
+            for (index, (field, value)) in malformedFields.enumerated() {
+                let bad = schedule([field: value, "distancemax": 0])
                 let peer: [String: Any] = ["name": "boxrandom", "rate": 4,
                     "origin": "40 0 0", "distancemin": 0, "distancemax": 0]
                 let sim = try make(lifetime: 60, emitterList: [bad, peer])
                 sim.advance(by: 0.25)
-                result["cap-malformed-local-peer-\(index)"] = sim.particles.count == 1
-                    && sim.particles[0].position.x == 40 && sim.particles[0].id == 0
+                result[field == "duration" ? "finite-periodic-bad-duration-\(index)" : "cap-malformed-local-peer-\(index)"] =
+                    sim.particles.count == 1 && sim.particles[0].position.x == 40 && sim.particles[0].id == 0
             }
             let warm = try make(start: 2.25, lifetime: 60, emitter: schedule())
             result["cap-prewarm-live-handoff"] = warm.particles == capped.particles
@@ -511,7 +528,7 @@ import Foundation
                 && sim.birthEvents.count == 4 && sim.birthEvents.allSatisfy {
                     $0.position == SIMD3(12, 2, 0) && $0.velocity == SIMD3(speed, 0, 0)
                 } && sim.particles.allSatisfy {
-                    $0.position == SIMD3(expectedX, 2, 0) && $0.age == 0.25
+                    $0.position == SIMD3(expectedX, 2, 0) && $0.age == 0
                         && Float($0.velocity.x).isFinite && Float($0.position.x).isFinite
                 }
         }

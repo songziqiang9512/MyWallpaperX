@@ -471,6 +471,15 @@ def model_shadow_coverage_cases():
                  row(light+"-uv-tiny", light, frameScale=1/4096, frameOrigin=[.5,.5], noCull=True)]
     rows += [row("uv-zero", expected=(False, False), frameScale=0, expectedShadow=False, noCull=True),
              row("uv-nan", expected=(False, False), frameScale=1, frameInvalid="nan", expectedShadow=False, noCull=True)]
+    rows += [dict(row("stock-normal", surface="generic4", textureAlpha=[0, 1], expected=(False, True)), blending="normal"),
+             row("stock-translucent", surface="generic4", textureAlpha=[0, 1], expected=(False, False), frameScale=1),
+             row("stock-translucent-renamed", surface="generic4", renamed=True, expected=(False, False), mixedLights=True),
+             row("stock-translucent-only", surface="generic4", noncasterPeers=True,
+                 expected=(False, False), expectedShadow=False, frameScale=1),
+             row("stock-spot-mixed", "spot", surface="generic4", mixedLights=True),
+             row("stock-point", "point", surface="generic4"),
+             row("chroma-translucent", surface="chroma4"),
+             dict(row("stock-additive", surface="generic4"), blending="additive")]
     return rows
 
 
@@ -608,6 +617,8 @@ class SceneModelShadowCameraFamilyTests(unittest.TestCase):
             self.assertEqual(rows[light+'-normal']['coverageDepth'][1], rows[light+'-holes']['coverageDepth'][1])
         for name in ['camera-test-off', 'camera-write-off', 'camera-test-write-off', 'additive-covered']:
             self.assertEqual(rows[name]['coverageDepth'], rows['directional-translucent']['coverageDepth'])
+        self.assertTrue(rows['stock-translucent']['colorEncoded'])
+        self.assertTrue(rows['stock-translucent-only']['colorEncoded'])
 
 
     def test_small_texture_frame_keeps_model_color_and_three_shadow_projections(self):

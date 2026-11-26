@@ -1,4 +1,10 @@
 import Foundation
+import simd
+
+nonisolated struct SceneParticleFrameTiming: Sendable {
+    var sceneTime: Double = 0
+    var turbulenceForceFactor: Double = 1
+}
 
 nonisolated struct SceneParticleState: Equatable, Sendable {
     let id: UInt64
@@ -34,6 +40,11 @@ nonisolated struct SceneParticleRandomGenerator: Sendable {
         return Double(value >> 11) * (1.0 / 9_007_199_254_740_992.0)
     }
 
+    static func particleUnit(id: UInt64, seed: UInt64) -> Double {
+        var generator = Self(state: seed ^ (id &* 0x9E3779B97F4A7C15))
+        return generator.unit()
+    }
+
     mutating func value(_ first: Double, _ second: Double) -> Double {
         let lower = min(first, second)
         return lower + unit() * (max(first, second) - lower)
@@ -41,13 +52,11 @@ nonisolated struct SceneParticleRandomGenerator: Sendable {
 }
 
 nonisolated struct SceneParticleTurbulentVelocityPlan: Sendable {
-    let forward: SIMD3<Double>
-    let right: SIMD3<Double>
-    let up: SIMD3<Double>
+    let basis: (parallel: SIMD3<Double>, radial: SIMD3<Double>, tangent: SIMD3<Double>)?
     let offset: Double
     let phaseMinimum: Double
-    let phaseMaximum: Double
-    let scale: Double
+    let phaseSpan: Double
+    let angularScale: Double
     let speedMinimum: Double
     let speedMaximum: Double
     let timeScale: Double
@@ -55,22 +64,26 @@ nonisolated struct SceneParticleTurbulentVelocityPlan: Sendable {
     let audioResponsePlan: SceneParticleAudioResponsePlan?
 
     nonisolated init(_ value: SceneParticleTurbulentVelocity) {
-        forward = SceneParticleSimulationMath.vector(
-            value.forward, fallback: SIMD3(0, 1, 0)
-        )
-        right = SceneParticleSimulationMath.vector(
-            value.right, fallback: SIMD3(0, 0, 1)
-        )
-        up = SceneParticleSimulationMath.vector(value.up, fallback: .zero)
-        offset = value.offset ?? 0
+        let forward = SceneParticleSimulationMath.vector(value.forward, fallback: SIMD3(0, 1, 0))
+        let right = SceneParticleSimulationMath.vector(value.right, fallback: SIMD3(0, 0, 1))
+        let length = simd_length(right)
+        offset = Double(Float(value.offset ?? 0))
+        angularScale = Double(Float(value.scale ?? 1) * .pi)
+        if length.isFinite, length > 1e-9, offset.isFinite, angularScale.isFinite,
+           SceneParticleSimulationMath.isGPUFinite(forward) {
+            let axis = right / length
+            let parallel = axis * simd_dot(axis, forward)
+            basis = (parallel, forward - parallel, simd_cross(axis, forward))
+        } else {
+            basis = nil
+        }
         phaseMinimum = value.phaseMinimum ?? 0
-        phaseMaximum = value.phaseMaximum ?? 0
-        scale = value.scale ?? 1
+        phaseSpan = (value.phaseMaximum ?? 0.1) - phaseMinimum
         speedMinimum = max(value.speedMinimum ?? 100, 0)
         speedMaximum = max(value.speedMaximum ?? 250, 0)
         timeScale = value.timeScale ?? 1
         audioResponseEnabled = value.audioResponse.isEnabled
-        audioResponsePlan = SceneParticleAudioResponsePlan(value.audioResponse)
+        audioResponsePlan = value.peakAudioResponsePlan
     }
 }
 
@@ -123,97 +136,58 @@ nonisolated enum SceneParticleSimulationMath {
         }
     }
 
-    /// Compatibility entry point for focused definition/runtime harnesses and
-    /// callers that have not adopted the launch-prepared initializer plan.
-    static func turbulentVelocity(
-        _ value: SceneParticleTurbulentVelocity?,
-        _ position: SIMD3<Double>,
-        _ time: Double,
-        _ random: inout SceneParticleRandomGenerator,
-        audioInput: SceneParticleAudioInput = .silent
-    ) -> SIMD3<Double> {
-        guard let value else { return .zero }
-        return turbulentVelocity(
-            SceneParticleTurbulentVelocityPlan(value), position, time,
-            &random, audioInput: audioInput
-        )
-    }
-
     static func turbulentVelocity(
         _ value: SceneParticleTurbulentVelocityPlan?,
-        _ position: SIMD3<Double>,
-        _ time: Double,
-        _ random: inout SceneParticleRandomGenerator,
-        audioInput: SceneParticleAudioInput = .silent,
-        preparedAudioFactor: Double? = nil, strict: Bool = false
+        sceneTime: Double, rate: Double,
+        random: inout SceneParticleRandomGenerator,
+        audioFactor: Double? = nil, strict: Bool = false
     ) -> SIMD3<Double> {
-        guard let value else { return strict ? SIMD3(repeating: .nan) : .zero }
-        let audioFactor: Double
-        if value.audioResponseEnabled {
-            if let preparedAudioFactor {
-                audioFactor = preparedAudioFactor
-            } else {
-                guard let plan = value.audioResponsePlan else {
-                    return strict ? SIMD3(repeating: .nan) : .zero
-                }
-                audioFactor = 1 + plan.evaluate(audioInput)
-            }
-        } else {
-            audioFactor = 1
-        }
-        let phase = random.value(
-            value.phaseMinimum, value.phaseMaximum
-        ) * audioFactor
-        let timeScale = value.timeScale
-        let directionalOffset = value.offset
-        guard phase.isFinite, time.isFinite, timeScale.isFinite,
-              directionalOffset.isFinite,
-              position.x.isFinite, position.y.isFinite, position.z.isFinite else {
+        guard let value, !value.audioResponseEnabled || audioFactor != nil else {
             return strict ? SIMD3(repeating: .nan) : .zero
         }
-        let noiseTime = phase + time * timeScale
-        // Author positions select a coherent field; scale controls angular spread, not frequency.
-        let point = position * 0.001 + SIMD3(noiseTime, 0, 0)
-        guard point.x.isFinite, point.y.isFinite, point.z.isFinite else { return strict ? SIMD3(repeating: .nan) : .zero }
-        let turnNoise = gradientNoise(point, seed: 0xBF58476D1CE4E5B9)
-        let planeNoise = gradientNoise(
-            point + SIMD3(59.19, 71.41, 89.97), seed: 0x94D049BB133111EB
-        )
-        let forward = value.forward
-        let normal = value.right
-        let up = value.up
-        let forwardLength = length(forward)
-        guard forwardLength.isFinite, forwardLength > 1e-9 else { return strict ? SIMD3(repeating: .nan) : .zero }
-        let base = forward / forwardLength
-        let adjustedNormal = normal + up * planeNoise
-        let normalLength = length(adjustedNormal)
-        guard normalLength.isFinite, normalLength > 1e-9 else { return strict ? SIMD3(repeating: .nan) : .zero }
-        let axis = adjustedNormal / normalLength
-        let tangentValue = SIMD3(
-            adjustedNormal.y * base.z - adjustedNormal.z * base.y,
-            adjustedNormal.z * base.x - adjustedNormal.x * base.z,
-            adjustedNormal.x * base.y - adjustedNormal.y * base.x
-        )
-        let tangentLength = length(tangentValue)
-        guard tangentLength.isFinite, tangentLength > 1e-9 else { return strict ? SIMD3(repeating: .nan) : .zero }
-        let tangent = tangentValue / normalLength
-        let angularScale = max(value.scale, 0)
-        guard angularScale.isFinite else { return strict ? SIMD3(repeating: .nan) : .zero }
-        let turn = directionalOffset + angularScale * Double.pi * turnNoise
-        // Rotate about the authored axis, preserving the component along it.
-        let parallel = axis * (axis.x * base.x + axis.y * base.y + axis.z * base.z)
-        var direction = base * cos(turn) + tangent * sin(turn)
-            + parallel * (1 - cos(turn))
-        var directionLength = length(direction)
-        if !directionLength.isFinite || directionLength <= 1e-9 {
-            direction = base
-            directionLength = length(direction)
+        let phase = value.phaseMinimum + random.unit() * value.phaseSpan * (audioFactor ?? 1)
+        let sampleTime = Float((sceneTime + phase) * (value.timeScale * rate))
+        guard let basis = value.basis, sampleTime.isFinite else {
+            return strict ? SIMD3(repeating: .nan) : .zero
         }
-        guard directionLength.isFinite, directionLength > 1e-9 else { return strict ? SIMD3(repeating: .nan) : .zero }
-        // Forward carries authored velocity magnitude as well as direction.
-        // Normalize only for orientation, then retain its scale in the result.
-        return direction / directionLength
-            * (forwardLength * random.value(value.speedMinimum, value.speedMaximum))
+        let turn = value.offset + Double(turbulentNoise(sampleTime)) * value.angularScale
+        let direction = basis.parallel + basis.radial * cos(turn) + basis.tangent * sin(turn)
+        return direction * random.value(value.speedMinimum, value.speedMaximum)
+    }
+
+    // Perlin's published 256-cell permutation, shared by both simplex fields.
+    private static let simplexPermutation: [UInt8] = [
+        151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225,
+        140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148,
+        247, 120, 234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32,
+        57, 177, 33, 88, 237, 149, 56, 87, 174, 20, 125, 136, 171, 168, 68, 175,
+        74, 165, 71, 134, 139, 48, 27, 166, 77, 146, 158, 231, 83, 111, 229, 122,
+        60, 211, 133, 230, 220, 105, 92, 41, 55, 46, 245, 40, 244, 102, 143, 54,
+        65, 25, 63, 161, 1, 216, 80, 73, 209, 76, 132, 187, 208, 89, 18, 169,
+        200, 196, 135, 130, 116, 188, 159, 86, 164, 100, 109, 198, 173, 186, 3, 64,
+        52, 217, 226, 250, 124, 123, 5, 202, 38, 147, 118, 126, 255, 82, 85, 212,
+        207, 206, 59, 227, 47, 16, 58, 17, 182, 189, 28, 42, 223, 183, 170, 213,
+        119, 248, 152, 2, 44, 154, 163, 70, 221, 153, 101, 155, 167, 43, 172, 9,
+        129, 22, 39, 253, 19, 98, 108, 110, 79, 113, 224, 232, 178, 185, 112, 104,
+        218, 246, 97, 228, 251, 34, 242, 193, 238, 210, 144, 12, 191, 179, 162, 241,
+        81, 51, 145, 235, 249, 14, 239, 107, 49, 192, 214, 31, 181, 199, 106, 157,
+        184, 84, 204, 176, 115, 121, 50, 45, 127, 4, 150, 254, 138, 236, 205, 93,
+        222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180,
+    ]
+
+    private static func turbulentNoise(_ time: Float) -> Float {
+        let lattice = time.rounded(.down)
+        let cell = Int(lattice.truncatingRemainder(dividingBy: 256)) & 255
+        let x = time - lattice
+        func contribution(_ distance: Float, cell: Int) -> Float {
+            let weight = 1 - distance * distance
+            let weightSquared = weight * weight
+            let hash = simplexPermutation[cell]
+            let magnitude = Float(1 + (hash & 7))
+            let gradient = hash & 8 == 0 ? magnitude : -magnitude
+            return gradient * distance * weightSquared * weightSquared
+        }
+        return 0.395 * (contribution(x, cell: cell) + contribution(x - 1, cell: (cell + 1) & 255))
     }
 
     @inline(__always)
@@ -350,13 +324,10 @@ nonisolated enum SceneParticleSimulationMath {
     /// Bounded project FBM approximation, not an official phase/scale formula.
     /// The local phase generator never consumes the simulator's emission RNG.
     static func scalarSpeedRemapMultiplier(
-        _ plan: SceneParticleScalarSpeedRemapPlan,
+        _ plan: SceneParticleRemapPlan.Scalar, inputScale: Double,
         normalizedLife: Double, particleID: UInt64, simulationSeed: UInt64
     ) -> Double? {
-        guard normalizedLife.isFinite, (0 ... 1).contains(normalizedLife),
-              plan.inputScale.isFinite, plan.inputScale > 0,
-              plan.minimum.isFinite, plan.maximum.isFinite else { return nil }
-        let temporal = normalizedLife * plan.inputScale
+        let temporal = normalizedLife * inputScale
         var point = particleNoisePhase(particleID: particleID, simulationSeed: simulationSeed)
             + SIMD3(temporal, temporal * 0.754_877_666, temporal * 1.324_717_957)
         var amplitude = 1.0, amplitudeSum = 0.0, noise = 0.0
@@ -370,9 +341,7 @@ nonisolated enum SceneParticleSimulationMath {
             point *= 2
         }
         let amount = min(max(noise / amplitudeSum * 0.5 + 0.5, 0), 1)
-        let mapped = plan.minimum + (plan.maximum - plan.minimum) * amount
-        guard mapped.isFinite else { return nil }
-        return min(max(mapped, 0), 1)
+        return min(max(plan.value(at: amount), 0), 1)
     }
 
     static func positionOffset(
@@ -420,43 +389,46 @@ nonisolated enum SceneParticleSimulationMath {
         return noise * plan.directions * plan.distance
     }
 
-    static func turbulenceDirection(
-        position: SIMD3<Double>,
-        time: Double,
-        phase: Double,
-        scale: Double,
-        timeScale: Double,
-        mask: SIMD3<Double>
-    ) -> SIMD3<Double> {
-        guard position.x.isFinite, position.y.isFinite, position.z.isFinite,
-              time.isFinite, phase.isFinite, scale.isFinite, timeScale.isFinite,
-              mask.x.isFinite, mask.y.isFinite, mask.z.isFinite else { return .zero }
-        let noiseTime = phase + time * timeScale
-        // De-correlate one project-owned coherent field across its three sample axes.
-        let point = position * scale + SIMD3(
-            noiseTime,
-            noiseTime * 0.754_877_666,
-            noiseTime * 1.324_717_957
+    static func continuousTurbulence(at point: SIMD3<Float>, mask: SIMD3<Double>) -> SIMD3<Double> {
+        guard abs(point.x) < 1e12, abs(point.y) < 1e12, abs(point.z) < 1e12 else { return .zero }
+        return SIMD3(
+            mask.x == 0 ? 0 : Double(simplexField(point)) * mask.x,
+            mask.y == 0 ? 0 : Double(simplexField(SIMD3(point.z, point.x, point.y))) * mask.y,
+            mask.z == 0 ? 0 : Double(simplexField(SIMD3(point.y, point.z, point.x))) * mask.z
         )
-        guard point.x.isFinite, point.y.isFinite, point.z.isFinite,
-              abs(point.x) < 1e12, abs(point.y) < 1e12, abs(point.z) < 1e12 else {
-            return .zero
+    }
+
+    private static let simplexGradients: [SIMD3<Float>] = [
+        SIMD3(1, 1, 0), SIMD3(-1, 1, 0), SIMD3(1, -1, 0), SIMD3(-1, -1, 0),
+        SIMD3(1, 0, 1), SIMD3(-1, 0, 1), SIMD3(1, 0, -1), SIMD3(-1, 0, -1),
+        SIMD3(0, 1, 1), SIMD3(0, -1, 1), SIMD3(0, 1, -1), SIMD3(0, -1, -1),
+    ]
+
+    private static func simplexField(_ point: SIMD3<Float>) -> Float {
+        let cell = (point + simd_reduce_add(point) / 3).rounded(.down)
+        let offset = point - cell + simd_reduce_add(cell) / 6
+        let xy = offset.x >= offset.y
+        let xz = offset.x >= offset.z
+        let yz = offset.y >= offset.z
+        let first = SIMD3<Int>(xy && xz ? 1 : 0, !xy && yz ? 1 : 0, !xz && !yz ? 1 : 0)
+        let second = SIMD3<Int>(xy || xz ? 1 : 0, !xy || yz ? 1 : 0, !xz || !yz ? 1 : 0)
+        let lattice = SIMD3(Int(cell.x), Int(cell.y), Int(cell.z))
+        func corner(_ distance: SIMD3<Float>, at index: SIMD3<Int>) -> Float {
+            let weight = 0.6 - simd_length_squared(distance)
+            guard weight > 0 else { return 0 }
+            let z = Int(simplexPermutation[index.z & 255])
+            let y = Int(simplexPermutation[(index.y + z) & 255])
+            let hash = Int(simplexPermutation[(index.x + y) & 255])
+            let squared = weight * weight
+            return squared * squared * simd_dot(simplexGradients[hash % 12], distance)
         }
-        let turn = gradientNoise(point, seed: 0xD6E8FEB86659FD93) * 2 * Double.pi
-        var direction = SIMD3(cos(turn), sin(turn), 0.0)
-        if abs(mask.z) > 1e-9 {
-            direction.z = gradientNoise(
-                point + SIMD3(47.17, 73.31, 101.03),
-                seed: 0xA0761D6478BD642F
-            )
-            let directionLength = length(direction)
-            guard directionLength.isFinite, directionLength > 1e-9 else { return .zero }
-            direction /= directionLength
-        }
-        // Authored mask components scale each axis of the field. Normalizing
-        // after masking would erase both that magnitude and single-axis
-        // attenuation; zero axes naturally contribute no velocity change.
-        return direction * mask
+        // The continuous field's far corner uses the starting Z lattice index for its gradient.
+        return 32 * (
+            corner(offset, at: lattice)
+            + corner(offset - SIMD3<Float>(first) + 1.0 / 6, at: lattice &+ first)
+            + corner(offset - SIMD3<Float>(second) + 1.0 / 3, at: lattice &+ second)
+            + corner(offset - 0.5, at: lattice &+ SIMD3(1, 1, 0))
+        )
     }
 
     static func changeAmount(

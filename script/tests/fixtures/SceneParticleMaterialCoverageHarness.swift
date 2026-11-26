@@ -13,10 +13,13 @@ enum SceneParticleMaterialCoverageHarness {
         defer { try? FileManager.default.removeItem(at: root) }
         try Harness.writePNG(root.appendingPathComponent("materials/source.png"))
         try Harness.writePNG(root.appendingPathComponent("materials/renamed-source.png"))
+        try Harness.writePNG(root.appendingPathComponent("materials/normal-source.png"))
+        try Harness.writePNG(root.appendingPathComponent("materials/renamed-normal-source.png"))
         var rows: [String: Any] = [:]
         func inspect(
             _ name: String, renderers: [[String: Any]] = [["name": "sprite"]],
             material: String = "materials/shared.json", texture: String = "source.png",
+            normalTexture: String? = nil,
             blend: String = "alphatocoverage", passIndex: Int = 0,
             shader: String = "genericparticle", combos: [String: Int] = [:],
             constants: [String: SceneParticleMaterialConstant] = [:],
@@ -31,7 +34,8 @@ enum SceneParticleMaterialCoverageHarness {
             ], to: root.appendingPathComponent(path))
             let pass = SceneParticleMaterialPass(
                 materialPath: material, passIndex: passIndex, shaderPath: shader,
-                texturePaths: [texture], blending: blend, combos: combos,
+                texturePaths: [texture] + (normalTexture.map { [$0] } ?? []), blending: blend,
+                combos: combos,
                 constantValues: constants, hasUserTextureInputs: userTexture,
                 hasUserShaderValues: userValue, depthTest: test, depthWrite: write,
                 cullMode: cull, alphaWriting: alpha)
@@ -51,6 +55,8 @@ enum SceneParticleMaterialCoverageHarness {
                 "textureAvailable": asset.textureSource != nil,
                 "hasPipelineState": state != nil,
                 "refractionPrepared": asset.refraction != nil,
+                "refractionNormalResolved": asset.refraction?.normalTextureSource != nil,
+                "refractionAmount": asset.refraction?.amount ?? -1,
                 "sceneCameras": asset.definition.renderers.map {
                     state != nil && SceneParticlePipelineRenderStateCompiler.usesSceneCamera(
                         renderer: $0, materialPass: asset.materialPass)
@@ -135,6 +141,20 @@ enum SceneParticleMaterialCoverageHarness {
         try inspect("missingTexture", texture: "missing.png")
         try inspect("unknownBlend", blend: "future")
         try inspect("normalBlend", blend: "normal")
+        let amount = "ui_editor_properties_refract_amount"
+        try inspect("normalRefraction", normalTexture: "normal-source.png",
+                    blend: "normal", combos: ["REFRACT": 1],
+                    constants: [amount: .init(components: [0.03125], isStatic: true)])
+        try inspect("renamedNormalRefraction", renderers: [["name": "sprite", "id": 94]],
+                    material: "materials/renamed-lens.json", texture: "renamed-source.png",
+                    normalTexture: "renamed-normal-source.png", blend: "  NORMAL\n",
+                    combos: ["REFRACT": 1],
+                    constants: [amount: .init(components: [0.125], isStatic: true)])
+        try inspect("normalRefractionDisabled", blend: "normal", combos: ["REFRACT": 0])
+        try inspect("normalRefractionUnknownCombo", blend: "normal",
+                    combos: ["REFRACT": 1, "FUTURE": 1])
+        try inspect("normalRefractionMissingTexture", normalTexture: "missing-normal.png",
+                    blend: "normal", combos: ["REFRACT": 1])
         try inspect("oldAdditiveRope", renderers: [["name": "rope"]], blend: "additive")
         try inspect("oldTranslucentTrail", renderers: [["name": "spritetrail"]], blend: "translucent")
         try inspect("oldFixedTranslucent", renderers: [["name": "sprite", "orientation": "fixed"]],

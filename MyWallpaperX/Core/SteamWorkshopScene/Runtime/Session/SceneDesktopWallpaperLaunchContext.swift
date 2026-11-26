@@ -72,7 +72,8 @@ struct SceneDesktopWallpaperLaunchContext {
     func makeSurfacePreparationInput(
         dynamicValues: SceneDynamicSnapshot,
         topology: SceneScriptLayerTopologySnapshot,
-        audioInput: SceneParticleAudioInput
+        audioInput: SceneParticleAudioInput,
+        sceneTime: Double = 0
     ) -> SceneSurfacePreparationInput {
         SceneSurfacePreparationInput(
             descriptor: runtimeInput.renderDescriptor,
@@ -81,6 +82,7 @@ struct SceneDesktopWallpaperLaunchContext {
             device: preparedDeviceResources.device,
             visibilityLayerIDs: preparedParticleVisibilityLayerIDs,
             dynamicValues: dynamicValues, topology: topology, audioInput: audioInput,
+            sceneTime: sceneTime,
             materialCatalog: resolvedMaterialCatalog,
             materialCapabilities: resolvedMaterialExecutionCapabilities,
             materialAssets: materialAssetCatalog,
@@ -100,6 +102,7 @@ struct SceneSurfacePreparationInput {
     let dynamicValues: SceneDynamicSnapshot
     let topology: SceneScriptLayerTopologySnapshot
     let audioInput: SceneParticleAudioInput
+    let sceneTime: Double
     let materialCatalog: SceneResolvedMaterialRuntimeCatalog
     let materialCapabilities: SceneResolvedMaterialExecutionCapabilityCatalog
     let materialAssets: SceneMaterialAssetTextureCatalog
@@ -124,6 +127,7 @@ struct SceneSurfacePreparationInput {
                     preparedParticleVisibilityLayerIDs: visibilityLayerIDs,
                     initialDynamicValues: dynamicValues, initialPlayback: topology.particlePlayback,
                     initialAudioInput: audioInput,
+                    initialSceneTime: sceneTime,
                     destroyedAuthoredLayerIDs: destroyedLayerIDs,
                     shouldCancelPrewarm: { cancellation?.isCancelled == true })
                 let material = prepared.isEmpty ? firstMaterialRuntime : nil

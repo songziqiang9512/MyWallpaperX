@@ -119,7 +119,7 @@ final class SceneDesktopWallpaperLaunchContext {
     }
 #endif
     func makeSurfacePreparationInput(dynamicValues: SceneDynamicSnapshot, topology: TestTopology,
-        audioInput: SceneParticleAudioInput) -> SceneSurfacePreparationInput {
+        audioInput: SceneParticleAudioInput, sceneTime: Double = 0) -> SceneSurfacePreparationInput {
         precondition(Thread.isMainThread && inputs.count < steps.count, "unexpected preparation/retry")
         let number = inputs.count + 1
         let input = SceneSurfacePreparationInput(baseImages: baseImages, dynamicValues: dynamicValues,
@@ -130,7 +130,10 @@ final class SceneDesktopWallpaperLaunchContext {
     }
 }
 struct TestEvaluationTransaction { var committedSnapshot: SceneDynamicSnapshot? = .init(frameIndex: 32, generation: 5) }
-struct TestClock { var isPaused = false }
+struct TestClock {
+    var isPaused = false
+    func currentSceneTime(hostTime: TimeInterval) -> TimeInterval { 0 }
+}
 // PREPARATION_LEAVES_END
 final class TestWindow {
     var frame: CGRect

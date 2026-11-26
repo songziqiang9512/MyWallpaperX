@@ -302,6 +302,9 @@ extension Harness {
             startTime: 0.5, rate: 0, instantaneous: 1, under: directory)
         let childURL = directory.appendingPathComponent("particles/audio-child.json")
         var childDefinition = try JSONSerialization.jsonObject(with: Data(contentsOf: childURL)) as! [String: Any]
+        var emitters = childDefinition["emitter"] as! [[String: Any]]
+        emitters[0]["origin"] = "128 42 -19"
+        childDefinition["emitter"] = emitters
         childDefinition["operator"] = [["name": "turbulence", "mask": "1 1 0", "scale": 0.02,
             "speedmin": 25, "speedmax": 25, "phasemin": 1, "phasemax": 1,
             "timescale": 0, "audioprocessingmode": 3]]

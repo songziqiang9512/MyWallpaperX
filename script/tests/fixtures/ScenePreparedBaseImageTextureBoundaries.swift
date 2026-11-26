@@ -31,13 +31,17 @@ struct SceneTextureCandidate {
     var physicalSize: CGSize { CGSize(width: texture.width, height: texture.height) }
     let samplingMarker = "authored-sampling"
 }
+enum SceneFrameTextureIdentity { case asset(SceneAssetTextureIdentity) }
+struct SceneTextureProviderPublication {
+    let requestIdentity: SceneFrameTextureIdentity
+    let candidate: SceneTextureCandidate
+    let contentGeneration: UInt64
+    var isComplete: Bool { true }
+}
+enum SceneTextureProviderState { case ready(SceneTextureProviderPublication) }
+
 struct TestContainer {
-    struct ConditionalVariant {
-        enum Condition { case boolean(String), equals(String, String) }
-        let id: UInt32
-        let condition: Condition
-    }
-    var conditionalVariants: [ConditionalVariant] = []
+    var conditionalVariants: [SceneTexContainer.ConditionalVariant] = []
     var reason: String? = nil
     var format = 0
     var isVolume = false
@@ -210,6 +214,15 @@ final class SceneTextureLoader {
                                  checkCancellation: (() throws -> Void)? = nil) throws -> CGSize? {
         try checkCancellation?()
         return CGSize(width: 20, height: 10)
+    }
+    enum CandidateOutcome { case loaded(SceneTextureCandidate), failed }
+    func loadCandidate(from prepared: PreparedTexSource, purpose: SceneTextureLoadPurpose,
+                       device: MTLDevice, conditionalVariantIDs: Set<UInt32>?,
+                       checkCancellation: (() throws -> Void)? = nil) throws -> CandidateOutcome {
+        try checkCancellation?()
+        guard case let .loaded(loaded) = controlledLoad(url: prepared.input, device: device),
+              let candidate = loaded.candidate else { return .failed }
+        return .loaded(candidate)
     }
     func controlledLoad(url: SceneResourceView.FileInput, device: MTLDevice,
                         videoPayload: Bool = false) -> SceneBaseImageTextureLoad.Outcome {

@@ -33,8 +33,6 @@ extension SceneMetalRenderer {
 
     func admitResolvedMaterialFrameTargets(
         imageTextures: SceneBaseImageTextureSnapshot,
-        spriteAnimations: [Int: SceneSpriteAnimation],
-        spriteAnimationPlaybackTimes: [Int: Float],
         frameVisibleLayerIDs: Set<Int>,
         sourcePlan: SceneDependencyRenderPlan.SourcePreparationPlan,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
@@ -65,8 +63,6 @@ extension SceneMetalRenderer {
         var baseMaterialSelections: [Int: SceneBaseMaterialTextureSelection] = [:]
         switch preflightResolvedMaterialFrameTargets(
             imageTextures: imageTextures,
-            spriteAnimations: spriteAnimations,
-            spriteAnimationPlaybackTimes: spriteAnimationPlaybackTimes,
             performanceTelemetry: performanceTelemetry,
             specializedBaseTextureSamplings: specializedBaseTextureSamplings,
             imagePipeline: imagePipeline,

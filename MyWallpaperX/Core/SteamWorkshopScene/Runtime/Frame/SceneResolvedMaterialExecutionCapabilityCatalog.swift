@@ -155,6 +155,12 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             materials[.init(effect: node.effect, nodeIndex: node.nodeIndex)]
         }
 
+        var supportsSingleCapturedMaterial: Bool {
+            guard sourceRoute == .capturedMainTargetTexture, !isGraphOutputProvider,
+                  stages.count == 1, let graph = stages.first?.product.graph else { return false }
+            return graph.renderTargets.isEmpty && graph.nodes.count == 1
+        }
+
         func material(effect: Graph.EffectKey, nodeIndex: Int) -> MaterialCapability? {
             materials[.init(effect: effect, nodeIndex: nodeIndex)]
         }
@@ -163,6 +169,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     private let ownerID: UUID
     private let capabilitiesByLayerID: [Int: LayerCapability]
     let audioConsumerLayerIDs: Set<Int>
+    let privateLayerAlphaPreservingIDs: Set<Int>
     let systemProviderConsumerLayerIDs: [SceneSystemProviderTextureIdentity: Set<Int>]
     private let productAuthorityRejectionReasonsByLayerID: [Int: String]
     private let dynamicVisibleRootLayerIDs: Set<Int>
@@ -174,6 +181,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         ownerID: UUID,
         capabilitiesByLayerID: [Int: LayerCapability],
         audioConsumerLayerIDs: Set<Int>,
+        privateLayerAlphaPreservingIDs: Set<Int> = [],
         systemProviderConsumerLayerIDs: [SceneSystemProviderTextureIdentity: Set<Int>],
         productAuthorityRejectionReasonsByLayerID: [Int: String],
         dynamicVisibleRootLayerIDs: Set<Int>,
@@ -182,6 +190,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         self.ownerID = ownerID
         self.capabilitiesByLayerID = capabilitiesByLayerID
         self.audioConsumerLayerIDs = audioConsumerLayerIDs
+        self.privateLayerAlphaPreservingIDs = privateLayerAlphaPreservingIDs
         self.systemProviderConsumerLayerIDs = systemProviderConsumerLayerIDs
         self.productAuthorityRejectionReasonsByLayerID = productAuthorityRejectionReasonsByLayerID
         self.dynamicVisibleRootLayerIDs = dynamicVisibleRootLayerIDs
@@ -299,9 +308,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 case .resolved(let materials, let activation):
                     targets.formUnion(activation?.liveConsumerTargets ?? [])
                     for material in materials.values {
-                        for declaration in material.template.uniformDeclarations {
-                            guard case let .dynamic(dynamic) = declaration.value,
-                                  dynamic.valueContributors.count == 1,
+                        for dynamic in material.variants.launchEnvelopeCapabilitySnapshot().dynamicUniforms {
+                            guard dynamic.valueContributors.count == 1,
                                   case .userProperty = dynamic.valueContributors[0]
                             else { continue }
                             targets.insert(dynamic.target)
@@ -322,11 +330,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 switch stage.execution {
                 case .resolved(let materials, _):
                     for material in materials.values {
-                        for declaration in material.template.uniformDeclarations {
-                            guard case let .dynamic(dynamic) = declaration.value,
-                                  dynamic.primaryValueContributor == .sceneScript else {
-                                continue
-                            }
+                        for dynamic in material.variants.launchEnvelopeCapabilitySnapshot().dynamicUniforms
+                        where dynamic.primaryValueContributor == .sceneScript {
                             targets.insert(dynamic.target)
                         }
                     }

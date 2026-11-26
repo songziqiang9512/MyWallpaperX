@@ -163,6 +163,9 @@ nonisolated extension SceneScriptDynamicLayerRuntime {
         case let .particle(layerID, .count) where layerID == layer.id && layer.contentKind == "particle":
             .init(target: target, valueType: .scalar,
                   authoredValue: .scalar(layer.particleInstanceOverride?.count?.value?.scalarValue ?? 1))
+        case let .particle(layerID, .size) where layerID == layer.id && layer.contentKind == "particle":
+            .init(target: target, valueType: .scalar,
+                  authoredValue: .scalar(layer.particleInstanceOverride?.size?.value?.scalarValue ?? 1))
         case let .effectVisibility(layerID, effectIndex)
             where layerID == layer.id && layer.effects.indices.contains(effectIndex):
             .init(target: target, valueType: .bool, authoredValue: .bool(layer.effects[effectIndex].visible ?? true))

@@ -66,7 +66,7 @@ final class HistorySurfacePuppet {
     func apply(scriptBoneMutations: [SceneScriptPuppetBoneMutation]) {
         fatalError("Puppet is outside the history fixture")
     }
-    func prepareFrame(animationFrame: Int, frameIndex: UInt64? = nil) -> Int {
+    func prepareFrame(animationFrame: Int, frameIndex _: UInt64? = nil) -> Int {
         fatalError("Puppet is outside the history fixture")
     }
 }

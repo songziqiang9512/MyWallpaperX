@@ -4,7 +4,7 @@ nonisolated extension SceneParticleSimulator {
     func apply(
         _ value: SceneParticleOperator,
         operatorIndex: Int,
-        duration: Double,
+        duration: Double, timing: SceneParticleFrameTiming, rate: Double,
         existingParticleIDUpperBound: UInt64 = .max,
         controlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil,
         collisionBoundsFrame: SceneParticleCollisionBoundsFrame? = nil
@@ -159,8 +159,9 @@ nonisolated extension SceneParticleSimulator {
 #endif
                 break
             }
+            let instanceSize = effectiveSizeOverride
             for index in particles.indices {
-                particles[index].size *= plan.value(at: normalizedLives[index])
+                particles[index].size *= plan.value(at: normalizedLives[index]) * instanceSize
             }
 #if DEBUG
             if observesParticles {
@@ -193,10 +194,7 @@ nonisolated extension SceneParticleSimulator {
             let blend = executionPlan.blend
             for index in particles.indices {
                 let factor = oscillationFactor(
-                    oscillationPlan,
-                    index,
-                    operatorIndex,
-                    age: particles[index].age
+                    oscillationPlan, particleID: particles[index].id, age: particles[index].age
                 )
                 particles[index].alpha *= 1 + (factor - 1)
                     * operatorBlend(blend, normalizedLives[index])
@@ -217,10 +215,7 @@ nonisolated extension SceneParticleSimulator {
             let blend = executionPlan.blend
             for index in particles.indices {
                 let factor = oscillationFactor(
-                    oscillationPlan,
-                    index,
-                    operatorIndex,
-                    age: particles[index].age,
+                    oscillationPlan, particleID: particles[index].id, age: particles[index].age,
                 )
                 particles[index].size *= 1 + (factor - 1)
                     * operatorBlend(blend, normalizedLives[index])
@@ -265,42 +260,33 @@ nonisolated extension SceneParticleSimulator {
             }
 #endif
         case .turbulence:
-            guard let plan = turbulencePlans[operatorIndex] else {
+            guard let plan = operatorExecutionPlans[operatorIndex].turbulence else {
 #if DEBUG
                 componentObservation?.record("operator", operatorIndex, "unavailable", reason: "prepared-plan-unavailable", time: simulationTime)
 #endif
                 break
             }
-            let speedOverride = effectiveSpeedOverride
-            let phaseAudioFactor = plan.audioResponse.map {
-                1 + evaluateAudioResponse(
-                    $0, componentKind: .operator, componentIndex: operatorIndex
-                )
+            guard plan.scale != 0, plan.mask != .zero else { break }
+            let strength = operatorExecutionPlans[operatorIndex].audioResponse.map {
+                evaluateAudioResponse($0, componentKind: .operator, componentIndex: operatorIndex)
             } ?? 1
+            guard strength != 0 else { break }
+            let forceTime = duration * timing.turbulenceForceFactor * effectiveSpeedOverride * strength
+            let clockOffset = timing.sceneTime * (plan.timeScale * rate)
+            let usesParticleRandom = plan.phaseSpan != 0 || plan.speedSpan != 0
             let seed = simulationSeed
-            let time = simulationTime
+            let blend = operatorExecutionPlans[operatorIndex].blend
             let lives = normalizedLives
             particles.withUnsafeMutableBufferPointer { buffer in
                 for index in buffer.indices {
-                    let particleID = buffer[index].id
-                    let phase = Self.turbulenceRandom(
-                        plan.phaseMinimum, plan.phaseMaximum,
-                        particleID: particleID, seed: seed, operatorIndex: operatorIndex, salt: 0
-                    ) * phaseAudioFactor
-                    let speed = Self.turbulenceRandom(
-                        plan.minimumSpeed, plan.maximumSpeed,
-                        particleID: particleID, seed: seed, operatorIndex: operatorIndex, salt: 1
-                    ) * speedOverride
-                    let direction = SceneParticleSimulationMath.turbulenceDirection(
-                        position: buffer[index].position,
-                        time: time,
-                        phase: phase,
-                        scale: plan.scale,
-                        timeScale: plan.timeScale,
-                        mask: plan.mask
+                    let unit = usesParticleRandom
+                        ? SceneParticleRandomGenerator.particleUnit(id: buffer[index].id, seed: seed) : 0
+                    let point = (SIMD3<Float>(buffer[index].position) + Float(clockOffset + unit * plan.phaseSpan)) * plan.scale
+                    let force = SceneParticleSimulationMath.continuousTurbulence(at: point, mask: plan.mask)
+                    let speed = plan.minimumSpeed + unit * plan.speedSpan
+                    SceneParticleSimulationMath.addFinite(
+                        force * (speed * forceTime * operatorBlend(blend, lives[index])), to: &buffer[index].velocity
                     )
-                    let delta = direction * speed * duration * plan.blendAmount(lives[index])
-                    SceneParticleSimulationMath.addFinite(delta, to: &buffer[index].velocity)
                 }
             }
 #if DEBUG
@@ -376,42 +362,68 @@ nonisolated extension SceneParticleSimulator {
                 normalizedLives: normalizedLives,
                 blendPlan: operatorExecutionPlans[operatorIndex].blend
             )
-        case .remapValue:
-            if let plan = operatorExecutionPlans[operatorIndex].scalarSpeedRemap {
+        case let .remapValue(remap):
+            switch remap {
+            case let .velocityNoise(plan)?:
                 for index in particles.indices {
-                    guard let multiplier = SceneParticleSimulationMath.scalarSpeedRemapMultiplier(
-                        plan, normalizedLife: normalizedLives[index],
-                        particleID: particles[index].id, simulationSeed: simulationSeed
+                    guard let amount = SceneParticleSimulationMath.remapNoiseAmount(
+                        position: particles[index].position,
+                        time: simulationTime,
+                        particleID: particles[index].id,
+                        simulationSeed: simulationSeed,
+                        inputScale: plan.inputScale
                     ) else { continue }
-                    let velocity = particles[index].velocity * multiplier
-                    guard acceptsMotionResult(velocity, particles[index].position,
-                        component: "remapvalue-speed") else { continue }
-                    particles[index].velocity = velocity
+                    particles[index].velocity = plan.minimum + (plan.maximum - plan.minimum) * amount
 #if DEBUG
-                    componentObservation?.record("operator", operatorIndex, "evaluated", reason: "speed-remap-result-accepted", time: simulationTime, particleID: particles[index].id)
+                    componentObservation?.record("operator", operatorIndex, "evaluated", reason: "velocity-remap-evaluated", time: simulationTime, particleID: particles[index].id)
 #endif
                 }
-                break
-            }
-            guard let plan = operatorExecutionPlans[operatorIndex].velocityRemap else {
+            case let .scalar(plan)?:
+                switch plan.consumer {
+                case let .speedNoise(inputScale):
+                    for index in particles.indices {
+                        guard let multiplier = SceneParticleSimulationMath.scalarSpeedRemapMultiplier(
+                            plan, inputScale: inputScale, normalizedLife: normalizedLives[index],
+                            particleID: particles[index].id, simulationSeed: simulationSeed
+                        ) else { continue }
+                        let velocity = particles[index].velocity * multiplier
+                        guard acceptsMotionResult(velocity, particles[index].position,
+                            component: "remapvalue-speed") else { continue }
+                        particles[index].velocity = velocity
+#if DEBUG
+                        componentObservation?.record("operator", operatorIndex, "evaluated", reason: "speed-remap-result-accepted", time: simulationTime, particleID: particles[index].id)
+#endif
+                    }
+                case let .opacity(input, operation):
+                    guard !particles.isEmpty else { break }
+                    let mapped = plan.value(at: input.amount(at: timing.sceneTime))
+                    guard mapped.isFinite else { break }
+                    let blend = operatorExecutionPlans[operatorIndex].blend
+#if DEBUG
+                    var observedParticleID: UInt64?
+#endif
+                    for index in particles.indices {
+                        let current = particles[index].alpha
+                        let value = operation == .multiply ? current * mapped : mapped
+                        let weight = operatorBlend(blend, normalizedLives[index])
+                        let alpha = weight == 1 ? value : current + (value - current) * weight
+                        guard Float(alpha).isFinite else { continue }
+                        particles[index].alpha = alpha
+#if DEBUG
+                        observedParticleID = particles[index].id
+#endif
+                    }
+#if DEBUG
+                    if let observedParticleID {
+                        componentObservation?.record("operator", operatorIndex, "evaluated", reason: "opacity-remap-evaluated", time: simulationTime, particleID: observedParticleID)
+                    }
+#endif
+                }
+            case nil:
 #if DEBUG
                 componentObservation?.record("operator", operatorIndex, "unavailable", reason: "prepared-plan-unavailable", time: simulationTime)
 #endif
                 break
-            }
-            for index in particles.indices {
-                guard let amount = SceneParticleSimulationMath.remapNoiseAmount(
-                    position: particles[index].position,
-                    time: simulationTime,
-                    particleID: particles[index].id,
-                    simulationSeed: simulationSeed,
-                    inputScale: plan.inputScale
-                ) else { continue }
-                particles[index].velocity = plan.minimum
-                    + (plan.maximum - plan.minimum) * amount
-#if DEBUG
-                componentObservation?.record("operator", operatorIndex, "evaluated", reason: "velocity-remap-evaluated", time: simulationTime, particleID: particles[index].id)
-#endif
             }
         case .reduceMovement:
 #if DEBUG

@@ -7,7 +7,7 @@
 
 作者 shader 沿现有 GLSL-like normalization → glslang → SPIR-V → SPIRV-Cross → MSL 编译链准备；有界 Swift frontend 是具有明确输入范围的共享回退。两者复用源身份、uniform/sampler、颜色事实及 Program，不按效果名创建 renderer。
 
-准备阶段完成 include、宏、combo/pass、语法、活跃接口、变体、uniform layout 和 PSO 预热。普通帧只能选择已准备变体并绑定当前值；缺 key 返回 typed failure，不回到编译器。
+冷准备接口、变体与PSO，帧内只取变体及当前值。uniform与静态循环取 `material` 注解键，实例同键覆盖，缺键用默认；无注解沿GLSL名。动态校验和脚本沿绑定。
 
 - shader 注解保留源行、原声明和诊断。仅被现入口分类为纯注释 COMBO 损坏记录的情形可跳过该条 metadata；不伪造 annotation/default，也不吞代码、inline 声明或来源完整性错误。
 - `VERSION`/`SHADERVERSION` 没有可信客户端版本 provider。未消费记录不阻止无关源码，但不能注入宏或授权实际版本分支；活跃读取仍拒绝。
@@ -82,7 +82,7 @@ Program仍准备一个数值binding，主身份供原ABI/语义身份、直user�
 
 <a id="missing-ordinary-material-texture"></a>活动效果的普通可见副槽 `sampler2D` 无来源时，官版按 6×6 不透明黄黑棋盘采样，左上黑，逐像素交替，最近点且重复寻址。物理及映射尺寸均为6。普通显式 TEX 经 VFS 确认缺失也是同一采样。原帧准备采用一个内部系统引用，经现有静态纹理发布，共用一张按需生成的 RGBA8。尺寸、用途、采样器随原 binding publication，下游不根据 nil 猜默认，不新增逐帧合成、缓存或载入路径。
 
-冷准备按实际活动槽资格投影到原资源需求、启动与 prepared 默认选择。作者键名由声明引用，非保留键依原数据流证明用途。已解析普通资源优先。图输入按原 ingress 规则准备，声明默认、格式/显隐组合、已登记专用资产、pending 和解码失败沿各自合同。候选确实耗尽才选择棋盘。内部 provider 由准备默认创建，作者的 system 引用沿原输入入口拒绝该内部名。
+冷准备按实际活动槽资格投影到原资源需求、启动与 prepared 默认选择。作者键名由声明引用，非保留键依原数据流证明用途。已解析普通资源优先。隐式/显式图来源、声明默认、格式/显隐组合、专用纹理、pending 及无法解码的资源沿自身合同。只在候选确实耗尽时选择棋盘。未证用途不得冒充已查证文件缺失。 内部缺失贴图名称归系统供货，作者不能借同名资源触发。贴图已识别但在等待、解码失败，或槽属特定格式／专用提供者时，沿各自准备结果处理。
 
 验收继续覆盖 Resolution-only、默认和真实资源尺寸及改名/等价变体。活动采样另核官版棋盘及槽位留空、显式缺失、存在资源，保 graph、无活动采样与旧作者局部失败反例。原3556263543须有五道作者效果实际编码并改变时钟字缘。另以独立作者的活动效果验证采样和尺寸。[运行证据](runtime-evidence-current.md#missing-ordinary-material-texture-evidence)
 
@@ -239,9 +239,11 @@ Utility graph provider 在原 utility 触发点取 source、执行与发布，�
 <a id="independent-named-source"></a>
 ### 独立来源的 named 发布
 
+无效果 Sprite 被读取时，当帧基图从同一播放时间取 UV、采样器和像素范围。预约与原捕获使用这份帧样本，发布局部纹理，隐藏层仍不进入主合成。普通图片和已执行图输出沿各自原来源。无可用帧只丢受影响的输入。验收含两相位、改名、缺源和独立静态对照。
+
 来源是否依赖合成顺序，由它真正读取的内容决定。普通图片、文字、solid 的独立来源与 geometry 沿原捕获器发布；没有成员、没有效果的 composition 在 `copyBackground=false` 时拥有透明空来源。它不读取 enclosing attachment，按需直接清原 reserved named target 并发布，不造空 Program、graph ticket、group target 或第二份纹理。已预约的空来源只消费原 target 尺寸，不因局部画布与主屏投影不同而重算捕获尺寸。solid 消费 candidate 的真实颜色表示，straight RGB 在捕获时关联自身 alpha 后发布 PMA；已有 PMA 不重复关联，并保真实 source texture 与本帧 tint/alpha。不能因 provider 位于 consumer 后面就被 kind 白名单拒绝。effectful provider 仍消费实际 graph 输出，不能以清空或 base texture 冒充材质结果。
 
-这些独立来源可由原 forward prepass 供货，实际顺序点再次遇到时复用原 frame epoch 的已发布 target，不二次捕获。读取 attachment prefix 或成员 subtree 的来源保原取源截点；不能为满足前向引用而挪到全局 prepass、借父组背景或使用上一帧。执行计划使用 utility 展开顺序与原捕获 trigger；cold candidate 的准入仍使用原始 renderOrder，二者的准入差异尚未统一。独立来源的提前准备不改变作者主合成顺序。
+原截点计划决定独立来源的提前或作者位捕获。作者位只消费本帧被请求的来源，停用或隐藏消费者的冷声明不触发捕获。读取 attachment prefix 或成员 subtree 的来源保原取源截点；不能为满足前向引用而挪到全局 prepass、借父组背景或使用上一帧。执行计划使用 utility 展开顺序与原捕获 trigger；cold candidate 的准入仍使用原始 renderOrder，二者的准入差异尚未统一。独立来源的提前准备不改变作者主合成顺序。
 
 缺 source 或普通编码失败只使消费它的 operation 保 previous-current，健康后继继续；错误 epoch、resource、content、extent 与 pin 仍由原发布/资源入口拒绝。验收沿现有依赖计划、composition source 与签名 App 门：前/后置 solid 同像素，资源/ID/槽位改名、真实 alpha/tint、无效果透明来源与彩色 enclosing prefix 可区分，缺源及健康 peer 有正反例。无需求不分配或发布；原作者定向复验只授实际 source→publication→sampler→terminal 链，不外推背景前缀取时或逐资产最终贡献。
 
@@ -263,11 +265,18 @@ Geometry 的 primary named 输入表示 provider 自身的 authored-local 色图
 <a id="childless-composition-local-effect-raster"></a>
 ### 无子 Composition 的局部效果栅格
 
-无子 Composition 在作者位取主画布前缀，取样及回绘沿原 UV 和投影。工作栅格由作者局部尺寸给定，世界 TRS、窗口和相机只影响取源及放置。Metal 真实物理/映射尺寸继续提供 `g_TextureNResolution`，`g_TexelSize` 仍属当前画面。
+无子 Composition 在作者位取主画布，原 UV、TRS 和相机决定取样与摆位；作者局部尺寸定义栅格。`g_TextureNResolution` 取真实物理与映射尺寸，`g_TexelSize` 属画面。单一全覆盖颜色段可与截取共用 encoder。冷准备证明单来源同像素、片元独立；实际绑定为等规格的原截取时，资源 owner 在材质终图截取，再用原材质无混合读 `color(0)`，保量化、颜色表示与 compositor。其余外纹理、局部覆盖、具名、历史及准备不可用沿分开编码，失败归原事务。
 
-原 FramePreflight 为已有局部尺寸、正交、无成员且读取主画布的普通 Composition 优先预约精确作者栅格。超过常用2048时，沿已有精确目标偏好与原子预算准入，为捕获和 graph pair 选择同一尺寸。异尺寸偏好按原顺序共用一个额外尺寸名额。超硬限、预算拒绝与历史链沿原等比限额绘制。停用效果的透传沿同一栅格。组、显式 framebuffer source、具名发布、透视、attachment-read replay 与其他层保各自路径。沿唯一 compositor 回绘，不伪报纹理尺寸，也不追加栅格或资源 owner。
+正交无成员、取主画布且有作者尺寸时，FramePreflight 按精确目标偏好与原子预算预约同栅格捕获和 graph pair。超常用2048时按原顺序共享一个异尺寸档；超硬限、预算拒绝及历史保等比限额。停用透传保栅格；组、显式来源、透视或主附件重放各沿自身路径。
 
-验收保原背景截点、改名、非等比放置和小局部窗，补超2048的真采样及超硬限反例。原344的官版相邻像素、`Resolution`、格距与实际 GPU 回绘和成本须同条件复核，独立宽幅作者另验颜色链。旧314的弧、平移和 Spin 沿原合成验证。
+验收截点、改名、局部/非等比、超2048采样和超限，合并另验完整 HDR/SDR 像素、非同像素、独立作者和整景成本。344格距与314弧仍沿实图核。
+
+<a id="plain-project-color-blend"></a>
+### 无效果 Project 的作者位颜色混合
+
+顶层正交无成员的 Project 若复制背景且作者选择非零颜色混合，从自己的作者位取得当前画布前缀并回绘。裁取和放置由原场景正交画幅与 Project 变换决定，独立的 size 字段不裁这个画布。已测 mode30 用同一前缀作为层色和底色，全幅无效果时默认与 alpha .5 的结果相同。无混合、关闭背景复制和隐藏层保已有无写入行为。
+
+由原 Utility plan 建立当帧有效的截点。原 Utility renderer 捕获一次来源，再交唯一 compositor 与已有颜色混合公式。不建空 Program、独立缓存或第二输出，保留目标 alias、失败与已接入的效果/组/具名边界。验收沿原作者根与整景，比较开启、常规模式、关闭取源、移到来源前、透明度和局部放置；另查改名及独立真实 Project。
 
 <a id="solid-background-local-effect-raster"></a>
 ### 读取当前主画布的固体局部效果链
@@ -295,9 +304,20 @@ Geometry 的 primary named 输入表示 provider 自身的 authored-local 色图
 <a id="root-quad-current-color-blend"></a>
 ### 普通四边形的主色混合
 
-根主画布上恒定正齐次 W 的普通高级混合 quad，来源存储与目标分离且单采样格式支持时，在作者截点读 `color(0)`。无子 Composition 可用同一入口。原 MainPass 承接前绘、清屏和 load；两条入口共用混合、雾、覆盖及 alpha。当前颜色直接读退出背景复制，完整快照继续服务历史、具名、组、网格、折射及未取得 PSO 的路径。保原 source 和唯一终端写。
+根主图恒正 W 的普通 quad 经 `color(0)` 混合，须单采样、格式支持且来源独立。无子 Composition 共用。其它用原快照。[Metal imageblock](https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf)。<br><a id="puppet-background-footprint"></a>高级混合 Puppet 保冻结背景。原静态网格准备或动画顶点装配只为该混合求 XY 界，与同帧网格发布。根主图恒正 W 用当前 MVP 投影四角，在原坐标外扩复制；组、变 W、界不可用走全图。没有新池或读回。
 
-验收看普通/HDR、相邻重叠、清屏、透明与非法网格，原包核历史、前后绘和实呈，单测复制、GPU 和目标成本。 [Metal 隐式 imageblock](https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf)。
+两格式与全图快照逐像素比，含重叠、移动、镜像、裁边和回退。原367核实呈及驻留，独立作者核实际终图。
+
+<a id="zero-alpha-private-graph"></a>
+### 保留来源覆盖的私有图省略零透明度帧
+
+3673609113 的片头淡出后，根 Puppet 1098 和普通图像 2030 的私有颜色图在实际零覆盖时只会回写原背景。1098 的 Tint 及 2030 的 Tint→Shimmer，固定 12 秒各与隐藏图层的对照等像素。图层可见的阶段须继续使用原图，任何效果写入 alpha 均可能在作者图层 alpha 为零时重建覆盖。
+
+复用已缓存的 sampled RGBA carrier 和原选槽事实。直采样的载体须在顶层初始化并作为终端输出，期间只允许访问 RGB 成员。整向量逸出、下标改写和经别名的覆盖缺少此证明。原编译将载体槽绑定到实际 effect ingress，显式图槽与隐式 alias 按准备身份裁决。冷图依次核对捕获源及上一阶段输出，每段限单一终端颜色节点、透明清底的全通道覆盖和已准备的保 alpha 变体，动态启停沿原直通。无历史、copy/clear、具名供货、主色背景或环境依赖。退出在 Tint 类限定颜色混合结构上搭载的 alpha 许可。
+
+仍由原帧入口只筛已准备身份，须精确 alpha 零、无分组合成、雾、终端深度或活动 capture consumer，几何和普通图像都消费原规则。原终端用同一混合语义辨认零覆盖恒等模式，精确零直接取当前背景，避免未显示的直色 NaN 污染前缀。Min/Max、Soft Light 与 HSL 沿原合成。先退出本帧图目标分配与所有私有编码，再由唯一有序合成保留层、动画、pose、资源和后继截点。不新增池、PSO、帧解析或画面路径。
+
+验收核实际出图的早段、精确零、改名/等价成员、重写 alpha、深度及旁路；独立作者核真实终端。原包按同时间与真实主图对照省去的阶段，保两级作者历史。低观察同配置按交错帧分布评价可比成本。
 
 <a id="scaled-image-framebuffers"></a>
 ### 普通根图像的相对帧缓冲
@@ -368,12 +388,12 @@ Program 只对已证明的颜色槽做 PMA/straight 适配；data/signal 保原�
 
 仅红通道 scalar 或 alpha-only 读取有各自准备证明，不能从一条 swizzle 推出整张纹理是 mask。未知用途、混合颜色/数据流或反射不守恒保持局部拒绝。R/A preserved-channel 路径不能外推所有 `.xw` generic artifact 已有完整输出证明。
 
-HDR 合成与显示 EDR 分开：scene color/Bloom 先保浮点范围，唯一终端进行 SDR 裁剪或当前显示 headroom 映射。normal/roughness 不做显示变换。截图导出是普通预览，不能证明物理 EDR 高光。当前 light/receiver 范围见[光照](advanced-object-coverage.md#lighting)。
+HDR 合成与显示 EDR 分开。已取得附件读取资格的单采样 RGBA16F 清色帧，沿原终端按顺序在同一 encoder 叠加 HDR Bloom、从 `color(0)` 映射 SDR 或 EDR，省一次全尺寸附件存取。保两套 PSO、色域、alpha 和唯一输出。持久 raw 和独立纹理输入沿原路径；Bloom 停用或编码失败时，显示映射仍可单独编码。诊断记录联合区间。验收比较完整像素、真实失败、原包及独立作者样本。物理 EDR 需实际显示取证，受光范围见[光照](advanced-object-coverage.md#lighting)。
 
 <a id="hdr-bloom-extraction"></a>
 HDR Bloom 的亮度阈值作用于已完成 source 的物理像素，随后才做空间降采样；同一峰值不能因高光变窄或移动一个像素而先被均值降到阈值下。输入保持当前项目颜色域，不插入未经验证的 gamma 转换。首级半尺寸 pass 按每个目标像素覆盖的源像素面积，平均逐源像素的 soft-threshold 贡献；常规尺寸为2×2，奇数尺寸最多3×3，完整覆盖末行列。它替换旧的先 tent 均值再提取，不叠加补偿增益；后续金字塔、重建权重、作者 threshold/feather/strength/scatter/iterations、alpha 与唯一终端保持原职责。
 
-该修正留在现有 `SceneBloomPostProcess`/Metal 首级pass，不新增全尺寸纹理、pass、PSO、uniform ABI、缓存或质量owner。中间失败不写回source，零strength不编码，非HDR保原算法。原[真实Bloom门](../../../script/tests/scene/test_scene_bloom_post_process.py)保宽块/细线、相位、奇数边界、软阈值、alpha及局部失败；13项旧均匀场原始采集质量仍unknown，仅作历史回归，不授整组Ultra身份或限制默认Ultra目标。新6组明确Ultra控制中，5个已有对应量化点与Native相同，另一个低亮关闭正控单列；不是给旧13补造身份。当前Ultra宽块off/on/off-repeat的近中远轮廓与Native接近，细线/单点受JPEG低码与串光限制，未给改变当前空间重建的明显反证。总响应仍不能唯一确定各层权重/核；替代空间重建提案已撤回且无产品实现，现有owner/算法不变，不继续靠泛光调参补偿水滴。后继沿模型反射、辐射与分辨率的真实消费者取得可区分证据；未授官方精确HDR浮点、空间核、全水滴或性能一致。
+首级空间提取仍由 `SceneBloomPostProcess` 与原 Metal pass 承担。原[真实 Bloom 门](../../../script/tests/scene/test_scene_bloom_post_process.py)核宽块、细线、相位、奇数边界、软阈值、alpha 和局部失败。13项旧均匀场采集质量未知。明确 Ultra 的6组中，5组有相同量化点，低亮关闭单列；宽块 off/on/off-repeat 的近中远轮廓接近。细线与单点受 JPEG 低码和串光限制。现有响应不足以唯一确定重建核或权重，替代提案已撤；水滴余项沿反射、辐射和分辨率定位。
 
 <a id="history"></a>
 ## Target、copy 与 history
@@ -420,9 +440,11 @@ Surface 采用已提交销毁成员时，原 Coordinator 过滤该层 committed 
 <a id="inactive-terminal-source-capture"></a>
 ### 停用阶段的双缓冲
 
-图层纹理的唯一阶段停用且无显式目标时，原源捕获可直写固定末端，保色彩、发布与提交。捕获命令仍带前缀、依赖附件、有读写冲突或遇到错误旁路时走原入口。连续停用阶段的首个整图 blit 令事务内两成员等价，随后沿用实际目的成员及发布。活动写入与视觉失败撤掉证明；捕获重定向或同成员旁路不建立等价。FBO/history 仍用原独立纹理。
+唯一停用阶段无显式目标时，原源捕获可直写固定末端，保色彩、发布与提交。带前缀、依赖附件、读写冲突和错误旁路沿原入口。连续停用阶段的首个整图 blit 令事务内两成员等价，随后沿用实际目的成员及发布。活动写入与视觉失败撤掉证明；捕获重定向或同成员旁路不建立等价。FBO/history 仍用原独立纹理。
 
-验收核活动写入或失败后的首次复制、固定末端像素、replay 与具名供货。用[真实宽幅及独立作者](runtime-evidence-current.md#quality-wide-composition)核画面和实际复制。GPU 耗时仅在同条件且波动可分辨时比较。
+已准备的多段图在末段停用、无该段作者目标且只向原合成链供图时，复用入口的实际纹理。执行器通过原图资源重绑发布末段逻辑身份，保物理槽、颜色表示、generation 和原在途租约。冷计划、活动阶段及中间消费者继续使用计划槽；末端由实际发布与合成回执裁决，诊断记录实际槽。退役这条路径上只为固定末端槽执行的复制。两成员已等价、单段源重定向、视觉失败、显式目标及具名供货继续走原路径；不增加每帧扫描或新资源 owner。
+
+验收核末段停用、热启及再次停用的真实读写与最终像素，核前置停用、视觉失败、共享双缓冲后继及具名供货。原作者的历史读写与独立样本回归按原门；性能按隔离 A/B 计实际复制、GPU 与实呈。[画质分支同栅格 A/B](runtime-evidence-current.md#quality-wide-composition)及[主线宽幅与独立作者](runtime-evidence-current.md#composition-passthrough-reuse-evidence)记录原透传路径。
 
 <a id="limits"></a>
 ## 当前边界与回归

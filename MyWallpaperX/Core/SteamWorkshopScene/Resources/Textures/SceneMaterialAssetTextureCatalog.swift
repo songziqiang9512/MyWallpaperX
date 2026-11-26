@@ -1,9 +1,28 @@
 import Foundation
 import Metal
 
+nonisolated struct SceneTextureAtlasConditions {
+    let bindings: [UInt32: SceneTexContainer.Condition]
+
+    init(_ variants: [SceneTexContainer.ConditionalVariant]) {
+        bindings = Dictionary(uniqueKeysWithValues: variants.map { ($0.id, $0.condition) })
+    }
+
+    func selection(matching matches: (SceneTexContainer.Condition) -> Bool) -> Set<UInt32> {
+        Set(bindings.compactMap { id, condition in matches(condition) ? id : nil })
+    }
+}
+
 /// Scene/device assets prepared before the first frame. The catalog exclusively
 /// owns animated asset providers; frame publication remains the registry's job.
 final class SceneMaterialAssetTextureCatalog {
+    struct ConditionalAsset {
+        let input: SceneResourceView.FileInput
+        let conditions: SceneTextureAtlasConditions
+        let selection: Set<UInt32>
+        var identities: Set<SceneAssetTextureIdentity> = []
+    }
+
     fileprivate struct AnimatedDefinition {
         let identity: SceneAssetTextureIdentity
         let base: SceneTextureCandidate
@@ -30,9 +49,7 @@ final class SceneMaterialAssetTextureCatalog {
             let contentGeneration: UInt64
         }
 
-        private let staticStates: [
-            SceneAssetTextureIdentity: SceneTextureProviderState
-        ]
+        private let catalog: SceneMaterialAssetTextureCatalog
         private let definitions: [SceneAssetTextureIdentity: AnimatedDefinition]
         /// Deterministic animation resolution order. `definitions` is frozen
         /// at launch, so the sorted key sequence is built once instead of
@@ -41,12 +58,9 @@ final class SceneMaterialAssetTextureCatalog {
         private var cursors: [SceneAssetTextureIdentity: Cursor] = [:]
         private var frameCursorBaseline: [SceneAssetTextureIdentity: Cursor]?
 
-        fileprivate init(
-            staticStates: [SceneAssetTextureIdentity: SceneTextureProviderState],
-            definitions: [SceneAssetTextureIdentity: AnimatedDefinition]
-        ) {
-            self.staticStates = staticStates
-            self.definitions = definitions
+        fileprivate init(catalog: SceneMaterialAssetTextureCatalog) {
+            self.catalog = catalog
+            self.definitions = catalog.animatedDefinitions
             self.orderedAnimatedIdentities = definitions.keys
                 .sorted(by: SceneMaterialAssetTextureCatalog.less)
         }
@@ -60,7 +74,7 @@ final class SceneMaterialAssetTextureCatalog {
             // only when an earlier frame was not resolved.
             if frameCursorBaseline != nil { commitFrame() }
             frameCursorBaseline = cursors
-            var result = staticStates
+            var result = catalog.staticStates
             for identity in orderedAnimatedIdentities {
                 guard let definition = definitions[identity] else { continue }
                 result[identity] = state(definition, sceneTime: sceneTime)
@@ -149,10 +163,12 @@ final class SceneMaterialAssetTextureCatalog {
         }
     }
 
-    private let staticStates: [SceneAssetTextureIdentity: SceneTextureProviderState]
+    private var staticStates: [SceneAssetTextureIdentity: SceneTextureProviderState]
+    private var conditionalAssets: [SceneTextureLoader.SourceKey: ConditionalAsset]
     let preparedSourceIdentities: Set<SceneTextureLoader.SourceKey>
     private let animatedDefinitions: [SceneAssetTextureIdentity: AnimatedDefinition]
     let videoDeclarations: [SceneAssetTextureIdentity: SceneTextureLoader.VideoSourceDeclaration]
+    let launchFormatFacts: [String: Int]
     private let launchStatesByIdentity: [
         SceneAssetTextureIdentity: SceneAssetTextureLaunchState
     ]
@@ -161,6 +177,8 @@ final class SceneMaterialAssetTextureCatalog {
         demands: Set<SceneAssetTextureIdentity>,
         resourceView: SceneResourceView,
         descriptor: SceneRenderDescriptor,
+        conditionalDemands: Set<SceneAssetTextureIdentity> = [],
+        matchesCondition: (SceneTexContainer.Condition) -> Bool = { _ in false },
         textureUploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
         textureDecodeCacheBudget: SceneTextureDecodeCacheBudget = .init(
             maximumBytes: 1_024 * 1_024 * 1_024
@@ -179,6 +197,8 @@ final class SceneMaterialAssetTextureCatalog {
         )
         var sourceIdentities: Set<SceneTextureLoader.SourceKey> = []
         var loaded: [SceneAssetTextureIdentity: SceneTextureProviderState] = [:]
+        var conditionals: [SceneTextureLoader.SourceKey: ConditionalAsset] = [:]
+        var conditionalCandidates: [SceneTextureLoader.SourceKey: [SceneTextureLoadPurpose: SceneTextureCandidate]] = [:]
         var animated: [SceneAssetTextureIdentity: AnimatedDefinition] = [:]
         var videos: [SceneAssetTextureIdentity: SceneTextureLoader.VideoSourceDeclaration] = [:]
         var launchStates: [
@@ -253,10 +273,27 @@ final class SceneMaterialAssetTextureCatalog {
                 }
                 continue
             }
+            let conditional: ConditionalAsset?
+            if let prepared, let variants = container?.conditionalVariants, !variants.isEmpty,
+               conditionalDemands.contains(identity) {
+                if let existing = conditionals[prepared.source] {
+                    conditional = existing
+                } else {
+                    let conditions = SceneTextureAtlasConditions(variants)
+                    conditional = .init(input: url, conditions: conditions,
+                        selection: conditions.selection(matching: matchesCondition))
+                }
+            } else {
+                conditional = nil
+            }
             let outcome: SceneTextureCandidateLoadOutcome
-            if let prepared {
+            if let prepared, let reused = conditionalCandidates[prepared.source]?[identity.purpose],
+               conditional != nil {
+                outcome = .loaded(reused)
+            } else if let prepared {
                 outcome = try loader.loadCandidate(from: prepared, purpose: identity.purpose,
-                    device: device, checkCancellation: checkCancellation)
+                    device: device, conditionalVariantIDs: conditional?.selection,
+                    checkCancellation: checkCancellation)
             } else if let direct = sourceCohort?.direct {
                 outcome = try loader.loadCandidate(from: direct, purpose: identity.purpose,
                     device: device, checkCancellation: checkCancellation)
@@ -283,20 +320,34 @@ final class SceneMaterialAssetTextureCatalog {
                 }
                 loaded[identity] = .ready(publication)
                 launchStates[identity] = .ready(candidate.content)
+                if let prepared, var conditional {
+                    conditional.identities.insert(identity)
+                    conditionals[prepared.source] = conditional
+                    conditionalCandidates[prepared.source, default: [:]][identity.purpose] = candidate
+                }
             }
         }
         staticStates = loaded
+        conditionalAssets = conditionals
         preparedSourceIdentities = sourceIdentities
         animatedDefinitions = animated
         videoDeclarations = videos
         launchStatesByIdentity = launchStates
+        launchFormatFacts = Self.formatFacts(states: loaded, animated: animated, videos: videos.keys)
     }
 
     func makeFrameProvider() -> FrameProvider {
-        FrameProvider(
-            staticStates: staticStates,
-            definitions: animatedDefinitions
-        )
+        FrameProvider(catalog: self)
+    }
+
+    func takeConditionalAssets() -> [SceneTextureLoader.SourceKey: ConditionalAsset] {
+        let assets = conditionalAssets
+        conditionalAssets = [:]
+        return assets
+    }
+
+    func replaceConditionalAssets(_ updates: [SceneAssetTextureIdentity: SceneTextureProviderState]) {
+        for (identity, state) in updates { staticStates[identity] = state }
     }
 
     var reportLines: [String] {
@@ -304,26 +355,30 @@ final class SceneMaterialAssetTextureCatalog {
         var absent = 0
         var pending = 0
         var unavailable = 0
-        for state in staticStates.values {
+        for state in launchStatesByIdentity.values {
             switch state {
             case .ready: ready += 1
             case .absent: absent += 1
-            case .pending: pending += 1
-            case .unavailable: unavailable += 1
+            case .pending, .preparedVideo: pending += 1
+            case .unavailable, .effectLocalUnavailable: unavailable += 1
             }
         }
         return [
             "resolved material asset catalog: schema=r4-frame-assets-v1"
-                + " demands=\(staticStates.count + animatedDefinitions.count)"
-                + " ready=\(ready + animatedDefinitions.count) absent=\(absent)"
+                + " demands=\(launchStatesByIdentity.count)"
+                + " ready=\(ready) absent=\(absent)"
                 + " pending=\(pending) unavailable=\(unavailable)"
         ]
     }
 
     /// Ready values are the official 0...12 format enum. -1 is proven absent;
     /// -2 is present but not safely attributable to an authored TEX format.
-    var launchFormatFacts: [String: Int] {
-        var values = Dictionary(uniqueKeysWithValues: staticStates.map { identity, state in
+    private static func formatFacts(
+        states: [SceneAssetTextureIdentity: SceneTextureProviderState],
+        animated: [SceneAssetTextureIdentity: AnimatedDefinition],
+        videos: Dictionary<SceneAssetTextureIdentity, SceneTextureLoader.VideoSourceDeclaration>.Keys
+    ) -> [String: Int] {
+        var values = Dictionary(uniqueKeysWithValues: states.map { identity, state in
             let value: Int
             switch state {
             case let .ready(publication):
@@ -338,10 +393,10 @@ final class SceneMaterialAssetTextureCatalog {
             }
             return (identity.reportToken, value)
         })
-        for (identity, definition) in animatedDefinitions {
+        for (identity, definition) in animated {
             values[identity.reportToken] = definition.base.authoredFormat?.macroValue ?? -2
         }
-        for identity in videoDeclarations.keys {
+        for identity in videos {
             values[identity.reportToken] = SceneShaderTextureFormat.rgba8888.macroValue
         }
         return values

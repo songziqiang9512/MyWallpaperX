@@ -391,7 +391,7 @@ static void attached_capabilities_remain_owner_bound(void) {
             check(mwx_scene_quickjs_domain_update_layer_particle_playback(d, layer, playback,
             diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
             "particle playback fixture publishes");
-        check(mwx_scene_quickjs_domain_update_layer_particle_instance(d, 0, 1, 1, 1, 1,
+        check(mwx_scene_quickjs_domain_update_layer_particle_instance(d, 0, 1, 1, 1, 1, 1,
             diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
             "particle instance fixture publishes");
         const double world[16] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};

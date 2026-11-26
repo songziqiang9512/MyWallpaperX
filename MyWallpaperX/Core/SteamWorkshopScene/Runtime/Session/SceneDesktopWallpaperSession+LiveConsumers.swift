@@ -214,7 +214,7 @@ extension SceneDesktopWallpaperSession {
                 values: candidateLiveState.effectiveValues, changedKeys: acceptedKeys)
         }
         if !deferredLayerIDs.isEmpty || !conditionalSelections.isEmpty {
-            guard nextDeferredPropertyGeneration < UInt64.max else {
+            guard nextDeferredPropertyGeneration < UInt64.max - 1 else {
                 return false
             }
             nextDeferredPropertyGeneration += 1
@@ -404,7 +404,8 @@ extension SceneDesktopWallpaperSession {
         context.liveState = candidateLiveState
         if pending.hasConditionalAtlases {
             let updates = resources.finishConditionalAtlases(generation: pending.generation, commit: true)
-            for surface in adoptedSurfaces { surface.metalView.replacePreparedBaseImages(updates) }
+            context.materialAssetCatalog.replaceConditionalAssets(updates.assets)
+            for surface in adoptedSurfaces { surface.metalView.replacePreparedBaseImages(updates.baseImages) }
         }
         soundPlaybackRegistry?.apply(userValues: candidateLiveState.userValues,
             committedSnapshot: evaluationTransaction.committedSnapshot,

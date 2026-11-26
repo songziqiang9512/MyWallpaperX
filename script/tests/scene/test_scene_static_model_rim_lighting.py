@@ -163,13 +163,15 @@ class SceneStaticModelRimLightingTests(unittest.TestCase):
         self.same("half-hdr", "half-hdr-reference")
         self.same("reflection", "reflection-reference", exact=True)
         self.assertGreater(self.rows["reflection"]["rgba"][2], 1)
+        self.assertGreater(self.rows["reflection"]["depth"], 0)
+        self.assertEqual(self.rows["default-side"]["depth"], 0)
+        self.assertEqual(self.rows["half-hdr"]["depth"], 0)
         self.assertEqual(self.rows["zero-over-far"]["rgba"], [0, 0, 255, 255])
-        self.assertLess(self.rows["zero-over-far"]["depth"], self.rows["default-side"]["depth"])
+        self.assertGreater(self.rows["zero-over-far"]["depth"], 0)
         for row in self.rows.values():
             self.assertTrue(row["completed"], row)
             self.assertTrue(row["surfaceProfile"], row)
             self.assertEqual(row["outside"], [0, 0, 0, 0], row)
-            self.assertGreater(row["depth"], 0, row)
 
 
 if __name__ == "__main__":

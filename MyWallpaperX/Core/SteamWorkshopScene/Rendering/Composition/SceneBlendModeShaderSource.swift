@@ -170,4 +170,12 @@ enum SceneBlendModeShaderSource {
 
     /// 官方 `ApplyBlending` 分派表覆盖的模式编号上界；超出一律落回 Normal。
     nonisolated static let maximumMode = 32
+
+    nonisolated static func keepsBackdropAtZeroOpacity(_ blendMode: Int) -> Bool {
+        // Min/max ignore opacity. Soft Light and HSL retain their existing signed-color math.
+        switch blendMode {
+        case 0, 5, 10, 12, 26...29: false
+        default: (1...maximumMode).contains(blendMode)
+        }
+    }
 }

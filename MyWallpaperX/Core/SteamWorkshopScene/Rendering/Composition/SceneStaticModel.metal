@@ -88,7 +88,10 @@ vertex SceneStaticModelRasterVertex sceneStaticModelVertex(
     float4 worldPosition = uniforms.modelMatrix * float4(modelVertex.positionAndU.xyz, 1.0);
     out.position = uniforms.viewProjectionMatrix * worldPosition;
     out.worldPosition = worldPosition.xyz;
-    float3 transformedNormal = uniforms.normalMatrix * modelVertex.normalAndV.xyz;
+    const bool legacyLighting = (uniforms.materialFlags.x & 8u) != 0u;
+    float3 transformedNormal = legacyLighting
+        ? (uniforms.modelMatrix * float4(modelVertex.normalAndV.xyz, 0.0)).xyz
+        : uniforms.normalMatrix * modelVertex.normalAndV.xyz;
     float transformedLengthSquared = dot(transformedNormal, transformedNormal);
     out.normal = transformedLengthSquared > 1e-12
         ? transformedNormal * rsqrt(transformedLengthSquared)
@@ -420,7 +423,8 @@ fragment half4 sceneStaticModelFragment(
     sampler gradientSampler [[sampler(3)]],
     sampler pigmentSampler [[sampler(4)]],
     constant SceneStaticModelUniforms &uniforms [[buffer(1)]]) {
-    bool receivesLighting = (uniforms.materialFlags.y & 2u) == 0u;
+    const bool receivesLighting = (uniforms.materialFlags.y & 2u) == 0u;
+    const bool legacyLighting = (uniforms.materialFlags.x & 8u) != 0u;
     float4 albedo = colorTexture.sample(colorSampler, in.uv);
     if ((uniforms.materialFlags.x & 2u) != 0u) {
         albedo.rgb = albedo.a > 0.0
@@ -452,8 +456,8 @@ fragment half4 sceneStaticModelFragment(
         : float3(0.0, 0.0, 1.0);
     // Fixed unit-normal official probes give 0, .25, .5, .75, 1 as
     // normal Y goes from -1 to +1 (2026-10-09); no interior floor or cap.
-    float ambientRamp = 0.5 + 0.5 * normal.y;
-    float3 lighting = receivesLighting
+    float ambientRamp = 0.5 + 0.5 * (legacyLighting ? in.normal.y : normal.y);
+    float3 lighting = receivesLighting || legacyLighting
         ? uniforms.ambientColor.xyz * ambientRamp
             + uniforms.skylightColor.xyz * (1.0 - ambientRamp)
         : float3(1.0);
@@ -527,7 +531,7 @@ fragment half4 sceneStaticModelFragment(
         if (hasViewTint) surfaceColor *= viewTint;
     }
     float rimWeight = 0.0;
-    if (uniforms.rimParameters.x > 0.0
+    if (!legacyLighting && uniforms.rimParameters.x > 0.0
         && (uniforms.lightCounts.x | uniforms.lightCounts.y | uniforms.lightCounts.z | uniforms.tubeCount) != 0u) {
         const float edge = 1.0 - saturate(abs(dot(normal, viewDirection)));
         const float curve = uniforms.rimParameters.y == 0.0 ? 1.0 : pow(edge, uniforms.rimParameters.y);
@@ -555,7 +559,11 @@ fragment half4 sceneStaticModelFragment(
             lighting += uniforms.lightColor[lightIndex].xyz * light.w * max(signedNoL, 0.0) * visibility;
         }
     }
-    uint pointCount = receivesLighting ? uniforms.lightCounts.y : 0u;
+    uint pointCount = receivesLighting || legacyLighting ? uniforms.lightCounts.y : 0u;
+    const float4 legacy = uniforms.rimParameters; // half-Lambert, rim strength, highlight exponent/strength
+    const float rimExponent = 6.0 - legacy.y;
+    const float legacyRim = legacyLighting && pointCount != 0u && legacy.y != 0.0
+        ? legacy.y * pow(1.0 - saturate(dot(normal, viewDirection)), rimExponent) : 0.0;
     for (uint lightIndex = 0; lightIndex < min(pointCount, 4u); ++lightIndex) {
         float4 positionRadius = uniforms.pointPositionRadius[lightIndex];
         float3 toLight = positionRadius.xyz - in.worldPosition;
@@ -565,6 +573,21 @@ fragment half4 sceneStaticModelFragment(
         }
         float distanceToLight = sqrt(distanceSquared);
         float3 directionTowardLight = toLight / distanceToLight;
+        if (legacyLighting) {
+            if (distanceToLight >= positionRadius.w) continue;
+            const float remaining = 1.0 - distanceToLight / positionRadius.w;
+            const float4 lamp = uniforms.pointColorIntensity[lightIndex];
+            const float3 signal = lamp.rgb * lamp.w * remaining;
+            const float cosine = dot(normal, directionTowardLight);
+            const float wrapped = 0.5 + 0.5 * cosine;
+            float diffuse = saturate(mix(cosine, wrapped, legacy.x));
+            if (legacyRim != 0.0) diffuse += legacyRim * pow(max(wrapped, 0.0), 0.25 * rimExponent);
+            lighting += signal * (remaining * diffuse);
+            const float3 halfway = viewDirection + directionTowardLight;
+            const float alignment = all(halfway == 0.0) ? 0.0 : saturate(dot(normal, normalize(halfway)));
+            surfaceRadiance += signal * (legacy.w * pow(alignment, legacy.z));
+            continue;
+        }
         float radial = sceneRadialFalloff(distanceToLight, positionRadius.w,
             uniforms.pointFalloffExponents[lightIndex]);
         if (radial <= 0.0) continue;
@@ -670,7 +693,7 @@ fragment half4 sceneStaticModelFragment(
         surfaceRadiance *= viewTint;
     }
     float3 litColor = surfaceColor * lighting;
-    if (surfaceEnabled) litColor += surfaceRadiance;
+    if (surfaceEnabled || legacyLighting) litColor += surfaceRadiance;
     const float emissiveMask = saturate(componentMaps.a);
     if ((components & 8u) != 0u) {
         float emissive = emissiveMask * uniforms.emissiveColorAndBrightness.w;
@@ -699,7 +722,7 @@ fragment half4 sceneStaticModelFragment(
         const float3 reflected = pow(max(float3(0.001), incident * weight), 2.0 - surfaceMaterial.x);
         litColor += saturate(reflected);
     }
-    if (surfaceEnabled) litColor *= uniforms.cameraPosition.w;
+    if (surfaceEnabled || legacyLighting) litColor *= uniforms.cameraPosition.w;
     if ((uniforms.materialFlags.x & 4u) != 0u && (components & 8u) != 0u) {
         const float excessEmission = emissiveMask * max(0.0, uniforms.emissiveColorAndBrightness.w - 1.0);
         if (excessEmission > 0.0) {

@@ -112,17 +112,36 @@ final class SceneParticleMetalPipeline {
             return nil
         }
         let vertex = library.makeFunction(name: "sceneParticleVert")
-        let fragment = library.makeFunction(name: "sceneParticleFrag")
-        let refractFragment = library.makeFunction(name: "sceneParticleRefractFrag")
+        var normalizedTarget = pixelFormat == .bgra8Unorm || pixelFormat == .rgba8Unorm
+        let fragmentConstants = MTLFunctionConstantValues()
+        fragmentConstants.setConstantValue(&normalizedTarget, type: .bool, index: 0)
+        let fragment = try? library.makeFunction(name: "sceneParticleFrag", constantValues: fragmentConstants)
+        let variants = requiredVariants.union(sceneDepthVariants)
+        func refractionFragment(replacesRGB: Bool) -> MTLFunction? {
+            guard variants.contains(where: {
+                $0.isRefraction && ($0.blendMode == .normal) == replacesRGB
+            }) else { return nil }
+            let constants = MTLFunctionConstantValues()
+            var replaces = replacesRGB
+            constants.setConstantValue(&replaces, type: .bool, index: 1)
+            return try? library.makeFunction(name: "sceneParticleRefractFrag", constantValues: constants)
+        }
+        let refractFragment = refractionFragment(replacesRGB: false)
+        let replaceRefractFragment = refractionFragment(replacesRGB: true)
         let coverageVertex = coverageLibrary?.makeFunction(name: "sceneParticleCoverageVert")
         let coverageFragment = coverageLibrary?.makeFunction(name: "sceneParticleCoverageFrag")
         var states: [SceneParticlePipelineVariant: MTLRenderPipelineState] = [:]
-        for variant in requiredVariants.union(sceneDepthVariants) {
+        for variant in variants {
             let usesCoverage = variant.blendMode == .alphaToCoverage
             if usesCoverage && variant.isRefraction { continue }
             let variantVertex = usesCoverage ? coverageVertex : vertex
-            let variantFragment = usesCoverage ? coverageFragment
-                : (variant.isRefraction ? refractFragment : fragment)
+            let variantFragment = if usesCoverage {
+                coverageFragment
+            } else if variant.isRefraction {
+                variant.blendMode == .normal ? replaceRefractFragment : refractFragment
+            } else {
+                fragment
+            }
             if let variantVertex, let variantFragment,
                let state = Self.makeState(
                    device: device, vertex: variantVertex, fragment: variantFragment,
@@ -194,6 +213,11 @@ final class SceneParticleMetalPipeline {
         case .additive:
             BlendConfiguration(sourceRGB: .one, destinationRGB: .one,
                 sourceAlpha: .one, destinationAlpha: .oneMinusSourceAlpha)
+        case .normal:
+            // Replace color in the existing associated destination without
+            // altering the coverage owned by the preceding composition.
+            BlendConfiguration(sourceRGB: .destinationAlpha, destinationRGB: .zero,
+                sourceAlpha: .zero, destinationAlpha: .one)
         case .alphaToCoverage:
             BlendConfiguration(sourceRGB: .one, destinationRGB: .zero,
                 sourceAlpha: .one, destinationAlpha: .zero)
@@ -247,15 +271,14 @@ final class SceneParticleMetalPipeline {
             samplerStates.state(for: colorSampling),
             index: 0
         )
-        var parameters = SIMD4<Float>(
+        var parameters = SIMD3<Float>(
             colorUVScale.x,
             colorUVScale.y,
-            renderState.overbright,
-            renderState.usesStraightMaskTint ? 1 : 0
+            renderState.overbright
         )
         encoder.setFragmentBytes(
             &parameters,
-            length: MemoryLayout<SIMD4<Float>>.stride,
+            length: MemoryLayout<SIMD3<Float>>.stride,
             index: 0
         )
         encoder.drawPrimitives(
@@ -424,7 +447,7 @@ final class SceneParticleMetalPipeline {
         let attachment = descriptor.colorAttachments[0]!
         attachment.pixelFormat = pixelFormat
         switch blendMode {
-        case .translucent, .additive:
+        case .normal, .translucent, .additive:
             attachment.isBlendingEnabled = true
         case .alphaToCoverage:
             attachment.isBlendingEnabled = false

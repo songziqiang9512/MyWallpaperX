@@ -285,9 +285,8 @@ extension SceneParticleSimulationMath {
             case .capVelocity:
                 add(value.capVelocityPlan == nil
                     ? .capVelocityUnsupported : .capVelocityBounded, "capvelocity")
-            case .remapValue:
-                add(value.boundedVelocityRemapPlan == nil && value.boundedScalarSpeedRemapPlan == nil
-                    ? .remapValueUnsupported : .remapValueBounded, "remapvalue")
+            case let .remapValue(plan):
+                add(plan == nil ? .remapValueUnsupported : .remapValueBounded, "remapvalue")
             case .reduceMovement:
                 add(definition.supportsBoundedReduceMovement(value)
                     ? .reduceMovementBounded : .reduceMovementUnsupported,

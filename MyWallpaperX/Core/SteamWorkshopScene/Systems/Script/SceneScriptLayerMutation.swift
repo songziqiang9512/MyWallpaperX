@@ -43,7 +43,8 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         static let particleAlpha = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA.rawValue))
         static let particleRate = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_RATE.rawValue))
         static let particleCount = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_COUNT.rawValue))
-        static let particleInstance: Self = [.particleAlpha, .particleRate, .particleCount]
+        static let particleSize = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_SIZE.rawValue))
+        static let particleInstance: Self = [.particleAlpha, .particleRate, .particleCount, .particleSize]
 
         static let volume = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VOLUME.rawValue))
 
@@ -68,6 +69,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
     let particleAlpha: Double
     let particleRate: Double
     let particleCount: Double
+    let particleSize: Double
     let volume: Double
     let origin: SIMD3<Double>
     let scale: SIMD3<Double>
@@ -105,6 +107,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         particleAlpha: Double = 1,
         particleRate: Double = 1,
         particleCount: Double = 1,
+        particleSize: Double = 1,
         volume: Double = 0,
         perspective: Bool? = nil,
         size: SIMD2<Double>? = nil,
@@ -123,6 +126,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         self.particleAlpha = particleAlpha
         self.particleRate = particleRate
         self.particleCount = particleCount
+        self.particleSize = particleSize
         self.volume = volume
         self.origin = origin
         self.scale = scale
@@ -145,6 +149,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             color: color, pointSize: pointSize, text: text, font: font,
             assetPath: assetPath, ownerTarget: target, effectVisibilities: effectVisibilities, solid: solid,
             particleAlpha: particleAlpha, particleRate: particleRate, particleCount: particleCount,
+            particleSize: particleSize,
             volume: volume, perspective: perspective, size: size, textTemplateIdentity: textTemplateIdentity
         )
     }
@@ -157,6 +162,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             color: color, pointSize: pointSize, text: text, font: font,
             assetPath: resolved, ownerTarget: ownerTarget, effectVisibilities: effectVisibilities, solid: solid,
             particleAlpha: particleAlpha, particleRate: particleRate, particleCount: particleCount,
+            particleSize: particleSize,
             volume: volume, perspective: perspective, size: size, textTemplateIdentity: textTemplateIdentity
         )
     }
@@ -170,6 +176,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             assetPath: assetPath, ownerTarget: ownerTarget,
             effectVisibilities: selected.contains(.effectVisibility) ? effectVisibilities : [:], solid: solid,
             particleAlpha: particleAlpha, particleRate: particleRate, particleCount: particleCount,
+            particleSize: particleSize,
             volume: volume, perspective: perspective, size: size, textTemplateIdentity: textTemplateIdentity
         )
     }
@@ -223,6 +230,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             particleAlpha: newer.fields.contains(.particleAlpha) ? newer.particleAlpha : particleAlpha,
             particleRate: newer.fields.contains(.particleRate) ? newer.particleRate : particleRate,
             particleCount: newer.fields.contains(.particleCount) ? newer.particleCount : particleCount,
+            particleSize: newer.fields.contains(.particleSize) ? newer.particleSize : particleSize,
             volume: newer.fields.contains(.volume) ? newer.volume : volume,
             perspective: newer.fields.contains(.perspective) ? newer.perspective : perspective,
             textTemplateIdentity: newer.textTemplateIdentity != 0 ? newer.textTemplateIdentity : textTemplateIdentity

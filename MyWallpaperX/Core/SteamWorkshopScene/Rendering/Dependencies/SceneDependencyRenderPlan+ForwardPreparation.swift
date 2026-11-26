@@ -99,18 +99,23 @@ extension SceneDependencyRenderPlan {
             var prepass: [Int] = []
             var before: [Int: [Int]] = [:]
             var scheduledGraphs = Set<Int>()
+            var authoredRawProviders = Set<Int>()
             for layerID in ordered {
                 let isGraph = graphs.contains(layerID)
                 let cut = cuts[layerID]!
                 if isGraph { preparation.append(layerID) }
-                guard cut != ownCuts[layerID] else { continue }
+                if cut == ownCuts[layerID] {
+                    if !isGraph { authoredRawProviders.insert(layerID) }
+                    continue
+                }
                 if isGraph { scheduledGraphs.insert(layerID) }
                 if cut == -1 { prepass.append(layerID) }
                 else { before[authoredLayerIDs[cut / 2], default: []].append(layerID) }
             }
             return .init(preparationLayerIDs: preparation,
                 prepassProviderLayerIDs: prepass, providersBeforeLayerID: before,
-                scheduledGraphProviderLayerIDs: scheduledGraphs)
+                scheduledGraphProviderLayerIDs: scheduledGraphs,
+                authoredRawProviderLayerIDs: authoredRawProviders)
         }
     }
 

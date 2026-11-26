@@ -8,6 +8,7 @@ nonisolated enum SceneAuthoredShaderSamePixelSourceAnalyzer {
         let sampleCallCount: Int
         let coordinateVaryingName: String
         let positionMatrixUniformName: String
+        let isFragmentLocal: Bool
     }
 
     private typealias Unit = SceneAuthoredShaderSyntaxUnit
@@ -44,9 +45,22 @@ nonisolated enum SceneAuthoredShaderSamePixelSourceAnalyzer {
                 : projectedVertex(vertex, varying: samples.varying),
               let vertexSamplerUses = references(sampler, in: vertex),
               vertexSamplerUses.isEmpty else { return nil }
+        let isFragmentLocal = !fragment.tokens.indices.contains { index in
+            let name = fragment.tokens[index].text
+            switch name {
+            case "dFdx", "dFdxFine", "dFdxCoarse", "dFdy", "dFdyFine", "dFdyCoarse",
+                 "fwidth", "fwidthFine", "fwidthCoarse", "ddx", "ddy",
+                 "gl_SampleMask", "gl_HelperInvocation":
+                return true
+            default:
+                return name.hasPrefix("subgroup") && index + 1 < fragment.tokens.count
+                    && fragment.tokens[index + 1].text == "("
+                    && !fragment.functions.contains { $0.name == name }
+            }
+        }
         return Fact(textureSlot: slot, sampleCallCount: samples.count,
-                    coordinateVaryingName: samples.varying,
-                    positionMatrixUniformName: matrix)
+                    coordinateVaryingName: samples.varying, positionMatrixUniformName: matrix,
+                    isFragmentLocal: isFragmentLocal)
     }
 
     /// Geometry admission can reuse the same identity-position proof without

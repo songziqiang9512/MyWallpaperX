@@ -207,6 +207,17 @@ HARNESS = r'''
                 "unavailableBefore": before, "unavailableAfter": unavailable(),
             ]
         }
+        let raw = runtime.sourcePreparationPlan(authoredLayerIDs: [11, 55],
+            availableExecutionLayerIDs: [55], visibleRootLayerIDs: [55],
+            activeStaticModelConsumerLayerIDs: [], topologyRevision: 2,
+            sourceAfterLayerIDByLayerID: { [:] })!
+        let requested = runtime.preparationSchedule(sourcePlan: raw,
+            excludingSlotsByConsumerLayerID: [:])!
+        let inactive = runtime.preparationSchedule(sourcePlan: raw,
+            excludingSlotsByConsumerLayerID: [55: [binding(55, 11).slot]])!
+        rows["authoredRaw"] = ["requested": requested.authoredRawProviderLayerIDs.sorted(),
+            "inactive": inactive.authoredRawProviderLayerIDs.sorted(),
+            "early": requested.prepassProviderLayerIDs]
         print(String(decoding: try JSONSerialization.data(withJSONObject: rows, options: [.sortedKeys]), as: UTF8.self))
     }
 }
@@ -228,6 +239,7 @@ class SceneDependencyFrameDemandTests(unittest.TestCase):
             str(support.AGGREGATE_VALIDATION_RUNTIME_SOURCE), str(support.GEOMETRY_RUNTIME_SOURCE),
             str(support.EFFECT_INPUT_RESOLUTION_RUNTIME_SOURCE), str(support.STATIC_MODEL_RUNTIME_SOURCE),
             str(support.GEOMETRY_PRODUCT_SOURCE),
+            str(support.BASE_IMAGE_SAMPLE_SOURCE),
             str(support.REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift"),
             str(support.REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift"),
             str(source), "-framework", "Metal", "-o", str(binary)
@@ -261,6 +273,9 @@ class SceneDependencyFrameDemandTests(unittest.TestCase):
         for name in ("consumerHidden", "hiddenStable"):
             self.assert_row(name, [11, 40, 55], 3)
         self.assert_row("noDependentRoot", [40], 4)
+
+    def test_authored_raw_capture_requires_an_active_reader(self):
+        self.assertEqual(self.rows["authoredRaw"], {"requested": [11], "inactive": [], "early": []})
 
     def test_available_graph_changes_invalidate_and_restore(self):
         self.assert_row("graphUnavailable", [22, 40, 44, 55], 6)

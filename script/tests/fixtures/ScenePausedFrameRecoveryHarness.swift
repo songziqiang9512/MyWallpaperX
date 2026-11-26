@@ -946,9 +946,16 @@ final class SceneDesktopWallpaperSession {
             first.metalView.submissions.complete()
             precondition(simulations.count == 2 && RunLoop.main.activeCount == 1)
         } else {
-            let timeout = owner.frameDriverDeadline!
-            precondition(RunLoop.main.fireNext() && simulations == [100, timeout])
+            TransportTime.now = owner.frameDriverDeadline! + 0.04
+            for _ in 0..<2 {
+                precondition(RunLoop.main.fireNext())
+                precondition(simulations == [100], "GPU admission timeout advanced simulation while every surface was blocked")
+                precondition(RunLoop.main.activeCount == 1)
+                precondition(abs(owner.frameDriverDeadline! - TransportTime.now - 1.0 / 60) < 0.000001)
+            }
+            TransportTime.now += 0.004
             first.metalView.submissions.complete()
+            precondition(simulations == [100, TransportTime.now] && first.metalView.commits == 2)
             second.metalView.submissions.complete()
             precondition(simulations.count == 2 && RunLoop.main.activeCount == 1)
         }

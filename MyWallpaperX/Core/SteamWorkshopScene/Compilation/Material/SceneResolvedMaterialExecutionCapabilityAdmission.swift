@@ -100,15 +100,14 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
             }
             guard layer.parentID == nil, layer.childLayerIDs.isEmpty,
                   children[layerID, default: []].isEmpty else { continue }
-            // A childless dependency composition can become visible later.
+            // A childless utility with prepared dependencies can become visible later.
             // This retains only its preparation identity; the dependency plan
             // and MaterialProgram still prove its complete provider contract.
             guard (layer.contentKind == "composition"
                     && hasUniqueLayerIDs
                     && layer.utilityLayer?.kind == .composition)
                 || (layer.contentKind == "fullscreen"
-                    && layer.utilityLayer?.kind == .fullscreen
-                    && layer.dependencyLayerIDs.isEmpty)
+                    && layer.utilityLayer?.kind == .fullscreen)
                 || (layer.contentKind == "project"
                     && layer.utilityLayer?.kind == .project
                     && layer.dependencyLayerIDs.isEmpty

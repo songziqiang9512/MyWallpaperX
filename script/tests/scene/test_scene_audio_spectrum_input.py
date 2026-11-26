@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""验证 Scene snapshot、原子 demand、共享 analyzer 与 capture-scope 接线。"""
+"""验证 Scene 作者频谱、快照、原子需求与 capture scope。"""
 
 from __future__ import annotations
 
@@ -182,229 +182,95 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
             "stale 撤销必须有独立代际，便于消费者区分最后活动帧与归零帧",
         )
 
-    # MARK: analyzer
+    # MARK: author analyzer
 
-    def test_analyzer_is_available_and_emits_sixteen_bands(self) -> None:
+    def test_author_spectrum_uses_the_contiguous_rectangular_tail_and_keeps_dc_leakage(self) -> None:
         analyzer = self.result["analyzer"]
-        self.assertTrue(analyzer["available"], "FFT setup 必须可用")
-        self.assertEqual(analyzer["bandCount"], 16)
-        self.assertEqual(len(analyzer["stereoLeft"]), 16)
-        self.assertEqual(len(analyzer["stereoRight"]), 16)
+        self.assertTrue(analyzer["usesTail"])
+        self.assertTrue(analyzer["incompleteTailSilent"])
+        center, half = analyzer["center64"], analyzer["half64"]
+        self.assertGreater(center[10], 0)
+        self.assertGreater(center[11], 0)
+        self.assertGreater(half[11], 0)
+        # Ratio across the two PCM arms cancels the same-group gain and fixed bin weights.
+        # Official ~.05, versus ~.72 for Hann on the same 1392/2089 window.
+        cross_ratio = (half[10] / half[11]) / (center[10] / center[11])
+        self.assertGreater(cross_ratio, 0.03)
+        self.assertLess(cross_ratio, 0.08)
+        dc = analyzer["dc64"]
+        self.assertGreater(dc[0], 0)
+        self.assertAlmostEqual(dc[1] / dc[0], 0.5, delta=0.03)
+        self.assertLess(dc[2], dc[0] * 0.01)
 
-    def test_analyzer_emits_sixty_four_bands_from_the_same_fft(self) -> None:
+    def test_author_channels_fold_by_peak_and_preserve_above_one(self) -> None:
         analyzer = self.result["analyzer"]
-        self.assertEqual(analyzer["extendedBandCount"], 64)
-        self.assertEqual(len(analyzer["stereoLeft64"]), 64)
-        self.assertEqual(len(analyzer["stereoRight64"]), 64)
-        self.assertLess(
-            analyzer["stereoLeft64PeakBand"],
-            analyzer["stereoRight64PeakBand"],
-        )
-        self.assertTrue(analyzer["left16PeakMatches64Group"])
-        self.assertTrue(analyzer["right16PeakMatches64Group"])
+        left64, right64, left32, right32, left16, right16 = analyzer["stereo"]
+        self.assertEqual(len(left64), 64)
+        self.assertEqual(len(right64), 64)
+        self.assertEqual(left64.index(max(left64)), 11)
+        self.assertEqual(right64.index(max(right64)), 48)
+        for fine, medium, coarse in ((left64, left32, left16), (right64, right32, right16)):
+            self.assertEqual(medium, [max(fine[i:i + 2]) for i in range(0, 64, 2)])
+            self.assertEqual(coarse, [max(fine[i:i + 4]) for i in range(0, 64, 4)])
+            self.assertTrue(all(0 <= value < float("inf") for value in fine))
+        self.assertGreater(analyzer["hotPeak"], 1)
+        self.assertTrue(analyzer["hotRightSilent"])
+        self.assertTrue(analyzer["monoMirrors"])
+        self.assertTrue(analyzer["monoMatchesStereo"])
 
-    def test_analyzer_emits_thirty_two_bands_from_the_same_fft(self) -> None:
+    def test_author_silence_and_format_transitions_keep_their_own_history(self) -> None:
         analyzer = self.result["analyzer"]
-        self.assertEqual(analyzer["mediumBandCount"], 32)
-        self.assertEqual(len(analyzer["stereoLeft32"]), 32)
-        self.assertEqual(len(analyzer["stereoRight32"]), 32)
-        self.assertLess(
-            analyzer["stereoLeft32PeakBand"],
-            analyzer["stereoRight32PeakBand"],
-        )
-        self.assertTrue(analyzer["left32PeakMatches64Group"])
-        self.assertTrue(analyzer["right32PeakMatches64Group"])
+        self.assertTrue(analyzer["silent"])
+        self.assertGreaterEqual(analyzer["nearSilentPeak"], 0)
+        self.assertLess(analyzer["nearSilentPeak"], 0.1)
+        self.assertTrue(analyzer["staleFormatPreservesCurrent"])
+        self.assertTrue(analyzer["newRateMatchesFresh"])
+        other_rate = analyzer["changedRate64"]
+        self.assertGreater(max(other_rate), 0)
+        self.assertEqual(other_rate.index(max(other_rate)), 11)
+        self.assertTrue(analyzer["returnTo48kMatchesFresh"])
+        self.assertTrue(analyzer["invalidRateSilent"])
+        self.assertTrue(analyzer["recoveryMatchesFresh"])
+        self.assertTrue(analyzer["authorResetMatchesFresh"])
+        self.assertTrue(analyzer["authorResetPreservesDisplay"])
 
-    def test_silence_produces_a_stable_zero_spectrum(self) -> None:
-        analyzer = self.result["analyzer"]
-        self.assertEqual(
-            analyzer["silentLeft"],
-            [0.0] * 16,
-            "静音必须输出稳定零，不得产生假波形",
-        )
-        self.assertEqual(analyzer["silentRight"], [0.0] * 16)
+    def test_author_reentry_distinguishes_short_and_long_quiet_capture_time(self) -> None:
+        reentry = self.result["analyzer"]["reentry"]
+        self.assertGreater(reentry["fresh"], 0)
+        self.assertGreater(reentry["short30"], reentry["fresh"] * 1.5)
+        for capture in ("long30", "long60"):
+            self.assertAlmostEqual(reentry[capture], reentry["fresh"], delta=0.000_1)
 
-    def test_tones_land_in_the_expected_low_to_high_bands(self) -> None:
-        analyzer = self.result["analyzer"]
-        # 官方只给出低频到高频的顺序，不公开 440 Hz/5 kHz 的精确 band
-        # 边界；不能把当前 producer 的私有 warp 常数写成验收标准。
-        for resolution, low_key, high_key in (
-            (16, "stereoLeftPeakBand", "stereoRightPeakBand"),
-            (32, "stereoLeft32PeakBand", "stereoRight32PeakBand"),
-            (64, "stereoLeft64PeakBand", "stereoRight64PeakBand"),
-        ):
-            self.assertIn(analyzer[low_key], range(resolution))
-            self.assertIn(analyzer[high_key], range(resolution))
-            self.assertLess(
-                analyzer[low_key],
-                analyzer[high_key],
-                f"{resolution} 档必须保留 440 Hz 到 5 kHz 的频率顺序",
-            )
+    def test_author_shared_peak_moves_each_group_from_its_own_history(self) -> None:
+        before, attack, held = self.result["analyzer"]["sharedAttack"]
+        self.assertGreater(before[0], .98)
+        self.assertGreater(before[1], .6)
+        self.assertLess(attack[0], before[0] * .9)
+        self.assertLess(attack[1] / before[1], attack[0] / before[0])
+        self.assertAlmostEqual(held[0], .183, delta=.01)
+        self.assertAlmostEqual(held[1], .05, delta=.01)
 
-    def test_author_output_stays_finite_and_positive(self) -> None:
-        self.assertTrue(self.result["analyzer"]["allFinitePositive"])
+    def test_author_bands_take_one_step_and_hold_history_during_silence(self) -> None:
+        for result in self.result["analyzer"]["bandSteps"]:
+            before, first, repeated, second, release, quiet, stale, resumed, reset = result
+            self.assertAlmostEqual(first - before, 1, delta=0.0001)
+            self.assertEqual(repeated, first)
+            self.assertAlmostEqual(second - first, 1, delta=0.0001)
+            self.assertAlmostEqual(second - release, 1, delta=0.0001)
+            self.assertEqual((quiet, stale), (0, 0))
+            self.assertAlmostEqual(resumed - release, 1, delta=0.0001)
+            self.assertAlmostEqual(reset, 1, delta=0.0001)
 
-    def test_bass_dominant_input_keeps_unrelated_upper_bands_bounded(self) -> None:
-        analyzer = self.result["analyzer"]
-        # 旧测试要求纯低频输入必须合成右半轴活动底；这会把一个真实
-        # 低频峰复制成多个无关柱。官方没有要求纯 bass 的上半轴全零，
-        # 因此这里只约束不能由其产生比主峰还高的人工上半轴。
-        self.assertGreater(analyzer["bassOnlyPeak"], 0)
-        self.assertLessEqual(
-            analyzer["bassOnlyUpperPeak"], analyzer["bassOnlyPeak"]
-        )
-        self.assertLessEqual(analyzer["bassOnlyUpperNonZero"], 8)
-
-    def test_scene_retains_listening_volume_changes_and_visible_weak_bands(self) -> None:
-        analyzer = self.result["analyzer"]
-        self.assertGreater(analyzer["loudPeak"] - analyzer["quietPeak"], 0.1)
-        self.assertGreater(
-            analyzer["loudPeak"],
-            0.31,
-            "正常 PCM 必须经过共享分贝响应进入作者 shader 的可见高度区间",
-        )
-        self.assertGreater(
-            analyzer["quietPeak"],
-            0.05,
-            "普通弱音必须经过可视响应后仍能驱动作者波形，不能缩成不可见细线",
-        )
-
-    def test_fixed_spectral_shape_tracks_a_real_pcm_energy_pulse(self) -> None:
-        analyzer = self.result["analyzer"]
-        self.assertGreater(
-            analyzer["rhythmFirstRise"],
-            analyzer["rhythmFirstFall"] * 1.35,
-            "同一频谱形状的起音与回落必须在 producer 输出中保持可见节奏",
-        )
-        self.assertGreater(
-            analyzer["rhythmSecondRise"],
-            analyzer["rhythmSecondFall"] * 1.35,
-            "重复的 PCM 能量脉冲必须重复产生 rise/fall，而不是只在首帧跳动",
-        )
-        self.assertGreater(
-            analyzer["rhythmPeakRange"],
-            0.12,
-            "频谱柱的全局强弱必须对真实 PCM 能量有足够响应",
-        )
-        self.assertGreaterEqual(
-            analyzer["rhythmBandCountRange"],
-            1,
-            "能量脉冲不能被压成一条恒定高度的静态柱列",
-        )
-
-    def test_near_silent_input_remains_bounded_below_normal_audio(self) -> None:
-        analyzer = self.result["analyzer"]
-        self.assertGreaterEqual(analyzer["noiseFloorPeak"], 0)
-        self.assertLess(
-            analyzer["noiseFloorPeak"],
-            analyzer["quietPeak"],
-            "接近门限的输入不能比正常弱音更强",
-        )
-
-    def test_visual_envelope_attacks_quickly_and_releases_monotonically(self) -> None:
-        analyzer = self.result["analyzer"]
-        self.assertGreater(analyzer["attackFirstPeak"], 0)
-        self.assertGreater(analyzer["attackSecondPeak"], analyzer["attackFirstPeak"])
-        self.assertLess(analyzer["releaseFirstPeak"], analyzer["attackSecondPeak"])
-        self.assertLess(analyzer["releaseSecondPeak"], analyzer["releaseFirstPeak"])
-        self.assertGreater(
-            analyzer["releaseSecondPeak"],
-            0,
-            "尾音应连续衰减而不是每个采集 tick 硬切闪烁",
-        )
-
-    def test_capture_produces_no_frame_until_complete_window(self) -> None:
-        analyzer = self.result["analyzer"]
-        self.assertTrue(analyzer["firstPartialHasNoFrame"])
-        self.assertTrue(analyzer["secondPartialNonZero"])
-
-    def test_analysis_is_deterministic_for_the_same_input(self) -> None:
-        self.assertTrue(
-            self.result["analyzer"]["deterministic"],
-            "同输入必须同输出，否则粒子 simulation 的确定性门无法成立",
-        )
-
-    def test_mono_input_mirrors_both_channels(self) -> None:
-        analyzer = self.result["analyzer"]
-        self.assertTrue(
-            analyzer["monoMirrors"],
-            "单声道时左右必须一致，使 AUDIOPROCESSING=3 的左右平均等于该声道",
-        )
-        self.assertTrue(analyzer["monoMatchesStereoLeft"])
-
-    def test_format_switch_resets_previous_envelopes_atomically(self) -> None:
-        analyzer = self.result["analyzer"]
-        self.assertTrue(
-            analyzer["channelSwitchMatchesFresh"],
-            "stereo→mono 后不得把旧右声道或旧包络泄漏到镜像输出",
-        )
-        self.assertTrue(
-            analyzer["sampleRateSwitchMatchesFresh"],
-            "采样率改变后必须按新 FFT bin identity 从干净包络开始",
-        )
-
-    def test_invalid_inputs_fail_closed_to_zero(self) -> None:
-        analyzer = self.result["analyzer"]
-        self.assertEqual(
-            analyzer["invalidRateLeft"], [0.0] * 16, "非法采样率必须归零"
-        )
-        self.assertTrue(analyzer["emptyCaptureHasNoFrame"], "空缓冲不得伪造分析帧")
-        self.assertTrue(
-            analyzer["highRateNonZero"],
-            "高采样率分析窗必须有界截断，不能因超过FFT容量而让整链归零",
-        )
-
-    def test_non_finite_samples_do_not_corrupt_the_spectrum(self) -> None:
-        analyzer = self.result["analyzer"]
-        self.assertTrue(analyzer["sanitizedToneFinite"])
-        self.assertEqual(
-            analyzer["sanitizedTonePeakBand"],
-            analyzer["stereoLeftPeakBand"],
-            "个别非有限采样被置零后，主频段判定仍应成立",
-        )
-
-    def test_dc_bias_is_removed_before_frequency_banding(self) -> None:
-        analyzer = self.result["analyzer"]
-        self.assertEqual(
-            analyzer["biasedPeakBand"],
-            analyzer["stereoLeftPeakBand"],
-            "tap 直流偏置不得把主频从 440 Hz 推到第 0 柱",
-        )
-        self.assertAlmostEqual(
-            analyzer["biasedFirstBand"],
-            analyzer["unbiasedFirstBand"],
-            delta=0.000_1,
-        )
-        self.assertLess(
-            analyzer["biasedToneDelta"],
-            0.000_01,
-            "去直流后，同一波形的频谱不应因固定偏置变形",
-        )
-
-    def test_long_running_upper_bands_keep_updating_without_dc_first_bar_takeover(
-        self,
-    ) -> None:
-        analyzer = self.result["analyzer"]
-        self.assertEqual(
-            analyzer["changedUpperBandCount"],
-            8,
-            "连续高频输入必须让右半全部频段持续更新，不得冻结",
-        )
-        self.assertEqual(
-            analyzer["changedUpperBandCountLate"],
-            8,
-            "第二个完整扫描周期仍必须让右半全部频段变化，不能只靠早期变化过门",
-        )
-        self.assertGreater(
-            analyzer["lateConsecutiveShapeChanges"],
-            0,
-            "第二周期必须存在相邻帧形态变化，不能在后半程冻结",
-        )
-        self.assertLess(
-            analyzer["continuityFirstBandRatio"],
-            0.20,
-            "第 0 柱不得超过同帧主峰的20%，不能吞掉高频响应",
-        )
+    def test_author_group_release_slows_near_target(self) -> None:
+        high, low, split = self.result["analyzer"]["groupRelease"]
+        farther = [1 / value for value in high[:3]]
+        self.assertAlmostEqual(farther[0] - farther[1], farther[1] - farther[2], delta=0.0001)
+        near = [1 / value - 1 for value in low[1:4]]
+        self.assertGreater(near[-1], 0)
+        self.assertAlmostEqual(near[1] / near[0], .5, delta=.005)
+        self.assertAlmostEqual(near[2] / near[1], .5, delta=.005)
+        self.assertTrue(all(.999 < values[-1] <= 1 for values in (high, low)))
+        self.assertAlmostEqual(split[0], split[1], delta=0.0001)
 
 
 class SceneAudioSpectrumWiringTests(unittest.TestCase):

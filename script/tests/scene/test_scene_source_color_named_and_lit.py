@@ -100,6 +100,7 @@ enum SceneDynamicLayerValues {
 }
 struct SceneBaseMaterialTextureSource {
     let texture: MTLTexture; let candidate: SceneTextureCandidate?; let usesAuthoredLayerColor: Bool
+    var spriteFrame: SceneBaseImageTextureSample? = nil
 }
 struct SceneBaseImageTextureSnapshot {
     let geometryProducts: [Int: SceneGeometryProduct] = [:]

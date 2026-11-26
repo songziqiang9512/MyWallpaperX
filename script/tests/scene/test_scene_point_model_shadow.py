@@ -621,7 +621,7 @@ class ScenePointModelShadowOptionalPipelineTests(unittest.TestCase):
   # Point and spot intentionally share the perspective vertex entry.
   variants=[('point','sceneStaticModelPointShadowFragment',[7,8],[]),
             ('spot','sceneStaticModelSpotShadowFragment',[7,9,10],[8,9,10,11]),
-            ('directional','sceneStaticModelShadowFragment',[8,9,10],[8,9,10,11]),
+            ('directional','sceneStaticModelShadowVertex',[8,9,10],[8,9,10,11]),
             ('shared-perspective-vertex','sceneStaticModelSpotShadowVertex',[7],[])]
   for name,entry,expected,four in variants:
    with self.subTest(missing=name):

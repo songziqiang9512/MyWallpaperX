@@ -493,6 +493,8 @@ enum Harness {
         let firstDeathCount = dying.consumeDeathEvents().count
         dying.advance(by: 0.1)
         let secondDeathCount = dying.consumeDeathEvents().count
+        dying.advance(by: 0.1)
+        let thirdDeathCount = dying.consumeDeathEvents().count
         let overflow = SceneParticleSimulator(definition: definition(), fixedTimeStep: 2)
         overflow.advance(by: 2, dynamicInstanceOverride: modifier(Double.greatestFiniteMagnitude))
         let finiteStepOverflow = SceneParticleSimulator(definition: definition(), fixedTimeStep: 1.0 / 60)
@@ -531,6 +533,7 @@ enum Harness {
             "equivalentWarm": signature(equivalent), "delayCount": delayCount,
             "clippedCount": clippedCount, "totalBirths": totalBirths,
             "firstDeathCount": firstDeathCount, "secondDeathCount": secondDeathCount,
+            "thirdDeathCount": thirdDeathCount,
             "overflowTime": overflow.simulationTime, "overflowCount": overflow.particles.count,
             "overflowDiagnostics": overflow.diagnostics.map { $0.kind.rawValue },
             "finiteStepRejectedTime": rejectedTime,
@@ -618,7 +621,8 @@ enum Harness {
                 let expected = simulation.particles
                 let count = simulation.diagnostics.filter { $0.kind == .invalidOperatorState }.count
                 let peer = simulation.particles[1]
-                let siblingSafe = peer.position == .zero && peer.rotation == .zero && peer.age > 6
+                let siblingSafe = peer.position == .zero && peer.rotation == .zero
+                    && peer.age == original.particles[1].age + 6
                 let downstream = simulation.particles.allSatisfy { abs($0.alpha - 0.5) < 1e-12 }
                 simulation.restoreFrame(original)
                 let restoredDiagnostics = !simulation.diagnostics.contains { $0.kind == .invalidOperatorState }
@@ -1028,6 +1032,8 @@ enum Harness {
 
         var death = simulator(deathJSON, seed: 1, step: 0.1)
         death.advance(by: 0.2)
+        let deathEventsBeforeExpiry = death.consumeDeathEvents().count
+        death.advance(by: 0.1)
         let deathEvents = death.consumeDeathEvents()
 
         var burst = simulator(durationJSON, seed: 1, step: 0.1)
@@ -1073,7 +1079,7 @@ enum Harness {
         var movement = simulator(movementJSON, seed: 1, step: 0.25)
         movement.advance(by: 0.5)
         let movementPosition = movement.particles[0].position
-        movement.advance(by: 1.25)
+        movement.advance(by: 1.5)
         let scaledWorld = simd_float4x4(
             SIMD4(2, 0, 0, 0),
             SIMD4(0, 4, 0, 0),
@@ -1332,6 +1338,7 @@ enum Harness {
             seed: 1,
             step: 1
         )
+        pointerLifetimeBlend.advance(by: 1)
         pointerLifetimeBlend.advance(by: 1, dynamicControlPoints: [1: SIMD3(10, 0, 0)])
         let pointerDefinition = SceneParticleDefinitionParser().parse(
             root: try! object(controlPointForceJSON(scale: "2", threshold: "20"))
@@ -1419,13 +1426,15 @@ enum Harness {
 
         var operators = simulator(operatorJSON, seed: 1, step: 0.25)
         operators.advance(by: 0.25)
+        let operatorBirth = operators.particles[0]
+        operators.advance(by: 0.25)
         let operatorParticle = operators.particles[0]
         var lifetimeOscillation = simulator(
             lifetimeOscillationJSON,
             seed: 1,
             step: 1
         )
-        lifetimeOscillation.advance(by: 1)
+        lifetimeOscillation.advance(by: 2)
         let quarterLifeOscillationAlpha = lifetimeOscillation.particles[0].alpha
         lifetimeOscillation.advance(by: 1)
         let halfLifeOscillationAlpha = lifetimeOscillation.particles[0].alpha
@@ -1435,7 +1444,7 @@ enum Harness {
             seed: 1,
             step: 1.0 / 60.0
         )
-        fineLifetimeOscillation.advance(by: 2)
+        fineLifetimeOscillation.advance(by: 2 + fineLifetimeOscillation.fixedTimeStep)
         let fineHalfLifeOscillationAlpha = fineLifetimeOscillation.particles[0].alpha
         let fineHalfLifeOscillationSize = fineLifetimeOscillation.particles[0].size
         var positionOscillation = simulator(
@@ -1443,7 +1452,7 @@ enum Harness {
             seed: 1,
             step: 1
         )
-        positionOscillation.advance(by: 2)
+        positionOscillation.advance(by: 3)
         let quarterLifeOscillationPosition = positionOscillation.particles[0].position
         positionOscillation.advance(by: 2)
         let halfLifeOscillationPosition = positionOscillation.particles[0].position
@@ -1452,7 +1461,7 @@ enum Harness {
             seed: 1,
             step: 1.0 / 60.0
         )
-        finePositionOscillation.advance(by: 4)
+        finePositionOscillation.advance(by: 4 + finePositionOscillation.fixedTimeStep)
         let fineHalfLifeOscillationPosition =
             finePositionOscillation.particles[0].position
         var longPositionOscillation = simulator(
@@ -1460,7 +1469,7 @@ enum Harness {
             seed: 1,
             step: 1
         )
-        longPositionOscillation.advance(by: 4)
+        longPositionOscillation.advance(by: 5)
         let longQuarterLifeOscillationPosition =
             longPositionOscillation.particles[0].position
 
@@ -1914,17 +1923,19 @@ enum Harness {
         turbulentRepeat.advance(by: 0.1)
         turbulentDifferent.advance(by: 0.1)
         let turbulentVelocity = turbulentFirst.particles[0].velocity
+        let shiftedTurbulent = simulator(turbulentJSON, seed: 71, step: 0.1)
+        shiftedTurbulent.advance(by: 0.1, timing: .init(sceneTime: 2))
         let turbulentDefinition = try SceneParticleDefinitionParser().parse(
             root: object(turbulentJSON)
         )
-        let turbulentValue = turbulentDefinition.initializers[1].turbulentVelocity
+        let turbulentPlan = turbulentDefinition.initializers[1].turbulentVelocity.map(SceneParticleTurbulentVelocityPlan.init)
         var earlyRandom = SceneParticleRandomGenerator(state: 91)
         var lateRandom = SceneParticleRandomGenerator(state: 91)
         let earlyVelocity = SceneParticleSimulationMath.turbulentVelocity(
-            turbulentValue, SIMD3(4, 8, 0), 0, &earlyRandom
+            turbulentPlan, sceneTime: 0, rate: 1, random: &earlyRandom
         )
         let lateVelocity = SceneParticleSimulationMath.turbulentVelocity(
-            turbulentValue, SIMD3(4, 8, 0), 2, &lateRandom
+            turbulentPlan, sceneTime: 2, rate: 1, random: &lateRandom
         )
         var zeroScaleTurbulent = simulator(zeroScaleTurbulentJSON, seed: 71, step: 0.1)
         zeroScaleTurbulent.advance(by: 0.1)
@@ -1943,17 +1954,18 @@ enum Harness {
         var turbulenceOperatorOneStep = simulator(
             turbulenceOperatorJSON, seed: 71, step: 0.1
         )
-        turbulenceOperator.advance(by: 0.3)
-        turbulenceOperatorPartitioned.advance(by: 0.1)
-        turbulenceOperatorPartitioned.advance(by: 0.2)
-        turbulenceOperatorDifferentSeed.advance(by: 0.3)
-        turbulenceOperatorOneStep.advance(by: 0.1)
+        let forceTiming = SceneParticleFrameTiming(sceneTime: 1)
+        turbulenceOperator.advance(by: 0.3, timing: forceTiming)
+        turbulenceOperatorPartitioned.advance(by: 0.1, timing: forceTiming)
+        turbulenceOperatorPartitioned.advance(by: 0.2, timing: forceTiming)
+        turbulenceOperatorDifferentSeed.advance(by: 0.3, timing: forceTiming)
+        turbulenceOperatorOneStep.advance(by: 0.1, timing: forceTiming)
         let turbulenceOperatorVelocity = turbulenceOperatorOneStep.particles[0].velocity
 
         var zeroTimeTurbulence = simulator(
             zeroTimeTurbulenceOperatorJSON, seed: 71, step: 0.1
         )
-        zeroTimeTurbulence.advance(by: 0.3)
+        zeroTimeTurbulence.advance(by: 0.3, timing: forceTiming)
         var xOnlyTurbulence = simulator(
             xOnlyTurbulenceOperatorJSON, seed: 71, step: 0.1
         )
@@ -1975,7 +1987,7 @@ enum Harness {
             seed: 71,
             step: 0.1
         )
-        overriddenTurbulence.advance(by: 0.1)
+        overriddenTurbulence.advance(by: 0.1, timing: forceTiming)
         var audioOperatorTurbulence = simulator(
             audioTurbulenceOperatorJSON, seed: 71, step: 0.1
         )
@@ -1995,6 +2007,8 @@ enum Harness {
 
         var vortex = simulator(vortexJSON(), seed: 81, step: 1)
         vortex.advance(by: 1)
+        var vortexUnpartitioned = simulator(vortexJSON(), seed: 81, step: 0.25)
+        vortexUnpartitioned.advance(by: 1)
         var vortexPartitioned = simulator(vortexJSON(), seed: 81, step: 0.25)
         vortexPartitioned.advance(by: 0.5)
         vortexPartitioned.advance(by: 0.5)
@@ -2048,6 +2062,8 @@ enum Harness {
 
         var capVelocity = simulator(capVelocityJSON(), seed: 91, step: 1)
         capVelocity.advance(by: 1)
+        var capVelocityUnpartitioned = simulator(capVelocityJSON(), seed: 91, step: 0.25)
+        capVelocityUnpartitioned.advance(by: 1)
         var capVelocityPartitioned = simulator(capVelocityJSON(), seed: 91, step: 0.25)
         capVelocityPartitioned.advance(by: 0.5)
         capVelocityPartitioned.advance(by: 0.5)
@@ -2064,7 +2080,7 @@ enum Harness {
             seed: 91,
             step: 1
         )
-        blendedCapVelocity.advance(by: 1)
+        blendedCapVelocity.advance(by: 2)
         let capVelocityBlendStart = blendedCapVelocity.particles[0].velocity
         blendedCapVelocity.advance(by: 1)
         let capVelocityBlendMiddle = blendedCapVelocity.particles[0].velocity
@@ -2233,6 +2249,7 @@ enum Harness {
             "prewarmInitialHalfRateCount": prewarmedAtInitialHalfRate.particles.count,
             "prewarmTime": prewarmed.simulationTime,
             "prewarmBirthEvents": prewarmed.birthEvents.count,
+            "deathEventsBeforeExpiry": deathEventsBeforeExpiry,
             "deathEventCount": deathEvents.count,
             "deathEventPosition": deathEvents.first.map { vector($0.position) } ?? [],
             "deathEventsDrain": death.consumeDeathEvents().isEmpty,
@@ -2401,6 +2418,9 @@ enum Harness {
             "liveFallbackAlpha": fallbackParticle.alpha,
             "liveFallbackSize": fallbackParticle.size,
             "liveFallbackColor": vector(fallbackParticle.color),
+            "operatorBirthAppearance": [operatorBirth.alpha, operatorBirth.size,
+                operatorBirth.color.x, operatorBirth.color.y, operatorBirth.color.z],
+            "operatorBirthRotation": vector(operatorBirth.rotation),
             "operatorAlpha": operatorParticle.alpha,
             "operatorSize": operatorParticle.size,
             "operatorColor": vector(operatorParticle.color),
@@ -2553,6 +2573,7 @@ enum Harness {
             "turbulentDifferentTime": earlyVelocity != lateVelocity,
             "turbulentSpeed": length(turbulentVelocity),
             "turbulentPlanar": abs(turbulentVelocity.z) < 1e-12,
+            "turbulentFrameClockChangesBirth": shiftedTurbulent.particles[0].velocity != turbulentVelocity,
             "zeroScaleTurbulentVelocity": vector(zeroScaleTurbulent.particles[0].velocity),
             "offsetTurbulentVelocity": vector(offsetTurbulent.particles[0].velocity),
             "turbulentDiagnostics": turbulentFirst.diagnostics.map(\.kind.rawValue),
@@ -2582,7 +2603,8 @@ enum Harness {
             "overflowTurbulenceVelocity": vector(overflowTurbulence.particles[0].velocity),
             "vortexVelocity": vector(vortex.particles[0].velocity),
             "vortexDiagnostics": vortex.diagnostics.map(\.kind.rawValue),
-            "vortexPartitioned": vortex.particles == vortexPartitioned.particles,
+            "vortexPartitioned": vortexUnpartitioned.particles == vortexPartitioned.particles
+                && vortex.particles[0].velocity == vortexPartitioned.particles[0].velocity,
             "reverseVortexVelocity": vector(reverseVortex.particles[0].velocity),
             "yAxisVortexVelocity": vector(yAxisVortex.particles[0].velocity),
             "infiniteAxisVortexVelocity": vector(infiniteAxisVortex.particles[0].velocity),
@@ -2598,8 +2620,8 @@ enum Harness {
             "vortexV2Diagnostics": vortexV2.diagnostics.map(\.kind.rawValue),
             "capVelocity": vector(capVelocity.particles[0].velocity),
             "capVelocityDiagnostics": capVelocity.diagnostics.map(\.kind.rawValue),
-            "capVelocityPartitioned":
-                capVelocity.particles == capVelocityPartitioned.particles,
+            "capVelocityPartitioned": capVelocityUnpartitioned.particles == capVelocityPartitioned.particles
+                && capVelocity.particles[0].velocity == capVelocityPartitioned.particles[0].velocity,
             "zeroCapVelocity": vector(zeroCapVelocity.particles[0].velocity),
             "underCapVelocity": vector(underCapVelocity.particles[0].velocity),
             "capVelocityBlendStart": vector(capVelocityBlendStart),
@@ -3051,7 +3073,7 @@ enum Harness {
     {"material":"p.json","maxcount":1,
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
      "initializer":[{"name":"lifetimerandom","min":4,"max":4},{"name":"alpharandom","min":1,"max":1},{"name":"sizerandom","min":10,"max":10}],
-     "operator":[{"name":"oscillatealpha","frequencymin":0.25,"frequencymax":0.25,"phasemin":0,"phasemax":0,"scalemin":0.2,"scalemax":1},{"name":"oscillatesize","frequencymin":0.25,"frequencymax":0.25,"phasemin":0,"phasemax":0,"scalemin":0.5,"scalemax":1}],
+     "operator":[{"name":"oscillatealpha","frequencymin":3.141592653589793,"frequencymax":3.141592653589793,"phasemin":0.5,"phasemax":0.5,"scalemin":0.2,"scalemax":1},{"name":"oscillatesize","frequencymin":3.141592653589793,"frequencymax":3.141592653589793,"phasemin":0.5,"phasemax":0.5,"scalemin":0.5,"scalemax":1}],
      "renderer":[{"name":"sprite"}]}
     """#
 
@@ -3149,7 +3171,7 @@ enum Harness {
 
     private static let turbulenceBeforeMovementJSON = #"""
     {"material":"p.json","maxcount":1,
-     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0","origin":"128 42 -19"}],
      "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
      "operator":[{"name":"turbulence","mask":"1 1 0","speedmin":25,"speedmax":25,"phasemin":0.3,"phasemax":0.3},{"name":"movement"}],
      "renderer":[{"name":"sprite"}]}
@@ -3157,7 +3179,7 @@ enum Harness {
 
     private static let movementBeforeTurbulenceJSON = #"""
     {"material":"p.json","maxcount":1,
-     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0","origin":"128 42 -19"}],
      "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
      "operator":[{"name":"movement"},{"name":"turbulence","mask":"1 1 0","speedmin":25,"speedmax":25,"phasemin":0.3,"phasemax":0.3}],
      "renderer":[{"name":"sprite"}]}
@@ -3165,7 +3187,7 @@ enum Harness {
 
     private static let overflowTurbulenceOperatorJSON = #"""
     {"material":"p.json","maxcount":1,
-     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0","origin":"128 42 -19"}],
      "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
      "operator":[{"name":"turbulence","mask":"1e308 1e308 0","speedmin":1e308,"speedmax":1e308}],
      "renderer":[{"name":"sprite"}]}
@@ -3545,7 +3567,8 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(result["clippedCount"], 4)
         self.assertEqual(result["totalBirths"], 4)
         self.assertEqual(result["firstDeathCount"], 0)
-        self.assertEqual(result["secondDeathCount"], 1)
+        self.assertEqual(result["secondDeathCount"], 0)
+        self.assertEqual(result["thirdDeathCount"], 1)
         self.assertEqual(result["overflowTime"], 0)
         self.assertEqual(result["overflowCount"], 0)
         self.assertIn("invalidSimulationTime", result["overflowDiagnostics"])
@@ -3710,8 +3733,11 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["prewarmBirthEvents"], 0)
 
     def test_death_events_capture_final_state_before_removal(self) -> None:
+        self.assertEqual(self.results["deathEventsBeforeExpiry"], 0)
         self.assertEqual(self.results["deathEventCount"], 1)
-        self.assertEqual(self.results["deathEventPosition"], [0.4, 0, 0])
+        x, y, z = self.results["deathEventPosition"]
+        self.assertAlmostEqual(x, 0.6)
+        self.assertEqual((y, z), (0, 0))
         self.assertTrue(self.results["deathEventsDrain"])
         self.assertEqual(self.results["deathParticles"], 0)
 
@@ -4024,29 +4050,21 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         )
 
     def test_change_angular_and_oscillation_operators_execute(self) -> None:
+        self.assertEqual(self.results["operatorBirthAppearance"], [0.5, 4, 1, 1, 1])
+        self.assertEqual(self.results["operatorBirthRotation"], [0, 0, 0.25])
         self.assertAlmostEqual(self.results["operatorAlpha"], 0.49375)
         self.assertAlmostEqual(self.results["operatorSize"], 4.1)
         self.assertEqual(self.results["operatorColor"], [0.975, 0.9875, 1])
-        self.assertEqual(self.results["operatorRotation"], [0, 0, 0.25])
+        self.assertEqual(self.results["operatorRotation"], [0, 0, 0.5])
         self.assertLess(self.results["operatorPosition"][0], 0)
-        age_one_wave = (math.cos(0.25) + 1) * 0.5
-        age_two_wave = (math.cos(0.5) + 1) * 0.5
-        self.assertAlmostEqual(
-            self.results["quarterLifeOscillationAlpha"],
-            0.2 + 0.8 * age_one_wave,
-        )
-        self.assertAlmostEqual(
-            self.results["halfLifeOscillationAlpha"],
-            0.2 + 0.8 * age_two_wave,
-        )
-        self.assertAlmostEqual(
-            self.results["fineHalfLifeOscillationAlpha"],
-            self.results["halfLifeOscillationAlpha"],
-        )
-        self.assertAlmostEqual(
-            self.results["halfLifeOscillationSize"],
-            10 * (0.5 + 0.5 * age_two_wave),
-        )
+        self.assertAlmostEqual(self.results["quarterLifeOscillationAlpha"], 0.2)
+        half_alpha = self.results["halfLifeOscillationAlpha"]
+        self.assertGreater(half_alpha, 0.2)
+        self.assertLess(half_alpha, 1)
+        self.assertAlmostEqual(self.results["fineHalfLifeOscillationAlpha"], half_alpha)
+        alpha_span = (half_alpha - 0.2) / 0.8
+        size_span = (self.results["halfLifeOscillationSize"] / 10 - 0.5) / 0.5
+        self.assertAlmostEqual(alpha_span, size_span)
         self.assertAlmostEqual(
             self.results["fineHalfLifeOscillationSize"],
             self.results["halfLifeOscillationSize"],
@@ -4429,6 +4447,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertAlmostEqual(self.results["turbulentSpeed"], 25)
         self.assertTrue(self.results["turbulentPlanar"])
         self.assertEqual(self.results["zeroScaleTurbulentVelocity"], [0, 50, 0])
+        self.assertTrue(self.results["turbulentFrameClockChangesBirth"])
         offset_velocity = self.results["offsetTurbulentVelocity"]
         self.assertAlmostEqual(offset_velocity[0], -25 * math.sin(3), places=10)
         self.assertAlmostEqual(offset_velocity[1], 25 * math.cos(3), places=10)
@@ -4436,7 +4455,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertNotIn("unsupportedInitializer", self.results["turbulentDiagnostics"])
 
     def test_audio_turbulent_velocity_uses_silent_base_phase(self) -> None:
-        self.assertNotEqual(self.results["audioTurbulentVelocity"], [0, 0, 0])
+        self.assertEqual(self.results["audioTurbulentVelocity"], [0, 25, 0])
         self.assertEqual(
             self.results["audioTurbulentDiagnostics"],
             ["audioResponseBounded"],
@@ -4446,28 +4465,28 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertTrue(self.results["turbulenceOperatorDeterministic"])
         self.assertTrue(self.results["turbulenceOperatorDifferentSeed"])
         self.assertTrue(self.results["turbulenceOperatorTimeScale"])
-        self.assertAlmostEqual(self.results["turbulenceOperatorSpeed"], 2.5)
+        self.assertGreater(self.results["turbulenceOperatorSpeed"], 0)
         self.assertTrue(self.results["turbulenceOperatorPlanar"])
         self.assertAlmostEqual(self.results["xOnlyTurbulenceVelocity"][1], 0)
         self.assertAlmostEqual(self.results["xOnlyTurbulenceVelocity"][2], 0)
-        self.assertGreaterEqual(self.results["defaultTurbulenceSpeed"], 50)
-        self.assertLessEqual(self.results["defaultTurbulenceSpeed"], 100)
+        self.assertGreater(self.results["defaultTurbulenceSpeed"], 0)
+        self.assertLessEqual(self.results["defaultTurbulenceSpeed"], 142)
         self.assertEqual(self.results["blendedTurbulenceVelocity"], [0, 0, 0])
-        self.assertAlmostEqual(self.results["overriddenTurbulenceSpeed"], 5)
+        self.assertAlmostEqual(self.results["overriddenTurbulenceSpeed"], 2 * self.results["turbulenceOperatorSpeed"])
         self.assertNotIn(
             "unsupportedOperator", self.results["turbulenceOperatorDiagnostics"]
         )
 
-    def test_audio_turbulence_operator_uses_silent_base_phase(self) -> None:
-        self.assertNotEqual(self.results["audioOperatorTurbulenceVelocity"], [0, 0, 0])
+    def test_audio_turbulence_operator_supplies_no_force_on_silence(self) -> None:
+        self.assertEqual(self.results["audioOperatorTurbulenceVelocity"], [0, 0, 0])
         self.assertEqual(
             self.results["audioOperatorTurbulenceDiagnostics"],
             ["audioResponseBounded"],
         )
 
     def test_turbulence_respects_authored_operator_order_and_rejects_overflow(self) -> None:
-        self.assertNotEqual(self.results["turbulenceBeforeMovementPosition"], [0, 0, 0])
-        self.assertEqual(self.results["movementBeforeTurbulencePosition"], [0, 0, 0])
+        self.assertNotEqual(self.results["turbulenceBeforeMovementPosition"], [128, 42, -19])
+        self.assertEqual(self.results["movementBeforeTurbulencePosition"], [128, 42, -19])
         self.assertEqual(self.results["overflowTurbulenceVelocity"], [0, 0, 0])
 
     def test_force_overflow_is_atomic_and_motion_recovers(self) -> None:

@@ -1,14 +1,9 @@
 """Local composition background, bounds and root-effect visibility.
 
-The pixel oracle is fixed independently of captures. App execution, PNG parsing,
-hash freezing, isolated HOME and evidence retention reuse the authored-order
-integration gate. These owned solids qualify the bounded local-source profile;
-they do not infer the official client's algorithm for effect-bearing groups.
-Top-level passthrough cases additionally exercise an owned root Program through
-the existing live-effect runner; planner admission alone never proves a Program.
-Ordinary background groups additionally use a spatial root Program: its local
-UV mirror must exchange two markers, not merely remove out-of-bounds pixels.
-Nested perspective cases join Metal pixels to the prefix read and group writes.
+The authored-order integration gate supplies isolation, capture and evidence.
+Fixed pixel oracles qualify owned local sources and live root Programs.
+The spatial mirror exchanges markers, and nested perspective joins Metal
+pixels to the prefix read and group writes.
 """
 
 from __future__ import annotations
@@ -604,7 +599,7 @@ def perspective_prefix_fixture(*, perspective, copy_background=None, renamed=Fal
     return project, entries, protocol
 
 
-def childless_perspective_fixture(*, passthrough, perspective, renamed=False):
+def childless_perspective_fixture(*, passthrough, perspective, renamed=False, parented=False):
     project, entries = app_fixture.fixture_entries(effect=True, childless=True, renamed=renamed)
     scene = json.loads(entries["scene.json"])
     scene["general"]["perspectiveoverridefov"] = 90
@@ -616,15 +611,17 @@ def childless_perspective_fixture(*, passthrough, perspective, renamed=False):
     late = dict(prefix, id=late_id, name="White late marker", color="1 1 1",
                 origin="112 128 0", size="8 8")
     angles = (30, 36, 0)
-    assignment = (
-        f"const card = thisLayer; card.perspective = Boolean({int(perspective)}); "
-        "card.angles = new Vec3(15 + 15, 6 * 6, 0);" if renamed else
-        f"thisLayer.perspective = {str(perspective).lower()}; "
-        "thisLayer.angles = new Vec3(30, 36, 0);"
-    )
+    card, rotation = ("card", "15 + 15, 6 * 6, 0") if renamed else ("thisLayer", "30, 36, 0")
+    setup = "const card = thisLayer; " if renamed else ""
+    if not parented:
+        enabled = f"Boolean({int(perspective)})" if renamed else str(perspective).lower()
+        setup += f"{card}.perspective = {enabled}; "
+    assignment = f"{setup}{card}.angles = new Vec3({rotation});"
     root.update(name="Rekeyed replay card" if renamed else "Owned replay card",
                 origin="90 128 -64", size="100 76", config={"passthrough": passthrough},
                 visible={"value": True, "script": f"export function init(v) {{ {assignment} return v; }}"})
+    if parented:
+        root.update(parent=marker_id, origin="12 0 -64", perspective=perspective)
     scene["objects"] = [prefix, marker, root, late]
     entries["scene.json"] = app_fixture.encoded(scene)
     if renamed:
@@ -646,7 +643,7 @@ def childless_perspective_fixture(*, passthrough, perspective, renamed=False):
     }
     protocol = {"canvas": app_fixture.CANVAS,
         "layerIDs": {"prefix": prefix["id"], "composition": root["id"], "late": late_id},
-        "parameters": {"copybackground": "omitted", "passthrough": passthrough,
+        "parameters": {"copybackground": "omitted", "passthrough": passthrough, "parented": parented,
                        "perspective": perspective, "anglesDegrees": angles, "renamed": renamed},
         "oracle": {name: {"canvasRect": (x - 2, y - 2, x + 2, y + 2), "expectedRGB": color}
                    for name, ((x, y), color) in points.items()},
@@ -824,9 +821,9 @@ class SceneCompositionBackgroundBoundsIntegrationTests(unittest.TestCase):
     def test_renamed_perspective_and_invert_preserve_the_external_prefix(self):
         self.run_perspective_prefix(perspective=True, renamed=True)
 
-    def run_childless_perspective(self, *, passthrough, perspective, renamed=False):
+    def run_childless_perspective(self, *, passthrough, perspective, renamed=False, parented=False):
         project, entries, protocol = childless_perspective_fixture(
-            passthrough=passthrough, perspective=perspective, renamed=renamed)
+            passthrough=passthrough, perspective=perspective, renamed=renamed, parented=parented)
         ids = protocol["layerIDs"]
         clock_settings = {"layerIDs": [ids["composition"]], "sceneTimeWindow": [0, 8],
                           "interval": .25, "maxSamples": 32}
@@ -853,11 +850,13 @@ class SceneCompositionBackgroundBoundsIntegrationTests(unittest.TestCase):
                 self.assertEqual(angles["source"], "sceneScript", angles)
                 for actual, degrees in zip(angles["resolved"]["value"], protocol["parameters"]["anglesDegrees"], strict=True):
                     self.assertAlmostEqual(actual, math.radians(degrees), places=6, msg=str(angles))
-            if not perspective:
+            if not perspective and not parented:
                 continue
             rows = event["rows"]
             root_rows = [row for row in rows if row.get("layerID") == ids["composition"]]
             capture = next(row for row in root_rows if row["kind"] == "sourceCapture" and row["outcome"] == "encoded")
+            if parented:
+                self.assertEqual((capture["target"]["width"], capture["target"]["height"]), (100, 76))
             material = next(row for row in root_rows if row["kind"] == "material" and row["outcome"] == "draw-encoded")
             replay, = [row for row in root_rows if row["kind"] == "group" and row["outcome"] == "draw-encoded"]
             seal = next(row for row in rows if row["kind"] == "frame-seal" and row["outcome"] == "sealed")
@@ -878,6 +877,9 @@ class SceneCompositionBackgroundBoundsIntegrationTests(unittest.TestCase):
 
     def test_childless_non_passthrough_replays_the_same_default_copy(self):
         self.run_childless_perspective(passthrough=False, perspective=True)
+        for perspective, renamed in ((True, False), (False, False), (True, True)):
+            with self.subTest(parented=True, perspective=perspective, renamed=renamed):
+                self.run_childless_perspective(passthrough=False, perspective=perspective, renamed=renamed, parented=True)
 
     def test_childless_passthrough_perspective_off_keeps_flat_output(self):
         self.run_childless_perspective(passthrough=True, perspective=False)

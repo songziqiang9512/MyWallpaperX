@@ -22,6 +22,7 @@ SHADER = SCENE / "Rendering/Composition/SceneImageLayer.metal"
 FOG_HEADER = SHADER.with_name("SceneDistanceFog.metalh")
 COLOR_BLEND = SHADER.with_name("SceneLayerColorBlendPipeline.swift")
 SOURCES = [SCENE / path for path in (
+    "Runtime/Frame/SceneMaterialRenderState.swift",
     "Rendering/Metal/SceneMetalPipeline.swift",
     "Rendering/Composition/SceneBlendModeShaderSource.swift",
     "Rendering/Composition/SceneFramebufferSnapshot.swift",

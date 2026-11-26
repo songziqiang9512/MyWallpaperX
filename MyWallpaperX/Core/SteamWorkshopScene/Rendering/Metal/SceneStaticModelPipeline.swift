@@ -468,11 +468,11 @@ struct SceneStaticModelPipeline {
             ? (writesDepth ? writingDepthState : nonwritingDepthState)
             : (writesDepth ? writeOnlyDepthState : disabledDepthState)
         guard let depthState else { return false }
-        // Official `lpoint` lights static models; `point` lights only 2D lit
-        // images (own-fixture black-box, 2026-10-06). Shadow slots and the
-        // encoded uniforms must index the same filtered array.
-        let staticModelPoints = lighting.point.filter(\.illuminatesStaticModels)
-        let acceptedShadows = shadows.compactMap { value -> (SceneStaticModelShadow, Int)? in
+        let legacy = material.legacyLighting
+        // Modern shadow indices and color uniforms use the same light order.
+        let staticModelPoints = legacy == nil ? lighting.point.filter(\.illuminatesStaticModels)
+            : Array(lighting.point.lazy.filter { !$0.illuminatesStaticModels }.prefix(SceneLightSnapshot.maximumLightCount))
+        let acceptedShadows = (legacy == nil ? shadows : []).compactMap { value -> (SceneStaticModelShadow, Int)? in
             guard value.frameEpoch == frameEpoch, value.commandBuffer === commandBuffer else { return nil }
             let index: Int?
             switch value.projection {
@@ -490,7 +490,7 @@ struct SceneStaticModelPipeline {
                 ? SceneModelShadowUniforms(acceptedShadows[index].0, lightIndex: acceptedShadows[index].1)
                 : SceneModelShadowUniforms()
         }
-        let lightEnergyScale: Float = material.surfaceProfile == nil
+        let lightEnergyScale: Float = material.surfaceProfile == nil && legacy == nil
             ? Self.staticModelLightEnergyScale : 1
         let lights = Self.encodedLights(lighting.directional, energyScale: lightEnergyScale)
         let points = Self.encodedPoints(staticModelPoints, energyScale: lightEnergyScale)
@@ -504,7 +504,7 @@ struct SceneStaticModelPipeline {
             ? max(material.brightness, 0)
             : 1
         let chroma = material.surfaceProfile?.kind == .chroma4
-        let colorBrightness: Float = material.surfaceProfile == nil ? brightness : 1
+        let colorBrightness: Float = material.surfaceProfile == nil && legacy == nil ? brightness : 1
         let hdrEmissiveGain = material.usesHDRBrightness && material.surfaceProfile != nil
             && (material.receivesLighting || material.surfaceProfile?.reflectionEnabled == true)
         // Opaque material RGB is independent of its authored fragment alpha.
@@ -549,7 +549,7 @@ struct SceneStaticModelPipeline {
             materialFlags: SIMD4(
                 (!materialColorIsOpaque && material.textureAlphaIsOpacity ? 1 : 0)
                     | (colorTextureIsPremultiplied ? 2 : 0)
-                    | (hdrEmissiveGain ? 4 : 0),
+                    | (hdrEmissiveGain ? 4 : 0) | (legacy == nil ? 0 : 8),
                 ((materialMap?.components ?? 0) << 2)
                     | (material.receivesLighting ? 0 : 2),
                 normalMap?.encoding.rawValue ?? 0,
@@ -563,7 +563,7 @@ struct SceneStaticModelPipeline {
             ),
             ambientColor: SIMD4(lighting.ambient, 0),
             skylightColor: SIMD4(lighting.skylight, 0),
-            distanceFogColor: lighting.distanceFogColor,
+            distanceFogColor: legacy == nil ? lighting.distanceFogColor : .zero,
             distanceFogRange: lighting.distanceFogRange,
             lightDirectionIntensity0: lights[0].directionIntensity,
             lightDirectionIntensity1: lights[1].directionIntensity,
@@ -612,7 +612,8 @@ struct SceneStaticModelPipeline {
                 normalMap?.textureFrame.uniform1.y ?? 0,
                 normalMap != nil && simd_determinant(normalMatrix) < 0 ? -1 : 1, 0),
             gradientTextureFrame: gradient?.sampleLine ?? .zero,
-            rimParameters: SIMD4(material.surfaceProfile?.rimAmount ?? 0,
+            rimParameters: legacy.map { SIMD4($0.halfLambert, $0.rimStrength, $0.highlightExponent, $0.highlightStrength) }
+                ?? SIMD4(material.surfaceProfile?.rimAmount ?? 0,
                 material.surfaceProfile?.rimExponent ?? 4, 0, 0),
             specularTintAndColorMode: SIMD4(material.surfaceProfile?.specularTint ?? .init(repeating: 1),
                 chroma ? 1 : 0),

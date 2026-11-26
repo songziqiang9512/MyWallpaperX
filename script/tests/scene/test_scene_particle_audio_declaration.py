@@ -6,8 +6,8 @@
 粒子侧只有 `audioprocessing*` 一套且没有 amount。此前 parser 误用 effect 字段名，
 导致解析出恒为 nil 的字段，同时漏掉真实存在的 `audioprocessingfrequencyend`。
 
-执行使用项目自有 clean-room 近似合同；本门锁定声明保真和准入诊断，数值与
-fixed-step consumer 行为由独立 simulator 门覆盖。
+本门锁定声明保真和准入诊断。普通持续发射的实测曲线与相邻响应的 fixed-step
+行为由 simulator 门覆盖。
 """
 
 from __future__ import annotations
@@ -37,6 +37,7 @@ SIMULATION_DIAGNOSTIC_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorksho
 CAP_VELOCITY_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCapVelocity.swift"
 BOIDS_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleBoids.swift"
 CONTROL_POINT_FORCE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleControlPointForce.swift"
+WORLD_SPACE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan.swift"
 PERIODIC_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePeriodicEmission.swift"
 
 # 真实语料中的三个字段；残留参数不代表 mode 已启用。
@@ -222,6 +223,7 @@ class SceneParticleAudioDeclarationTests(unittest.TestCase):
             SIMULATION_DIAGNOSTIC_SOURCE,
             CAP_VELOCITY_SOURCE,
             CONTROL_POINT_FORCE_SOURCE,
+            WORLD_SPACE_SOURCE,
             PERIODIC_SOURCE,
         ]
         compilation = subprocess.run(

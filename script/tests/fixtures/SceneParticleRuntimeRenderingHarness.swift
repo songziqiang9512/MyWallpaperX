@@ -754,8 +754,10 @@ extension Harness {
             }?.instances.map {
                 [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
             } ?? [],
-            "adjustedControlPointCopyLoaded": batches.contains {
+            "adjustedControlPointCopyPositions": batches.filter {
                 $0.particlePath == "particles/adjusted-copy-child.json"
+            }.flatMap(\.instances).map {
+                [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
             },
             "rawControlPointCopyLayerIDs": batches.filter {
                 $0.particlePath == "particles/raw-copy-child.json"

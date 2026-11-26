@@ -187,12 +187,10 @@ private func runExecutorHarness(
         ordinaryLease,
         dynamicMultiCapabilities,
         staticUniformMultiNodeCapabilities,
-        declarationConflictMultiNodeCapabilities,
         hostConflictMultiNodeCapabilities,
         dynamicUniformMultiNodeFailure,
         staticUniformMultiNodeFailure,
         hostConflictMultiNodeFailure,
-        declarationConflictMultiNodeFailure,
         multiNodeResults
     ) = runMultiNodeCases(
         device: device,
@@ -584,10 +582,6 @@ private func runExecutorHarness(
         "hostConflictMultiNodeFailure": hostConflictMultiNodeFailure,
         "hostConflictMultiNodeReport":
             hostConflictMultiNodeCapabilities.reportLines,
-        "declarationConflictMultiNodeFailure":
-            declarationConflictMultiNodeFailure,
-        "declarationConflictMultiNodeReport":
-            declarationConflictMultiNodeCapabilities.reportLines,
         "rtDefaultDiagnostics": rtDefaultResults,
         "capturedDefaultReport": capturedDefaultCapabilities.reportLines,
         "litCapture": litCapture,

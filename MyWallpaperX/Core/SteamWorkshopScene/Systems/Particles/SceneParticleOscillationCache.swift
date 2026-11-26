@@ -56,26 +56,24 @@ nonisolated struct SceneParticlePositionOscillationPlan: Sendable {
 /// are prepared once so the fixed-step loop does not repeatedly normalize
 /// optional numeric values.
 nonisolated struct SceneParticleScalarOscillationPlan: Sendable {
-    let minimum: Double
-    let maximum: Double
+    let scaleMinimum: Double
+    let scaleSpan: Double
     let frequencyMinimum: Double
-    let frequencyMaximum: Double
+    let frequencySpan: Double
     let phaseMinimum: Double
-    let phaseMaximum: Double
+    let phaseSpan: Double
 
     nonisolated init(_ value: SceneParticleOperator, sizeDefaults: Bool) {
-        minimum = SceneParticleSimulationMath.scalar(
-            value.scaleMinimum,
-            fallback: sizeDefaults ? 0.8 : 0
+        scaleMinimum = SceneParticleSimulationMath.scalar(
+            value.scaleMinimum, fallback: sizeDefaults ? 0.8 : 0
         )
-        maximum = SceneParticleSimulationMath.scalar(
-            value.scaleMaximum,
-            fallback: sizeDefaults ? 1.2 : 1
-        )
-        frequencyMinimum = value.frequencyMinimum ?? 0
-        frequencyMaximum = value.frequencyMaximum ?? 10
+        scaleSpan = SceneParticleSimulationMath.scalar(
+            value.scaleMaximum, fallback: sizeDefaults ? 1.2 : 1
+        ) - scaleMinimum
+        frequencyMinimum = value.frequencyMinimum ?? 1
+        frequencySpan = (value.frequencyMaximum ?? 10) - frequencyMinimum
         phaseMinimum = value.phaseMinimum ?? 0
-        phaseMaximum = value.phaseMaximum ?? 2 * .pi
+        phaseSpan = (value.phaseMaximum ?? 2 * .pi) - phaseMinimum
     }
 }
 
@@ -127,6 +125,36 @@ nonisolated struct SceneParticleAngularMovementPlan: Sendable {
     }
 }
 
+/// Launch-stable inputs for the continuous turbulence operator.
+nonisolated struct SceneParticleTurbulencePlan: Sendable {
+    let scale: Float
+    let timeScale: Double
+    let mask: SIMD3<Double>
+    let minimumSpeed: Double
+    let speedSpan: Double
+    let phaseSpan: Double
+
+    nonisolated init?(_ value: SceneParticleOperator, sceneIsOrthographic: Bool) {
+        guard case .turbulence = value.kind else { return nil }
+        let scale = Float(SceneParticleSimulationMath.scalar(value.scale, fallback: sceneIsOrthographic ? 0.01 : 0.5))
+        let timeScale = value.timeScale ?? (sceneIsOrthographic ? 20 : 1)
+        let mask = SceneParticleSimulationMath.vector(
+            value.mask, fallback: sceneIsOrthographic ? SIMD3(1, 1, 0) : SIMD3(repeating: 1)
+        )
+        let minimumSpeed = value.speedMinimum ?? (sceneIsOrthographic ? 500 : 1)
+        let speedSpan = (value.speedMaximum ?? (sceneIsOrthographic ? 1_000 : 5)) - minimumSpeed
+        let phaseSpan = (value.phaseMaximum ?? 0) - (value.phaseMinimum ?? 0)
+        guard scale.isFinite, timeScale.isFinite, minimumSpeed.isFinite,
+              speedSpan.isFinite, phaseSpan.isFinite else { return nil }
+        self.scale = scale
+        self.timeScale = timeScale
+        self.mask = mask
+        self.minimumSpeed = minimumSpeed
+        self.speedSpan = speedSpan
+        self.phaseSpan = phaseSpan
+    }
+}
+
 /// Launch-stable execution values shared by the operator hot path.
 ///
 /// The authored operator itself remains available to the simulator for
@@ -144,11 +172,10 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
     let positionOscillation: SceneParticlePositionOscillationPlan?
     let positionMask: SIMD3<Double>
     let audioResponse: SceneParticleAudioResponsePlan?
+    let turbulence: SceneParticleTurbulencePlan?
     let boids: SceneParticleBoidsPlan?
     let vortex: SceneParticleVortexPlan?
     let capVelocity: SceneParticleCapVelocityPlan?
-    let velocityRemap: SceneParticleVelocityRemapPlan?
-    let scalarSpeedRemap: SceneParticleScalarSpeedRemapPlan?
     let collisionPlane: SceneParticleCollisionPlanePlan?
     let controlPointForce: SceneParticleControlPointForcePlan?
     let maintainControlPointDistance: SceneParticleMaintainControlPointDistancePlan?
@@ -157,6 +184,7 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
     nonisolated init(
         _ value: SceneParticleOperator,
         definition: SceneParticleDefinition,
+        sceneIsOrthographic: Bool = true,
         controlPointForceEnvironment: SceneParticleControlPointForceEnvironment = .unavailable
     ) {
         blend = SceneParticleOperatorBlendPlan(value)
@@ -205,7 +233,8 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
         positionMask = SceneParticleSimulationMath.vector(
             value.mask, fallback: SIMD3(1, 1, 0)
         )
-        audioResponse = SceneParticleAudioResponsePlan(value.audioResponse)
+        turbulence = SceneParticleTurbulencePlan(value, sceneIsOrthographic: sceneIsOrthographic)
+        audioResponse = SceneParticleAudioResponsePlan(value.audioResponse, usesPeakResponse: value.kind == .turbulence)
         if case .boids = value.kind {
             boids = definition.boidsPlan(for: value)
         } else {
@@ -220,13 +249,6 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
             capVelocity = value.capVelocityPlan
         } else {
             capVelocity = nil
-        }
-        if case .remapValue = value.kind {
-            velocityRemap = value.boundedVelocityRemapPlan
-            scalarSpeedRemap = value.boundedScalarSpeedRemapPlan
-        } else {
-            velocityRemap = nil
-            scalarSpeedRemap = nil
         }
         if case .collisionPlane = value.kind {
             collisionPlane = value.collisionPlanePlan
@@ -252,27 +274,14 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
 
 extension SceneParticleSimulator {
     nonisolated func oscillationFactor(
-        _ plan: SceneParticleScalarOscillationPlan,
-        _ index: Int,
-        _ operatorIndex: Int,
-        age: Double
+        _ plan: SceneParticleScalarOscillationPlan, particleID: UInt64, age: Double
     ) -> Double {
-        let frequency = oscillationRandom(
-            plan.frequencyMinimum,
-            plan.frequencyMaximum,
-            index,
-            operatorIndex,
-            0
-        )
-        let phase = oscillationRandom(
-            plan.phaseMinimum,
-            plan.phaseMaximum,
-            index,
-            operatorIndex,
-            1
-        )
-        let wave = (cos(frequency * age + phase) + 1) * 0.5
-        return plan.minimum + (plan.maximum - plan.minimum) * wave
+        guard plan.scaleSpan != 0 else { return plan.scaleMinimum }
+        let unit = SceneParticleRandomGenerator.particleUnit(id: particleID, seed: simulationSeed)
+        let frequency = plan.frequencyMinimum + unit * plan.frequencySpan
+        let phase = plan.phaseMinimum + unit * plan.phaseSpan
+        let wave = (sin((age + phase) * frequency) + 1) * 0.5
+        return plan.scaleMinimum + unit * plan.scaleSpan * wave
     }
 
     nonisolated func operatorBlend(

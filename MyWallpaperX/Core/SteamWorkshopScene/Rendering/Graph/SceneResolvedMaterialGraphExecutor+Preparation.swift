@@ -99,6 +99,7 @@ extension SceneResolvedMaterialGraphExecutor {
         terminalReplayTarget: MTLTexture?,
         terminalReplayBlendMode: Int,
         terminalReplayIsOptional: Bool,
+        captureForMaterial: SceneGraphResourcePassEncoder.PreparedCommand?,
         executionTrace: SceneEffectExecutionFrameTrace?,
         terminalMaterialReplay: inout SceneResolvedMaterialPassEncoder.PreparedPass?,
         visualFailureSnapshot: VisualFailureSnapshot,
@@ -335,9 +336,6 @@ extension SceneResolvedMaterialGraphExecutor {
                         case .hostUniformDeclarationConflict:
                             reasonCode =
                                 "material-finalizer-host-uniform-declaration-conflict"
-                        case .uniformDeclarationConflict:
-                            reasonCode =
-                                "material-finalizer-uniform-declaration-conflict"
                         default:
                             return .failure(rejection)
                         }
@@ -374,13 +372,12 @@ extension SceneResolvedMaterialGraphExecutor {
                     return .placement(replay)
 #endif
                 }
-                guard let passPreparation = prepareMaterialPass(
-                    program: program,
-                    material: material,
-                    target: target,
-                    descriptor: fboTarget?.resource.descriptor,
-                    partialCoverage: authoredGeometry != nil
-                ) else {
+                let captured = authoredGeometry == nil && fboTarget == nil
+                    ? captureForMaterial.flatMap { prepareCapturedMaterial(program: program,
+                        material: material, capture: $0, target: target) } : nil
+                guard let passPreparation = captured.map({ .success($0.1) })
+                    ?? prepareMaterialPass(program: program, material: material, target: target,
+                        descriptor: fboTarget?.resource.descriptor, partialCoverage: authoredGeometry != nil) else {
                     return .failure(.graphStructureRejected)
                 }
                 guard case let .success(prepared) = passPreparation else {
@@ -412,7 +409,7 @@ extension SceneResolvedMaterialGraphExecutor {
 #else
                 let observedPass = prepared
 #endif
-                commands.append(.material(observedPass))
+                commands.append(captured.map { .capturedMaterial($0.0, observedPass) } ?? .material(observedPass))
                 // The executor selects the last successful material and keeps
                 // any input that later passthrough commands would overwrite.
                 if let terminalReplayTarget, capability.placementTail == nil,
@@ -774,6 +771,13 @@ extension SceneResolvedMaterialGraphExecutor {
             case var .material(pass):
                 pass.compositionTrace = trace
                 return .material(pass)
+            case let .capturedMaterial(originalCapture, originalPass):
+                var capture = originalCapture
+                var pass = originalPass
+                capture.compositionTrace = trace
+                capture.compositionLayerID = layerID
+                pass.compositionTrace = trace
+                return .capturedMaterial(capture, pass)
             case var .resource(command):
                 command.compositionTrace = trace
                 command.compositionLayerID = layerID
@@ -787,7 +791,7 @@ extension SceneResolvedMaterialGraphExecutor {
                 return .functionClear(command, invocationOrdinal: invocation, targetOrdinal: target)
             }
         }
-        graph.sourceCommand = observed(graph.sourceCommand, effectIndex: nil)
+        graph.sourceCommand = graph.sourceCommand.map { observed($0, effectIndex: nil) }
         for index in graph.stages.indices {
             let effectIndex = graph.stages[index].effect.effectIndex
             graph.stages[index].commands = graph.stages[index].commands.map { observed($0, effectIndex: effectIndex) }

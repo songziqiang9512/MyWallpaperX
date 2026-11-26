@@ -6,8 +6,7 @@ import simd
 // Shared particle draw/readback and command completion for offscreen fixtures.
 // It publishes pixels; camera policy and assertion oracles belong to callers.
 enum SceneParticleOffscreenReadbackHarness {
-    /// Draws one full-alpha particle with the given texture and returns the
-    /// blended BGRA center pixel, exercising the real sampler and swizzle.
+    /// Returns the blended BGRA center sample in units of 1/255.
     static func centerPixel(
         texture: MTLTexture,
         cullMode: SceneParticlePipelineCullMode = .none,
@@ -20,17 +19,17 @@ enum SceneParticleOffscreenReadbackHarness {
         background: Float = 0,
         overbright: Float = 1,
         particleColor: SIMD3<Float> = .init(repeating: 1),
-        usesStraightMaskTint: Bool = false,
+        targetFormat: MTLPixelFormat = .bgra8Unorm,
         uniforms: SceneParticleLayerUniforms? = nil,
         particleSize: Float = 2, outputSize: Int = 8, sampleY: Int? = nil
     ) -> [Int] {
         let size = outputSize
         guard let device = MTLCreateSystemDefaultDevice(),
-              let pipeline = SceneParticleMetalPipeline(device: device),
+              let pipeline = SceneParticleMetalPipeline(device: device, pixelFormat: targetFormat),
               let queue = device.makeCommandQueue(),
               let command = queue.makeCommandBuffer() else { return [] }
         let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .bgra8Unorm, width: size, height: size, mipmapped: false
+            pixelFormat: targetFormat, width: size, height: size, mipmapped: false
         )
         outputDescriptor.usage = .renderTarget
         outputDescriptor.storageMode = .shared
@@ -55,8 +54,7 @@ enum SceneParticleOffscreenReadbackHarness {
             drawUniforms.basisRight = -drawUniforms.basisRight
             drawUniforms.spriteRight = -drawUniforms.spriteRight
         }
-        var renderState = SceneParticlePipelineRenderState(blendMode: blendMode, cullMode: cullMode, overbright: overbright)
-        renderState.usesStraightMaskTint = usesStraightMaskTint
+        let renderState = SceneParticlePipelineRenderState(blendMode: blendMode, cullMode: cullMode, overbright: overbright)
         guard pipeline.draw(
             texture: texture,
             instances: instances,
@@ -68,13 +66,17 @@ enum SceneParticleOffscreenReadbackHarness {
         encoder.endEncoding()
         instances.markSubmitted(on: command)
         guard commitAndWait(command) else { return [] }
+        let center = MTLRegionMake2D(size / 2, sampleY ?? size / 2, 1, 1)
+        if targetFormat == .rgba16Float {
+            var rgba = [UInt16](repeating: 0, count: 4)
+            output.getBytes(&rgba, bytesPerRow: 8, from: center, mipmapLevel: 0)
+            return [rgba[2], rgba[1], rgba[0], rgba[3]].map {
+                Int((Float(Float16(bitPattern: $0)) * 255).rounded())
+            }
+        }
         var pixel = [UInt8](repeating: 0, count: 4)
-        output.getBytes(
-            &pixel,
-            bytesPerRow: size * 4,
-            from: MTLRegionMake2D(size / 2, sampleY ?? size / 2, 1, 1),
-            mipmapLevel: 0
-        )
+        output.getBytes(&pixel, bytesPerRow: 4, from: center, mipmapLevel: 0)
+        if targetFormat == .rgba8Unorm { pixel.swapAt(0, 2) }
         return pixel.map(Int.init)
     }
 

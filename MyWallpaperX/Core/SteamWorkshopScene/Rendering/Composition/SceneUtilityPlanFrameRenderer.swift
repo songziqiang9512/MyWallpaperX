@@ -35,9 +35,13 @@ enum SceneUtilityPlanFrameRenderer {
     ) -> Bool {
         for plan in plans {
             guard let layer = layersByID[plan.layerID] else { continue }
+            let projectColorBlend = plan.disposition == .projectColorBlend
+            if projectColorBlend && !frameVisibleLayerIDs.contains(layer.id) { continue }
+            let orthoSize = parallaxConfiguration.orthoSize
             let model = renderer.imageModelMatrix(
                 for: layer,
                 worldFramesByLayerID: worldFramesByLayerID,
+                renderSizeOverride: projectColorBlend ? [orthoSize.x, orthoSize.y] : nil,
                 parallaxMouseNormalized: frameContext.cameraParallaxPosition,
                 configuration: parallaxConfiguration,
                 visibleHalfExtents: cameraFrame.coverHalfExtents,
@@ -145,7 +149,7 @@ enum SceneUtilityPlanFrameRenderer {
                     viewportSize: compositionGroupRuntime?
                         .enclosingTargetSize(forLayerID: layer.id) ?? viewportSize,
                     time: time,
-                    finalCompositeAlpha: SceneDynamicLayerValues.alpha(
+                    finalCompositeAlpha: projectColorBlend ? 1 : SceneDynamicLayerValues.alpha(
                         layerID: layer.id,
                         authoredValue: layer.alpha,
                         snapshot: frameContext.dynamicValues

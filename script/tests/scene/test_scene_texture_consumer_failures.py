@@ -25,19 +25,25 @@ import Foundation
 extension CGSize {
     init(width: Int, height: Int) { self.init(width: Double(width), height: Double(height)) }
 }
-enum MTLPixelFormat { case rgba8Unorm, rgba16Float }
+enum MTLPixelFormat { case rgba8Unorm, rgba16Float, bgra8Unorm, r8Unorm }
 enum MTLColorWriteMask { case all }
 enum TestStorage { case shared }
 final class MTLTextureDescriptor {
     let width: Int, height: Int
+    let pixelFormat: MTLPixelFormat
     var storageMode = TestStorage.shared
-    init(_ width: Int, _ height: Int) { self.width = width; self.height = height }
+    init(_ width: Int, _ height: Int, pixelFormat: MTLPixelFormat) {
+        self.width = width; self.height = height; self.pixelFormat = pixelFormat
+    }
     static func texture2DDescriptor(pixelFormat: MTLPixelFormat, width: Int,
-        height: Int, mipmapped: Bool) -> MTLTextureDescriptor { .init(width, height) }
+        height: Int, mipmapped: Bool) -> MTLTextureDescriptor { .init(width, height, pixelFormat: pixelFormat) }
 }
 final class MTLTexture {
     let width: Int, height: Int
-    init(_ descriptor: MTLTextureDescriptor) { width = descriptor.width; height = descriptor.height }
+    let pixelFormat: MTLPixelFormat
+    init(_ descriptor: MTLTextureDescriptor) {
+        width = descriptor.width; height = descriptor.height; pixelFormat = descriptor.pixelFormat
+    }
 }
 final class MTLDevice {
     let registryID: UInt64 = 7
@@ -181,6 +187,12 @@ class SceneTextureConsumerFailureTests(unittest.TestCase):
         if not shutil.which("swiftc"):
             self.skipTest("swiftc unavailable")
         sources = [prepared.PREPARATION, prepared.SOURCE_MATERIALS, prepared.RESOLVER,
+            SCENE / "Runtime/Session/ScenePreparedDeviceResources+Puppets.swift",
+            SCENE / "Runtime/Session/ScenePreparedDeviceResources+AutomaticMip.swift",
+            SCENE / "Resources/Textures/SceneOrdinaryImageMipSelection.swift",
+            SCENE / "Resources/Textures/SceneNamedTextureReference.swift",
+            SCENE / "Rendering/Dependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
+            SCENE / "Systems/Properties/SceneUserProperty.swift", prepared.TEXTURE_BOUNDARIES,
             prepared.BUILTIN, prepared.RENDER_STATE, prepared.RENDER_STATE_COMPILATION,
             SCENE / "Format/SceneJSONValue.swift", SCENE / "Resources/Assets/SceneModelResourceIdentity.swift",
             SCENE / "Compilation/Material/ScenePreparedImageMaterialCatalog.swift",
@@ -193,8 +205,16 @@ class SceneTextureConsumerFailureTests(unittest.TestCase):
             copies = []
             for source in sources:
                 copy = work / source.name
-                copy.write_text(source.read_text().replace("import Metal\n", ""))
+                copy.write_text(
+                    source.read_text().replace("import Metal\n", "").replace("import CoreGraphics\n", "")
+                )
                 copies.append(copy)
+            atlas = work / "SceneTextureAtlasDeclarations.swift"
+            atlas.write_text(prepared.texture_atlas_declarations())
+            binding = work / "SceneUserPropertyBindingReference.swift"
+            binding.write_text(prepared.swift_declaration(
+                (SCENE / "Systems/Properties/SceneUserPropertyBindings.swift").read_text(),
+                "nonisolated struct SceneUserPropertyBindingReference"))
             fixture = work / "Controlled.swift"
             fixture.write_text(METAL + prepared.FIXTURE.read_text().split("@main", 1)[0]
                 .replace("import Metal\n", ""))
@@ -202,7 +222,7 @@ class SceneTextureConsumerFailureTests(unittest.TestCase):
             harness.write_text(HARNESS)
             binary = work / "checks"
             compiled = subprocess.run(["swiftc", "-swift-version", "5", *map(str, copies),
-                str(fixture), str(harness), "-module-cache-path", str(work / "modules"), "-o", str(binary)],
+                str(atlas), str(binding), str(fixture), str(harness), "-module-cache-path", str(work / "modules"), "-o", str(binary)],
                 capture_output=True, text=True, timeout=120)
             self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
             ran = subprocess.run([str(binary), str(work / "input")], capture_output=True, text=True, timeout=20)

@@ -19,6 +19,25 @@ extension ScenePreparedBaseImageResources {
         let maximumCoverScale: Double
     }
 
+    static func mipPreparationInputs(
+        descriptor: SceneRenderDescriptor, drawable: CGSize?, ordinaryColorMipLongEdge: Int?
+    ) -> (SceneAutomaticTextureProjection?, Set<Int>) {
+        let camera = descriptor.camera
+        let automaticProjection = drawable != nil && camera.authoredOrthographicProjectionActive == true
+            && camera.default2DInputLayerID == nil ? SceneAutomaticTextureProjection(
+                canvasWidth: camera.orthoWidth, canvasHeight: camera.orthoHeight, zoom: camera.generalZoom) : nil
+        guard ordinaryColorMipLongEdge != nil || automaticProjection != nil else { return (nil, []) }
+        var fullResolutionLayerIDs = SceneNamedTextureDependencyReferenceAnalysis.participatingLayerIDs(
+            in: descriptor.layers, includingPotential: true)
+        fullResolutionLayerIDs.formUnion(descriptor.materialPasses.lazy.flatMap(\.textureSlots)
+            .compactMap { SceneNamedTextureReference.parse($0)?.providerLayerID })
+        for layer in descriptor.layers {
+            fullResolutionLayerIDs.formUnion(layer.dependencyLayerIDs)
+            for dependency in layer.authoredDependencies { fullResolutionLayerIDs.insert(dependency.layerID) }
+        }
+        return (automaticProjection, fullResolutionLayerIDs)
+    }
+
     static func automaticMipWorldExtent(_ layer: SceneRenderDescriptor.Layer, size: [Float]?) -> SIMD2<Double>? {
         guard layer.usesPerspective != true,
               layer.anglesXYZ?.prefix(2).allSatisfy({ $0 == 0 }) != false else { return nil }
@@ -62,4 +81,43 @@ extension ScenePreparedBaseImageResources {
         loader.evictTextures(containedIn: textures)
         return tails
     }
+
+    static func prepareAutomaticMipPromotions(
+        _ requests: [SceneTextureLoader.SourceKey: AutomaticMipTail],
+        loader: SceneTextureLoader, device: MTLDevice, checkCancellation: @escaping () throws -> Void
+    ) -> [Int: SceneBaseImageTextureLoad.Loaded] {
+        var updates: [Int: SceneBaseImageTextureLoad.Loaded] = [:]
+        for (source, request) in requests {
+            do {
+                defer { loader.evictDecodedCaches() }
+                try checkCancellation()
+                guard let prepared = try loader.prepareTexSource(from: request.input,
+                        source: source, checkCancellation: checkCancellation),
+                      case let .loaded(loaded) = try SceneBaseImageTextureLoad.loadOrdinaryCandidate(
+                        from: request.input, loader: loader, device: device,
+                        preparedTexSource: prepared, checkCancellation: checkCancellation) else { continue }
+                loader.evictTextures(containedIn: [loaded.texture])
+                for layerID in request.layerIDs { updates[layerID] = loaded }
+            } catch is CancellationError { break } catch { continue }
+        }
+        return updates
+    }
+
+#if DEBUG
+    static func reportAutomaticMipRetirement(
+        entries: [Int: Entry], layerIDs: Dictionary<Int, SceneBaseImageTextureLoad.Loaded>.Keys
+    ) {
+        guard ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_INITIAL_WINDOW_SCALE"] != nil else { return }
+        for layerID in layerIDs {
+            guard case let .loaded(old)? = entries[layerID]?.outcome else { continue }
+            let texture = old.texture
+            let size = "\(texture.width)x\(texture.height)"
+            let allocation = texture.allocatedSize
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak texture] in
+                NSLog("MWX Scene: phase=automatic-mip-retirement layer=%ld size=%@ bytes=%ld released=%@",
+                    layerID, size, allocation, texture == nil ? "true" : "false")
+            }
+        }
+    }
+#endif
 }

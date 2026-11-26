@@ -246,6 +246,7 @@ nonisolated extension SceneScriptQuickJSDomain {
                 instanceScalar(.alpha, authored: layer.particleInstanceOverride?.alpha),
                 instanceScalar(.rate, authored: layer.particleInstanceOverride?.rate),
                 instanceScalar(.count, authored: layer.particleInstanceOverride?.count),
+                instanceScalar(.size, authored: layer.particleInstanceOverride?.size),
                 &diagnostic, diagnostic.count
             )
             guard instanceResult == MWX_SCENE_QUICKJS_OK else {

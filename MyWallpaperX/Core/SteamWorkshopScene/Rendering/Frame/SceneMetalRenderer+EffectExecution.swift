@@ -29,7 +29,8 @@ extension SceneMetalRenderer {
         guard let planned = utilityExecution.plansByTriggerLayerID[layerID],
               let imagePipeline, let offscreenTexturePool else { return true }
         let plans = planned.filter {
-            resolvedMaterialFrameTargetPlans[$0.layerID] != nil
+            $0.disposition == .projectColorBlend
+                || resolvedMaterialFrameTargetPlans[$0.layerID] != nil
                 || ($0.usesAuthoredLocalSource
                     && layersByID[$0.layerID]?.effects.contains(where: { $0.visible != false }) == false)
         }
