@@ -207,7 +207,7 @@ prepared Sound binding只提供`.layer(id,.volume)`及其真实seed，在原auth
 
 `Vec3.cross(value)`沿原ValueHost值类承接[公开叉积合同](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/Vec3.html#cross-value-vec3-vec3)：返回右手叉积的新Vec3，不改变两个输入。它复用原数值运算与最终typed消费者的失败边界，不新增宿主、状态、归一化或幅度许可；未知方法和非法最终值仍局部失败。验收核轴向/反向、一般向量、零/平行、别名及连续两次cross的旋转调用，再核真实作者后继值/副作用及最终输出，不能以原TypeError退出授完整旋转或画面一致。
 
-`setTimeout`/`setInterval` 和 jobs 归原 owner、Scene 时间及调用预算。零步长重绘不重复计时事件；清理 owner 时撤 timers/jobs 和句柄使用权。递归、非有限值、错误参数或预算耗尽只影响实际 owner/操作。
+`setTimeout`/`setInterval` 和 jobs 归原 owner、Scene 时间及调用预算。重复定时器在到期帧派发一次，再从该帧开始下一周期。按时间归一化的动画继续用 `engine.frametime`，重复回调的频率可随计算帧量化。零步长重绘不重复计时事件；清理 owner 时撤 timers/jobs 和句柄使用权。递归、非有限值、错误参数或预算耗尽只影响实际 owner/操作。 [低帧率可见验证与官版对照](runtime-evidence-current.md#script-interval-frame-cadence)
 
 localStorage 使用同一 Session 的内存状态、candidate transaction 与原后台持久化。实际 owner 构造后、configure 之前准备一次；普通帧不首次打开或解析 JSON。候选激活会与前任最新 envelope 合并；取消不发布候选写入。screen scope 需要精确单屏身份，不能在多 Surface 时猜一个屏幕。
 

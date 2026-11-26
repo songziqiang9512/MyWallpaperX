@@ -22,9 +22,9 @@ HARNESS = r'''
             target: .layer(layerID: 1, field: .origin), effectNames: [],
             allowsStatefulLayerSideEffects: true, generation: 1, budget: .default)
     }
-    static func evaluate(_ owner: SceneScriptValueOwner, _ time: Double) -> Double {
+    static func evaluate(_ owner: SceneScriptValueOwner, _ time: Double, step: Double = 0.1) -> Double {
         let frame = SceneScriptFrameInput(timing: .init(wallDate: Date(timeIntervalSince1970:0),
-            simulationFrameTime: 0.1, sceneTime: time))
+            simulationFrameTime: step, sceneTime: time))
         let result = owner.evaluate(input: .vector3(0,0,0), frame: frame,
             scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1,
             interruptBudget: nil)
@@ -32,8 +32,32 @@ HARNESS = r'''
               case let .vector3(x,_,_) = value.value else { return -999 }
         return x
     }
+    static func observeRepeatingTimer(milliseconds: Int, steps: [Double]) throws -> [Double] {
+        let owner = try make("""
+            let fired=0;
+            export function init(v){engine.setInterval(()=>{fired++;},\(milliseconds));return v;}
+            export function update(v){return new Vec3(fired,0,0);}
+            """)
+        var time = 0.0
+        return ([0] + steps).map { step in
+            time += step
+            let fired = evaluate(owner,time,step:step)
+            owner.commitLayerMutations()
+            return fired
+        }
+    }
     static func main() throws {
         var out: [String: Any] = [:]
+        out["interval10FPS"] = try observeRepeatingTimer(milliseconds:150, steps:Array(repeating:0.1,count:10))
+        let cadence = [10,24,60].flatMap { fps in Array(repeating:1.0/Double(fps),count:fps) }
+        let changed = try observeRepeatingTimer(milliseconds:175,steps:cadence)
+        out["intervalRetune"] = [changed[10],changed[34],changed[94]]
+        let officialCadence = Array(repeating: 0.04, count: 150)
+        out["interval25FPS"] = try [90,130].map { milliseconds in
+            try observeRepeatingTimer(milliseconds:milliseconds,steps:officialCadence).last!
+        }
+        out["intervalStall"] = try observeRepeatingTimer(milliseconds:75,steps:[0.25,0,0.04,0.02,0.02])
+        out["intervalZero"] = try observeRepeatingTimer(milliseconds:0,steps:[0.1,0,0.1])
         // The JS heap keeps the first cancellation closure after init is
         // rejected. It must not cancel the new timer created by the retry.
         for wholeFrame in [false, true] {
@@ -151,6 +175,15 @@ class SceneScriptTimerIdentityTests(unittest.TestCase):
     def test_current_cancellation_remains_effective_and_idempotent(self):
         self.assertEqual(self.value["currentCanceled"], 0)
         self.assertEqual(self.value["currentLive"], 0)
+
+    def test_repeating_timer_restarts_its_period_on_the_due_frame(self):
+        self.assertEqual(self.value["interval10FPS"], [0,0,1,1,2,2,3,3,4,4,5])
+        self.assertEqual(self.value["intervalRetune"], [5,9,15])
+        self.assertEqual(self.value["interval25FPS"], [50,37])
+
+    def test_repeating_timer_skips_missed_periods_without_replaying_callbacks(self):
+        self.assertEqual(self.value["intervalStall"], [0,1,1,1,1,2])
+        self.assertEqual(self.value["intervalZero"], [0,1,1,2])
 
 
 class SceneScriptTimerIdentityExhaustionTests(unittest.TestCase):

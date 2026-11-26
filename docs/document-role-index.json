@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2d562024a77b84d61f297f0b81b6822c73969e4b1e8a5023ad727fc0d894a2bc",
+        "sourceSHA256": "1dc722636e96ae6a76ae976b0e4a683fa754fd3364990f0cc6fe6c45faac169e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "共享视频轨读取与本地详情投影入口",
-        "limitations": "只复核受影响源及导航。"
+        "scope": "帧驱动与 QuickJS 定时器入口",
+        "limitations": "只复核 Scene 帧率段。"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "046f721213cbd56349b89dca4df61fe586f575411e7b27bff81bfc0d93c3db38",
+        "sourceSHA256": "105513c1c9a98c9c5d331dd11373e7bd2d7a2d2bfb7c33fcb594eae7d54a2229",
         "method": "document_registry --audit + document_health --check",
-        "scope": "体积点光完整半弦的真实射线及阶段筛查",
-        "limitations": "未验证完整呈现、显示映射或能耗。"
+        "scope": "SceneScript 低帧率计时策略和验证导航",
+        "limitations": "官版具名窗只验证设置固定时的累计计数。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c2ef458c9df5a51d40d27ddee24e0e3ec93510a3b36d4dee8fabff51d017f3ee",
+        "sourceSHA256": "2e665673abb6239b44bda296e5e6d103581264c9c8de514d18ecf04ff69e09f2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "体积照明完整半弦候选退出",
-        "limitations": "只复核本次体积点光相关段。"
+        "scope": "Scene 帧率本批新增作者定时器证据",
+        "limitations": "只复核帧率执行段。"
       }
     },
     {
@@ -999,7 +999,15 @@
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
-      "purpose": "Scene 当前验证范围"
+      "purpose": "Scene 当前验证范围",
+      "lastReviewed": "2026-11-26",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "e122813eb3bc2d6744bea185ca52b1d53a487791eeba3e281d6a6f2a85b20d3d",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "官方 25 和本机 25／10 FPS 的真实 SceneScript 画面",
+        "limitations": "独立作者单张完成帧用于证明原路径，未量其回调速率。"
+      }
     },
     {
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
@@ -1032,7 +1040,15 @@
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
-      "purpose": "SceneScript 当前接口与语义"
+      "purpose": "SceneScript 当前接口与语义",
+      "lastReviewed": "2026-11-26",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "97421270d15b85685f5facbf44fc31255bc1f84b80b072d660c285b02695569a",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "重复计时到期帧及现役状态归属",
+        "limitations": "只复核作者计时段。"
+      }
     },
     {
       "path": "docs/scene/development/development-workflow.md",

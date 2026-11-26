@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 20340
+      "bytes": 20557
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 584,
-      "bytes": 149703
+      "lines": 591,
+      "bytes": 150964
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 137989
+      "bytes": 138151
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -137,8 +137,8 @@
       "bytes": 89546
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 598,
-      "bytes": 324913
+      "lines": 600,
+      "bytes": 326383
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -154,7 +154,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 228,
-      "bytes": 42173
+      "bytes": 42449
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 120,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "b916a618f58797088397e659fec06bcfa3858d81b9b46891e0073df8e3e24e5f",
-      "after": "9bf6c43b605643affea76e82091f01392ed2cf00cfb5d1c27ea0527a2b0ca5de",
-      "owner": "video-runtime",
-      "reason": "共享视频轨读取与本地详情投影入口",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-inspector-source-recovery"
+      "before": "9bf6c43b605643affea76e82091f01392ed2cf00cfb5d1c27ea0527a2b0ca5de",
+      "after": "eef5d21286bf671a9c7ce6b347fcffd44c40d07f8b12b74c44bbf233026d511f",
+      "owner": "scene-runtime",
+      "reason": "帧驱动与 QuickJS 定时器入口",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-script-interval-phase"
     },
     {
       "section": "bodies",
@@ -495,11 +495,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "7076c0ae38699743dde2c6b4416677034c84e9cccb43b194483082541c92a235",
-      "after": "d743c1063933128347643129a1bedbe254aa0a249fbd1ac7e0221bd86b6cfd05",
-      "owner": "Scene text and media presentation",
-      "reason": "Define the authored text setter handoff to the published stateful string value.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#authored-text-current-value"
+      "before": "61e7f4971701b0676f80ba1d87404913bf6d997c62b572dd55464ea0366cc305",
+      "after": "3dcf7f5d2515f20ef724a8cbcaa458889916bcf55fc547c87645e34549612620",
+      "owner": "scene-runtime",
+      "reason": "重复计时到期帧及现役状态归属",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-script-interval-phase"
     },
     {
       "section": "bodies",
@@ -603,11 +603,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f08552c04e6c0069580cdb4e99ffaaadd2207454647e0c65e51e72df1f22af5b",
-      "after": "28bc1a358cdd60176c7db9afc75198170fa5d0c3bd634d7cfbc37cbb00689646",
-      "owner": "Scene native and official rendering",
-      "reason": "Bind isolated source coverage, final playback and budget evidence",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#silk-capture-density-345"
+      "before": "f6038d56282161d76a624e7ce1e4780e739ec74ab3795e7acd08d870aa38db9d",
+      "after": "db3a66f4d51c74141fb9d448bbb312fce6dfc496855369bd705f796ddb2bec49",
+      "owner": "scene-runtime",
+      "reason": "官方 25 和本机 25／10 FPS 的真实 SceneScript 画面",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-script-interval-phase"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "697729e6951918cb0e73e70e65bb1ee5b1e9c502eaf1a6452cc44c0b1fdfe64f",
-      "after": "58d8ef651b873c4599f1d17732877e68cb08578c660d60ffdfbddb7bee4ff0ef",
+      "before": "58d8ef651b873c4599f1d17732877e68cb08578c660d60ffdfbddb7bee4ff0ef",
+      "after": "41fbcc305490ec94cafd942a77d7046b461ac1acd1d991fdd59b0246223dbefc",
       "owner": "scene-runtime",
-      "reason": "体积点光完整半弦的真实射线及阶段筛查",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-full-half"
+      "reason": "SceneScript 低帧率计时策略和验证导航",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-script-interval-phase"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "a536f6333098e2ab526b4cdbf1aa0f9760b25b4227b0e69d8e43591eb7aa8fa1",
-      "after": "22b60b96a1f9282aea73f310379846f013077f32b547fd52a2a2c689a99eedf6",
+      "before": "22b60b96a1f9282aea73f310379846f013077f32b547fd52a2a2c689a99eedf6",
+      "after": "e6736e9ec7d81fd16cc018e6b4c4ab7eb9ec37fa167f25ddf7bee22777640482",
       "owner": "scene-runtime",
-      "reason": "体积照明完整半弦候选退出",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-full-half"
+      "reason": "Scene 帧率本批新增作者定时器证据",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-script-interval-phase"
     },
     {
       "section": "bodies",

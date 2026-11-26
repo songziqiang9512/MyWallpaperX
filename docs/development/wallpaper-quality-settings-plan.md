@@ -109,6 +109,13 @@ M4 单内屏用同一签名产品的真实作品 3477054430 与 3746066933，沿
 - **61–120 FPS**在高刷屏和真实输入的 GPU、作用线程及耗电结果通过后开放，验 61／90／119／120、退出高刷与热插。现有 Session 由单一时钟驱动多 Surface，先以单高刷屏或同刷新率组合取证。混合刷新率先沿已验证共同上限运行；只有省掉低刷屏额外提交的价值成立，才在既有驱动中按 Surface 准备有效调度，继续共用 SceneClock。用户选择可随屏幕限制临时降效，屏幕更换重新取有效值。
 - **技术比较**优先现有 Timer。若实测发现跨刷新率抖动、额外唤醒或提交错位，再在同一驱动职责内比较 `CADisplayLink`／`CAMetalDisplayLink`。系统帧率范围是调度提示，验收以尝试／提交／GPU 完成／presented 及长窗节奏为准。 [Apple 帧节奏建议](https://developer.apple.com/documentation/metal/improving-your-games-graphics-performance-and-settings) · [CAMetalDisplayLink 帧率提示](https://developer.apple.com/documentation/quartzcore/cametaldisplaylink/preferredframeraterange)
 
+<a id="scene-script-interval-phase"></a>
+#### SceneScript 重复定时器的到期帧
+
+`update()` 次数随实际计算帧调整，按累计 `engine.frametime` 或 `engine.runtime` 驱动的动画沿作者时间。MyWallpaperX 的重复定时器在首个合格帧派发，到期时从派发帧重新开始下一周期。零延迟和跨多周期都每个有效 tick 至多一次，同时间、暂停、取消、事务和单次回调沿原 owner。对低帧率作者作品，这会量化基于重复定时器的节奏。先按固定版本实际行为验证，再决定是否改变此口径。 [官方 SceneScript 更新](https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/update.html) · [官方重复回调 API](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html#setinterval-callback-function-delay-number-function)
+
+固定版官版与本机在 25 FPS 的可见计数一致，保现役到期帧策略。QuickJS 原生门继续覆盖不同间隔、同 owner 模拟换档、重复时间、零延迟与超长一步。粒子、Timeline、内嵌媒体和官版普通桌面的热改仍各自验收。 [两端画面与独立作者证据](../scene/capabilities/runtime-evidence-current.md#script-interval-frame-cadence)
+
 <a id="scene-fixed-refresh-proof"></a>
 #### 固定刷新屏的实际呈现分布
 

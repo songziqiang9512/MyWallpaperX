@@ -282,8 +282,13 @@ struct SceneDocument {
 struct SceneRenderDescriptor {
     typealias CameraPath = SceneDocument.Scene2DCameraPathDefinition
     // External descriptor inputs; camera projection and VM behavior use product code.
-    // The Bloom-specific gate replaces this field with the production config.
-    struct Bloom { var hdr: Bool? = nil }
+    // Fixture descriptors expose the quality fields read by production projection.
+    struct Bloom {
+        var hdr: Bool? = nil
+        var suppressedByQuality: Bool? = nil
+        __BLOOM_ALLOWS__
+        __BLOOM_CONSUMES__
+    }
     struct Camera {
         var bloom = Bloom()
         var eye: [Float] = [0, 0, 0]
@@ -483,8 +488,13 @@ extension SceneRenderDescriptor.Layer {
 _document_models = (SCENE / "Format/SceneDocumentObject.swift").read_text(encoding="utf-8")
 _timeline_start = _document_models.index("    struct SceneObjectTimeline:")
 _timeline_end = _document_models.index("\n    /// Particle", _timeline_start)
+_bloom_source = (SCENE / "Rendering/Composition/SceneBloomPostProcess.swift").read_text(encoding="utf-8")
 SWIFT_PREAMBLE = SWIFT_PREAMBLE.replace(
     "struct SceneDocument {", "struct SceneDocument {\n" + _document_models[_timeline_start:_timeline_end]
+).replace(
+    "__BLOOM_ALLOWS__", swift_declaration(_bloom_source, "var allowsBloom:")
+).replace(
+    "__BLOOM_CONSUMES__", swift_declaration(_bloom_source, "func consumes(")
 ).replace(
     "__PERSPECTIVE_GEOMETRY_CONSUMER__",
     swift_declaration(

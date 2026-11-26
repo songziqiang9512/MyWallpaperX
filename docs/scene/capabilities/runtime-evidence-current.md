@@ -596,3 +596,5 @@ F165的Z和alpha分别反推两步、约.167模拟秒的新生；撤回候选F13
 ## 未取得的资格
 
 上述为direct-host诊断、有界静帧及已明示的同daemon切换，不覆盖普通App选择、其余IPC故障/时限、物理多屏、macOS26最低版本、受控音频/媒体/全部pointer或属性分支、连续长稳、完整周期、优化性能/能耗、正式发行或官方同输入像素一致性。资源/组件未观察或无法精确归因的阶段保unknown；主画面成立不关闭局部能力缺口。能力见[索引](README.md#overview)，测量方法见[开发工作流](../development/development-workflow.md#corpus-runtime-measurement)，性能资格见[性能卡](../roadmap/performance-convergence-card.md)。
+
+<a id="script-interval-frame-cadence"></a>**SceneScript 低帧率重复定时器。** Windows Wallpaper Engine 2.8.0.42 的同一 Win32 接收进程，在保存值 25 FPS 上独立打开两次自有具名场景。两臂分别历时 6,016／6,026 ms，作者 `runtime` 增量与 `frametime` 累计各自吻合至毫秒，均为 150 次更新。90／130 ms 两种间隔每次实绘都显示 50／37 次。数据与按到期帧重新计周期相符。沿原相位保余量会在相同窗产生约 66／46 次，属于可观测区别。源机会话只开关具名副本，结束配置字节、原选择和接收进程与之前相同。本机 M4 用相同作者包装入签名 Debug，25 FPS 实绘 150 次更新／6,000 ms，两周期同为 50／37 次。10 FPS 实绘 60 次更新／6,000 ms，两周期为 60／30 次，作者时钟和累计帧时间均为 6,000 ms。独立 Workshop 原包 3079085422 的 layer 253 按作者声明的 148 ms 重复间隔写字，10 FPS 终帧实际显示了部分字样，源与结果经原窗口和完成帧收据核对。原包含随机延迟，单帧和栅格发布不用于推算回调次数。三窗 GPU 完成且排空。原生 QuickJS 门复核到期帧、同 owner 模拟换档、零步长和超长一步，保持现役生产计时。官版具名窗两次 25 FPS 只区分上述累计计数，普通桌面、热改、取消顺序和过载的官版行为仍待验。收据归 `.artifacts/wallpaper-quality-scene-timer-cadence`。
