@@ -153,8 +153,8 @@
       "bytes": 172229
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 421,
-      "bytes": 80119
+      "lines": 428,
+      "bytes": 81142
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 485,
@@ -162,7 +162,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 405460
+      "bytes": 406277
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 57,
-      "bytes": 7180
+      "bytes": 7302
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -620,30 +620,12 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "a24c0a340e9d14f56b316b1af4a8022375a8b8cec8140762095dc9ac1ca5a898",
-      "after": "6ea23c66a8cb9f409fe452d7dfe6ac455842ae1caba0520493d8ca250b2de9fa",
-      "owner": "Scene main synchronization",
-      "reason": "和当前主线预算绑定，并保留两边的现役证据。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "48fdfecd39d7454f73ffe2c8b770aa779b0b50fcc04a16a6ffb48bd75c5c957a",
       "after": "04d3538bf6b83177508c7f02eed0714fc2621b74da8f783cf7186727eced8b43",
       "owner": "Scene composition and named graph output",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#forward-composition-named-epoch",
       "reason": "按主父提交与合并正文核对作者画布投影合同与运行证据的预算。"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0c7edf1c10887dba8908ce0c07ec7c54b24f4e90a87bf87de99676d2eb3d7c8e",
-      "after": "9e7e92adbdb4985540b0689ceb8591f644a04b36c3caddb7482f67d49c6b54d9",
-      "owner": "Scene main synchronization",
-      "reason": "和当前主线预算绑定，并保留两边的现役证据。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
     },
     {
       "section": "bodies",
@@ -692,15 +674,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a3c7e62c1b1a70e60ea31f28a31b0a65867d8cd25dea9686525e651d60a3c0f8",
-      "after": "2bf2d2fb3da2df9fa3ed2c6e8d62e83c88b5c505ad19ea8543b4203827ebe7eb",
-      "owner": "Scene particle simulation",
-      "reason": "把两个实测断点的下一步收窄到相位与阻尼时长。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
-    },
-    {
-      "section": "bodies",
       "path": "docs/web/current-state.md",
       "before": "78f9aae4d4df060233d72812832763eff15de04bf3092b295d2a5447c428940a",
       "after": "cb60df2ed56c9eb7aacadf600e1afed7a0a5dae2d834a913993a2d9b5c972279",
@@ -734,6 +707,33 @@
       "owner": "repository governance",
       "reason": "Use the current test collection paths and repair the navigation after the script move.",
       "decision": "docs/development/repository-workflow.md#并行与验证"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "6ea23c66a8cb9f409fe452d7dfe6ac455842ae1caba0520493d8ca250b2de9fa",
+      "after": "3f59a7e9d3ceb7e333a4101f4a8930c906c3ba98c74e218eaa795bdbd7e3b1a4",
+      "owner": "Scene particle runtime and evidence",
+      "reason": "Preserve the current main particle birth palette and the existing quality evidence on the merge.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "9e7e92adbdb4985540b0689ceb8591f644a04b36c3caddb7482f67d49c6b54d9",
+      "after": "6d6a8d23770bfd9ef3ace0ade879620b7e274f7b0a900c426800875ba9307140",
+      "owner": "Scene particle runtime and evidence",
+      "reason": "Preserve the current main particle birth palette and the existing quality evidence on the merge.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "e091839decc7e93015e19e6111f9730916bbe869c8e35685c37e0ccf32faa3ae",
+      "after": "736dc49a40d757f869367e10c69085acfdf334eafd89a91d25e359fb06ba3ce1",
+      "owner": "Scene particle runtime and evidence",
+      "reason": "Preserve the current main particle birth palette and the existing quality evidence on the merge.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
     }
   ]
 }

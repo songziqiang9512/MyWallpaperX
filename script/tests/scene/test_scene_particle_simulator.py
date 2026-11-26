@@ -1603,26 +1603,30 @@ enum Harness {
         fixedGrayHSV.advance(by: 0.1)
         var hsvThenColor = simulator(hsvThenColorJSON, seed: 44, step: 0.1)
         hsvThenColor.advance(by: 0.1)
+        let hsvPalettes = [
+            "defaultSteps": #""huemin":0.4,"huemax":0.4,"saturationmin":1,"valuemin":1"#,
+            "range": #""huemin":0.2,"huemax":0.56,"huesteps":3,"saturationmin":1,"valuemin":1"#,
+            "reverse": #""huemin":0.72,"huemax":0.12,"huesteps":3,"saturationmin":1,"valuemin":1"#,
+            "zeroSteps": #""huemin":0.4,"huemax":0.56,"huesteps":0,"saturationmin":1,"valuemin":1"#,
+            "defaultRange": #""huesteps":3,"saturationmin":1,"valuemin":1"#,
+            "componentDefaults": "",
+            "defaultSaturationValueMax": #""huemin":0.4,"huemax":0.56,"huesteps":1,"saturationmin":0.55,"valuemin":0.45"#,
+            "descendingSaturationValue": #""huemin":0.4,"huemax":0.56,"huesteps":1,"saturationmax":0.2,"valuemin":0.8,"valuemax":0.3"#,
+            "authoredOutsideUnitInterval": #""huemin":0.4,"huemax":0.4,"huesteps":1,"saturationmin":1.2,"saturationmax":1.2,"valuemin":0.75,"valuemax":0.75"#,
+            "extraMetadata": #""huemin":0.4,"huemax":0.56,"huesteps":0,"saturationmin":1,"valuemin":1,"metadata":"unused""#,
+        ].mapValues { fields in
+            var value = simulator(makeHSVColorJSON(fields), seed: 44, step: 0.1)
+            value.advance(by: 0.1)
+            return value.particles.map { vector($0.color) }
+        }
         let invalidHSVColors = [
-            "",
-            #""huemin":-0.1,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
-            #""huemin":0,"huemax":1.1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
-            #""huemin":0.8,"huemax":0.2,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
-            #""huemin":0,"huemax":1,"huesteps":0,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
-            #""huemin":0,"huemax":1,"huesteps":1025,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
             #""huemin":0,"huemax":1,"huesteps":1.5,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
-            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":-0.1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
-            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":0.8,"saturationmax":0.2,"valuemin":1,"valuemax":1"#,
-            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":0,"saturationmax":1.1,"valuemin":1,"valuemax":1"#,
-            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":-0.1,"valuemax":1"#,
-            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":0.8,"valuemax":0.2"#,
-            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":0,"valuemax":1.1"#,
+            #""huemin":1e45"#,
+            #""valuemax":null"#,
             #""huemin":"bad","huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
             #""huemin":"0","huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
             #""huemin":{"value":0},"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
             #""huemin":false,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
-            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1,"future":1"#,
-            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1"#,
         ].map { fields -> SceneParticleSimulator in
             var value = simulator(makeHSVColorJSON(fields, count: 1), seed: 44, step: 0.1)
             value.advance(by: 0.1)
@@ -2457,6 +2461,7 @@ enum Harness {
             "hsvColorDiagnostics": hsvColors.diagnostics.map(\.kind.rawValue),
             "fixedGrayHSV": vector(fixedGrayHSV.particles[0].color),
             "hsvThenColor": vector(hsvThenColor.particles[0].color),
+            "hsvPalettes": hsvPalettes,
             "invalidHSVColors": invalidHSVColors.map { vector($0.particles[0].color) },
             "invalidHSVColorDiagnostics": invalidHSVColors.map {
                 $0.diagnostics.map(\.kind.rawValue)
@@ -4181,11 +4186,46 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             self.results["hsvThenColor"], [64 / 255, 128 / 255, 1]
         )
 
-    def test_hsv_color_random_rejects_only_incomplete_or_unbounded_profiles(self) -> None:
-        self.assertEqual(self.results["invalidHSVColors"], [[1, 1, 1]] * 19)
+    def test_hsv_color_random_defaults_and_signed_hue_spacing(self) -> None:
+        expected = {
+            "defaultSteps": {
+                (0, 1, 0.4), (0, 0.6, 1), (0.4, 0, 1), (1, 0, 0.6),
+                (1, 0.4, 0), (0.6, 1, 0),
+            },
+            "range": {(0.8, 1, 0), (0, 1, 0.28), (0, 0.64, 1), (0.44, 0, 1)},
+            "reverse": {(0.32, 0, 1), (0, 1, 0.52), (1, 0.72, 0), (0, 0, 0)},
+            "zeroSteps": {(0, 1, 0.4)},
+            "defaultRange": {(1, 0, 0), (0, 1, 0), (0, 0, 1)},
+            "authoredOutsideUnitInterval": {(-0.15, 0.75, 0.21)},
+            "extraMetadata": {(0, 1, 0.4)},
+        }
+        for name, palette in expected.items():
+            with self.subTest(name=name):
+                actual = {
+                    tuple(round(channel, 9) for channel in color)
+                    for color in self.results["hsvPalettes"][name]
+                }
+                self.assertEqual(actual, palette)
+        ranged = self.results["hsvPalettes"]["defaultSaturationValueMax"]
+        self.assertGreater(len({tuple(rgb) for rgb in ranged}), 20)
+        for red, green, blue in ranged:
+            self.assertTrue(0.45 <= green <= 1)
+            self.assertTrue(0.55 <= 1 - red / green <= 1)
+            self.assertAlmostEqual(blue, red + 0.4 * (green - red))
+        for red, green, blue in self.results["hsvPalettes"]["descendingSaturationValue"]:
+            self.assertTrue(0.3 <= green <= 0.8)
+            self.assertTrue(0.2 <= 1 - red / green <= 0.5)
+            self.assertAlmostEqual(blue, red + 0.4 * (green - red))
+        for color in self.results["hsvPalettes"]["componentDefaults"]:
+            value = max(color)
+            self.assertTrue(0.5 <= value <= 1)
+            self.assertTrue(0.5 <= 1 - min(color) / value <= 1)
+
+    def test_hsv_color_random_rejects_malformed_or_unrepresentable_profiles(self) -> None:
+        self.assertEqual(self.results["invalidHSVColors"], [[1, 1, 1]] * 7)
         self.assertEqual(
             self.results["invalidHSVColorDiagnostics"],
-            [["hsvColorUnsupported"]] * 19,
+            [["hsvColorUnsupported"]] * 7,
         )
         self.assertEqual(self.results["hsvColorWithOverride"], [0.5, 1, 1])
         self.assertEqual(

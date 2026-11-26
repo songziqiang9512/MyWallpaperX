@@ -76,7 +76,7 @@ nonisolated enum SceneParticleInitializerExecutionPlan: Sendable {
         case .color:
             self = .color(.init(value, defaults: (.zero, SIMD3(repeating: 255))))
         case .hsvColor:
-            self = .hsvColor(value.boundedHSVColor)
+            self = .hsvColor(value.hsvColor)
         case .colorList:
             self = .colorList(value.boundedColorList)
         case .turbulentVelocity:
@@ -141,9 +141,8 @@ extension SceneParticleSimulator {
                 componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "color-assigned", time: simulationTime, particleID: particle.id)
 #endif
             case let .hsvColor(plan):
-                if let plan,
-                   let color = randomHSVColor(plan) {
-                    particle.color = color
+                if let plan {
+                    particle.color = randomHSVColor(plan)
 #if DEBUG
                     componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "hsv-color-assigned", time: simulationTime, particleID: particle.id)
 #endif

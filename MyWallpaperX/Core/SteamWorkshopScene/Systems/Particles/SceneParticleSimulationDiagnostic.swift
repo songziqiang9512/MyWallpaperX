@@ -231,7 +231,7 @@ extension SceneParticleSimulationMath {
         for initializer in definition.initializers {
             switch initializer.kind {
             case .hsvColor:
-                add(initializer.boundedHSVColor == nil
+                add(initializer.hsvColor == nil
                     ? .hsvColorUnsupported : .hsvColorBounded, "hsvcolorrandom")
             case .colorList:
                 add(initializer.boundedColorList == nil

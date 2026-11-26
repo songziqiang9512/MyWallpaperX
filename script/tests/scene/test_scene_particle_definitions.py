@@ -190,15 +190,15 @@ enum Harness {
             "turbulentAudioMode": definition.initializers[7].turbulentVelocity?.audioResponse.mode ?? -1,
             "turbulentAudioBounds": definition.initializers[7].turbulentVelocity?.audioResponse.bounds?.vectorValue ?? [],
             "colorListColors": definition.initializers[8].colors?.compactMap(\.vectorValue) ?? [],
-            "hsvColorRange": [
-                definition.initializers[9].hsvColor?.hueMinimum ?? -1,
-                definition.initializers[9].hsvColor?.hueMaximum ?? -1,
-                definition.initializers[9].hsvColor?.saturationMinimum ?? -1,
-                definition.initializers[9].hsvColor?.saturationMaximum ?? -1,
-                definition.initializers[9].hsvColor?.valueMinimum ?? -1,
-                definition.initializers[9].hsvColor?.valueMaximum ?? -1,
+            "hsvColorPlan": [
+                definition.initializers[9].hsvColor?.hueStart ?? -1,
+                definition.initializers[9].hsvColor?.hueStride ?? -1,
+                definition.initializers[9].hsvColor?.huePickCount ?? -1,
+                definition.initializers[9].hsvColor?.saturation.lowerBound ?? -1,
+                definition.initializers[9].hsvColor?.saturation.upperBound ?? -1,
+                definition.initializers[9].hsvColor?.value.lowerBound ?? -1,
+                definition.initializers[9].hsvColor?.value.upperBound ?? -1,
             ],
-            "hsvColorSteps": definition.initializers[9].hsvColor?.hueSteps ?? -1,
             "positionOffsetDirections":
                 definition.initializers[10].positionOffset?.directions?.vectorValue ?? [],
             "positionOffsetDistance":
@@ -837,8 +837,7 @@ class SceneParticleDefinitionTests(unittest.TestCase):
             result["colorListColors"],
             [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
         )
-        self.assertEqual(result["hsvColorRange"], [0, 1, 0.5, 1, 0.25, 0.75])
-        self.assertEqual(result["hsvColorSteps"], 6)
+        self.assertEqual(result["hsvColorPlan"], [0, 1 / 6, 7, 0.5, 1, 0.25, 0.75])
         self.assertEqual(result["positionOffsetDirections"], [1, 0.5, 0])
         self.assertEqual(result["positionOffsetDistance"], 150)
         self.assertEqual(result["positionOffsetOctaves"], 4)
