@@ -166,7 +166,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 414891
+      "bytes": 416745
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -197,8 +197,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 56,
-      "bytes": 7212
+      "lines": 55,
+      "bytes": 7015
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -669,15 +669,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "3aacbab07c03cf51c339a1139c713fa807c929109e82d4fc4b41951145c904be",
-      "after": "dbdd5d9a10fbf527f12ea1bb37bae1e7924ecf6d4e94b337fe4454a7e6564d1e",
-      "owner": "Scene composition",
-      "reason": "Preserve the upstream controlled puppet history evidence and the integrated quality evidence.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "51ab0c44e7ee50643e905f9f62e62c2451dec75db0bc1757d8f8ca88f64c2c57",
       "after": "01ab3b1eee3aadf18ef6654299f22c0bd42cbde422fe25052b0f14eab0a27404",
@@ -693,15 +684,6 @@
       "owner": "Scene composition and playback quality",
       "reason": "Preserve the upstream offscreen terminal depth behavior and existing quality evidence.",
       "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2f0cc7f98f74dd91493a5cc8e6447f41af9d6e208784cb0569c8e1ff32d96186",
-      "after": "96c0d8418a27eb1a1448d28f0171e149ff79fa544f0f5c78edea129d93e0fcc4",
-      "owner": "Scene composition and playback quality",
-      "reason": "Preserve the upstream offscreen terminal depth behavior and existing quality evidence.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-box-ring-depth-333"
     },
     {
       "section": "bodies",
@@ -747,6 +729,15 @@
       "owner": "Scene playback quality",
       "reason": "Record native sample-compatible model reflection and preserve its real environment and depth boundaries.",
       "decision": "docs/scene/architecture/runtime-architecture.md#scene-reflection-quality-policy"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "96c0d8418a27eb1a1448d28f0171e149ff79fa544f0f5c78edea129d93e0fcc4",
+      "after": "871c843ddff2244fb0b985e031038a9d925ebee174981ffa61340e4c2a09e91a",
+      "owner": "Scene perspective composition",
+      "reason": "保留原包斜视实际结果、独立音频位移与余下官版对照。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-box-oblique-333"
     }
   ]
 }

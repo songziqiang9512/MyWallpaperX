@@ -17,10 +17,9 @@
 | 3769688830 | 本机玩偶水球持续向左转，用户在官版看到头朝上的往返摆动 | [两端同窗热切已核](../capabilities/runtime-evidence-current.md#orb-spin-official-live-376)，关自转后均保留往返摆动。待核实际面板保存值及冷启动恢复。 |
 | 3673609113 | 人偶运动和音条抖动时出现上一帧残影 | [两端的受控姿态对照](../capabilities/runtime-evidence-current.md#author-puppet-history-367)已定位吹喇叭人偶的作者末级历史。继续对齐原包自然动作及音条，核实际姿态、音频与连续呈现。 |
 | 3586705329 | 图5的拼贴竖状拉伸随镜头大小变化 | [官版同样出现的 Scroll 边带](../capabilities/runtime-evidence-current.md#author-collage-edge-358)可复用。将反馈图注册到同画幅、镜头和滚动相位，区分已量过的边带与额外变形。 |
-| 3337494481 | 图6斜视时封面与外圈文字位置不合 | [环字终端深度复验](../capabilities/runtime-evidence-current.md#author-box-ring-depth-333)已消除背面穿透，上视中心已核。固定同斜视和音频，复核两层各自音频位移。加载见性能区。 |
-| 3372715909 | 右上角时钟仍缺失 | 复用[文字46/60与作者视频克隆的实机对照](../capabilities/runtime-evidence-current.md#author-clock-video-order-337)。核当前原包默认状态、视频属性热切及终帧层序。 |
+| 3337494481 | 图6斜视时封面与外圈文字位置不合 | [环字深度](../capabilities/runtime-evidence-current.md#author-box-ring-depth-333)已消除背面穿透。[本机原包 front 定位](../capabilities/runtime-evidence-current.md#author-box-oblique-333)已量两层相对位移，剩同视角、同音源官版对照。加载见性能区。 |
+| 3372715909 | 右上角时钟仍缺失 | [当前本机原包](../capabilities/runtime-evidence-current.md#author-clock-full-337)确认重开后仍由视频盖住钟字，官版原包冷开黑帧后退出。剩余要有官版原包可见帧或用户当时的属性、视频和画面，现有缩减包已确认克隆追加层序。 |
 | 3042492564 | 切「人物动作(动画)」后左人掉下 | [原包热切和冷载对照](../capabilities/runtime-evidence-current.md#author-float-reload-304)中，本机左、右按作者脚本停在 Y665.2/1891.1 并恢复，未复现下坠。本次官版弹窗 CLI 对照仅证明直接绑定生效，仍需通过实际属性面板核热回调和姿态。 |
-| 3382111183 | 人物脚下短横线本机呈白，官版有颜色 | 复用[六层定位](../capabilities/runtime-evidence-current.md#floor-beam-continuous-emission)和[实例色对照](../capabilities/runtime-evidence-current.md#particle-instance-color-revision)，用同曲同布景帧测实际短横线的 RGB 并核对应层，区分地面斜线。 |
 
 <a id="implementation-gaps"></a>
 ## 独立实测的开放断点
