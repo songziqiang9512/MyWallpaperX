@@ -77,6 +77,7 @@ import simd
         let nextID = prepared.nextParticleID, time = prepared.simulationTime
         let liveCount = prepared.particles.count, processedCount = prepared.normalizedLives.count
         let preparedFirst = prepared.particles.first
+        let preparedLifeBits = prepared.normalizedLives.map(\.bitPattern)
         warm.advance(by: step); plain.advance(by: step, dynamicInstanceOverride: liveOverride)
         let nextStepRetainedSnapshot = prepared.particles.count == liveCount
             && prepared.particles.first == preparedFirst
@@ -96,7 +97,8 @@ import simd
             "nextStepObservableState": nextState, "nextStepEvents": nextEvents,
             "nextStepHistory": nextHistory, "continuedHandoff": handoffEqual,
             "retainedSnapshotUnchanged": nextStepRetainedSnapshot && prepared.particles.count == liveCount
-                && prepared.particles.first == preparedFirst,
+                && prepared.particles.first == preparedFirst
+                && prepared.normalizedLives.map(\.bitPattern) == preparedLifeBits,
             "handoffCadences": handoffSteps,
             "drained": drained, "historyCount": retainedHistory.count,
             "historyHasPopulation": retainedHistory.contains { !$0.particles.isEmpty },

@@ -37,11 +37,11 @@
 
 | 样本 | 剩余瓶颈 |
 |---|---|
-| 3337494481 | [同包并行预热实测](../capabilities/runtime-evidence-current.md#authored-root-prewarm-join)把首屏降至18.32秒，仍有13.31秒独占根模拟。余下只跟进当前剖面上可复验的新主导成本，保完整历史及 RNG。 |
+| 3337494481 | [同包并行预热实测](../capabilities/runtime-evidence-current.md#authored-root-prewarm-join)把首屏降至18.32秒，仍有13.31秒聚合预热。余下只跟进当前剖面上可复验的新主导成本，保完整历史及 RNG。 |
 | 3749463715 | [可比 60fps 运行](../capabilities/runtime-evidence-current.md#gpu-admission-wake-374)实呈从 29.96 提升到 34.80fps，尚低于目标。仅跟进当前路径的新显著成本。 |
 | 3420215721 | [同包实测](../capabilities/runtime-evidence-current.md#scene-playback-triage-342)仍有 GPU 超预算。固定 scene-time 和实际历史源做消融。 |
 | 3673609113 | [实呈与 GPU 回执](../capabilities/runtime-evidence-current.md#inactive-terminal-copy-367)仍显示 GPU 超预算。沿实际帧成本定位，保两级作者历史。人偶及音条残影独立按用户反馈核对。 |
-| 3808922316 | [当前单根反例](../capabilities/runtime-evidence-current.md#authored-root-prewarm-join)签名本机预热45.78秒、Ready 52.74秒，同批旧版相近。复用[预热剖面](../capabilities/runtime-evidence-current.md#particle-prewarm-hotpath)找保随机与首帧的单根工作删减。 |
+| 3808922316 | [同包交错实测](../capabilities/runtime-evidence-current.md#particle-life-buffer-evidence)预热中位降至41.67秒，首帧49.09秒。沿现役短栈找保随机、存量和首帧的单根工作删减。 |
 
 测量与退出条件归[性能方法](performance-convergence-card.md)。
 

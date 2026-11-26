@@ -28,6 +28,9 @@ LayerImage 继续使用原 compiler：原 base-image owner 将 provider 缺 outc
 
 Remap 和 Position Offset 保现有八角三维梯度噪声，格点求和及插值顺序有原生位值和首屏计时验收。`prewarmStepBudget` 只截断本次模拟，Snapshot 无续热游标。默认隐藏 root 在零步初始 advance 清人口和轨迹，保 RNG、ID、模拟时间及已完成 emitter，未完成者沿原 rearm。
 
+<a id="particle-normalized-life-step"></a>
+步进在发射和本步前置退休完成后，一次将原归一寿命数组调整到实际粒子数，再在原 reset 和粒龄循环写入对应槽。原公式、粒龄修改顺序和算子读取保持一致，保已提交快照的值语义，退役逐粒 append 的容量与独占性检查。用同原作者定义核完整预热、后续状态和旧快照，另测签名 App 同源首屏及独立真实预热样本，实际收益以可比计时为准。
+
 <a id="natural-birth-lifetime"></a>
 ### 普通发射的首步粒龄
 
