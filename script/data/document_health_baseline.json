@@ -94,11 +94,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 162786
+      "bytes": 167847
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 144578
+      "bytes": 144835
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -504,19 +504,19 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "c188f2d67db5ec08c99a9f08266c2de99fe71d9cdaeecc3422ffe73ebd1b52df",
-      "after": "bc06f31172d8cabad186404ab49fb399a9a060b8411ef9fe09184782ad580ee2",
-      "owner": "Scene volume quality",
-      "reason": "登记真实宽光 SDR 阶段、HDR 终端和大坐标反例，以及已完成签名整帧的退出决策。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-clear-depth-table"
+      "before": "bc06f31172d8cabad186404ab49fb399a9a060b8411ef9fe09184782ad580ee2",
+      "after": "c8a3272b571babc6e770858f543e86bfb90af918776a6a93fc8c25454593acb2",
+      "owner": "Scene effective quality",
+      "reason": "将正常作者场景实际生效纳入质量门，登记真机 MSAA 和缩小遮挡附件的证据及取舍。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-depth-independent-tail"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "d782b5177a050ab2c6cdb43c834a25d5aab110f27155bf74def1f6629e516d70",
-      "after": "e6c2f3bbe7eb8e73fa26724a7e02a58f22319c132f60f0a277397542f62d9899",
-      "owner": "Scene volume quality",
-      "reason": "同步体积照明清深度方案退出及下一批的取证顺序。",
+      "before": "e6c2f3bbe7eb8e73fa26724a7e02a58f22319c132f60f0a277397542f62d9899",
+      "after": "e5f670b73c5712b00840a0b031f843f79f4e3d1cb2fe6ba0e36c21b2e4ffe404",
+      "owner": "Scene effective quality",
+      "reason": "将正常作者场景实际生效纳入质量门，登记真机 MSAA 和缩小遮挡附件的证据及取舍。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
