@@ -419,11 +419,15 @@ M4 内屏同一 WindowServer 窗口以 60 FPS 上限实际采集。旧版两次�
 
 首次筛查只试兼容的实际压缩文件及时间基，先检查不带音、只比名义 FPS 或时长的反例会被拒绝。结果通过后再决定与真实作者长稳 A/B 的同源编码、实际音画输出及一次性转码能量。未达到独立电力门时保留原片。 [公开有声样片](https://learn.microsoft.com/en-us/playready/advanced/testcontent/playready-3x-test-content)
 
+原生候选沿 `AVAssetReader/Writer` 分轨，以原压缩视频样本的有效 PTS 辨认解码预滚与重复首帧。选中帧保共同时间原点、间距及视频末端，在原生缩放后显式提交时间和最后一帧的持续长度。原 AAC 缓冲经 pass-through，保已有裁切与编码延迟附件。先验证已冻结的两部公共样片，再用一部未参与前次筛查的 Workshop 原作作实片邻例。任一时基或音频门失败时先查原生封装的实写结果，必要时试 `VTCompressionSession` 显式时长或 MOV。保留原播放与能耗发布门。 [Apple Writer 样本透传](https://developer.apple.com/documentation/avfoundation/avassetwriterinput/outputsettings) · [Apple 编码时间接口](https://developer.apple.com/documentation/videotoolbox/vtcompressionsession)
+
 只取两部公开片源的开头完整音视频分片，共四个约 1.75–6.03 秒的片段。Big Buck Bunny 的源 sample entry 为 `hev1`，本机 AVFoundation 拒绝解码。实验对照改为 `hvc1` 后解码，视频和音频的压缩样本与时间不变。两侧首个原生解码缓冲报告 BT.709 附件。派生文件沿两部源片各自的 10 位与 8 位。原视频首个压缩样本在 1/30、1/12 秒。强制 CFR 在时间零补出 1／2 帧，改变音画起点，退出。按原片的显示 PTS 选帧，并按相邻画面时刻及原片末端写样本时长。60 FPS 的短片由 120 到 60 帧，24 FPS 短片保 40 帧。Bunny 的长片有变间隔，保 179 个选中时间点及两段 50 毫秒停留。沿用带 B 帧的封装虽然保住影片结束时刻，末尾视频样本仍短 1/60 秒。以无 B 帧编码及显式样本时长验证修正。
 
 四个片段的原 AAC 每包数据、PTS／DTS、样本时长与有效 PCM 均一致。AVFoundation 分组缓冲的个数不同，但实际解码的 PCM 样本、散列及合并后的时间覆盖相同。保留有效音轨数据却推迟 50 毫秒的对照和删轨对照均被拒绝。视频首尾和 MP4 样本时长另用压缩轨验证。AVAssetReader 证实时间零的额外输出缓冲、之后的实际 PTS 和总媒体时长。原生解码的单视频缓冲未附有效样本时长。四组最低亮度 SSIM 为 0.983847，接缝平均亮度差最多多 0.026881 个 8 位等效码值。两部短片各自的原片和候选在现有 Video daemon 门中窗口已就绪并完成两次媒体时钟回绕。
 
 本轮没有测扬声器或物理呈现接缝。保真编码的 Tears of Steel 片段文件大小增约 17%，还需真实转码与播放功耗估算，59.94 等其它源时基另验。生产继续原片；不发布固定帧率或只改文件尺寸的推定档。实测和命令归 `.artifacts/wallpaper-quality-video-audio-timing`。
+
+M4 原生候选使用 `VTPixelTransferSession`、硬件编码请求及 AAC 缓冲透传。跳过无样本的编辑标记，用压缩样本有效 PTS 对齐解码帧，各轨按实际样本末端结算。直接取原始 PTS 使 Workshop 3836065720 首帧从 0 错移至 1/60 秒，全局裁切使原生解码少 838 个 PCM 样本，两个做法均退出。两部公开样片四段和该 Workshop 共五段的所选帧 PTS 与视频包时长符合源时间轴，AAC 包及原生 PCM 与源一致。长 VFR 选中 180 帧，末帧保 1/60 秒。公开未标色片被写入原 AV 解码采用的 BT.709，五段有效色彩附件一致。最低亮度 SSIM 0.977249，按同一位深的原始亮度算接缝，最大差 0.247 码。两部公开短片和 Workshop 的原片与派生各完成两次原生循环，Workshop item 时长相差 0.333 毫秒，签名 helper 的两臂实际出画并退出。丢音和延后 50 毫秒反例均被拒绝。收据归 `.artifacts/wallpaper-quality-video-native-derivative-20261127`；长稳整机功耗、实际出声及转换净能量待测。 [Apple 样本有效呈现时间](https://developer.apple.com/documentation/coremedia/cmsamplebuffer/outputpresentationtimestamp)
 
 <a id="alternatives"></a>
 <a id="video-inspector-source-recovery"></a>
