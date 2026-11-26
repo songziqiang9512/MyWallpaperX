@@ -335,7 +335,7 @@ SourceRoute 不再整类拒绝 model，不追加材质/效果/几何名单。typ
 <a id="perspective-image-terminal-depth"></a>
 ### 普通透视贴图的终端深度
 
-原生透视的普通 PMA 终端（已接纳的 builtin image、neutral solid）不写相机深度，测试仍消费作者声明，与 `general.transparentsorting`、alpha是否为1和图层有无效果独立。原 Builder 的 preparedImageMaterialFacts 一次准备有效状态，动态 image 模板复制同值，Frame 与唯一 compositor 只消费；保原 raw 材质及 source/graph，不按名称、资产或微小Z差选择算法。粒子、custom Program、Puppet、Framebuffer source 及灯空间深度各归原 owner，不由此扩域。
+原生透视的普通 PMA 终端（已接纳的 builtin image、neutral solid）不写相机深度，测试仍消费作者声明，与 `general.transparentsorting`、alpha是否为1和图层有无效果独立。普通半透明材质显式开启深度测试时，`alphawriting: default` 与省略态共享原 source-over 和只读相机深度。原材质继续拥有来源与效果的 alpha 行为，终端消费已解析颜色及同一深度附件。原 Builder 的 preparedImageMaterialFacts 与 Metal 绑定共用该状态资格，动态 image 模板复制准备结果。深度测试明确关闭时保原路径，粒子、custom Program、Puppet、Framebuffer source 及灯空间深度各归原 owner。
 
 排序开启时，无效果的普通贴图和 neutral solid 用独立 unclaimed source 资格，局部效果沿原 Graph source route。两者在同一主画布区间按当前 world 原点的相机深度由远到近，同深保作者顺序。不透明写深度模型与无绘制项保原资格。组、画布混合与截点、具名供货及实绘未接入层保原分界。资源准备和编码消费同一顺序。
 

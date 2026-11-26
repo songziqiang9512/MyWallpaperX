@@ -270,12 +270,13 @@ class ScenePreparedImageTerminalPolicyTests(unittest.TestCase):
         self.assertEqual(states["2"]["depth"], "false")
         self.assertEqual(states["3"]["write"], "disabled")
         self.assertEqual(states["3"]["depth"], "false")
+        self.assertEqual(states["7"], {**states["1"], "alpha": "default"})
         self.assertEqual(states["11"], states["1"])
         raw = self.result["native"]["rawStates"]
         self.assertEqual(raw["1"], {"test": "enabled", "write": "disabled"})
         self.assertEqual(raw["3"], {"test": "disabled", "write": "enabled"})
         self.assertEqual(raw["11"], {"test": " ENABLED ", "write": " ENABLED "})
-        for layer_id in (4, 5, 6, 7, 8, 9, 10, 12, 22, 23, 30, 31, 32):
+        for layer_id in (4, 5, 6, 8, 9, 10, 12, 22, 23, 30, 31, 32):
             self.assertEqual(states[str(layer_id)], {}, layer_id)
 
     def test_stock_neutral_role_and_authored_override(self) -> None:

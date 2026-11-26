@@ -438,7 +438,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
         enum Coverage { case opaque, zeroOpacity, straight, associated }
         let variants: [(String, Bool, Bool, String, Float, Coverage)] = [
             ("read-only", true, false, "nocull", 2, .opaque),
-            ("renamed-equivalent-read-only", true, false, "nocull", 2, .opaque),
+            ("explicit-default-read-only", true, false, "nocull", 2, .opaque),
             ("read-write", true, true, "nocull", 2, .opaque),
             ("write-only", false, true, "nocull", 2, .opaque),
             ("neither", false, false, "nocull", 2, .opaque),
@@ -453,9 +453,9 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
             ("sampled-read-only", true, false, "nocull", 2, .straight),
             ("sampled-associated-read-write", true, true, "nocull", 2, .associated)]
         for (name, read, write, cull, scaleX, coverage) in variants {
-            let state = name == "renamed-equivalent-read-only"
+            let state = name == "explicit-default-read-only"
                 ? SceneMaterialRenderState.compile(blending: " Translucent ", depthTest: " ENABLED ",
-                    depthWrite: " Disabled ", cullMode: " NoCull ", alphaWriting: nil)!
+                    depthWrite: " Disabled ", cullMode: " NoCull ", alphaWriting: " Default ")!
                 : policy(read, write, cull)
             let output = target(device, width: 32, height: 32, format: .bgra8Unorm, seed: 31)
             let desc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .depth32Float,
@@ -541,7 +541,8 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
                 } && ["default", "enabled"].allSatisfy {
                     !pipeline.supports(SceneMaterialRenderState.compile(blending: "translucent",
                         depthTest: "disabled", depthWrite: "disabled", cullMode: "nocull", alphaWriting: $0)!)
-                },
+                } && !pipeline.supports(SceneMaterialRenderState.compile(blending: "translucent",
+                    depthTest: "enabled", depthWrite: "disabled", cullMode: "nocull", alphaWriting: "enabled")!),
                 "left": bgra(6, 8), "right": bgra(24, 8), "farPeer": bgra(24, 24),
                 "completed": command.status == .completed && command.error == nil]
             if sampledCoverage {

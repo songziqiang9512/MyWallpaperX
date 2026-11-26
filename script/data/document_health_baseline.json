@@ -138,7 +138,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 552,
-      "bytes": 125586
+      "bytes": 125744
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 110,
@@ -162,7 +162,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 394919
+      "bytes": 395968
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -193,8 +193,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 60,
-      "bytes": 7812
+      "lines": 59,
+      "bytes": 7558
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -585,11 +585,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "d35a2178faf6784fe1f8a0647f84d175e4127403880aa35962ec473dee4b8ec3",
-      "after": "f1e8d0db82cff76b17da667dae740a9ea5964be0c1f3153a2336c26c63536b12",
-      "owner": "Scene 与三引擎画质",
-      "reason": "从主分支正文核对已合入的 Scene 合同和画质证据，保留双方工作及合并正文的实际预算。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+      "before": "f1e8d0db82cff76b17da667dae740a9ea5964be0c1f3153a2336c26c63536b12",
+      "after": "89808e4a35623a95e11e6fadad50433bb795444b80288ecdbdf075e32df4373e",
+      "owner": "Scene perspective image terminal depth",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth",
+      "reason": "保合并双方的终端深度合同与实绘证据，按质量父提交和合并正文核对实际预算。"
     },
     {
       "section": "bodies",
@@ -639,11 +639,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0b227c1bea0fc81b5d089a9f0b5f7b62167814626396ed84ef7d58e53bf5f3cb",
-      "after": "e81ae75a49a2c92f973ad87731cc910d3f7790f19eab8fe2bde987e3a77b0887",
-      "owner": "Scene authored video order",
-      "reason": "按主父提交与合并后的作者视频层序证据核对预算。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-clock-video-order-337"
+      "before": "e81ae75a49a2c92f973ad87731cc910d3f7790f19eab8fe2bde987e3a77b0887",
+      "after": "a0b10b88a50683bf265c2785e11eefa55d9e8c2d1e427d0f813d9af256b605f8",
+      "owner": "Scene perspective image terminal depth",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-box-cover-depth-333",
+      "reason": "保合并双方的终端深度合同与实绘证据，按质量父提交和合并正文核对实际预算。"
     },
     {
       "section": "bodies",
