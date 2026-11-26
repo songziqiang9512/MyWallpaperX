@@ -343,9 +343,11 @@ final class SceneResolvedMaterialGraphExecutor {
             capability.pairPlan.baseCaptureIdentity: base,
         ]
         var stages: [PreparedStage] = []
+        var pairContentsMatch = false
         var terminalMaterialReplay: SceneResolvedMaterialPassEncoder.PreparedPass?
         var terminalStageIndex: Int?
         var placementTailEffect: Graph.EffectKey?
+        let allowsHistorySplit = historySplitAllowed(capability: capability, frameInputs: frameInputs)
 
         stageLoop: for index in capability.stages.indices {
             var stageCommands: [Command] = []
@@ -375,9 +377,6 @@ final class SceneResolvedMaterialGraphExecutor {
             let previousResources = previousGraphResources[effect] ?? [:]
             let materialFunctionTargets = Set(
                 (resolvedInvocations[effect] ?? []).flatMap(\.targets)
-            )
-            let allowsHistorySplit = historySplitAllowed(
-                capability: capability, frameInputs: frameInputs
             )
             guard var history = prepareHistoryContext(
                 historyRehydrateCopiesByEffect[effect] ?? [],
@@ -459,7 +458,7 @@ final class SceneResolvedMaterialGraphExecutor {
             )
             switch preparation {
             case .prepared:
-                break
+                pairContentsMatch = false
             case let .placement(replay):
                 // The prefix pair is real; this last material has only the
                 // compositor as a consumer and publishes no graph texture.
@@ -492,6 +491,7 @@ final class SceneResolvedMaterialGraphExecutor {
                     pairStep: pairStep, lease: lease,
                     snapshot: stageEntry, pair: &pair, publications: &publications, commands: &stageCommands,
                     sourceCommand: &sourceCommand,
+                    pairContentsMatch: &pairContentsMatch,
                     captureCanWriteOutput: capability.stages.count == 1
                         && capability.sourceRoute == .capturedLayerTexture && graph.renderTargets.isEmpty,
                     effectLocalFailureReasonCode: &effectLocalFailureReasonCode,

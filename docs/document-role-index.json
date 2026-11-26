@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2b4200ce10f8d4adc5d936f82bdce280232711903e243a53919f21ce8510af2b",
+        "sourceSHA256": "a7a4fd3f5be0274905ab8d9ea3e055c73a3ce43304f0f5266fdfea6993bc68ad",
         "method": "document_registry --audit + document_health --check",
-        "scope": "WebContent 退出后宿主导航的当前已生效建议和暂停种子",
-        "limitations": "单屏主文档，受控延迟握手与独立作者及时握手。作者自主导航、跨屏和媒体时序另验。"
+        "scope": "作者局部栅格与材质图双缓冲的源码导航",
+        "limitations": "组织导航，逐帧证据归 Scene 能力页。"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f9a2da49eca661136ec41d8a1145f55ce082b04a7f2c5d84ec96c418aafe829b",
+        "sourceSHA256": "248b2cb596c41aff8720f60d540470308d30e38d7ee84e5a9081e1b7e82abcb6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "WebContent 退出后宿主导航的当前已生效建议和暂停种子",
-        "limitations": "单屏主文档，受控延迟握手与独立作者及时握手。作者自主导航、跨屏和媒体时序另验。"
+        "scope": "宽幅作者栅格、透传复用和内部缩放的工程顺序",
+        "limitations": "缺失副纹理与缩放性能各有独立验收。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "972e7f1b14a8d79c5d663720bd5bba027113a00b7503545ab40abec0633e1ee8",
+        "sourceSHA256": "c7f1c950f2382fcd227f4d179f062fdac9758b505928d7c3cf925216f2a5a0c1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "WebContent 退出后宿主导航的当前已生效建议和暂停种子",
-        "limitations": "单屏主文档，受控延迟握手与独立作者及时握手。作者自主导航、跨屏和媒体时序另验。"
+        "scope": "宽幅作者栅格和停用效果复用的进度",
+        "limitations": "缺失普通副纹理仍待适配，固定比例仍待实际瓶颈归因。"
       }
     },
     {
@@ -1003,10 +1003,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f527ed5a9336efc372e9d0005a9ecae265f3acef3059182142658a666c2aa706",
+        "sourceSHA256": "eb4748015ffa7628c59b915da6933dab583da198c8f92ea486c54da12b7dc1f3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同会话镜像 GPU 计时和签名缩窗出图",
-        "limitations": "交错含前帧反射，未证多屏、HDR 和稳定整帧收益。"
+        "scope": "同 Metal 库签名 Debug，三部作者的实际栅格、屏幕像素与复制编码",
+        "limitations": "3448845950 的 e3 仍缺副纹理，未量稳态帧率、带宽和能耗。"
       }
     },
     {

@@ -461,7 +461,7 @@ M4 内屏用同一团队签名的现役 Video helper 走真实可见接管。在
 <a id="scene-spatial-scaling"></a>
 #### Scene 固定比例与 MetalFX 的采用条件
 
-先复测现役优化构建的 1× A/A、GPU 阶段、实际呈现和原纹理池。先拆出同尺寸下可省的重复工作，再找确实由像素工作量限制的独立颜色通道。3749463715 之前少五次离屏材质，GPU P95 18.298→18.244 ms，实呈仍约 39.8 FPS，作候选归因及无收益对照。3673609113 先定位真正占用，阶段重叠不能相加，且作者两条历史照原规格。3448845950 作精确栅格反例，主工作树 `8834ba30f` 恢复作者栅格并量得网格 8.25→3 px，`02188ae34` 再去重复复制。这两项在画质工作树尚未纳入。 [复测与无收益对照](../scene/capabilities/runtime-evidence-current.md#terminal-main-ablation) · [作者局部栅格合同](../scene/capabilities/render-graph-shader-coverage.md#scaled-image-framebuffers)
+先处理作者栅格正确性和同规格下的重复工作，再对现役优化构建做 1× A/A 与阶段归因。3749463715 少五次离屏材质，GPU P95 18.298→18.244 ms，实呈仍约 39.8 FPS，作无收益对照。3673609113 保持作者历史规格，阶段重叠不能相加。宽幅 3448845950 先恢复作者局部栅格，再验证去除停用阶段的重复复制。按同一作者位置、纹理槽、固定末端和实际像素验收，另验独立作者、预算回退和活动/失败写入边界。 [复测与无收益对照](../scene/capabilities/runtime-evidence-current.md#terminal-main-ablation) · [局部栅格](../scene/capabilities/render-graph-shader-coverage.md#childless-composition-local-effect-raster) · [停用阶段](../scene/capabilities/render-graph-shader-coverage.md#inactive-terminal-source-capture)
 
 普通 Blur 的作者 `fbos.scale=4`、God Rays 的 `scale=2`，分别使用四分之一、二分之一轴长；Blur Precise 使用原尺度。各保作者栅格、`Scale` 调参、mask、核脚印、透明覆盖和后继输入。只对已归因的独占软色中间结果另试可等价的采样路径。God Rays 以 2868108515 和独立 2165492759 的光束、遮罩及定相为资格，保精确同帧输入。Motion Blur、Workshop Bokeh、Shine、Light Shafts 各归其原语义。 [Blur](https://docs.wallpaperengine.io/en/scene/effects/effect/blur.html) · [Blur Precise](https://docs.wallpaperengine.io/en/scene/effects/effect/blurprecise.html) · [God Rays](https://docs.wallpaperengine.io/en/scene/effects/effect/godrays.html) · [局部栅格实证](../scene/capabilities/runtime-evidence-current.md#author-chain-godrays-local-grid)
 

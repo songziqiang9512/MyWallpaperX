@@ -263,11 +263,11 @@ Geometry 的 primary named 输入表示 provider 自身的 authored-local 色图
 <a id="childless-composition-local-effect-raster"></a>
 ### 无子 Composition 的局部效果栅格
 
-带局部尺寸的无子 Composition 读取作者位当时的主画布。读取位置由原捕获 UV 和投影决定，效果工作纹理由作者局部尺寸决定。世界旋转、非等比缩放和窗口尺寸只用于取源或放置，退出按投影轴像素数决定这一离屏图的长宽。实际 Metal 纹理和 `g_TextureNResolution` 的物理/映射尺寸继续一致。
+无子 Composition 在作者位取主画布前缀，取样及回绘沿原 UV 和投影。工作栅格由作者局部尺寸给定，世界 TRS、窗口和相机只影响取源及放置。Metal 真实物理/映射尺寸继续提供 `g_TextureNResolution`，`g_TexelSize` 仍属当前画面。
 
-原 FramePreflight 只为已准备、正交、无成员、读取主画布的普通 Composition 选择原 `SceneLayerEffectSourceExtent`。确实走离屏的 graph pair 与首来源用同一个尺寸和原目标限额，仍按原 UV 采一次背景、在原截点执行 Program，并由唯一 compositor 沿原 quad 回绘。缺合格作者尺寸仍沿现有投影尺寸。保留显式 framebuffer source、组/子树、具名供货、透视和已获资格的 attachment-read replay。复用原分配和发布，不引入副本、缓存、宽高比特例或改变纹理尺寸 ABI。
+原 FramePreflight 为已有局部尺寸、正交、无成员且读取主画布的普通 Composition 优先预约精确作者栅格。超过常用2048时，沿已有精确目标偏好与原子预算准入，为捕获和 graph pair 选择同一尺寸。异尺寸偏好按原顺序共用一个额外尺寸名额。超硬限、预算拒绝与历史链沿原等比限额绘制。停用效果的透传沿同一栅格。组、显式 framebuffer source、具名发布、透视、attachment-read replay 与其他层保各自路径。沿唯一 compositor 回绘，不伪报纹理尺寸，也不追加栅格或资源 owner。
 
-先以官版方形与同角点的非方形输入核工作尺寸。近门用非等比放置、背景读前后次序、原名/改名及透明邻例验证同帧实际槽和像素，再沿原包 314 的两道弧、平移对照、保持开启的 Spin 与独立已有真实场景核画面。同一采样域只随作者尺寸改变，不由无声/裁屏冒充效果恢复。绝对帧率与其他来源尺寸另有各自证据。
+验收保原背景截点、改名、非等比放置和小局部窗，补超2048的真采样及超硬限反例。原344的官版相邻像素、`Resolution`、格距与实际 GPU 回绘和成本须同条件复核，独立宽幅作者另验颜色链。旧314的弧、平移和 Spin 沿原合成验证。
 
 <a id="solid-background-local-effect-raster"></a>
 ### 读取当前主画布的固体局部效果链
@@ -418,11 +418,11 @@ Surface 采用已提交销毁成员时，原 Coordinator 过滤该层 committed 
 当前简单 color/placement、部分文字及 captured-main 路径有各自准备资格。复杂 FBO/history/function/geometry 等未取得优化资格时继续原 graph 路线；不能把优化条件升级为所有合法内容的永久门。写入主 pass 后的失败拒绝不安全提交，不能再次合成 graph-final。
 
 <a id="inactive-terminal-source-capture"></a>
-### 停用单阶段的末端捕获
+### 停用阶段的双缓冲
 
-普通 layer texture 的唯一 graph 阶段已由原 activation 判为旁路且没有显式目标时，原源捕获可直接写同规格的固定末端 pair member。源采样、色彩表示、末端 publication、提交与 main 保留，省去该帧的中间写入和同规格复制。判定在原 Executor 接受旁路处完成，沿原 ResourcePassEncoder 替换尚未编码的捕获目标。原计划仍为热启用提供完整 pair。实际源与目的相撞、带前缀或依赖附件的捕获、多阶段、显式目标以及错误旁路保原路由；独立的 named 发布继续使用实际末端。无需新 owner、状态或缓存。
+图层纹理的唯一阶段停用且无显式目标时，原源捕获可直写固定末端，保色彩、发布与提交。捕获命令仍带前缀、依赖附件、有读写冲突或遇到错误旁路时走原入口。连续停用阶段的首个整图 blit 令事务内两成员等价，随后沿用实际目的成员及发布。活动写入与视觉失败撤掉证明；捕获重定向或同成员旁路不建立等价。FBO/history 仍用原独立纹理。
 
-验收核普通视频原 PTS、source capture→固定末端→主合成、复制计数与 GPU 排空，保热启用实际材质和显式 FBO/history 反例。数值/画面先核等价，只用同范围计数说明省掉的 GPU 指令，不从计数估算能耗。
+验收核活动写入或失败后的首次复制、固定末端像素、replay 与具名供货。用[真实宽幅及独立作者](runtime-evidence-current.md#quality-wide-composition)核画面和实际复制。GPU 耗时仅在同条件且波动可分辨时比较。
 
 <a id="limits"></a>
 ## 当前边界与回归

@@ -199,6 +199,7 @@ extension SceneMetalRenderer {
                 snapshot: frameContext.dynamicValues
             )
             let desiredSize: CGSize
+            var preferredExtent: SIMD2<Int>?
             var terminalReplayTarget = initialResolvedTerminalReplayTarget(
                 claim: claim, layer: layer, cameraFrame: cameraFrame,
                 imageTextures: imageTextures, isVisible: frameVisibleLayerIDs.contains(layerID),
@@ -377,11 +378,12 @@ extension SceneMetalRenderer {
                 utilityCaptureGeometry = source.geometry
                 framebufferSourceMaterial = source.material
                 let publishesGraphOutput = dependencyRuntime.requiresGraphOutputCapture(for: layerID)
+                let usesPerspective = cameraFrame.resolvesPerspective(for: layer)
                 if utility.kind == .project, claim.hasNonUnitFramebufferScale, layer.parentID == nil,
                    layer.childLayerIDs.isEmpty, memberLayerIDs?.isEmpty != false,
                    selectedMainSource === mainTarget, source.material == nil,
                    !publishesGraphOutput, !cameraFrame.defaultsToPerspective,
-                   !cameraFrame.resolvesPerspective(for: layer),
+                   !usesPerspective,
                    let pool = offscreenTexturePool,
                    let extent = SceneLayerEffectSourceExtent.resolve(
                        publishedRenderSizeWH: nil, authoredRenderSizeWH: layer.renderSizeWH,
@@ -400,7 +402,7 @@ extension SceneMetalRenderer {
                     && (compositionGroupRuntime.map {
                         $0.compositeTargetPass(forRootID: layerID)?.isSceneRoot == true
                     } ?? true)
-                    && effectDrawAlpha == 1 && !cameraFrame.resolvesPerspective(for: layer)
+                    && effectDrawAlpha == 1 && !usesPerspective
                 if claim.supportsTerminalMaterialReplay,
                    frameVisibleLayerIDs.contains(layerID),
                    !publishesGraphOutput,
@@ -412,13 +414,16 @@ extension SceneMetalRenderer {
                 if terminalReplayTarget == nil, !publishesGraphOutput,
                    utility.kind == .composition, utility.copyBackground, source.material == nil,
                    memberLayerIDs == nil, layer.childLayerIDs.isEmpty, selectedMainSource === mainTarget,
-                   !cameraFrame.resolvesPerspective(for: layer),
+                   !usesPerspective,
                    let extent = SceneLayerEffectSourceExtent.resolve(
                        publishedRenderSizeWH: nil, authoredRenderSizeWH: layer.renderSizeWH,
                        candidateMappedSize: nil
-                   ), Int(exactly: extent.pixelSize.width.rounded(.up)) != nil,
-                      Int(exactly: extent.pixelSize.height.rounded(.up)) != nil {
+                   ), let width = Int(exactly: extent.pixelSize.width.rounded(.up)),
+                      let height = Int(exactly: extent.pixelSize.height.rounded(.up)) {
                     desiredSize = extent.pixelSize
+                    if max(width, height) > SceneOffscreenResolutionPolicy.standardMaximumDimension {
+                        preferredExtent = .init(width, height)
+                    }
                 } else {
                     desiredSize = source.geometry.pixelSize
                 }
@@ -741,7 +746,6 @@ SceneBaseMaterialLitCaptureMissLog.record(
 
                 }
             }
-            let preferredExtent: SIMD2<Int>?
             if claim.sourceRoute == .capturedLayerTexture,
                claim.supportsPlacementSpaceTerminalReplay,
                claim.sceneBackgroundRequirement == nil,
@@ -762,8 +766,6 @@ SceneBaseMaterialLitCaptureMissLog.record(
                runtime.sourceMaterials.isEmpty
                    || runtime.sourceMaterialConsumer(layerID: layerID, modelPath: layer.imagePath) == nil {
                 preferredExtent = mappedExtent
-            } else {
-                preferredExtent = nil
             }
             sources[layerID] = .init(
                 claim: claim, requestedWidth: requestedWidth, requestedHeight: requestedHeight,
@@ -867,7 +869,9 @@ SceneBaseMaterialLitCaptureMissLog.record(
             }
             if let extent = source.preferredExtent, usesSharedPair,
                preferredSharedExtent == nil || preferredSharedExtent == extent,
-               source.frameInputs.stageActivationDecisions.values.allSatisfy({
+               claim.sourceRoute == .capturedMainTargetTexture
+                ? allocation.graphPlan.historyByteCost == 0
+                : source.frameInputs.stageActivationDecisions.values.allSatisfy({
                    if case .active = $0 { return true }
                    return false
                }),
@@ -877,7 +881,12 @@ SceneBaseMaterialLitCaptureMissLog.record(
                )
             {
                 preferredSharedExtent = extent
-                preferredPlans[layerID] = .init(token: claim.token, allocation: preferred)
+                preferredPlans[layerID] = .init(
+                    token: claim.token, allocation: preferred,
+                    consumesExternalPrimaryDependency: consumesExternalPrimaryDependency,
+                    directDrawOutputModelViewProjection: directDrawOutputModelViewProjection,
+                    directDrawGeometry: directDrawGeometry
+                )
             } else if let projectBase, usesSharedPair, allocation.graphPlan.historyByteCost == 0,
                       case let .success(preferred) = allocatePlan(
                           width: requestedWidth, height: requestedHeight, policy: source.extentPolicy,

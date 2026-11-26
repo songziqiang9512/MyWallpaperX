@@ -676,7 +676,8 @@ class SceneCompositionBackgroundBoundsIntegrationTests(unittest.TestCase):
     def test_true_background_renamed_quarter_turn_keeps_source_axes_and_order(self):
         self.run_fixture(copy_background=True, renamed=True, quarter_turn=True)
 
-    def run_childless_local_raster(self, *, renamed, size, scale):
+    def run_childless_local_raster(self, *, renamed, size, scale, expected_raster=None):
+        expected_raster = expected_raster if expected_raster is not None else size
         project, entries = app_fixture.fixture_entries(effect=True, childless=True, renamed=renamed)
         scene = json.loads(entries["scene.json"])
         prefix, root = scene["objects"]
@@ -705,14 +706,18 @@ class SceneCompositionBackgroundBoundsIntegrationTests(unittest.TestCase):
             draw, = [r for r in root_rows if r["kind"] == "material" and r.get("slot") == 0
                      and r["outcome"] == "draw-encoded"]
             for texture in (capture["target"], draw["source"], draw["target"]):
-                self.assertEqual((texture["width"], texture["height"]), size)
+                self.assertEqual((texture["width"], texture["height"]), expected_raster)
             self.assertEqual(capture["target"]["textureToken"], draw["source"]["textureToken"])
 
     def test_childless_background_uses_authored_effect_raster(self):
         self.run_childless_local_raster(renamed=False, size=(128, 64), scale="0.75 2 1")
 
     def test_renamed_non_square_raster_preserves_the_same_background_cut(self):
-        self.run_childless_local_raster(renamed=True, size=(48, 96), scale="2 1.33333333 1")
+        self.run_childless_local_raster(renamed=True, size=(48, 2304), scale="2 0.0555555556 1")
+
+    def test_raster_beyond_pool_limit_keeps_background_cut_with_bounded_extent(self):
+        self.run_childless_local_raster(renamed=False, size=(9216, 128), scale="0.0104166667 1 1",
+                                        expected_raster=(2048, 28))
 
     def run_ordinary_root_program(self, *, enabled):
         source_digest = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()

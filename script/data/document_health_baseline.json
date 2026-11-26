@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 21461
+      "bytes": 21916
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 160839
+      "bytes": 160869
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 140932
+      "bytes": 141092
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -134,11 +134,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 445,
-      "bytes": 89546
+      "bytes": 89177
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 336897
+      "bytes": 337872
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "4b03eda07a3ee8d26be94143a3601d7ffb86aa0c4c6e64f9c32bf34953fbeb95",
-      "after": "1c588cd56f4fdd103e8bc95348b91fd8c18870ae6623885f483f0cfd24dcb095",
-      "owner": "web-runtime",
-      "reason": "回写宿主重载时的种子职责与实际 WebContent 退出证据。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
+      "before": "1c588cd56f4fdd103e8bc95348b91fd8c18870ae6623885f483f0cfd24dcb095",
+      "after": "647b11c9b96a678ec063f445928f83394c205f45e2e03b6281216001268ed911",
+      "owner": "Scene 渲染与三引擎画质",
+      "reason": "记录作者栅格、等价复制与实际产出边界。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-spatial-scaling"
     },
     {
       "section": "bodies",
@@ -603,11 +603,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "766c3f515299ff242434214b92fc36dd8c8c58b5bcbb46c8d81bcc48a2aeebe3",
-      "after": "3f75927c3dc2b64e109862d0524bd7e11dad0975cf884d2c49d19fdcb5edb29e",
-      "owner": "scene-runtime",
-      "reason": "同会话镜像 GPU 计时和签名缩窗出图",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-segment-mean"
+      "before": "3f75927c3dc2b64e109862d0524bd7e11dad0975cf884d2c49d19fdcb5edb29e",
+      "after": "f3911566d01edfb5cf8d0e9c2665e9d2ecdeb8beef0846c4904746cd8227c288",
+      "owner": "Scene 渲染与三引擎画质",
+      "reason": "记录作者栅格、等价复制与实际产出边界。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-spatial-scaling"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "24ecc9b64850279fd85653f6d41bc0562bbc64b3ae5e03599c0f2725693ccd2e",
-      "after": "e53ed141adb89cf268ecb6c5e498f1acdc71eb87c19850c96653eb7c57b4174a",
-      "owner": "web-runtime",
-      "reason": "回写宿主重载时的种子职责与实际 WebContent 退出证据。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
+      "before": "e53ed141adb89cf268ecb6c5e498f1acdc71eb87c19850c96653eb7c57b4174a",
+      "after": "73c6c7cd1b968ea2f4a92c08b89e8c448ed70e68b7081a50a87e78023e1923e8",
+      "owner": "Scene 渲染与三引擎画质",
+      "reason": "记录作者栅格、等价复制与实际产出边界。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-spatial-scaling"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "0cdcd3ade924027bd10e598c6a123068dc5877535a3c5f030b08ff70d9035165",
-      "after": "b3844fce4a4a22d3932fc1266b26abb7cc6f86b7a710108705d1ffc23583d95c",
-      "owner": "web-runtime",
-      "reason": "回写宿主重载时的种子职责与实际 WebContent 退出证据。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
+      "before": "b3844fce4a4a22d3932fc1266b26abb7cc6f86b7a710108705d1ffc23583d95c",
+      "after": "003197bb0c4319afbab55a992b1ddfdd13a93e73941866d15b7773b6ddf95865",
+      "owner": "Scene 渲染与三引擎画质",
+      "reason": "记录作者栅格、等价复制与实际产出边界。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-spatial-scaling"
     },
     {
       "section": "bodies",
