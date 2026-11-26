@@ -29,7 +29,18 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     private(set) var simulationTime = 0.0
     let definition: SceneParticleDefinition
     let instanceOverride: SceneParticleInstanceOverride?
-    var activeInstanceOverride: SceneParticleInstanceOverride?
+    private(set) var activeInstanceOverride: SceneParticleInstanceOverride? {
+        didSet {
+            let color = activeInstanceOverride?.color?.value
+            if color != oldValue?.color?.value
+                || (color == nil && activeInstanceOverride?.normalizedColor?.value != oldValue?.normalizedColor?.value) {
+                preparedInstanceColor = Self.prepareInstanceColor(
+                    activeInstanceOverride, legacy: instanceOverride?.usesLegacyColorTransfer == true
+                )
+            }
+        }
+    }
+    private(set) var preparedInstanceColor: SIMD3<Double>?
     private let maximumEmissionDuration: Double?
     /// Read completion from the same emitter state that schedules births.
     /// This also survives frame rollback without a second child deadline.
@@ -141,7 +152,11 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         )
         self.definition = definition
         self.instanceOverride = instanceOverride
-        self.activeInstanceOverride = initialDynamicInstanceOverride ?? instanceOverride
+        let activeOverride = initialDynamicInstanceOverride ?? instanceOverride
+        self.activeInstanceOverride = activeOverride
+        self.preparedInstanceColor = Self.prepareInstanceColor(
+            activeOverride, legacy: instanceOverride?.usesLegacyColorTransfer == true
+        )
         self.dynamicControlPoints = initialDynamicControlPoints
         self.dynamicControlPointAngles = initialDynamicControlPointAngles
         self.audioInput = initialAudioInput

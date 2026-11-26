@@ -320,7 +320,8 @@ enum SceneParticleChildGraphExpansion {
             color: rootInstanceOverride?.color,
             normalizedColor: rootInstanceOverride?.normalizedColor,
             controlPoints: controlPointOverride?.controlPoints ?? [:],
-            controlPointAngles: controlPointOverride?.controlPointAngles ?? [:]
+            controlPointAngles: controlPointOverride?.controlPointAngles ?? [:],
+            usesLegacyColorTransfer: rootInstanceOverride?.usesLegacyColorTransfer
         )
         guard !needsStaticFrame || worldSpaceFrame != nil else {
             return .rejected("\(path):dynamicWorldSpaceTransform")

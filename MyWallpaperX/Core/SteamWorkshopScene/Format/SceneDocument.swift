@@ -122,6 +122,8 @@ nonisolated struct SceneDocumentLoader {
 
         let rawObjects = root["objects"] as? [[String: Any]] ?? []
         let authoredObjects = sourceRoot["objects"] as? [[String: Any]] ?? []
+        let declaredVersion = SceneDeclaredInteger.parse(root: sourceRoot, fieldName: "version")
+        let usesLegacyParticleColor = (declaredVersion.integerValue ?? 0) < 5
         let hdrParticleBrightness = general.hdrEnabled && general.bloomEnabled
         let objects = rawObjects.enumerated().compactMap { index, object in
             Self.parseObject(
@@ -131,6 +133,7 @@ nonisolated struct SceneDocumentLoader {
                     : object,
                 hdrEnabled: general.hdrEnabled,
                 hdrParticleBrightness: hdrParticleBrightness,
+                usesLegacyParticleColor: usesLegacyParticleColor,
                 missingParallaxDepth: missingParallaxDepth,
                 declaredTexturePropertyKeys: declaredTexturePropertyKeys,
                 startupMaterialScalarKeys: Set(["metallic", "roughness", "emissivecolor", "emissivebrightness", "reflectivity", "reflectivitydistance"].filter { key in
@@ -160,7 +163,7 @@ nonisolated struct SceneDocumentLoader {
         return SceneDocument(
             sourcePath: sourcePath,
             authoredRoot: authoredValue,
-            declaredVersion: SceneDeclaredInteger.parse(root: sourceRoot, fieldName: "version"),
+            declaredVersion: declaredVersion,
             camera: Self.parseCamera(root["camera"] as? [String: Any]),
             general: general,
             objectCount: rawObjects.count,
@@ -189,6 +192,7 @@ nonisolated struct SceneDocumentLoader {
         authoredRoot: [String: Any],
         hdrEnabled: Bool,
         hdrParticleBrightness: Bool,
+        usesLegacyParticleColor: Bool,
         missingParallaxDepth: String?,
         declaredTexturePropertyKeys: Set<String>,
         startupMaterialScalarKeys: Set<String>
@@ -231,7 +235,8 @@ nonisolated struct SceneDocumentLoader {
             directionalLight: SceneDirectionalLightDefinition.parse(root),
             tubeLight: SceneTubeLightDefinition.parse(root),
             particleInstanceOverride: SceneParticleDefinitionParser().parseInstanceOverride(
-                root["instanceoverride"], hdrBrightness: hdrParticleBrightness
+                root["instanceoverride"], hdrBrightness: hdrParticleBrightness,
+                usesLegacyColorTransfer: usesLegacyParticleColor
             ),
             materialInstance: SceneDocument.SceneLayerMaterialInstance.parse(
                 root["instance"],

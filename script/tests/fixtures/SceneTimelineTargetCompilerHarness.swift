@@ -299,21 +299,37 @@ enum Harness {
                 "c2": [key(0, 0), key(middle, 0.5), key(end, 1)],
                 "options": ["fps": renamed ? 60 : 30, "length": renamed ? 120 : 60, "mode": "loop"]]
         }
-        func scene(_ wrapper: [String: Any], layerID: Int, resource: String,
-                   rawColor: String? = nil) -> [String: Any] {
-            var instance: [String: Any] = ["colorn": wrapper]
+        func scene(_ wrapper: Any?, layerID: Int, resource: String,
+                   rawColor: String? = nil, version: Any? = 3, scriptedAlpha: Bool = false) -> [String: Any] {
+            var instance: [String: Any] = [:]
+            if let wrapper { instance["colorn"] = wrapper }
             if let rawColor { instance["color"] = rawColor }
-            return ["version": 3, "objects": [
-                ["id": layerID, "name": "carrier-\(layerID)", "particle": resource, "instanceoverride": instance],
+            if scriptedAlpha {
+                instance["alpha"] = ["value": 0.5, "script": "export function update(value) { return value; }"]
+            }
+            var particle: [String: Any] = ["id": layerID, "name": "carrier-\(layerID)", "particle": resource]
+            if !instance.isEmpty { particle["instanceoverride"] = instance }
+            var root: [String: Any] = ["objects": [
+                particle,
                 ["id": layerID + 1, "image": "models/healthy-\(layerID).json", "alpha": [
                     "value": 1, "animation": ["c0": [key(0, 0), key(30, 1)],
                         "options": ["fps": 30, "length": 60, "mode": "loop"]]]],
             ]]
+            if let version { root["version"] = version }
+            return root
         }
-        func compile(_ root: [String: Any]) throws -> (SceneRenderDescriptor, SceneTimelineProgram) {
+        func compile(_ root: [String: Any], admittedAlphaFor id: Int? = nil) throws
+            -> (SceneRenderDescriptor, SceneTimelineProgram) {
             let url = URL(fileURLWithPath: "/fixture/particle-timeline.json")
             let document = try SceneDocumentLoader().load(data: JSONSerialization.data(withJSONObject: root), sourcePath: url.path)
-            let descriptor = try makeDescriptor(document: document, sceneURL: url)
+            let authored = try makeDescriptor(document: document, sceneURL: url)
+            var admittedTargets: Set<SceneDynamicTarget> = []
+            if let id {
+                guard authored.layers.first(where: { $0.id == id })?.particleInstanceOverride?.alpha?.hasScript == true
+                else { throw HarnessError.descriptorRejected }
+                admittedTargets.insert(.particle(layerID: id, field: .alpha))
+            }
+            let descriptor = SceneScriptParticleProjection.apply(admittedTargets: admittedTargets, to: authored)
             return (descriptor, SceneTimelineTargetCompiler.compile(descriptor: descriptor))
         }
         func snapshot(_ program: SceneTimelineProgram, phase: Double) -> SceneDynamicSnapshot {
@@ -325,6 +341,16 @@ enum Harness {
                 timelineValues: SceneTimelineRuntime.values(program: program, sceneTime: time.sceneTime)).snapshot
         }
         func vector(_ value: SIMD3<Double>) -> [Double] { [value.x, value.y, value.z] }
+        func particle(flags: Int = 0, material: String, initializerColor: String? = nil) -> SceneParticleDefinition {
+            var initializers: [[String: Any]] = [["name": "lifetimerandom", "min": 10, "max": 10]]
+            if let initializerColor {
+                initializers.append(["name": "colorrandom", "min": initializerColor, "max": initializerColor])
+            }
+            return SceneParticleDefinitionParser().parse(root: ["flags": flags, "maxcount": 20,
+                "material": material,
+                "emitter": [["name": "boxrandom", "rate": 4, "distancemin": 0, "distancemax": 0]],
+                "initializer": initializers, "renderer": [["name": "sprite"]]])
+        }
         var checks: [String: Bool] = [:], observations: [String: Any] = [:]
         let red = SIMD3<Double>(1, 0, 0), blue = SIMD3<Double>(0, 0, 1), white = SIMD3<Double>(repeating: 1)
         for (name, renamed, flags, raw) in [("two-color", false, 0, nil as String?),
@@ -340,11 +366,8 @@ enum Harness {
             let phases = [0.0, 1.0, 2.0].map { snapshot(program, phase: $0) }
             let resolved = phases.map { SceneParticleInstanceOverride.resolving(authored: original,
                 dynamic: $0.particleInstanceValues(layerID: id)) }
-            let definition = SceneParticleDefinitionParser().parse(root: ["flags": flags, "maxcount": 20,
-                "material": renamed ? "materials/second-color.json" : "materials/first-color.json",
-                "emitter": [["name": "boxrandom", "rate": 4, "distancemin": 0, "distancemax": 0]],
-                "initializer": [["name": "lifetimerandom", "min": 10, "max": 10]],
-                "renderer": [["name": "sprite"]]])
+            let definition = particle(flags: flags,
+                material: renamed ? "materials/second-color.json" : "materials/first-color.json")
             let simulator = SceneParticleSimulator(definition: definition, instanceOverride: original,
                 initialDynamicInstanceOverride: resolved[0], seed: 31, fixedTimeStep: 0.25)
             simulator.advance(by: 0.25, dynamicInstanceOverride: resolved[0])
@@ -367,6 +390,101 @@ enum Harness {
                 "diagnostics": program.diagnostics, "firstColors": first.map { vector($0.color) },
                 "secondColors": second.map { vector($0.color) }, "thirdColors": third.map { vector($0.color) },
                 "phaseValues": phases.map { $0[target].map { describe($0.value) } ?? "missing" }]
+        }
+        let id = 81
+        let target = SceneDynamicTarget.particle(layerID: id, field: .normalizedColor)
+        let wrapper: [String: Any] = ["value": "0.25 0.5 0.75", "animation": animation()]
+        let authoredLegacy = "64 128 191"
+        let directLegacy = SIMD3<Double>(64, 128, 191) / 255
+        let squaredLegacy = SIMD3<Double>(4096, 16384, 36481) / 65025
+        let resource = "particles/revision-color.json"
+        let definition = particle(material: "materials/revision-color.json", initializerColor: authoredLegacy)
+        func authoredBirthColors(_ root: [String: Any]) throws -> [SIMD3<Double>] {
+            let (descriptor, _) = try compile(root)
+            let simulator = SceneParticleSimulator(definition: definition,
+                instanceOverride: descriptor.layers.first { $0.id == id }?.particleInstanceOverride,
+                seed: 31, fixedTimeStep: 0.25)
+            simulator.advance(by: 0.25)
+            return simulator.particles.map(\.color)
+        }
+        for version in [3, 4, 5] {
+            let name = "version-\(version)"
+            let (descriptor, program) = try compile(scene(wrapper, layerID: id, resource: resource, version: version,
+                scriptedAlpha: true), admittedAlphaFor: id)
+            let authored = descriptor.layers.first { $0.id == id }?.particleInstanceOverride
+            let quarter = snapshot(program, phase: 0.25)
+            let resolved = SceneParticleInstanceOverride.resolving(authored: authored,
+                dynamic: quarter.particleInstanceValues(layerID: id))
+            let simulator = SceneParticleSimulator(definition: definition, instanceOverride: authored,
+                seed: 31, fixedTimeStep: 0.25)
+            simulator.advance(by: 0.25)
+            let first = simulator.particles
+            let checkpoint = simulator.frameSnapshot()
+            simulator.advance(by: 0.25, dynamicInstanceOverride: resolved)
+            let second = simulator.particles
+            simulator.restoreFrame(checkpoint)
+            simulator.advance(by: 0.25, dynamicInstanceOverride: resolved)
+            let replayed = simulator.particles == second
+            simulator.restoreFrame(checkpoint)
+            try simulator.emitExplicitly(count: 1, context: .init(instanceOverride: resolved)) { _ in }
+            let explicit = simulator.particles.map(\.color)
+            simulator.restoreFrame(checkpoint)
+            simulator.advance(by: 0.25)
+            let restored = simulator.particles.map(\.color)
+
+            let expectedAuthored = version == 5 ? SIMD3<Double>(0.25, 0.5, 0.75) : SIMD3(0.0625, 0.25, 0.5625)
+            let expectedDynamic = version == 5 ? SIMD3<Double>(0.75, 0, 0.25) : SIMD3(0.5625, 0, 0.0625)
+            checks[name + "-projected-alpha-keeps-authored-value"] = authored?.alpha?.hasScript == false
+                && first.map(\.alpha) == [0.5]
+            checks[name + "-authored-fallback-color"] = first.map(\.color) == [expectedAuthored]
+            checks[name + "-timeline-interpolates-authored-space"] = quarter[target]?.value == .vector3(0.75, 0, 0.25)
+            checks[name + "-dynamic-affects-new-births-only"] = second.map(\.color) == [expectedAuthored, expectedDynamic]
+                && second.first?.id == first.first?.id
+            checks[name + "-explicit-birth-uses-resolved-color"] = explicit == [expectedAuthored, expectedDynamic]
+            checks[name + "-snapshot-restores-color-and-replays-particle-states"] = replayed
+                && restored == [expectedAuthored, expectedAuthored]
+
+            let (legacyDescriptor, legacyProgram) = try compile(scene(wrapper, layerID: id, resource: resource,
+                rawColor: authoredLegacy, version: version, scriptedAlpha: true), admittedAlphaFor: id)
+            let legacyAuthored = legacyDescriptor.layers.first { $0.id == id }?.particleInstanceOverride
+            let legacyFrame = snapshot(legacyProgram, phase: 0.25)
+            let legacy = SceneParticleSimulator(definition: definition, instanceOverride: legacyAuthored,
+                seed: 31, fixedTimeStep: 0.25)
+            legacy.advance(by: 0.25, dynamicInstanceOverride: SceneParticleInstanceOverride.resolving(
+                authored: legacyAuthored, dynamic: legacyFrame.particleInstanceValues(layerID: id)))
+            let expectedLegacy = version == 5 ? directLegacy : squaredLegacy
+            let legacyColor = legacy.particles.first?.color ?? .zero
+            checks[name + "-legacy-priority-and-255-units"] = legacyFrame[target]?.value == .vector3(0.75, 0, 0.25)
+                && legacy.particles.count == 1 && zip(vector(legacyColor), vector(expectedLegacy)).allSatisfy { actual, expected in
+                    abs(actual - expected) < 1e-12
+                }
+
+            let plain = try authoredBirthColors(scene(nil, layerID: id, resource: resource, version: version))
+            checks[name + "-no-override-preserves-color-initializer"] = plain == [directLegacy]
+            observations[name] = ["timeline": quarter[target].map { describe($0.value) } ?? "missing",
+                "first": first.map { vector($0.color) }, "second": second.map { vector($0.color) },
+                "explicit": explicit.map(vector), "restored": restored.map(vector),
+                "legacy": vector(legacyColor), "plain": plain.map(vector)]
+        }
+        let additionalVersions: [(String, Any?, Bool)] = [
+            ("missing", nil, true), ("0", 0, true), ("2", 2, true), ("6", 6, false), ("string-5", "5", true),
+        ]
+        for (label, version, legacy) in additionalVersions {
+            let name = "version-" + label
+            let colors = try authoredBirthColors(scene("0.25 0.5 0.75", layerID: id,
+                resource: resource, version: version))
+            let expected = legacy ? SIMD3<Double>(0.0625, 0.25, 0.5625) : SIMD3(0.25, 0.5, 0.75)
+            checks[name + "-authored-color"] = colors == [expected]
+            observations[name] = colors.map(vector)
+        }
+        for version in [4, 5] {
+            let normalized = try authoredBirthColors(scene("0.25 -0.5 0.75", layerID: id,
+                resource: resource, version: version))
+            let legacy = try authoredBirthColors(scene(nil, layerID: id, resource: resource,
+                rawColor: "64 -128 191", version: version))
+            checks["version-\(version)-negative-colorn-keeps-initializer"] = normalized == [directLegacy]
+            checks["version-\(version)-negative-color-keeps-initializer"] = legacy == [directLegacy]
+            observations["version-\(version)-negative"] = ["colorn": normalized.map(vector), "color": legacy.map(vector)]
         }
         for name in ["wrong-lane", "relative", "group", "script-mixed", "user-mixed", "nonfinite-lane", "nonfinite-seed", "wrong-seed-shape", "raw-color-lane"] {
             var curve = animation(), wrapper: [String: Any] = ["value": "1 1 1"]

@@ -73,7 +73,7 @@ Remap 和 Position Offset 保现有八角三维梯度噪声，格点求和及插
 
 `instanceoverride.color` 除以255一次，优先于 `colorn`，在 initializer 后替换新生直色。属性和颜色轨只改变后续出生，存量保留出生色。[官版时序](runtime-evidence-current.md#particle-instance-color-revision)
 
-<a id="instance-color-revision"></a>旧版兼容目标。明确的场景 JSON `version=3/4` 对已选实例覆盖色逐通道平方，`version=5` 保直读。复用 `SceneDocument` 的版本和现有实例值准备，在按优先级选色和作者空间插值后交给出生消费者，一次准备同一有效色。静态值与 Timeline、属性动态值共用该出口，沿原快照、预热、显式发射和 child 继承。Color Random 与后续颜色算子保持各自值域。验收覆盖真实旧/新版本、legacy 优先、同一 stock/改名纹理、两批不同颜色的出生、独立作者和实际 Metal。缺失版本及域外数值的官方行为仍待对照。
+<a id="instance-color-revision"></a>场景 JSON 的整数版本早于 5 或未提供可用整数时，实例覆盖色逐通道平方。5 起直读。覆盖色含负通道时保初始化器颜色。`SceneDocument` 准备版本规则，脚本绑定投影和子模板保留该规则。选色在作者空间插值后完成，Simulator 仅在所选输入变化时更新出生色。预热、显式发射和快照沿原实例生命周期。Color Random 与后续颜色算子保持各自值域。旧/新版本、同轨分批出生、真实作者及 Metal 对照归[运行证据](runtime-evidence-current.md#particle-instance-color-revision)。
 <a id="hdr-instance-brightness"></a>
 `instanceoverride.brightness` 在场景装载时由 HDR 与 Bloom 同开选中，强度为0也有效。沿原 typed slider 和 Simulator 出生 writer 给直色乘有限标量，缺省或不可用取1。三类颜色均可乘，保零值、超白、alpha、后继 writer 与材质 `overbright`。热值只供有绑定的根实例，不传 child 模板。父事件颜色仍是实际出生值。禁用颜色覆盖沿原实现，官版 bit8、运行中切换 Bloom、脚本和动画供值待证。[运行对照](runtime-evidence-current.md#hdr-particle-instance-brightness)
 

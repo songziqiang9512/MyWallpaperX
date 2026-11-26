@@ -8,6 +8,7 @@ nonisolated enum SceneScriptParticleProjection {
         admittedTargets: Set<SceneDynamicTarget>,
         to descriptor: SceneRenderDescriptor
     ) -> SceneRenderDescriptor {
+        guard !admittedTargets.isEmpty else { return descriptor }
         var result = descriptor
         result.layers = descriptor.layers.map { source in
             var layer = source
@@ -36,7 +37,8 @@ nonisolated enum SceneScriptParticleProjection {
                 color: value.color, normalizedColor: admitted(value.normalizedColor, .normalizedColor),
                 controlPoints: value.controlPoints,
                 controlPointAngles: value.controlPointAngles,
-                brightness: value.brightness
+                brightness: value.brightness,
+                usesLegacyColorTransfer: value.usesLegacyColorTransfer
             )
             return layer
         }

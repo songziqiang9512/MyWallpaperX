@@ -72,6 +72,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler+Camera.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineRuntime.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneEvaluationTransaction.swift",
+    SOURCE_ROOT / "Systems/Script/SceneScriptParticleProjection.swift",
     *particle_simulator.SWIFT_SOURCES,
     SOURCE_ROOT / "Systems/Particles/SceneParticleInstanceOverride+Dynamic.swift",
     SOURCE_ROOT / "Systems/Properties/SceneDynamicLayerValues.swift",

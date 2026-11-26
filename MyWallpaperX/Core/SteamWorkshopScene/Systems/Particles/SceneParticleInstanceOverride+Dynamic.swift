@@ -48,7 +48,8 @@ nonisolated extension SceneParticleInstanceOverride {
             normalizedColor: normalizedColor,
             controlPoints: controlPoints,
             controlPointAngles: controlPointAngles,
-            brightness: scalar(currentBrightness, fallback: brightness)
+            brightness: scalar(currentBrightness, fallback: brightness),
+            usesLegacyColorTransfer: usesLegacyColorTransfer
         )
     }
 }

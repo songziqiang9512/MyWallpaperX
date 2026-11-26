@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 414,
-      "bytes": 78203
+      "bytes": 78160
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 467,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 370124
+      "bytes": 371099
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 240,
-      "bytes": 68527
+      "bytes": 68461
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,10 +577,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "51d59f3366f88a657fdf53fe3ec09c569925381ee9f7510bce11b5a23f09165b",
-      "after": "d2a595c4ce758a36737049be85c05850e5fd9ebc5244dd5b775d9c165d9a6530",
+      "before": "d2a595c4ce758a36737049be85c05850e5fd9ebc5244dd5b775d9c165d9a6530",
+      "after": "b2c506e22bc06f152a25b6f3e22a882ba843f4b4fc7adaa5ffe8852fc6d03661",
       "owner": "Scene",
-      "reason": "登记双宽束实例色版本差异、官版出生时序与实施边界。",
+      "reason": "记录旧版实例色修复的定稿像素、独立原包及版本端点。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-instance-color-revision"
     },
     {
