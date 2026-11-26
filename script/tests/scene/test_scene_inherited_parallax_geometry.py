@@ -69,7 +69,7 @@ struct SceneMetalRenderer {
     static func main() throws {
         let root = SceneRenderDescriptor.Layer(id: 1)
         let image = SceneRenderDescriptor.Layer(id: 2, parentID: 1, parallaxDepthXY: [9, 8])
-        let puppet = SceneRenderDescriptor.Layer(id: 3, parentID: 2)
+        let puppet = SceneRenderDescriptor.Layer(id: 3, parentID: 2, imageAlignment: "topleft")
         let particle = SceneRenderDescriptor.Layer(id: 4, parentID: 1, contentKind: "particle")
         let direct = SceneRenderDescriptor.Layer(id: 5, parentID: 1)
         let blocker = SceneRenderDescriptor.Layer(id: 6, disablesParallaxPropagation: true)
@@ -138,6 +138,13 @@ struct SceneMetalRenderer {
                 return [extra.x, extra.y, extra.z, extra.w]
             }
         }
+        let puppetWorld = renderer.authoredGeometryModelMatrix(
+            for: puppet, worldFrame: frames[puppet.id]!, authoredSize: SIMD2(80, 60),
+            usesPerspective: false)
+        let neutralPointerDraw = renderer.geometryModelMatrix(
+            for: puppet, worldFramesByLayerID: frames, authoredSize: SIMD2(80, 60),
+            parallaxMouseNormalized: .zero, configuration: config(true),
+            visibleHalfExtents: SIMD2(500, 250), usesPerspective: false)
         let result: [String: Any] = [
             "inheritedSources": [image, puppet, particle, direct].map { resolutions[$0.id]!.sourceLayerID },
             "assemblyOffsets": [image, puppet, particle, direct].map { offsets($0, frames) },
@@ -146,6 +153,11 @@ struct SceneMetalRenderer {
             "blockedOffsets": offsets(independent, frames),
             "movedChildOffsets": offsets(puppet, movedChild),
             "childMotionResidual": childMotionResidual,
+            "authoredPuppetMatchesPlain": points.allSatisfy { puppetWorld * $0 == beforePlain[1] * $0 },
+            "neutralPointerDrawOffset": points.map { point in
+                let offset = neutralPointerDraw * point - puppetWorld * point
+                return [offset.x, offset.y]
+            },
             "nextFrameOffsets": offsets(puppet, movedParent),
             "missingParentOffsets": offsets(puppet, missingParent),
             "missingBothOffsets": offsets(puppet, missingBoth)
@@ -195,6 +207,12 @@ class SceneInheritedParallaxGeometryTests(unittest.TestCase):
     def test_child_motion_keeps_assembly_relative_composition(self) -> None:
         self.assert_offsets(self.result["movedChildOffsets"], [17.5, -39.75])
         self.assert_offsets(self.result["childMotionResidual"], [0, 0])
+
+    def test_puppet_author_world_excludes_static_parallax(self) -> None:
+        self.assertTrue(self.result["authoredPuppetMatchesPlain"])
+        for x, y in self.result["neutralPointerDrawOffset"]:
+            self.assertAlmostEqual(x, 30, delta=0.001)
+            self.assertAlmostEqual(y, -21, delta=0.001)
 
     def test_root_and_blocked_chain_keep_own_position_formula(self) -> None:
         self.assert_offsets(self.result["rootOffsets"], [17.5, -39.75])

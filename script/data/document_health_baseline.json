@@ -166,11 +166,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 412658
+      "bytes": 413555
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
-      "bytes": 30441
+      "bytes": 30726
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -197,8 +197,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 57,
-      "bytes": 7640
+      "lines": 56,
+      "bytes": 7425
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -588,15 +588,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "8b03d7a809a475ced26626270e6ac0e8c86fee6239074ae75fa7d9b30abcd7b4",
-      "after": "51ab0c44e7ee50643e905f9f62e62c2451dec75db0bc1757d8f8ca88f64c2c57",
-      "owner": "Scene 与三引擎画质",
-      "reason": "合入主线已落库正文及其现行职责。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "e5889cb011af4a6be2162d7d8f9d2d72751156c37b88d0182da34c551f3f9c8b",
       "after": "6d2a740a4df47e5d979b682fbc1970f15102bcecd8bd067cbbff8a2773445bb9",
@@ -696,15 +687,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f969349553bb673d83f4d0302686265480a908ce74232d3bef383abbf3627194",
-      "after": "4b46f763a16cc91c7c878adc0289cebd45b801e4418757e5072d00edf2b2e1ef",
-      "owner": "Scene composition",
-      "reason": "Preserve the upstream controlled puppet history evidence and the integrated quality evidence.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-puppet-history-367"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "3aacbab07c03cf51c339a1139c713fa807c929109e82d4fc4b41951145c904be",
       "after": "dbdd5d9a10fbf527f12ea1bb37bae1e7924ecf6d4e94b337fe4454a7e6564d1e",
@@ -747,6 +729,24 @@
       "owner": "Playback Quality",
       "reason": "Record the signed native settings contrast, current evidence and follow-up.",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "4b46f763a16cc91c7c878adc0289cebd45b801e4418757e5072d00edf2b2e1ef",
+      "after": "df83445b25848bef9bc7ffe60c9805beff1ccef4a5db5a37d4a34809e44d8b9c",
+      "owner": "Scene input and playback quality",
+      "reason": "Preserve the upstream author-world puppet behavior and existing quality evidence.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-drag-parallax-318"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "51ab0c44e7ee50643e905f9f62e62c2451dec75db0bc1757d8f8ca88f64c2c57",
+      "after": "01ab3b1eee3aadf18ef6654299f22c0bd42cbde422fe25052b0f14eab0a27404",
+      "owner": "Scene input and playback quality",
+      "reason": "Preserve the upstream author-world puppet behavior and existing quality evidence.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#cursor-puppet-surface"
     }
   ]
 }

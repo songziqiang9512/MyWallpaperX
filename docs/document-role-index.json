@@ -392,7 +392,7 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3b61eb9fdc2b3b2b42504587f31448ba65f0ed39dfa61a74ffdbf1169aa04dfc",
+        "sourceSHA256": "1aa236a2b934a29e4504fba8f55abc94a52aeae278244c73ff8991c85b97c205",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对逐档执行职责、组合与逐屏抗锯齿回执路由。",
         "limitations": "现役运行结果以工作卡的实测范围为准。"
