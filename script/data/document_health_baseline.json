@@ -720,19 +720,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "3f59a7e9d3ceb7e333a4101f4a8930c906c3ba98c74e218eaa795bdbd7e3b1a4",
+      "before": "2bf3796cd6f511d06054070589d7592ab4a375d30abd39883f60dab0657f6115",
       "after": "b81c50afdc0be645bf6eab76512f2c87d3e1c360d3c19c307cac085edf0ec25b",
-      "owner": "Scene particle runtime and evidence",
-      "reason": "Preserve the current main particle birth contributions and the retained quality evidence.",
+      "owner": "Scene particle and quality evidence owners",
+      "reason": "Bind both retained evidence scopes to the current main particle color baseline.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6d6a8d23770bfd9ef3ace0ade879620b7e274f7b0a900c426800875ba9307140",
+      "before": "f27c956e3738fbdb9f8f1e9693ce2c5bb5eda2647486a8710d458aa0a88d9d19",
       "after": "6c3f9f3ebd11706f022040263c6a49ed8550baa598e10879f6daa6ff73ae99b9",
-      "owner": "Scene particle runtime and evidence",
-      "reason": "Preserve the current main particle birth contributions and the retained quality evidence.",
+      "owner": "Scene particle and quality evidence owners",
+      "reason": "Bind both retained evidence scopes to the current main particle color baseline.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
     }
   ]
