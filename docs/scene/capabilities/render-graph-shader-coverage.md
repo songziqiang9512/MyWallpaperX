@@ -243,7 +243,7 @@ Utility graph provider 在原 utility 触发点取 source、执行与发布，�
 
 来源是否依赖合成顺序，由它真正读取的内容决定。普通图片、文字、solid 的独立来源与 geometry 沿原捕获器发布；没有成员、没有效果的 composition 在 `copyBackground=false` 时拥有透明空来源。它不读取 enclosing attachment，按需直接清原 reserved named target 并发布，不造空 Program、graph ticket、group target 或第二份纹理。已预约的空来源只消费原 target 尺寸，不因局部画布与主屏投影不同而重算捕获尺寸。solid 消费 candidate 的真实颜色表示，straight RGB 在捕获时关联自身 alpha 后发布 PMA；已有 PMA 不重复关联，并保真实 source texture 与本帧 tint/alpha。不能因 provider 位于 consumer 后面就被 kind 白名单拒绝。effectful provider 仍消费实际 graph 输出，不能以清空或 base texture 冒充材质结果。
 
-原截点计划决定独立来源的提前或作者位捕获。作者位只消费本帧被请求的来源，停用或隐藏消费者的冷声明不触发捕获。读取 attachment prefix 或成员 subtree 的来源保原取源截点；不能为满足前向引用而挪到全局 prepass、借父组背景或使用上一帧。执行计划使用 utility 展开顺序与原捕获 trigger；cold candidate 的准入仍使用原始 renderOrder，二者的准入差异尚未统一。独立来源的提前准备不改变作者主合成顺序。
+原截点计划决定独立来源的提前或作者位捕获。作者位只消费本帧被请求的来源，停用或隐藏消费者的冷声明不触发捕获。读取 attachment prefix 或成员 subtree 的来源保原取源截点。执行计划使用 utility 展开顺序与原捕获 trigger；cold candidate 的准入仍使用原始 renderOrder，二者的准入差异尚未统一。独立来源的提前准备不改变作者主合成顺序。后置 Composition 的历史读取沿[独立设计](#forward-composition-named-epoch)处理。
 
 缺 source 或普通编码失败只使消费它的 operation 保 previous-current，健康后继继续；错误 epoch、resource、content、extent 与 pin 仍由原发布/资源入口拒绝。验收沿现有依赖计划、composition source 与签名 App 门：前/后置 solid 同像素，资源/ID/槽位改名、真实 alpha/tint、无效果透明来源与彩色 enclosing prefix 可区分，缺源及健康 peer 有正反例。无需求不分配或发布；原作者定向复验只授实际 source→publication→sampler→terminal 链，不外推背景前缀取时或逐资产最终贡献。
 
@@ -350,7 +350,7 @@ Geometry 的 primary named 输入表示 provider 自身的 authored-local 色图
 <a id="named-source-execution-cuts"></a>
 ### Named 来源的执行截点设计
 
-来源的资源预约与内容就绪是两件事。读取 enclosing attachment 的 raw 来源只能在原作者捕获位置取得 prefix；独立图像、solid 和透明来源可以提前准备。目标是让 `O → U(prefix) → C → P(hidden)` 在 U 捕获后、C 编码前执行 P，而 `C → U → P → D` 中早 C 局部缺 P，晚 D 仍取得 P 的正确结果。不能为了早 C 提前执行并发布降级 P，污染后面的合法消费者。
+来源的资源预约与内容就绪是两件事。读取 enclosing attachment 的 raw 来源只能在原作者捕获位置取得 prefix；独立图像、solid 和透明来源可以提前准备。同帧路径在真实前缀就绪后、合法读者编码前执行 P。过早的同帧读者局部缺 P，晚 D 仍取得正确结果；不提前发布降级 P。已资格的跨帧槽见[后置 Composition](#forward-composition-named-epoch)。
 
 冷准备的前向独立性按完整 primary 输入集合判定，不按上游数量授许可。较早 C 读取普通 hidden image graph P，P 的每条已选 reference 仍须属于实际 effect/pass/slot、指向原 active dependency 集合中的 primary provider，所有来源由原完整 ownership 闭包接纳。多边拓扑、来源最早位置和同截点排序复用原 Plan，缺一来源仍沿原局部 previous-current 处理；真实 self/cycle、未知 provider、secondary及可见 graph 作者位期限保持。
 
@@ -364,7 +364,18 @@ Geometry 的 primary named 输入表示 provider 自身的 authored-local 色图
 
 完成来源和 activation 准备后，才对实际选中的请求确定 shared/owned、预约外部输入并构建资源 bundle；未选中的候选不创建 ledger/命令。尺寸复用原 extent resolver 与 target policy，不以 desired size 冒充已接受 extent，不重复构建 graph。 同位置供货按原依赖顺序执行，ledger、tail 和实际 encode 使用同一顺序。只有实际 graph 提前执行而主合成在后的可见结果需要已有 owned pair；其他路径保原共享策略。原 raw 捕获器只在来源位置采样，提前列表不能读取空 prefix；较早消费者使用原 unavailable/strict-subset 路径，错误 epoch、纹理、pin 或回执仍由实际资源 owner 处理。正常晚到的同一预约纹理只填内容、一次执行，不触发重编译、二次 allocation 或重准备。准备期尚未到达的 graph 输入局部 unavailable，不以 provider 原图尺寸预约其未来 graph；已尝试但没有 graph plan 的来源仍保原 source fallback。aggregate 消费当帧层快照并保其他健康槽。
 
-验收沿原 Plan、Coordinator 和签名 App 门：有 graph 的前景 O、U 后另一个改变当前背景的图层、早 C/晚 D、真实取时环、`copyBackground=false` 独立邻例及资源/ID 改名。固定 literal ROI 区分 U 的 prefix、全局空 prefix 与 C 当时背景，保健康后继；核 P 一次执行及最终 GPU/终端捕获。graph-background、utility 成员图的来源消费者及官方默认背景语义仍须各自取得实际资格，不能借调度设计放开它们。普通 provider 使用原 layer 前截点；utility 保原 trigger 后执行，同 trigger 后再运行普通 provider 的组合未接入。degraded member 的绘制跳过不跳过其已计划供货，供货只执行 offscreen 内容，成员继续原局部跳过。
+验收沿原 Plan、Coordinator 和签名 App 门，用 literal ROI 区分作者位、全局清色和读者前缀，保早/晚读者、独立透明来源、改名、取时环、健康后继和单次供货。普通 provider 使用原 layer 前截点，utility 保原 trigger 后执行。成员绘制降级仍保已计划的 offscreen 供货。后置 Composition 的特定源和时序由下节处理；其它成员图、背景图及同 trigger 后接普通 provider 分别验证。
+
+<a id="forward-composition-named-epoch"></a>
+### 后置 Composition 具名图的时序设计
+
+早读者读取同附件、顶层无子隐藏 Composition 的主具名输出时，带背景的提供层仍在作者截点取背景，早读者消费上一已完成输出，晚读者消费当帧输出。[官版与原作者对照](runtime-evidence-current.md#forward-composition-named-oracle)覆盖省略和显式 copy、透明起点及前后读者。当前本机在冷 carrier 拒绝有特效的前向 Utility；仅放宽准入仍会在实际截点拒绝早读。首轮实现限定实证的既有 Composition 来源和主槽，显式 false 保透明源，其前向动态取时另行验证。
+
+冷准备的 Binding 只保合法来源和实际 effect/pass/slot。原截点计划用 utility 展开后的生产和消费截点判早晚；同一 consumer 对同一 provider 的主槽共享该 consumer 截点。早槽只替换本帧排序中的读取关系，仍向 utility 作者位请求本帧写入。缺上一图不撤掉生产需求。作者位复用原捕获和 Program，只发布一次；用零背景或读者截点提前执行会得到错误内容，重排主合成会改变图层叠放。保同帧准入、实际循环和健康相邻槽；已资格的早槽退出旧前向拒绝。
+
+原 named target pool 仅为有实际早读需求的 provider 轮换两个成员，现有 graph-final 复制或降采样直接写候选。Coordinator 复用原供货回执和 GPU 完成顺序接纳准确目标、内容及生产代次。待退休但 GPU 仍持有的目标继续计入原池预算，沿原 submission 保存到终态；双成员预算不足只限早槽。候选服务本帧晚读者，历史读取保生产和消费的两个 epoch，在真实选中槽消费，避免覆盖当前 registry 的同名记录。沿已有完成栅栏约束有历史依赖的提交，纯晚读沿单成员原路径。同生命周期的 GPU 失败保上一成功，首帧无历史只对受影响槽降级。最后早槽停用、来源退休或重新分配时，撤销可读和在途回执提升资格，重新启用首帧为空。仅保晚读后重启早读的官版边界待验证。普通动态值不重置来源。没有额外整图复制或第二个 registry。
+
+验收在同一帧读取作者位、早槽、晚槽三块色标，核首帧仍生产，正常帧早读上一成功、晚读当前、两者目标及提交身份不同。验证热开关、透明来源、容量不足、GPU 未完成/取消及重试，保作者位置、单次合成、等价改名和健康后继。签名 App 原包用剑刃对照及另一真实作者核最终画面，并记录资源驻留与呈现成本。
 
 <a id="forward-graph-output-consumption"></a>
 ### 图输出的供货与作者位合成

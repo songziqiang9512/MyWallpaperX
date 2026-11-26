@@ -125,12 +125,12 @@
       "bytes": 78388
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 474,
-      "bytes": 93678
+      "lines": 485,
+      "bytes": 96037
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 377146
+      "bytes": 376916
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 62,
-      "bytes": 8303
+      "bytes": 8429
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -460,11 +460,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "28a491f465aef3566fff9a712fe0957c2861d16d633697f1ccf9e55a845862cf",
-      "after": "0dfa8cbf08520fd4eeb81300181fd45ea6023c7eef57ac0cb86d09558e122dd5",
-      "owner": "Scene render graph and runtime evidence",
-      "reason": "登记效果纹理的相对投影深度与方向基合同",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#effect-texture-plane-projection"
+      "before": "0dfa8cbf08520fd4eeb81300181fd45ea6023c7eef57ac0cb86d09558e122dd5",
+      "after": "07b0018996e0ce5b5d2c12c1e5d445c8c31f0cced8ad6150bd1f3c5d289bcaa2",
+      "owner": "Scene composition and named graph output",
+      "reason": "加入后置隐藏 Composition 的已验证截点与跨帧供货设计。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#forward-composition-named-epoch"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c83644ced4ef7f10cbf7255e0c0ecdee0f49e2c77c37676b1e2f270386df5b89",
-      "after": "d43e33ec4d77aa1a3080167417c0b91c7db94661d3c29a283bf9bbd826b2c7a5",
-      "owner": "Scene Timeline and SceneScript",
-      "reason": "登记作者热切与冷载证据、四种速度的实帧及属性倍率设计。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-float-reload-304"
+      "before": "4665e0f4be9616bd651ba91a860f75d6188cd1508b349d0105b1a1578f56cc5e",
+      "after": "212e343cb59a7ac01885802716d631cadcc44bad94214f7398b57fd40b71bf69",
+      "owner": "Scene composition and named graph output",
+      "reason": "记录已验证的具名图时序及对应的现役设计入口。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
     },
     {
       "section": "bodies",
