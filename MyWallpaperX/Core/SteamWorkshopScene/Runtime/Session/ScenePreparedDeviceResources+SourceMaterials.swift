@@ -131,3 +131,34 @@ extension ScenePreparedDeviceResources {
         return prepared
     }
 }
+
+extension SceneTexContainer.Condition {
+    nonisolated func matches(_ values: [String: SceneUserPropertyValue]) -> Bool {
+        guard let value = values[propertyKey] else { return false }
+        switch self {
+        case .boolean: return value.boolValue == true
+        case let .equals(_, condition): return value.matches(.string(condition))
+        }
+    }
+}
+
+extension ScenePreparedBaseImageResources {
+    static func prepareConditionalAtlas(
+        _ prepared: SceneTextureLoader.PreparedTexSource,
+        selection: Set<UInt32>, loader: SceneTextureLoader, device: MTLDevice,
+        checkCancellation: () throws -> Void
+    ) throws -> SceneBaseImageTextureLoad.Loaded? {
+        try withoutActuallyEscaping(checkCancellation) { checkCancellation in
+            let outcome = try SceneBaseImageTextureLoad.loadOrdinaryCandidate(from: prepared.input,
+                loader: loader, device: device, preparedTexSource: prepared,
+                conditionalVariantIDs: selection, checkCancellation: checkCancellation)
+            switch outcome {
+            case let .loaded(loaded):
+                return loaded
+            case let .failed(failure):
+                try failure.rethrowResourceReadFailure()
+                return nil
+            }
+        }
+    }
+}

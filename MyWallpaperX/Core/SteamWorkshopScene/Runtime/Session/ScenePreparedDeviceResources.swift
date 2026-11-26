@@ -2,16 +2,6 @@ import Foundation
 import CoreGraphics
 import Metal
 
-extension SceneTexContainer.Condition {
-    nonisolated func matches(_ values: [String: SceneUserPropertyValue]) -> Bool {
-        guard let value = values[propertyKey] else { return false }
-        switch self {
-        case .boolean: return value.boolValue == true
-        case let .equals(_, condition): return value.matches(.string(condition))
-        }
-    }
-}
-
 nonisolated struct ScenePreparedDynamicImageResource {
     nonisolated enum Product {
         case image(SceneTextureCandidate)
@@ -52,6 +42,8 @@ nonisolated enum SceneDeferredBaseImageStatus: Equatable {
 final class ScenePreparedBaseImageResources {
     private let automaticMipProjection: SceneAutomaticTextureProjection?
     private var automaticMipTails: [SceneTextureLoader.SourceKey: AutomaticMipTail]
+    private var automaticMipDemand = 0.0
+    private var preparingAutomaticMips = false
 
     struct Entry {
         let input: SceneResourceView.FileInput
@@ -661,49 +653,47 @@ final class ScenePreparedBaseImageResources {
         return updates
     }
 
-    private static func prepareConditionalAtlas(
-        _ prepared: SceneTextureLoader.PreparedTexSource,
-        selection: Set<UInt32>, loader: SceneTextureLoader, device: MTLDevice,
-        checkCancellation: () throws -> Void
-    ) throws -> SceneBaseImageTextureLoad.Loaded? {
-        try withoutActuallyEscaping(checkCancellation) { checkCancellation in
-            let outcome = try SceneBaseImageTextureLoad.loadOrdinaryCandidate(from: prepared.input,
-                loader: loader, device: device, preparedTexSource: prepared,
-                conditionalVariantIDs: selection, checkCancellation: checkCancellation)
-            switch outcome {
-            case let .loaded(loaded):
-                return loaded
-            case let .failed(failure):
-                try failure.rethrowResourceReadFailure()
-                return nil
-            }
-        }
-    }
-
     @MainActor
     func promoteAutomaticMips(for drawable: CGSize, publish: @escaping @MainActor ([Int: SceneBaseImageTextureLoad.Loaded]) -> Void) {
         guard !automaticMipTails.isEmpty, let automaticMipProjection else { return }
         let cover = automaticMipProjection.coverScale(for: drawable)
+        guard cover.isFinite, cover > automaticMipDemand else { return }
+        automaticMipDemand = cover
+        prepareAutomaticMips(publish: publish)
+    }
+
+    @MainActor
+    private func prepareAutomaticMips(publish: @escaping @MainActor ([Int: SceneBaseImageTextureLoad.Loaded]) -> Void) {
+        guard !preparingAutomaticMips else { return }
+        let cover = automaticMipDemand
         let requests = automaticMipTails.filter { $0.value.maximumCoverScale < cover }
         guard !requests.isEmpty else { return }
-        for key in requests.keys { automaticMipTails.removeValue(forKey: key) }
+        preparingAutomaticMips = true
         deferredQueue.async { [weak self] in
             guard let self else { return }
-            let prepared = Self.prepareAutomaticMipPromotions(requests, loader: self.deferredTextureLoader,
+            let prepared = Self.prepareAutomaticMipPromotions(requests, cover: cover, loader: self.deferredTextureLoader,
                 device: self.device, checkCancellation: self.checkDeferredCancellation)
-            guard !prepared.isEmpty else { return }
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-#if DEBUG
-                Self.reportAutomaticMipRetirement(entries: self.entries, layerIDs: prepared.keys)
-#endif
+                self.preparingAutomaticMips = false
+                var updates: [Int: SceneBaseImageTextureLoad.Loaded] = [:]
                 let committed = self.deferredLock.withLock {
                     guard !self.cancelled else { return false }
-                    for (layerID, loaded) in prepared { self.entries[layerID]?.outcome = .loaded(loaded) }
+                    for (source, loaded) in prepared {
+                        guard var tail = requests[source], let candidate = loaded.candidate else { continue }
+                        for layerID in tail.use.layerIDs { updates[layerID] = loaded }
+                        tail.maximumCoverScale = tail.use.maximumCoverScale(for: candidate.physicalSize)
+                        self.automaticMipTails[source] = candidate.embeddedBaseMip > 0 ? tail : nil
+                    }
+#if DEBUG
+                    Self.reportAutomaticMipRetirement(entries: self.entries, layerIDs: updates.keys)
+#endif
+                    for (layerID, loaded) in updates { self.entries[layerID]?.outcome = .loaded(loaded) }
                     return true
                 }
                 guard committed else { return }
-                publish(prepared)
+                if !updates.isEmpty { publish(updates) }
+                if self.automaticMipDemand > cover { self.prepareAutomaticMips(publish: publish) }
             }
         }
     }

@@ -80,7 +80,8 @@ struct SceneBaseImageTextureLoad {
     enum Outcome { case loaded(Loaded), failed(SceneTextureLoadOutcome) }
     static func loadOrdinaryCandidate(from url: SceneResourceView.FileInput, loader: SceneTextureLoader,
         device: MTLDevice, preparedTexSource: SceneTextureLoader.PreparedTexSource,
-        conditionalVariantIDs: Set<UInt32>? = nil, checkCancellation: (() throws -> Void)? = nil) throws -> Outcome {
+        conditionalVariantIDs: Set<UInt32>? = nil, mipSelection: SceneOrdinaryImageMipSelection? = nil,
+        checkCancellation: (() throws -> Void)? = nil) throws -> Outcome {
         try checkCancellation?()
         return loader.controlledLoad(url: url, device: device)
     }

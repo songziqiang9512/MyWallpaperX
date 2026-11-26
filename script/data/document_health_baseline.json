@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 66,
-      "bytes": 23027
+      "bytes": 23106
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -94,11 +94,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 160999
+      "bytes": 161216
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 141789
+      "bytes": 142818
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -114,7 +114,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 307,
-      "bytes": 63154
+      "bytes": 63269
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -387,11 +387,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "054e62eb6224311796533c29704e0c69917dec10b916bf9c3be425f6d49b5ca5",
-      "after": "1834ce0a9264973ac96c4889608417acda6c02ef584f1d529183899457ddbdab",
-      "owner": "Scene 与三引擎画质",
-      "reason": "合入主线已落库正文及其现行职责。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+      "before": "1834ce0a9264973ac96c4889608417acda6c02ef584f1d529183899457ddbdab",
+      "after": "97135e655f639042a71aaf45c5bace552c9ad4b54934b44e5682858392e748ce",
+      "owner": "Scene 基础图像准备与画质",
+      "reason": "同步 Auto 作者 mip 冷热同规则、原队列提交、样本验收及源码入口。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-texture-auto"
     },
     {
       "section": "bodies",
@@ -504,20 +504,20 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "73c6c7cd1b968ea2f4a92c08b89e8c448ed70e68b7081a50a87e78023e1923e8",
-      "after": "1537cb385d232aaf15eaad3d603ee1e17e59f3ef419029072bfd583d4b5df42c",
-      "owner": "Scene 材质准备",
-      "reason": "同步普通副槽的官版合同、现役导航和启动实测。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#missing-ordinary-material-texture"
+      "before": "1537cb385d232aaf15eaad3d603ee1e17e59f3ef419029072bfd583d4b5df42c",
+      "after": "e2fdaa6414a74e42b7608cabb6dbb153361cdae77996075aed8a5fbf36eca321",
+      "owner": "Scene 基础图像准备与画质",
+      "reason": "同步 Auto 作者 mip 冷热同规则、原队列提交、样本验收及源码入口。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-texture-auto"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "6ae04ea33db8de7685d9913f69e5f8cbd4fc1a764e2227c6271137675a671fb3",
-      "after": "79613c8887a2c10b8949c91a470405be076f051100d6c50128b50c31911f21f7",
-      "owner": "Scene 与三引擎画质",
-      "reason": "合并画质与主线的执行合同及不同构建身份下的证据，保持单一现役入口。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+      "before": "136d0953db1108d7d37294ef08800a24cfc66f4471fb55f43fb6451ab7836de2",
+      "after": "8307c376e056d219099a00fbe7c39c963556e9d1c20dfe6684ba23eb07671808",
+      "owner": "Scene 基础图像准备与画质",
+      "reason": "同步 Auto 作者 mip 冷热同规则、原队列提交、样本验收及源码入口。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-texture-auto"
     },
     {
       "section": "bodies",
@@ -549,11 +549,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "5ed51687b798af3e53ee504aceafaccc829e32cc6df02c2c49e41b1f46b96497",
-      "after": "84213cc6664b1a5e72905c53fbc5ed599b888175256ffa8271ad7f81849bdb3e",
-      "owner": "Scene 与三引擎画质",
-      "reason": "合入主线已落库正文及其现行职责。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+      "before": "84213cc6664b1a5e72905c53fbc5ed599b888175256ffa8271ad7f81849bdb3e",
+      "after": "15d349cbaf94c611d8ef3b73855fac845f58d46ece9958ec3b445e971528eb70",
+      "owner": "Scene 基础图像准备与画质",
+      "reason": "同步 Auto 作者 mip 冷热同规则、原队列提交、样本验收及源码入口。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-texture-auto"
     },
     {
       "section": "bodies",

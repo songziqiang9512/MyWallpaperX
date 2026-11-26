@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e3eada22403d3801fe83d5794258069c8e332215ef91a83c603d1a60eb923963",
+        "sourceSHA256": "3e44c57119b110139ccd585e98d8fc57bcf8f47921ab93a70c7d3befad0a1c5e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
-        "limitations": "导航复核，实际渲染证据仍绑定其原构建。"
+        "scope": "核对 Auto mip 冷热选择、基础资源提交与取证入口。",
+        "limitations": "导航与已取证范围复核。物理多屏及功耗另取证。"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e8b55b73c1e431038c36b1fe4e8fa984d674f944d57db996c091ad1ec42f5045",
+        "sourceSHA256": "98553504c7108d571587eeee9f42c93d7748a3493dfea8824021aed9c453816a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "作者精确栅格与普通副槽为内部缩放的前置语义",
-        "limitations": "实际降采样与能耗仍各自待测。"
+        "scope": "核对 Auto mip 冷热选择、基础资源提交与取证入口。",
+        "limitations": "导航与已取证范围复核。物理多屏及功耗另取证。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8b1a22042063afd7ee6ad05b9d2e5bd2e6bdbb0086c4fd803d8c6e8efa518fa0",
+        "sourceSHA256": "85b5f5a6334259ee69c73976f5ab1ed7ba7430287a0c760da46047fb91193ebc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
-        "limitations": "导航复核，实际渲染证据仍绑定其原构建。"
+        "scope": "核对 Auto mip 冷热选择、基础资源提交与取证入口。",
+        "limitations": "导航与已取证范围复核。物理多屏及功耗另取证。"
       }
     },
     {
@@ -871,10 +871,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0ff329dbb21ca14e70cbe39e818c4efbb319b27c63c1831c4170ac5c34891d81",
+        "sourceSHA256": "8e0a563d31fd211e58ce1c87ae272bf4b64981890b44b94fa5eb46097621b33c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
-        "limitations": "导航复核，实际渲染证据仍绑定其原构建。"
+        "scope": "核对 Auto mip 冷热选择、基础资源提交与取证入口。",
+        "limitations": "导航与已取证范围复核。物理多屏及功耗另取证。"
       }
     },
     {

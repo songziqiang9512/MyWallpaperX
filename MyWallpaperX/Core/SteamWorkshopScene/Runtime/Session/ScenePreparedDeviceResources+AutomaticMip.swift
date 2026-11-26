@@ -14,9 +14,9 @@ extension ScenePreparedBaseImageResources {
     }
 
     struct AutomaticMipTail {
-        let layerIDs: [Int]
+        let use: SceneAutomaticTextureProjection.Source
         let input: SceneResourceView.FileInput
-        let maximumCoverScale: Double
+        var maximumCoverScale: Double
     }
 
     static func mipPreparationInputs(
@@ -71,7 +71,7 @@ extension ScenePreparedBaseImageResources {
             for id in plan.source.layerIDs {
                 guard let entry = entries[id], case let .loaded(loaded)? = entry.outcome,
                       let candidate = loaded.candidate, candidate.embeddedBaseMip > 0 else { continue }
-                tails[source] = .init(layerIDs: plan.source.layerIDs, input: entry.input,
+                tails[source] = .init(use: plan.source, input: entry.input,
                     maximumCoverScale: plan.source.maximumCoverScale(for: candidate.physicalSize))
                 textures.append(loaded.texture)
                 break
@@ -83,21 +83,24 @@ extension ScenePreparedBaseImageResources {
     }
 
     static func prepareAutomaticMipPromotions(
-        _ requests: [SceneTextureLoader.SourceKey: AutomaticMipTail],
+        _ requests: [SceneTextureLoader.SourceKey: AutomaticMipTail], cover: Double,
         loader: SceneTextureLoader, device: MTLDevice, checkCancellation: @escaping () throws -> Void
-    ) -> [Int: SceneBaseImageTextureLoad.Loaded] {
-        var updates: [Int: SceneBaseImageTextureLoad.Loaded] = [:]
+    ) -> [SceneTextureLoader.SourceKey: SceneBaseImageTextureLoad.Loaded] {
+        var updates: [SceneTextureLoader.SourceKey: SceneBaseImageTextureLoad.Loaded] = [:]
         for (source, request) in requests {
+            guard let minimum = SceneAutomaticTextureProjection.minimumExtent(
+                worldExtent: request.use.worldExtent, coverScale: cover
+            ) else { continue }
             do {
                 defer { loader.evictDecodedCaches() }
                 try checkCancellation()
                 guard let prepared = try loader.prepareTexSource(from: request.input,
                         source: source, checkCancellation: checkCancellation),
                       case let .loaded(loaded) = try SceneBaseImageTextureLoad.loadOrdinaryCandidate(
-                        from: request.input, loader: loader, device: device,
-                        preparedTexSource: prepared, checkCancellation: checkCancellation) else { continue }
+                        from: request.input, loader: loader, device: device, preparedTexSource: prepared,
+                        mipSelection: .minimumExtent(minimum), checkCancellation: checkCancellation) else { continue }
                 loader.evictTextures(containedIn: [loaded.texture])
-                for layerID in request.layerIDs { updates[layerID] = loaded }
+                updates[source] = loaded
             } catch is CancellationError { break } catch { continue }
         }
         return updates
