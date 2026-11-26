@@ -16,7 +16,8 @@ extension ScenePreparedBaseImageResources {
     struct AutomaticMipTail {
         let use: SceneAutomaticTextureProjection.Source
         let input: SceneResourceView.FileInput
-        var maximumCoverScale: Double
+        // A planned dormant source has no uploaded texture to promote.
+        var promotionThreshold: Double?
     }
 
     static func mipPreparationInputs(
@@ -46,6 +47,20 @@ extension ScenePreparedBaseImageResources {
 
     typealias AutomaticMipPlan = (source: SceneAutomaticTextureProjection.Source, selection: SceneOrdinaryImageMipSelection)
 
+    static func publishedAutomaticMip(
+        _ source: SceneAutomaticTextureProjection.Source,
+        entries: [Int: Entry], cover: Double
+    ) -> SceneBaseImageTextureLoad.Loaded? {
+        for layerID in source.layerIDs {
+            guard case let .loaded(loaded)? = entries[layerID]?.outcome,
+                  let candidate = loaded.candidate else { continue }
+            if candidate.embeddedBaseMip == 0 || source.maximumCoverScale(for: candidate.physicalSize) >= cover {
+                return loaded
+            }
+        }
+        return nil
+    }
+
     static func automaticMipPlans(
         _ candidates: [SceneTextureLoader.SourceKey: SceneAutomaticTextureProjection.Source],
         cover: Double?, exactSources: Set<SceneTextureLoader.SourceKey>, constraints: AutomaticMipConstraints?
@@ -62,18 +77,24 @@ extension ScenePreparedBaseImageResources {
     }
 
     static func keepPublishedAutomaticTails(
-        _ plans: [SceneTextureLoader.SourceKey: AutomaticMipPlan],
-        entries: [Int: Entry], loader: SceneTextureLoader
+        _ plans: [SceneTextureLoader.SourceKey: AutomaticMipPlan], entries: [Int: Entry],
+        deferredLayerIDs: Set<Int>, loader: SceneTextureLoader
     ) -> [SceneTextureLoader.SourceKey: AutomaticMipTail] {
         var tails: [SceneTextureLoader.SourceKey: AutomaticMipTail] = [:]
         var textures: [MTLTexture] = []
         for (source, plan) in plans {
+            if let deferredID = plan.source.layerIDs.first(where: { deferredLayerIDs.contains($0) }),
+               let entry = entries[deferredID] {
+                tails[source] = .init(use: plan.source, input: entry.input, promotionThreshold: nil)
+            }
             for id in plan.source.layerIDs {
                 guard let entry = entries[id], case let .loaded(loaded)? = entry.outcome,
-                      let candidate = loaded.candidate, candidate.embeddedBaseMip > 0 else { continue }
-                tails[source] = .init(use: plan.source, input: entry.input,
-                    maximumCoverScale: plan.source.maximumCoverScale(for: candidate.physicalSize))
-                textures.append(loaded.texture)
+                      let candidate = loaded.candidate else { continue }
+                if candidate.embeddedBaseMip > 0 {
+                    tails[source] = .init(use: plan.source, input: entry.input,
+                        promotionThreshold: plan.source.maximumCoverScale(for: candidate.physicalSize))
+                    textures.append(loaded.texture)
+                } else { tails[source] = nil }
                 break
             }
         }

@@ -419,6 +419,7 @@ extension SceneDesktopWallpaperSession {
         guard pendingDeferredLayerVisibilityUpdate?.generation
                 == pending.generation else { return }
         pendingDeferredLayerVisibilityUpdate = nil
+        if !pending.layerIDs.isEmpty { promoteAutomaticTextures() }
 #if DEBUG
         logDeferredLayerVisibilityTransition(
             generation: pending.generation,

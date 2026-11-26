@@ -99,6 +99,11 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
         for key in ("shared", "missingLocal", "readFailure", "healthy", "stable", "cancelled"):
             self.assertTrue(case[key], case)
 
+    def test_deferred_texture_uses_the_same_quality_plan_at_visibility_and_after_resize(self) -> None:
+        for check, passed in self.facts["deferredQuality"].items():
+            with self.subTest(check=check):
+                self.assertTrue(passed)
+
     def test_particle_image_providers_share_final_prepared_outcomes(self) -> None:
         for name, facts in self.facts["particleImageInputs"].items():
             with self.subTest(name=name):

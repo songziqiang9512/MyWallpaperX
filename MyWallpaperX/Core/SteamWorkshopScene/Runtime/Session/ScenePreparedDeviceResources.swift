@@ -42,7 +42,7 @@ nonisolated enum SceneDeferredBaseImageStatus: Equatable {
 final class ScenePreparedBaseImageResources {
     private let automaticMipProjection: SceneAutomaticTextureProjection?
     private var automaticMipTails: [SceneTextureLoader.SourceKey: AutomaticMipTail]
-    private var automaticMipDemand = 0.0
+    private var automaticMipDemand: Double
     private var preparingAutomaticMips = false
 
     struct Entry {
@@ -50,19 +50,6 @@ final class ScenePreparedBaseImageResources {
         let source: SceneTextureLoader.SourceKey
         var outcome: SceneBaseImageTextureLoad.Outcome?
         let naturalSizeWH: [Float]?
-    }
-
-    private struct DeferredRequest {
-        let layerID: Int
-        let url: SceneResourceView.FileInput
-        let source: SceneTextureLoader.SourceKey
-    }
-
-    private enum DeferredState {
-        case pending
-        case loading
-        case ready(Entry)
-        case failed(SceneTextureLoadOutcome, String)
     }
 
     private struct ConditionalAtlas {
@@ -110,8 +97,8 @@ final class ScenePreparedBaseImageResources {
     private(set) var conditionalPropertyKeys: Set<String>
     private var conditionalProducts: [SceneTextureLoader.SourceKey: ConditionalProduct]
     private var conditionalRequest: ConditionalRequest?
-    private let deferredRequests: [Int: DeferredRequest]
-    private var deferredStates: [Int: DeferredState]
+    private let deferredMipSelections: [Int: SceneOrdinaryImageMipSelection]
+    private var deferredStates: [Int: SceneDeferredBaseImageStatus]
     private var requestedGenerations: [Int: UInt64] = [:]
     private var preferredLayerID: Int?
     private var workerScheduled = false
@@ -132,9 +119,11 @@ final class ScenePreparedBaseImageResources {
         conditionalAtlases: [SceneTextureLoader.SourceKey: ConditionalAtlas],
         conditionalProducts: [SceneTextureLoader.SourceKey: ConditionalProduct],
         dynamicImageResources: [String: ScenePreparedDynamicImageResource],
-        deferredRequests: [Int: DeferredRequest],
+        deferredLayerIDs: Set<Int>,
+        deferredMipSelections: [Int: SceneOrdinaryImageMipSelection],
         automaticMipProjection: SceneAutomaticTextureProjection?,
         automaticMipTails: [SceneTextureLoader.SourceKey: AutomaticMipTail],
+        automaticMipDemand: Double,
         loadedCount: Int,
         failedCount: Int
     ) {
@@ -151,13 +140,14 @@ final class ScenePreparedBaseImageResources {
         self.entries = entries
         self.automaticMipProjection = automaticMipProjection
         self.automaticMipTails = automaticMipTails
+        self.automaticMipDemand = automaticMipDemand
         self.conditionalAtlases = conditionalAtlases
         self.conditionalProducts = conditionalProducts
         self.conditionalPropertyKeys = Set(conditionalAtlases.values.flatMap { $0.conditions.bindings.values.map(\.propertyKey) })
         self.dynamicImageResources = dynamicImageResources
-        self.deferredRequests = deferredRequests
-        self.deferredStates = deferredRequests.mapValues { _ in .pending }
-        self.deferredLayerIDs = Set(deferredRequests.keys)
+        self.deferredMipSelections = deferredMipSelections
+        self.deferredStates = Dictionary(uniqueKeysWithValues: deferredLayerIDs.map { ($0, .pending) })
+        self.deferredLayerIDs = deferredLayerIDs
         self.loadedCount = loadedCount
         self.failedCount = failedCount
         self.deferredQueue = DispatchQueue(
@@ -202,7 +192,7 @@ final class ScenePreparedBaseImageResources {
             var entries: [Int: Entry] = [:]
             var loadedCount = 0
             var failedCount = 0
-            var deferredRequests: [Int: DeferredRequest] = [:]
+            var deferredLayerIDs: Set<Int> = []
             var conditionalAtlases: [SceneTextureLoader.SourceKey: ConditionalAtlas] = [:]
             var conditionalProducts: [SceneTextureLoader.SourceKey: ConditionalProduct] = [:]
             var conditionalInputs: [SceneTextureLoader.SourceKey: SceneTextureLoader.PreparedTexSource] = [:]
@@ -262,11 +252,7 @@ final class ScenePreparedBaseImageResources {
                     conditionalAtlases[source]?.layerIDs.insert(layer.id)
                     continue
                 } else if deferredBaseImageLayerIDs.contains(layer.id) {
-                    deferredRequests[layer.id] = .init(
-                        layerID: layer.id,
-                        url: url,
-                        source: source
-                    )
+                    deferredLayerIDs.insert(layer.id)
                     continue
                 }
                 let videoPayload = videoModelPath != nil && layer.puppetMeshPath == nil
@@ -326,8 +312,9 @@ final class ScenePreparedBaseImageResources {
             var automaticSources: [SceneTextureLoader.SourceKey: SceneAutomaticTextureProjection.Source] = [:]
             var exactSources: Set<SceneTextureLoader.SourceKey> = []
             for layer in descriptor.layers {
-                if layer.scalableStaticColorSource == true, let request = imageRequests[layer.id],
-                   request.url.pathExtension.lowercased() == "tex", let size = entries[layer.id]?.naturalSizeWH,
+                if layer.scalableStaticColorSource == true, let entry = entries[layer.id],
+                   imageRequests[layer.id] != nil || deferredLayerIDs.contains(layer.id),
+                   entry.input.pathExtension.lowercased() == "tex", let size = entry.naturalSizeWH,
                    !fullResolutionLayerIDs.contains(layer.id) {
                     if let ordinaryColorMipLongEdge, size.contains(where: { $0 > Float(ordinaryColorMipLongEdge) }) {
                         mipTailLayers.append(layer)
@@ -336,7 +323,7 @@ final class ScenePreparedBaseImageResources {
                     if let automaticCover, let world = Self.automaticMipWorldExtent(layer, size: geometry[layer.id]),
                        let required = SceneAutomaticTextureProjection.minimumExtent(worldExtent: world, coverScale: automaticCover),
                        size[0] / 2 >= Float(required.x), size[1] / 2 >= Float(required.y) {
-                        automaticSources[request.source, default: .init(worldExtent: world, layerIDs: [])]
+                        automaticSources[entry.source, default: .init(worldExtent: world, layerIDs: [])]
                             .include(layerID: layer.id, worldExtent: world)
                         mipTailLayers.append(layer)
                         continue
@@ -353,9 +340,14 @@ final class ScenePreparedBaseImageResources {
                 exactSources: exactSources, constraints: canReduceModelDefaults ? planning.automaticMipConstraints : nil)
             let performanceSelection = canReduceModelDefaults
                 ? ordinaryColorMipLongEdge.map(SceneOrdinaryImageMipSelection.maximumLongEdge) : nil
+            var deferredMipSelections: [Int: SceneOrdinaryImageMipSelection] = [:]
             for layer in mipTailLayers {
-                let selection = imageRequests[layer.id].flatMap { automaticPlans[$0.source]?.selection } ?? performanceSelection
-                try loadInitialImage(layer, mipSelection: selection)
+                if deferredLayerIDs.contains(layer.id) {
+                    deferredMipSelections[layer.id] = performanceSelection
+                } else {
+                    let selection = imageRequests[layer.id].flatMap { automaticPlans[$0.source]?.selection } ?? performanceSelection
+                    try loadInitialImage(layer, mipSelection: selection)
+                }
             }
 
             var dynamicImageResources: [String: ScenePreparedDynamicImageResource] = [:]
@@ -467,7 +459,7 @@ final class ScenePreparedBaseImageResources {
             let particleImageProviders = Set(descriptor.layers.filter { $0.contentKind == "particle" }
                 .flatMap { $0.authoredDependencies.filter { $0.type == "emitterimage" }.map(\.layerID) })
             for layer in descriptor.layers where layer.isImageRenderable
-                && particleImageProviders.contains(layer.id) && deferredRequests[layer.id] == nil {
+                && particleImageProviders.contains(layer.id) && !deferredLayerIDs.contains(layer.id) {
                 if case .loaded? = entries[layer.id]?.outcome { continue }
                 if let source = entries[layer.id]?.source, conditionalProducts[source] != nil { continue }
                 try cancellationCheck()
@@ -491,7 +483,8 @@ final class ScenePreparedBaseImageResources {
                 case .failed: failedCount += 1
                 }
             }
-            let automaticMipTails = Self.keepPublishedAutomaticTails(automaticPlans, entries: entries, loader: textureLoader)
+            let automaticMipTails = Self.keepPublishedAutomaticTails(automaticPlans,
+                entries: entries, deferredLayerIDs: deferredLayerIDs, loader: textureLoader)
             // Model-default aliases reuse published entries, never layer overrides.
             for layer in descriptor.layers where layer.contentKind == "image" {
                 try cancellationCheck()
@@ -532,9 +525,11 @@ final class ScenePreparedBaseImageResources {
                 conditionalAtlases: conditionalAtlases.filter { conditionalProducts[$0.key] != nil },
                 conditionalProducts: conditionalProducts,
                 dynamicImageResources: dynamicImageResources,
-                deferredRequests: deferredRequests,
+                deferredLayerIDs: deferredLayerIDs,
+                deferredMipSelections: deferredMipSelections,
                 automaticMipProjection: automaticMipTails.isEmpty ? nil : automaticProjection,
                 automaticMipTails: automaticMipTails,
+                automaticMipDemand: automaticCover ?? 0,
                 loadedCount: loadedCount,
                 failedCount: failedCount
             )
@@ -562,24 +557,10 @@ final class ScenePreparedBaseImageResources {
         device: MTLDevice
     ) -> SceneBaseImageTextureLoad.Outcome? {
         guard device.registryID == deviceRegistryID else { return nil }
-        let entry: Entry?
-        if let prepared = entries[layerID], let atlas = conditionalOutcome(for: prepared.source) {
-            return prepared.input == url ? .loaded(atlas) : .failed(.resourceReadFailed(SceneResourceView.ReadError.invalidHandle))
-        }
-        if let prepared = entries[layerID], prepared.outcome != nil {
-            entry = prepared
-        } else {
-            deferredLock.lock()
-            if case let .ready(prepared)? = deferredStates[layerID] {
-                entry = prepared
-            } else {
-                entry = entries[layerID]
-            }
-            deferredLock.unlock()
-        }
-        guard let entry else { return nil }
+        guard let entry = deferredLock.withLock({ entries[layerID] }) else { return nil }
         // Reuse the prepared GPU result without reopening the input on the main thread.
         guard entry.input == url else { return .failed(.resourceReadFailed(SceneResourceView.ReadError.invalidHandle)) }
+        if let atlas = conditionalOutcome(for: entry.source) { return .loaded(atlas) }
         return entry.outcome
     }
 
@@ -654,19 +635,29 @@ final class ScenePreparedBaseImageResources {
     }
 
     @MainActor
-    func promoteAutomaticMips(for drawable: CGSize, publish: @escaping @MainActor ([Int: SceneBaseImageTextureLoad.Loaded]) -> Void) {
-        guard !automaticMipTails.isEmpty, let automaticMipProjection else { return }
-        let cover = automaticMipProjection.coverScale(for: drawable)
-        guard cover.isFinite, cover > automaticMipDemand else { return }
-        automaticMipDemand = cover
+    func promoteAutomaticMips(for drawable: CGSize?, publish: @escaping @MainActor ([Int: SceneBaseImageTextureLoad.Loaded]) -> Void) {
+        guard let automaticMipProjection else { return }
+        if let drawable {
+            let cover = automaticMipProjection.coverScale(for: drawable)
+            guard cover.isFinite, deferredLock.withLock({
+                guard cover > automaticMipDemand else { return false }
+                automaticMipDemand = cover
+                return true
+            }) else { return }
+        }
         prepareAutomaticMips(publish: publish)
     }
 
     @MainActor
     private func prepareAutomaticMips(publish: @escaping @MainActor ([Int: SceneBaseImageTextureLoad.Loaded]) -> Void) {
         guard !preparingAutomaticMips else { return }
-        let cover = automaticMipDemand
-        let requests = automaticMipTails.filter { $0.value.maximumCoverScale < cover }
+        let (cover, requests) = deferredLock.withLock {
+            let requests = automaticMipTails.filter { _, tail in
+                tail.promotionThreshold.map { $0 < automaticMipDemand } ?? false
+            }
+            for source in requests.keys { automaticMipTails[source]?.promotionThreshold = automaticMipDemand }
+            return (automaticMipDemand, requests)
+        }
         guard !requests.isEmpty else { return }
         preparingAutomaticMips = true
         deferredQueue.async { [weak self] in
@@ -680,9 +671,20 @@ final class ScenePreparedBaseImageResources {
                 let committed = self.deferredLock.withLock {
                     guard !self.cancelled else { return false }
                     for (source, loaded) in prepared {
-                        guard var tail = requests[source], let candidate = loaded.candidate else { continue }
-                        for layerID in tail.use.layerIDs { updates[layerID] = loaded }
-                        tail.maximumCoverScale = tail.use.maximumCoverScale(for: candidate.physicalSize)
+                        guard var tail = requests[source], var candidate = loaded.candidate else { continue }
+                        var selected = loaded
+                        var active: [Int] = []
+                        for layerID in tail.use.layerIDs {
+                            guard case let .loaded(current)? = self.entries[layerID]?.outcome else { continue }
+                            active.append(layerID)
+                            // A deferred load can complete at a newer size before this callback runs.
+                            if let ready = current.candidate, ready.embeddedBaseMip < candidate.embeddedBaseMip {
+                                selected = current
+                                candidate = ready
+                            }
+                        }
+                        for layerID in active { updates[layerID] = selected }
+                        tail.promotionThreshold = max(cover, tail.use.maximumCoverScale(for: candidate.physicalSize))
                         self.automaticMipTails[source] = candidate.embeddedBaseMip > 0 ? tail : nil
                     }
 #if DEBUG
@@ -693,7 +695,7 @@ final class ScenePreparedBaseImageResources {
                 }
                 guard committed else { return }
                 if !updates.isEmpty { publish(updates) }
-                if self.automaticMipDemand > cover { self.prepareAutomaticMips(publish: publish) }
+                self.prepareAutomaticMips(publish: publish)
             }
         }
     }
@@ -767,13 +769,12 @@ final class ScenePreparedBaseImageResources {
             deferredLock.unlock()
             return .failed("cancelled")
         }
-        guard let state = deferredStates[layerID] else {
+        guard let status = deferredStates[layerID] else {
             deferredLock.unlock()
             return .notDeferred
         }
-        let status = Self.status(for: state)
-        switch state {
-        case .ready, .failed, .loading:
+        switch status {
+        case .notDeferred, .ready, .failed, .loading:
             break
         case .pending:
             let supersededLayerIDs = requestedGenerations.compactMap {
@@ -793,8 +794,7 @@ final class ScenePreparedBaseImageResources {
 
     func deferredStatus(for layerID: Int) -> SceneDeferredBaseImageStatus {
         deferredLock.lock()
-        let status = deferredStates[layerID].map(Self.status(for:))
-            ?? .notDeferred
+        let status = deferredStates[layerID] ?? .notDeferred
         deferredLock.unlock()
         return status
     }
@@ -830,8 +830,6 @@ final class ScenePreparedBaseImageResources {
 
     private func runDeferredWorker() {
         while true {
-            let request: DeferredRequest
-            let generation: UInt64
             deferredLock.lock()
             if let conditionalRequest, !conditionalRequest.selections.isEmpty {
                 self.conditionalRequest?.selections.removeAll()
@@ -840,64 +838,82 @@ final class ScenePreparedBaseImageResources {
                 continue
             }
             guard !cancelled,
-                  let selectedLayerID = nextRequestedLayerIDLocked(),
-                  let selectedRequest = deferredRequests[selectedLayerID] else {
+                  let layerID = nextRequestedLayerIDLocked(), let entry = entries[layerID] else {
                 workerScheduled = false
                 deferredLock.unlock()
                 return
             }
-            request = selectedRequest
-            generation = requestedGenerations[selectedLayerID] ?? 0
-            deferredStates[selectedLayerID] = .loading
+            let generation = requestedGenerations[layerID] ?? 0
+            let automaticSource = automaticMipTails[entry.source].flatMap { tail in
+                tail.use.layerIDs.contains(layerID) ? tail.use : nil
+            }
+            var cover = automaticMipDemand
+            let warm = automaticSource.flatMap { Self.publishedAutomaticMip($0, entries: entries, cover: cover) }
+            deferredStates[layerID] = .loading
             deferredLock.unlock()
 
-            let (outcome, naturalSize): (SceneBaseImageTextureLoad.Outcome, [Float]?) = {
+            func load(at cover: Double) -> SceneBaseImageTextureLoad.Outcome {
+                let minimum = automaticSource.flatMap {
+                    SceneAutomaticTextureProjection.minimumExtent(worldExtent: $0.worldExtent, coverScale: cover)
+                }
+                let selection = minimum.map(SceneOrdinaryImageMipSelection.minimumExtent) ?? deferredMipSelections[layerID]
+                defer { deferredTextureLoader.evictDecodedCaches() }
+                return SceneBaseImageTextureLoad.load(
+                    from: entry.input, usesPuppet: false, loader: deferredTextureLoader,
+                    spriteTextureLoader: deferredSpriteTextureLoader, device: device, source: entry.source,
+                    mipSelection: selection, checkCancellation: checkDeferredCancellation)
+            }
+            var outcome: SceneBaseImageTextureLoad.Outcome
+            if let warm {
                 do {
-                    try checkDeferredCancellation()
-                    let preparedTex = try deferredTextureLoader.prepareTexSource(
-                        from: request.url, source: request.source, checkCancellation: checkDeferredCancellation)
-                    let direct = try deferredTextureLoader.prepareDirectImageSource(
-                        from: request.url, source: request.source, checkCancellation: checkDeferredCancellation)
-                    let loaded = SceneBaseImageTextureLoad.load(
-                        from: request.url, usesPuppet: false, loader: deferredTextureLoader,
-                        spriteTextureLoader: deferredSpriteTextureLoader, device: device, source: request.source,
-                        preparedTexSource: preparedTex, preparedDirectImageSource: direct,
-                        checkCancellation: checkDeferredCancellation)
-                    if case let .failed(failure) = loaded { try failure.rethrowResourceReadFailure() }
-                    let size = try (direct.map {
-                        try deferredTextureLoader.preparedNaturalImageSize(from: $0,
-                            checkCancellation: checkDeferredCancellation)
-                    } ?? preparedTex?.container.map { CGSize(width: $0.imageWidth, height: $0.imageHeight) })
-                        .map { [Float($0.width), Float($0.height)] }
-                    return (loaded, size)
-                } catch { return (.failed(.resourceReadFailed(error)), nil) }
-            }()
-            // Upload has completed, so the deferred loader can release decoded CPU bytes.
-            deferredTextureLoader.evictDecodedCaches()
+                    let current = try deferredTextureLoader.sourceKey(for: entry.input, checkCancellation: checkDeferredCancellation)
+                    guard current == entry.source else { throw SceneResourceView.ReadError.sourceChanged }
+                    outcome = .loaded(warm)
+                } catch { outcome = .failed(.resourceReadFailed(error)) }
+            } else { outcome = load(at: cover) }
+
             deferredLock.lock()
+            var failedCover: Double?
+            while !cancelled, cover < automaticMipDemand, let automaticSource,
+                  case let .loaded(loaded) = outcome, let candidate = loaded.candidate, candidate.embeddedBaseMip > 0,
+                  automaticSource.maximumCoverScale(for: candidate.physicalSize) < automaticMipDemand {
+                cover = automaticMipDemand
+                deferredLock.unlock()
+                let replacement = load(at: cover)
+                deferredLock.lock()
+                guard case let .loaded(upgraded) = replacement else { failedCover = cover; break }
+                if loaded.texture !== upgraded.texture, loaded.texture !== warm?.texture {
+                    deferredTextureLoader.evictTextures(containedIn: [loaded.texture])
+                }
+                outcome = replacement
+            }
             guard !cancelled else {
                 workerScheduled = false
                 deferredLock.unlock()
                 return
             }
             switch outcome {
-            case .loaded:
-                deferredStates[request.layerID] = .ready(.init(
-                    input: request.url, source: request.source,
-                    outcome: outcome,
-                    naturalSizeWH: naturalSize
-                ))
+            case let .loaded(loaded):
+                entries[layerID]?.outcome = outcome
+                deferredStates[layerID] = .ready
+                if var tail = automaticMipTails[entry.source], tail.use.layerIDs.contains(layerID) {
+                    if let candidate = loaded.candidate, candidate.embeddedBaseMip > 0 {
+                        let coverage = tail.use.maximumCoverScale(for: candidate.physicalSize)
+                        tail.promotionThreshold = max(failedCover ?? 0, min(tail.promotionThreshold ?? coverage, coverage))
+                        automaticMipTails[entry.source] = tail
+                        if loaded.texture !== warm?.texture { deferredTextureLoader.evictTextures(containedIn: [loaded.texture]) }
+                    } else if tail.promotionThreshold == nil {
+                        automaticMipTails.removeValue(forKey: entry.source)
+                    }
+                }
             case let .failed(failure):
-                deferredStates[request.layerID] = .failed(
-                    failure,
-                    Self.failureCode(failure)
-                )
+                deferredStates[layerID] = .failed(Self.failureCode(failure))
             }
-            requestedGenerations.removeValue(forKey: request.layerID)
-            if preferredLayerID == request.layerID {
+            requestedGenerations.removeValue(forKey: layerID)
+            if preferredLayerID == layerID {
                 preferredLayerID = nil
             }
-            let status = Self.status(for: deferredStates[request.layerID]!)
+            let status = deferredStates[layerID]!
             deferredLock.unlock()
 #if DEBUG
             if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
@@ -905,7 +921,7 @@ final class ScenePreparedBaseImageResources {
                     "MWX deferred base image: schema=deferred-base-image-v2 sceneGeneration=%llu requestGeneration=%llu layer=%d status=%@",
                     sceneGeneration,
                     generation,
-                    request.layerID,
+                    layerID,
                     Self.statusName(status)
                 )
             }
@@ -936,17 +952,6 @@ final class ScenePreparedBaseImageResources {
                     ? lhs.key > rhs.key
                     : lhs.value < rhs.value
             }?.key
-    }
-
-    private nonisolated static func status(
-        for state: DeferredState
-    ) -> SceneDeferredBaseImageStatus {
-        switch state {
-        case .pending: .pending
-        case .loading: .loading
-        case .ready: .ready
-        case let .failed(_, code): .failed(code)
-        }
     }
 
     private nonisolated static func failureCode(
@@ -981,7 +986,7 @@ final class ScenePreparedBaseImageResources {
     }
 
     var reportLine: String {
-        "prepared static base resources: entries=\(entries.values.filter { $0.outcome != nil }.count)"
+        "prepared static base resources: entries=\(deferredLock.withLock { entries.values.filter { $0.outcome != nil }.count })"
             + " dynamicImages=\(dynamicImageResources.count)"
             + " deferred=\(deferredLayerIDs.count)"
             + " loaded=\(loadedCount) failed=\(failedCount)"

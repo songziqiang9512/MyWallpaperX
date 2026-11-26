@@ -26,7 +26,7 @@ struct SceneTextureCandidate {
     }
     let texture: MTLTexture
     let loadOrdinal: Int
-    let embeddedBaseMip = 0
+    var embeddedBaseMip = 0
     let content = Content.color(.resolved(.straightAlpha))
     var physicalSize: CGSize { CGSize(width: texture.width, height: texture.height) }
     let samplingMarker = "authored-sampling"
@@ -83,7 +83,7 @@ struct SceneBaseImageTextureLoad {
         conditionalVariantIDs: Set<UInt32>? = nil, mipSelection: SceneOrdinaryImageMipSelection? = nil,
         checkCancellation: (() throws -> Void)? = nil) throws -> Outcome {
         try checkCancellation?()
-        return loader.controlledLoad(url: url, device: device)
+        return loader.controlledLoad(url: url, device: device, mipSelection: mipSelection)
     }
     static func specializedLoadReason(url: SceneResourceView.FileInput, container: TestContainer?, usesPuppet: Bool) -> String? {
         if usesPuppet { return "puppet" }
@@ -107,7 +107,8 @@ struct SceneBaseImageTextureLoad {
             if let expectedSource, expectedSource != (tex?.source ?? direct?.source) {
                 throw SceneResourceView.ReadError.sourceChanged
             }
-            return loader.controlledLoad(url: url, device: device, videoPayload: tex?.container?.isVideoMp4 == true)
+            return loader.controlledLoad(url: url, device: device,
+                videoPayload: tex?.container?.isVideoMp4 == true, mipSelection: mipSelection)
         }
         catch { return .failed(.resourceReadFailed(error)) }
     }
@@ -138,6 +139,7 @@ final class SceneTextureLoader {
     }
     static var sourceHook: (() throws -> Void)?
     static var loadHook: (() -> Void)?
+    static var loadedTextureHook: ((MTLTexture) -> Void)?
     static var preparationAdmissionAllowed = true
     static var livePreparedDirectSources = 0
     static var preparedDirectLoads = 0
@@ -176,6 +178,7 @@ final class SceneTextureLoader {
                       checkCancellation: (() throws -> Void)? = nil) throws -> TestContainer? {
         try checkCancellation?()
         if url.lastPathComponent == "animated.tex" { return .init(reason: "animation") }
+        if url.lastPathComponent == "quality-mip.tex" { return .init(imageWidth: 4096, imageHeight: 2048) }
         if ["video.tex", "renamed-video.tex", "video-failure.tex", "video-cancel.tex"].contains(url.lastPathComponent) {
             return .init(isVideoMp4: true, imageWidth: 3750, imageHeight: 2250)
         }
@@ -226,31 +229,36 @@ final class SceneTextureLoader {
         return .loaded(candidate)
     }
     func controlledLoad(url: SceneResourceView.FileInput, device: MTLDevice,
-                        videoPayload: Bool = false) -> SceneBaseImageTextureLoad.Outcome {
+                        videoPayload: Bool = false,
+                        mipSelection: SceneOrdinaryImageMipSelection? = nil) -> SceneBaseImageTextureLoad.Outcome {
         loadCount += 1
         Self.totalLoadCount += 1
         Self.loadHook?()
         let name = url.lastPathComponent
         if name == "decode-failure.png" || (name == "retry-decode.png" && loadCount == 1) { return .failed(.decodeFailed) }
         if videoPayload { return .failed(.texContainsVideoPayload) }
+        let mips = name == "quality-mip.tex" ? [(4096, 2048), (2048, 1024), (1024, 512)] : [(2, 1)]
+        let base = mipSelection?.baseIndex(in: mips, maximumSingleLevelDimension: 4096) ?? 0
+        let textureKey = "\(url.diagnosticPath) \(base)"
         let texture: MTLTexture
-        if let cached = textures[url.diagnosticPath] { texture = cached }
+        if let cached = textures[textureKey] { texture = cached }
         else {
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-                pixelFormat: .rgba8Unorm, width: 2, height: 1, mipmapped: false)
+                pixelFormat: .rgba8Unorm, width: mips[base].0, height: mips[base].1, mipmapped: false)
             descriptor.storageMode = .shared
             guard let allocated = device.makeTexture(descriptor: descriptor) else {
                 return .failed(.textureAllocationFailed)
             }
             texture = allocated
-            textures[url.diagnosticPath] = texture
+            textures[textureKey] = texture
         }
         if name == "upload-failure.png" || (name == "retry-upload.png" && loadCount == 1) { uploadCommandQueue.failedTextures.append(texture) }
         let candidateTexture = name == "mismatched-candidate.png"
             ? device.makeTexture(descriptor: MTLTextureDescriptor.texture2DDescriptor(
                 pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false))! : texture
         let candidate: SceneTextureCandidate? = name == "no-candidate.png" ? nil
-            : .init(texture: candidateTexture, loadOrdinal: loadCount)
+            : .init(texture: candidateTexture, loadOrdinal: loadCount, embeddedBaseMip: base)
+        Self.loadedTextureHook?(texture)
         return .loaded(.init(texture: texture, candidate: candidate,
             animation: ["loaded-animation.png", "animated.tex"].contains(name) ? "animation" : nil, loadOrdinal: loadCount))
     }

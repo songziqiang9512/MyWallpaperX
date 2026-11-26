@@ -331,6 +331,7 @@ final class SceneResolvedMaterialRuntimeBridge {
 
 @main
 enum Checks {
+    @MainActor
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice() else {
             print("{\"skip\":\"native Metal device unavailable\"}"); return
@@ -605,6 +606,7 @@ enum Checks {
         deferredPrepared.cancelDeferredPreparation()
         results["deferredReady"] = ["beforeLoads": beforeDeferred, "ready": deferredPrepared.deferredStatus(for: 1) == .ready,
             "hasOutcome": readyHasOutcome, "foreignInputRejected": foreignInputRejected, "cancelRejectsRequest": deferredPrepared.requestDeferredBaseImage(layerID: 1, requestGeneration: 2) == .failed("cancelled")]
+        results["deferredQuality"] = try deferredQuality(root: root, device: device)
         let heldPrepared = try ScenePreparedBaseImageResources.prepare(descriptor:deferredDescriptor,
             resourceView:deferredView,device:device,spriteTextureLoader:.init(),sceneGeneration:2,
             cacheDirectory:root,
@@ -843,5 +845,136 @@ enum Checks {
         results["particleImageInputs"] = try particleImageInputChecks(root: root, device: device).mapValues { $0 as Any }
         let data = try JSONSerialization.data(withJSONObject: results, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
+    }
+
+    @MainActor
+    static func deferredQuality(root: URL, device: MTLDevice) throws -> [String: Bool] {
+        let texturePath = "materials/quality-mip.tex"
+        try Data("authored mip input".utf8).write(to: root.appendingPathComponent(texturePath))
+        let view = SceneResourceView(projectRootURL: root, packageRootURL: nil)
+        let eager = SceneRenderDescriptor.Layer(id: 10, sizeWH: [1024, 512], scalableStaticColorSource: true)
+        let hidden = SceneRenderDescriptor.Layer(id: 20, sizeWH: [4096, 2048], scalableStaticColorSource: true)
+        let exact = SceneRenderDescriptor.Layer(id: 30)
+        var descriptor = SceneRenderDescriptor(layers: [eager, hidden], materialPasses: [
+            .init(materialPath: "materials/shared.json", texturePaths: [texturePath], textureSlots: [texturePath])
+        ])
+        descriptor.camera = .init(authoredOrthographicProjectionActive: true, orthoWidth: 4096,
+            orthoHeight: 2048, generalZoom: 1)
+        let input = SceneTexturePathResolver(resourceView: view, descriptor: descriptor).resolvePrimaryTexture(for: hidden)!
+        func prepare(_ layers: [SceneRenderDescriptor.Layer], deferred: Set<Int>, auto: Bool,
+                     models: Set<String> = [], retainsAliases: Bool = false) throws -> ScenePreparedBaseImageResources {
+            var configured = descriptor
+            configured.layers = layers
+            return try ScenePreparedBaseImageResources.prepare(descriptor: configured, resourceView: view,
+                device: device, spriteTextureLoader: .init(), sceneGeneration: 1, cacheDirectory: root,
+                dynamicImageRequestsProvider: {
+                    .init(models: models, retainsModelDefaultAliases: retainsAliases,
+                        automaticMipConstraints: .init(dynamicLayerIDs: [], exactSources: []))
+                }, deferredBaseImageLayerIDs: deferred, ordinaryColorMipLongEdge: auto ? nil : 2048,
+                automaticDrawableExtent: auto ? CGSize(width: 1024, height: 512) : nil, cancellationCheck: {})
+        }
+        func texture(_ prepared: ScenePreparedBaseImageResources, _ layerID: Int) -> MTLTexture? {
+            guard case let .loaded(loaded)? = prepared.outcome(for: layerID, url: input, device: device) else { return nil }
+            return loaded.texture
+        }
+        func width(_ prepared: ScenePreparedBaseImageResources, _ layerID: Int) -> Int? {
+            texture(prepared, layerID)?.width
+        }
+        func wait(for condition: () -> Bool) -> Bool {
+            let deadline = Date().addingTimeInterval(3)
+            while !condition() && Date() < deadline {
+                _ = RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.001))
+            }
+            return condition()
+        }
+        func reveal(_ prepared: ScenePreparedBaseImageResources, _ layerID: Int) -> Bool {
+            _ = prepared.requestDeferredBaseImage(layerID: layerID, requestGeneration: 1)
+            return wait { prepared.deferredStatus(for: layerID) == .ready }
+        }
+
+        let performance = try prepare([hidden], deferred: [hidden.id], auto: false)
+        let noColdUpload = performance.textureLoader.loadCount == 0 && width(performance, hidden.id) == nil
+        let performanceRevealsMip = reveal(performance, hidden.id) && width(performance, hidden.id) == 2048
+        let automatic = try prepare([eager, hidden], deferred: [hidden.id], auto: true)
+        let coldSharedProjection = width(automatic, eager.id) == 1024 && width(automatic, hidden.id) == nil
+        let autoRevealsSameMip = reveal(automatic, hidden.id) && width(automatic, hidden.id) == 1024
+        let autoRevealReusesTexture = autoRevealsSameMip && texture(automatic, eager.id) === texture(automatic, hidden.id)
+        var promoted: [Int: Int] = [:]
+        automatic.promoteAutomaticMips(for: CGSize(width: 2048, height: 1024)) {
+            promoted = $0.mapValues { $0.texture.width }
+        }
+        let promotedPeers = wait { promoted == [eager.id: 2048, hidden.id: 2048] }
+            && width(automatic, eager.id) == 2048 && width(automatic, hidden.id) == 2048
+
+        let dormant = try prepare([hidden], deferred: [hidden.id], auto: true)
+        dormant.promoteAutomaticMips(for: CGSize(width: 2048, height: 1024)) { _ in }
+        let noResizeUpload = noColdUpload && dormant.deferredStatus(for: hidden.id) == .pending
+            && width(dormant, hidden.id) == nil
+        let resizedBeforeReveal = noResizeUpload && reveal(dormant, hidden.id) && width(dormant, hidden.id) == 2048
+        let exactSharing = try prepare([hidden, exact], deferred: [hidden.id], auto: true)
+        let exactStaysFull = reveal(exactSharing, hidden.id)
+            && width(exactSharing, exact.id) == 4096 && width(exactSharing, hidden.id) == 4096
+        let alias = try prepare([hidden], deferred: [hidden.id], auto: false, retainsAliases: true)
+        let aliasStaysFull = reveal(alias, hidden.id) && width(alias, hidden.id) == 4096
+
+        let concurrent = try prepare([eager, hidden], deferred: [hidden.id], auto: true)
+        let started = DispatchSemaphore(value: 0)
+        let resume = DispatchSemaphore(value: 0)
+        SceneTextureLoader.loadHook = {
+            SceneTextureLoader.loadHook = nil
+            started.signal()
+            resume.wait()
+        }
+        var firstPublication: [Int: Int]?
+        concurrent.promoteAutomaticMips(for: CGSize(width: 2048, height: 1024)) { updates in
+            if firstPublication == nil { firstPublication = updates.mapValues { $0.texture.width } }
+        }
+        let midPromotion = started.wait(timeout: .now() + 3) == .success
+        concurrent.promoteAutomaticMips(for: CGSize(width: 4096, height: 2048)) { _ in }
+        _ = concurrent.requestDeferredBaseImage(layerID: hidden.id, requestGeneration: 1)
+        resume.signal()
+        let revealDeadline = Date().addingTimeInterval(3)
+        while concurrent.deferredStatus(for: hidden.id) != .ready && Date() < revealDeadline {
+            Thread.sleep(forTimeInterval: 0.001)
+        }
+        let newerRevealWon = midPromotion && width(concurrent, hidden.id) == 4096
+            && wait { firstPublication != nil } && firstPublication == [eager.id: 4096, hidden.id: 4096]
+
+        let resizingReveal = try prepare([hidden], deferred: [hidden.id], auto: true)
+        let revealStarted = DispatchSemaphore(value: 0)
+        let resumeReveal = DispatchSemaphore(value: 0)
+        weak var discardedMip: MTLTexture?
+        var observedDiscardedMip = false
+        SceneTextureLoader.loadedTextureHook = { loaded in
+            if loaded.width == 1024 {
+                discardedMip = loaded
+                observedDiscardedMip = true
+            }
+        }
+        SceneTextureLoader.loadHook = {
+            SceneTextureLoader.loadHook = nil
+            revealStarted.signal()
+            resumeReveal.wait()
+        }
+        _ = resizingReveal.requestDeferredBaseImage(layerID: hidden.id, requestGeneration: 1)
+        let resizeDuringReveal = revealStarted.wait(timeout: .now() + 3) == .success
+        resizingReveal.promoteAutomaticMips(for: CGSize(width: 2048, height: 1024)) { _ in }
+        resumeReveal.signal()
+        let firstReadyAtLatestSize = resizeDuringReveal
+            && wait { resizingReveal.deferredStatus(for: hidden.id) == .ready }
+            && width(resizingReveal, hidden.id) == 2048
+        SceneTextureLoader.loadedTextureHook = nil
+        let discardedMipReleased = firstReadyAtLatestSize && observedDiscardedMip && wait { discardedMip == nil }
+        let staleAlias = try prepare([eager, hidden], deferred: [hidden.id], auto: true)
+        try Data("replaced after the eager peer loaded".utf8).write(to: root.appendingPathComponent(texturePath), options: .atomic)
+        _ = staleAlias.requestDeferredBaseImage(layerID: hidden.id, requestGeneration: 1)
+        let staleAliasRejected = wait { staleAlias.deferredStatus(for: hidden.id) == .failed("resource-read-failed") }
+            && texture(staleAlias, hidden.id) == nil && width(staleAlias, eager.id) == 1024
+        return ["noColdUpload": noColdUpload, "performanceRevealsMip": performanceRevealsMip,
+            "coldSharedProjection": coldSharedProjection, "autoRevealsSameMip": autoRevealsSameMip,
+            "autoRevealReusesTexture": autoRevealReusesTexture, "staleAliasRejected": staleAliasRejected,
+            "promotedPeers": promotedPeers, "resizedBeforeReveal": resizedBeforeReveal,
+            "exactStaysFull": exactStaysFull, "aliasStaysFull": aliasStaysFull, "newerRevealWon": newerRevealWon,
+            "firstReadyAtLatestSize": firstReadyAtLatestSize, "discardedMipReleased": discardedMipReleased]
     }
 }

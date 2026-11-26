@@ -459,9 +459,9 @@ extension SceneDesktopWallpaperSession {
         return frame
     }
 
-    private func promoteAutomaticTextures(for surface: Surface) {
+    func promoteAutomaticTextures(for surface: Surface? = nil) {
         guard let images = launchContext?.preparedDeviceResources.baseImages else { return }
-        images.promoteAutomaticMips(for: surface.metalView.metalLayer.drawableSize) { [weak self, weak images] updates in
+        images.promoteAutomaticMips(for: surface?.metalView.metalLayer.drawableSize) { [weak self, weak images] updates in
             guard let self, let images, self.launchContext?.preparedDeviceResources.baseImages === images else { return }
             for surface in self.surfaces.values {
                 surface.metalView.replacePreparedBaseImages(updates)

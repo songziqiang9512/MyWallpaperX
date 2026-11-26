@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 66,
-      "bytes": 23238
+      "bytes": 23256
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -94,11 +94,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 167847
+      "bytes": 168533
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 144835
+      "bytes": 144892
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -114,7 +114,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 307,
-      "bytes": 63317
+      "bytes": 63586
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -387,11 +387,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "97135e655f639042a71aaf45c5bace552c9ad4b54934b44e5682858392e748ce",
-      "after": "f3b7e42aa4e6ee81c910a4469163208808faf614b15e9290e33ec673da2ccf83",
-      "owner": "Scene 聚光照明与排序",
-      "reason": "记录可绘聚光计划的排序和绘制边界、保持作者依赖及实测条件。",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
+      "before": "f3b7e42aa4e6ee81c910a4469163208808faf614b15e9290e33ec673da2ccf83",
+      "after": "f1e401ab1f7d3c2fcdccc40ae0417c3d4f3f87e7ac44a9cd61c849f3462664ca",
+      "owner": "Scene deferred base textures",
+      "reason": "记录同一资源所有者的选档、显现、跨尺寸与实际签名验收。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-texture-deferred-quality"
     },
     {
       "section": "bodies",
@@ -504,19 +504,19 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "bc06f31172d8cabad186404ab49fb399a9a060b8411ef9fe09184782ad580ee2",
-      "after": "c8a3272b571babc6e770858f543e86bfb90af918776a6a93fc8c25454593acb2",
-      "owner": "Scene effective quality",
-      "reason": "将正常作者场景实际生效纳入质量门，登记真机 MSAA 和缩小遮挡附件的证据及取舍。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-depth-independent-tail"
+      "before": "c8a3272b571babc6e770858f543e86bfb90af918776a6a93fc8c25454593acb2",
+      "after": "0e1c366468bda56c2fd8f907be5a91c058e8f19b6975f91292316519fc950653",
+      "owner": "Scene deferred base textures",
+      "reason": "记录同一资源所有者的选档、显现、跨尺寸与实际签名验收。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-texture-deferred-quality"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "e6c2f3bbe7eb8e73fa26724a7e02a58f22319c132f60f0a277397542f62d9899",
-      "after": "e5f670b73c5712b00840a0b031f843f79f4e3d1cb2fe6ba0e36c21b2e4ffe404",
-      "owner": "Scene effective quality",
-      "reason": "将正常作者场景实际生效纳入质量门，登记真机 MSAA 和缩小遮挡附件的证据及取舍。",
+      "before": "e5f670b73c5712b00840a0b031f843f79f4e3d1cb2fe6ba0e36c21b2e4ffe404",
+      "after": "5b863c21812661267bb6aed46de3e46be69b5e3c585ca1525c7e3b687bb90692",
+      "owner": "Scene deferred base textures",
+      "reason": "记录同一资源所有者的选档、显现、跨尺寸与实际签名验收。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
@@ -549,11 +549,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "3dbfd8a2ce24e15a0fcbd6afb7d0311b3ad596efab19e6a31a956f97a17726a6",
-      "after": "38f15b8263ae534d7acb08a214b3442b527f5ec36be11e5003976031aeaec2a4",
-      "owner": "Scene 与三引擎画质",
-      "reason": "从主分支正文核对已合入的 Scene 合同和画质证据，保留双方工作及合并正文的实际预算。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+      "before": "38f15b8263ae534d7acb08a214b3442b527f5ec36be11e5003976031aeaec2a4",
+      "after": "3f1583b95a7853c180b02ef7d0f88e673434626904fcd71711259c9bd4d18e84",
+      "owner": "Scene deferred base textures",
+      "reason": "记录同一资源所有者的选档、显现、跨尺寸与实际签名验收。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-texture-deferred-quality"
     },
     {
       "section": "bodies",
