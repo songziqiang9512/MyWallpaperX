@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 399955
+      "bytes": 400509
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 55,
-      "bytes": 6857
+      "bytes": 6947
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -639,15 +639,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "3aacbab07c03cf51c339a1139c713fa807c929109e82d4fc4b41951145c904be",
-      "after": "dbdd5d9a10fbf527f12ea1bb37bae1e7924ecf6d4e94b337fe4454a7e6564d1e",
-      "owner": "Scene composition",
-      "reason": "登记两端受控人偶姿态的末级历史实测，保留自然运动和音条的开放范围。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "51ab0c44e7ee50643e905f9f62e62c2451dec75db0bc1757d8f8ca88f64c2c57",
       "after": "01ab3b1eee3aadf18ef6654299f22c0bd42cbde422fe25052b0f14eab0a27404",
@@ -667,11 +658,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "c4049092f30d4f8e9c6cbf7df261b8924d4d41141f3874c00a91811dcfc1bccc",
-      "after": "a8efd13f7a02374a8d41d15803a22c9cfa416781f46ebf359886cbc3fc77d7b5",
-      "owner": "Scene particle color",
-      "reason": "用当前原包和只移除目标层的对照结清短横线呈白复报。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#floor-beam-color-338"
+      "before": "a8efd13f7a02374a8d41d15803a22c9cfa416781f46ebf359886cbc3fc77d7b5",
+      "after": "999d892c76c745017d148471a9cc63de50bd4da0ac5c386df689886a9d7dffbe",
+      "owner": "Scene authored video/text composition",
+      "reason": "记录原包最新主纹理回执与完整官版原包出图失败的界限。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-clock-full-337"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "bcc61766fab23568ebfedc16be84ca4b5ae255e82689f087e0e32ee87014e800",
+      "after": "6561399c1bf5978117034b0cb9d3648c6839086da0a815a03567529b82ba84f5",
+      "owner": "Scene authored video/text composition",
+      "reason": "记录原包最新主纹理回执与完整官版原包出图失败的界限。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
 }
