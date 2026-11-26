@@ -119,7 +119,7 @@
 | 3187857248 | [原包单/双Surface拖动](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318)已恢复双Surface脚本拖动，作者命中范围与小幅变形保持。若物理单屏仍间歇失败，先取原生真实按下点/当前骨位置、持有与释放，再核命中、骨写与末端。官版按键传输未获资格。 |
 | 3781003282 | 中央白方[未重现](../capabilities/runtime-evidence-current.md#pointer-halo-378)。重启须可复现位置、画幅或桌面版本，再判888采样与独立395/e16。 |
 | Puppet 后置标量轨 | [384与独立377的普通骨轨已恢复](../capabilities/runtime-evidence-current.md#puppet-post-bounds-trs)。同相位标量替换未证主要遮挡差。重启须有单骨/同位置的可见交叠对照，再分纯绘制顺序、骨权重或几何作用。 |
-| 3383210272 / 3463406101 | [338321主束已出](../capabilities/runtime-evidence-current.md#floor-beam-continuous-emission)，角度、色相、节拍待锁相。[346双音回亮仍慢](../capabilities/runtime-evidence-current.md#forefront-recovery-346)，单音释放已核。续查同侧稳态混合和共同目标。 |
+| 3383210272 / 3463406101 | [338321主束已出](../capabilities/runtime-evidence-current.md#floor-beam-continuous-emission)，角度、色相、节拍待锁相。[346双音回亮仍慢](../capabilities/runtime-evidence-current.md#forefront-recovery-346)，同侧稳态混合与取峰下限已核。续查同组等原始尾、独立参照下的单组和双组降幅，区分回亮时序与组间联动。 |
 | 2814167871 /2835398595 | 眼部为132/e1与98/e0的pulse RGB增亮，16档band0/1均值跨.5才响应；281强度属性默认1、283常量.51。[默认PCM前5秒](../capabilities/runtime-evidence-current.md#eye-audio-input)无跨线正控；后续同作者WAV的281两App静帧已有真实16档消费，但不能判眼部闪动或闪烁。粗档候选已撤回，283不追加矩阵。重启须可裁决实际供值/首错，再核同帧pulse→tail→眼RGB；不调gain/作者参数、不强注入1，不由bus非零关闭。 |
 | 3603711180 | [播放媒体的原包与两端实帧](../capabilities/runtime-evidence-current.md#author-player-text-current-360)恢复标题、艺人、剩余时间和实际封面。已测画幅首行同在左框外，观察其他比例/第二行与字体差异须用同视口同媒体复取；按原屏幕锚与字形范围核对。 |
 | 2887099508 · 图5 | [黑纹](../capabilities/runtime-evidence-current.md#basic-interaction-288)未重现，待同相位ROI或具体版本。原生持续悬停待合格输入，仅在出现可重复的命中问题时复核。 |

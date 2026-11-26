@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 355996
+      "bytes": 356558
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 240,
-      "bytes": 67772
+      "bytes": 67856
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0fc5f228bf809da35387ee56d7a5a9f218f5327c083f2e422c4da5e0ebba1ec5",
-      "after": "30af636e664be23bf61fc6b461025f39a4057048cf627df23b73aeeb5ec06f61",
+      "before": "30af636e664be23bf61fc6b461025f39a4057048cf627df23b73aeeb5ec06f61",
+      "after": "f838a111a1c2583a538fda3d53265af7b818e187a57814001ab64aef4beb8605",
       "owner": "Scene",
-      "reason": "替换过时热关拒绝事实，保留原包冷暖同窗GPU与独立样本复验",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#utility-capture-admission-3842633043"
+      "reason": "记录独立锚定的稳态阴性，并收窄原包前景回亮实测的下一步",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#forefront-recovery-346"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "939a46f8caf5614ec9e006f91bb6e0cfbdc2e46d65c3990b75ce615f541bfe7a",
-      "after": "88328eaaf274ccf3cfca72ada3c1821c5bbd936d5c7ee3bccae3a0c71ce4a479",
-      "owner": "Scene current breakpoints",
-      "reason": "标记振荡修复，按最新同龄实绘收窄剩余轨迹和覆盖。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-scalar-oscillation"
+      "before": "bd69cd53afaa73e8e9abaeffcf09d607ded685fbe4b29b881d6a4b8935ef4105",
+      "after": "81b8ad06baa66b579ae17ac3277c8cbc7556dd8d74e3774c693e30a1e964c950",
+      "owner": "Scene",
+      "reason": "记录独立锚定的稳态阴性，并收窄原包前景回亮实测的下一步",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     },
     {
       "section": "bodies",
