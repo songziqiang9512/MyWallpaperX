@@ -7,7 +7,7 @@
 
 作者 shader 沿现有 GLSL-like normalization → glslang → SPIR-V → SPIRV-Cross → MSL 编译链准备；有界 Swift frontend 是具有明确输入范围的共享回退。两者复用源身份、uniform/sampler、颜色事实及 Program，不按效果名创建 renderer。
 
-准备阶段完成 include、宏、combo/pass、语法、活跃接口、变体、uniform layout 和 PSO 预热。普通帧只能选择已准备变体并绑定当前值；缺 key 返回 typed failure，不回到编译器。
+冷准备接口、变体与PSO，帧内只取变体及当前值。uniform与静态循环取 `material` 注解键，实例同键覆盖，缺键用默认；无注解沿GLSL名。动态校验和脚本沿绑定。
 
 - shader 注解保留源行、原声明和诊断。仅被现入口分类为纯注释 COMBO 损坏记录的情形可跳过该条 metadata；不伪造 annotation/default，也不吞代码、inline 声明或来源完整性错误。
 - `VERSION`/`SHADERVERSION` 没有可信客户端版本 provider。未消费记录不阻止无关源码，但不能注入宏或授权实际版本分支；活跃读取仍拒绝。

@@ -512,7 +512,6 @@ class SceneResolvedMaterialGraphVisualFailureContractTests(unittest.TestCase):
             "material-finalizer-dynamic-uniform-binding",
             "material-finalizer-static-uniform-binding",
             "material-finalizer-host-uniform-declaration-conflict",
-            "material-finalizer-uniform-declaration-conflict",
             "material-finalizer-color-contract",
             "material-finalizer-optional-texture-unavailable",
             "material-finalizer-optional-texture-purpose-mismatch",

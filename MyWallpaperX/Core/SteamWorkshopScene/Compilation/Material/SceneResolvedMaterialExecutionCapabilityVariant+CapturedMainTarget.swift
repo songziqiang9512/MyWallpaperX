@@ -10,6 +10,18 @@ extension SceneResolvedMaterialVariantCache {
         ]?
         let inputIdentity: Graph.TextureIdentity?
         let hasCachedReachability: Bool
+
+        var dynamicUniforms: Set<Template.DynamicUniform> {
+            var values: Set<Template.DynamicUniform> = []
+            for variant in variants {
+                for binding in variant.preparedUniformBindings {
+                    if case let .dynamic(prepared) = binding.source {
+                        values.insert(prepared.declaration)
+                    }
+                }
+            }
+            return values
+        }
     }
 
     /// Launch-envelope compilation is the authority for host audio demand.

@@ -126,11 +126,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 463,
-      "bytes": 91502
+      "bytes": 91489
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 599,
-      "bytes": 353505
+      "bytes": 354137
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 242,
-      "bytes": 68066
+      "bytes": 68044
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ea7f613346b839f0a7f28fb7c23ed7778d6e3c6ec762c2cbef2061f9dfcd1658",
-      "after": "6993dfe07b511f790a3969397bc7ea1e8dc481ff7d924dade71b14a6b1c2fd3f",
-      "owner": "Scene mature particle evidence",
-      "reason": "记录真实横向亮段与同龄轨迹的可区分结论，标明复验停止线。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ember-mature-trail-luminance"
+      "before": "9f1b758ad28c36aa4e3d1b1273db33eb79d2b96d25f6ba2b5a9808e19cd5bcd7",
+      "after": "f930af35bd3370ff72f1fceca5a3931ad60eb9a53de7747bedf4f752db159910",
+      "owner": "Scene",
+      "reason": "保留首次真实作者玻璃合成、同输入官版色标与验证范围",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#material-annotation-keys-3833869818"
     },
     {
       "section": "bodies",

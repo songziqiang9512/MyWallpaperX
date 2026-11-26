@@ -66,11 +66,8 @@ nonisolated enum SceneResolvedMaterialRuntimeLoopBoundResolver {
         guard aliases.count == materialValues.count,
               Set(aliases).count <= 1 else { return nil }
 
-        var keys: Set<String> = [declaration.name]
-        if let alias = aliases.first { keys.insert(alias) }
-        let producers = template.uniformDeclarations.filter { keys.contains($0.name) }
-        guard producers.count == 1,
-              let producer = producers.first,
+        let materialKey = aliases.first ?? declaration.name
+        guard let producer = template.uniformDeclarations.first(where: { $0.name == materialKey }),
               case let .staticExact(value) = producer.value,
               value.componentBitPatterns.count == 1 else { return nil }
         let encoded = Float(Double(bitPattern: value.componentBitPatterns[0]))
@@ -85,7 +82,7 @@ nonisolated enum SceneResolvedMaterialRuntimeLoopBoundResolver {
             float32BitPattern: encoded.bitPattern,
             producerValueKind: value.valueKind,
             producerBindingKeys: value.authoredBindingKeys,
-            shaderBindingKeys: keys.sorted(),
+            shaderBindingKeys: [materialKey],
             sourcePath: sourcePath,
             declarationLine: declaration.line
         )

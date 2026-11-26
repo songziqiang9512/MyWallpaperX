@@ -196,19 +196,6 @@ private func runVisualFailureCases(
     let samplerSchemaPixelCapability = samplerSchemaPixelClaim.flatMap {
         samplerSchemaPixelCapabilities.resolve($0.token, for: pixelChain)
     }
-    let declarationConflictPixelCapabilities = capabilities(
-        pixelChain,
-        catalog: catalog(
-            for: pixelGraph,
-            uniformDeclarationConflictNodes: [1]
-        )
-    )
-    let declarationConflictPixelClaim =
-        declarationConflictPixelCapabilities.claim(pixelChain)
-    let declarationConflictPixelCapability =
-        declarationConflictPixelClaim.flatMap {
-            declarationConflictPixelCapabilities.resolve($0.token, for: pixelChain)
-        }
     let hostConflictPixelCapabilities = capabilities(
         pixelChain,
         catalog: catalog(
@@ -436,18 +423,6 @@ private func runVisualFailureCases(
         reason: "material-generic-owner-revoked",
         rejectedAtLaunch: true
     )
-    let declarationConflictFailure = executeVisualFailurePassthrough(
-        device: device,
-        queue: queue,
-        source: source,
-        sourcePipeline: sourcePipeline,
-        claim: declarationConflictPixelClaim,
-        capability: declarationConflictPixelCapability,
-        capabilities: declarationConflictPixelCapabilities,
-        generation: 11,
-        reason: "material-generic-owner-revoked",
-        rejectedAtLaunch: true
-    )
     let results: [String: Bool] = [
         "dynamicUniformValidFramePreparesProgram":
             dynamicUniformValidFramePrepares,
@@ -483,14 +458,6 @@ private func runVisualFailureCases(
             hostConflictFailure.gpuCompleted,
         "hostConflictFailurePreservesPreviousAndContinuesSuffix":
             hostConflictFailure.continued,
-        "declarationConflictFailurePassthroughPrepared":
-            declarationConflictFailure.prepared,
-        "declarationConflictFailurePassthroughEncoded":
-            declarationConflictFailure.encoded,
-        "declarationConflictFailurePassthroughGPUCompleted":
-            declarationConflictFailure.gpuCompleted,
-        "declarationConflictFailurePreservesPreviousAndContinuesSuffix":
-            declarationConflictFailure.continued,
         "colorBlendOptionalMaskLaunchEnvelopeProved": {
             guard colorBlendOptionalMaskProof, let snapshot = colorBlendSnapshot,
                   snapshot.hasCachedReachability, snapshot.allEntriesReady,

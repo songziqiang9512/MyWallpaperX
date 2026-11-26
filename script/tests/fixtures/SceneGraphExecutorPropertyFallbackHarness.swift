@@ -66,10 +66,18 @@
             scriptAttachments: variant == "script" ? [.unproven] : [],
             authoredFallback: .init(valueKind: "binding", componentBitPatterns: bits,
                 authoredBindingKeys: keys), authoredBindingKeys: keys)))
+        var declarations = [declaration]
+        if variant == "ignoredIdentifier" {
+            declarations.append(.init(name: uniform, value: .dynamic(.init(
+                target: .effectConstant(layerID: node.effect.layerID, effectIndex: node.effect.effectIndex,
+                    passIndex: node.instancePassIndex!, name: uniform),
+                valueContributors: [.userProperty("absent-property")], scriptAttachments: [.unproven],
+                authoredFallback: nil, authoredBindingKeys: ["user", "script"]))))
+        }
         var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
         slots[0] = .init(index: 0, candidates: [.init(reference: .graph(graphInput),
             provenance: .explicitBinding)])
-        return Template.validated(textureSlots: slots, combos: [], uniformDeclarations: [declaration],
+        return Template.validated(textureSlots: slots, combos: [], uniformDeclarations: declarations,
             renderState: SceneMaterialRenderState.compile(blending: "normal", depthTest: "disabled",
                 depthWrite: "disabled", cullMode: "nocull", alphaWriting: nil)!,
             graphRole: .init(effectInput: role(graphInput), effectOutput: .effectOutput,
@@ -165,9 +173,9 @@
             "sameKeyOtherProducers": producers.filter { $0.propertyKey == key && $0.target != target }.count,
             "rebuildKeys": compilation.program.rebuildRequiredPropertyKeys,
             "target": String(describing: target), "catalogReports": caps.reportLines]
-        if variant == "multiContributor" || variant == "script" {
-            row["directUniformReason"] = Capabilities.dynamicUniformExecutionRejection(
-                value, node: node, producers: producerCatalog, variants: nil)?.code ?? "accepted"
+        if variant == "ignoredIdentifier" {
+            row["ignoredIdentifierIsLive"] = caps.liveConsumerTargets.contains(
+                .effectConstant(layerID: layerID, effectIndex: 0, passIndex: pass, name: uniform))
         }
         if variant == "fallback" {
             let withCombo = inputs(name: name, key: key, pass: pass, live: false, startupCombo: true).program
@@ -253,7 +261,7 @@
             print("{\"metalAvailable\":false}"); return
         }
         let sourcePipeline = makeSourcePipeline(device)
-        let cases = ["fallback", "renamed", "inactive", "liveColor", "liveColorChanged",
+        let cases = ["fallback", "renamed", "ignoredIdentifier", "inactive", "liveColor", "liveColorChanged",
             "liveSlider", "liveSliderRenamed", "sliderAnisotropic", "sliderWrongABI",
             "writerKey", "writerType", "writerMultiple", "noFallbackDefinition", "wrapper", "multiContributor",
             "script", "timelineMissing", "declarationTarget", "snapshotMissing", "source", "abi", "bits", "snapshotType"]

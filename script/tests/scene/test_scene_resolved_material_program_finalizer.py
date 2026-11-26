@@ -264,7 +264,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "missingDefault": "uniform/staticUniformBindingInvalid",
             "staticShape": "uniform/staticUniformBindingInvalid",
             "dynamicShape": "uniform/dynamicUniformBindingInvalid",
-            "declarationConflict": "uniform/uniformDeclarationConflict",
+            "materialKeyValues": [[0.375, 0.375], [0.375, 0.375], [0.125, 0.75]],
             "mixedValues": [1, 1],
             "mixedFraction": "uniform/staticUniformBindingInvalid",
         }
@@ -766,7 +766,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "malformedUniformDefault": "uniform/uniformBindingInvalid",
             "exactWhitespaceUniformBindingKey": "success",
             "malformedStaticDeclaration": "uniform/staticUniformBindingInvalid",
-            "uniformDeclarationConflict": "uniform/uniformDeclarationConflict",
+            "malformedMaterialKeyWithValidShaderIdentifier": "uniform/staticUniformBindingInvalid",
             "hostUniformDeclarationConflict":
                 "uniform/hostUniformDeclarationConflict",
             "hostUniformBindingInvalid": "uniform/hostUniformBindingInvalid",
@@ -804,7 +804,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "runtimeLoopNegativeExact": "frontend/shaderFrontendFailed",
             "runtimeLoopNonIntegralExact": "frontend/shaderFrontendFailed",
             "runtimeLoopNonFiniteExact": "frontend/shaderFrontendFailed",
-            "runtimeLoopMultipleProducer": "frontend/shaderFrontendFailed",
+            "runtimeLoopUsesMaterialKey": "success",
         }
         self.assertEqual(
             {name: self.result["failures"][name] for name in expected},

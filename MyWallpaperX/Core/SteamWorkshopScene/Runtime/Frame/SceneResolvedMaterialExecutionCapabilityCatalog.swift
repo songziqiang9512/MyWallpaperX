@@ -308,9 +308,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 case .resolved(let materials, let activation):
                     targets.formUnion(activation?.liveConsumerTargets ?? [])
                     for material in materials.values {
-                        for declaration in material.template.uniformDeclarations {
-                            guard case let .dynamic(dynamic) = declaration.value,
-                                  dynamic.valueContributors.count == 1,
+                        for dynamic in material.variants.launchEnvelopeCapabilitySnapshot().dynamicUniforms {
+                            guard dynamic.valueContributors.count == 1,
                                   case .userProperty = dynamic.valueContributors[0]
                             else { continue }
                             targets.insert(dynamic.target)
@@ -331,11 +330,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 switch stage.execution {
                 case .resolved(let materials, _):
                     for material in materials.values {
-                        for declaration in material.template.uniformDeclarations {
-                            guard case let .dynamic(dynamic) = declaration.value,
-                                  dynamic.primaryValueContributor == .sceneScript else {
-                                continue
-                            }
+                        for dynamic in material.variants.launchEnvelopeCapabilitySnapshot().dynamicUniforms
+                        where dynamic.primaryValueContributor == .sceneScript {
                             targets.insert(dynamic.target)
                         }
                     }

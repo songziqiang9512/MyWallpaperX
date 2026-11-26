@@ -8,7 +8,6 @@ private func shaderContract(
     uniformSchemaInvalid: Bool = false,
     dynamicUniform: Bool = false,
     staticUniformMissingDefault: Bool = false,
-    uniformDeclarationConflict: Bool = false,
     hostUniformDeclarationConflict: Bool = false,
     pixelTransform: Int? = nil,
     implicitFramebuffer: Bool = false,
@@ -102,7 +101,6 @@ private func shaderContract(
         uniformSchemaInvalid: uniformSchemaInvalid,
         dynamicUniform: dynamicUniform,
         staticUniformMissingDefault: staticUniformMissingDefault,
-        uniformDeclarationConflict: uniformDeclarationConflict,
         hostUniformDeclarationConflict: hostUniformDeclarationConflict,
         pixelTransform: pixelTransform,
         scalarProducer: scalarProducer,
@@ -266,7 +264,6 @@ private func template(
     uniformSchemaInvalid: Bool = false,
     dynamicUniform: Bool = false,
     staticUniformMissingDefault: Bool = false,
-    uniformDeclarationConflict: Bool = false,
     hostUniformDeclarationConflict: Bool = false,
     scalarProducer: Bool = false,
     scalarProducerUnproven: Bool = false,
@@ -305,7 +302,6 @@ private func template(
         uniformSchemaInvalid: uniformSchemaInvalid,
         dynamicUniform: dynamicUniform,
         staticUniformMissingDefault: staticUniformMissingDefault,
-        uniformDeclarationConflict: uniformDeclarationConflict,
         hostUniformDeclarationConflict: hostUniformDeclarationConflict,
         pixelTransform: pixelTransform,
         scalarProducer: scalarProducer,
@@ -396,11 +392,7 @@ private func template(
             ? [] : [.init(name: "BLENDMODE", value: 30)],
         uniformDeclarations: dynamicUniform
             ? [dynamicUniformDeclaration(for: node)]
-            : uniformDeclarationConflict
-                ? uniformDeclarationConflictDeclarations()
-                : hostUniformDeclarationConflict
-                    ? [hostUniformConflictDeclaration()]
-                    : [],
+            : hostUniformDeclarationConflict ? [hostUniformConflictDeclaration()] : [],
         renderState: SceneMaterialRenderState.compile(
             blending: overwrite ? "normal" : "translucent",
             depthTest: "disabled",
@@ -465,28 +457,6 @@ private func hostUniformConflictDeclaration() -> Template.UniformDeclaration {
     )
 }
 
-private func uniformDeclarationConflictDeclarations()
-    -> [Template.UniformDeclaration] {
-    [
-        .init(
-            name: "alpha",
-            value: .staticExact(.init(
-                valueKind: "fixture-alias",
-                componentBitPatterns: [Double(0.8).bitPattern],
-                authoredBindingKeys: ["value"]
-            ))
-        ),
-        .init(
-            name: "u_Alpha",
-            value: .staticExact(.init(
-                valueKind: "fixture-field",
-                componentBitPatterns: [Double(0.4).bitPattern],
-                authoredBindingKeys: ["value"]
-            ))
-        ),
-    ]
-}
-
 private func catalog(
     for graph: Graph,
     passNodes: Set<Int> = [],
@@ -497,7 +467,6 @@ private func catalog(
     uniformSchemaInvalidNodes: Set<Int> = [],
     dynamicUniformNodes: Set<Int> = [],
     staticUniformMissingDefaultNodes: Set<Int> = [],
-    uniformDeclarationConflictNodes: Set<Int> = [],
     hostUniformDeclarationConflictNodes: Set<Int> = [],
     omittedNodes: Set<Int> = [],
     demandIssueNodes: Set<Int> = [],
@@ -551,8 +520,6 @@ private func catalog(
                 dynamicUniform: dynamicUniformNodes.contains(node.nodeIndex),
                 staticUniformMissingDefault:
                     staticUniformMissingDefaultNodes.contains(node.nodeIndex),
-                uniformDeclarationConflict:
-                    uniformDeclarationConflictNodes.contains(node.nodeIndex),
                 hostUniformDeclarationConflict:
                     hostUniformDeclarationConflictNodes.contains(node.nodeIndex),
                 scalarProducer: scalarProducerNodes.contains(node.nodeIndex),
