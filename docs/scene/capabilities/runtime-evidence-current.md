@@ -443,7 +443,7 @@ CPU探针用原CoreText加载器与原作者127B文本。保存的Jost-Black产�
 <a id="unbound-sampler-control"></a>
 ## 未绑定 sampler 的官方采样
 
-3042492564/363/e0 两个无来源 hidden sampler 的旧自有对照未通过正控，仍待证。归`.artifacts/scene-unbound-input-control-20261108/`。
+3042492564/363/e0 两个无来源 hidden sampler 的旧自有对照未通过正控，仍待证。归`.artifacts/scene-unbound-input-control-20261108/`。 <a id="active-media-effect-gaps-20261127"></a>[复杂样本](#complex-scene-screen-20261127)同源串行 PLAYING/封面下，3042492564 的363/e0与独立2932157836的299/e1均活动，双遍精确模糊在slot0被拒，F0/F1仅GPU透传；关模糊时前者不执行该段、后者走属性透传，两层的后继均由合成器消费。304的339/e3在两臂另有尺寸条件赋值中的 `v_TexCoord` 未限定，生成MSL无法编译并透传。3662390671启用音乐信息样式2后，419/432的e3均进入合成但因封面slot3用途未推定而只透传，原 `$mediaThumbnail` 与静态渐变的通用采样合同待官版正反例确认。三处均有有效终图，未量到官版本机帧差。
 
 <a id="missing-ordinary-material-texture-evidence"></a>官版2.8.0.42以3556263543原材核普通副槽留空与文件确缺，皆读6×6不透明黄黑棋盘，左上黑、最近点重复。3556263543 已修复。签名Debug `1ded3364…a9c3` 原包F183五个文字e0共用棋盘并写入终图，日期字缘相对基线Δ≥24为153px，相对显式棋盘为3px。改槽、确缺、显式覆盖和格式槽反例通过。归`.artifacts/scene-missing-material-texture-20261125`。
 
@@ -590,7 +590,7 @@ F165的Z和alpha分别反推两步、约.167模拟秒的新生；撤回候选F13
 <a id="rescreen-recent-inputs"></a>
 ## 已知反馈与近期目录复筛
 
-2026-11-13复用[本次签名Debug候选](#stale-history-seed)，exec/dylib/metallib一致，无重建。轻入口盘点764项：762份project解析、3736952187/3763323436缺project；未全读包，不称762份Scene合法。18项专用census完整解析并供matrix：3437487219/3477054430与16个近期目录候选均默认4秒PASS，Ready/终端PNG/GPU完成/排空俱全，逐图未见主体缺块/错层。后14项为jobs2诊断，非性能资格；原始事实归`.artifacts/scene-evidence/runs/scene-rescreen-20261113`，入口库存归`.artifacts/scene-rescreen-20261113`。缺11-07完整身份基线，不认领16项严格新增；六世界目录近期仅补参考PNG，不重开旧STOP。Earth亮侧/Cloud Chroma与完整受光未知；347紫边对应作者默认moonlightcolor及同帧u_Color，灰色旧图未锁条件，不据此修色。音频、鼠标、媒体、随机文字和周期分支保未知。两条活动父链曾共同被XY相等门拒绝，后续接线见下；主景PASS不授局部能力或官方parity。18项逐图与活动失败分母有独立复核。
+<a id="complex-scene-screen-20261127"></a>2026-11-27 从994个目录筛出164个高复杂度代表，去除297个基础项与2个重复候选，覆盖164类作者效果路径。3736952187/3763323436缺入口项目。复用签名优化Debug `d1b29700…43d8`，后台一屏、默认属性、静音、5秒、30fps目标，3/4 worker。154默认PASS，163取到匹配的非黑终图且GPU排空；3808922316并行超时，同身份串行Ready 82.68秒，终图/排空合格，启动仍走原性能项。7项具名供货计数告警来自未活动的计划项；3448845950切 `newproperty16` 后330实际绑定478，关时零需求，其余健康消费者保持。3186328539静音在F1隐藏1045，媒体播放加PCM对照使1045在F4/F5实际出图，关闭媒体集成则不出图。3042492564的738默认隐藏；媒体播放加启用点击粒子后，两个对照均已加载，单击215才使738实际提交非空批次。3662790108及3470948192的暗图为片头，16秒请求时均出主体。五个复用播放器的脚本告警由原包的缺层/缺父级触发。样本清单、逐图、收据及独审归 `.artifacts/scene-complex-screen-20261127/`。这批覆盖默认短窗和明示串行分支，连续播放、性能对比与官版像素仍需各自证据。
 
 <a id="child-plane-scale"></a>**Child非等比平面缩放（2026-11-14）**：2657524136/194的FIRE follow/prob1与3485662637/424的GlowNew spawn/prob.4分别为(.5,1.5,1)/(20,3,1)，首错为ChildTransform的XY相等门。按[原几何设计](particle-component-coverage.md#child-plane-scale)，7产品文件净+33行：原共同尺寸sx保留，冷比例sy/sx只沿batch供CameraFrame平面形状，r1复用旧几何；无shader/GPU布局或逐粒字段增长。自有六面板固定0/45度与双向XY；官方2.8.0.42二进制DAAC1EA7…BDA07，v1纹理引用失败、v2仅修引用、v3仅补白标记材质，所有粒子/几何/TEX字节不变。v3官方两张相隔20.481秒：Display ICC的JPEG按标准转sRGB，固定四色与2单位误差不变；uniform0训练的单一亮边reader补足独立轮廓，A=S×R全部通过，B角点差26.6–27.2。中心只缩一次；未把墙钟延时当精确sceneTime。旧原生v3五PNG与v1逐字节相同；新候选五PNG稳定，六父/六子/24角块俱全，对官版最大角点.6534、边1.6063、父中心.4143、子中心.3372单位，旧uniform0/45原始区域与几何逐值相同。签名Debug exec b10ea45e…0f7e9、dylib4ef3d0e6…ec0567、metallib87d66fcf…a1bd，4393构建输入无漂移。真实265/331/348各4秒PASS且排空，三图基本画面正常；FIRE已实际出生，F137的24个Sprite实例进入同帧main/GPU绘制，GlowNew本次只到系统创建，emitter未接纳出生，不授Glow像素恢复。独立331含七个旧比例1 child与refraction。112项既有相关方法通过；新增Debug/Release行为门和生产Frame/Metal门修正夹具时序及像素中心oracle后补跑通过，未放宽断言。产品、测试及两次夹具修正的独立只读审查均无遗留发现；倾转/世界空间扩域、作者完整画面与整体性能不由本批外推。输入、原失败、量测与原始证据归`.artifacts/scene-child-plane-scale-20261114`及`.artifacts/scene-evidence/runs/scene-child-plane-scale-20261114`。
 

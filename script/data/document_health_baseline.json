@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 407459
+      "bytes": 408350
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 54,
-      "bytes": 7013
+      "lines": 58,
+      "bytes": 8342
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -658,11 +658,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "bb13eac5477c353874d9a6ae68579da2c0b4128d59d3fa2220e640b60a85f27a",
-      "after": "639ead2a564d8375ea2e53dde446f8915c2b65719b5958bf50a4f4ab1fd371e5",
-      "owner": "Scene effect composition evidence",
-      "reason": "保留两相位的底色覆盖和 Shine 前后对照及官版证据范围。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-chain-matte-286"
+      "before": "639ead2a564d8375ea2e53dde446f8915c2b65719b5958bf50a4f4ab1fd371e5",
+      "after": "f50b1c5377c5a3397d36aa667376cdfda7716e6a4e61615fc55a617897d5a522",
+      "owner": "Scene runtime evidence",
+      "reason": "记录复杂样本筛查、同构建复验和已核实的媒体效果执行缺口。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#complex-scene-screen-20261127"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "c79c637c97d149b6ed8b71088276e51a06139bc4ba0110f2dc402a9f421956fe",
+      "after": "930f2b13c542f3e7ea161ada9f3c355e6ab615ca3edb9abcdcaf183bff75db31",
+      "owner": "Scene open breakpoints",
+      "reason": "将确认的活动合成断点及工具活动范围误报列入开放队列。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#diagnostic-active-demand"
     }
   ]
 }
