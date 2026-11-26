@@ -387,6 +387,19 @@ class SceneParticleRuntimeTests(
         self.assertEqual(result["negative"], 0)
         self.assertEqual(result["nonFinite"], 0)
 
+    def test_continuous_emission_groups_births_and_refills_retired_capacity(self) -> None:
+        result = self.run_harness("continuous-frame-births")
+        self.assertEqual(result["firstPositions"], [3] * 20)
+        replaced = result["replacementPositions"]
+        self.assertEqual(len(replaced), 40)
+        self.assertEqual(replaced.count(3), 20)
+        self.assertEqual(len(set(replaced)), 2)
+        split = result["splitPositions"]
+        self.assertEqual(len(split), 20)
+        self.assertEqual(len(set(split)), 2)
+        self.assertEqual(result["explicitTime"], 0)
+        self.assertEqual(result["explicitCount"], 1)
+
     def test_particle_frame_transaction_restores_simulation_and_random_state(self) -> None:
         result = self.run_harness("frame-transaction-synthetic")
         self.assertTrue(result["sameParticles"])

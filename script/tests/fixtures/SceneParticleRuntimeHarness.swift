@@ -398,6 +398,8 @@ enum Harness {
             try printJSON(syntheticLifecycle())
         case "playback-delta-synthetic":
             try printJSON(playbackDeltaBounds())
+        case "continuous-frame-births":
+            try printJSON(continuousFrameBirths())
         case "frame-transaction-synthetic":
             try printJSON(frameTransactionBounds())
         case "subframe-lifetime-synthetic":

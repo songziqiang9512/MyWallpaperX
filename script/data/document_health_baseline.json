@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 421,
-      "bytes": 79555
+      "bytes": 79922
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 485,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 388836
+      "bytes": 389826
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 57,
-      "bytes": 7358
+      "bytes": 7180
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,10 +433,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "02d182707f5a3678ca7773363fa2a81b473fbd718afcec50adbebf05277b2592",
-      "after": "92e7075bd5262d9b6be8dbd65f5d5f20c74d837f3a9b921002a31875f17fe71b",
+      "before": "92e7075bd5262d9b6be8dbd65f5d5f20c74d837f3a9b921002a31875f17fe71b",
+      "after": "a24c0a340e9d14f56b316b1af4a8022375a8b8cec8140762095dc9ac1ca5a898",
       "owner": "Scene particle simulation",
-      "reason": "记录普通连续发射的阶段、容量和运动接线设计。",
+      "reason": "同步实时分组、容量和 Movement 的接线及同包可见结果。",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
     },
     {
@@ -577,10 +577,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "82f26464283af97705f1e22b3b7e1df2dd7e026007bd15023ad07910b92aa67d",
-      "after": "0a7062727b7067e5de3d4e123024fe66b9506ca32f6aedbff790c30d9162da76",
+      "before": "0a7062727b7067e5de3d4e123024fe66b9506ca32f6aedbff790c30d9162da76",
+      "after": "0c7edf1c10887dba8908ce0c07ec7c54b24f4e90a87bf87de99676d2eb3d7c8e",
       "owner": "Scene particle simulation",
-      "reason": "归档短寿命、饱和容量、阻尼和重力的实际相位对照。",
+      "reason": "同步实时分组、容量和 Movement 的接线及同包可见结果。",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
     },
     {
