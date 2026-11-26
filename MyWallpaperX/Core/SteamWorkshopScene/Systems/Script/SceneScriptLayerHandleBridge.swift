@@ -460,7 +460,7 @@ nonisolated enum SceneScriptLayerMutationBridge {
         sourceLayerID: Int? = nil
     ) -> Result<[SceneScriptLayerMutation], SceneScriptScalarRuntimeFailure> {
         let count = mwx_scene_quickjs_owner_layer_mutation_count(owner)
-        guard count <= sceneScriptMaximumOwnerLayerMutations else {
+        guard (0...sceneScriptMaximumOwnerLayerMutations).contains(count) else {
             return .failure(.mutationOverflow("layer mutation buffer exceeded"))
         }
         // Owners without layer side effects are valid even when their target

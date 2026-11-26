@@ -585,7 +585,7 @@ F165的Z和alpha分别反推两步、约.167模拟秒的新生；撤回候选F13
 <a id="init-only-scalar-publication"></a>
 ## 仅初始化脚本的标量发布
 
-`test_scene_property_vector_script` 的生产 Swift/C 夹具覆盖 32 组 init-only、Timeline 休眠、属性 refresh 与 init+update，以及字面值/改名等价表达式。旧 no-update 投影在 18 组非有限返回中报 bad-return；改用原 SceneScript 数值域后，37 项测试通过，NaN/负无穷沿 typed snapshot 到实际 alpha 消费函数映射为 0，正无穷为 1。16 项 setter、authored/user/Timeline、brightness、bound data property 与返回类型反例保留原限制，131 个编译输入仅 runtime 发生变化。证据归 `.artifacts/scene-init-only-alpha-20261113/verification.json`；这只证明 QuickJS 到 alpha 消费函数，不单独授该输入的 Metal 像素、实际 App 或官方行为。
+`test_scene_property_vector_script` 的生产 Swift/C 夹具覆盖 32 组 init-only、Timeline 休眠、属性 refresh 与 init+update，以及字面值/改名等价表达式。旧 no-update 投影在 18 组非有限返回中报 bad-return；改用原 SceneScript 数值域后，37 项测试通过，NaN/负无穷沿 typed snapshot 到实际 alpha 消费函数映射为 0，正无穷为 1。16 项 setter、authored/user/Timeline、brightness、bound data property 与返回类型反例保留原限制，131 个编译输入仅 runtime 发生变化。证据归 `.artifacts/scene-init-only-alpha-20261113/verification.json`；这只证明 QuickJS 到 alpha 消费函数，不单独授该输入的 Metal 像素、实际 App 或官方行为。<br><a id="scalar-return-layer-write"></a>数值回调按[作者合同](scenescript-api-coverage.md#contract)保留原值及可提交的图层写入。固定官方 2.8.0.42，按名称访问图层的色板三帧稳定：Bool、字符串、null、数组与 undefined 保 alpha 191，Number 改为 64，合法显隐均生效；独立隐式 init 设 alpha 64 并隐藏邻层，后继错型保两项结果。初版静态 ID 未达官方查找，留对照收据。签名 Debug `fd7de67c…01a06` 的 24 点中 23 点与官方逐 RGB 相同，旧版丢失五组邻层、两组自身显隐。唯一差异位于异常邻层：官版保写入，本机沿原原子回滚。原 3813261294/440 与独立 3844234486/1334 在受控媒体状态停止→播放→暂停→停止的同 Surface 收据均完成 GPU；实际音符依次隐藏→出现→出现→隐藏，旧 440 四段都出现。两原包均完成停止排空，媒体输入由诊断入口注入，系统媒体获取与同源其余两包未逐一验证。18 项 ASan 近门含改名、隐式 init、纯错型及抛错反例；Swift/C 准备文本克隆写入的提交与回滚门也通过。实际 C header 导入核为有符号 Int，图层账本哨兵拒绝已进原导出边界，未以作者 App 触发该错误。原包身份、原图、收据、独审归 `.artifacts/scene-scalar-layer-writes-20261126/evidence.zip`。
 
 <a id="rescreen-recent-inputs"></a>
 ## 已知反馈与近期目录复筛

@@ -1,4 +1,4 @@
-"""Sanitized real-VM regression for temporary Vec3 return-value diagnostics."""
+"""Sanitized real-VM coverage of callback returns and their layer writes."""
 from pathlib import Path
 import os
 import shutil
@@ -81,10 +81,128 @@ static int vector_dimensions(int mode) {
     return failures?1:0;
 }
 
+static int scalar_return(int variant) {
+    enum { implicit_init = 7 };
+    static const struct {
+        const char *source;
+        MWXSceneQuickJSResult result;
+        double output;
+        bool writes_visibility;
+        bool initializes;
+    } cases[] = {
+        {"export function update(v) {"
+         "  if (engine.runtime > 1) return .625;"
+         "  return thisLayer.visible = false; }",
+         MWX_SCENE_QUICKJS_OK, .5, true, false},
+        {"export function update(v) {"
+         "  if (engine.runtime > 1) return .625;"
+         "  const subject = thisLayer; subject.visible = false; return { reason: 'hidden' }; }",
+         MWX_SCENE_QUICKJS_OK, .5, true, false},
+        {"export function update(v) {"
+         "  if (engine.runtime > 1) return .625;"
+         "  thisLayer.visible = false; return .25; }",
+         MWX_SCENE_QUICKJS_OK, .25, true, false},
+        {"export function update(v) {"
+         "  if (engine.runtime > 1) return .625;"
+         "  thisLayer.visible = false; }",
+         MWX_SCENE_QUICKJS_OK, .5, true, false},
+        {"export function update(v) { return engine.runtime > 1 ? .625 : false; }",
+         MWX_SCENE_QUICKJS_BAD_RETURN, .5, false, false},
+        {"export function update(v) { thisLayer.visible = false; throw Error('reject this frame'); }",
+         MWX_SCENE_QUICKJS_EXCEPTION, .5, false, false},
+        {"let calls = 0; export function init(v) { ++calls; return thisLayer.visible = false; }"
+         "export function update(v) { if (calls !== 1) throw Error('init ran again'); return .625; }",
+         MWX_SCENE_QUICKJS_OK, .5, true, true},
+        [implicit_init] = {
+            "let calls = 0; export function init(v) { ++calls; thisLayer.visible = false; return .375; }"
+            "export function update(v) {"
+            "  if (calls !== 1 || v !== (engine.runtime === 1 ? .375 : .5)) throw Error('wrong init state');"
+            "  return engine.runtime < 3 ? 'wrong scalar' : .625; }",
+            MWX_SCENE_QUICKJS_OK, .375, true, false},
+    };
+    char diagnostic[512] = {0};
+    MWXSceneQuickJSDomain *domain = mwx_scene_quickjs_domain_create(
+        8 * 1024 * 1024, 512 * 1024, 100000, diagnostic, sizeof(diagnostic));
+    if (!domain) return check(0, "scalar domain", diagnostic);
+    const double origin[] = {160, 90, 0}, size[] = {100, 60};
+    int failures = check(mwx_scene_quickjs_domain_configure_layer_catalog(domain, 1, 0,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "layer catalog", diagnostic);
+    failures += check(mwx_scene_quickjs_domain_set_layer_descriptor(domain, 0, 73, 0, 0,
+        "Postcard", 8, origin, size, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "authored layer", diagnostic);
+    const char *source = cases[variant].source;
+    MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+        domain, source, strlen(source), 1, diagnostic, sizeof(diagnostic));
+    if (!owner) {
+        mwx_scene_quickjs_domain_destroy(domain);
+        return check(0, "scalar owner", diagnostic);
+    }
+    failures += check(mwx_scene_quickjs_owner_configure_layer_identity(owner, 73,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "layer identity", diagnostic);
+
+    MWXSceneQuickJSFrameInput frame = {.time_of_day = .25, .frame_time = .016, .runtime = 1};
+    double output = -1;
+    MWXSceneQuickJSResult result;
+    if (cases[variant].initializes) {
+        uint32_t did_initialize = 0;
+        result = mwx_scene_quickjs_owner_initialize_primitive_with_properties_mode(owner,
+            1, .5, 0, 0, &frame, "", 0, "{}", 2, &output, &did_initialize,
+            diagnostic, sizeof(diagnostic));
+        failures += check(did_initialize == 1, "init completed", diagnostic);
+    } else {
+        result = mwx_scene_quickjs_owner_update_primitive_with_properties_mode(owner, 1, .5,
+            0, 0, MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA, &frame, "", 0, "{}", 2,
+            &output, diagnostic, sizeof(diagnostic), NULL);
+    }
+    failures += check(result == cases[variant].result, "scalar return classification", diagnostic);
+    failures += check(output == cases[variant].output, "scalar output", diagnostic);
+    failures += check(mwx_scene_quickjs_owner_layer_mutation_count(owner) ==
+        cases[variant].writes_visibility, "journal count", diagnostic);
+    if (cases[variant].writes_visibility) {
+        MWXSceneQuickJSLayerMutation mutation = {0};
+        failures += check(mwx_scene_quickjs_owner_layer_mutation_at(owner, 0, &mutation,
+            diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "layer journal", diagnostic);
+        failures += check(mutation.kind == MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT &&
+            mutation.layer_id == 73 && mutation.fields == MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY &&
+            mutation.visible == 0, "visibility write for authored layer", diagnostic);
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) mwx_scene_quickjs_owner_commit_layer_mutations(owner);
+    if (cases[variant].initializes || variant == implicit_init) {
+        failures += check(mwx_scene_quickjs_owner_is_initialized(owner), "init committed", diagnostic);
+    }
+
+    frame.runtime = 2;
+    if (variant == implicit_init) {
+        result = mwx_scene_quickjs_owner_update_primitive_with_properties_mode(owner, 1, .5,
+            0, 0, MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA, &frame, "", 0, "{}", 2,
+            &output, diagnostic, sizeof(diagnostic), NULL);
+        failures += check(result == MWX_SCENE_QUICKJS_BAD_RETURN && output == .5,
+            "prior init write does not cover the next frame", diagnostic);
+        failures += check(mwx_scene_quickjs_owner_layer_mutation_count(owner) == 0,
+            "prior init write is not exported again", diagnostic);
+        frame.runtime = 3;
+    }
+    result = mwx_scene_quickjs_owner_update_primitive_with_properties_mode(owner, 1, .5,
+        0, 0, MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA, &frame, "", 0, "{}", 2,
+        &output, diagnostic, sizeof(diagnostic), NULL);
+    if (cases[variant].result == MWX_SCENE_QUICKJS_EXCEPTION) {
+        failures += check(result == MWX_SCENE_QUICKJS_DISABLED, "exception disables owner", diagnostic);
+    } else {
+        failures += check(result == MWX_SCENE_QUICKJS_OK && output == .625,
+            "next frame returns its number", diagnostic);
+    }
+    failures += check(mwx_scene_quickjs_owner_layer_mutation_count(owner) == 0,
+        "next frame has no new layer writes", diagnostic);
+    mwx_scene_quickjs_owner_destroy(owner);
+    mwx_scene_quickjs_domain_destroy(domain);
+    return failures ? 1 : 0;
+}
+
 int main(int argc, char **argv) {
     if (argc != 2) return 2;
     int mode = atoi(argv[1]), failures = 0;
     if (mode >= 7 && mode <= 16) return vector_dimensions(mode);
+    if (mode >= 17 && mode <= 24) return scalar_return(mode - 17);
     char diagnostic[512] = {0};
     MWXSceneQuickJSDomain *domain = mwx_scene_quickjs_domain_create(
         8*1024*1024, 512*1024, 100000, diagnostic, sizeof(diagnostic));
@@ -209,3 +327,13 @@ class SceneScriptReturnDiagnosticTests(unittest.TestCase):
     def test_invalid_dimensions_do_not_access_or_write_buffers(self): self.run_case(14)
     def test_vector_stale_generation_rejected(self): self.run_case(15)
     def test_vec2_nonfinite_input_rejected(self): self.run_case(16)
+
+    def test_scalar_return_and_layer_mutation_are_independent(self):
+        cases = (
+            "boolean assignment", "object after a write through an alias", "number and write",
+            "no return and write", "boolean without a write", "exception after a write",
+            "initialization with a boolean assignment", "wrong update return after implicit initialization",
+        )
+        for mode, case in enumerate(cases, start=17):
+            with self.subTest(case=case):
+                self.run_case(mode)

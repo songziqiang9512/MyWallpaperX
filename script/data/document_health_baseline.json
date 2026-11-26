@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 358047
+      "bytes": 359421
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 228,
-      "bytes": 42375
+      "bytes": 42605
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 120,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 240,
-      "bytes": 68128
+      "bytes": 68076
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -451,11 +451,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "61e7f4971701b0676f80ba1d87404913bf6d997c62b572dd55464ea0366cc305",
-      "after": "92d33df161f754b65e4878ecc1770cf2c241ab5939611b7cdb1f48f2d0751032",
-      "owner": "SceneScript particle instance values",
-      "reason": "沿原实例事务接入尺寸并登记官版、本机及独立作者的发射证据。",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#particle-instance-scalars"
+      "before": "92d33df161f754b65e4878ecc1770cf2c241ab5939611b7cdb1f48f2d0751032",
+      "after": "bdd3c5b35a039c3b3fa2094f5b04c6865d98d3d4ce705b583bd99cd715328af7",
+      "owner": "Scene",
+      "reason": "记录正常错型返回的作者图层写入以及原 ABI 账本边界。",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#contract"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "43e0578c544259446044669ead44021adbab36d797a46b444eade95bb153d868",
-      "after": "977b31a07a9f8398ffa224d9fc79bb15ba86884c978e5657e0bab8b1201c70fe",
+      "before": "977b31a07a9f8398ffa224d9fc79bb15ba86884c978e5657e0bab8b1201c70fe",
+      "after": "f35d39e37f565fc0da8cf56d4160b93d016a92d6acfef9e476fd5ffbecdf99a5",
       "owner": "Scene",
-      "reason": "同时保留原逐段定位、实际图层合成、独立样本及交错的整体GPU验证",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#inactive-terminal-copy-367"
+      "reason": "收录固定版本官方色板和原包媒体图层的前后证据与验证范围。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#scalar-return-layer-write"
     },
     {
       "section": "bodies",
