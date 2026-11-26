@@ -656,9 +656,14 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
         self.run_perspective_image_depth_case(sorting=False)
 
     def test_plain_perspective_image_and_solid_blend_in_camera_order(self):
-        for sorting, image_id, solid_id, stem in ((False, 61, 62, "near"), (True, 61, 62, "near"),
-                                                   (True, 927, 843, "renamed-front")):
-            with self.subTest(sorting=sorting, image=image_id):
+        for sorting, image_id, solid_id, stem, cone_solid, volume in (
+            (False, 61, 62, "near", None, "enabled"),
+            (True, 61, 62, "near", None, "enabled"),
+            (True, 927, 843, "renamed-front", False, "enabled"),
+            (True, 61, 62, "near", True, "enabled"),
+            (True, 61, 62, "near", True, "disabled"),
+        ):
+            with self.subTest(sorting=sorting, image=image_id, cone_solid=cone_solid, volume=volume):
                 model, material, texture = (f"{folder}/{stem}.{ext}" for folder, ext in
                                             (("models", "json"), ("materials", "json"), ("materials", "png")))
                 solid = "models/renamed-back.json" if image_id == 927 else "models/util/solidlayer_depthtest.json"
@@ -669,6 +674,13 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
                      "size": "2 2", "color": "0 0 1", "perspective": True},
                 ])
                 scene["general"]["transparentsorting"] = sorting
+                if cone_solid is not None:
+                    scene["objects"].insert(1, {
+                        "id": 935, "light": "lspot", "origin": "-2 -.7 .2", "color": "0 1 0",
+                        "radius": .7, "innercone": 20, "outercone": 60, "density": 12,
+                        "intensity": 100, "exponent": 1, "volumetricsexponent": 1,
+                        "solid": cone_solid, "castvolumetrics": True,
+                    })
                 entries = {"scene.json": encoded(scene), model: encoded({"material": material}),
                     texture: png(4, 4, lambda _x, _y: (255, 0, 0)),
                     material: encoded({"passes": [{"shader": "genericimage4", "textures": [texture],
@@ -679,22 +691,39 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
                     entries[solid] = encoded({"material": back_material, "solidlayer": True})
                     entries[back_material] = encoded({"passes": [{"blending": "translucent",
                         "depthtest": "enabled", "depthwrite": "disabled", "cullmode": "nocull"}]})
-                name = f"plain-perspective-order-{sorting}-{image_id}"
-                regions = {"overlap": {"world": [0, 0, 0]}}
+                name = f"plain-perspective-order-{sorting}-{image_id}-{cone_solid}-{volume}"
+                regions = {"overlap": {"world": [0, 0, 0]}, "cone": {"world": [-1.7, -.7, .2]}}
                 with patch.object(app_runner, "measure_capture", measure_capture):
                     result = app_runner.SceneReflectionHistoryIntegrationTests.run_case(self, 0, capture=True,
-                        name=name, entries=entries, rois=regions, material_input_path=material)
+                        name=name, entries=entries, rois=regions, material_input_path=material,
+                        extra_arguments=("-mwx.playback.quality", f"{{ scenePointVolumeQuality = {volume}; }}"))
                 work = self.evidence_root / name
-                for path, event in self.composition_captures(work, (work / "app.log").read_text()):
-                    terminals = [row for row in event["rows"] if row["kind"] == "ordinary"
-                                 and row.get("outcome") == "draw-encoded"]
-                    order = [solid_id, image_id] if sorting else [image_id, solid_id]
+                log = (work / "app.log").read_text()
+                draws_cone = cone_solid is True and volume == "enabled"
+                self.assertEqual("phase=spot-light layer=935 status=succeeded" in log, draws_cone)
+                self.assertEqual(
+                    "phase=spot-light layer=935 status=failed" in log, cone_solid is False and volume == "enabled"
+                )
+                for path, event in self.composition_captures(work, log):
+                    terminals = [
+                        row for row in event["rows"] if row.get("outcome") == "draw-encoded"
+                        and (row["kind"] == "ordinary" or row.get("details", {}).get("geometryKind") == "spotLight")
+                    ]
+                    sorts_pair = sorting and not draws_cone
+                    order = [solid_id, image_id] if sorts_pair else [image_id, solid_id]
+                    if draws_cone:
+                        order.insert(1, 935)
                     self.assertEqual([row["layerID"] for row in terminals], order)
                     self.assertEqual({row["target"]["role"] for row in terminals}, {"main-color"})
                     self.assertEqual(len({row["target"]["textureToken"] for row in terminals}), 1)
                     measured = result["pixels"][path.name]["overlap"]["mean"]
-                    for actual, expected in zip(measured, (128, 0, 127) if sorting else (0, 0, 255), strict=True):
+                    for actual, expected in zip(measured, (128, 0, 127) if sorts_pair else (0, 0, 255), strict=True):
                         self.assertAlmostEqual(actual, expected, delta=TOLERANCE, msg=str(measured))
+                    green = result["pixels"][path.name]["cone"]["mean"][1]
+                    if draws_cone:
+                        self.assertGreater(green, 30)
+                    else:
+                        self.assertEqual(green, 0)
 
     def test_model_depth_test_write_combinations_and_complete_resource_rename(self):
         expected = {name: rgb for name, _, _, rgb in MODEL_DEPTH_STATES}

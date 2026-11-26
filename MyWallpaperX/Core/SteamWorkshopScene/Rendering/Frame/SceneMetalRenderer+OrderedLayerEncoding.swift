@@ -61,7 +61,7 @@ extension SceneMetalRenderer {
             if layer.utilityLayer != nil || hasWorldOrderDependency(layer.id, utility: utility) { return true }
             switch layer.contentKind {
             case "container", "sound", "pointLight", "directionalLight", "tubeLight": return false
-            case "spotLight" where spotLightRuntime == nil || layer.spotLight?.castsVolumetrics != true:
+            case "spotLight" where spotLightRuntime?.plansByLayerID[layer.id] == nil:
                 return false
             default: break
             }
@@ -73,7 +73,7 @@ extension SceneMetalRenderer {
             if layer.utilityLayer != nil { return true }
             switch layer.contentKind {
             case "container", "sound", "pointLight", "directionalLight", "tubeLight": return false
-            case "spotLight": return spotLightRuntime != nil && layer.spotLight?.castsVolumetrics == true
+            case "spotLight": return spotLightRuntime?.plansByLayerID[layer.id] != nil
             case "particle":
                 return particleBatches[layer.id]?.contains {
                     $0.draw.refraction != nil || $0.draw.renderState.depthWriteEnabled
@@ -586,8 +586,7 @@ extension SceneMetalRenderer {
                     break frameLayers
                 }
             case "spotLight":
-                guard let spotLightRuntime, frameVisibleLayerIDs.contains(layer.id),
-                      layer.spotLight?.castsVolumetrics == true else { continue }
+                guard let spotLightRuntime, layer.spotLight?.castsVolumetrics == true else { continue }
                 spotLightRuntime.render(
                     layerID: layer.id, worldFrame: frameWorldFrames[layer.id],
                     frame: .init(

@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 66,
-      "bytes": 23106
+      "bytes": 23238
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -98,7 +98,7 @@
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 142818
+      "bytes": 144209
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -114,7 +114,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 307,
-      "bytes": 63269
+      "bytes": 63317
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -138,11 +138,11 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 552,
-      "bytes": 125331
+      "bytes": 125586
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 110,
-      "bytes": 16744
+      "bytes": 16870
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 70,
@@ -387,11 +387,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "1834ce0a9264973ac96c4889608417acda6c02ef584f1d529183899457ddbdab",
-      "after": "97135e655f639042a71aaf45c5bace552c9ad4b54934b44e5682858392e748ce",
-      "owner": "Scene 基础图像准备与画质",
-      "reason": "同步 Auto 作者 mip 冷热同规则、原队列提交、样本验收及源码入口。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-texture-auto"
+      "before": "97135e655f639042a71aaf45c5bace552c9ad4b54934b44e5682858392e748ce",
+      "after": "f3b7e42aa4e6ee81c910a4469163208808faf614b15e9290e33ec673da2ccf83",
+      "owner": "Scene 聚光照明与排序",
+      "reason": "记录可绘聚光计划的排序和绘制边界、保持作者依赖及实测条件。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
     },
     {
       "section": "bodies",
@@ -513,11 +513,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "136d0953db1108d7d37294ef08800a24cfc66f4471fb55f43fb6451ab7836de2",
-      "after": "8307c376e056d219099a00fbe7c39c963556e9d1c20dfe6684ba23eb07671808",
-      "owner": "Scene 基础图像准备与画质",
-      "reason": "同步 Auto 作者 mip 冷热同规则、原队列提交、样本验收及源码入口。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-texture-auto"
+      "before": "8307c376e056d219099a00fbe7c39c963556e9d1c20dfe6684ba23eb07671808",
+      "after": "756947d6cca07ec8409024a4240c5fa09686158d56289d75b2eb5777101bf9c1",
+      "owner": "Scene 聚光照明与排序",
+      "reason": "记录可绘聚光计划的排序和绘制边界、保持作者依赖及实测条件。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
     },
     {
       "section": "bodies",
@@ -549,11 +549,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "84213cc6664b1a5e72905c53fbc5ed599b888175256ffa8271ad7f81849bdb3e",
-      "after": "15d349cbaf94c611d8ef3b73855fac845f58d46ece9958ec3b445e971528eb70",
-      "owner": "Scene 基础图像准备与画质",
-      "reason": "同步 Auto 作者 mip 冷热同规则、原队列提交、样本验收及源码入口。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-texture-auto"
+      "before": "15d349cbaf94c611d8ef3b73855fac845f58d46ece9958ec3b445e971528eb70",
+      "after": "38f15b8263ae534d7acb08a214b3442b527f5ec36be11e5003976031aeaec2a4",
+      "owner": "Scene 聚光照明与排序",
+      "reason": "记录可绘聚光计划的排序和绘制边界、保持作者依赖及实测条件。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
     },
     {
       "section": "bodies",
@@ -585,20 +585,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "b78c97b34cc2dca2c206b0df84937917cfe3311133adc6023deeeaf4db4f5db3",
-      "after": "adf6a2a0d0062e5b3f36a73909413652cda1b1f1efcb6a024a1670afb5591fce",
-      "owner": "Scene 与三引擎画质",
-      "reason": "合入主线已落库正文及其现行职责。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+      "before": "adf6a2a0d0062e5b3f36a73909413652cda1b1f1efcb6a024a1670afb5591fce",
+      "after": "f1e8d0db82cff76b17da667dae740a9ea5964be0c1f3153a2336c26c63536b12",
+      "owner": "Scene 聚光照明与排序",
+      "reason": "记录可绘聚光计划的排序和绘制边界、保持作者依赖及实测条件。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/effect-execution-coverage.md",
-      "before": "2b9097552ec62841fde0f36c1795e368080c423d39dd20206c71fb9d36ec5009",
-      "after": "8035b7f7ec854aced1811acd02ddb8dce731c240d99ed4d9adea59ec366802ab",
-      "owner": "Scene utility source and effect execution",
-      "reason": "Record the proved Fullscreen prefix cutoff and its existing viewport execution and activation ownership.",
-      "decision": "docs/scene/capabilities/effect-execution-coverage.md#fullscreen-ordered-prefix"
+      "before": "84fbef00fe1369c449bad164149085f97301e4b73bb0bd57d09d37501b211e29",
+      "after": "bec870c8ef191c5c0e3419b4eaaf287d088741ef53c869042e9a96ca1ae8adc5",
+      "owner": "Scene 聚光照明与排序",
+      "reason": "记录可绘聚光计划的排序和绘制边界、保持作者依赖及实测条件。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
     },
     {
       "section": "bodies",

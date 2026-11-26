@@ -33,7 +33,7 @@ final class SceneSpotLightRuntime {
         scriptSourceEvidence: [SceneScriptSourceEvidenceIR] = [],
         pipeline: @autoclosure () -> SceneSpotLightPipeline?
     ) {
-        plansByLayerID = Dictionary(
+        let plans = Dictionary(
             uniqueKeysWithValues: descriptor.layers.compactMap { layer in
                 SceneSpotLightPlan(
                     layer: layer,
@@ -43,17 +43,22 @@ final class SceneSpotLightRuntime {
                 ).map { (layer.id, $0) }
             }
         )
-        self.pipeline = plansByLayerID.isEmpty ? nil : pipeline()
+        let preparedPipeline = plans.isEmpty ? nil : pipeline()
+        plansByLayerID = preparedPipeline == nil ? [:] : plans
+        self.pipeline = preparedPipeline
     }
 
     func render(
         layerID: Int,
-        worldFrame: simd_float4x4?,
-        frame: Frame
+        worldFrame: @autoclosure () -> simd_float4x4?,
+        frame: @autoclosure () -> Frame
     ) {
-        guard let plan = plansByLayerID[layerID],
-              let pipeline,
-              let worldFrame,
+        guard let plan = plansByLayerID[layerID], let pipeline else {
+            telemetry.recordFailure(layerID: layerID)
+            return
+        }
+        let frame = frame()
+        guard let worldFrame = worldFrame(),
               let encoder = frame.mainPass.encoder() else {
             telemetry.recordFailure(layerID: layerID)
             return

@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3e44c57119b110139ccd585e98d8fc57bcf8f47921ab93a70c7d3befad0a1c5e",
+        "sourceSHA256": "810dace09e27720abc29eb0ad51b6738a04a755b3587fe8e39a3554488e08106",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对 Auto mip 冷热选择、基础资源提交与取证入口。",
-        "limitations": "导航与已取证范围复核。物理多屏及功耗另取证。"
+        "scope": "核对聚光计划供给、透明排序和工作卡取证入口。",
+        "limitations": "仅覆盖本批导航和对应的签名运行证据。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "85b5f5a6334259ee69c73976f5ab1ed7ba7430287a0c760da46047fb91193ebc",
+        "sourceSHA256": "d5dbfc9b8f7a97ac5bba72619c26de785c1827676579e0918aff749a04146dac",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对 Auto mip 冷热选择、基础资源提交与取证入口。",
-        "limitations": "导航与已取证范围复核。物理多屏及功耗另取证。"
+        "scope": "核对聚光计划供给、透明排序和工作卡取证入口。",
+        "limitations": "仅覆盖本批导航和对应的签名运行证据。"
       }
     },
     {
@@ -871,10 +871,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8e0a563d31fd211e58ce1c87ae272bf4b64981890b44b94fa5eb46097621b33c",
+        "sourceSHA256": "acf1a68267fde565fcd85f1f118be19d502fc18dc302fbe782c45ef93a126efa",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对 Auto mip 冷热选择、基础资源提交与取证入口。",
-        "limitations": "导航与已取证范围复核。物理多屏及功耗另取证。"
+        "scope": "核对聚光计划供给、透明排序和工作卡取证入口。",
+        "limitations": "仅覆盖本批导航和对应的签名运行证据。"
       }
     },
     {
@@ -951,10 +951,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2fbd0335c6e31048e58437939869b313f8ee8e093969088df09833abd14597c4",
+        "sourceSHA256": "5a43355ae199b9836dad4590e897bc315785107e866b00a12f6e1599134ae2b8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
-        "limitations": "导航复核，实际渲染证据仍绑定其原构建。"
+        "scope": "核对聚光计划供给、透明排序和工作卡取证入口。",
+        "limitations": "仅覆盖本批导航和对应的签名运行证据。"
       }
     },
     {

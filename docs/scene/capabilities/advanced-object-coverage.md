@@ -356,7 +356,7 @@ stock `genericimage3` 的单纹理、无光照及无雾分支可直接生成图�
 
 原生透视场景有已读取模型实体时，省略 `depthtest` 的普通世界文字默认读取同一主画布相机深度，保留无遮处字形及同平面的字、影叠加。只读默认在 RenderDescriptor 准备，沿原深度附件和终端 compositor。主画布捕获的排序截点保持原作者资格。显式关闭保无深度路径，显式开启沿原状态。屏幕平面、其他深度域及未接纳的混合模式不进入本规则。无匹配模型的场景不为该默认另设深度资源。验收用同盒体的远字、近字、同平面叠字，并核只关测试的原作者反例和独立作者。
 
-显式 `depthtest: enabled` 的原生透视文字，在主画布最后一段独立世界绘制内，与普通透贴共用顺序及已有只读相机深度。该区间只含自身字形、已准备的局部捕获效果、同域透明图像、合格不透明写深度模型和无绘制项。组、供货、当前主画布读取以及其他实绘层划开区间。开启 `transparentsorting` 时，区间内不透明模型先画，透明终端按相机距离远到近，同深保作者顺序。关闭时保作者顺序，文字仍测试已有实体深度，后继实体在无文字写入的深度上照常绘制。CoreText、Script、局部效果与最终PMA世界quad沿原路径，原终端请求承接帧选定的有效状态。
+显式 `depthtest: enabled` 的原生透视文字，在主画布最后一段独立世界绘制内，与普通透贴共用顺序及已有只读相机深度。该区间只含自身字形、已准备的局部捕获效果、同域透明图像、合格不透明写深度模型和无绘制项。组、供货、当前主画布读取以及其他实绘层划开区间。聚光锥仅在原 Runtime 保有可绘的准备计划和 PSO、且该层可见时划开；作者体积声明未形成可绘计划时仍保实际供货和作者依赖，不切断独立的透明排序。绘制与排序消费同一份已准备资格。开启 `transparentsorting` 时，区间内不透明模型先画，透明终端按相机距离远到近，同深保作者顺序。关闭时保作者顺序，文字仍测试已有实体深度，后继实体在无文字写入的深度上照常绘制。CoreText、Script、局部效果与最终PMA世界quad沿原路径，原终端请求承接帧选定的有效状态。
 
 前区间和不独立文字继续消费写深度及其零覆盖 discard。符合资格的实体可进入 [Composition 背景截点](effect-execution-coverage.md#perspective-composition-prefix)。3455121165 的背景读取范围与早绘时钟字形分离，退出该类文字的旧 writer 仍需实际覆盖字形的官版对照。验收覆盖顺序开关、显式测试近远、半透明字形与改名局部效果、共享目标内只画一次、真实前缀及独立作者。[运行证据](runtime-evidence-current.md#authored-text-depth)
 
@@ -542,7 +542,7 @@ MDLA6 `modernBoundsAuxiliary` 的 framing/presence 被 Reader 保留，但未消
 <a id="spot-light-frame"></a>
 ## 可见 SpotLight 的准备与帧消费
 
-可见 volumetric `lspot` 光锥沿共享帧进入普通父层、composition/project 的局部 source 和最终合成。原帧分发仅在显式`castvolumetrics=true`时进入体积Runtime；false/省略不请求体积，不产生失败遥测。真正请求后的坏Plan、pipeline、worldFrame或encoder仍保原失败，表面直接光继续由独立LightSnapshot供货。原 light plan、共享 world frame、MainPass 和 cone pipeline 各保原职责；model 的逆深度、一般体积散射及官方精确公式分别取证，不用已有错误实现定义新合同。
+可见 volumetric `lspot` 光锥沿共享帧进入普通父层、composition/project 的局部 source 和最终合成。帧分发仅在已有可绘计划时建立体积帧。显式 `castvolumetrics=true` 的坏 Plan、pipeline、worldFrame 或 encoder 仍由原 Debug owner 记录失败，false／省略不产生失败遥测，表面直接光继续由独立LightSnapshot供货。原 light plan、共享 world frame、MainPass 和 cone pipeline 各保原职责；model 的逆深度、一般体积散射及官方精确公式分别取证，不用已有错误实现定义新合同。
 
 - **数据流与退出**：`authored light → 原 Plan 准备有限参数/几何比例 → 同一 typed snapshot 与共享 worldFrame → nearest MainPass 的 clip XY 映射 → 原 cone draw → group source → 父 Program/tail → unique main`。Pipeline 直接消费完整 worldFrame，保父/自身平移、旋转、缩放、镜像及剪切；角度已由共享 Timeline/Script/world resolver 合成，不再从 worldOrigin 与私有 currentAngle 重建。退役 Plan 的 parent/leaf/无依赖许可、baseAngles/currentAngle 和单一 relative-mirror Timeline 形状门；effect 尚无本绘制消费者，保持局部未支持。
 - **准备与读口**：Plan 不再按样本数值上限拒绝可消费的 cone。只保 finite/color 域、非负强度/radius/density/exponents、合法内外锥角及实际可表示的派生几何；半角 trig 与不随帧改变的比例在原 Plan 一次准备，帧不重复计算。零强度/半径/密度沿真实消费者得到无贡献。当前 typed TRS/color/intensity/alpha 与外层 visibility 是实际读口；alpha 沿原 normalized reader 进入既有 color uniform 的 A，保持 PMA。Script 源覆盖只在原准备入口核真实 object/field 身份、已实例化 scalar/vector target 与上述消费集，退出单 intensity/count/源码写法许可；未知、nested 或未消费 radius/density 等 writer 不能静默冻结。共享 Timeline 编译器继续拥有各 host/模式的执行边界，不另建光锥时钟或重放。
