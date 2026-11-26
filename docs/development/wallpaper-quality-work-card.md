@@ -6,7 +6,7 @@
 <a id="execution"></a>
 ## 当前批与接手步骤
 
-独立工作树 `Fluxo/wallpaper-quality-settings` 已合入主线 `be2787620`，Scene 捕获与 Web 帧率回归已恢复。[点光候选](#scene-point-shadow-density-trial)用同步后源码复验预算回退、真实深度和跨面采样，缺省 60 FPS 长稳待测。[作者 mip 快照](#scene-embedded-mip-snapshot-result)因整场峰值回退退出。体积出口查表未达成本门，下一步取得官版低／中档与反射运行对照。 [技术设计](wallpaper-quality-settings-plan.md#decision) · [源码地图](../architecture/repository-map.md#wallpaper-quality) · [验证流程](repository-workflow.md#设计判定与记录)
+独立工作树 `Fluxo/wallpaper-quality-settings` 已合入主线 `dd99c9fcf`，Scene 捕获与 Web 帧率回归已恢复。[点光候选](#scene-point-shadow-density-trial)用同步后源码复验预算回退、真实深度和跨面采样，缺省 60 FPS 长稳待测。[作者 mip 快照](#scene-embedded-mip-snapshot-result)因整场峰值回退退出。体积出口查表未达成本门，下一步取得官版低／中档与反射运行对照。 [技术设计](wallpaper-quality-settings-plan.md#decision) · [源码地图](../architecture/repository-map.md#wallpaper-quality) · [验证流程](repository-workflow.md#设计判定与记录)
 
 M4 单内屏已验证四档预设、10–120 FPS、Scene MSAA 至 4×、泛光和显示 HDR、三种纹理策略、阴影五档、反射启停及真实桌面接管。Scene 冷档直接编辑与显式重试共用实际准备回执和在途撤单。导入同类画质可连续播放。真实 Web 作者验证 FPS 建议与绘制，Video 保原片并已实测 PQ／HLG／HDR10+ 实窗。体积保禁用、高／超高，低／中原尺寸网格已验画面与回退，整帧收益未复现，暂退出发布。[本地 Video 原片恢复](wallpaper-quality-settings-plan.md#video-inspector-source-recovery)已在同窗更新实际尺寸和标称帧率，原生同窗切换实证[冷海报等比定位、暖切保留原画及留黑](wallpaper-quality-settings-plan.md#video-candidate-poster)及[同源淡入亮度连续](wallpaper-quality-settings-plan.md#video-crossfade-luminance)。直接调档已实测自动采纳、在途精确撤单与三引擎导入连续。后续继续官版运行对照及混合显示拓扑、8× 和长稳功耗的硬件复验。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
 
