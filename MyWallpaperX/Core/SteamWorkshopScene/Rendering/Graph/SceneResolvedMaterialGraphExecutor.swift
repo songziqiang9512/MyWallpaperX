@@ -76,6 +76,8 @@ final class SceneResolvedMaterialGraphExecutor {
         var commands: [Command]
 
 #if DEBUG
+        var actualOutputMember: Pair.Member? = nil
+
         var programCacheKeys: [String] {
             if let reason = effectLocalFailureReasonCode {
                 return ["visual-failure-passthrough:\(reason)"]
@@ -510,6 +512,8 @@ final class SceneResolvedMaterialGraphExecutor {
                     pairContentsMatch: &pairContentsMatch,
                     captureCanWriteOutput: capability.stages.count == 1
                         && capability.sourceRoute == .capturedLayerTexture && graph.renderTargets.isEmpty,
+                    canReuseTerminalInput: index > 0 && index == capability.stages.count - 1
+                        && graph.renderTargets.isEmpty && !capability.isGraphOutputProvider,
                     effectLocalFailureReasonCode: &effectLocalFailureReasonCode,
                     effectLocalActivationBypassReasonCode: &effectLocalActivationBypassReasonCode
                 ) { return .failure(failure) }
@@ -530,7 +534,6 @@ final class SceneResolvedMaterialGraphExecutor {
             guard !stageCommands.isEmpty
                     || effectLocalFailureReasonCode != nil
                     || effectLocalActivationBypassReasonCode != nil,
-                  pair.member == pairStep.outputMember,
                   let final = publications[pairStep.outputIdentity],
                   final.publication.texture === pair.resource.publication.texture,
                   final.resourceGeneration == pair.resource.resourceGeneration,
@@ -575,11 +578,12 @@ final class SceneResolvedMaterialGraphExecutor {
                 effectOutputResource: final,
                 commands: stageCommands
             ))
+#if DEBUG
+            stages[stages.count - 1].actualOutputMember = pair.member
+#endif
         }
 
-        guard placementTailEffect != nil || (pair.member == capability.pairPlan.terminalMember
-                  && pair.member == Pair.fixedTerminalMember),
-              pair.representation == .opaque
+        guard pair.representation == .opaque
                 || pair.representation == .premultipliedAlpha
                 || pair.representation == .straightAlpha,
               let terminal = stages.last?.effectOutputResource,

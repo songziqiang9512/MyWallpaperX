@@ -178,7 +178,7 @@
 | 密集预热 · 3337494481 | [原包交错实测](../capabilities/runtime-evidence-current.md#particle-turbulence-borrow)确认签名优化态可启动，普通Debug超时仅限该取证配置。单root去隐藏轨迹的隔离计时重叠，候选退出。实际首屏仍以完整预热为主；继续依据可移除的工作，保作者时序、随机、历史和首帧。 |
 | 3749463715 | [现役历史结算唤醒](../capabilities/runtime-evidence-current.md#gpu-admission-wake-374)已降低等待。[末端消融](../capabilities/runtime-evidence-current.md#terminal-main-ablation)每帧去掉五个离屏材质，实呈与GPU时间持平，候选已撤回。后续只追有新证据的显著成本，保跨帧历史与回滚；不重跑末端消融、不放宽容量或按重叠时戳删材质。 |
 | 3420215721 | [同包实测](../capabilities/runtime-evidence-current.md#scene-playback-triage-342)确认 GPU 超预算，稳定帧 history split 已减少 seed copy。[运行时失败反例](../capabilities/runtime-evidence-current.md#stale-history-seed)补查历史保持；后续只补同 scene-time 像素 A/B、真实 descriptor/reset 与 activation 切换的未覆盖范围，不重复已有效的构建和稳定帧测量，不增 pin 或 history owner。 |
-| 3673609113 | 续等、零覆盖、HDR末段及[截取合并](../capabilities/runtime-evidence-current.md#shared-capture-material-pass)已验。GPU仍超预算。[当前逐段](../capabilities/runtime-evidence-current.md#inactive-terminal-copy-367)定位3347末段显隐仅复制；先证真实末端成员交接可省拷贝，保已命名输出和两级作者历史。 |
+| 3673609113 | 续等、零覆盖、HDR末段及[截取合并](../capabilities/runtime-evidence-current.md#shared-capture-material-pass)已验。[停用末段复制已移除](../capabilities/runtime-evidence-current.md#inactive-terminal-copy-367)，实呈小幅改善。GPU仍超预算，后续凭新的可避免工作推进，保两级作者历史，不重测已消除的复制。 |
 
 测量与退出规则只归[性能方法](performance-convergence-card.md)，本表不沿用旧实验数值或认领收益。
 
@@ -223,7 +223,7 @@
 | 2868108515 | 已修复。锁链左侧规则叠影已消除，链条和正常雾层保留。[局部光效](../capabilities/runtime-evidence-current.md#author-chain-godrays-local-grid) |
 | 3141464346 | 已修复工作栅格和弧线曲向；原摆位裁切一致。已验证同宽谱双环随声出现、静音退场。若再见细节偏差，须同相位的实际振幅与末端画面，无需复跑已测几何与显隐。[双环](../capabilities/runtime-evidence-current.md#ring-cover-314) · [声音对照](../capabilities/runtime-evidence-current.md#ring-audio-response-314) |
 | 3382111183 | 已修复缺条及普通 SDR 材质增亮过量。原曲六层实绘，已测条纹反差与官版接近。密度与节拍仍开放，续查须同相位图及实际 emitter，不复做出生或增亮矩阵。[出生](../capabilities/runtime-evidence-current.md#floor-beam-continuous-emission) · [材质亮度](../capabilities/runtime-evidence-current.md#particle-material-gain-sdr) |
-| 3673609113 | 部分修复。空跑、HDR末段与截取冗余已修，GPU仍超预算。[残影](../capabilities/runtime-evidence-current.md#author-motion-history-367)属作者合成。 |
+| 3673609113 | 部分修复。空跑、HDR末段、截取及停用末段复制已修，GPU仍超预算。[残影](../capabilities/runtime-evidence-current.md#author-motion-history-367)属作者合成。 |
 | 3187857248 | 部分修复。双Surface拖动失效已修复，物理指针若仍间歇须新输入证据。[拖动](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318) |
 | 3766299002 | 已修复。面具属性正确选择纹理并保持眼部同步，两主题均验。[面具和眼部](../capabilities/runtime-evidence-current.md#author-conditional-mask-376) |
 | 3747492842 | 已修复 X 光样式的初始选择与实时切换。官版和本机同点心→圆→回心，星形及闪光形本机已实绘。闪烁、光束、裁剪及文字构图仍见上方各自条目。[实际画面](../capabilities/runtime-evidence-current.md#author-conditional-material-xray-374) |

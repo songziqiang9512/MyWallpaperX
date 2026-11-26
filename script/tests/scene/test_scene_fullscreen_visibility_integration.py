@@ -192,6 +192,24 @@ def ordered_fullscreen_named_entries(*, renamed=False, consumer_visibility=False
     return project, entries
 
 
+def fullscreen_tail_entries(*, renamed=False, **parameters):
+    project, entries = fixture_entries(**parameters)
+    scene = json.loads(entries["scene.json"])
+    root = scene["objects"][1]
+    resource, key = ("rekeyed_shade", "apply_color_tail") if renamed else ("own_dim", "tail")
+    root["effects"][0]["file"] = f"effects/{resource}/effect.json"
+    root["effects"].append({"id": 201, "file": root["effects"][0]["file"],
+                            "visible": {"user": key, "value": False}})
+    project["general"]["properties"][key] = {"type": "bool", "value": False}
+    if renamed:
+        entries["shaders/own_dim.frag"] = re.sub(rb"\bc\b", b"prior", FRAGMENT).replace(
+            b"prior.rgb*=0.5;", b"prior.rgb=prior.rgb/2.0;")
+        entries = {name.replace("own_dim", resource): data.replace(b"own_dim", resource.encode())
+                   for name, data in entries.items()}
+    entries["scene.json"] = encoded(scene)
+    return project, entries
+
+
 def file_hashes(paths):
     return {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
             for path in paths if path.is_file()}
@@ -358,28 +376,36 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
         self.assertIn(f"phase=named-target-binding layer={consumer} status=succeeded", log)
         self.assert_fullscreen_named_captures(log, consumer, [[0, 1], [1], [0, 1]])
 
-    def assert_fullscreen_named_captures(self, log, consumer, expected_stages, *, final_fallback_stage=None):
+    def capture_events(self, log, reasons):
         observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
         self.assertEqual(observations["parse_errors"], 0)
+        captures = {}
+        for reason in reasons:
+            receipt = re.search(rf"phase=snapshot reason={reason} request=(\d+) source=metal ", log)
+            self.assertIsNotNone(receipt, reason)
+            request = int(receipt[1])
+            encoding = re.search(rf"phase=snapshot-encoded request={request} commandBufferToken=(\d+) "
+                                 r"textureToken=(\d+) width=(\d+) height=(\d+)", log)
+            self.assertIsNotNone(encoding, reason)
+            matched = terminal_composition_snapshot({"status": "captured", "request_id": request,
+                "command_buffer_token": encoding[1], "texture_token": encoding[2],
+                "source_width": int(encoding[3]), "source_height": int(encoding[4])}, observations)
+            self.assertTrue(matched["composition_receipt_matched"], matched)
+            event = next(e for e in observations["events"]
+                         if e.get("captureRequestID") == request and e.get("commandBufferToken") == encoding[1])
+            self.assertEqual(event["truncatedRows"], 0)
+            captures[reason] = event
+        self.assertEqual(len({capture["surfaceIdentity"] for capture in captures.values()}), 1)
+        return captures
+
+    def assert_fullscreen_named_captures(self, log, consumer, expected_stages, *, final_fallback_stage=None):
         reasons = ("ready", "series-0002", "after") if len(expected_stages) == 3 else ("ready", "after")
         self.assertEqual(len(reasons), len(expected_stages))
-        surfaces, generations = set(), []
+        captures = self.capture_events(log, reasons)
+        generations = []
         for reason, stages in zip(reasons, expected_stages):
             with self.subTest(capture=reason):
-                receipt = re.search(rf"phase=snapshot reason={reason} request=(\d+) source=metal ", log)
-                self.assertIsNotNone(receipt)
-                request = int(receipt[1])
-                encoding = re.search(rf"phase=snapshot-encoded request={request} commandBufferToken=(\d+) "
-                                     r"textureToken=(\d+) width=(\d+) height=(\d+)", log)
-                self.assertIsNotNone(encoding)
-                matched = terminal_composition_snapshot({"status": "captured", "request_id": request,
-                    "command_buffer_token": encoding[1], "texture_token": encoding[2],
-                    "source_width": int(encoding[3]), "source_height": int(encoding[4])}, observations)
-                self.assertTrue(matched["composition_receipt_matched"], matched)
-                event = next(e for e in observations["events"]
-                             if e.get("captureRequestID") == request and e.get("commandBufferToken") == encoding[1])
-                self.assertEqual(event["truncatedRows"], 0)
-                surfaces.add(event["surfaceIdentity"])
+                event = captures[reason]
                 rows = [row for row in event["rows"] if row.get("layerID") == consumer]
                 named_reads = [row for row in rows if row.get("kind") in ("material", "terminal-material-replay")
                     and row.get("slot") == 1 and row.get("outcome") == "draw-encoded"]
@@ -397,7 +423,6 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
                     self.assertEqual([(row["kind"], row["outcome"]) for row in fallback], [("copy", "encoded")])
                     self.assertEqual(fallback[0]["source"]["textureToken"], named_reads[-1]["target"]["textureToken"])
                     self.assertEqual(fallback[0]["target"]["textureToken"], tails[-1]["source"]["textureToken"])
-        self.assertEqual(len(surfaces), 1)
         self.assertEqual(generations, sorted(set(generations)))
 
     def test_ordered_fullscreen_named_inputs_keep_both_provider_colors(self):
@@ -433,6 +458,46 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
             fixture=lambda **kwargs: ordered_fullscreen_named_entries(
                 consumer_visibility=True, forward_consumer=True, **kwargs))
         self.assert_fullscreen_named_captures(log, 22, [[], [0]], final_fallback_stage=1)
+
+    def assert_fullscreen_tail_uses_last_active_texture(self, *, renamed):
+        key = "apply_color_tail" if renamed else "tail"
+        log, _ = self.run_case(launch={"mode": "on"}, sequence=[{key: True}, {key: False}],
+            expected_backgrounds=[GRAY, (64, 64, 64), GRAY],
+            fixture=lambda **kwargs: fullscreen_tail_entries(renamed=renamed, **kwargs))
+        captures = self.capture_events(log, ("ready", "series-0002", "after"))
+        for reason, event in captures.items():
+            with self.subTest(capture=reason):
+                rows = event["rows"]
+                cohort = [row for row in rows if row.get("layerID") == 20]
+                tail_active = reason == "series-0002"
+                if not tail_active:
+                    self.assertFalse([row for row in cohort if row["kind"] == "copy"
+                                      and row.get("effectIndex") == 1], cohort)
+                capture, = (row for row in cohort if row["kind"] == "sourceCapture" and row["outcome"] == "encoded")
+                draws = [row for row in cohort if row["kind"] == "material" and row["outcome"] == "draw-encoded"]
+                self.assertEqual([(row["effectIndex"], row["slot"]) for row in draws],
+                    [(0, 0), (1, 0)] if tail_active else [(0, 0)], cohort)
+                self.assertEqual(draws[0]["source"]["textureToken"], capture["target"]["textureToken"])
+                if tail_active:
+                    self.assertEqual(draws[1]["source"]["textureToken"], draws[0]["target"]["textureToken"])
+                    self.assertEqual(draws[1]["target"]["textureToken"], capture["target"]["textureToken"])
+                output = draws[-1]["target"]["textureToken"]
+                main, = (row for row in cohort if row["kind"] == "ordinary" and row["outcome"] == "draw-encoded")
+                tail, = (row for row in cohort if row["kind"] == "tail-consume" and row["outcome"] == "terminal-consumed")
+                peer, = (row for row in rows if row.get("layerID") == 30 and row["kind"] == "ordinary")
+                seal, = (row for row in rows if row["kind"] == "frame-seal")
+                self.assertEqual(main["source"]["textureToken"], output)
+                self.assertEqual(tail["source"]["textureToken"], output)
+                self.assertEqual(main["target"]["textureToken"], seal["target"]["textureToken"])
+                self.assertEqual(peer["target"]["textureToken"], seal["target"]["textureToken"])
+                positions = [rows.index(row) for row in (capture, *draws, main, tail, peer, seal)]
+                self.assertEqual(positions, sorted(positions))
+
+    def test_inactive_fullscreen_tail_composites_the_last_active_texture(self):
+        self.assert_fullscreen_tail_uses_last_active_texture(renamed=False)
+
+    def test_rekeyed_inactive_fullscreen_tail_composites_the_last_active_texture(self):
+        self.assert_fullscreen_tail_uses_last_active_texture(renamed=True)
 
     def test_forward_fullscreen_dependency_leaves_prefix_and_later_draws_playing(self):
         base_fixture = fixture_entries

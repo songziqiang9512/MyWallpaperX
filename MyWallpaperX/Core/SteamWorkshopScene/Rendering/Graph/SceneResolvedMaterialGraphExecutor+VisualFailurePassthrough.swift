@@ -19,6 +19,7 @@ extension SceneResolvedMaterialGraphExecutor {
         sourceCommand: inout Command,
         pairContentsMatch: inout Bool,
         captureCanWriteOutput: Bool,
+        canReuseTerminalInput: Bool,
         effectLocalFailureReasonCode: inout String?,
         effectLocalActivationBypassReasonCode: inout String?
     ) -> Failure? {
@@ -49,14 +50,16 @@ extension SceneResolvedMaterialGraphExecutor {
         pair = snapshot.pair
         pairContentsMatch = isActivation && pairContentsMatch
 
+        let outputMember = isActivation && canReuseTerminalInput && !pairContentsMatch
+            ? pair.member : pairStep.outputMember
         let publication: SceneFrameTextureResource
-        if pairStep.inputMember == pairStep.outputMember {
+        if pair.member == outputMember {
             guard let value = pair.resource.rewrappedForGraphIdentity(
                 pairStep.outputIdentity
             ) else { return rejection }
             publication = value
         } else {
-            let target = pairTexture(lease: lease, member: pairStep.outputMember)
+            let target = pairTexture(lease: lease, member: outputMember)
             // This bypass has no reader of the entry member before publication.
             if isActivation, captureCanWriteOutput, case let .resource(capture) = sourceCommand,
                let redirected = capture.retargetingPlainSourceCapture(toEquivalentTarget: target) {
@@ -72,7 +75,7 @@ extension SceneResolvedMaterialGraphExecutor {
                   let value = pairResource(
                       lease: lease,
                       identity: pairStep.outputIdentity,
-                      member: pairStep.outputMember,
+                      member: outputMember,
                       generation: generation,
                       representation: pair.representation
                   ) else { return rejection }
@@ -80,7 +83,7 @@ extension SceneResolvedMaterialGraphExecutor {
         }
         publications[pairStep.outputIdentity] = publication
         pair = .init(
-            member: pairStep.outputMember,
+            member: outputMember,
             resource: publication,
             representation: pair.representation
         )
