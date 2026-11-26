@@ -13,8 +13,7 @@
 
 | 样本 | 本轮反馈 | 复验起点 |
 |---|---|---|
-| 3394601417 | 中间飞机图标疑似异常，缺上下运动 | [同包官版序列与本机帧](../capabilities/runtime-evidence-current.md#author-aircraft-timeline-input)确认官版先起飞再悬停。本机 257 的脚本位置停在首采样，356 的悬停轨仍推进。修正绑定回调读取当前轨道的入口，核同帧 getter、真正 setter 与暂停。 |
-| 3042492564 | 人物缺上下动作，切「人物动作(动画)」后左人掉下 | 核实际属性键、开↔关两方向的父层位置与骨姿态。旧 329 头部、点击和派生媒体属于其他观察。 |
+| 3042492564 | 切「人物动作(动画)」后左人掉下 | [原包默认动作已恢复](../capabilities/runtime-evidence-current.md#author-aircraft-timeline-input)并核两个人物位置进入主图。继续核实际属性键、开↔关两方向的父层位置与骨姿态，以及官版重载前后。 |
 | 3750813609 | 时钟的白光混入黑色，官版为白光 | 原钟层 358 有 Blur 与 Clouds。固定同一字形和底图，逐步隔离文字覆盖、模糊与末端混合。 |
 | 3603711180 | 歌曲文字位置错 | [标题、艺人、时间和封面供给](../capabilities/runtime-evidence-current.md#author-player-text-current-360)有同输入对照。以同媒体、字体和画幅比较首行与次行的盒位置。 |
 | 3781003282 | 指针粒子移到浅色区时中央有半透明白方 | [旧红尾随鼠标](../capabilities/runtime-evidence-current.md#pointer-halo-378)。在浅、深背景重复同一路径，检查中央 Sprite 的覆盖与混合。 |

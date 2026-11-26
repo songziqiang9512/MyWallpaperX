@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 374220
+      "bytes": 374983
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -145,8 +145,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 228,
-      "bytes": 42605
+      "lines": 230,
+      "bytes": 43379
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 120,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 64,
-      "bytes": 8952
+      "lines": 63,
+      "bytes": 8671
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -451,11 +451,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "92d33df161f754b65e4878ecc1770cf2c241ab5939611b7cdb1f48f2d0751032",
-      "after": "bdd3c5b35a039c3b3fa2094f5b04c6865d98d3d4ce705b583bd99cd715328af7",
-      "owner": "Scene",
-      "reason": "记录正常错型返回的作者图层写入以及原 ABI 账本边界。",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#contract"
+      "before": "bdd3c5b35a039c3b3fa2094f5b04c6865d98d3d4ce705b583bd99cd715328af7",
+      "after": "61cf3c805a2ce775ecdabd3dc4e093d36a025fb679322be83cc24e41af8f0388",
+      "owner": "Scene Timeline and SceneScript",
+      "reason": "登记实际绑定的变换回调输入优先级、官版三卡和原包恢复证据。",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#timeline-transform-callback-input"
     },
     {
       "section": "bodies",
@@ -577,10 +577,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0fc1403ea0cc053a9dd03d2ef0ff6128dd54da02f4c0975582c27af94169b19a",
-      "after": "a3607f70918c8ddff58a6d3430146d052fc760c60bbbe2a459c1410f4e11458a",
-      "owner": "Scene Timeline and SceneScript evidence",
-      "reason": "登记飞机同包官版与本机的动画输入断点和回调控制。",
+      "before": "a3607f70918c8ddff58a6d3430146d052fc760c60bbbe2a459c1410f4e11458a",
+      "after": "c9b8c0ccf8be8ce8f06af639e76b3cb6ab9be989e8c159235d24fbe9b216a0af",
+      "owner": "Scene Timeline and SceneScript",
+      "reason": "登记实际绑定的变换回调输入优先级、官版三卡和原包恢复证据。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-aircraft-timeline-input"
     },
     {

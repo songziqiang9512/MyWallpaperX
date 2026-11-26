@@ -255,22 +255,25 @@ extension SceneDesktopWallpaperSession {
         let frameUserValues = launchContext.sceneScriptDynamicLayerRuntime
             .projectPreparedTextUserValues(from: launchContext.liveState.userValues,
                 previousValue: evaluationTransaction.previousValue(for:))
-        let sceneScriptStatefulTargets = launchContext.sceneScriptStatefulTargets
-        let previousSceneScriptValues = evaluationTransaction
-            .previousValues(for: sceneScriptStatefulTargets,
+        var commonSceneScriptValues = evaluationTransaction
+            .previousValues(for: launchContext.sceneScriptStatefulTargets,
                 userValues: frameUserValues, timelineValues: timelineValues)
-        var commonSceneScriptValues = previousSceneScriptValues
-        commonSceneScriptValues.merge(
-            layerMutationSnapshot.authoredLayerValues
-        ) { _, committedMutation in committedMutation }
-        let boundedSceneScriptValues = commonSceneScriptValues
+        let vectorInputTargets = launchContext.propertyVectorScriptProgram.inputTargets
+        for (target, committedMutation) in layerMutationSnapshot.authoredLayerValues {
+            // A transform callback's previous return also lives in the layer
+            // journal. Its current timeline sample must seed the next callback.
+            if timelineValues[target] != nil, vectorInputTargets.contains(target),
+               case let .layer(_, field) = target,
+               field == .origin || field == .scale || field == .angles { continue }
+            commonSceneScriptValues[target] = committedMutation
+        }
         let preliminarySceneScriptResolution = SceneDynamicSnapshotResolver().resolve(
             frameIndex: timing.frameIndex,
             generation: 0,
             index: definitionIndex,
             userValues: frameUserValues,
             timelineValues: timelineValues,
-            sceneScriptValues: boundedSceneScriptValues
+            sceneScriptValues: commonSceneScriptValues
         )
         let preliminaryForSceneScript = preliminarySceneScriptResolution.snapshot
         // Only the already committed topology may create surface geometry. This
@@ -415,7 +418,7 @@ extension SceneDesktopWallpaperSession {
         }
         let projectedSceneScriptVectorInputs = preliminaryForSceneScript
             .typedValues(
-                for: launchContext.propertyVectorScriptProgram.inputTargets,
+                for: vectorInputTargets,
                 valueTypes:
                     launchContext.propertyVectorScriptProgram.inputValueTypes
             )
