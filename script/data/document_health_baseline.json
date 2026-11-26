@@ -86,7 +86,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 259,
-      "bytes": 48304
+      "bytes": 48386
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 364437
+      "bytes": 365347
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 240,
-      "bytes": 68788
+      "bytes": 68701
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -478,11 +478,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "41638a6833e265b374af91cb9c3b3b6af536fd4dbb53a9d51b153e248929ea7c",
-      "after": "a51c46e0c1cf55f289a4372b0c362d7e141e9c63f0ce89420e17d19e2c5c6e42",
-      "owner": "Scene particle Surface preparation",
-      "reason": "说明增量 Surface 的 Scene 采样时刻及固定步预热边界。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#display-reconciliation"
+      "before": "f4f04f851943817a76e0fe7075bf0003dbed30e6668a4795e412f22bbca6633d",
+      "after": "ff75624f65dbcf7a1a7e401835c3d2ea4c20750cd0cb90b836b571f8351e3bbe",
+      "owner": "Scene",
+      "reason": "记录官版正弦重映射和帧时钟，收窄本机执行计划待办。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#particle-scalar-remap"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7d4423b606f35ebf98a210c94298df1aa50d9a2fddeac3ef61a3fcb3c3bd665a",
-      "after": "36959a83098a66c2e294ff8b221cb0fb5a8919c290d84f8388601cbe7fbd1158",
+      "before": "36959a83098a66c2e294ff8b221cb0fb5a8919c290d84f8388601cbe7fbd1158",
+      "after": "d525c2e288e5c4ff81d33641e1341f674fcbe3a9f971f17c0d6cd12916cf7cb2",
       "owner": "Scene",
-      "reason": "Record measured natural birth age, runtime evidence and resolved feedback scope.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ember-birth-lifetime-376"
+      "reason": "记录官版正弦重映射和帧时钟，收窄本机执行计划待办。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-remap-sine-clock"
     },
     {
       "section": "bodies",
