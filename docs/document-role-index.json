@@ -192,9 +192,9 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3e08e0f7d4344f7655549dd7818512856efe3db623a785e32c32dee6d460d67e",
+        "sourceSHA256": "2439f23ba343b682d11e2e1b9789be2818e25d71463fafaa14d13d568cecc58c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对实际阴影规格、有效的受光绑定、逐屏完成回执和原启动事务。",
+        "scope": "核对用户请求、实际档反馈与独立画质设置在冷池压力下的画面合同。",
         "limitations": "画面和持续呈现的证据边界见现役工作卡。"
       }
     },
@@ -378,9 +378,9 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "24067f7c2484df14818470d7782b88dcc9e8852afec9494a7b45fed22dee9a6d",
+        "sourceSHA256": "883ebc1162d52cbc375b5c414fca19f3700587f4236c17c8a87d8247848579ba",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对候选点光档位的实际读数、冷资源顺序和未完成的验收。",
+        "scope": "核对实际 caster、终端容量、前向供货与原有绘制时序。",
         "limitations": "画面和持续呈现的证据边界见现役工作卡。"
       }
     },
@@ -392,9 +392,9 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7e996f7d0aea6c18a25c904c00d8b18f3171ad05fd1a2ec081c415aa90f20ef0",
+        "sourceSHA256": "ae28ecfee0f45660a44cff8c3fe8da66c5d67014d04172bbf68288a7a8b75ecb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对候选点光档位的实际读数、冷资源顺序和未完成的验收。",
+        "scope": "核对签名 M4 场景的同帧 MSAA、点光、体积证据与剩余交付门。",
         "limitations": "画面和持续呈现的证据边界见现役工作卡。"
       }
     },
