@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 155638
+      "bytes": 156325
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 139516
+      "bytes": 139594
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -138,7 +138,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 333844
+      "bytes": 335622
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -603,10 +603,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "607f850735cd4c18a5298be6be91176f1e191750d36358b927d9d6a2243f6b41",
-      "after": "1e1f92172d998b29fbc678cd6df50d0c676d2097f7a2b1c558b6e1797865ba7d",
+      "before": "1e1f92172d998b29fbc678cd6df50d0c676d2097f7a2b1c558b6e1797865ba7d",
+      "after": "766c3f515299ff242434214b92fc36dd8c8c58b5bcbb46c8d81bcc48a2aeebe3",
       "owner": "scene-runtime",
-      "reason": "原生体积准入、D32 斜挡、亮底与现役显示映射",
+      "reason": "签名 BGRA8 同帧、窗口及冻结主附件计时",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-segment-mean"
     },
     {
@@ -675,10 +675,10 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "777549f76e92b8f15e0feadb08541158d52fa934af39af3603d1893f4499871f",
-      "after": "3e7fe4d6f188f5d1f337084fa938f23852b21317d24159218dd5efc81ba6bf76",
+      "before": "3e7fe4d6f188f5d1f337084fa938f23852b21317d24159218dd5efc81ba6bf76",
+      "after": "2090f552ccfa56056781dd90105a8de370c5e40cbff01cabc8c86df5c3da4020",
       "owner": "scene-runtime",
-      "reason": "体积 EDR 舍入反例与原三角形候选",
+      "reason": "直接 SDR 同帧签名资格与实窗交错验收",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-segment-mean"
     },
     {
@@ -702,10 +702,10 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "daa3a48d59e42543c74ba16cbcfb35f00ab18f348cb2faa72cc6b9ba7bb19b36",
-      "after": "082535aa9fad8496236b1c8508a9c561e9dc5131c4afeb17355ec4c019eb8eec",
+      "before": "55b4cc754493ffec003544eac1bcfe52be633e6ed0304d444582d3c2493323b6",
+      "after": "f8b222abffa86a80926fb22b0fa5d19644ef4adb915bdbd899075f6b436d1684",
       "owner": "scene-runtime",
-      "reason": "体积双步长和薄遮挡验证后的准入顺序",
+      "reason": "体积双步长签名画面及帧成本下一顺序",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-segment-mean"
     },
     {

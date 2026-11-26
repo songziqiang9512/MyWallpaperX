@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "67259912bdbe56db19cc5a2840880e6490978baf1498deb70ac82de860a8c928",
+        "sourceSHA256": "b08c4e207895d95cf39cf0760a6f0d42b5ddad00d600951045bff3659b21d074",
         "method": "document_registry --audit + document_health --check",
-        "scope": "体积 EDR 舍入反例与原三角形候选",
-        "limitations": "尚未进入签名整帧或发布。"
+        "scope": "直接 SDR 同帧签名资格与实窗交错验收",
+        "limitations": "单灯路径已经试验，设备矩阵和公开档位尚未获证。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8d1bc8f34ed1deb47e4a6fbfae91d42809e91cdaba43a875921e2102adb82b20",
+        "sourceSHA256": "19ddc7bfe4ae0bba6bfa5f0d0cd3857cff9af9312cc2c18c22ccfdf3c4f7ee39",
         "method": "document_registry --audit + document_health --check",
-        "scope": "直接 SDR 与 HDR 候选的实际放行顺序",
-        "limitations": "只复核本批体积实施段。"
+        "scope": "体积双步长签名画面及帧成本下一顺序",
+        "limitations": "只复核体积档的实际实施段。"
       }
     },
     {
@@ -1003,10 +1003,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "38333f6382cab59127d79030deb8271375094a95a6b831a8a94adfc3e88c29a4",
+        "sourceSHA256": "7f59ac2e6a7e3ecf28589cabf8fa85bc89447b71a224978199f32f82c43c61da",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原生体积准入、D32 斜挡、亮底与现役显示映射",
-        "limitations": "隔离目标，Bloom、持续 raw、整帧和实体 EDR 未验证。"
+        "scope": "签名 BGRA8 同帧、窗口及冻结主附件计时",
+        "limitations": "未证整帧提速、独立宽灯、HDR 或逐刷新呈现。"
       }
     },
     {
