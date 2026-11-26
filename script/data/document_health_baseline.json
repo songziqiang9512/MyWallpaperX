@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 573,
-      "bytes": 145261
+      "bytes": 146034
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 137704
+      "bytes": 137683
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "c0f770e66cff54ab88ed34f8b21d03999fa6f722df02c2660b334aa90d04e686",
-      "after": "394acc98cfb27cbea55018e5b06b3b5d7e7d7ab3d5b7750baf93ad3dfc07b0f4",
+      "before": "394acc98cfb27cbea55018e5b06b3b5d7e7d7ab3d5b7750baf93ad3dfc07b0f4",
+      "after": "572d526a383b3b84f36d976daf3c364b852d540b27d837718a254b5cf2577409",
       "owner": "scene-runtime",
-      "reason": "阴影实际作者画面与官版反射开启资格",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-shadow-steady-author"
+      "reason": "官版反射第三版色板开启像素",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-reflection-targets"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "fb724abd089eb92803021d330df992eb5250e3a4f140b52f9992eb247918f39f",
-      "after": "4a8bb9a807381864b5fd6af99cc20bc14a1a1e5ac90f9c55281ad72e88bbc5e4",
+      "before": "4a8bb9a807381864b5fd6af99cc20bc14a1a1e5ac90f9c55281ad72e88bbc5e4",
+      "after": "9cef895f674ee9b68dc8136ed75e4f8cea1bdfcd2bccb2ed6a84293d110ae601",
       "owner": "scene-runtime",
-      "reason": "阴影持续呈现与官版反射执行路线",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-shadow-steady-author"
+      "reason": "官版反射正控和待验步骤",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#official-reflection-targets"
     },
     {
       "section": "bodies",

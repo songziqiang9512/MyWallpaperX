@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8c23d010349adf5fa3afdd94498df775943e622fad51a1a98649f3fda761ef14",
+        "sourceSHA256": "118c12a2e32fa87d1e45c8e72bf45d2e8cc5110ad7de5254695e3fadd64f9574",
         "method": "document_registry --audit + document_health --check",
-        "scope": "阴影实际作者画面与官版反射开启资格",
-        "limitations": "长窗与官版全局切换待测。"
+        "scope": "官版反射第三版色板开启像素",
+        "limitations": "全局切换、历史帧序和物理 mip 层数待测。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3142466568a014e5ee39204d6071d7aee90d54457813d5f04d2425f7b7a3d682",
+        "sourceSHA256": "69eb9b745dfbfdf5343e41150508103c2d3baa05c9d169cf42e2f56eba290bae",
         "method": "document_registry --audit + document_health --check",
-        "scope": "阴影持续呈现与官版反射执行路线",
-        "limitations": "只复核本轮两处工作卡。"
+        "scope": "官版反射正控和待验步骤",
+        "limitations": "只复核现役反射任务一段。"
       }
     },
     {
