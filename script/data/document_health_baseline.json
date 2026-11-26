@@ -121,8 +121,8 @@
       "bytes": 7411
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 405,
-      "bytes": 77110
+      "lines": 412,
+      "bytes": 77952
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 467,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 363597
+      "bytes": 364437
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 240,
-      "bytes": 68731
+      "bytes": 68788
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "d4b58141e018092847e38671bd4fc9cd7607e1a7ba1cc3ffbd3590bb3ac331eb",
-      "after": "78c3979618d14c77126f3cd8da09b70bf4ae8490a913e527cacaf2effa9b5517",
+      "before": "78c3979618d14c77126f3cd8da09b70bf4ae8490a913e527cacaf2effa9b5517",
+      "after": "08908b3584525cadb07642a3ebd923f3bd08c2dc31777c869fabcbc4fd9d8c41",
       "owner": "Scene",
-      "reason": "保留已证普通折射颜色、实际目标的预乘存储和反例",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#particle-refraction-normal-blend"
+      "reason": "Record measured natural birth age, runtime evidence and resolved feedback scope.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#natural-birth-lifetime"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "cf5f449de88ffa6216c872d469eb3e6feb890cff849d3eddf2dae57f2feabf8f",
-      "after": "7d4423b606f35ebf98a210c94298df1aa50d9a2fddeac3ef61a3fcb3c3bd665a",
+      "before": "7d4423b606f35ebf98a210c94298df1aa50d9a2fddeac3ef61a3fcb3c3bd665a",
+      "after": "36959a83098a66c2e294ff8b221cb0fb5a8919c290d84f8388601cbe7fbd1158",
       "owner": "Scene",
-      "reason": "登记移动轨迹同相位实绘与随rate变化的两条曲线偏差。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ember-mature-curve-phase-376"
+      "reason": "Record measured natural birth age, runtime evidence and resolved feedback scope.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ember-birth-lifetime-376"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "304da9cb3294b9e68cdaeacda8316000386f88a6fe5a098509fed22973704363",
-      "after": "5339c64a3d619efb0a6c119d16a2e589b4f1354da423056c8b1e7887d329cacb",
+      "before": "5339c64a3d619efb0a6c119d16a2e589b4f1354da423056c8b1e7887d329cacb",
+      "after": "45d1d547111aaba881b769f454e84c6b2e4a13d15a310205eceef1be21acda93",
       "owner": "Scene",
-      "reason": "将成熟亮段待查范围收窄到真实动画取值阶段。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "reason": "Record measured natural birth age, runtime evidence and resolved feedback scope.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#resolved-user-feedback"
     },
     {
       "section": "bodies",

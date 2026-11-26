@@ -493,6 +493,8 @@ enum Harness {
         let firstDeathCount = dying.consumeDeathEvents().count
         dying.advance(by: 0.1)
         let secondDeathCount = dying.consumeDeathEvents().count
+        dying.advance(by: 0.1)
+        let thirdDeathCount = dying.consumeDeathEvents().count
         let overflow = SceneParticleSimulator(definition: definition(), fixedTimeStep: 2)
         overflow.advance(by: 2, dynamicInstanceOverride: modifier(Double.greatestFiniteMagnitude))
         let finiteStepOverflow = SceneParticleSimulator(definition: definition(), fixedTimeStep: 1.0 / 60)
@@ -531,6 +533,7 @@ enum Harness {
             "equivalentWarm": signature(equivalent), "delayCount": delayCount,
             "clippedCount": clippedCount, "totalBirths": totalBirths,
             "firstDeathCount": firstDeathCount, "secondDeathCount": secondDeathCount,
+            "thirdDeathCount": thirdDeathCount,
             "overflowTime": overflow.simulationTime, "overflowCount": overflow.particles.count,
             "overflowDiagnostics": overflow.diagnostics.map { $0.kind.rawValue },
             "finiteStepRejectedTime": rejectedTime,
@@ -618,7 +621,8 @@ enum Harness {
                 let expected = simulation.particles
                 let count = simulation.diagnostics.filter { $0.kind == .invalidOperatorState }.count
                 let peer = simulation.particles[1]
-                let siblingSafe = peer.position == .zero && peer.rotation == .zero && peer.age > 6
+                let siblingSafe = peer.position == .zero && peer.rotation == .zero
+                    && peer.age == original.particles[1].age + 6
                 let downstream = simulation.particles.allSatisfy { abs($0.alpha - 0.5) < 1e-12 }
                 simulation.restoreFrame(original)
                 let restoredDiagnostics = !simulation.diagnostics.contains { $0.kind == .invalidOperatorState }
@@ -1028,6 +1032,8 @@ enum Harness {
 
         var death = simulator(deathJSON, seed: 1, step: 0.1)
         death.advance(by: 0.2)
+        let deathEventsBeforeExpiry = death.consumeDeathEvents().count
+        death.advance(by: 0.1)
         let deathEvents = death.consumeDeathEvents()
 
         var burst = simulator(durationJSON, seed: 1, step: 0.1)
@@ -1073,7 +1079,7 @@ enum Harness {
         var movement = simulator(movementJSON, seed: 1, step: 0.25)
         movement.advance(by: 0.5)
         let movementPosition = movement.particles[0].position
-        movement.advance(by: 1.25)
+        movement.advance(by: 1.5)
         let scaledWorld = simd_float4x4(
             SIMD4(2, 0, 0, 0),
             SIMD4(0, 4, 0, 0),
@@ -1332,6 +1338,7 @@ enum Harness {
             seed: 1,
             step: 1
         )
+        pointerLifetimeBlend.advance(by: 1)
         pointerLifetimeBlend.advance(by: 1, dynamicControlPoints: [1: SIMD3(10, 0, 0)])
         let pointerDefinition = SceneParticleDefinitionParser().parse(
             root: try! object(controlPointForceJSON(scale: "2", threshold: "20"))
@@ -1419,13 +1426,15 @@ enum Harness {
 
         var operators = simulator(operatorJSON, seed: 1, step: 0.25)
         operators.advance(by: 0.25)
+        let operatorBirth = operators.particles[0]
+        operators.advance(by: 0.25)
         let operatorParticle = operators.particles[0]
         var lifetimeOscillation = simulator(
             lifetimeOscillationJSON,
             seed: 1,
             step: 1
         )
-        lifetimeOscillation.advance(by: 1)
+        lifetimeOscillation.advance(by: 2)
         let quarterLifeOscillationAlpha = lifetimeOscillation.particles[0].alpha
         lifetimeOscillation.advance(by: 1)
         let halfLifeOscillationAlpha = lifetimeOscillation.particles[0].alpha
@@ -1435,7 +1444,7 @@ enum Harness {
             seed: 1,
             step: 1.0 / 60.0
         )
-        fineLifetimeOscillation.advance(by: 2)
+        fineLifetimeOscillation.advance(by: 2 + fineLifetimeOscillation.fixedTimeStep)
         let fineHalfLifeOscillationAlpha = fineLifetimeOscillation.particles[0].alpha
         let fineHalfLifeOscillationSize = fineLifetimeOscillation.particles[0].size
         var positionOscillation = simulator(
@@ -1443,7 +1452,7 @@ enum Harness {
             seed: 1,
             step: 1
         )
-        positionOscillation.advance(by: 2)
+        positionOscillation.advance(by: 3)
         let quarterLifeOscillationPosition = positionOscillation.particles[0].position
         positionOscillation.advance(by: 2)
         let halfLifeOscillationPosition = positionOscillation.particles[0].position
@@ -1452,7 +1461,7 @@ enum Harness {
             seed: 1,
             step: 1.0 / 60.0
         )
-        finePositionOscillation.advance(by: 4)
+        finePositionOscillation.advance(by: 4 + finePositionOscillation.fixedTimeStep)
         let fineHalfLifeOscillationPosition =
             finePositionOscillation.particles[0].position
         var longPositionOscillation = simulator(
@@ -1460,7 +1469,7 @@ enum Harness {
             seed: 1,
             step: 1
         )
-        longPositionOscillation.advance(by: 4)
+        longPositionOscillation.advance(by: 5)
         let longQuarterLifeOscillationPosition =
             longPositionOscillation.particles[0].position
 
@@ -1998,6 +2007,8 @@ enum Harness {
 
         var vortex = simulator(vortexJSON(), seed: 81, step: 1)
         vortex.advance(by: 1)
+        var vortexUnpartitioned = simulator(vortexJSON(), seed: 81, step: 0.25)
+        vortexUnpartitioned.advance(by: 1)
         var vortexPartitioned = simulator(vortexJSON(), seed: 81, step: 0.25)
         vortexPartitioned.advance(by: 0.5)
         vortexPartitioned.advance(by: 0.5)
@@ -2051,6 +2062,8 @@ enum Harness {
 
         var capVelocity = simulator(capVelocityJSON(), seed: 91, step: 1)
         capVelocity.advance(by: 1)
+        var capVelocityUnpartitioned = simulator(capVelocityJSON(), seed: 91, step: 0.25)
+        capVelocityUnpartitioned.advance(by: 1)
         var capVelocityPartitioned = simulator(capVelocityJSON(), seed: 91, step: 0.25)
         capVelocityPartitioned.advance(by: 0.5)
         capVelocityPartitioned.advance(by: 0.5)
@@ -2067,7 +2080,7 @@ enum Harness {
             seed: 91,
             step: 1
         )
-        blendedCapVelocity.advance(by: 1)
+        blendedCapVelocity.advance(by: 2)
         let capVelocityBlendStart = blendedCapVelocity.particles[0].velocity
         blendedCapVelocity.advance(by: 1)
         let capVelocityBlendMiddle = blendedCapVelocity.particles[0].velocity
@@ -2236,6 +2249,7 @@ enum Harness {
             "prewarmInitialHalfRateCount": prewarmedAtInitialHalfRate.particles.count,
             "prewarmTime": prewarmed.simulationTime,
             "prewarmBirthEvents": prewarmed.birthEvents.count,
+            "deathEventsBeforeExpiry": deathEventsBeforeExpiry,
             "deathEventCount": deathEvents.count,
             "deathEventPosition": deathEvents.first.map { vector($0.position) } ?? [],
             "deathEventsDrain": death.consumeDeathEvents().isEmpty,
@@ -2404,6 +2418,9 @@ enum Harness {
             "liveFallbackAlpha": fallbackParticle.alpha,
             "liveFallbackSize": fallbackParticle.size,
             "liveFallbackColor": vector(fallbackParticle.color),
+            "operatorBirthAppearance": [operatorBirth.alpha, operatorBirth.size,
+                operatorBirth.color.x, operatorBirth.color.y, operatorBirth.color.z],
+            "operatorBirthRotation": vector(operatorBirth.rotation),
             "operatorAlpha": operatorParticle.alpha,
             "operatorSize": operatorParticle.size,
             "operatorColor": vector(operatorParticle.color),
@@ -2586,7 +2603,8 @@ enum Harness {
             "overflowTurbulenceVelocity": vector(overflowTurbulence.particles[0].velocity),
             "vortexVelocity": vector(vortex.particles[0].velocity),
             "vortexDiagnostics": vortex.diagnostics.map(\.kind.rawValue),
-            "vortexPartitioned": vortex.particles == vortexPartitioned.particles,
+            "vortexPartitioned": vortexUnpartitioned.particles == vortexPartitioned.particles
+                && vortex.particles[0].velocity == vortexPartitioned.particles[0].velocity,
             "reverseVortexVelocity": vector(reverseVortex.particles[0].velocity),
             "yAxisVortexVelocity": vector(yAxisVortex.particles[0].velocity),
             "infiniteAxisVortexVelocity": vector(infiniteAxisVortex.particles[0].velocity),
@@ -2602,8 +2620,8 @@ enum Harness {
             "vortexV2Diagnostics": vortexV2.diagnostics.map(\.kind.rawValue),
             "capVelocity": vector(capVelocity.particles[0].velocity),
             "capVelocityDiagnostics": capVelocity.diagnostics.map(\.kind.rawValue),
-            "capVelocityPartitioned":
-                capVelocity.particles == capVelocityPartitioned.particles,
+            "capVelocityPartitioned": capVelocityUnpartitioned.particles == capVelocityPartitioned.particles
+                && capVelocity.particles[0].velocity == capVelocityPartitioned.particles[0].velocity,
             "zeroCapVelocity": vector(zeroCapVelocity.particles[0].velocity),
             "underCapVelocity": vector(underCapVelocity.particles[0].velocity),
             "capVelocityBlendStart": vector(capVelocityBlendStart),
@@ -3549,7 +3567,8 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(result["clippedCount"], 4)
         self.assertEqual(result["totalBirths"], 4)
         self.assertEqual(result["firstDeathCount"], 0)
-        self.assertEqual(result["secondDeathCount"], 1)
+        self.assertEqual(result["secondDeathCount"], 0)
+        self.assertEqual(result["thirdDeathCount"], 1)
         self.assertEqual(result["overflowTime"], 0)
         self.assertEqual(result["overflowCount"], 0)
         self.assertIn("invalidSimulationTime", result["overflowDiagnostics"])
@@ -3714,8 +3733,11 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["prewarmBirthEvents"], 0)
 
     def test_death_events_capture_final_state_before_removal(self) -> None:
+        self.assertEqual(self.results["deathEventsBeforeExpiry"], 0)
         self.assertEqual(self.results["deathEventCount"], 1)
-        self.assertEqual(self.results["deathEventPosition"], [0.4, 0, 0])
+        x, y, z = self.results["deathEventPosition"]
+        self.assertAlmostEqual(x, 0.6)
+        self.assertEqual((y, z), (0, 0))
         self.assertTrue(self.results["deathEventsDrain"])
         self.assertEqual(self.results["deathParticles"], 0)
 
@@ -4028,10 +4050,12 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         )
 
     def test_change_angular_and_oscillation_operators_execute(self) -> None:
+        self.assertEqual(self.results["operatorBirthAppearance"], [0.5, 4, 1, 1, 1])
+        self.assertEqual(self.results["operatorBirthRotation"], [0, 0, 0.25])
         self.assertAlmostEqual(self.results["operatorAlpha"], 0.49375)
         self.assertAlmostEqual(self.results["operatorSize"], 4.1)
         self.assertEqual(self.results["operatorColor"], [0.975, 0.9875, 1])
-        self.assertEqual(self.results["operatorRotation"], [0, 0, 0.25])
+        self.assertEqual(self.results["operatorRotation"], [0, 0, 0.5])
         self.assertLess(self.results["operatorPosition"][0], 0)
         self.assertAlmostEqual(self.results["quarterLifeOscillationAlpha"], 0.2)
         half_alpha = self.results["halfLifeOscillationAlpha"]

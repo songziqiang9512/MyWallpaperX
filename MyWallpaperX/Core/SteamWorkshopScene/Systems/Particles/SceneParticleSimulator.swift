@@ -581,7 +581,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                 if resetsAlpha { buffer[index].alpha = buffer[index].initialAlpha }
                 if resetsSize { buffer[index].size = buffer[index].initialSize }
                 if resetsColor { buffer[index].color = buffer[index].initialColor }
-                buffer[index].age += duration
+                // Newborns can move on their birth step while remaining at age zero.
+                if buffer[index].id < existingParticleIDUpperBound {
+                    buffer[index].age += duration
+                }
                 normalizedLives.append(min(max(
                     buffer[index].age / max(buffer[index].lifetime, 1e-12), 0
                 ), 1))

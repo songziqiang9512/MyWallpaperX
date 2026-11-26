@@ -218,7 +218,8 @@ class SceneParticleTurbulenceMaskTests(unittest.TestCase):
             with self.subTest(mask=key):
                 current = self.result[key]["final"]
                 self.assertNotAlmostEqual(current["velocities"][0][0], unit["velocities"][0][0] * factor)
-                self.assertEqual(current["ages"], [1])
+                self.assertEqual(self.result[key]["first"]["ages"], [0])
+                self.assertEqual(current["ages"], [1 - .125])
                 self.assertEqual(current["time"], 1)
 
     def test_seed_phase_particle_identity_and_authored_operator_order_are_preserved(self):

@@ -229,16 +229,13 @@ import simd
             ["name": "velocityrandom", "min": "64 0 0", "max": "64 0 0"]]
         let tail = make(partial, budget: nil, history: 8)
         var cold = partial; cold.removeValue(forKey: "starttime")
-        let plain = SceneParticleSimulator(definition: parser.parse(root: cold),
-            instanceOverride: parser.parseInstanceOverride(["rate": 1]), seed: 73,
-            fixedTimeStep: 1.0 / 128,
-            stepSnapshotPolicies: [SceneParticleStepSnapshotPolicy(interval: step * 4, maximumSnapshots: 8)!])
-        // The finer live step reaches the fractional endpoint while retaining
-        // the same history interval as this constant-velocity prewarm control.
-        for _ in 0..<16_385 {
-            plain.advance(by: 1.0 / 128)
+        let plain = make(cold, history: 8)
+        // Match the birth slice, then use the live rate for the fractional tail.
+        for _ in 0..<4096 {
+            plain.advance(by: step)
             _ = plain.consumeBirthEvents(); _ = plain.consumeDeathEvents()
         }
+        plain.advance(by: step, dynamicInstanceOverride: parser.parseInstanceOverride(["rate": 0.25]))
         plain.advance(by: 0)
         let samePlainState = sameObservableState(tail, plain)
         let retainedHistory = tail.consumeStepSnapshots().values.flatMap { $0 }
@@ -294,6 +291,48 @@ import simd
          "color": [particle.color.x, particle.color.y, particle.color.z],
          "initialColor": [particle.initialColor.x, particle.initialColor.y, particle.initialColor.z],
          "alpha": particle.alpha, "initialAlpha": particle.initialAlpha, "age": particle.age]
+    }
+
+    static func birthStep() -> [String: Any] {
+        let lifetime = step * 2.5
+        var root = source(capacity: 2, start: 0, rate: 0, lifetime: lifetime, operators: [
+            ["name": "movement", "gravity": "0 0 0"],
+            ["name": "sizechange", "starttime": 0, "endtime": 1, "startvalue": 2, "endvalue": 0],
+            ["name": "alphachange", "starttime": 0, "endtime": 1, "startvalue": 0.5, "endvalue": 0],
+        ])
+        root["emitter"] = [0, step * 1.5].enumerated().map { index, delay in
+            ["id": 11 + index, "name": "boxrandom", "rate": 0, "instantaneous": 1,
+             "delay": delay, "distancemin": "0 0 0", "distancemax": "0 0 0"] as [String: Any]
+        }
+        root["initializer"] = [
+            ["name": "lifetimerandom", "min": lifetime, "max": lifetime],
+            ["name": "velocityrandom", "min": "32 0 0", "max": "32 0 0"],
+            ["name": "sizerandom", "min": 10, "max": 10],
+            ["name": "alpharandom", "min": 0.625, "max": 0.625],
+        ] as [[String: Any]]
+
+        func sample(_ particle: SceneParticleState) -> [String: Any] {
+            ["id": particle.id, "age": particle.age, "x": particle.position.x,
+             "size": particle.size, "alpha": particle.alpha]
+        }
+        func frame(_ simulator: SceneParticleSimulator) -> [String: Any] {
+            ["particles": simulator.renderParticlesForCurrentAdvance().map(sample),
+             "births": simulator.consumeBirthEvents().map(\.id),
+             "deaths": simulator.consumeDeathEvents().map(sample)]
+        }
+
+        let live = make(root)
+        var frames: [[String: Any]] = []
+        for _ in 0..<5 {
+            live.advance(by: step)
+            frames.append(frame(live))
+        }
+
+        root["starttime"] = step
+        let warm = make(root)
+        let prepared = frame(warm)
+        warm.advance(by: step)
+        return ["live": frames, "prewarm": prepared, "handoff": frame(warm)]
     }
 
     static func fieldWriterBaselines() -> [String: Any] {
@@ -426,7 +465,7 @@ import simd
                 simulator.particles[index].size = Double(index + 1)
             }
             for index in expired {
-                simulator.particles[index].lifetime = step * 4
+                simulator.particles[index].lifetime = simulator.particles[index].age + step
             }
 
             let retained = simulator.frameSnapshot()
@@ -460,7 +499,7 @@ import simd
             simulator.advance(by: step * 3)
             _ = simulator.consumeBirthEvents()
             for index in expired {
-                simulator.particles[index].lifetime = step * 4
+                simulator.particles[index].lifetime = simulator.particles[index].age + step
             }
             simulator.advance(by: step, allowsEmission: false)
             let first = simulator.frameSnapshot()
@@ -497,7 +536,7 @@ import simd
             let input = source(capacity: 96, start: 0, rate: 0, burst: 96,
                                lifetime: step * 8)
             let simulator = make(input)
-            simulator.advance(by: step)
+            simulator.advance(by: step * 2)
             _ = simulator.consumeBirthEvents()
             for index in 0..<prefix { simulator.particles[index].lifetime = step * 2 }
             let originalAddress = simulator.particles.withUnsafeMutableBufferPointer {
@@ -544,7 +583,7 @@ import simd
             "complete": complete(), "cancellation": cancellation(), "fieldWriters": fieldWriterBaselines(),
             "sizeChangeInstance": sizeChangeInstanceValues(),
             "orderedDeaths": orderedDeaths(), "compaction": leadingDeathCompaction(),
-            "liveRenderStorage": liveRenderStorage()]
+            "liveRenderStorage": liveRenderStorage(), "birthStep": birthStep()]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

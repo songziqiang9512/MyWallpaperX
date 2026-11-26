@@ -194,7 +194,7 @@ import Foundation
         visibility.advance(by: 0.125); visibilityReference.advance(by: 0.125)
         result["visibilityShowDoesNotRepeatStarttimeWarmup"] = visibility.particles.count == 1
             && visibility.particles[0].id == visibleBefore.nextParticleID
-            && visibility.particles[0].age == 0.25 && visibility.simulationTime == 2.25
+            && visibility.particles[0].age == 0 && visibility.simulationTime == 2.25
             && visibility.frameSnapshot().nextParticleID == visibleBefore.nextParticleID + 1
         result["visibilityFutureBirthKeepsTheRandomSequence"] = visibility.particles.first == visibilityReference.particles.last
             && visibility.frameSnapshot().random.state == visibilityReference.frameSnapshot().random.state
@@ -511,7 +511,7 @@ import Foundation
                 && sim.birthEvents.count == 4 && sim.birthEvents.allSatisfy {
                     $0.position == SIMD3(12, 2, 0) && $0.velocity == SIMD3(speed, 0, 0)
                 } && sim.particles.allSatisfy {
-                    $0.position == SIMD3(expectedX, 2, 0) && $0.age == 0.25
+                    $0.position == SIMD3(expectedX, 2, 0) && $0.age == 0
                         && Float($0.velocity.x).isFinite && Float($0.position.x).isFinite
                 }
         }

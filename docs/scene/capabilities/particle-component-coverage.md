@@ -26,6 +26,13 @@ LayerImage 继续使用原 compiler：原 base-image owner 将 provider 缺 outc
 
 Remap 和 Position Offset 保现有八角三维梯度噪声，格点求和及插值顺序有原生位值和首屏计时验收。`prewarmStepBudget` 只截断本次模拟，Snapshot 无续热游标。默认隐藏 root 在零步初始 advance 清人口和轨迹，保 RNG、ID、模拟时间及已完成 emitter，未完成者沿原 rearm。
 
+<a id="natural-birth-lifetime"></a>
+### 普通发射的首步粒龄
+
+在模拟步内出生的粒子立即参与作者算子，包括首步位移。其外观曲线仍从粒龄 0 读值，此后按原实际子步累计并在作者寿命处退休。官版短寿命板的前后连续状态及两档 rate 见[出生到消失对照](runtime-evidence-current.md#ember-birth-lifetime-376)。位移积分与年龄起点同归原 Simulator。
+
+原步内发射前已有的粒子身份分界用于同一 reset 循环，只推进进入该步时已存在的粒子。冷预热与实时使用同一步骤，显式发射在步前已经入列，继续随现存粒子推进。正常绘制消费算子后的活粒子；同一回调内出生又死亡时，临时绘制仍取算子前的出生样本。低帧率下一次绘制可能已跨过多个模拟子步。
+
 <a id="continuous-turbulence"></a>
 ### 持续 Turbulence
 
