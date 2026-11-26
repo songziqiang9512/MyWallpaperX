@@ -98,7 +98,7 @@
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 144074
+      "bytes": 144065
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -162,7 +162,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 395929
+      "bytes": 397037
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 58,
-      "bytes": 7282
+      "bytes": 7348
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -639,11 +639,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4f451f8beb892084098cc327a69bf184f02393e7da1a60ae2a528f3083532f8e",
-      "after": "023ddcca9957eced2abcddee7465f13434f1b4162c310bacf15127f57dec9c5e",
-      "owner": "Scene effect texture projection",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#xray-tilted-projection",
-      "reason": "按主父提交与合并正文核对作者画布投影合同与运行证据的预算。"
+      "before": "e021844d936abf151debd1fc32ee6d29f309884e56e294086610b70c52662185",
+      "after": "d08fde9ded49c0982ab6f61d93c975392e18627156cc36dbc8f1b19d4bb460f9",
+      "owner": "Scene author audio history",
+      "reason": "从画质父提交保留既有证据，同步主线声道与幅度历史实测，合并正文按实际字节计。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#forefront-magnitude-history-346"
     },
     {
       "section": "bodies",
@@ -693,11 +693,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "4665e0f4be9616bd651ba91a860f75d6188cd1508b349d0105b1a1578f56cc5e",
-      "after": "212e343cb59a7ac01885802716d631cadcc44bad94214f7398b57fd40b71bf69",
-      "owner": "Scene composition and named graph output",
-      "reason": "记录已验证的具名图时序及对应的现役设计入口。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      "before": "a78bc555bb54b999f11060fea874d2fd26f960de35f64fd7f439cc73e7272dff",
+      "after": "2d8c7af5157433d5343dc1a35d2b0dc1d1e2e4c05bc9aa56da3a5239b86f2f99",
+      "owner": "Scene author audio history",
+      "reason": "更新前景问题到已证幅度历史后的实际定位。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
       "section": "bodies",
