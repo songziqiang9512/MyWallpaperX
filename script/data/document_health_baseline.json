@@ -73,12 +73,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 573,
-      "bytes": 146719
+      "lines": 584,
+      "bytes": 149703
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 137828
+      "bytes": 137989
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "572d526a383b3b84f36d976daf3c364b852d540b27d837718a254b5cf2577409",
-      "after": "697729e6951918cb0e73e70e65bb1ee5b1e9c502eaf1a6452cc44c0b1fdfe64f",
-      "owner": "video-runtime",
-      "reason": "从当前视频轨道投影纯音轨换版及原片恢复",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-inspector-source-recovery"
+      "before": "697729e6951918cb0e73e70e65bb1ee5b1e9c502eaf1a6452cc44c0b1fdfe64f",
+      "after": "58d8ef651b873c4599f1d17732877e68cb08578c660d60ffdfbddb7bee4ff0ef",
+      "owner": "scene-runtime",
+      "reason": "体积点光完整半弦的真实射线及阶段筛查",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-full-half"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "9cef895f674ee9b68dc8136ed75e4f8cea1bdfcd2bccb2ed6a84293d110ae601",
-      "after": "a536f6333098e2ab526b4cdbf1aa0f9760b25b4227b0e69d8e43591eb7aa8fa1",
-      "owner": "video-runtime",
-      "reason": "现役 Video 原片换版及无轨画面规格结论",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-inspector-source-recovery"
+      "before": "a536f6333098e2ab526b4cdbf1aa0f9760b25b4227b0e69d8e43591eb7aa8fa1",
+      "after": "22b60b96a1f9282aea73f310379846f013077f32b547fd52a2a2c689a99eedf6",
+      "owner": "scene-runtime",
+      "reason": "体积照明完整半弦候选退出",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-full-half"
     },
     {
       "section": "bodies",
