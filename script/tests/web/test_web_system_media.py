@@ -696,8 +696,7 @@ class WebSystemMediaTests(unittest.TestCase):
                             + source_block(types, "final class WebWallpaperFrameEndpointRegistry"))
         base = base.replace(source_block(base, "final class FrameEndpointHelloStub"), HANDLER)
         base = base.replace("    // RUNTIME_HELPERS", "")
-        base = base.replace("// RUNTIME_HELPERS", SERVICE + "\n"
-                            + source_block(NETWORK_FIXTURE.read_text(), "final class NetworkBridgeStub"))
+        base = base.replace("// RUNTIME_HELPERS", SERVICE)
         methods = method(types, "static func webCompatibilityScript(")
         methods += "\n" + method((HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+Surface.swift").read_text(),
                                   "func installDocumentStartScripts(")
@@ -724,7 +723,7 @@ class WebSystemMediaTests(unittest.TestCase):
         }""")
         extension = (HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+SystemMedia.swift").read_text().replace(
             "extension DedicatedWebWallpaperHostPlaceholderAdapter", "extension Adapter")
-        network = (ROOT / "script/tests/fixtures/WebCompatibilityNetworkChecks.swift").read_text()
+        network = NETWORK_FIXTURE.read_text()
         (cls.directory / "Harness.swift").write_text(
             base + source_block(network, "final class NetworkBridgeStub") + "\n" + extension + SCENARIOS)
         shared = ROOT / "MyWallpaperX/Core/Playback/SystemMedia"
