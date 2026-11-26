@@ -13,7 +13,7 @@
 
 | 样本 | 本轮反馈 | 复验起点 |
 |---|---|---|
-| 2868108515 | 剑链左侧的叠影仍可见 | [两端原包及只关 Godrays 的对照](../capabilities/runtime-evidence-current.md#author-chain-left-step-286)已定位接缝，旧密格未复现。锁定相位与背景采样，核接缝强度和位置的剩余差异。 |
+| 2868108515 | 剑链左侧的叠影仍可见 | [两端原包及只关 Godrays 的对照](../capabilities/runtime-evidence-current.md#author-chain-left-step-286)已定位接缝，单独冻结剑图与 Godrays 未重现原包幅度。复验两端原包的底图采样与效果相位。 |
 | 3769688830 | 本机玩偶水球持续向左转，用户在官版看到头朝上的往返摆动 | [两端同窗热切已核](../capabilities/runtime-evidence-current.md#orb-spin-official-live-376)，关自转后均保留往返摆动。待核实际面板保存值及冷启动恢复。 |
 | 3673609113 | 人偶运动和音条抖动时出现上一帧残影 | [两端的受控姿态对照](../capabilities/runtime-evidence-current.md#author-puppet-history-367)已定位吹喇叭人偶的作者末级历史。继续对齐原包自然动作及音条，核实际姿态、音频与连续呈现。 |
 | 3586705329 | 图5的拼贴竖状拉伸随镜头大小变化 | [官版同样出现的 Scroll 边带](../capabilities/runtime-evidence-current.md#author-collage-edge-358)可复用。将反馈图注册到同画幅、镜头和滚动相位，区分已量过的边带与额外变形。 |

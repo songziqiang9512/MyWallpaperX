@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 402293
+      "bytes": 402745
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 55,
-      "bytes": 7246
+      "bytes": 7258
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -658,20 +658,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "aaf9299a5a1644612f8b47d5ca6e3048a4f922893ea1e34a136c3f06dcfce44b",
-      "after": "1286972bb9f2127802376a713cdde34ca81302dd2f45f8d7740f41e4451d0841",
-      "owner": "Scene particle launch preparation",
-      "reason": "登记根模拟并行边界、原包首屏收益、单根反例与队列剩余范围。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#authored-root-prewarm-join"
+      "before": "1286972bb9f2127802376a713cdde34ca81302dd2f45f8d7740f41e4451d0841",
+      "after": "a370d5f480a6ba06876ee14f532da1f1fadf80160fbec009e7280d80787c43aa",
+      "owner": "Scene runtime evidence",
+      "reason": "记录剑链与 Godrays 冻结对照和原包接缝的后续复验边界。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-chain-left-step-286"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "2e83b2c0d83b22dc568a489645161187d1f729f7e5cec43afc575cb5db63933d",
-      "after": "1fb7a9a649caa777b766f42e948de9049719fa139acf5d5498a9f0cf316385d6",
-      "owner": "Scene particle launch preparation",
-      "reason": "登记根模拟并行边界、原包首屏收益、单根反例与队列剩余范围。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
+      "before": "1fb7a9a649caa777b766f42e948de9049719fa139acf5d5498a9f0cf316385d6",
+      "after": "6b21171fcded758cfc686737c86e2e75e91be06266a96f6ab854c59a4a64c067",
+      "owner": "Scene runtime evidence",
+      "reason": "记录剑链与 Godrays 冻结对照和原包接缝的后续复验边界。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
 }
