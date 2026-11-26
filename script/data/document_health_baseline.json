@@ -154,7 +154,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 428,
-      "bytes": 81142
+      "bytes": 81731
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 485,
@@ -162,7 +162,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 406277
+      "bytes": 407183
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 57,
-      "bytes": 7302
+      "bytes": 7244
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -683,24 +683,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "c6e746924a512ee6dc601dcb922a7a249a54ad33c002be57ded269e03063a8f6",
-      "after": "3f59a7e9d3ceb7e333a4101f4a8930c906c3ba98c74e218eaa795bdbd7e3b1a4",
-      "owner": "Scene particle and quality evidence owners",
-      "reason": "Bind the retained merged evidence to the current particle HSV baseline.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "39e50e5d981b696fa5f0ef097a0d0bd119c17a0e5c4119928493c44aff63d324",
-      "after": "6d6a8d23770bfd9ef3ace0ade879620b7e274f7b0a900c426800875ba9307140",
-      "owner": "Scene particle and quality evidence owners",
-      "reason": "Bind the retained merged evidence to the current particle HSV baseline.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
       "before": "4aea851d1098668cfe1d74ac8c35c1286478ed2e62493034c193653d6149f4c1",
       "after": "49589add85ceadabbc365ac93c427b01b3d4499ff808c8ade79e15b72e762163",
@@ -734,6 +716,24 @@
       "owner": "Scene ordered root composition and quality",
       "reason": "Record the verified source, attachment scheduling and sample reporting contract.",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-color-prefix"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "3f59a7e9d3ceb7e333a4101f4a8930c906c3ba98c74e218eaa795bdbd7e3b1a4",
+      "after": "b81c50afdc0be645bf6eab76512f2c87d3e1c360d3c19c307cac085edf0ec25b",
+      "owner": "Scene particle runtime and evidence",
+      "reason": "Preserve the current main particle birth contributions and the retained quality evidence.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "6d6a8d23770bfd9ef3ace0ade879620b7e274f7b0a900c426800875ba9307140",
+      "after": "6c3f9f3ebd11706f022040263c6a49ed8550baa598e10879f6daa6ff73ae99b9",
+      "owner": "Scene particle runtime and evidence",
+      "reason": "Preserve the current main particle birth contributions and the retained quality evidence.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
     }
   ]
 }

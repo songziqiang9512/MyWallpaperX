@@ -17,14 +17,6 @@ nonisolated enum SceneParticleInitializerKind: Equatable, Sendable {
     case inheritEventValue(SceneParticleEventValueOperation?)
     case unsupported(String)
 
-    var writesBirthColor: Bool {
-        switch self {
-        case .color, .hsvColor, .colorList, .inheritEventValue(.some(.setColor)):
-            true
-        default:
-            false
-        }
-    }
 }
 
 nonisolated enum SceneParticleEventValueOperation: String, Equatable, Sendable {
@@ -80,11 +72,18 @@ nonisolated enum SceneParticleEventValueContext: Equatable, Sendable {
 }
 
 nonisolated struct SceneParticleHSVColorPlan: Equatable, Sendable {
-    let hueStart: Double
+    private(set) var hueStart: Double
     let hueStride: Double
     let huePickCount: Double
-    let saturation: ClosedRange<Double>
-    let value: ClosedRange<Double>
+    private(set) var saturation: ClosedRange<Double>
+    private(set) var value: ClosedRange<Double>
+    private let authoredSpan: SIMD3<Double>
+
+    var colorReference: SIMD3<Double> {
+        SIMD3(hueStart + authoredSpan.x / 2,
+              (saturation.lowerBound + saturation.upperBound) / 2,
+              (value.lowerBound + value.upperBound) / 2)
+    }
 
     init?(root: [String: Any]) {
         func number(_ key: String, default fallback: Double) -> Double? {
@@ -114,6 +113,21 @@ nonisolated struct SceneParticleHSVColorPlan: Equatable, Sendable {
         huePickCount = steps + 1
         saturation = min(saturationMinimum, saturationMaximum) ... max(saturationMinimum, saturationMaximum)
         value = min(valueMinimum, valueMaximum) ... max(valueMinimum, valueMaximum)
+        authoredSpan = SIMD3(span, saturationMaximum - saturationMinimum, valueMaximum - valueMinimum)
+    }
+
+    func tinted(to hsv: SIMD3<Double>) -> Self {
+        func centeredRange(_ center: Double, span: Double) -> ClosedRange<Double> {
+            let start = min(max(center - span / 2, 0), 1)
+            let end = min(max(start + span, 0), 1)
+            return min(start, end) ... max(start, end)
+        }
+        var plan = self
+        let span = authoredSpan.x == 0 ? 1 : authoredSpan.x
+        plan.hueStart = hueStride == 0 ? hsv.x : hsv.x - span / 2
+        plan.saturation = centeredRange(hsv.y, span: authoredSpan.y)
+        plan.value = centeredRange(hsv.z, span: authoredSpan.z)
+        return plan
     }
 }
 

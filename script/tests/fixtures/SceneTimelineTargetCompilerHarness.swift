@@ -399,6 +399,12 @@ enum Harness {
         let squaredLegacy = SIMD3<Double>(4096, 16384, 36481) / 65025
         let resource = "particles/revision-color.json"
         let definition = particle(material: "materials/revision-color.json", initializerColor: authoredLegacy)
+        func equivalentColors(_ actual: [SIMD3<Double>], _ expected: [SIMD3<Double>]) -> Bool {
+            actual.count == expected.count && zip(actual, expected).allSatisfy { left, right in
+                let error = left - right
+                return max(abs(error.x), abs(error.y), abs(error.z)) < 1e-12
+            }
+        }
         func authoredBirthColors(_ root: [String: Any]) throws -> [SIMD3<Double>] {
             let (descriptor, _) = try compile(root)
             let simulator = SceneParticleSimulator(definition: definition,
@@ -438,9 +444,9 @@ enum Harness {
                 && first.map(\.alpha) == [0.5]
             checks[name + "-authored-fallback-color"] = first.map(\.color) == [expectedAuthored]
             checks[name + "-timeline-interpolates-authored-space"] = quarter[target]?.value == .vector3(0.75, 0, 0.25)
-            checks[name + "-dynamic-affects-new-births-only"] = second.map(\.color) == [expectedAuthored, expectedDynamic]
+            checks[name + "-dynamic-affects-new-births-only"] = equivalentColors(second.map(\.color), [expectedAuthored, expectedDynamic])
                 && second.first?.id == first.first?.id
-            checks[name + "-explicit-birth-uses-resolved-color"] = explicit == [expectedAuthored, expectedDynamic]
+            checks[name + "-explicit-birth-uses-resolved-color"] = equivalentColors(explicit, [expectedAuthored, expectedDynamic])
             checks[name + "-snapshot-restores-color-and-replays-particle-states"] = replayed
                 && restored == [expectedAuthored, expectedAuthored]
 
