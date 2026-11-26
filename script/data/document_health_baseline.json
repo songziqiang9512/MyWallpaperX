@@ -153,8 +153,8 @@
       "bytes": 172229
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 414,
-      "bytes": 78795
+      "lines": 421,
+      "bytes": 79752
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 485,
@@ -162,7 +162,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 403395
+      "bytes": 404470
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 57,
-      "bytes": 7140
+      "bytes": 7358
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -621,11 +621,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "02d182707f5a3678ca7773363fa2a81b473fbd718afcec50adbebf05277b2592",
-      "after": "d683613b778f087bf2c3f775beec398becd5d258a9168cf886895e668866b78d",
+      "before": "d683613b778f087bf2c3f775beec398becd5d258a9168cf886895e668866b78d",
+      "after": "087250ed4df93a1880690dccc2b305df51bbf933e887e3d1e2cdf0ad8a7f293d",
       "owner": "Scene main synchronization",
-      "reason": "从主线已提交的授权预算绑定双方现役证据合并后的正文。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#instance-color-revision"
+      "reason": "保留连续发射出生分组与质量工作树已有运行证据。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
     },
     {
       "section": "bodies",
@@ -639,11 +639,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "82f26464283af97705f1e22b3b7e1df2dd7e026007bd15023ad07910b92aa67d",
-      "after": "ea38c3ab49bc49a5388164d6b48537af88c3f74bae8e74b790b7c2d41598becc",
+      "before": "ea38c3ab49bc49a5388164d6b48537af88c3f74bae8e74b790b7c2d41598becc",
+      "after": "a656a73ba9d26bf8609e97a7723205378fc3dd1ee0a27b81f5bd4ee9c310ff2d",
       "owner": "Scene main synchronization",
-      "reason": "绑定同步后保留的双方运行证据。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-continuous-birth-cadence-292"
+      "reason": "保留连续发射出生分组与质量工作树已有运行证据。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
     },
     {
       "section": "bodies",
@@ -693,11 +693,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "5508f96625aa65a17e8fe4b063761690a0d5626fe4cce5cba42e5f575d335fa1",
-      "after": "a3c7e62c1b1a70e60ea31f28a31b0a65867d8cd25dea9686525e651d60a3c0f8",
+      "before": "a3c7e62c1b1a70e60ea31f28a31b0a65867d8cd25dea9686525e651d60a3c0f8",
+      "after": "2bf2d2fb3da2df9fa3ed2c6e8d62e83c88b5c505ad19ea8543b4203827ebe7eb",
       "owner": "Scene particle simulation",
-      "reason": "记录真实发射根的深度对照及同帧时钟测得的连续出生组。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-continuous-birth-cadence-292"
+      "reason": "把两个实测断点的下一步收窄到相位与阻尼时长。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
     },
     {
       "section": "bodies",
