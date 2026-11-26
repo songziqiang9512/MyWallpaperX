@@ -126,11 +126,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 485,
-      "bytes": 95682
+      "bytes": 95963
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 377781
+      "bytes": 378611
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 62,
-      "bytes": 8389
+      "lines": 61,
+      "bytes": 8052
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -460,10 +460,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "0dfa8cbf08520fd4eeb81300181fd45ea6023c7eef57ac0cb86d09558e122dd5",
-      "after": "07b0018996e0ce5b5d2c12c1e5d445c8c31f0cced8ad6150bd1f3c5d289bcaa2",
+      "before": "c548b280881bd5a7537e12bdbff40ccc19819a7e78c95a1cb6a323da4d56076a",
+      "after": "00bcca94ec7c57e57226b8ccbbc3e0939d334fac80890b132f01c1ac29903e4e",
       "owner": "Scene composition and named graph output",
-      "reason": "加入后置隐藏 Composition 的已验证截点与跨帧供货设计。",
+      "reason": "登记透明和背景来源共用截点及几何失败回退。",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#forward-composition-named-epoch"
     },
     {
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ac3b4da03f511eeb67fb0566033f89bd364619ee4f07dd9d2cfb6b8896fc25f4",
-      "after": "78d4cdb450887e74715ff552448df9002d88d012bbb5f4e187c860a88bf6c7b9",
+      "before": "78d4cdb450887e74715ff552448df9002d88d012bbb5f4e187c860a88bf6c7b9",
+      "after": "efe2fd2380d3f426fabca6d06f0bd9184b610e65ee472403875f3c3033a8e110",
       "owner": "Scene composition and named graph output",
-      "reason": "登记原包剑刃恢复、早晚时序、失败恢复与透明分支剩余断点。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#forward-composition-named-recovery"
+      "reason": "登记透明具名图的官版本机取时、反例与独立作者实帧。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#transparent-forward-named-recovery"
     },
     {
       "section": "bodies",

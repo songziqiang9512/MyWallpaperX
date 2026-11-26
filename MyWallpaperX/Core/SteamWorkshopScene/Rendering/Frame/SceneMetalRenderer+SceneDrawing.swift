@@ -299,19 +299,19 @@ extension SceneMetalRenderer {
                 for layer in orderedLayers {
                     guard let utility = layer.utilityLayer else { continue }
                     if utility.copyBackground || utility.kind == .fullscreen
-                        || availableExecutionLayerIDs.contains(layer.id) {
+                        || availableExecutionLayerIDs.contains(layer.id)
+                        || dependencyRuntime.requiresGraphOutputCapture(for: layer.id) {
                         points[layer.id] = layer.id
                     }
                 }
                 for plans in frameProjection.utilityExecution.plansByTriggerLayerID.values {
                     for plan in plans where availableExecutionLayerIDs.contains(plan.layerID) {
                         points[plan.layerID] = plan.triggerLayerID
-                        if plan.kind == .composition, !plan.usesIsolatedGroupTarget,
+                        if plan.kind == .composition,
                            dependencyRuntime.requiresGraphOutputCapture(for: plan.layerID),
                            !frameVisibleLayerIDs.contains(plan.layerID),
                            let layer = frameLayersByID[plan.layerID],
                            layer.parentID == nil, layer.childLayerIDs.isEmpty,
-                           layer.utilityLayer?.copyBackground == true,
                            layer.utilityLayer?.framebufferSource == nil {
                             previousEligible.insert(plan.layerID)
                         }

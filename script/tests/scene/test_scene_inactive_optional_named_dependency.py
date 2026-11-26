@@ -285,11 +285,11 @@ enum Harness {
         let late = effect(id: renamed ? "late-relabel" : "late", visible: true,
             kind: nil, namedProviderID: p, file: resource)
         var utility = SceneUtilityLayer(kind: .composition)
-        utility.copyBackground = arm != "transparent"
-        if arm == "framebuffer" { utility.framebufferSource = "shaders/alternate" }
+        utility.copyBackground = !arm.hasPrefix("transparent")
+        if arm.hasSuffix("framebuffer") { utility.framebufferSource = "shaders/alternate" }
         var provider = SceneRenderDescriptor.Layer(id: p, contentKind: "composition",
             utilityLayer: utility, dependencyLayerIDs: [],
-            childLayerIDs: arm == "members" ? [trigger] : [], visible: arm == "provider-visible",
+            childLayerIDs: arm == "members" ? [trigger] : [], visible: arm.hasSuffix("provider-visible"),
             effects: [.init(id: "producer", file: resource, visible: true, passes: [])])
         if arm == "nested-provider" { provider.parentID = trigger }
         let consumer = SceneRenderDescriptor.Layer(id: c, contentKind: "image", utilityLayer: nil,
@@ -489,7 +489,8 @@ enum Harness {
         }
         for arm in ["both", "expanded", "early-only", "one-off", "both-off", "all-inactive", "hidden-chain",
                     "not-eligible", "different-attachment", "provider-visible", "transparent",
-                    "members", "nested-provider", "framebuffer"] {
+                    "members", "nested-provider", "framebuffer", "transparent-framebuffer",
+                    "transparent-provider-visible"] {
             for renamed in [false, true] {
                 payload["composition-\(arm)-\(renamed)"] = compositionNamedCuts(renamed: renamed, arm: arm)
             }
@@ -785,8 +786,8 @@ class SceneInactiveOptionalNamedDependencyTests(unittest.TestCase):
         self.assertTrue(self.results["preparedCycle"]["hasCycle"])
         self.assertEqual(self.results["preparedCycle"]["providers"], [])
 
-    def test_background_composition_early_reader_keeps_one_authored_write(self) -> None:
-        for arm in ("both", "expanded", "early-only", "one-off", "hidden-chain"):
+    def test_composition_early_reader_keeps_one_authored_write(self) -> None:
+        for arm in ("both", "transparent", "expanded", "early-only", "one-off", "hidden-chain"):
             for renamed in ("false", "true"):
                 with self.subTest(arm=arm, renamed=renamed):
                     row = self.results[f"composition-{arm}-{renamed}"]
@@ -816,8 +817,9 @@ class SceneInactiveOptionalNamedDependencyTests(unittest.TestCase):
                                  else [row["early"], row["provider"], row["late"]])
                 self.assertEqual(row["schedule"]["prepass"], [])
 
-    def test_background_composition_candidate_leaves_other_utility_sources_unchanged(self) -> None:
-        for arm in ("transparent", "members", "nested-provider", "framebuffer"):
+    def test_forward_composition_candidate_leaves_other_utility_sources_unchanged(self) -> None:
+        for arm in ("members", "nested-provider", "framebuffer", "transparent-framebuffer",
+                    "transparent-provider-visible"):
             row = self.results[f"composition-{arm}-false"]
             with self.subTest(arm=arm):
                 self.assertEqual(row["carrierKinds"], [])
