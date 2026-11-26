@@ -162,7 +162,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 402303
+      "bytes": 403395
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 57,
-      "bytes": 7071
+      "bytes": 7140
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -639,11 +639,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7787d58730e8ec0fd24637a3f8293c4a999e794fa2b6a12c24976e18abb36c78",
-      "after": "c30e106350e51a8f27533128629fd60f4564308f52558c10de68c05d39678eee",
+      "before": "c30e106350e51a8f27533128629fd60f4564308f52558c10de68c05d39678eee",
+      "after": "ea38c3ab49bc49a5388164d6b48537af88c3f74bae8e74b790b7c2d41598becc",
       "owner": "Scene main synchronization",
-      "reason": "从主线已提交的授权预算绑定双方现役证据合并后的正文。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-default-birth-color"
+      "reason": "保留连续发射出生分组与质量工作树已有运行证据。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-continuous-birth-cadence-292"
     },
     {
       "section": "bodies",
@@ -693,11 +693,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "1588d0efdb41250814959fefce5f5acd2692c9597a422fcc5f22515689522c71",
-      "after": "5508f96625aa65a17e8fe4b063761690a0d5626fe4cce5cba42e5f575d335fa1",
+      "before": "5508f96625aa65a17e8fe4b063761690a0d5626fe4cce5cba42e5f575d335fa1",
+      "after": "a3c7e62c1b1a70e60ea31f28a31b0a65867d8cd25dea9686525e651d60a3c0f8",
       "owner": "Scene particle simulation",
-      "reason": "用已测高倍率覆盖差替换旧左缘猜测，并登记实测HSV出生差异。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+      "reason": "记录真实发射根的深度对照及同帧时钟测得的连续出生组。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-continuous-birth-cadence-292"
     },
     {
       "section": "bodies",
