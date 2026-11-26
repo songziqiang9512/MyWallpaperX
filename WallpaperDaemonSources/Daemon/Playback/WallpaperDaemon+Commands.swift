@@ -72,8 +72,6 @@ extension WallpaperDaemon {
                 videoPreparation?.previousFillMode = fillMode
                 currentFillMode = fillMode
                 animateLayerFrameForFillMode(fillMode)
-                let fallbackGravity: CALayerContentsGravity = fillMode == "aspectFit" ? .resizeAspect : .resizeAspectFill
-                fallbackLayer.contentsGravity = fallbackGravity
             }
         case "setLoop":
             if let shouldLoop = command.shouldLoopCurrentItem { updateVideoLoopPolicy(shouldLoop) }

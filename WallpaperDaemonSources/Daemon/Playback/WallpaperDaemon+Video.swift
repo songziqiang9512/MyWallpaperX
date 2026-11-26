@@ -40,7 +40,7 @@ extension WallpaperDaemon {
         currentFillMode = fillMode
         updateLayerFrames()
         if currentVideoPath == nil {
-            showFallback(framePath: framePath, gravity: .resizeAspectFill, fillMode: fillMode)
+            showFallback(framePath: framePath, fillMode: fillMode)
         } else {
             window.level = WallpaperDaemon.desktopWindowLevel
             window.orderFrontRegardless()
@@ -85,7 +85,7 @@ extension WallpaperDaemon {
                        (retained, retained.presentation()?.frame ?? retained.frame, retainedFrame)]
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        fallbackLayer.frame = contentBounds
+        layoutFallbackLayer(fillMode: fillMode, in: contentBounds)
         for (layer, from, target) in layouts {
             layer.removeAnimation(forKey: "position")
             layer.removeAnimation(forKey: "bounds")

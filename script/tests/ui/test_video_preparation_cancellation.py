@@ -248,14 +248,18 @@ import QuartzCore
             precondition(finished.wait(timeout: .now() + 5) == .success && writer.status == .completed)
         } catch { preconditionFailure("video fixture: \(error)") }
         let poster = fixtureRoot.appendingPathComponent("candidate-poster.png")
-        let posterImage = NSImage(size: NSSize(width: 128, height: 64), flipped: false) { bounds in
-            NSColor.red.setFill()
-            bounds.fill()
-            return true
+        let squarePoster = fixtureRoot.appendingPathComponent("square-poster.png")
+        func writePoster(_ url: URL, size: NSSize) {
+            let image = NSImage(size: size, flipped: false) { bounds in
+                NSColor.red.setFill()
+                bounds.fill()
+                return true
+            }
+            let pixels = NSBitmapImageRep(data: image.tiffRepresentation!)!
+            try! pixels.representation(using: .png, properties: [:])!.write(to: url)
         }
-        let posterPixels = NSBitmapImageRep(data: posterImage.tiffRepresentation!)!
-        try! posterPixels.representation(using: .png, properties: [:])!.write(to: poster)
-        defer { try? FileManager.default.removeItem(at: poster) }
+        writePoster(poster, size: NSSize(width: 128, height: 64))
+        writePoster(squarePoster, size: NSSize(width: 64, height: 64))
         var coldPosterReleased = true
         for paused in [true, false] {
             daemon.cancelVideoPreparation()
@@ -266,13 +270,48 @@ import QuartzCore
             if paused {
                 daemon.play(videoPath: fixture.path, framePath: poster.path, fillMode: "aspectFill",
                     shouldLoopCurrentItem: false, requestID: 80)
+                let width = min(screen.visibleFrame.width * 0.65, screen.visibleFrame.height * 0.7)
+                daemon.window.setFrame(CGRect(origin: screen.visibleFrame.origin,
+                    size: CGSize(width: width, height: width * 0.66)), display: true)
+                let contentBounds = daemon.window.contentView!.bounds
+                let contents = daemon.fallbackLayer.contents as AnyObject?
+                setFillMode("aspectFit")
+                let fittedPoster = daemon.fallbackLayer.frame
+                let visible = daemon.window.frame.intersection(screen.visibleFrame)
+                renderingFacts["pendingWidePosterFollowsFit"] = contents != nil
+                    && abs(fittedPoster.width - contentBounds.width) < 0.01
+                    && abs(fittedPoster.height - contentBounds.width / 2) < 0.01
+                    && abs(fittedPoster.midY - (visible.midY - daemon.window.frame.minY)) < 0.01
+                    && (daemon.fallbackLayer.contents as AnyObject?) === contents
+                daemon.handleScreenParametersChanged()
+                let restoredBounds = daemon.window.contentView!.bounds
+                let restoredPoster = daemon.fallbackLayer.frame
+                let widePosterHeight = min(restoredBounds.width / 2, restoredBounds.height)
+                let restoredCenterY = widePosterHeight <= screen.visibleFrame.height
+                    ? screen.visibleFrame.midY - screen.frame.minY : restoredBounds.midY
+                renderingFacts["pendingPosterFitsAfterScreenResize"] = daemon.window.frame == screen.frame
+                    && abs(restoredPoster.height - widePosterHeight) < 0.01
+                    && abs(restoredPoster.width - widePosterHeight * 2) < 0.01
+                    && abs(restoredPoster.midY - restoredCenterY) < 0.01
+                    && (daemon.fallbackLayer.contents as AnyObject?) === contents
+                setFillMode("aspectFill")
+                renderingFacts["pendingPosterFillsAgain"] = framesMatch(daemon.fallbackLayer.frame, restoredBounds)
+                    && (daemon.fallbackLayer.contents as AnyObject?) === contents
                 let stagedPoster = daemon.fallbackLayer.opacity == 1 && daemon.fallbackLayer.contents != nil
                 daemon.cancelVideoPreparation(requestID: 80)
                 renderingFacts["coldCancellationReleasesPoster"] = stagedPoster
                     && daemon.fallbackLayer.opacity == 0 && daemon.fallbackLayer.contents == nil
             }
-            daemon.play(videoPath: fixture.path, framePath: poster.path, fillMode: "aspectFill",
+            daemon.play(videoPath: fixture.path, framePath: squarePoster.path, fillMode: paused ? "aspectFit" : "aspectFill",
                 shouldLoopCurrentItem: false, requestID: 8)
+            let coldPosterFrame = daemon.fallbackLayer.frame
+            if paused {
+                let bounds = daemon.window.contentView!.bounds
+                let side = min(bounds.width, bounds.height)
+                renderingFacts["coldPosterIsUnclipped"] = abs(coldPosterFrame.width - side) < 0.01
+                    && abs(coldPosterFrame.height - side) < 0.01
+                    && bounds.insetBy(dx: -0.01, dy: -0.01).contains(coldPosterFrame)
+            }
             renderingFact(paused ? "pausedColdPosterLoads" : "playingColdPosterLoads",
                 daemon.fallbackLayer.opacity == 1 && daemon.fallbackLayer.contents != nil)
             let deadline = Date().addingTimeInterval(5)
@@ -289,6 +328,9 @@ import QuartzCore
                 "short candidate ran to its end before commit")
             setFillMode("aspectFit")
             daemon.commitVideoPreparation(requestID: 8)
+            if paused {
+                renderingFacts["coldPosterMatchesDecodedVideo"] = framesMatch(coldPosterFrame, daemon.activeLayer.frame)
+            }
             precondition(daemon.videoPreparation?.transitionComplete == true,
                 "real paused and playing first frames must not inherit a crossfade delay")
             precondition(daemon.activeLayer.frame.size != daemon.window.contentView?.bounds.size,
@@ -486,7 +528,9 @@ class VideoPreparationCancellationTests(unittest.TestCase):
                     "firstCommitPublishesCurrentOutput", "pausedFirstPlayKeepsFixedProperties",
                     "playingFirstPlayKeepsFixedProperties", "pausedResizePreservesFillGeometry",
                     "playingResizePreservesFillGeometry", "pausedColdPosterLoads", "playingColdPosterLoads",
-                    "warmCandidateKeepsOriginalBorder", "readyReleasesColdPoster", "coldCancellationReleasesPoster"}.issubset(rendering))
+                    "warmCandidateKeepsOriginalBorder", "readyReleasesColdPoster", "coldCancellationReleasesPoster",
+                    "pendingWidePosterFollowsFit", "pendingPosterFitsAfterScreenResize", "pendingPosterFillsAgain",
+                    "coldPosterIsUnclipped", "coldPosterMatchesDecodedVideo"}.issubset(rendering))
                 self.assertTrue(all(rendering.values()), rendering)
                 rendering_by_configuration[configuration] = rendering
                 (root / "result.json").write_text(json.dumps({"configuration": configuration, "command": command,

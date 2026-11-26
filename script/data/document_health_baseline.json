@@ -10,11 +10,11 @@
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
       "lines": 52,
-      "bytes": 9553
+      "bytes": 9730
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 20990
+      "bytes": 21114
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 158844
+      "bytes": 159830
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 139786
+      "bytes": 139801
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "123cc6aae5b2ff86294703ab691e11e8addb1030562e4a0d813730696c83aa32",
-      "after": "d09a8220484d0fc8ea61b7cef26c01a8bd6a8fb5d5dadfd41de3c2b4cc25b960",
+      "before": "d09a8220484d0fc8ea61b7cef26c01a8bd6a8fb5d5dadfd41de3c2b4cc25b960",
+      "after": "879495ca12598e07ec756c4a2def3d7d2ab06df065326bab11418cd6bf729b7f",
       "owner": "video-runtime",
-      "reason": "定位原 Video 画幅交接 owner",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-crossfade-aspect"
+      "reason": "明记空窗海报与实际视频共用适配及真实出图对照。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-candidate-poster"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "79bc219be63ea4fec28855fd789f22a8bfbe26356e0c3ea16394fabf1bad93f0",
-      "after": "2bd5e7fd10f453654098f5eb0e3892657d8378258dcbadf0bc89ca81cde2f680",
-      "owner": "scene-runtime",
-      "reason": "以签名画面重复、首页实际端点和外部中断证据收紧阴影验收状态。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-shadow-steady-author"
+      "before": "2bd5e7fd10f453654098f5eb0e3892657d8378258dcbadf0bc89ca81cde2f680",
+      "after": "82daecf54f554d18387d639a02ee595c8fff2a8f221f5b291565a049e8283666",
+      "owner": "video-runtime",
+      "reason": "明记空窗海报与实际视频共用适配及真实出图对照。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-candidate-poster"
     },
     {
       "section": "bodies",
@@ -693,20 +693,20 @@
     {
       "section": "bodies",
       "path": "docs/architecture/playback-lifecycle-transaction-design.md",
-      "before": "f2db710dcdc6ce2a33e1b08d6f2ac9df120a7945ff3d29ff18d16deb50cd771e",
-      "after": "95c2ef87784c656877f9fcce6c2d521fce754b23a0216a3832188677094cee6e",
+      "before": "95c2ef87784c656877f9fcce6c2d521fce754b23a0216a3832188677094cee6e",
+      "after": "e56b8e4ce789db2bda9ecaa41fcbd46ee093bd19dad70317e488289216b74d8c",
       "owner": "video-runtime",
-      "reason": "Video 双槽、等比过渡及热改剩余时序",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-crossfade-aspect"
+      "reason": "明记空窗海报与实际视频共用适配及真实出图对照。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-candidate-poster"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "2fbdb81323977e7c63f22fdbb49b9fca47cdbefad71ff07c5cd294066271856e",
-      "after": "0efd955b8303994b6cf8c1e63224e274ed1d0f0578b746576dc6954142e164cc",
+      "before": "da016625970187bcc7966ba5c67a6eb126919f3fe54f8175e8612c6854b05a74",
+      "after": "59dc7d9858541d9c0cdd5f01553edb4a7bd507d11a27a2e73efc9f6be09d4d59",
       "owner": "video-runtime",
-      "reason": "视频等比淡入实际实施与回归",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-crossfade-aspect"
+      "reason": "明记空窗海报与实际视频共用适配及真实出图对照。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-candidate-poster"
     },
     {
       "section": "bodies",

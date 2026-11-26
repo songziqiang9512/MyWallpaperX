@@ -7,9 +7,9 @@ import QuartzCore
 extension WallpaperDaemon {
     func updateLayerFrames() {
         guard let contentBounds = window.contentView?.bounds else { return }
-        fallbackLayer.frame = contentBounds
         CATransaction.begin()
         CATransaction.setDisableActions(true)
+        layoutFallbackLayer(fillMode: currentFillMode, in: contentBounds)
         inactiveLayer.frame = contentBounds
         inactiveLayer.opacity = 0
         CATransaction.commit()
@@ -17,95 +17,45 @@ extension WallpaperDaemon {
     }
 
     func layerFrameForFillMode(_ fillMode: String, in bounds: CGRect, sourceLayer: AVPlayerLayer? = nil) -> CGRect {
-        let layerForSize = sourceLayer ?? activeLayer
         guard fillMode == "aspectFit",
-              let videoSize = naturalVideoSize(from: layerForSize),
-              videoSize.width > 0, videoSize.height > 0 else {
-            return bounds
-        }
-        let boundsAspect = bounds.width / bounds.height
-        let videoAspect = videoSize.width / videoSize.height
-        let w: CGFloat
-        let h: CGFloat
-        if videoAspect > boundsAspect {
-            w = bounds.width
-            h = bounds.width / videoAspect
-        } else {
-            h = bounds.height
-            w = bounds.height * videoAspect
-        }
-        let screen = NSScreen.screens.first { $0.frame.origin == window.frame.origin && $0.frame.size == window.frame.size }
-                  ?? NSScreen.screens.first { NSMouseInRect(window.frame.origin, $0.frame, false) }
-                  ?? NSScreen.main
-        let visibleFrame = screen?.visibleFrame ?? bounds
-
-        let centerY: CGFloat
-        if h <= visibleFrame.height {
-            let visibleMinY = visibleFrame.minY - window.frame.minY
-            let visibleMaxY = visibleFrame.maxY - window.frame.minY
-            centerY = (visibleMinY + visibleMaxY) / 2
-        } else {
-            centerY = bounds.height / 2
-        }
-
-        let x = (bounds.width - w) / 2
-        let y = centerY - h / 2
-        return CGRect(x: x, y: y, width: w, height: h)
+              let size = naturalVideoSize(from: sourceLayer ?? activeLayer) else { return bounds }
+        return aspectFitFrame(for: size, in: bounds)
     }
 
-    func showFallback(framePath: String?, gravity: CALayerContentsGravity, fillMode: String? = nil) {
-        fallbackLayer.contentsGravity = gravity
-        guard let framePath,
-              let image = NSImage(contentsOfFile: framePath),
-              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            fallbackLayer.contents = nil
-            fallbackLayer.opacity = 0
-            return
-        }
+    private func aspectFitFrame(for size: CGSize, in bounds: CGRect) -> CGRect {
+        let fit = AVMakeRect(aspectRatio: size, insideRect: bounds)
+        let windowFrame = window.frame
+        guard let visible = Self.screen(for: displayID)?.visibleFrame.intersection(windowFrame),
+              fit.height <= visible.height else { return fit }
+        let centerY = bounds.minY + visible.midY - windowFrame.minY
+        return fit.offsetBy(dx: 0, dy: centerY - fit.midY)
+    }
 
-        if fillMode == "aspectFit",
-           let contentBounds = window.contentView?.bounds {
-            let imageSize = CGSize(width: cgImage.width, height: cgImage.height)
-            if imageSize.width > 0, imageSize.height > 0 {
-                let imageAspect = imageSize.width / imageSize.height
-                let boundsAspect = contentBounds.width / contentBounds.height
-                let w: CGFloat
-                let h: CGFloat
-                if imageAspect > boundsAspect {
-                    w = contentBounds.width
-                    h = contentBounds.width / imageAspect
-                } else {
-                    h = contentBounds.height
-                    w = contentBounds.height * imageAspect
-                }
-                let screen = NSScreen.screens.first { $0.frame.origin == window.frame.origin && $0.frame.size == window.frame.size }
-                    ?? NSScreen.main
-                let visibleFrame = screen?.visibleFrame ?? contentBounds
-                let visibleMinY = visibleFrame.minY - window.frame.minY
-                let visibleMaxY = visibleFrame.maxY - window.frame.minY
-                let centerY = (visibleMinY + visibleMaxY) / 2
-                let fallbackFrame = CGRect(x: (contentBounds.width - w) / 2, y: centerY - h / 2, width: w, height: h)
-                CATransaction.begin()
-                CATransaction.setDisableActions(true)
-                fallbackLayer.frame = fallbackFrame
-                fallbackLayer.contents = cgImage
-                fallbackLayer.opacity = 1
-                CATransaction.commit()
-                return
-            }
-        }
-
-        if let contentBounds = window.contentView?.bounds {
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            fallbackLayer.frame = contentBounds
-            CATransaction.commit()
+    func showFallback(framePath: String?, fillMode: String) {
+        let image = framePath.flatMap {
+            NSImage(contentsOfFile: $0)?.cgImage(forProposedRect: nil, context: nil, hints: nil)
         }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        fallbackLayer.contents = cgImage
-        fallbackLayer.opacity = 1
+        fallbackLayer.contents = image
+        fallbackLayer.opacity = image == nil ? 0 : 1
+        if let bounds = window.contentView?.bounds {
+            layoutFallbackLayer(fillMode: fillMode, in: bounds)
+        }
         CATransaction.commit()
+    }
+
+    func layoutFallbackLayer(fillMode: String, in bounds: CGRect) {
+        guard let contents = fallbackLayer.contents else { return }
+        if fillMode == "aspectFit" {
+            // showFallback stores a decoded CGImage, which survives fill changes.
+            let image = contents as! CGImage
+            fallbackLayer.contentsGravity = .resizeAspect
+            fallbackLayer.frame = aspectFitFrame(for: CGSize(width: image.width, height: image.height), in: bounds)
+        } else {
+            fallbackLayer.contentsGravity = .resizeAspectFill
+            fallbackLayer.frame = bounds
+        }
     }
 
     func waitUntilPlayerReady(_ player: AVQueuePlayer, token: Int, requestID: Int?, videoPath: String, attempt: Int = 0) {

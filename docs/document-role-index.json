@@ -129,10 +129,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c1599a24a8480dd6198448b37d867a8fe77d2d1a76a6b61f754a44c5e7f938bf",
+        "sourceSHA256": "e6f0670350cb23f749eaf51abd101d22b262c683d60ec42aac9489930b59a525",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Video 双槽、等比过渡及热改剩余时序",
-        "limitations": "仍沿现有票据和窗口接管。"
+        "scope": "Video 冷海报与实际解码画面共享适配，热改及屏幕尺寸更新",
+        "limitations": "单内屏实际 WindowServer 出图，原生双配置。物理呈现时间及混合显示拓扑未验。"
       }
     },
     {
@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "693e04080cd2569183468ac489d239c57073e37d91d4d6c34e202b92844ce7c8",
+        "sourceSHA256": "efdfec6fda6ba07e1dfaa7ab64995a6492c8383b6ae1298a8ae5e9464d484efb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定位原 Video 画幅交接 owner",
-        "limitations": "仅核本批 Video 源码入口。"
+        "scope": "Video 冷海报与实际解码画面共享适配，热改及屏幕尺寸更新",
+        "limitations": "单内屏实际 WindowServer 出图，原生双配置。物理呈现时间及混合显示拓扑未验。"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "580637af547c1461484088a261fe88ffe27e95f7a3f98518bf830b2173ad77f9",
+        "sourceSHA256": "36d06e2d59a16bcb354df3108018012850347f8e061e66ef84b59c09adbdf40d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前签名 Scene 阴影两次定相出图、正常桌面首窗与环境中断",
-        "limitations": "单内屏。仅一窗正常桌面低档；两轮完整配对、跨档影边几何和功耗待验。"
+        "scope": "Video 冷海报与实际解码画面共享适配，热改及屏幕尺寸更新",
+        "limitations": "单内屏实际 WindowServer 出图，原生双配置。物理呈现时间及混合显示拓扑未验。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "82c7087895e25b774627a829107645dfc5fe826b8775a1b7b5f2638560ea6df2",
+        "sourceSHA256": "755081e4c02fe5fb16e926d1bbe56f3edc8cf0a65c7c49d7f57a853d7b1df5e9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前签名 Scene 阴影两次定相出图、正常桌面首窗与环境中断",
-        "limitations": "单内屏。仅一窗正常桌面低档；两轮完整配对、跨档影边几何和功耗待验。"
+        "scope": "Video 冷海报与实际解码画面共享适配，热改及屏幕尺寸更新",
+        "limitations": "单内屏实际 WindowServer 出图，原生双配置。物理呈现时间及混合显示拓扑未验。"
       }
     },
     {
