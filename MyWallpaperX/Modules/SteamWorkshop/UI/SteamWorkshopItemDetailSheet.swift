@@ -360,7 +360,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         guard let source else { return }
 
         videoTrackTask = Task.detached(priority: .userInitiated) { [weak self] in
-            let details = await WallpaperVideoTrackDetails.load(from: AVURLAsset(url: source.url))
+            let details = try? await WallpaperVideoTrackDetails.load(from: AVURLAsset(url: source.url))
             await self?.publishVideoTrackDetails(details, for: source)
         }
     }

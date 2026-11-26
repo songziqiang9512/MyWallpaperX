@@ -131,14 +131,22 @@ nonisolated private func prepareWallpaperInspectorDetails(for wallpaper: VideoWa
     }
     guard !Task.isCancelled else { return nil }
 
-    let trackDetails = await WallpaperVideoTrackDetails.load(from: asset)
+    let trackDetails: WallpaperVideoTrackDetails?
+    let resolution: String?
+    do {
+        trackDetails = try await WallpaperVideoTrackDetails.load(from: asset)
+        resolution = trackDetails?.resolutionText
+    } catch {
+        trackDetails = nil
+        resolution = wallpaper.resolution
+    }
 
     return WallpaperInspectorDetails(
         fileSizeText: fileSizeText,
         formatText: formatText,
         durationText: durationText,
         codecText: trackDetails?.codecText ?? String(localized: "Unknown"),
-        resolutionText: trackDetails?.resolutionText ?? wallpaper.resolution ?? String(localized: "Unknown"),
+        resolutionText: resolution ?? String(localized: "Unknown"),
         addedDateText: addedDateText,
         pathText: path,
         nominalFrameRateText: trackDetails?.nominalFrameRateText

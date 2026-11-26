@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "03f99a0dce2da53bd221da553cfc322f946400986f50b69435f3134aa5c0daa4",
+        "sourceSHA256": "2d562024a77b84d61f297f0b81b6822c73969e4b1e8a5023ad727fc0d894a2bc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene 阴影适用验收入口",
-        "limitations": "只复核质量章节的阴影证据链接。"
+        "scope": "共享视频轨读取与本地详情投影入口",
+        "limitations": "只复核受影响源及导航。"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "118c12a2e32fa87d1e45c8e72bf45d2e8cc5110ad7de5254695e3fadd64f9574",
+        "sourceSHA256": "65c257a5658f968b3e9a86adb185651adec2580c819ace3c243d87fbba19808c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "官版反射第三版色板开启像素",
-        "limitations": "全局切换、历史帧序和物理 mip 层数待测。"
+        "scope": "从当前视频轨道投影纯音轨换版及原片恢复",
+        "limitations": "在原详情和选中样本核规格。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "69eb9b745dfbfdf5343e41150508103c2d3baa05c9d169cf42e2f56eba290bae",
+        "sourceSHA256": "6f2c429a00ef8efb73f2c828efb4bc21fe1b755af50f8b2eccf90528191502a2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "官版反射正控和待验步骤",
-        "limitations": "只复核现役反射任务一段。"
+        "scope": "现役 Video 原片换版及无轨画面规格结论",
+        "limitations": "只复核本地详情工作段。"
       }
     },
     {

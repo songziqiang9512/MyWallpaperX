@@ -43,7 +43,7 @@ def observe_production(source):
         if len(re.findall(pattern, source)) != 1:
             raise AssertionError('production observation entry is no longer unique: ' + statement)
         source = re.sub(pattern, lambda match: match[1] + 'InspectorMetadataWorkProbe.shared.record(path, stage: "' + stage + '")\n' + match[0], source)
-    track = '        guard !Task.isCancelled, let track = try? await asset.loadTracks(withMediaType: .video).first,'
+    track = '        let track = try await asset.loadTracks(withMediaType: .video).first'
     if source.count(track) != 1:
         raise AssertionError('expected one shared source track read')
     source = source.replace(track, '        InspectorMetadataWorkProbe.shared.record((asset as? AVURLAsset)?.url.path ?? "", stage: "track")\n' + track)

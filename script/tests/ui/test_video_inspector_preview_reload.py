@@ -218,6 +218,7 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
                     "s19-initially-missing-source-recovers-real-track",
                     "s19-read-in-progress-observes-restored-source-before-next-publication",
                     "s20-atomic-baseline-real-track",
+                    "s20-readable-audio-replacement-clears-indexed-video-facts",
                     "s20-same-readable-path-replaces-native-size-and-nominal-fps",
                     "s20-duplicate-publication-reuses-the-same-body-and-metadata",
                     "s20-detached-view-defers-track-read-until-remount",

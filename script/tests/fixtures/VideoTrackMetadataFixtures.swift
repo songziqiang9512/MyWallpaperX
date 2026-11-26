@@ -3,6 +3,20 @@ import CoreVideo
 
 @available(macOS 26.0, *)
 enum VideoTrackMetadataFixtures {
+    static func writeAudioOnlyMOV(_ url: URL) async throws {
+        let pcm = url.deletingPathExtension().appendingPathExtension("caf")
+        let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 48_000)!
+        buffer.frameLength = buffer.frameCapacity
+        buffer.floatChannelData![0].update(repeating: 0, count: Int(buffer.frameLength))
+        do {
+            let audio = try AVAudioFile(forWriting: pcm, settings: format.settings)
+            try audio.write(from: buffer)
+        }
+        let export = AVAssetExportSession(asset: AVURLAsset(url: pcm), presetName: AVAssetExportPresetPassthrough)!
+        try await export.export(to: url, as: .mov)
+    }
+
     static func writeH264(_ url: URL, width: Int = 64, height: Int = 32, rotationAngle: CGFloat = .pi / 2,
                           frameDuration: CMTime = CMTime(value: 1_001, timescale: 30_000)) async throws {
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)

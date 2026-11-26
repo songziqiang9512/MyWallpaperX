@@ -70,7 +70,7 @@ nonisolated final class InspectorMetadataWorkProbe: @unchecked Sendable {
         if #available(macOS 26.0, *) {
             let diagonal = root.appendingPathComponent("diagonal.mov")
             try await VideoTrackMetadataFixtures.writeH264(diagonal, rotationAngle: .pi / 4)
-            let track = await WallpaperVideoTrackDetails.load(from: AVURLAsset(url: diagonal))
+            let track = try await WallpaperVideoTrackDetails.load(from: AVURLAsset(url: diagonal))
             checks["non-right-angle-track-matrix-uses-the-transformed-frame-bounds"] = track?.resolutionText == "68 × 68"
             try await VideoTrackMetadataFixtures.writeH264(h264)
 #if CURRENT_IMPORT_METADATA
@@ -78,15 +78,9 @@ nonisolated final class InspectorMetadataWorkProbe: @unchecked Sendable {
             try await VideoTrackMetadataFixtures.writeH264(opposite, rotationAngle: -.pi / 4)
             let original = root.appendingPathComponent("landscape.mov")
             try await VideoTrackMetadataFixtures.writeH264(original, rotationAngle: 0)
-            let audioOnly = root.appendingPathComponent("audio-only.caf")
-            let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
-            let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 48_000)!
-            buffer.frameLength = buffer.frameCapacity
-            buffer.floatChannelData?[0].update(repeating: 0, count: Int(buffer.frameLength))
-            do {
-                let audio = try AVAudioFile(forWriting: audioOnly, settings: format.settings)
-                try audio.write(from: buffer)
-            }
+            let audioOnly = root.appendingPathComponent("audio-only.mov")
+            try await VideoTrackMetadataFixtures.writeAudioOnlyMOV(audioOnly)
+            cases.append(("known-no-video-track", audioOnly, 65, "320×180", nil, reading, "1:05", "0:01", unknown, unknown))
             let sources = [diagonal, opposite, h264, original, audioOnly]
             let imported = await collectImportedAssetMetadata(for: sources)
             checks["import-index-reports-display-bounds-for-real-track-matrix-variants"] =

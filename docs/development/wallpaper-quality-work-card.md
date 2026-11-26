@@ -519,7 +519,7 @@ Pixabay 以空 URL 和零字节表示缺失 Large。浏览卡、远程详情和�
 
 原视频异步详情入口只加载一次视频轨道，复用这一轨读方向变换、实际分辨率、编码和标称帧率。帧率为零、不可读或没有视频轨道时省略，VFR 采用标称口径。Steam 的就绪 Video 详情复用该读取，取与播放器相同的 `record.videoURL`，厂商标签保持原口径。复用预览已取得的同文件身份，轨道读取不随无关重建或库刷新重复，换条目时晚完成不能回填别处。验证非直角旋转、缺轨、导出回退、同路径替换和旧启动缓存，不增加预扫描、库索引字段或播放器重写。现役签名 Video helper 在 M4 内屏实测 PQ、HLG 及公开 HDR10+ 片均有超白，切回 SDR 保正常范围，继续原片路径。 [HDR 原片实窗](wallpaper-quality-settings-plan.md#video-hdr-output-proof) [原媒体详情入口](../../MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift)
 
-原生详情回归通过导出优先、同一源回退与重扫只读取一次、换源取消、同路径同修改时间替换，以及失效或非 Video 记录清理。生产读取对 90° 和 45° MOV 分别返回 32 × 64、68 × 68，无轨不填标称帧率。独立 Workshop 3834029472 的实际源由生产 AVFoundation 入口和 ffprobe 匹配为 H.264、1920 × 1080、24 FPS。在原目录可见／显式刷新范围，等大小等 mtime 的同路径替换改文件版本，普通模型预发布和已检查结果仍复用版本。原生详情以 192×108／60 FPS 换入 320×180／24 FPS，另用原样 Workshop 3834029472 副本得到 1920×1080／24 FPS。两次更新留同一视图，无缺失提示。重复发布复用轨道，暂离窗口时观察到的换版在重新挂载后读入。现有 AV 末端取消及原轮换门通过。新发布屏保沿当前可读文件验证同一路径的新字节。离开原可见检查范围的卡片仍需明确刷新，未测物理屏保或 AVPlayer 帧率。收据归 `.artifacts/wallpaper-quality-video-readable-replacement`。
+原生详情回归通过导出优先、同一源回退与重扫只读取一次、换源取消、同路径同修改时间替换，以及失效或非 Video 记录清理。生产读取对 90° 和 45° MOV 分别返回 32 × 64、68 × 68。[有效纯音轨换入](wallpaper-quality-settings-plan.md#video-inspector-source-recovery)已在原详情确认退掉旧分辨率与帧率，真实原片换回即恢复。独立 Workshop 3834029472 的实际源由生产 AVFoundation 入口和 ffprobe 匹配为 H.264、1920 × 1080、24 FPS。在原目录可见／显式刷新范围，等大小等 mtime 的同路径替换改文件版本，普通模型预发布和已检查结果仍复用版本。原生详情以 192×108／60 FPS 换入 320×180／24 FPS，另用原样 Workshop 3834029472 副本得到 1920×1080／24 FPS。两次更新留同一视图，无缺失提示。重复发布复用轨道，暂离窗口时观察到的换版在重新挂载后读入。现有 AV 末端取消及原轮换门通过。新发布屏保沿当前可读文件验证同一路径的新字节。离开原可见检查范围的卡片仍需明确刷新，未测物理屏保或 AVPlayer 帧率。收据归 `.artifacts/wallpaper-quality-video-readable-replacement`。
 
 <a id="pixabay-downloaded-track"></a>
 ### Pixabay 下载原片的尺寸与标称帧率

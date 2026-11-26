@@ -13,9 +13,10 @@ nonisolated struct WallpaperVideoTrackDetails: Sendable {
         "\(Int(displaySize.width)) × \(Int(displaySize.height))"
     }
 
-    static func load(from asset: AVAsset, includesCodec: Bool = true) async -> Self? {
-        guard !Task.isCancelled, let track = try? await asset.loadTracks(withMediaType: .video).first,
-              !Task.isCancelled else { return nil }
+    static func load(from asset: AVAsset, includesCodec: Bool = true) async throws -> Self? {
+        guard !Task.isCancelled else { return nil }
+        let track = try await asset.loadTracks(withMediaType: .video).first
+        guard !Task.isCancelled, let track else { return nil }
         let size = await displaySize(for: track)
         guard !Task.isCancelled else { return nil }
         let format = includesCodec ? try? await track.load(.formatDescriptions).first : nil

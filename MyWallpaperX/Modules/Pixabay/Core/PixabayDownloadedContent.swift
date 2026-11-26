@@ -55,7 +55,7 @@ nonisolated struct PixabayDownloadedAssetMetadata: Sendable {
     static func load(from url: URL) async -> Self {
         let asset = AVURLAsset(url: url)
         let duration = await durationSeconds(for: asset)
-        let track = await WallpaperVideoTrackDetails.load(from: asset, includesCodec: false)
+        let track = try? await WallpaperVideoTrackDetails.load(from: asset, includesCodec: false)
         return Self(durationSeconds: duration, displaySize: track?.displaySize, nominalFrameRateText: track?.nominalFrameRateText)
     }
 

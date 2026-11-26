@@ -853,12 +853,14 @@ enum Harness {
         if #available(macOS 26.0, *) {
             let source = root.appendingPathComponent("source.mov")
             let replacement = root.appendingPathComponent("replacement.mov")
+            let audioOnly = root.appendingPathComponent("audio-only.mov")
             var fixturesReady = false
             Task { @MainActor in
                 try! await VideoTrackMetadataFixtures.writeH264(source, width: 320, height: 180, rotationAngle: 0,
                     frameDuration: CMTime(value: 1, timescale: 24))
                 try! await VideoTrackMetadataFixtures.writeH264(replacement, width: 192, height: 108, rotationAngle: 0,
                     frameDuration: CMTime(value: 1, timescale: 60))
+                try! await VideoTrackMetadataFixtures.writeAudioOnlyMOV(audioOnly)
                 fixturesReady = true
             }
             precondition(waitFor(timeout: 15) { fixturesReady })
@@ -922,7 +924,8 @@ enum Harness {
 
             let atomicSource = root.appendingPathComponent("same-readable-path.mov")
             try! FileManager.default.copyItem(at: source, to: atomicSource)
-            let atomicMovie = VideoWallpaper(id: "same-readable-source", title: "Same Readable Source", path: atomicSource.path)
+            let atomicMovie = VideoWallpaper(id: "same-readable-source", title: "Same Readable Source",
+                path: atomicSource.path, resolution: "192 × 108")
             InspectorMetadataProbe.actualPaths.insert(atomicSource.path)
             sourceManager.wallpapers = [atomicMovie]
             let atomicView = VideoLibraryInspectorView(wallpaper: atomicMovie, wallpaperManager: sourceManager,
@@ -937,6 +940,18 @@ enum Harness {
                 }
             }
             check(waitFor(timeout: 5) { atomicShows(["192 × 108", "60 FPS"]) }, "s20-atomic-baseline-real-track")
+            precondition(rename(audioOnly.path, atomicSource.path) == 0)
+            atomicView.updateLibraryActions(previewActions, sourceAvailable: true, sourceReplaced: true)
+            let audioReadComplete = waitFor(timeout: 5) { InspectorMetadataProbe.terminals[atomicSource.path] == 2 }
+            let unknownResolution = firstSubview(of: atomicView) { view in
+                guard let cell = view as? NSStackView, !cell.isHiddenOrHasHiddenAncestor else { return false }
+                return cell.arrangedSubviews.compactMap { ($0 as? NSTextField)?.stringValue }
+                    == [String(localized: "Resolution"), String(localized: "Unknown")]
+            }
+            check(audioReadComplete && unknownResolution != nil && !atomicShows(["192 × 108"])
+                && !atomicShows([String(localized: "Nominal Frame Rate")]) && !atomicShows(["H.264"])
+                && !atomicShows([missingSourceText]),
+                "s20-readable-audio-replacement-clears-indexed-video-facts")
             precondition(rename(atomicReplacement.path, atomicSource.path) == 0)
             let newResolution = independentClip == nil ? "320 × 180" : "1920 × 1080"
             atomicView.updateLibraryActions(previewActions, sourceAvailable: true, sourceReplaced: true)
@@ -946,18 +961,18 @@ enum Harness {
             atomicView.updateLibraryActions(previewActions)
             sourceManager.wallpapers = [atomicMovie]
             drain(0.05)
-            check(InspectorMetadataProbe.starts[atomicSource.path] == 2 && atomicShows([newResolution, "24 FPS"])
+            check(InspectorMetadataProbe.starts[atomicSource.path] == 3 && atomicShows([newResolution, "24 FPS"])
                 && InspectorContentBuildProbe.bodiesByView[ObjectIdentifier(atomicView)] == 1,
                 "s20-duplicate-publication-reuses-the-same-body-and-metadata")
             atomicView.removeFromSuperview()
             try! FileManager.default.copyItem(at: source, to: atomicReplacement)
             precondition(rename(atomicReplacement.path, atomicSource.path) == 0)
             atomicView.updateLibraryActions(previewActions, sourceAvailable: true, sourceReplaced: true)
-            check(InspectorMetadataProbe.starts[atomicSource.path] == 2,
+            check(InspectorMetadataProbe.starts[atomicSource.path] == 3,
                 "s20-detached-view-defers-track-read-until-remount")
             container.addSubview(atomicView)
             check(waitFor(timeout: 5) { atomicShows(["192 × 108", "60 FPS"])
-                && InspectorMetadataProbe.terminals[atomicSource.path] == 3 },
+                && InspectorMetadataProbe.terminals[atomicSource.path] == 4 },
                 "s20-remount-adopts-replacement-observed-while-detached")
             atomicView.removeFromSuperview()
         }
