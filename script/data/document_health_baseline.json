@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 394488
+      "bytes": 395116
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 57,
-      "bytes": 7596
+      "bytes": 7649
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -658,20 +658,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "899081a8579bd8a68899d3ee06db390bffa56beda1fa51c7b63cc667380953cf",
-      "after": "380d925af5003f7461ba365b22c63c53f6fcbb4aa8cdf7fa8ae73edfb98601a5",
-      "owner": "Scene composition",
-      "reason": "记录原包开关对照的新接缝定位，保留尚未锁定的双端差异。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-chain-left-step-286"
+      "before": "380d925af5003f7461ba365b22c63c53f6fcbb4aa8cdf7fa8ae73edfb98601a5",
+      "after": "3dd105019c0510181d1bb497e174190902a8cd8ba52fe5a09fb48debde5b8218",
+      "owner": "Scene particles",
+      "reason": "登记当前原包启动基线与独立预热短栈。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-box-prewarm-333"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "6b084590c4b357a73408c92bbf31d24c7658a53e272e89505868eb194ed17856",
-      "after": "624ff26cce861cb2428330a37d7b9dec61323c9bf057f6e15951e463929f6086",
-      "owner": "Scene composition",
-      "reason": "记录原包开关对照的新接缝定位，保留尚未锁定的双端差异。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "before": "624ff26cce861cb2428330a37d7b9dec61323c9bf057f6e15951e463929f6086",
+      "after": "83962074438454dc02459c98bfa0023ae8d4dab31fdc02672a4b79dfd0a0608d",
+      "owner": "Scene particles",
+      "reason": "登记当前原包启动基线与独立预热短栈。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
     }
   ]
 }

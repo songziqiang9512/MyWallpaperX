@@ -40,7 +40,7 @@
 
 | 样本 | 剩余瓶颈 |
 |---|---|
-| 3337494481 | [签名优化态](../capabilities/runtime-evidence-current.md#particle-turbulence-borrow)首屏仍由完整粒子预热主导。沿实际热采样找可去工作，保首帧和历史。 |
+| 3337494481 | [当前签名构建](../capabilities/runtime-evidence-current.md#author-box-prewarm-333)复现首屏慢，短栈指向连续 Turbulence 的 simplex。使用同构建参数验证可去的查表或重复派生，保首帧、历史和 RNG。 |
 | 3749463715 | [可比 60fps 运行](../capabilities/runtime-evidence-current.md#gpu-admission-wake-374)实呈从 29.96 提升到 34.80fps，尚低于目标。仅跟进当前路径的新显著成本。 |
 | 3420215721 | [同包实测](../capabilities/runtime-evidence-current.md#scene-playback-triage-342)仍有 GPU 超预算。固定 scene-time 和实际历史源做消融。 |
 | 3673609113 | [实呈与 GPU 回执](../capabilities/runtime-evidence-current.md#inactive-terminal-copy-367)仍显示 GPU 超预算。沿实际帧成本定位，保两级作者历史。人偶及音条残影独立按用户反馈核对。 |
