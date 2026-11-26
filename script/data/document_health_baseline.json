@@ -585,11 +585,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "f1e8d0db82cff76b17da667dae740a9ea5964be0c1f3153a2336c26c63536b12",
+      "before": "9c8f37d3e780a3e7110797eba998ce14292659c3e857b392e9caabae027d929c",
       "after": "89808e4a35623a95e11e6fadad50433bb795444b80288ecdbdf075e32df4373e",
       "owner": "Scene perspective image terminal depth",
       "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth",
-      "reason": "保合并双方的终端深度合同与实绘证据，按质量父提交和合并正文核对实际预算。"
+      "reason": "保合并双方的终端深度合同与实绘证据，按主父提交和合并正文核对实际预算。"
     },
     {
       "section": "bodies",
@@ -639,11 +639,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e81ae75a49a2c92f973ad87731cc910d3f7790f19eab8fe2bde987e3a77b0887",
+      "before": "9bc2b0b9ac4ded63704f0cf9f66caadb8205b503e26aece771fdd57ca7a7c1a6",
       "after": "a0b10b88a50683bf265c2785e11eefa55d9e8c2d1e427d0f813d9af256b605f8",
       "owner": "Scene perspective image terminal depth",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-box-cover-depth-333",
-      "reason": "保合并双方的终端深度合同与实绘证据，按质量父提交和合并正文核对实际预算。"
+      "reason": "保合并双方的终端深度合同与实绘证据，按主父提交和合并正文核对实际预算。"
     },
     {
       "section": "bodies",
