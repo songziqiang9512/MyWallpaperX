@@ -6,9 +6,9 @@
 <a id="execution"></a>
 ## 当前批与接手步骤
 
-独立工作树 `Fluxo/wallpaper-quality-settings` 已合入主线 `030f3876d`，签名 Debug 已复验默认音条→模型的 4× 根段。[点光候选](#scene-point-shadow-density-trial)用同步后源码复验预算回退、真实深度和跨面采样，缺省 60 FPS 长稳待测。[作者 mip 快照](#scene-embedded-mip-snapshot-result)因整场峰值回退退出。[体积清深度直查](wallpaper-quality-settings-plan.md#scene-volume-clear-depth-table)的真实 SDR 阶段节省逾 32%，整帧未复现有意义收益，HDR 和大坐标负例均超门，路线退出。高性能纹理已解除全场景脚本别名否决，3264246690 实绘由 5120×1440 变为 1280×360。现役 MSAA 可清屏或在 1× 颜色前缀后进入原生段，默认音条已实绘。可提前确定的普通深度终端和独立局部图已接入原生根域，在私有 1× 预约前选定附件。默认月亮实绘 2×／4× 后解析到原根色，再由 1× 像素化读写。下一批补逐屏退档原因、同一实际材料的更广图调度及各项实际回执。HDR 菜单已与 Scene 拓扑共用目标屏集合，原生 AppKit 控件门以受控屏幕覆盖只接未选、改为目标及保存后目标退出，物理混合屏仍待验。以[逐档执行合同](../architecture/wallpaper-quality-execution-contract.md#quality-option-semantics)的当前消费者、反馈和代表组合为验收范围，继续补官版低／中档、反射对照与点光阴影独立长窗。 [MSAA 混合段](wallpaper-quality-settings-plan.md#scene-aa-depth-independent-tail) · [隐藏纹理选档](wallpaper-quality-settings-plan.md#scene-texture-deferred-quality) [技术设计](wallpaper-quality-settings-plan.md#decision) · [源码地图](../architecture/repository-map.md#wallpaper-quality) · [验证流程](repository-workflow.md#设计判定与记录)
-
-M4 单内屏已验证四档预设、10–120 FPS、Scene MSAA 至 4×、泛光和显示 HDR、三种纹理策略、阴影五档、反射启停及真实桌面接管。Scene 冷档直接编辑与显式重试共用实际准备回执和在途撤单。导入同类画质可连续播放。真实 Web 作者验证 FPS 建议与绘制，Video 保原片并已实测 PQ／HLG／HDR10+ 实窗。体积保禁用、高／超高，低／中原尺寸网格已验画面与回退，整帧收益未复现，暂退出发布。[本地 Video 原片恢复](wallpaper-quality-settings-plan.md#video-inspector-source-recovery)已在同窗更新实际尺寸和标称帧率，原生同窗切换实证[冷海报等比定位、暖切保留原画及留黑](wallpaper-quality-settings-plan.md#video-candidate-poster)及[同源淡入亮度连续](wallpaper-quality-settings-plan.md#video-crossfade-luminance)。直接调档已实测自动采纳、在途精确撤单与三引擎导入连续。后续继续官版运行对照及混合显示拓扑、8× 和长稳功耗的硬件复验。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
+- 独立工作树 `Fluxo/wallpaper-quality-settings` 已合入主线 `34ca1d695`。以[执行合同](../architecture/wallpaper-quality-execution-contract.md#quality-option-semantics)核逐档、纹理用途、灯种、效果组合与回显，官方工作流和采样待验保留在下文。签名默认音条在 1× 前缀后进 4× 根段，默认月亮由 2×／4× 根段解析后交给 1× 像素化。高性能纹理解除无关脚本别名否决，3264246690 实绘 5120×1440→1280×360。体积清深度直查未改善整帧且有画面负例，作者 mip 快照使整场峰值回退，两项退出。HDR 目标屏选择已过受控 AppKit 门，物理混合屏待验。 [根域](wallpaper-quality-settings-plan.md#scene-aa-depth-independent-tail) · [纹理](wallpaper-quality-settings-plan.md#scene-texture-deferred-quality) · [体积试验](wallpaper-quality-settings-plan.md#scene-volume-clear-depth-table) · [源码地图](../architecture/repository-map.md#wallpaper-quality)
+- MSAA 已接入[逐屏实际回执](../architecture/wallpaper-quality-execution-contract.md#quality-feedback)。活动根样本、已知设备限制、准备失败和未进入多样本路径各有准确回显，应用新档前可读旧画面状态。M4 单内屏用 AppKit 依次选无／2×／4×／无。3477054430 实际提交 1／2／4／1，独立 3453730450 为 1／1／1／1，中间两档显示单采样路径。每次取得同一接管请求的画面，转 Web 后清除。受控回归覆盖交换屏、单屏未知、旧请求、附件与种色准备失败，设备限制和混合屏尚无物理证据。收据归 `.artifacts/wallpaper-quality-raster-status-20261127`。下一步缩小与体积／实时环境／具名供货共同退 1× 的范围，并让后处理／EDR、纹理基级、各灯影图和体积路径、反射来源逐项使用原消费者回执。优先补有真实执行、用户却看不到采用结果的控件。持续补官版低／中档、反射对照和[点光阴影长窗](#scene-point-shadow-density-trial)。
+- M4 单内屏已验证四档预设、10–120 FPS、Scene MSAA 至 4×、泛光和显示 HDR、三种纹理策略、阴影五档、反射启停及真实桌面接管。Scene 冷档直接编辑与显式重试共用实际准备回执和在途撤单。导入同类画质可连续播放。真实 Web 作者验证 FPS 建议与绘制，Video 保原片并已实测 PQ／HLG／HDR10+ 实窗。体积保禁用、高／超高，低／中原尺寸网格已验画面与回退，整帧收益未复现，暂退出发布。[本地 Video 原片恢复](wallpaper-quality-settings-plan.md#video-inspector-source-recovery)已在同窗更新实际尺寸和标称帧率，原生同窗切换实证[冷海报等比定位、暖切保留原画及留黑](wallpaper-quality-settings-plan.md#video-candidate-poster)及[同源淡入亮度连续](wallpaper-quality-settings-plan.md#video-crossfade-luminance)。直接调档已实测自动采纳、在途精确撤单与三引擎导入连续。后续继续官版运行对照及混合显示拓扑、8× 和长稳功耗的硬件复验。 [技术裁决](wallpaper-quality-settings-plan.md#decision)
 
 每批先冻结输入、画面口径及同机噪声，再改现有职责并走最近门、独立审查和窄提交。轮次完成后保必要证据，退出诊断和已失效的边界。未越过收益门的候选停止推进。 [实测门槛](wallpaper-quality-settings-plan.md#quality-release-gates)
 
@@ -437,7 +437,7 @@ M4 原生 102 个斜边像素的覆盖 MAE 在 1×／2×／4× 为 0.19005／0.1
 <a id="scene-quality-presets"></a>
 ### 预设选择和原配置生效
 
-以 [已核官版向量的本机投影](wallpaper-quality-settings-plan.md#四档候选) 为单一表。选择预设或恢复默认会撤销未提交的帧率输入，只写一次现有偏好。预设名由动画 FPS 请求与 Scene 全向量精确派生，任一偏离为自定。恢复默认、每屏生效数、原缓存兼容位和 Web 模式归各自 owner。60 FPS 兼容默认会显示自定。v8 和 daemon 仍用原字段，无第二预设状态或新通知渠道。
+以[执行合同的本机向量](../architecture/wallpaper-quality-execution-contract.md#quality-option-semantics)为设计依据。选择预设或恢复默认会撤销未提交的帧率输入，只写一次现有偏好。预设名由动画 FPS 请求与 Scene 全向量精确派生，任一偏离为自定。恢复默认、每屏生效数、原缓存兼容位和 Web 模式归各自 owner。60 FPS 兼容默认会显示自定。v8 和 daemon 仍用原字段，无第二预设状态或新通知渠道。
 
 原 FPS 热更和 Scene 资源冷准备继续各自消费差分。一档修改后同步全部可见值。以现有 AppKit 行为、命令 mux 和恢复门验证一次写入、重复选择、手改、导入、复位和延迟设置。签名正常路径额外核 15 FPS 的初次实际呈现及冷准备后的档位，Web 只有跟随时收到建议，Video 原片和下载规格无需执行命令。高／超高采用已验收的 MSAA ×2 请求。体积档随独立验收修订。
 

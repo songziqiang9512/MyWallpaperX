@@ -52,6 +52,7 @@ extension SceneMetalRenderer {
     final class PreparedFrame: Equatable {
         let initialVideoPresentation: InitialVideoPresentation?
         let rasterSampleCount: Int?
+        let didFailMultisamplePreparation: Bool
 #if DEBUG
         private let compositionSurfaceObservation: ((UInt32, ObjectIdentifier) -> Void)?
 #endif
@@ -62,11 +63,12 @@ extension SceneMetalRenderer {
 
         init(commandBuffer: MTLCommandBuffer,
              initialVideoPresentation: InitialVideoPresentation? = nil,
-             rasterSampleCount: Int? = nil,
+             rasterSampleCount: Int? = nil, didFailMultisamplePreparation: Bool = false,
              observeCompositionSurface: ((UInt32, ObjectIdentifier) -> Void)? = nil,
              submit: @escaping (Bool) -> Void, cancel: @escaping () -> Void) {
             self.initialVideoPresentation = initialVideoPresentation
             self.rasterSampleCount = rasterSampleCount
+            self.didFailMultisamplePreparation = didFailMultisamplePreparation
 #if DEBUG
             compositionSurfaceObservation = observeCompositionSurface
 #endif

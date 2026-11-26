@@ -291,8 +291,7 @@ extension SceneMetalRenderer {
                        || modelFrame.imageMaterialStates[layer.id]?.requiresDepthAttachment == true
                        || particleBatchesByID[layer.id]?.isEmpty == false
                }),
-           let attachments = targets.forTarget(mainTarget),
-           mainPass.prepareMultisampling(attachments) {
+           mainPass.prepareMultisampling(targets.forTarget(mainTarget)) {
             rootMultisample = plan
         }
         let unavailableDepthConsumers = unavailableSharedTerminalDepthLayers(
@@ -518,11 +517,11 @@ extension SceneMetalRenderer {
             if (startsAtClear || imagePipeline?.supportsMultisampleColorSeed == true && offscreenTexturePool != nil),
                !requiresLiveImageReflection(),
                let start = firstNativeModelLayer(shadowCandidates) {
-                if startsAtClear, let attachments = multisampleTargets.forTarget(mainTarget) {
-                    if mainPass.prepareMultisampling(attachments) {
+                if startsAtClear {
+                    if mainPass.prepareMultisampling(multisampleTargets.forTarget(mainTarget)) {
                         rootMultisample = .clear(localOutput: nil, resolvesBeforeUtility: nil)
                     }
-                } else if !startsAtClear {
+                } else {
                     let suffix = orderedLayers[start...]
                     let safeSuffix = suffix.allSatisfy { layer in
                         resolvedMaterialFrameTargetPlans[layer.id] == nil

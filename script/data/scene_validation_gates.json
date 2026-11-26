@@ -2432,6 +2432,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceParticles.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSimulation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+ParticleEmission.swift",
+        "script/tests/fixtures/ScenePausedFrameAdmissionChecks.swift",
         "script/tests/fixtures/ScenePausedFrameRecoveryHarness.swift"
       ],
       "modules": [

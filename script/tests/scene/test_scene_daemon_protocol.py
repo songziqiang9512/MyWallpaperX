@@ -473,11 +473,28 @@ import Foundation
             && SceneDaemonProtocol.animationCadenceEvent([
                 "requestID": candidateID.uuidString, "requestedFPS": 120, "effectiveFPS": true
             ]) == nil
-        let rasterSamplesValid = SceneDaemonProtocol.rasterSampleCounts([1, 4]) == [1, 4]
-            && SceneDaemonProtocol.rasterSampleCounts([]) == []
-            && [nil, [true], [3], [8], [4, 1], [1, 1], [1.5]].allSatisfy {
-                SceneDaemonProtocol.rasterSampleCounts($0) == nil
-            }
+        let displayed: [SceneRasterDisplayStatus] = [
+            .init(displayID: 2, samples: 1, fallback: .compatiblePathUnavailable),
+            .init(displayID: 7, samples: 4),
+            .init(displayID: 9, samples: nil),
+        ]
+        let invalidDisplays: [Any?] = [
+            nil,
+            [["displayID": true]],
+            [["displayID": 0]],
+            [["displayID": UInt64(UInt32.max) + 1]],
+            [["displayID": 1], ["displayID": 1]],
+            [["displayID": 2], ["displayID": 1]],
+            [["displayID": 1, "samples": true]],
+            [["displayID": 1, "samples": 1.5]],
+            [["displayID": 1, "samples": 8]],
+            [["displayID": 1, "samples": 4, "fallback": "preparationFailed"]],
+            [["displayID": 1, "fallback": "deviceUnsupported"]],
+            [["displayID": 1, "samples": 1, "fallback": "unrecognized"]],
+        ]
+        let rasterSamplesValid = SceneDaemonProtocol.rasterDisplayStatuses(displayed.map(\.wireObject)) == displayed
+            && SceneDaemonProtocol.rasterDisplayStatuses([]) == []
+            && invalidDisplays.allSatisfy { SceneDaemonProtocol.rasterDisplayStatuses($0) == nil }
         let duplicateDisplayRejected: Bool
         if case .failure(.invalidPayload("setDisplayConfiguration")) = decode([
             "v": 2, "cmd": "setDisplayConfiguration", "screens": [

@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "71ab24cb901e793a6d20bd7aaa2e0b7cb856240ac85026012d3476e7486730ac",
+        "sourceSHA256": "589ffff5f31a93f464d3900bf0ef6858e32108f3a2e6be1d76dc4f995983757e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "校对独立局部图、根采样决定、实际解析与设置时序。",
-        "limitations": "仅签名桌面短窗和原生 GPU 门。跨段读取逐样本深度，以及其他机型和稳态功耗另验。"
+        "scope": "核对逐档执行职责、组合与逐屏抗锯齿回执路由。",
+        "limitations": "现役运行结果以工作卡的实测范围为准。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "45edb7cc14317a1b80272c0a3e88cb5b4d80dea3e426abfd3da5b9ae92caefc2",
+        "sourceSHA256": "ea8e9a2112276483ab9046dafc7bdd1bd282aa2cbc01d4eb8af304e7ee67012c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对实际档位、资源用途、组合顺序和运行回执。",
-        "limitations": "能力现状与尚未执行的验收归现役工作卡。"
+        "scope": "核对逐档执行职责、组合与逐屏抗锯齿回执路由。",
+        "limitations": "现役运行结果以工作卡的实测范围为准。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8b938709db32566cdfeded39fc915208ebd59f1a75ab995ec2f2d228abb8a273",
+        "sourceSHA256": "117c8d20a9311156dc2a6baa222d0cbfd889bf9375c5014364ee71c79a1bf929",
         "method": "document_registry --audit + document_health --check",
-        "scope": "校对独立局部图、根采样决定、实际解析与设置时序。",
-        "limitations": "仅签名桌面短窗和原生 GPU 门。跨段读取逐样本深度，以及其他机型和稳态功耗另验。"
+        "scope": "核对逐档执行职责、组合与逐屏抗锯齿回执路由。",
+        "limitations": "现役运行结果以工作卡的实测范围为准。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "987ad781b3434748ec6652b4ecf37924db7c81bfc261bc3324abd07796f8316f",
+        "sourceSHA256": "3b61eb9fdc2b3b2b42504587f31448ba65f0ed39dfa61a74ffdbf1169aa04dfc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "校对独立局部图、根采样决定、实际解析与设置时序。",
-        "limitations": "仅签名桌面短窗和原生 GPU 门。跨段读取逐样本深度，以及其他机型和稳态功耗另验。"
+        "scope": "核对逐档执行职责、组合与逐屏抗锯齿回执路由。",
+        "limitations": "现役运行结果以工作卡的实测范围为准。"
       }
     },
     {
@@ -886,10 +886,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9c5768b91e085431a33137d282caed273ed5f123c29c56353431a6353154c3ae",
+        "sourceSHA256": "e7d5903eacd0ed123652e22f8a6ebb4311d1756657cff66fd4a612ea5cd8f955",
         "method": "document_registry --audit + document_health --check",
-        "scope": "校对独立局部图、根采样决定、实际解析与设置时序。",
-        "limitations": "仅签名桌面短窗和原生 GPU 门。跨段读取逐样本深度，以及其他机型和稳态功耗另验。"
+        "scope": "核对逐档执行职责、组合与逐屏抗锯齿回执路由。",
+        "limitations": "现役运行结果以工作卡的实测范围为准。"
       }
     },
     {

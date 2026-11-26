@@ -27,7 +27,8 @@ class SettingsCacheActionsTests(unittest.TestCase):
         settings_components = ROOT / "MyWallpaperX/Shared/Components/AppKitSettingsComponents.swift"
         fixture = ROOT / "script/tests/fixtures/SettingsIntervalEditingHarness.swift"
         display_configuration = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient+DisplayConfiguration.swift"
-        paths = [settings, layout, dependency, quality, settings_components, fixture, display_configuration, Path(__file__).resolve()]
+        daemon_protocol = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonProtocol.swift"
+        paths = [daemon_protocol, settings, layout, dependency, quality, settings_components, fixture, display_configuration, Path(__file__).resolve()]
         hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
         source = settings.read_text()
         refresh = declaration(source, "    func refreshFromState()")
@@ -38,6 +39,7 @@ class SettingsCacheActionsTests(unittest.TestCase):
         actual = actual.replace("// ACTUAL_CONFIGURED_WALLPAPER_SCREENS", declaration(
             display_configuration.read_text(), "    var configuredWallpaperScreens:"))
         actual += "\n" + declaration(settings_components.read_text(), "final class SettingsGroupView:") + "\n"
+        actual += "\n" + declaration(daemon_protocol.read_text(), "nonisolated struct SceneRasterDisplayStatus:") + "\n"
         layout_source = layout.read_text()
         for marker, signature in (
             ("// ACTUAL_SCENE_POST_PROCESSING_MENU", "    func refreshScenePostProcessingMenu("),

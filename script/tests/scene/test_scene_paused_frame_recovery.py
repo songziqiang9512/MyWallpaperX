@@ -257,6 +257,7 @@ def production_harness(sources=None):
     ]))
     harness = harness.replace("// DISPLAY_OUTPUT_SCENARIO", DISPLAY_OUTPUT_SCENARIO)
     harness = harness.replace("// CONTINUOUS_RATE_SCENARIO", CONTINUOUS_RATE_SCENARIO)
+    harness += "\n" + FIXTURE.with_name("ScenePausedFrameAdmissionChecks.swift").read_text()
     harness = harness.replace("// TEXT_FRAME_METHODS", "\n".join(
         method(view, signature) for signature in (
             "func commitPreparedDynamicTextFrame(", "func discardPreparedDynamicTextFrame(")))

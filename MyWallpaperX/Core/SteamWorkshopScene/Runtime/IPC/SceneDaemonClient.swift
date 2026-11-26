@@ -110,13 +110,13 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         didSet {
             if oldValue != activeRequestID {
                 activeAnimationCadence = nil
-                activeRasterSampleCounts = []
+                activeRasterDisplayStatuses = []
             }
         }
     }
-    var activeRasterSampleCounts: [Int] = [] {
+    var activeRasterDisplayStatuses: [SceneRasterDisplayStatus] = [] {
         didSet {
-            if oldValue != activeRasterSampleCounts {
+            if oldValue != activeRasterDisplayStatuses {
                 NotificationCenter.default.post(name: .sceneDaemonRasterSamplesDidChange, object: self)
             }
         }
@@ -633,7 +633,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         sessionGeneration &+= 1
         if hadPreparedQuality { notifyPreparedQualityChanged() }
         activeAnimationCadence = nil
-        activeRasterSampleCounts = []
+        activeRasterDisplayStatuses = []
         activeCallbackPropertyFacts = nil
         let generation = sessionGeneration
         expectedTerminationGenerations.remove(generation)

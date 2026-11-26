@@ -292,12 +292,13 @@ extension SceneDesktopWallpaperHost {
             effectivePropertyValues: runtimeInput.effectivePropertyValues
         )
         let requestedSampleCount = sceneRenderQuality.antiAliasing.sampleCount
+        let deviceSampleCount = requestedSampleCount > 1 && device.supportsFamily(.apple7) && device.supportsTextureSampleCount(requestedSampleCount) ? requestedSampleCount : 1
         let deviceResourcesPreparation = ScenePreparedDeviceResourcesTask(
             descriptor: runtimeInput.renderDescriptor,
             directionalShadowDimensionLimit: sceneRenderQuality.shadows.directionalDimensionLimit,
             pointVolumeQuality: sceneRenderQuality.volumeLighting,
             modelReflectionsEnabled: sceneRenderQuality.reflections == .enabled,
-            rasterSampleCount: requestedSampleCount > 1 && device.supportsFamily(.apple7) ? requestedSampleCount : 1,
+            rasterSampleCount: deviceSampleCount,
             ordinaryColorMipLongEdge: sceneRenderQuality.textures.ordinaryColorMipLongEdge,
             automaticDrawableExtent: automaticDrawableExtent,
             resourceView: model.resourceView,
@@ -891,7 +892,7 @@ extension SceneDesktopWallpaperHost {
                 resolvedMaterialExecutionCapabilities,
             materialAssetCatalog: materialAssetCatalog,
             stockNoiseTextures: stockNoiseTextures,
-            preparedDeviceResources: preparedDeviceResources,
+            preparedDeviceResources: preparedDeviceResources, rasterSamples: (requestedSampleCount, deviceSampleCount),
             preparedFirstSurfaceRuntime: preparedFirstSurfaceRuntime,
             timelineProgram: timelineProgram,
             timelinePlaybackRuntime: timelinePlaybackRuntime,

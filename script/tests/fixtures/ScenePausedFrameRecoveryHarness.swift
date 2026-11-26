@@ -912,76 +912,12 @@ final class SceneDesktopWallpaperSession {
         complete(view, 4, true)
         stopped(owner); frozen(owner, before)
     }
-    static func activeAdmission(_ scenario: String) {
-        let owner = SceneDesktopWallpaperSession()
-        let first = owner.attach(1), second = owner.attach(2)
-        var simulations: [TimeInterval] = []
-        owner.activeSimulationProbe = { [unowned owner] in
-            simulations.append(TransportTime.now)
-            return owner.renderSurfaces()
-        }
-        owner.startFrameDriver()
-        first.metalView.submissions.blocked = true
-        second.metalView.submissions.blocked = scenario != "activeAdmissionMixed"
-        let scheduled = owner.frameDriverDeadline!
-        precondition(RunLoop.main.fireNext())
-        if scenario == "activeAdmissionMixed" {
-            precondition(simulations == [100, scheduled] && second.metalView.commits == 2)
-            second.metalView.submissions.blocked = true
-            precondition(RunLoop.main.fireNext() && simulations.count == 2)
-            _ = owner.attach(1)
-            first.metalView.submissions.complete()
-            precondition(simulations.count == 2)
-            owner.setPlaybackPaused(true)
-            second.metalView.submissions.complete()
-            precondition(simulations.count == 2)
-            stopped(owner)
-            return
-        }
-        precondition(simulations == [100] && RunLoop.main.activeCount == 1)
-        if scenario == "activeAdmissionWake" {
-            TransportTime.now += 0.004
-            second.metalView.submissions.complete()
-            precondition(simulations == [100, TransportTime.now] && second.metalView.commits == 2)
-            first.metalView.submissions.complete()
-            precondition(simulations.count == 2 && RunLoop.main.activeCount == 1)
-        } else {
-            TransportTime.now = owner.frameDriverDeadline! + 0.04
-            for _ in 0..<2 {
-                precondition(RunLoop.main.fireNext())
-                precondition(simulations == [100], "GPU admission timeout advanced simulation while every surface was blocked")
-                precondition(RunLoop.main.activeCount == 1)
-                precondition(abs(owner.frameDriverDeadline! - TransportTime.now - 1.0 / 60) < 0.000001)
-            }
-            TransportTime.now += 0.004
-            first.metalView.submissions.complete()
-            precondition(simulations == [100, TransportTime.now] && first.metalView.commits == 2)
-            second.metalView.submissions.complete()
-            precondition(simulations.count == 2 && RunLoop.main.activeCount == 1)
-        }
-        precondition(abs(owner.frameDriverDeadline! - TransportTime.now - 1.0 / 60) < 0.000001)
-        owner.setPlaybackPaused(true)
-        stopped(owner)
-    }
     // CONTINUOUS_RATE_SCENARIO
     static func main() {
         let scenario = CommandLine.arguments[1]
         switch scenario {
         case "success": success()
-        case "rasterSamples":
-            var samples = SceneDesktopWallpaperSession.RasterSampleStatus()
-            let initial = samples.observe(4)!
-            precondition(samples.complete(initial, succeeded: true) && samples.observe(4) == nil)
-            let fallback = samples.observe(1)!, upgrade = samples.observe(4)!
-            precondition(samples.complete(fallback, succeeded: true) && samples.completedSamples == 1)
-            precondition(!samples.complete(upgrade, succeeded: false) && samples.completedSamples == 1)
-            let failed = samples.observe(4)!, retry = samples.observe(4)!
-            precondition(!samples.complete(failed, succeeded: false))
-            precondition(samples.complete(retry, succeeded: true) && samples.observe(4) == nil)
-            let older = samples.observe(1)!, newer = samples.observe(4)!
-            precondition(!samples.complete(newer, succeeded: true))
-            precondition(!samples.complete(older, succeeded: true))
-            precondition(samples.completedSamples == 4 && samples.observe(4) == nil)
+        case "rasterSamples": rasterSamples()
         case "failOnce": failOnce()
         case "asyncExpiry": asynchronousExpiry()
         case "syncExpiry": synchronousExpiry(.synchronousDrop)

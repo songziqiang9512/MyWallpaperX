@@ -217,7 +217,7 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
         for row in rows:
             with self.subTest(format=row["format"], samples=row["samples"]):
                 self.assertTrue(row["seedPipeline"], row)
-                self.assertEqual(row["cases"], {"seed": True, "prepare-failure": True, "existing-depth": True})
+                self.assertEqual(row["cases"], {"seed": True, "prepare-failure": True, "attachment-failure": True, "existing-depth": True})
 
     def test_single_clear_main_pass_resolves_multisample_color_and_preserves_reverse_depth(self):
         result = self.result["multisampleResolve"]
@@ -226,7 +226,7 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
         if self.result["unsupportedEight"]["device"].split()[:2] == ["Apple", "M4"]:
             self.assertTrue(result["supportsFour"])
         for check in ("historyRejected", "differentSizeRejected", "singleColorRejected", "readRejected",
-                      "unexpectedCloseRejected"):
+                      "unexpectedCloseRejected", "missingAttachmentsRecovered"):
             self.assertTrue(result[check], check)
         rows = result["rows"]
         self.assertEqual([row["samples"] for row in rows], [1, 2, 4] if result["supportsFour"] else [1, 2])

@@ -177,7 +177,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
                 }
                 let pair = SceneMainPassEncoder.MultisampleAttachments(
                     color: attachment(format, samples: samples), depth: attachment(.depth32Float, samples: samples))!
-                let cases = ["seed", "prepare-failure", "existing-depth"]
+                let cases = ["seed", "prepare-failure", "attachment-failure", "existing-depth"]
                 let results = cases.map { mode -> Bool in
                     let output = target(device, width: width, height: height, format: format, seed: 903)
                     let cb = queue.makeCommandBuffer()!
@@ -196,7 +196,9 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
                     }
                     let snapshot = target(device, width: width, height: height, format: format, seed: 503)
                     var sourceOffered = false
-                    let opened = pass.beginMultisamplingAfterColorPrefix(attachmentsForTarget: { _ in pair }) { root, buffer in
+                    let opened = pass.beginMultisamplingAfterColorPrefix(
+                        attachmentsForTarget: { _ in mode == "attachment-failure" ? nil : pair }
+                    ) { root, buffer in
                         sourceOffered = true
                         let blit = buffer.makeBlitCommandEncoder()!
                         blit.copy(from: root, sourceSlice: 0, sourceLevel: 0, sourceOrigin: .init(),
@@ -211,7 +213,8 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
                     let finished = pass.finishEnsuringClear()
                     cb.commit(); cb.waitUntilCompleted()
                     return finished && cb.status == .completed && opened == (mode == "seed")
-                        && sourceOffered == (mode != "existing-depth")
+                        && sourceOffered == (mode == "seed" || mode == "prepare-failure")
+                        && pass.didFailMultisamplePreparation == (mode == "prepare-failure" || mode == "attachment-failure")
                         && pass.submittedRasterSampleCount == expectedSamples && pixels(output) == expected
                 }
                 return ["format": format.rawValue, "samples": samples,
@@ -328,6 +331,16 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
         let mismatchedTarget = target(device, width: width - 1, height: height, format: .bgra8Unorm, seed: 9)
         let wrongSize = SceneMainPassEncoder(commandBuffer: queue.makeCommandBuffer()!, target: mismatchedTarget,
             clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
+        let fallbackCommand = queue.makeCommandBuffer()!
+        let withoutAttachments = SceneMainPassEncoder(commandBuffer: fallbackCommand, target: output,
+            clearColor: MTLClearColorMake(1, 0, 0, 1), clearEnabled: true)
+        let selectedFallback = !withoutAttachments.prepareMultisampling(nil)
+            && withoutAttachments.didFailMultisamplePreparation && withoutAttachments.finishEnsuringClear()
+            && withoutAttachments.submittedRasterSampleCount == 1
+        fallbackCommand.commit()
+        fallbackCommand.waitUntilCompleted()
+        let missingAttachmentsRecovered = selectedFallback && fallbackCommand.status == .completed
+            && Array(pixels(output).prefix(4)) == [0, 0, 255, 255]
         let blockedRead = SceneMainPassEncoder(commandBuffer: queue.makeCommandBuffer()!, target: output,
             clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
         precondition(blockedRead.prepareMultisampling(pair))
@@ -335,7 +348,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
             clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
         precondition(interrupted.prepareMultisampling(pair) && interrupted.encoder() != nil)
         interrupted.closeForOffscreen()
-        return ["supported": true, "unexpectedCloseRejected": !interrupted.resolveForSingleSampleTail()
+        return ["supported": true, "missingAttachmentsRecovered": missingAttachmentsRecovered, "unexpectedCloseRejected": !interrupted.resolveForSingleSampleTail()
                     && !interrupted.finishEnsuringClear(), "supportsFour": supportsFour, "rows": rows,
                 "size": [width, height], "triangleClipXY": near.map { [$0.x, $0.y] },
                 "historyRejected": !noClear.prepareMultisampling(pair) && noClear.rasterSampleCount == 1,

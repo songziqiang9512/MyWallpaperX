@@ -92,6 +92,25 @@ nonisolated struct SceneDaemonEventAdmission: Equatable, Sendable {
     }
 }
 
+nonisolated struct SceneRasterDisplayStatus: Equatable, Sendable {
+    enum Fallback: String, Sendable {
+        case deviceUnsupported
+        case compatiblePathUnavailable
+        case preparationFailed
+    }
+
+    let displayID: UInt32
+    let samples: Int?
+    var fallback: Fallback? = nil
+
+    var wireObject: [String: Any] {
+        var object: [String: Any] = ["displayID": displayID]
+        object["samples"] = samples
+        object["fallback"] = fallback?.rawValue
+        return object
+    }
+}
+
 nonisolated enum SceneDaemonProtocol {
     static let version = 2
     static let commandFlag = "--mwx-scene-daemon"
@@ -108,15 +127,19 @@ nonisolated enum SceneDaemonProtocol {
         return (requestID, requestedFPS, effectiveFPS)
     }
 
-    static func rasterSampleCounts(_ raw: Any?) -> [Int]? {
-        guard let values = raw as? [Any], values.count <= 3 else { return nil }
-        var counts: [Int] = []
-        for value in values {
-            guard let count = unsignedInteger(value), count == 1 || count == 2 || count == 4,
-                  counts.last.map({ $0 < Int(count) }) ?? true else { return nil }
-            counts.append(Int(count))
+    static func rasterDisplayStatuses(_ raw: Any?) -> [SceneRasterDisplayStatus]? {
+        guard let objects = raw as? [[String: Any]] else { return nil }
+        var statuses: [SceneRasterDisplayStatus] = []
+        for object in objects {
+            guard let rawID = unsignedInteger(object["displayID"]), let id = UInt32(exactly: rawID), id != 0,
+                  statuses.last.map({ $0.displayID < id }) ?? true else { return nil }
+            let samples = unsignedInteger(object["samples"])
+            if object["samples"] != nil, samples != 1 && samples != 2 && samples != 4 { return nil }
+            let fallback = (object["fallback"] as? String).flatMap(SceneRasterDisplayStatus.Fallback.init(rawValue:))
+            if object["fallback"] != nil, (samples != 1 || fallback == nil) { return nil }
+            statuses.append(.init(displayID: id, samples: samples.map(Int.init), fallback: fallback))
         }
-        return counts
+        return statuses
     }
 
     static func sourceObject(_ source: ScenePlaybackSource) throws -> [String: Any] {

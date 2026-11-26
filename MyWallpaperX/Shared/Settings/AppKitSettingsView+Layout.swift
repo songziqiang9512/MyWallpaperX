@@ -400,7 +400,7 @@ extension AppKitSettingsContainerView {
         antiAliasingControls.spacing = 2
         qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Anti-Aliasing"),
             iconSystemName: "viewfinder",
-            subtitle: String(localized: "Applies to supported 3D scenes after reloading the wallpaper"), trailing: antiAliasingControls))
+            subtitle: String(localized: "Uses multisampling where the Scene supports it", table: "SceneQuality"), trailing: antiAliasingControls))
 
         let modes: [(ScenePostProcessingMode, String)] = [
             (.disabled, String(localized: "Disabled")),
@@ -508,11 +508,51 @@ extension AppKitSettingsContainerView {
     }
 
     func refreshSceneRasterSampleReadout() {
-        let counts = SceneDaemonClient.shared.activeRasterSampleCounts
-        sceneRasterSamplesLabel.isHidden = counts.isEmpty
-        guard !counts.isEmpty else { return }
-        let samples = counts.map { "\($0.formatted())×" }.joined(separator: " / ")
-        sceneRasterSamplesLabel.stringValue = String(localized: "In use: \(samples)", table: "SceneQuality")
+        let daemon = SceneDaemonClient.shared
+        let displays = daemon.activeRasterDisplayStatuses
+        sceneRasterSamplesLabel.isHidden = displays.isEmpty
+        sceneRasterSamplesLabel.toolTip = nil
+        guard !displays.isEmpty else { return }
+
+        let counts = Set(displays.compactMap(\.samples)).sorted()
+        let values = counts.map { "\($0.formatted())×" }
+        let awaitingResult = displays.contains { $0.samples == nil }
+        let pending = daemon.activePreparedRenderQuality.map {
+            $0.antiAliasing != PlaybackQualityPreference.current.scene.antiAliasing
+        } ?? false
+        let waiting = String(localized: "Awaiting render result", table: "SceneQuality")
+        let summary = (values + (awaitingResult ? [waiting] : [])).joined(separator: " / ")
+        if values.isEmpty {
+            sceneRasterSamplesLabel.stringValue = waiting
+        } else if pending {
+            sceneRasterSamplesLabel.stringValue = String(localized: "Previous setting in use: \(summary)", table: "SceneQuality")
+        } else {
+            sceneRasterSamplesLabel.stringValue = String(localized: "In use: \(summary)", table: "SceneQuality")
+        }
+
+        let screens = AppKit.NSScreen.screens
+        let details = displays.map { display in
+            let name = screens.first {
+                ($0.deviceDescription[NSDeviceDescriptionKey(rawValue: "NSScreenNumber")] as? NSNumber)?.uint32Value == display.displayID
+            }?.localizedName ?? String(localized: "Display \(display.displayID.formatted())", table: "SceneQuality")
+            let detail = display.samples.map { "\($0.formatted())×" } ?? waiting
+            let reason: String? = switch display.fallback {
+            case .deviceUnsupported: String(localized: "Device limit for requested MSAA", table: "SceneQuality")
+            case .compatiblePathUnavailable: String(localized: "Single-sample render path", table: "SceneQuality")
+            case .preparationFailed: String(localized: "MSAA preparation failed", table: "SceneQuality")
+            case nil: nil
+            }
+            let value = [detail, reason].compactMap { $0 }.joined(separator: " – ")
+            return (reason, "\(name): \(value)")
+        }
+        if !pending {
+            if displays.count == 1, let reason = details[0].0 {
+                sceneRasterSamplesLabel.stringValue += " – \(reason)"
+            } else if details.contains(where: { $0.0 != nil }) {
+                sceneRasterSamplesLabel.stringValue += " – " + String(localized: "Fallback on some displays", table: "SceneQuality")
+            }
+        }
+        sceneRasterSamplesLabel.toolTip = details.map { $0.1 }.joined(separator: "\n")
     }
 
     private func updateSceneFrameRateLabels(_ requested: Int) {
@@ -608,6 +648,7 @@ extension AppKitSettingsContainerView {
         saveEditedQuality(quality, previousPreparation: previousPreparation)
         refreshSceneQualityPreset(quality)
         refreshSceneQualityReapplyTitle(quality.scene)
+        if sender === sceneAntiAliasingPopup { refreshSceneRasterSampleReadout() }
     }
 
     @objc private func reapplySceneQuality() {

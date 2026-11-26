@@ -159,7 +159,7 @@ final class SceneDaemonRuntime {
 #endif
     private var currentRequestID: UUID?
     private var rasterStatusScheduled = false
-    private var lastReportedRasterSamples: [Int] = []
+    private var lastReportedRaster: (requestID: UUID, displays: [SceneRasterDisplayStatus])?
     private var lastPropertyRevision: UInt64 = 0
     private var shouldPausePlayback = false
     private var isShuttingDown = false
@@ -637,13 +637,13 @@ final class SceneDaemonRuntime {
     private func emitActiveAnimationCadence(rasterChangeOnly: Bool = false) {
         guard !isShuttingDown, host.unconfirmedPromotion == nil,
               let session = host.activeSession, let requestID = session.launchRequestID else { return }
-        let completed = session.surfaces.values.compactMap(\.rasterSampleStatus.completedSamples)
-        let samples = completed.count == session.surfaces.count ? Set(completed).sorted() : []
-        guard !rasterChangeOnly || samples != lastReportedRasterSamples else { return }
-        lastReportedRasterSamples = samples
+        let displays = session.rasterDisplayStatuses
+        guard !rasterChangeOnly || requestID != lastReportedRaster?.requestID
+            || displays != lastReportedRaster?.displays else { return }
+        lastReportedRaster = (requestID, displays)
         emit(["v": SceneDaemonProtocol.version, "event": "animationCadenceChanged",
               "requestID": requestID.uuidString, "requestedFPS": session.animationFrameRate.rawValue,
-              "effectiveFPS": session.effectiveAnimationFPS, "rasterSampleCounts": samples])
+              "effectiveFPS": session.effectiveAnimationFPS, "rasterDisplays": displays.map(\.wireObject)])
     }
 
     private func scheduleRasterStatus() {

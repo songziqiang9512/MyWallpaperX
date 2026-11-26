@@ -48,7 +48,7 @@ extension Notification.Name {
     var configuredAnimationCadenceLimit: Double = 60
     var activeAnimationCadence: ActiveAnimationCadence?
     var activePreparedRenderQuality: SceneRenderQuality?
-    var activeRasterSampleCounts: [Int] = []
+    var activeRasterDisplayStatuses: [SceneRasterDisplayStatus] = []
     var multiDisplayEnabled = true
     // ACTUAL_CONFIGURED_WALLPAPER_SCREENS
 }
@@ -430,7 +430,15 @@ extension Notification.Name {
         let selectedMSAA = view.sceneAntiAliasingPopup.indexOfSelectedItem
         let storedMSAA = PlaybackQualityPreference.current.scene.antiAliasing
         let savesBeforeRasterStatus = requests.requests.count
-        daemon.activeRasterSampleCounts = [1, 4]
+        let realDisplays = Set(AppKit.NSScreen.screens.compactMap {
+            ($0.deviceDescription[NSDeviceDescriptionKey(rawValue: "NSScreenNumber")] as? NSNumber)?.uint32Value
+        })
+        let testDisplays = Array((101...200).lazy.map(UInt32.init).filter { !realDisplays.contains($0) }.prefix(3))
+        daemon.activeRasterDisplayStatuses = [
+            .init(displayID: testDisplays[0], samples: 1, fallback: .compatiblePathUnavailable),
+            .init(displayID: testDisplays[1], samples: 4),
+            .init(displayID: testDisplays[2], samples: nil),
+        ]
         NotificationCenter.default.post(name: .sceneDaemonRasterSamplesDidChange, object: daemon)
         pump()
         checks["native-raster-readout-shows-active-counts-without-changing-the-request"] =
@@ -438,7 +446,33 @@ extension Notification.Name {
             && view.sceneAntiAliasingPopup.indexOfSelectedItem == selectedMSAA
             && PlaybackQualityPreference.current.scene.antiAliasing == storedMSAA
             && requests.requests.count == savesBeforeRasterStatus
-        daemon.activeRasterSampleCounts = []
+        let firstDisplays = view.sceneRasterSamplesLabel.toolTip ?? ""
+        checks["native-raster-displays-show-identity-unknown-and-fallback"] =
+            firstDisplays.contains("Display \(testDisplays[0].formatted()): 1× – Single-sample render path")
+            && firstDisplays.contains("Display \(testDisplays[1].formatted()): 4×")
+            && firstDisplays.contains("Display \(testDisplays[2].formatted()): Awaiting render result")
+        daemon.activeRasterDisplayStatuses = [
+            .init(displayID: testDisplays[0], samples: 4),
+            .init(displayID: testDisplays[1], samples: 1, fallback: .preparationFailed),
+        ]
+        NotificationCenter.default.post(name: .sceneDaemonRasterSamplesDidChange, object: daemon)
+        pump()
+        let swapped = view.sceneRasterSamplesLabel.toolTip ?? ""
+        checks["native-raster-screens-update-even-when-overall-counts-match"] =
+            swapped.contains("Display \(testDisplays[0].formatted()): 4×")
+            && swapped.contains("Display \(testDisplays[1].formatted()): 1× – MSAA preparation failed")
+        daemon.activeRasterDisplayStatuses = [.init(displayID: testDisplays[0], samples: 1, fallback: .deviceUnsupported)]
+        var previous = PlaybackQualityPreference.current.scene
+        previous.antiAliasing = storedMSAA == .msaa4 ? .msaa2 : .msaa4
+        daemon.activePreparedRenderQuality = previous
+        NotificationCenter.default.post(name: .sceneDaemonPreparedQualityDidChange, object: daemon)
+        pump()
+        checks["native-raster-fallback-maps-to-the-previous-active-quality"] =
+            view.sceneRasterSamplesLabel.stringValue.contains("Previous setting in use: 1×")
+            && (view.sceneRasterSamplesLabel.toolTip ?? "").contains("Device limit for requested MSAA")
+            && view.sceneAntiAliasingPopup.indexOfSelectedItem == selectedMSAA
+            && requests.requests.count == savesBeforeRasterStatus
+        daemon.activeRasterDisplayStatuses = []
         NotificationCenter.default.post(name: .sceneDaemonRasterSamplesDidChange, object: daemon)
         pump()
         checks["native-raster-readout-clears-on-empty-active-state"] = view.sceneRasterSamplesLabel.isHidden

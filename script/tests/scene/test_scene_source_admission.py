@@ -284,7 +284,8 @@ import CoreFoundation
 struct SceneUserPropertyValue:Equatable {let foundationValue:Bool}
 struct ScenePlaybackTextureReference:Equatable {let url:URL;var bookmarkData:Data?=nil}
 struct ScenePlaybackShortcutConfiguration:Equatable {static let empty=Self()}
-''' + method(command, 'nonisolated struct ScenePlaybackLoadRequest:') + r'''
+''' + method(command, 'nonisolated struct ScenePlaybackLoadRequest:') + '\n' + method(
+            protocol, 'nonisolated struct SceneRasterDisplayStatus:') + r'''
 protocol PlaybackResourceLifetime:AnyObject {}
 final class Lease:PlaybackResourceLifetime {}
 struct Ticket:Equatable {let id:Int}
@@ -298,6 +299,7 @@ enum SceneDaemonProtocol {
             '    static func sourceObject(', '    static func boolean(_ raw: Any?) -> Bool?',
             '    static func animationCadenceEvent(', '    private static func animationFrameRate(',
             '    private static func integer(', '    private static func finiteDouble(',
+            '    private static func unsignedInteger(', '    static func rasterDisplayStatuses(',
             '    static func writeRenderQuality(')) + r'''
 }
 struct DaemonPlaybackProcessRegistry {static let shared=Self();let acceptsNewProcesses=true}
@@ -320,6 +322,7 @@ struct Execution {let presented:Bool}
     var activeRequestID:UUID?,pendingRequestID:UUID?,pendingPresentationRequestID:UUID?,pendingPresentationReachability:Bool?
 ''' + method(client, '    nonisolated struct ActiveAnimationCadence:') + r'''
     var activeAnimationCadence:ActiveAnimationCadence?
+    var activeRasterDisplayStatuses: [SceneRasterDisplayStatus] = []
     var pendingPropertyRevisions:[UInt64:String]=[:],latestTextureRevisions:[String:UInt64]=[:]
     var warmSessionPending=false,endpointReady=false
     var sourceSchemaVersion:Int?

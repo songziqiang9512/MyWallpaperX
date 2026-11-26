@@ -37,6 +37,7 @@ extension SceneMetalRenderer {
 #endif
         return PreparedFrame(commandBuffer: commandBuffer, initialVideoPresentation: initialVideoPresentation,
             rasterSampleCount: mainPassForSubmission?.submittedRasterSampleCount,
+            didFailMultisamplePreparation: mainPassForSubmission?.didFailMultisamplePreparation == true,
             observeCompositionSurface: compositionSurface, submit: { present in
 #if DEBUG
             if !SceneGPUStageTimestampHook.isSelected(commandBuffer) {

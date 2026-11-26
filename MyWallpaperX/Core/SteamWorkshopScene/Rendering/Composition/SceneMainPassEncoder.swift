@@ -36,6 +36,7 @@ final class SceneMainPassEncoder {
     private var activeDepthTexture: MTLTexture?
     private var openedSingleSampleDepth = false
     private(set) var submittedRasterSampleCount: Int?
+    private(set) var didFailMultisamplePreparation = false
     private let submissionOwner: SceneMainPassEncoder?
     private let worldClipToTargetClip: simd_float4x4?
     private(set) var multisampleAttachments: MultisampleAttachments?
@@ -126,10 +127,13 @@ final class SceneMainPassEncoder {
     }
 
     @discardableResult
-    func prepareMultisampling(_ attachments: MultisampleAttachments) -> Bool {
+    func prepareMultisampling(_ attachments: MultisampleAttachments?) -> Bool {
         guard isSceneRoot, worldClipToTargetClip == nil, initialLoadAction == .clear,
-              !isFinished, !encodingFailed, multisampleAttachments == nil,
-              attachments.resolves(to: target) else { return false }
+              !isFinished, !encodingFailed, multisampleAttachments == nil else { return false }
+        guard let attachments, attachments.resolves(to: target) else {
+            didFailMultisamplePreparation = true
+            return false
+        }
         multisampleAttachments = attachments
         return true
     }
@@ -141,18 +145,25 @@ final class SceneMainPassEncoder {
         guard isSceneRoot, worldClipToTargetClip == nil, !isFinished, !encodingFailed,
               multisampleAttachments == nil else { return false }
         if initialLoadAction == .clear {
-            return attachmentsForTarget(target).map(prepareMultisampling) ?? false
+            return prepareMultisampling(attachmentsForTarget(target))
         }
         // The original root color stays readable until the native encoder opens.
-        guard initialLoadAction == nil, !openedSingleSampleDepth, !target.isFramebufferOnly,
-              let attachments = attachmentsForTarget(target), attachments.resolves(to: target) else { return false }
+        guard initialLoadAction == nil, !openedSingleSampleDepth, !target.isFramebufferOnly else { return false }
+        guard let attachments = attachmentsForTarget(target), attachments.resolves(to: target) else {
+            didFailMultisamplePreparation = true
+            return false
+        }
         closeForOffscreen()
-        guard let seed = prepareSeed(target, commandBuffer) else { return false }
+        guard let seed = prepareSeed(target, commandBuffer) else {
+            didFailMultisamplePreparation = true
+            return false
+        }
         multisampleAttachments = attachments
         initialLoadAction = .dontCare
         guard let native = encoder(required: false) else {
             multisampleAttachments = nil
             initialLoadAction = nil
+            didFailMultisamplePreparation = true
             return false
         }
         seed(native)

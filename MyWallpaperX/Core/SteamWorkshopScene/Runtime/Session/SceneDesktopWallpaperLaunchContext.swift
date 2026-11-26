@@ -16,6 +16,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let materialAssetCatalog: SceneMaterialAssetTextureCatalog
     let stockNoiseTextures: SceneStockNoiseTextureStore
     let preparedDeviceResources: ScenePreparedDeviceResources
+    let rasterSamples: (requested: Int, device: Int)
     let preparedFirstSurfaceRuntime: ScenePreparedFirstSurfaceRuntime
     let timelineProgram: SceneTimelineProgram
     let timelinePlaybackRuntime: SceneTimelinePlaybackRuntime

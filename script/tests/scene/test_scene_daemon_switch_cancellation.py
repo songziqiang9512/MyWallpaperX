@@ -537,6 +537,25 @@ IDLE_TAIL = r'''
         let observed=wireCount
         hello.consumeOutput(Data("{\"v\":2,\"role\":\"scene-daemon\",\"requestRetirementSchemaVersion\":1}\n".utf8),generation:6)
         checks["originalGenerationAdmissionStillOwnsWireTap"]=wireCount == observed
+        let (rasterClient, _, rasterRequest, rasterChild) = active()
+        func deliver(_ request: UUID, _ generation: UInt64, _ displays: [SceneRasterDisplayStatus]) throws {
+            var data = try JSONSerialization.data(withJSONObject: [
+                "v": 2, "event": "animationCadenceChanged", "requestID": request.uuidString,
+                "requestedFPS": 60, "effectiveFPS": 60, "rasterDisplays": displays.map(\.wireObject),
+            ])
+            data.append(0x0a)
+            rasterClient.consumeOutput(data, generation: generation)
+        }
+        let firstDisplays: [SceneRasterDisplayStatus] = [.init(displayID: 17, samples: 4), .init(displayID: 29, samples: nil)]
+        let nextDisplays: [SceneRasterDisplayStatus] = [.init(displayID: 17, samples: 1, fallback: .compatiblePathUnavailable)]
+        try deliver(rasterRequest, 7, firstDisplays)
+        try deliver(UUID(), 7, nextDisplays)
+        try deliver(rasterRequest, 6, nextDisplays)
+        checks["onlyTheMatchingActiveRequestAndGenerationCanPublishRaster"] = rasterClient.activeRasterDisplayStatuses == firstDisplays
+        try deliver(rasterRequest, 7, nextDisplays)
+        checks["aCurrentReceiptReplacesThePreviousDisplayList"] = rasterClient.activeRasterDisplayStatuses == nextDisplays
+        rasterClient.stop()
+        exit(rasterClient, rasterChild)
         print(String(data:try JSONSerialization.data(withJSONObject:checks,options:.sortedKeys),encoding:.utf8)!)
     }
 }
@@ -558,13 +577,13 @@ class SceneDaemonSwitchCancellationTests(unittest.TestCase):
             "private static func finiteDouble(_ raw: Any?) -> Double?",
             "private static func integer(_ raw: Any?) -> Int?",
             "private static func unsignedInteger(_ raw: Any?) -> UInt64?",
-            "static func rasterSampleCounts(_ raw: Any?) -> [Int]?",
+            "static func rasterDisplayStatuses(_ raw: Any?) -> [SceneRasterDisplayStatus]?",
         )))
         support = support.replace("    var activeRequestID:UUID?", "\n".join((
             "    var activeRequestID:UUID?",
             method(client, "nonisolated struct ActiveAnimationCadence: Equatable, Sendable"),
             "    var activeAnimationCadence:ActiveAnimationCadence?",
-            "    var activeRasterSampleCounts: [Int] = []",
+            "    var activeRasterDisplayStatuses: [SceneRasterDisplayStatus] = []",
         )))
         for signature in ("func ensureSession()->Bool", "func replayPendingIntent()"):
             support = support.replace(signature + " " + function_body(support, signature), "")
@@ -624,7 +643,8 @@ extension Notification.Name {
         with tempfile.TemporaryDirectory(prefix="mwx-scene-idle-retirement-") as directory:
             root = Path(directory)
             source = root / "Harness.swift"
-            source.write_text(admission + "\n" + support + "\n".join(actual) + IDLE_TAIL)
+            raster = method(protocol, "nonisolated struct SceneRasterDisplayStatus: Equatable, Sendable")
+            source.write_text(admission + "\n" + raster + "\n" + support + "\n".join(actual) + IDLE_TAIL)
             binary = root / "idle"
             shared = [str(ROOT / "MyWallpaperX/Core/PlaybackControl" / name) for name in (
                 "WallpaperRuntimeSwitch.swift", "PlaybackSwitchTransaction.swift", "PlaybackPerformanceProfile.swift")]

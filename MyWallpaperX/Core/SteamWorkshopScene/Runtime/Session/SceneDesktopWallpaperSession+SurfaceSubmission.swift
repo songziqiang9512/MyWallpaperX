@@ -4,34 +4,53 @@ import QuartzCore
 // Session owns submission transactions and its startup-only surface cohort.
 extension SceneDesktopWallpaperSession {
     struct RasterSampleStatus {
-        struct Observation {
+        struct Use: Hashable {
             let samples: Int
+            let didFailPreparation: Bool
+        }
+
+        struct Observation {
+            let use: Use
             fileprivate let revision: UInt64
         }
 
-        private(set) var completedSamples: Int?
-        private var inFlight: [Int: Int] = [:]
+        private(set) var completed: Use?
+        private var inFlight: [Use: Int] = [:]
         private var latestSubmission: UInt64 = 0
         private var latestCompletion: UInt64 = 0
 
-        mutating func observe(_ samples: Int) -> Observation? {
-            if samples == completedSamples,
-               inFlight.isEmpty || (inFlight.count == 1 && inFlight[samples] != nil) {
-                return nil
-            }
-            inFlight[samples, default: 0] += 1
+        mutating func observe(_ samples: Int, didFailPreparation: Bool = false) -> Observation? {
+            let use = Use(samples: samples, didFailPreparation: samples == 1 && didFailPreparation)
+            if use == completed, inFlight.isEmpty || (inFlight.count == 1 && inFlight[use] != nil) { return nil }
+            inFlight[use, default: 0] += 1
             latestSubmission &+= 1
-            return .init(samples: samples, revision: latestSubmission)
+            return .init(use: use, revision: latestSubmission)
         }
 
         mutating func complete(_ observation: Observation, succeeded: Bool) -> Bool {
-            let count = inFlight[observation.samples, default: 0] - 1
-            inFlight[observation.samples] = count > 0 ? count : nil
+            let count = inFlight[observation.use, default: 0] - 1
+            inFlight[observation.use] = count > 0 ? count : nil
             guard succeeded, observation.revision > latestCompletion else { return false }
             latestCompletion = observation.revision
-            guard completedSamples != observation.samples else { return false }
-            completedSamples = observation.samples
+            guard completed != observation.use else { return false }
+            completed = observation.use
             return true
+        }
+    }
+
+    var rasterDisplayStatuses: [SceneRasterDisplayStatus] {
+        let rasterRequest = launchContext?.rasterSamples
+        return surfaces.sorted { $0.key < $1.key }.map { displayID, surface in
+            let use = surface.rasterSampleStatus.completed
+            let fallback: SceneRasterDisplayStatus.Fallback?
+            if let use, let rasterRequest, use.samples < rasterRequest.requested {
+                if rasterRequest.device < rasterRequest.requested { fallback = .deviceUnsupported }
+                else if use.didFailPreparation { fallback = .preparationFailed }
+                else { fallback = .compatiblePathUnavailable }
+            } else {
+                fallback = nil
+            }
+            return .init(displayID: displayID, samples: use?.samples, fallback: fallback)
         }
     }
 
@@ -202,8 +221,9 @@ extension SceneDesktopWallpaperSession {
         attempt: SceneInitialPresentationCohort.AttemptToken?, presentsFrame: Bool
     ) {
         let rasterAttempt = onRasterSamplesChanged != nil && presentsFrame
-            ? candidate.rasterSampleCount.flatMap { surface.rasterSampleStatus.observe($0) }
-            : nil
+            ? candidate.rasterSampleCount.flatMap {
+                surface.rasterSampleStatus.observe($0, didFailPreparation: candidate.didFailMultisamplePreparation)
+            } : nil
         guard awaitsInitialPresentation || sceneClock.isPaused
             || surface.videoSwitchDeadline != nil || rasterAttempt != nil else { return }
         if sceneClock.isPaused { surface.pendingPausedFrame = candidate }
