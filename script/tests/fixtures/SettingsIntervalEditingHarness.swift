@@ -17,7 +17,7 @@ struct PersonalSettingsExportSummary {}
 struct PersonalSettingsImportSummary {}
 enum PersonalSettingsError: Error { case recoveryRequired(String) }
 enum SceneMediaSourcePreference { static let isEnabled = false }
-@MainActor private struct NSScreen {
+@MainActor struct NSScreen {
     static var screens: [Self] = []
     let maximumPotentialExtendedDynamicRangeColorComponentValue: Double
 }
@@ -49,6 +49,8 @@ extension Notification.Name {
     var activeAnimationCadence: ActiveAnimationCadence?
     var activePreparedRenderQuality: SceneRenderQuality?
     var activeRasterSampleCounts: [Int] = []
+    var multiDisplayEnabled = true
+    // ACTUAL_CONFIGURED_WALLPAPER_SCREENS
 }
 
 // ACTUAL_FRAME_RATE_SLIDER
@@ -359,10 +361,24 @@ extension Notification.Name {
             && view.sceneQualityPresetPopup.indexOfSelectedItem == 0
             && PlaybackQualityPreference.current == hdr && requests.requests.count == 10
 
+        let displayClient = SceneDaemonClient.shared
+        displayClient.multiDisplayEnabled = false
         NSScreen.screens.append(.init(maximumPotentialExtendedDynamicRangeColorComponentValue: 3))
         NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: NSApp)
         pump()
-        checks["native-screen-notification-restores-the-same-selectable-hdr-item"] = post.selectedItem == hdrItem
+        checks["native-nontarget-hdr-screen-does-not-enable-display-hdr"] = post.selectedItem == hdrItem
+            && !hdrItem.isHidden && !hdrItem.isEnabled && PlaybackQualityPreference.current == hdr
+
+        NSScreen.screens.swapAt(0, 1)
+        NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: NSApp)
+        pump()
+        checks["native-single-hdr-wallpaper-target-restores-the-saved-item"] = post.selectedItem == hdrItem
+            && hdrItem.isEnabled && PlaybackQualityPreference.current == hdr
+
+        NSScreen.screens.swapAt(0, 1)
+        displayClient.multiDisplayEnabled = true
+        view.refreshQualityControls()
+        checks["native-configured-hdr-screen-restores-the-same-selectable-hdr-item"] = post.selectedItem == hdrItem
             && !hdrItem.isHidden && hdrItem.isEnabled && hdrItem.title == "Ultra (Display HDR)"
             && PlaybackQualityPreference.current == hdr && requests.requests.count == 10
 

@@ -628,7 +628,9 @@ extension AppKitSettingsContainerView {
     }
 
     func refreshScenePostProcessingMenu(_ mode: ScenePostProcessingMode) {
-        let displayHDRAvailable = NSScreen.screens.contains { $0.maximumPotentialExtendedDynamicRangeColorComponentValue > 1 }
+        let displayHDRAvailable = SceneDaemonClient.shared.configuredWallpaperScreens.contains {
+            $0.maximumPotentialExtendedDynamicRangeColorComponentValue > 1
+        }
         let displayHDR = scenePostProcessingPopup.indexOfItem(withRepresentedObject: ScenePostProcessingMode.ultraDisplayHDR.rawValue)
         let item = scenePostProcessingPopup.item(at: displayHDR)
         item?.isHidden = !displayHDRAvailable && !mode.requestsDisplayHDR

@@ -7,6 +7,7 @@
       "docs/architecture/steam-workshop-acquisition-contract.md",
       "docs/architecture/system-audio-spectrum-design.md",
       "docs/architecture/technology-stack-boundaries.md",
+      "docs/architecture/wallpaper-quality-execution-contract.md",
       "docs/development/apple-silicon-optimization-plan.md",
       "docs/development/code-slimming-program.md",
       "docs/development/immersive-ui-design.md",
@@ -181,6 +182,20 @@
         "method": "document_registry --audit + document_health --check",
         "scope": "播放质量 App/各执行端分工及相关源码和文档导航。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"
+      }
+    },
+    {
+      "path": "docs/architecture/wallpaper-quality-execution-contract.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/README.md",
+      "currentStateAuthority": "docs/development/wallpaper-quality-work-card.md",
+      "lastReviewed": "2026-11-27",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "45edb7cc14317a1b80272c0a3e88cb5b4d80dea3e426abfd3da5b9ae92caefc2",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "核对实际档位、资源用途、组合顺序和运行回执。",
+        "limitations": "能力现状与尚未执行的验收归现役工作卡。"
       }
     },
     {
@@ -360,13 +375,13 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "各质量项完成验收或明确退役，稳定语义归对应引擎合同，专项顺序与设计登记一并退役。",
-      "lastReviewed": "2026-11-26",
+      "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "98553504c7108d571587eeee9f42c93d7748a3493dfea8824021aed9c453816a",
+        "sourceSHA256": "88960fb047144d827947a5eb35ab3d304b1f4fd2bf8362ad067545ff2c5d9146",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对 Auto mip 冷热选择、基础资源提交与取证入口。",
-        "limitations": "导航与已取证范围复核。物理多屏及功耗另取证。"
+        "scope": "核对 Scene 根采样收敛、独立消费者和官版选项导航。",
+        "limitations": "架构及源码核对，发布范围仍以执行证据为准。"
       }
     },
     {
@@ -374,13 +389,13 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "完成各引擎画质纵向链、实际退役与验收，稳定规则交现有合同后撤除工作卡。",
-      "lastReviewed": "2026-11-26",
+      "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d5dbfc9b8f7a97ac5bba72619c26de785c1827676579e0918aff749a04146dac",
+        "sourceSHA256": "4c7c80f7f0ad209f1588b2ce20d7a2110d14d46103aff644f135624e9e52b025",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对聚光计划供给、透明排序和工作卡取证入口。",
-        "limitations": "仅覆盖本批导航和对应的签名运行证据。"
+        "scope": "核对主线合入、当前逐档执行与签名 4× 短窗回执。",
+        "limitations": "4× 取证覆盖该作品的清屏后颜色前缀，不授任意作者层序或硬件。"
       }
     },
     {
@@ -1756,6 +1771,7 @@
       ],
       "documents": [
         "docs/development/wallpaper-quality-work-card.md",
+        "docs/architecture/wallpaper-quality-execution-contract.md",
         "docs/development/wallpaper-quality-settings-plan.md",
         "docs/architecture/repository-map.md",
         "docs/architecture/playback-lifecycle-transaction-design.md",

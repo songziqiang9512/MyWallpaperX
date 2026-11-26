@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 66,
-      "bytes": 23887
+      "bytes": 23880
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -27,6 +27,10 @@
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 202,
       "bytes": 22193
+    },
+    "docs/architecture/wallpaper-quality-execution-contract.md": {
+      "lines": 76,
+      "bytes": 17482
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -93,12 +97,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 600,
-      "bytes": 174695
+      "lines": 578,
+      "bytes": 170222
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 148477
+      "bytes": 148945
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -701,15 +705,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "3862312f688a5886e487cfddd485a69f026ca14c124c8fa9ddda4397ce998216",
-      "after": "045528915d36b0c234d5c1f5422cc37525bcde1429401cf6893903e4396bb153",
-      "owner": "Scene Debug presentation and quality evidence",
-      "reason": "Describe actual drawable callback comparisons and depth feasibility bounds.",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-aa-four"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "0549c5663deb3b9fbf2dd1145f6b30988f541e32bedf07632707aec61340ade4",
       "after": "2f42e458d8ba69c9806720db14ac5b2e78e0ea24729d69bea13883f2927d4733",
@@ -728,11 +723,29 @@
     },
     {
       "section": "bodies",
+      "path": "docs/architecture/wallpaper-quality-execution-contract.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "0e91933206c8a5cdf6a6edc9675d7d8e3e5641e61ce3c9c33258b53ea22f70ba",
+      "owner": "Playback Quality",
+      "reason": "Define one per-option execution contract and keep verified runtime scopes in the current work card.",
+      "decision": "docs/architecture/wallpaper-quality-execution-contract.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "045528915d36b0c234d5c1f5422cc37525bcde1429401cf6893903e4396bb153",
+      "after": "a8ca7ca71dde8ec711f5ee3e35da1f089c897ea3a8d8ee1bc9f9a266645e377c",
+      "owner": "Playback Quality",
+      "reason": "Define one per-option execution contract and keep verified runtime scopes in the current work card.",
+      "decision": "docs/architecture/wallpaper-quality-execution-contract.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7bfc8030cc8043d57bc46c87530fc1ac1f6c81dc3b380150e428482c8c462bb8",
+      "before": "255b9aae1e78de041269cde289e7269a39ae18b6168cfe4967c07f35b22eb3c6",
       "after": "5aee2e38f1634403d7bf72d520ce3bcbda03deaa341dd115304590fcaeb30fa6",
       "owner": "Scene graph composition and quality evidence",
-      "reason": "Preserve the integrated authored-text anchoring and quality evidence from both worktrees.",
+      "reason": "Preserve upstream player text anchoring and both integrated current evidence scopes.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-player-text-current-360"
     }
   ]

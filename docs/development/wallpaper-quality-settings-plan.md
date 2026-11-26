@@ -18,20 +18,9 @@
 4. 首批完成条件为升级、导入恢复和复位正确，Scene 实际控制提交节奏，Web 在真实宿主中正确收发建议值，Video 的适用范围一目了然，三引擎候选、暂停、恢复和输出交接通过代表验证。后续每项都以独立可见结果和成本取证决定发布。
 
 <a id="reference-and-current"></a>
-## 八项设置的执行合同
+## 官方选项与本项目范围
 
-档位名称和范围按用户提供的官方客户端画面及补充记录。10–120 FPS 是帧率范围，渲染输出像素和纹理尺寸各自有独立的调整路径。
-
-| 项目 | 官版范围 | 本项目请求、实际消费者与生效时机 | 应报告的结果与当前缺口 |
-|---|---|---|---|
-| 预设 | 低／中／高／超高 | 只由 `SceneQualityPreset.projection` 定义请求向量。一次应用写 FPS 和 Scene 字段，Web 跟随时从同一 FPS 派生。每项按下方自己的时机采纳。 | 选中预设或自定由已保存向量派生。实际输出仍逐项报告。 |
-| 帧率 | 10–120 FPS | Scene 的原帧驱动在下一排帧边界采纳，受目标显示器限制。Web 只投递作品 FPS 建议，Video 以原文件时基播放。 | 调度上限、GPU 完成、显示呈现分开。Web 桥层交付可确认，作者收件和遵守分别取实际监听与绘制证据。 |
-| 抗锯齿 | 无／MSAA ×2／×4／×8 | 默认为 1×，已公开 2×／4×。冷准备合格 PSO。清屏和颜色前缀现有分开判定，拟按实际层序统一颜色、相机深度、读回和 resolve。 | 现有已完成根域样本数可回显。需补每屏回退原因并区分实际呈现。8× 待支持设备验证。 |
-| 后处理 | 禁用／启用／超高及合格的显示 HDR | 冷准备选择 Bloom 和工作色域，普通超高与显示 HDR 共用同一准备档，可以热换最终显示映射。作者光效与当前目标屏能力分别参与。 | 显示可用性与实际 EDR 输出分别取原目标屏和原输出。仍须把设置资格从任意接屏改成实际播放目标。 |
-| 纹理分辨率 | 自动／高质量／高性能 | 原资源准备以实际颜色用途、作者 mip 与目标屏集合的最大物理投影选同源共享级。高质量保原规格，高性能选已验证尾链，自动按需要增级。 | 实际绑定的规格与覆盖对象。保原纹理时说明精确用途、可用 mip 或负载限制，避免把整景所有纹理显示成同尺度。 |
-| 阴影 | 禁用／低／中／高／超高 | 冷准备冻结定向、点、聚光的尺寸上限及管线，帧资源按实际 caster／receiver 和预算兑现尺寸及原滤波。禁用撤原可选阴影，保直接光。 | 有适用光源才产生影图。实际尺寸或回退取占用的 attachment 与有效采样。不同灯与预算下相邻档可能等效。 |
-| 体积照明 | 禁用／低／中／高／超高 | 冷准备投影到点光积分和聚光锥的实际执行。现行高／超高为点光四／六点，聚光沿原锥。 | 区分实际点光阶数、聚光同档、无体积贡献、低／中尚未达交付门。 |
-| 反射 | 开／关 | 冷准备控制实时环境采样；模型、普通图和合格作者 Program 消费同一语义。关档停产可选快照，必需的材质源可消费暗环境，作者自有／具名反射保原语义。 | 按实际环境取样和快照来源说明有效范围。作者自带效果仍可见时，设置应准确标注控制的是实时环境反射。 |
+低／中／高／超高预设，10–120 FPS，MSAA 无／2×／4×／8×，后处理禁用／启用／超高，纹理自动／高质量／高性能，阴影与体积禁用至超高，反射开／关，来自用户提供的官版界面。渲染输出像素、纹理规格和 FPS 各有自己的消费者。项目实际请求、当前效果、回退与选项开放条件以[逐档执行合同](../architecture/wallpaper-quality-execution-contract.md#quality-option-semantics)为准。
 
 官方资料明确了普通／HDR Bloom、三种投影灯、点／聚光体积、Web FPS 建议和视频素材质量。四套预设的实际属性值见下方客户端核验，渲染差别与生效时机仍由固定版本的单项 A/B 验收。 [性能 FAQ](https://help.wallpaperengine.io/en/performance/gpu.html) · [Web FPS Limiter](https://docs.wallpaperengine.io/en/web/performance/fps.html) · [Bloom](https://docs.wallpaperengine.io/en/scene/effects/bloom.html) · [高级光照](https://docs.wallpaperengine.io/en/scene/models/lighting.html) · [反射](https://docs.wallpaperengine.io/en/scene/lighting/introduction.html) · [纹理分辨率开发者答复](https://steamcommunity.com/app/431960/discussions/2/3035978213219373047/) · [mip 开发者答复及后续修复](https://steamcommunity.com/app/431960/discussions/1/4418677198500806035/)
 
@@ -84,20 +73,9 @@ M4 单内屏用同一签名产品的真实作品 3477054430 与 3746066933，沿
 
 同一签名候选用独立 3746066933 在准备回执处直接改帧率，只准备一次，并由原请求以 25 生效。3477054430 通过真实便携入口在准备回执前写入高性能纹理，原请求保高质量纹理，仅一次准备和实呈，设置保待应用。收据归 `.artifacts/wallpaper-quality-scene-selection-edit`。 [签名产品门](../../script/web/playback_quality_coexistence.py)
 
-### 四档候选
+### 四档预设对照
 
-兼容默认向量为 60 FPS（升级保原 30／60）、1×、作者适用的普通／HDR 泛光、现役纹理与自适应阴影、点光原全尺寸四点和原聚光锥、作者可用的实时反射。Web 按屏幕给建议，Video 默认原片。恢复默认采用这个向量，后处理选普通超高。
-
-预设沿已核对的官版请求向量。帧率、抗锯齿、后处理、纹理、阴影和反射直接投影。前三档沿「高」保作者点光和聚光的既有贡献。超高预设请求全尺寸六点。原 60 FPS 兼容默认向量不随发布改变，恢复默认也沿同一向量。
-
-| Scene 预设 | FPS | 抗锯齿 | 场景泛光 | 纹理分辨率 | 阴影 | 体积照明 | 实时反射 |
-|---|---:|---|---|---|---|---|---|
-| 低 | 10 | 无 | 禁用 | 高质量 | 低 | 高 | 关 |
-| 中 | 15 | 无 | 启用 | 高质量 | 中 | 高 | 开 |
-| 高 | 25 | MSAA ×2 | 启用 | 高质量 | 高 | 高 | 开 |
-| 超高 | 30 | MSAA ×2 | 超高 | 高质量 | 超高 | 超高 | 开 |
-
-用已保存的 Scene 请求和动画帧率精确派生当前预设。任一字段不同就显示「自定」。设备上限、EDR 和作者的实际生效范围独立确定。待验的体积分级随其验收映射。HDR 显示、高刷和高性能纹理保独立选择。Video 文件继续各自选择。Web 已选择跟随时接收同一动画帧率建议。 [官版向量](#official-quality-evidence)
+[逐档执行合同](../architecture/wallpaper-quality-execution-contract.md#quality-option-semantics)定义实际预设向量与自定。兼容默认保持原 60 FPS、1×、普通超高、高质量纹理、自适应阴影、高体积和实时反射，升级仍保已有的 30／60 FPS。Web 初始给显示器建议，Video 按所选原片。对照来源见[官版向量](#official-quality-evidence)。
 
 <a id="scene"></a>
 ## Scene 逐项技术裁决
@@ -342,16 +320,16 @@ M4 的每种隔离候选各与原版配对 70 组直接目标。35 组 BGRA8 逐
 
 关档纹理采用原离屏池的 `r8Unorm` 私有只读附件，完整尺寸和 mip 描述照常保留，Metal swizzle 指定 (0,0,0,1)。无需 CPU 上传、GPU clear 或生成 mip；正档仍使用原色彩格式与真源。M4 Metal API Validation 探针验证奇数 13×7 的非零底层数据，以及 3024×1964／5120×2880 私有纹理的每级实际 read／sample 均为不透明黑。纹理尺寸与级数真实可查询，资源计价仍按原池。该探针只验证设备语义，产品实际绑定与冷热切换另行测量。 [Metal swizzle](https://developer.apple.com/documentation/metal/mtltexturedescriptor/swizzle) · [常量通道](https://developer.apple.com/documentation/metal/mtltextureswizzle) · [GPU 家族支持](https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf)
 
-可选 `.snapshot` 因关档停产时，由原提交 owner 撤销旧快照的再用与完成采纳资格，原 GPU pin 保到 terminal。重开时先用基础材质，待本次启用后成功完成的快照才恢复。仅场景工作域启用 HDR 且 `clear=false` 时，必需 `.persistence` 沿原收据更新，开档可使用同请求最近合格 raw，包括关档期间完成的 raw，已累计的作者颜色继续保留。两者沿原 receipt 判定，整图 invalidate 会清掉持久／named history，热切应避免。现有提交边界若无法仅处理停产的可选快照，选择「下次应用」或原 Surface 重准备。 [raw 准入条件](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ClearColor.swift) · [快照资格与完成](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+SceneColor.swift) · [现有失效边界](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Lifecycle.swift)
+可选 `.snapshot` 因关档停产时，由原提交 owner 撤销旧快照的再用与完成采纳资格，原 GPU pin 保到 terminal。重开时先用基础材质，待本次启用后成功完成的快照才恢复。作者声明 HDR 且 `clear=false` 的普通／禁用 SDR 和超高工作域，必需 `.persistence` 沿原收据更新，开档可使用同请求最近合格 raw，包括关档期间完成的 raw，已累计的作者颜色继续保留。两者沿原 receipt 判定，整图 invalidate 会清掉持久／named history，热切应避免。现有提交边界若无法仅处理停产的可选快照，选择「下次应用」或原 Surface 重准备。 [raw 准入条件](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ClearColor.swift) · [快照资格与完成](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+SceneColor.swift) · [现有失效边界](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Lifecycle.swift)
 
-**实测验收**以同一素材控制反射率、粗糙度、视角和屏幕边缘，核方向、粗糙度模糊、边界淡出、基础材质和 alpha。令 A 开档红、B 关档绿、C 重开蓝，令关档前的可选 A 晚完成，核停产 `.snapshot` 路径的 C 首帧使用基础材质且后续只采合格新代，加入非 HDR `clear=false` 防止误入持久路径。配对场景 HDR 且 `clear=false` 核 C 可采最近合格的 B 持久 raw，必需主色与既有 named publication 一直有效。混合 Program＋模型验证 B 时保 Program 输出，目标 L0／高 LOD 只供不透明黑，无伪造完成收据，普通材质反射贡献为零。同一黑目标验证奇偶尺寸、分档重载、连续提交与预算不足／恢复，跨 HDR 累积验证原 raw 与 C 复用。补真实显隐、大小与多屏换代、暂停开关、首帧或快照失败、GPU 取消和无环境消费者。数快照、base copy、mip 编码、逻辑与驻留字节、P95／呈现和耗电。混合作品报告部分生效，纯可选作品关档去掉新增环境工作。
+**实测验收**以同一素材控制反射率、粗糙度、视角和屏幕边缘，核方向、粗糙度模糊、边界淡出、基础材质和 alpha。令 A 开档红、B 关档绿、C 重开蓝，令关档前的可选 A 晚完成，核停产 `.snapshot` 路径的 C 首帧使用基础材质且后续只采合格新代，加入非 HDR `clear=false` 防止误入持久路径。配对的作者 HDR `clear=false` 场景在同一 Surface 和历史代内验证 C 可采最近合格的 B 持久 raw，必需主色与已有 named publication 依代延续。现役冷切验接管后按新 Surface 成功收据重建历史及拒绝旧快照。混合 Program＋模型验证 B 时保 Program 输出，目标 L0／高 LOD 只供不透明黑，无伪造完成收据，普通材质反射贡献为零。同一黑目标验证奇偶尺寸、分档重载、连续提交与预算不足／恢复，跨 HDR 累积验证原 raw 与 C 复用。补真实显隐、大小与多屏换代、暂停开关、首帧或快照失败、GPU 取消和无环境消费者。数快照、base copy、mip 编码、逻辑与驻留字节、P95／呈现和耗电。混合作品报告部分生效，纯可选作品关档去掉新增环境工作。
 
 <a id="scene-quality-interactions"></a>
-### 六项组合的执行边界
+### Scene 根采样与资源预约的收敛方案
 
-1. 采样域、显示范围和源用途分别在原准备入口确定。阴影图和体积实体遮挡保各自深度。作者 Project 的有界 FBO 缩放保原 source 及容量回退，加入跨采样域读取的反例。主颜色完成后，现行反射可选快照取含已编码体积贡献、尚未施加终端 Bloom／显示映射的源，后续 Bloom 再修改显示侧，最终只走原 SDR／EDR 映射。组内作者效果保原顺序。用 `clear=false`、HDR 和透明／具名源验证上述依赖。 [作者 Project 尺寸合同](../scene/capabilities/render-graph-shader-coverage.md#project-scaled-framebuffers) · [帧顺序](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift) · [终端调用](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift)
-2. 同一 Surface／请求只采用一份帧计划，允许多采样段和各资源的真实回退。根采样收敛设计基于现有最终层序与图输入，确定一个原生区间及清屏／颜色前缀进入、帧尾／utility 前 resolve、提前就绪的局部输出。先从原 Program、源需求和层序取得不占容量的计划事实，再兑现选定的根深度和原图目标预约。普通终端与模型共用相机深度，阴影预算先保障此容量，再预约独立影图。原生 pass 的深度测试及写入用片上 D32，纹理读取按自己的真实存储要求。现有清屏、前缀和实验尾段的分开判定随迁移退出。有效采样取具有呈现请求且 GPU 成功完成的根 pass，显示实呈沿原 drawable 回调。原生附件失败沿原 1× 预约顺序；耗尽私有 1× 深度池时，验证只依赖已有原生附件的帧仍能提交，失效反例核原 1× 与同一图票据。新执行实际呈现并获接管确认前保旧输出，源或缓存代际需重准备时走原候选、取消和交接。记录实际代际、显示 ID、逻辑与物理 extent、色深格式、有效档及退回理由。事件只在应用或状态变化时发。针对资源压力验证必需颜色、相机深度和 named/history 能先获容量，低档只撤对应可选工作。
-3. 单项验收后做交互对照。最少包含 **MSAA×HDR／透明**、**纹理规格×阴影 cutout／显式 LOD**、**阴影禁用×作者有阴影的灯是否参与体积**、**体积加光×Bloom／反射**、**反射×`clear=false`／named 历史**。旧 30／60、现有预设、同时多项切换、失败回退和新旧 Surface 共存分别核预算和实际画面。
+同一 Surface／请求经一份帧计划决定原生区间和实际资源回退。根采样收敛设计基于现有最终层序与图输入，确定一个原生区间及清屏／颜色前缀进入、帧尾／utility 前 resolve、提前就绪的局部输出。先从原 Program、源需求和层序取得不占容量的计划事实，再兑现选定的根深度和原图目标预约。普通终端与模型共用相机深度，阴影预算先保障此容量，再预约独立影图。原生 pass 的深度测试及写入用片上 D32，纹理读取按自己的真实存储要求。现有清屏、前缀和实验尾段的分开判定随迁移退出。有效采样取具有呈现请求且 GPU 成功完成的根 pass，显示实呈沿原 drawable 回调。原生附件失败沿原 1× 预约顺序；耗尽私有 1× 深度池时，验证只依赖已有原生附件的帧仍能提交，失效反例核原 1× 与同一图票据。新执行实际呈现并获接管确认前保旧输出，源或缓存代际需重准备时走原候选、取消和交接。记录实际代际、显示 ID、逻辑与物理 extent、色深格式、有效档及退回理由。事件只在应用或状态变化时发。针对资源压力验证必需颜色、相机深度和 named/history 能先获容量，低档只撤对应可选工作。
+
+各项与作者 Program 的实际参与范围和最小组合门见[执行合同](../architecture/wallpaper-quality-execution-contract.md#quality-combination-checks)。
 
 <a id="web"></a>
 ## Web 实施与兼容

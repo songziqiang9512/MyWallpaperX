@@ -26,7 +26,8 @@ class SettingsCacheActionsTests(unittest.TestCase):
         quality = ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift"
         settings_components = ROOT / "MyWallpaperX/Shared/Components/AppKitSettingsComponents.swift"
         fixture = ROOT / "script/tests/fixtures/SettingsIntervalEditingHarness.swift"
-        paths = [settings, layout, dependency, quality, settings_components, fixture, Path(__file__).resolve()]
+        display_configuration = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient+DisplayConfiguration.swift"
+        paths = [settings, layout, dependency, quality, settings_components, fixture, display_configuration, Path(__file__).resolve()]
         hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
         source = settings.read_text()
         refresh = declaration(source, "    func refreshFromState()")
@@ -34,6 +35,8 @@ class SettingsCacheActionsTests(unittest.TestCase):
         # NSTextField/NSWindow. Unrelated settings groups are outside this gate.
         refresh = refresh[:refresh.index("        // 登录项开关")] + "        _ = visibilityBefore\n    }"
         actual = fixture.read_text().replace("// ACTUAL_INTERVAL_REFRESH", refresh)
+        actual = actual.replace("// ACTUAL_CONFIGURED_WALLPAPER_SCREENS", declaration(
+            display_configuration.read_text(), "    var configuredWallpaperScreens:"))
         actual += "\n" + declaration(settings_components.read_text(), "final class SettingsGroupView:") + "\n"
         layout_source = layout.read_text()
         for marker, signature in (

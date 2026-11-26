@@ -8,12 +8,14 @@ extension SceneDaemonClient {
         updateDisplayConfiguration(multiDisplayEnabled: enabled)
     }
 
+    var configuredWallpaperScreens: [NSScreen] {
+        let screens = NSScreen.screens
+        return multiDisplayEnabled ? screens : Array(screens.prefix(1))
+    }
+
     func updateDisplayConfiguration(multiDisplayEnabled: Bool) {
         self.multiDisplayEnabled = multiDisplayEnabled
-        let screens = multiDisplayEnabled
-            ? NSScreen.screens
-            : Array(NSScreen.screens.prefix(1))
-        let configuration = SceneScreenTopology.capture(screens: screens)
+        let configuration = SceneScreenTopology.capture(screens: configuredWallpaperScreens)
         guard !configuration.isEmpty,
               configuration != displayConfiguration else { return }
         if SceneScreenTopology.hasSameGeometry(configuration, displayConfiguration) {
