@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 21114
+      "bytes": 21317
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 159830
+      "bytes": 160329
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 139801
+      "bytes": 140392
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -186,7 +186,7 @@
     },
     "docs/web/current-state.md": {
       "lines": 141,
-      "bytes": 53163
+      "bytes": 53345
     },
     "docs/web/dedicated-host-process-design.md": {
       "lines": 92,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "d09a8220484d0fc8ea61b7cef26c01a8bd6a8fb5d5dadfd41de3c2b4cc25b960",
-      "after": "879495ca12598e07ec756c4a2def3d7d2ab06df065326bab11418cd6bf729b7f",
-      "owner": "video-runtime",
-      "reason": "明记空窗海报与实际视频共用适配及真实出图对照。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-candidate-poster"
+      "before": "879495ca12598e07ec756c4a2def3d7d2ab06df065326bab11418cd6bf729b7f",
+      "after": "4b03eda07a3ee8d26be94143a3601d7ffb86aa0c4c6e64f9c32bf34953fbeb95",
+      "owner": "web-runtime",
+      "reason": "登记实际 Web 退避恢复控制接线和签名单屏作者证据。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
     },
     {
       "section": "bodies",
@@ -405,10 +405,10 @@
     {
       "section": "bodies",
       "path": "docs/web/current-state.md",
-      "before": "324121140ef2e8e693575ddeb7b27f598599acca3b3405d96ef682fbc0045266",
-      "after": "3543ced972ac36ec9abb6dcde4d4ea31d8d4dd2e844b9850b493edaea577016d",
-      "owner": "Web 宿主",
-      "reason": "补每文档属性包回放与作者可写值的现役合同",
+      "before": "3543ced972ac36ec9abb6dcde4d4ea31d8d4dd2e844b9850b493edaea577016d",
+      "after": "78f9aae4d4df060233d72812832763eff15de04bf3092b295d2a5447c428940a",
+      "owner": "web-runtime",
+      "reason": "登记实际 Web 退避恢复控制接线和签名单屏作者证据。",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
     },
     {
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "2bd5e7fd10f453654098f5eb0e3892657d8378258dcbadf0bc89ca81cde2f680",
-      "after": "82daecf54f554d18387d639a02ee595c8fff2a8f221f5b291565a049e8283666",
-      "owner": "video-runtime",
-      "reason": "明记空窗海报与实际视频共用适配及真实出图对照。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-candidate-poster"
+      "before": "82daecf54f554d18387d639a02ee595c8fff2a8f221f5b291565a049e8283666",
+      "after": "24ecc9b64850279fd85653f6d41bc0562bbc64b3ae5e03599c0f2725693ccd2e",
+      "owner": "web-runtime",
+      "reason": "登记实际 Web 退避恢复控制接线和签名单屏作者证据。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "da016625970187bcc7966ba5c67a6eb126919f3fe54f8175e8612c6854b05a74",
-      "after": "59dc7d9858541d9c0cdd5f01553edb4a7bd507d11a27a2e73efc9f6be09d4d59",
-      "owner": "video-runtime",
-      "reason": "明记空窗海报与实际视频共用适配及真实出图对照。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#video-candidate-poster"
+      "before": "59dc7d9858541d9c0cdd5f01553edb4a7bd507d11a27a2e73efc9f6be09d4d59",
+      "after": "0cdcd3ade924027bd10e598c6a123068dc5877535a3c5f030b08ff70d9035165",
+      "owner": "web-runtime",
+      "reason": "登记实际 Web 退避恢复控制接线和签名单屏作者证据。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#web"
     },
     {
       "section": "bodies",

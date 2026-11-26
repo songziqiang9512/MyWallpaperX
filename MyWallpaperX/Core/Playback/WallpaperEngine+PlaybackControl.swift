@@ -6,9 +6,7 @@ extension WallpaperEngine {
     func applyPlaybackPaused(_ paused: Bool) {
         guard playbackPaused != paused else { return }
         playbackPaused = paused
-        if (dedicatedWebHostAdapter as? WebDaemonHostAdapter)?.hasLivePlayback == true {
-            dispatchWebRuntimeCommand(paused ? .pause : .resume(playbackRate: targetPlaybackRate))
-        }
+        dispatchWebRuntimeCommand(paused ? .pause : .resume(playbackRate: targetPlaybackRate))
         // A preparing Web surface may still retain the previous video sessions.
         // Every live surface obeys the same result throughout the transition.
         for session in displaySessions.values where session.process.isRunning {

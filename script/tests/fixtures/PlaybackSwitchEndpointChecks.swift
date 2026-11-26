@@ -504,12 +504,19 @@ import Foundation
         var failedCandidateCancelled = false
         recoveryAdapter.cancelSwitch(ticket: preparing.ticket) { failedCandidateCancelled = true }
         preparing.transport.end(); precondition(failedCandidateCancelled)
+        precondition(!recoveryAdapter.hasLivePlayback && recoveryAdapter.pendingRecovery?.session === dead)
+        propertyEngine.applyPlaybackPaused(true)
+        propertyEngine.setVolume(31)
+        propertyEngine.setPlaybackRate(1.35)
         let recoveryDeadline = Date().addingTimeInterval(0.35)
         while Date() < recoveryDeadline { RunLoop.main.run(until: Date().addingTimeInterval(0.01)) }
         let restarted = recoveryAdapter.candidate!
         precondition(restarted.ticket == originalTicket && restarted.executionID != dead.executionID)
         recoveryAdapter.receive(.hello, from: restarted)
-        precondition(webLaunch(for: restarted).state.frameRateSuggestion == 30, "recovery must seed the latest suggestion")
+        let recoveredState = webLaunch(for: restarted).state
+        precondition(recoveredState.frameRateSuggestion == 30 && recoveredState.paused
+            && recoveredState.volume == 0.31 && recoveredState.playbackRate == 1.35,
+            "recovery must seed current playback controls even when no Web process could receive them")
         precondition(restarted.executionRequest.allowedNetworkHosts == dead.executionRequest.allowedNetworkHosts,
             "recovery preserves the same author host snapshot")
         precondition(restarted.resourceGrants.isEmpty && restarted.resourceRevision == 1,

@@ -8,6 +8,7 @@ import AppKit
 import CoreGraphics
 
 extension WallpaperEngine {
+    // The adapter can retain recovery input even while its process is gone.
     func dispatchWebRuntimeCommand(_ command: WebWallpaperRuntimeCommand) {
         dedicatedWebHostAdapter.handle(command)
     }

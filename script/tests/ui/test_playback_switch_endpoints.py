@@ -80,7 +80,7 @@ final class WebRuntimeDiagnosticsStore {
     var displayCrashCounts: [UInt32: Int] = [:]
     var currentWallpaper: VideoWallpaper?, currentContentPath: String?, currentPlaybackContentKind: PlaybackContentKind?
     var currentVideoFillMode = "fill", currentMultiDisplayEnabled = true, currentShouldLoopCurrentItem = false
-    var effectiveVolumeNormalized: Float = 0.7, targetPlaybackRate: Float = 1
+    var effectiveVolumeNormalized: Float = 0.7, currentVolumeNormalized: Float = 0.7, targetPlaybackRate: Float = 1
     var currentSystemAudioSpectrumEnabled = false
     var currentSystemAudioSpectrumBarCount = 28, currentSystemAudioSpectrumColorHex = "#ffffff"
     var currentSystemAudioSpectrumOffsetX: Float = 0, currentSystemAudioSpectrumOffsetY: Float = 0
@@ -97,6 +97,7 @@ final class WebRuntimeDiagnosticsStore {
     func scanDisplays() {}
     // REAL_VIDEO_PAUSE
     func refreshVideoSpectrumTargets() {}
+    func refreshSystemAudioSpectrumCapture() {}
     func replayDeferredVideoEndIfNeeded() {}
     // REAL_VIDEO_EVENTS
     func ensureSession(for display: UInt32) -> DisplayDaemonSession? {
@@ -414,6 +415,11 @@ protocol PlaybackResourceLifetime: AnyObject {}
                 "func updateCurrentWebWallpaperProperties(", "private func mergedWebPropertiesJSON(",
                 "private func jsonObjectDictionary("))
             shell = SUPPORT.replace("// REAL_VIDEO_PAUSE", source_block(pause, "func sendPlaybackPaused(")).replace("// REAL_WEB_PROPERTIES", properties)
+            engine = (ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine.swift").read_text()
+            controls = [source_block(pause, "func applyPlaybackPaused(")]
+            controls.extend(source_block(engine, marker) for marker in ("public func setVolume(", "public func setPlaybackRate("))
+            shell += "\n" + source_block(ASSEMBLY_SUPPORT, "final class PlaybackMuteState")
+            shell += "\nextension WallpaperEngine {\n" + "\n".join(controls) + "\n}\n"
             navigation = (ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+NavigationIdentity.swift").read_text()
             producers = "\n".join(source_block(navigation, marker) for marker in (
                 "func loadTrackedNavigation(\n", "func reloadTrackedNavigation(on surface:",

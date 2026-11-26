@@ -236,9 +236,7 @@ public final class WallpaperEngine: NSObject {
         currentVolumeNormalized = normalizedVolume
         let effectiveVolume = PlaybackMuteState.shared.isMuted ? 0 : normalizedVolume
 
-        if (dedicatedWebHostAdapter as? WebDaemonHostAdapter)?.hasLivePlayback == true {
-            dispatchWebRuntimeCommand(.setVolume(effectiveVolume))
-        }
+        dispatchWebRuntimeCommand(.setVolume(effectiveVolume))
         // A preparing Web surface may still retain the previous video sessions.
         // Every live surface obeys the same result throughout the transition.
         for session in displaySessions.values where session.process.isRunning {
@@ -270,9 +268,7 @@ public final class WallpaperEngine: NSObject {
         // Web 宿主可独立调整速率，不能为了调速而意外恢复已经暂停的页面。
         let clampedRate = max(0.25, min(2.0, rate))
         targetPlaybackRate = clampedRate
-        if (dedicatedWebHostAdapter as? WebDaemonHostAdapter)?.hasLivePlayback == true {
-            dispatchWebRuntimeCommand(.setPlaybackRate(clampedRate))
-        }
+        dispatchWebRuntimeCommand(.setPlaybackRate(clampedRate))
         guard !playbackPaused else { return }
         // A preparing Web surface may still retain the previous video sessions.
         // Every live surface obeys the same result throughout the transition.

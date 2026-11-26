@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "efdfec6fda6ba07e1dfaa7ab64995a6492c8383b6ae1298a8ae5e9464d484efb",
+        "sourceSHA256": "5b54527961bb196ef27906255d58280be4bb67ca51dab4015d36bd939a2fc35e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Video 冷海报与实际解码画面共享适配，热改及屏幕尺寸更新",
-        "limitations": "单内屏实际 WindowServer 出图，原生双配置。物理呈现时间及混合显示拓扑未验。"
+        "scope": "Web daemon 无进程空档的最新控制、首个作者建议与实窗恢复",
+        "limitations": "签名单物理屏，主文档和 Canvas 实绘。媒体 PTS、物理节律、WebKit WebContent 单独重启待专门验证。"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "36d06e2d59a16bcb354df3108018012850347f8e061e66ef84b59c09adbdf40d",
+        "sourceSHA256": "83cc2e0aabd65c64240e4dfbafa8cb4d555eb5af65602c032d40844c9f315860",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Video 冷海报与实际解码画面共享适配，热改及屏幕尺寸更新",
-        "limitations": "单内屏实际 WindowServer 出图，原生双配置。物理呈现时间及混合显示拓扑未验。"
+        "scope": "Web daemon 无进程空档的最新控制、首个作者建议与实窗恢复",
+        "limitations": "签名单物理屏，主文档和 Canvas 实绘。媒体 PTS、物理节律、WebKit WebContent 单独重启待专门验证。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "755081e4c02fe5fb16e926d1bbe56f3edc8cf0a65c7c49d7f57a853d7b1df5e9",
+        "sourceSHA256": "1fcb859eaa1c54868deecea0a8c3c3b225d2db1580db455b119fb7a605e8439a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Video 冷海报与实际解码画面共享适配，热改及屏幕尺寸更新",
-        "limitations": "单内屏实际 WindowServer 出图，原生双配置。物理呈现时间及混合显示拓扑未验。"
+        "scope": "Web daemon 无进程空档的最新控制、首个作者建议与实窗恢复",
+        "limitations": "签名单物理屏，主文档和 Canvas 实绘。媒体 PTS、物理节律、WebKit WebContent 单独重启待专门验证。"
       }
     },
     {
@@ -1130,13 +1130,13 @@
       "role": "current-state",
       "entrypoint": "docs/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-11-25",
+      "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "29711f57875f03aa48ce483a07daad62ee9eead80357740d165ec7b2738181b8",
+        "sourceSHA256": "0264b81968be0a086b994db05e9b250e93e4e6449cff91cddce37e8b3e548625",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Web 建议及首投、重放的文档执行合同",
-        "limitations": "按当前全量原生属性包"
+        "scope": "Web daemon 无进程空档的最新控制、首个作者建议与实窗恢复",
+        "limitations": "签名单物理屏，主文档和 Canvas 实绘。媒体 PTS、物理节律、WebKit WebContent 单独重启待专门验证。"
       }
     },
     {
