@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 import Metal
 
-/// Immutable, scene/device-scoped stock-noise preparation. The launch worker
+/// Immutable, scene/device-scoped built-in texture preparation. The launch worker
 /// generates only demanded substitutes; surfaces share the completed textures
 /// and normal frames only publish these frozen states. Failures remain local
 /// and may be retried by a new preparation, never by the frame loop.
@@ -66,13 +66,22 @@ nonisolated struct SceneStockNoiseTextureStore {
                 }
             }
         }
+        let checkerDemands = systemDemands.filter { $0.name == SceneSystemProviderTextureIdentity.missingMaterialTextureName }
+        if !checkerDemands.isEmpty {
+            let checker = Self.makeMissingTexture(device: device)
+            for identity in checkerDemands {
+                states[identity] = checker.map {
+                    .ready(Self.publication($0, identity: identity, sampling: .init(texFlags: 1)))
+                } ?? .unavailable
+            }
+        }
         try cancellationCheck()
         self.init(deviceRegistryID: device.registryID, states: states)
     }
 
     private static func publication(
         _ texture: MTLTexture,
-        identity: SceneSystemProviderTextureIdentity
+        identity: SceneSystemProviderTextureIdentity, sampling: SceneTextureSampling = .linearClamp
     ) -> SceneTextureProviderPublication {
         let size = CGSize(width: texture.width, height: texture.height)
         return SceneTextureProviderPublication(
@@ -81,18 +90,43 @@ nonisolated struct SceneStockNoiseTextureStore {
                 texture: texture,
                 identity: .builtIn(name: identity.name),
                 generation: .immutable(revision: 1),
-                purpose: .noise,
-                content: .data,
+                purpose: identity.purpose,
+                content: identity.purpose.isDataPurpose ? .data : .color(.resolved(.opaque)),
                 physicalSize: size,
                 mappedSize: size,
                 uvTransform: .identity,
-                sampling: .linearClamp
+                sampling: sampling
             ),
             contentGeneration: 1
         )
     }
 
     // MARK: - Generation
+
+    private static func makeMissingTexture(device: MTLDevice) -> MTLTexture? {
+        let side = 6
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm, width: side, height: side, mipmapped: false
+        )
+        descriptor.storageMode = .managed
+        descriptor.usage = [.shaderRead]
+        guard let texture = device.makeSceneTexture(descriptor: descriptor) else { return nil }
+        var pixels = [UInt8](repeating: 0, count: side * side * 4)
+        for y in 0 ..< side {
+            for x in 0 ..< side {
+                let index = (y * side + x) * 4
+                let yellow: UInt8 = (x + y).isMultiple(of: 2) ? 0 : 255
+                pixels[index] = yellow
+                pixels[index + 1] = yellow
+                pixels[index + 3] = 255
+            }
+        }
+        pixels.withUnsafeBytes {
+            texture.replace(region: MTLRegionMake2D(0, 0, side, side), mipmapLevel: 0,
+                            withBytes: $0.baseAddress!, bytesPerRow: side * 4)
+        }
+        return texture
+    }
 
     private static func makeTexture(
         name: String,

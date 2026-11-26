@@ -13,8 +13,8 @@
       "bytes": 9730
     },
     "docs/architecture/repository-map.md": {
-      "lines": 64,
-      "bytes": 21916
+      "lines": 66,
+      "bytes": 22466
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 160869
+      "bytes": 160999
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 141092
+      "bytes": 141186
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -134,11 +134,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 445,
-      "bytes": 89177
+      "bytes": 89175
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 337872
+      "bytes": 339165
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -169,8 +169,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 246,
-      "bytes": 69819
+      "lines": 245,
+      "bytes": 69361
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -378,11 +378,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "1c588cd56f4fdd103e8bc95348b91fd8c18870ae6623885f483f0cfd24dcb095",
-      "after": "647b11c9b96a678ec063f445928f83394c205f45e2e03b6281216001268ed911",
-      "owner": "Scene 渲染与三引擎画质",
-      "reason": "记录作者栅格、等价复制与实际产出边界。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-spatial-scaling"
+      "before": "647b11c9b96a678ec063f445928f83394c205f45e2e03b6281216001268ed911",
+      "after": "96e35acfb2dd2e75a36b5fe8149620b86a9acfe3910b78f30a6ae12a1cef742f",
+      "owner": "Scene 材质准备",
+      "reason": "同步普通副槽的官版合同、现役导航和启动实测。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#missing-ordinary-material-texture"
     },
     {
       "section": "bodies",
@@ -603,11 +603,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "3f75927c3dc2b64e109862d0524bd7e11dad0975cf884d2c49d19fdcb5edb29e",
-      "after": "f3911566d01edfb5cf8d0e9c2665e9d2ecdeb8beef0846c4904746cd8227c288",
-      "owner": "Scene 渲染与三引擎画质",
-      "reason": "记录作者栅格、等价复制与实际产出边界。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-spatial-scaling"
+      "before": "f3911566d01edfb5cf8d0e9c2665e9d2ecdeb8beef0846c4904746cd8227c288",
+      "after": "d7dab82975a75f1cc4fe7a1509e92384d45661a6db581d3d8f7898d77b581164",
+      "owner": "Scene 材质准备",
+      "reason": "同步普通副槽的官版合同、现役导航和启动实测。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#missing-ordinary-material-texture"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "e53ed141adb89cf268ecb6c5e498f1acdc71eb87c19850c96653eb7c57b4174a",
-      "after": "73c6c7cd1b968ea2f4a92c08b89e8c448ed70e68b7081a50a87e78023e1923e8",
-      "owner": "Scene 渲染与三引擎画质",
-      "reason": "记录作者栅格、等价复制与实际产出边界。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-spatial-scaling"
+      "before": "73c6c7cd1b968ea2f4a92c08b89e8c448ed70e68b7081a50a87e78023e1923e8",
+      "after": "1537cb385d232aaf15eaad3d603ee1e17e59f3ef419029072bfd583d4b5df42c",
+      "owner": "Scene 材质准备",
+      "reason": "同步普通副槽的官版合同、现役导航和启动实测。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#missing-ordinary-material-texture"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "b3844fce4a4a22d3932fc1266b26abb7cc6f86b7a710108705d1ffc23583d95c",
-      "after": "003197bb0c4319afbab55a992b1ddfdd13a93e73941866d15b7773b6ddf95865",
-      "owner": "Scene 渲染与三引擎画质",
-      "reason": "记录作者栅格、等价复制与实际产出边界。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-spatial-scaling"
+      "before": "003197bb0c4319afbab55a992b1ddfdd13a93e73941866d15b7773b6ddf95865",
+      "after": "b6c757450098bfb1687f8f6c2c8238f7f487a9aeb70af7afd8246db5a404fd75",
+      "owner": "Scene 材质准备",
+      "reason": "同步普通副槽的官版合同、现役导航和启动实测。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#missing-ordinary-material-texture"
     },
     {
       "section": "bodies",

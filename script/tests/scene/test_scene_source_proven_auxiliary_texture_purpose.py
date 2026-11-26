@@ -311,6 +311,9 @@ private enum Main {
             "positive": [
                 "phase": token(phase[2]),
                 "renamedPhase": token(renamedPhase[5]),
+                "namedPhase": token(activeSamplers(phaseFragment(
+                    slot: 4, metadata: #"// {"material":"temporal_control","label":"Phase"}"#
+                ))[4]),
                 "normal": token(normal[3]),
                 "renamedNormal": token(renamedNormal[6]),
                 "dataChannel": token(activeSamplers(dataChannelFragment())[2]),
@@ -492,6 +495,7 @@ class SceneSourceProvenAuxiliaryTexturePurposeTests(unittest.TestCase):
             {
                 "phase": "redOnly/phase/phase",
                 "renamedPhase": "redOnly/phase/phase",
+                "namedPhase": "redOnly/phase/phase",
                 "normal": "unproven/normal/normal",
                 "renamedNormal": "unproven/normal/normal",
                 # The juguangdeng dataflow: `.ra` channels become scalar

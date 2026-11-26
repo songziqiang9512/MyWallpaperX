@@ -302,6 +302,7 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
     def test_graph_and_texture_inputs_fail_closed(self) -> None:
         self.assert_contracts([
             "unknownFailsClosed",
+            "InternalCheckerNotAuthorSelectable",
             "slotShapeFailsClosed",
             "blockedGraphRejected",
             "invalidEffectIngressRejected",

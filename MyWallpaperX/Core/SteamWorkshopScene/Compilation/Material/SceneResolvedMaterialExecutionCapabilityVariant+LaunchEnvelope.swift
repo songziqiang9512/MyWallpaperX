@@ -402,6 +402,7 @@ extension SceneResolvedMaterialVariantCache {
         template: Template,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         implicitFramebufferIdentity: Graph.TextureIdentity?,
+        formatSlots: Set<Int> = [],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
         systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:],
         graphInputSourceSlotFacts: [
@@ -516,6 +517,13 @@ extension SceneResolvedMaterialVariantCache {
                             .textureReferenceInvalid,
                             slot: index
                         )
+                    } else if !hasOptionalSource,
+                              let checker = SceneResolvedMaterialShaderSchema.missingTextureFallback(
+                                  template: template, sampler: sampler,
+                                  hasFormatCombo: formatSlots.contains(index)
+                              ),
+                              case .ready? = systemProviderStates[checker] {
+                        required |= bit
                     }
                 }
                 if required & bit == 0, hasOptionalSource {

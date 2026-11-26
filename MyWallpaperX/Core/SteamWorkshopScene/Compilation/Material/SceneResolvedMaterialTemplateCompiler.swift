@@ -269,7 +269,11 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                 else { throw textureFailure(.textureReferenceInvalid, slot, candidate.provenance) }
                 return .asset(path)
             case .property: return .userProperty(.init(key: value))
-            case .system: return .provider(.system(value))
+            case .system:
+                guard value != SceneSystemProviderTextureIdentity.missingMaterialTextureName else {
+                    throw textureFailure(.textureReferenceInvalid, slot, candidate.provenance)
+                }
+                return .provider(.system(value))
             case .userShortcut, .unknown:
                 throw textureFailure(.userTextureUnknown, slot, candidate.provenance)
             }

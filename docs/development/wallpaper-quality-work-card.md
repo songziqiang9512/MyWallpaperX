@@ -24,7 +24,7 @@ M4 单内屏已验证四档预设、10–120 FPS、Scene MSAA 至 4×、泛光�
 | Q0 基线 | 固定当前原版行为，取得各效应正例与邻例、逐屏 30／60、Web callback、Video 实际片源数据。冻结画面取样、成本与噪声门。 |
 | Q1 设置 | 原生设置区、迁移、导入和复位到 Scene 实际上限、Web 每屏建议及 Video 原片适用说明。验证候选、晚注册、错代和恢复。 |
 | Q2 Scene 可选效果 | 先处理场景泛光和 HDR 后处理路径，再依次验证反射、阴影、体积的禁用／基线。后续档由实测推进。 |
-| Q3 Scene 规格 | 解耦帧率和缓存，贯通基准入口与逐屏口径，先验 10–60，再验 61–120。接入纹理质量和可选 MSAA，按已验证项组成预设。宽幅作者栅格和停用段复用已实绘。下一步补缺失普通副纹理的作者效果，固定比例仍先归因瓶颈。 [实际捕获](../scene/capabilities/runtime-evidence-current.md#quality-wide-composition) · [试验次序](wallpaper-quality-settings-plan.md#scene-spatial-scaling) |
+| Q3 Scene 规格 | 解耦帧率和缓存，贯通基准入口与逐屏口径，先验 10–60，再验 61–120。接入纹理质量和可选 MSAA，按已验证项组成预设。宽幅作者栅格、停用段复用及活动普通副槽均已实绘。固定比例仍先归因实际瓶颈。 [栅格与复制](../scene/capabilities/runtime-evidence-current.md#quality-wide-composition) · [副槽实绘](../scene/capabilities/runtime-evidence-current.md#missing-ordinary-material-texture-evidence) · [试验次序](wallpaper-quality-settings-plan.md#scene-spatial-scaling) |
 | QV Video | 接入当前素材规格说明，评估来源规格与同源离线 A/B。真实素材和播放成本成立时推进节能版，保原播放器、音画与原片退出。 |
 | Q4 整体 | 正常入口与多屏／生命周期、导入、相邻不适用例、真机质效、官版适用范围。交接稳定合同、退出临时状态和验证入口，结算全部批次。 |
 

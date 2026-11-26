@@ -144,6 +144,8 @@ nonisolated extension SceneTextureLoadPurpose {
 /// Purpose is part of the identity because one provider source may publish
 /// independent color and data representations for different consumers.
 nonisolated struct SceneSystemProviderTextureIdentity: Hashable, Sendable {
+    static let missingMaterialTextureName = "missing-material-texture"
+
     let name: String
     let purpose: SceneTextureLoadPurpose
 

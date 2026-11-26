@@ -751,6 +751,12 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             }
             guard projection.reachesDefault else { continue }
             for sampler in samplers[slotIndex] ?? [] {
+                if reachableSamplerSlots.contains(slotIndex),
+                   let checker = SceneResolvedMaterialShaderSchema.missingTextureFallback(
+                       template: template, sampler: sampler, hasFormatCombo: textureFormatSlots.contains(slotIndex)
+                   ) {
+                    systemDemands.insert(checker)
+                }
                 if sampler.readinessCombo != nil {
                     guard !textureFormatSlots.contains(slotIndex),
                           SceneResolvedMaterialShaderSchema.presenceIndependentDefault(

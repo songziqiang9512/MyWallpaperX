@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a7a4fd3f5be0274905ab8d9ea3e055c73a3ce43304f0f5266fdfea6993bc68ad",
+        "sourceSHA256": "17746389cf17c9564dc50988a9284d614ba9467c9d1a9cfa6d944e9a722b165b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "作者局部栅格与材质图双缓冲的源码导航",
-        "limitations": "组织导航，逐帧证据归 Scene 能力页。"
+        "scope": "普通副槽缺失的冷准备、采样资格与静态发布导航",
+        "limitations": "运行数据归 Scene 能力页。"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "248b2cb596c41aff8720f60d540470308d30e38d7ee84e5a9081e1b7e82abcb6",
+        "sourceSHA256": "e8b55b73c1e431038c36b1fe4e8fa984d674f944d57db996c091ad1ec42f5045",
         "method": "document_registry --audit + document_health --check",
-        "scope": "宽幅作者栅格、透传复用和内部缩放的工程顺序",
-        "limitations": "缺失副纹理与缩放性能各有独立验收。"
+        "scope": "作者精确栅格与普通副槽为内部缩放的前置语义",
+        "limitations": "实际降采样与能耗仍各自待测。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c7f1c950f2382fcd227f4d179f062fdac9758b505928d7c3cf925216f2a5a0c1",
+        "sourceSHA256": "4138704070dce72f041f957c97f05d383264aaeb6da4d6fb34b8349d7eb35dec",
         "method": "document_registry --audit + document_health --check",
-        "scope": "宽幅作者栅格和停用效果复用的进度",
-        "limitations": "缺失普通副纹理仍待适配，固定比例仍待实际瓶颈归因。"
+        "scope": "普通副槽样本实绘与后续缩放顺序",
+        "limitations": "本批验证单屏固定相位，不授稳态性能。"
       }
     },
     {
@@ -1003,10 +1003,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "eb4748015ffa7628c59b915da6933dab583da198c8f92ea486c54da12b7dc1f3",
+        "sourceSHA256": "0c574243b4d840a55d21683cf1c4eb5cdf45df790b39b512c282e2d340836e62",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同 Metal 库签名 Debug，三部作者的实际栅格、屏幕像素与复制编码",
-        "limitations": "3448845950 的 e3 仍缺副纹理，未量稳态帧率、带宽和能耗。"
+        "scope": "官版观察、签名 App 作者作业、颜色与格距",
+        "limitations": "仅两个已确认显式材质别名样本及其变体，比较格距而非完整像素。"
       }
     },
     {

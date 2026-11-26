@@ -350,6 +350,12 @@ enum Harness {
                 .init(source: .userTexture(.init(kind: kind, value: "mystery")), provenance: .userTexture)])
             return failure(compile(material(slots: slots)))?.code == .userTextureUnknown
         }
+        var internalSystemSlots = [SceneResolvedMaterialNode.TextureSlot?].emptySlots
+        internalSystemSlots[0] = .init(index: 0, candidates: [.init(
+            source: .userTexture(.init(kind: .system, value: "missing-material-texture")),
+            provenance: .userTexture
+        )])
+        let internalSystemFailure = failure(compile(material(slots: internalSystemSlots)))
         var emptyCandidateSlots = [SceneResolvedMaterialNode.TextureSlot?].emptySlots
         emptyCandidateSlots[5] = .init(index: 5, candidates: [])
         var wrongIndexSlots = [SceneResolvedMaterialNode.TextureSlot?].emptySlots
@@ -755,6 +761,7 @@ enum Harness {
             "stateParsedOnly": template(compile(material(blending: "additive")))?
                 .renderState.blending == .additive,
             "unknownFailsClosed": unknownFailsClosed,
+            "InternalCheckerNotAuthorSelectable": internalSystemFailure?.code == .textureReferenceInvalid,
             "slotShapeFailsClosed": failure(compile(material(slots: emptyCandidateSlots)))?.code
                 == .textureSlotsInvalid
                 && failure(compile(material(slots: wrongIndexSlots)))?.code

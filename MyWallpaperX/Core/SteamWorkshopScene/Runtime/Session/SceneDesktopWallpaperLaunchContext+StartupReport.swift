@@ -5,8 +5,8 @@ extension SceneDesktopWallpaperLaunchContext {
         resolvedMaterialCatalog.reportLines
             + resolvedMaterialExecutionCapabilities.reportLines
             + materialAssetCatalog.reportLines + [
-            "resolved material stock noise: prepared=\(stockNoiseTextures.states.count)"
-                + " ready=\(stockNoiseReadyCount) lifecycle=launch-immutable",
+            "resolved material static textures: prepared=\(stockNoiseTextures.states.count)"
+                + " ready=\(staticTextureReadyCount) lifecycle=launch-immutable",
             "scene script VM: schema=quickjs-ng-typed-v2"
                 + " bindings=\(sceneScriptScalarProgram.bindings.count)"
                 + " vectorBindings=\(propertyVectorScriptProgram.bindings.count)"
@@ -59,7 +59,7 @@ extension SceneDesktopWallpaperLaunchContext {
             + sceneScriptStringProgram.definitions.count
     }
 
-    private var stockNoiseReadyCount: Int {
+    private var staticTextureReadyCount: Int {
         stockNoiseTextures.states.values.reduce(0) { count, state in
             if case .ready = state { return count + 1 }
             return count
