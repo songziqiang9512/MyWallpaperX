@@ -81,6 +81,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     /// Launch-stable emitter vectors, ranges and admission results. Dynamic
     /// control-point/instance values and random state remain frame-local.
     private let emitterSpawnPlans: [SceneParticleEmitterSpawnPlan]
+    private let updatesContinuousEmissionByFrame: Bool
     /// Only these operators own per-particle oscillation cache entries. Keeping
     /// the indices prepared avoids scanning every operator for each death.
     private let positionOscillationOperatorIndices: [Int]
@@ -143,6 +144,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         collisionBoundsFrame: SceneParticleCollisionBoundsFrame? = nil,
         initialControlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil,
         stepSnapshotPolicies: [SceneParticleStepSnapshotPolicy] = [],
+        allowsContinuousFrameUpdate: Bool = false,
         hasChildStreamOrigin: Bool = false,
         eventValueContext: SceneParticleEventValueContext = .unavailable
     ) {
@@ -225,7 +227,20 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             || pointConsumers.contains { (controlPointsByID[$0]?.rawFlags ?? 0) & 2 != 0 }
         controlPointConstraintHistory = needsConstraintHistory
             ? Array(repeating: .unavailable, count: definition.operators.count) : []
-        emitterSpawnPlans = definition.emitters.map(SceneParticleEmitterSpawnPlan.init)
+        let emitterPlans = definition.emitters.map(SceneParticleEmitterSpawnPlan.init)
+        emitterSpawnPlans = emitterPlans
+        updatesContinuousEmissionByFrame = if allowsContinuousFrameUpdate, stepSnapshotPolicies.isEmpty,
+           emitterPlans.count == 1, let emitter = emitterPlans.first,
+           case .disabled = emitter.initialDelayAdmission, case .disabled = emitter.periodicEmissionAdmission,
+           (emitter.rate ?? 5) > 0, (emitter.instantaneousCount ?? 0) == 0, !emitter.limitsToOnePerFrame,
+           emitter.durationLimit(fallback: maximumEmissionDuration) == nil {
+            definition.operators.allSatisfy {
+                switch $0.kind {
+                case .movement, .controlPointAttract, .alphaFade, .alphaChange, .sizeChange, .colorChange: true
+                default: false
+                }
+            }
+        } else { false }
         positionOscillationOperatorIndices = definition.operators.indices.filter {
             definition.operators[$0].kind == .oscillatePosition
         }
@@ -351,17 +366,24 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         let birthEventStart = explicitBirthEventStart ?? birthEvents.count
         explicitBirthEventStart = nil
         let deathEventStart = deathEvents.count
-        for index in emitters.indices { emitters[index].beginFrame() }
-        accumulator += duration
         let rate = max(0, overrideScalar(activeInstanceOverride?.rate))
-        let simulationStep = fixedTimeStep * rate
-        while accumulator + 1e-12 >= fixedTimeStep {
-            step(by: simulationStep, timing: timing, rate: rate,
+        if updatesContinuousEmissionByFrame {
+            step(by: duration * rate, timing: timing, rate: rate,
                  controlPointParticleSpace: controlPointParticleSpace,
-                 collisionBoundsFrame: collisionBoundsFrame, hasChildStreamOrigin: hasChildStreamOrigin)
-            accumulator -= fixedTimeStep
+                 collisionBoundsFrame: collisionBoundsFrame, hasChildStreamOrigin: hasChildStreamOrigin,
+                 updatesByFrame: true)
+        } else {
+            for index in emitters.indices { emitters[index].beginFrame() }
+            accumulator += duration
+            let simulationStep = fixedTimeStep * rate
+            while accumulator + 1e-12 >= fixedTimeStep {
+                step(by: simulationStep, timing: timing, rate: rate,
+                     controlPointParticleSpace: controlPointParticleSpace,
+                     collisionBoundsFrame: collisionBoundsFrame, hasChildStreamOrigin: hasChildStreamOrigin)
+                accumulator -= fixedTimeStep
+            }
+            if accumulator < 0 { accumulator = 0 }
         }
-        if accumulator < 0 { accumulator = 0 }
         publishTransientRenderBirths(
             birthEventStart: birthEventStart,
             deathEventStart: deathEventStart
@@ -577,7 +599,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     private nonisolated func step(
         by duration: Double, timing: SceneParticleFrameTiming, rate: Double,
         controlPointParticleSpace: SceneParticleControlPointParticleSpace?,
-        collisionBoundsFrame: SceneParticleCollisionBoundsFrame?, hasChildStreamOrigin: Bool
+        collisionBoundsFrame: SceneParticleCollisionBoundsFrame?, hasChildStreamOrigin: Bool,
+        updatesByFrame: Bool = false
     ) {
         guard duration != 0 else { return }
         guard duration.isFinite, Float(simulationTime + duration).isFinite else {
@@ -589,6 +612,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 #endif
             return
         }
+        if updatesByFrame { retireExpiredParticles(advancingAgeBy: duration) }
         let existingParticleIDUpperBound = nextParticleID
         if playback.intent == .playing {
             let emitterWorldFrame = controlPointParticleSpace == nil ? activeWorldSpaceFrame : nil
@@ -608,7 +632,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                 if resetsSize { buffer[index].size = buffer[index].initialSize }
                 if resetsColor { buffer[index].color = buffer[index].initialColor }
                 // Newborns can move on their birth step while remaining at age zero.
-                if buffer[index].id < existingParticleIDUpperBound {
+                if !updatesByFrame && buffer[index].id < existingParticleIDUpperBound {
                     buffer[index].age += duration
                 }
                 normalizedLives.append(min(max(
@@ -620,8 +644,14 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             apply(value, operatorIndex: operatorIndex, duration: duration, timing: timing, rate: rate,
                   existingParticleIDUpperBound: existingParticleIDUpperBound,
                   controlPointParticleSpace: controlPointParticleSpace,
-                  collisionBoundsFrame: collisionBoundsFrame)
+                  collisionBoundsFrame: collisionBoundsFrame, movesBeforeDrag: updatesByFrame)
         }
+        if !updatesByFrame { retireExpiredParticles(advancingAgeBy: 0) }
+        simulationTime += duration
+        stepSnapshotRecorder?.record(duration: duration, particles: particles)
+    }
+
+    private nonisolated func retireExpiredParticles(advancingAgeBy ageAdvance: Double) {
         // A leading range of deaths can be removed in bulk. If a later
         // death splits the survivors, move the visited range only once.
         var leadingDeaths = 0
@@ -633,6 +663,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         let needsDeathPayload = !isPrewarming || tracksOscillation
         particles.withUnsafeMutableBufferPointer { buffer in
             for readIndex in buffer.indices {
+                if ageAdvance > 0 { buffer[readIndex].age += ageAdvance }
                 if buffer[readIndex].age + 1e-12 >= buffer[readIndex].lifetime {
                     if needsDeathPayload {
                         let particle = buffer[readIndex]
@@ -667,8 +698,6 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         } else if leadingDeaths > 0 {
             particles.removeLeading(leadingDeaths)
         }
-        simulationTime += duration
-        stepSnapshotRecorder?.record(duration: duration, particles: particles)
     }
 
     private nonisolated func emit(

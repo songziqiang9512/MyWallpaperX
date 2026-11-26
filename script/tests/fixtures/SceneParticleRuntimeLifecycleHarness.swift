@@ -5,6 +5,48 @@ import Metal
 import simd
 
 extension Harness {
+    static func continuousFrameBirths() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "mwx-continuous-births-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        func definition(rate: Int) -> [String: Any] {
+            ["material": "materials/shared.json", "maxcount": 40,
+             "emitter": [["name": "boxrandom", "rate": rate, "distancemin": 0, "distancemax": 0]],
+             "initializer": [
+                ["name": "lifetimerandom", "min": 0.05, "max": 0.05],
+                ["name": "sizerandom", "min": 8, "max": 8],
+                ["name": "velocityrandom", "min": "60 0 0", "max": "60 0 0"],
+             ],
+             "operator": [["name": "movement", "gravity": "900 0 0", "drag": 5]],
+             "renderer": [["name": "sprite"]]]
+        }
+        let path = "particles/continuous.json"
+        try writeJSON(definition(rate: 600), to: directory.appendingPathComponent(path))
+        let descriptor = SceneRenderDescriptor(layers: [layer(921, path)], renderOrderLayerIDs: [921], materialPasses: [
+            .init(materialPath: "materials/shared.json", shaderPath: "genericparticle",
+                  texturePaths: ["shared.png"], blending: "additive"),
+        ])
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let runtime = SceneParticleRuntime(descriptor: descriptor, cacheDirectory: directory, device: device)
+        let split = SceneParticleRuntime(descriptor: descriptor, cacheDirectory: directory, device: device)
+        let first = runtime.advance(by: 1.0 / 30.0).flatMap(\.instances)
+        _ = runtime.advance(by: 1.0 / 30.0)
+        let replaced = runtime.advance(by: 1.0 / 30.0).flatMap(\.instances)
+        _ = split.advance(by: 1.0 / 60.0)
+        let splitPositions = split.advance(by: 1.0 / 60.0).flatMap(\.instances).map { $0.positionAndSize.x }
+        let explicit = SceneParticleSimulator(
+            definition: SceneParticleDefinitionParser().parse(root: definition(rate: 0)),
+            seed: 19, allowsContinuousFrameUpdate: true)
+        try explicit.emitExplicitly(count: 1, context: .init()) { _ in }
+        explicit.advance(by: 1.0 / 120.0)
+        return ["firstPositions": first.map { $0.positionAndSize.x },
+                "replacementPositions": replaced.map { $0.positionAndSize.x },
+                "splitPositions": splitPositions,
+                "explicitTime": explicit.simulationTime, "explicitCount": explicit.particles.count]
+    }
+
     static func playbackDeltaBounds() -> [String: Double] {
         [
             "sixtyFPS": SceneParticlePlaybackState.boundedRealtimeSimulationDelta(1.0 / 60.0),

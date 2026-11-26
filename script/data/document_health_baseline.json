@@ -154,7 +154,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 421,
-      "bytes": 79752
+      "bytes": 80119
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 485,
@@ -162,7 +162,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 404470
+      "bytes": 405460
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 57,
-      "bytes": 7358
+      "bytes": 7180
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -621,10 +621,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "92e7075bd5262d9b6be8dbd65f5d5f20c74d837f3a9b921002a31875f17fe71b",
-      "after": "087250ed4df93a1880690dccc2b305df51bbf933e887e3d1e2cdf0ad8a7f293d",
+      "before": "087250ed4df93a1880690dccc2b305df51bbf933e887e3d1e2cdf0ad8a7f293d",
+      "after": "6ea23c66a8cb9f409fe452d7dfe6ac455842ae1caba0520493d8ca250b2de9fa",
       "owner": "Scene main synchronization",
-      "reason": "绑定同步后保留的双方运行证据。",
+      "reason": "保留主线连续粒子发射实现及质量分支相关证据。",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
     },
     {
@@ -639,10 +639,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0a7062727b7067e5de3d4e123024fe66b9506ca32f6aedbff790c30d9162da76",
-      "after": "a656a73ba9d26bf8609e97a7723205378fc3dd1ee0a27b81f5bd4ee9c310ff2d",
+      "before": "a656a73ba9d26bf8609e97a7723205378fc3dd1ee0a27b81f5bd4ee9c310ff2d",
+      "after": "9e7e92adbdb4985540b0689ceb8591f644a04b36c3caddb7482f67d49c6b54d9",
       "owner": "Scene main synchronization",
-      "reason": "绑定同步后保留的双方运行证据。",
+      "reason": "保留主线连续粒子发射实现及质量分支相关证据。",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
     },
     {

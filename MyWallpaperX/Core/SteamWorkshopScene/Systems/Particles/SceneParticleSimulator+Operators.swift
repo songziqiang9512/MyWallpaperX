@@ -7,7 +7,8 @@ nonisolated extension SceneParticleSimulator {
         duration: Double, timing: SceneParticleFrameTiming, rate: Double,
         existingParticleIDUpperBound: UInt64 = .max,
         controlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil,
-        collisionBoundsFrame: SceneParticleCollisionBoundsFrame? = nil
+        collisionBoundsFrame: SceneParticleCollisionBoundsFrame? = nil,
+        movesBeforeDrag: Bool = false
     ) {
 #if DEBUG
         let observesParticles = componentObservation != nil && !particles.isEmpty
@@ -35,9 +36,9 @@ nonisolated extension SceneParticleSimulator {
             let gravity = plan.gravity(through: activeWorldSpaceFrame)
                 * effectiveSpeedOverride
             let exponent = -plan.dampingRate * duration
-            let retention = exp(exponent)
+            let retention = movesBeforeDrag ? max(0, 1 + exponent) : exp(exponent)
             // Near zero, use the limit of the gravity integral to avoid cancellation.
-            let gravityTime = abs(exponent) < 1e-8 ? duration : (1 - retention) / plan.dampingRate
+            let gravityTime = movesBeforeDrag || abs(exponent) < 1e-8 ? duration : (1 - retention) / plan.dampingRate
             let gravityImpulse = gravity == .zero ? .zero : gravity * gravityTime
             let retentionOverflowed = !retention.isFinite
             // Without a radius-maintaining Vortex plan no writer ever sets
@@ -52,8 +53,17 @@ nonisolated extension SceneParticleSimulator {
                 for index in buffer.indices {
                     let initialVelocity = buffer[index].velocity
                     // An unforced stationary peer stays at rest even when growth overflows.
-                    let integrated = retentionOverflowed && initialVelocity == .zero
-                        ? gravityImpulse : initialVelocity * retention + gravityImpulse
+                    let velocityForPosition: SIMD3<Double>
+                    let integrated: SIMD3<Double>
+                    if movesBeforeDrag {
+                        velocityForPosition = initialVelocity + gravityImpulse
+                        integrated = retentionOverflowed && velocityForPosition == .zero
+                            ? .zero : velocityForPosition * retention
+                    } else {
+                        integrated = retentionOverflowed && initialVelocity == .zero
+                            ? gravityImpulse : initialVelocity * retention + gravityImpulse
+                        velocityForPosition = integrated
+                    }
                     let position: SIMD3<Double>
                     let velocity: SIMD3<Double>
                     if maintainsRadius {
@@ -64,7 +74,7 @@ nonisolated extension SceneParticleSimulator {
                             velocity: integrated, duration: duration
                         )
                     } else {
-                        position = buffer[index].position + integrated * duration
+                        position = buffer[index].position + velocityForPosition * duration
                         velocity = integrated
                     }
                     guard acceptsMotionResult(velocity, position, component: "movement") else {
