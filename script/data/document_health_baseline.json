@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 66,
-      "bytes": 23880
+      "bytes": 24098
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -97,12 +97,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 578,
-      "bytes": 170222
+      "lines": 580,
+      "bytes": 170910
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 148945
+      "bytes": 149859
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 307,
-      "bytes": 64259
+      "bytes": 64791
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -669,33 +669,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "ff2273cb11bb4794586ad30941b5286b68fd9f80c40047f76d0a1b8d67179544",
-      "after": "6e8dffd9c90e936938af9a36b5c28f36ddeac7d41069864944fe53e7e7d63296",
-      "owner": "Scene ordered root composition and quality",
-      "reason": "Record the verified source, attachment scheduling and sample reporting contract.",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-color-prefix"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "e1898c3ae929018ee8e2e54335659be2acd358d54912a076e381123fedfa23f8",
-      "after": "be44457987066b92d96f17a259449e15f317d13172740e4711ee140c96fcdbe8",
-      "owner": "Playback quality intent and the execution owners",
-      "reason": "Record each setting's request, actual consumer, evidence and shared selection contract.",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#reference-and-current"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "819f565effbe42fc0f4162fa5927584f0bf3d01be153b970903bc9d2fa07cc45",
-      "after": "60d385023d43620825d1444663b625a934656e93f6d9c42ca703ef8c2336627f",
-      "owner": "Playback quality intent and the execution owners",
-      "reason": "Record each setting's request, actual consumer, evidence and shared selection contract.",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#reference-and-current"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "0549c5663deb3b9fbf2dd1145f6b30988f541e32bedf07632707aec61340ade4",
       "after": "2f42e458d8ba69c9806720db14ac5b2e78e0ea24729d69bea13883f2927d4733",
@@ -714,15 +687,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "045528915d36b0c234d5c1f5422cc37525bcde1429401cf6893903e4396bb153",
-      "after": "a8ca7ca71dde8ec711f5ee3e35da1f089c897ea3a8d8ee1bc9f9a266645e377c",
-      "owner": "Playback Quality",
-      "reason": "Define one per-option execution contract and keep verified runtime scopes in the current work card.",
-      "decision": "docs/architecture/wallpaper-quality-execution-contract.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "624ff26cce861cb2428330a37d7b9dec61323c9bf057f6e15951e463929f6086",
       "after": "83962074438454dc02459c98bfa0023ae8d4dab31fdc02672a4b79dfd0a0608d",
@@ -732,20 +696,56 @@
     },
     {
       "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "6c314ccfe11d790711dba3bc27922fde1d1b7eafe55c8d8595a8ec464ecb6bca",
+      "after": "eea6e8c1f648c6e753295e557476991ece7e923c2e04b65c10970547a74affd6",
+      "owner": "Scene root raster and playback quality",
+      "reason": "Record the shared native camera depth timing, source ownership, and actual playback and pressure evidence.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-settings-plan.md",
+      "before": "818ac49df340988d72f8de4575abbfd7a0bb5cb4927569bba8f565f27c790e61",
+      "after": "113e2ae378f20fb8c9f05e9b85606f1d5f3639b248ee082acd2a6b0af735da84",
+      "owner": "Scene root raster and playback quality",
+      "reason": "Record the shared native camera depth timing, source ownership, and actual playback and pressure evidence.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "a8ca7ca71dde8ec711f5ee3e35da1f089c897ea3a8d8ee1bc9f9a266645e377c",
+      "after": "76f150f33128ec9bdbe92b8961f0e5e14fb2e695220b139ed45c41c8fc4ce948",
+      "owner": "Scene root raster and playback quality",
+      "reason": "Record the shared native camera depth timing, source ownership, and actual playback and pressure evidence.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "6e8dffd9c90e936938af9a36b5c28f36ddeac7d41069864944fe53e7e7d63296",
+      "after": "b254e05a5447c7fe2d7568c17b90989888d57b219a438222a74f7d4da11f267f",
+      "owner": "Scene root raster and playback quality",
+      "reason": "Record the shared native camera depth timing, source ownership, and actual playback and pressure evidence.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "135c92c5a81abd342f4cd79e92ac1bffd78b84d16adcae19ccc186ab897ca618",
+      "before": "015f68f2d1a28c0df5748d1d8b008a7d2e8c542cfbed787ad7d7e864dbf10f74",
       "after": "e0f0cfa09b07f125fb9416d4a4b4d986dfc11312ca8e4ed34b478f6d9c22fd88",
       "owner": "Scene particles and quality evidence",
-      "reason": "Preserve the author Sprite and simplex evidence and the previously integrated quality evidence.",
+      "reason": "Preserve upstream particle and runtime evidence together with the integrated quality branch authorities.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "52596cd64106ce82ce6adfb225554578d6ce72bb6d7f0120c848fd8b3d95895d",
+      "before": "70edc4c36b959c09e231cfd3cbcc8c8d81e13de087e1b3a34dc41cc803af43f9",
       "after": "f969349553bb673d83f4d0302686265480a908ce74232d3bef383abbf3627194",
       "owner": "Scene particles and quality evidence",
-      "reason": "Preserve the author Sprite and simplex evidence and the previously integrated quality evidence.",
+      "reason": "Preserve upstream particle and runtime evidence together with the integrated quality branch authorities.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md"
     }
   ]

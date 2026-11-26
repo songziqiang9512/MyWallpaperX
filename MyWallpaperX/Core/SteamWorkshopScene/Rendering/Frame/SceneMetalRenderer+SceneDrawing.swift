@@ -237,6 +237,52 @@ extension SceneMetalRenderer {
                 worldFrames: frameWorldFrames, utility: utilityExecution,
                 backgroundCuts: backgroundCuts, particleBatches: particleBatchesByID) : nil
         let orderedLayers = reorderedLayers ?? frameProjection.orderedLayers
+        let runtime = imageCompositor.resolvedMaterialRuntime
+        let executionLayerIDs = runtime?.executionLayerIDs ?? []
+        let nativeRootTargets = frameDescriptor.camera.clearEnabled && groups == nil
+            && !modelFrame.collectsVolumeOccluders && activeStaticModelNamedAlbedoLayerIDs.isEmpty
+            ? multisampleTargets : nil
+        func allowsNativeOrdinaryLayer(_ layer: SceneRenderDescriptor.Layer, samples: Int) -> Bool {
+            guard imagePipeline?.multisampleRasterSampleCount == samples,
+                  layer.utilityLayer == nil, (layer.colorBlendMode ?? 0) == 0,
+                  imageTextures.geometryProducts[layer.id] == nil,
+                  baseMaterialProviderBindings.lightingProfile(for: layer)?.surfaceEnabled != true
+            else { return false }
+            return modelFrame.imageMaterialStates[layer.id].map {
+                imagePipeline?.supports($0, rasterSampleCount: samples) == true
+            } ?? true
+        }
+        func firstNativeModelLayer(_ precomputed: [Int: [StaticModelDraw]]? = nil) -> Int? {
+            guard let draws = modelFrame.prepared ?? precomputed ?? shadowDrawCandidates(orderedLayers: orderedLayers,
+                visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames,
+                snapshot: frameContext.dynamicValues, groups: nil, state: modelFrame),
+                  let first = orderedLayers.firstIndex(where: {
+                      draws[$0.id]?.isEmpty == false
+                  }) else { return nil }
+            modelFrame.prepared = draws
+            guard staticModelResources.pipeline?.supportsMultisampleAdditive == true
+                || !draws.values.contains(where: { $0.contains { $0.entry.materialBlending == .additive } })
+            else { return nil }
+            return first
+        }
+        // Graph-free terminal depth can be decided before the private camera
+        // pool, so native and single-sample paths never reserve it together.
+        if let targets = nativeRootTargets, !ordinaryDepthLayerIDs.isEmpty,
+           requestedFramebufferSources.isEmpty,
+           dependencyRuntime.nonStaticModelProviderLayerIDs.isEmpty,
+           runtime?.hasSourceMaterialSceneEnvironmentConsumer != true,
+           executionLayerIDs.isDisjoint(with: frameVisibleLayerIDs),
+           !utilityExecution.plansByTriggerLayerID.values.contains(where: { plans in
+               plans.contains { Self.executesUtilityPlan($0, framePlans: [:], layers: frameLayersByID) }
+           }),
+           (!allowsSceneReflection || staticModelResources.reflectiveLayerIDs.isDisjoint(with: frameVisibleLayerIDs)),
+           mainLayersAllowMultisampling(orderedLayers, visible: frameVisibleLayerIDs, allowsOrdinaryLayer: {
+               allowsNativeOrdinaryLayer($0, samples: targets.sampleCount)
+           }),
+           firstNativeModelLayer() != nil,
+           let attachments = targets.forTarget(mainTarget) {
+            mainPass.prepareMultisampling(attachments)
+        }
         let unavailableDepthConsumers = unavailableSharedTerminalDepthLayers(
             requestedFramebufferSources, state: modelFrame, orderedLayers: orderedLayers,
             ordinaryLayerIDs: ordinaryDepthLayerIDs,
@@ -271,8 +317,7 @@ extension SceneMetalRenderer {
 #if DEBUG
         let hubFrameAdmissionStart = ProcessInfo.processInfo.systemUptime
 #endif
-        let resolvedRuntime = imageCompositor.resolvedMaterialRuntime
-        let omittedPrivateLayerIDs = (resolvedRuntime?.privateLayerAlphaPreservingIDs ?? []).filter { id in
+        let omittedPrivateLayerIDs = (runtime?.privateLayerAlphaPreservingIDs ?? []).filter { id in
             guard frameVisibleLayerIDs.contains(id), let layer = frameLayersByID[id],
                   layer.utilityLayer == nil,
                   SceneBlendModeShaderSource.keepsBackdropAtZeroOpacity(layer.colorBlendMode ?? 0),
@@ -286,7 +331,7 @@ extension SceneMetalRenderer {
         }
         let liveLayerIDs = frameProjection.renderLayerIDs.subtracting(unavailableTerminalLayers)
             .subtracting(omittedPrivateLayerIDs)
-        let availableExecutionLayerIDs = (resolvedRuntime?.executionLayerIDs ?? []).intersection(liveLayerIDs)
+        let availableExecutionLayerIDs = executionLayerIDs.intersection(liveLayerIDs)
         guard let sourcePlan = dependencyRuntime.sourcePreparationPlan(
             authoredLayerIDs: reorderedLayers?.map(\.id) ?? frameProjection.orderedLayerIDs,
             availableExecutionLayerIDs: availableExecutionLayerIDs,
@@ -411,7 +456,6 @@ extension SceneMetalRenderer {
                 $0.alpha > 0 && ($0.material.surfaceProfile?.reflectivity ?? 0) > 0
             } == true
         }
-        let runtime = imageCompositor.resolvedMaterialRuntime
         var sourceConsumers: [SceneResolvedMaterialRuntimeBridge.SourceMaterialConsumer]?
         func demandedSourceMaterials(in runtime: SceneResolvedMaterialRuntimeBridge)
             -> [SceneResolvedMaterialRuntimeBridge.SourceMaterialConsumer] {
@@ -447,17 +491,14 @@ extension SceneMetalRenderer {
             allowsSceneReflection && requiresImageReflection()
         }
         var seededMultisample: (layerID: Int, targets: MainMultisampleTargets)?
-        if let multisampleTargets, frameDescriptor.camera.clearEnabled, groups == nil,
-           !modelFrame.collectsVolumeOccluders, !hasReadyReflectiveModel,
-           activeStaticModelNamedAlbedoLayerIDs.isEmpty {
-            let ordinaryMultisample = imagePipeline?.multisampleRasterSampleCount == multisampleTargets.sampleCount
+        if mainPass.multisampleAttachments == nil, let multisampleTargets = nativeRootTargets,
+           !hasReadyReflectiveModel {
             func allowsOrdinaryLayer(_ layer: SceneRenderDescriptor.Layer) -> Bool {
-                ordinaryMultisample && layer.utilityLayer == nil && (layer.colorBlendMode ?? 0) == 0
-                   && imageTextures.geometryProducts[layer.id] == nil
-                   && modelFrame.imageMaterialStates[layer.id] == nil
-                   && baseMaterialProviderBindings.lightingProfile(for: layer)?.surfaceEnabled != true
+                modelFrame.imageMaterialStates[layer.id] == nil
+                    && allowsNativeOrdinaryLayer(layer, samples: multisampleTargets.sampleCount)
             }
-            let startsAtClear = dependencyRuntime.nonStaticModelProviderLayerIDs.isEmpty
+            let startsAtClear = ordinaryDepthLayerIDs.isEmpty
+                && dependencyRuntime.nonStaticModelProviderLayerIDs.isEmpty
                 && resolvedMaterialFrameTargetPlans.isEmpty
                 && preparationSchedule.prepassProviderLayerIDs.isEmpty
                 && preparationSchedule.providersBeforeLayerID.isEmpty
@@ -465,32 +506,25 @@ extension SceneMetalRenderer {
                     allowsOrdinaryLayer: allowsOrdinaryLayer)
             if (startsAtClear || imagePipeline?.supportsMultisampleColorSeed == true && offscreenTexturePool != nil),
                !requiresLiveImageReflection(),
-               let draws = modelFrame.prepared ?? shadowCandidates ?? shadowDrawCandidates(
-                   orderedLayers: orderedLayers, visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames,
-                   snapshot: frameContext.dynamicValues, groups: nil, state: modelFrame) {
-                modelFrame.prepared = draws
-                if let start = orderedLayers.firstIndex(where: { draws[$0.id]?.isEmpty == false }),
-                   staticModelResources.pipeline?.supportsMultisampleAdditive == true
-                       || !draws.values.contains(where: { $0.contains { $0.entry.materialBlending == .additive } }) {
-                    if startsAtClear, let attachments = multisampleTargets.forTarget(mainTarget) {
-                        mainPass.prepareMultisampling(attachments)
-                    } else if !startsAtClear {
-                        let suffix = orderedLayers[start...]
-                        let safeSuffix = suffix.allSatisfy { layer in
-                            resolvedMaterialFrameTargetPlans[layer.id] == nil
-                                && !dependencyRuntime.requiresDemandedGraphOutputCapture(for: layer.id)
-                                && !preparationSchedule.authoredRawProviderLayerIDs.contains(layer.id)
-                                && preparationSchedule.providersBeforeLayerID[layer.id] == nil
-                                && utilityExecution.plansByTriggerLayerID[layer.id]?.contains {
-                                    Self.executesUtilityPlan($0, framePlans: resolvedMaterialFrameTargetPlans, layers: frameLayersByID)
-                                } != true
-                                && (!frameVisibleLayerIDs.contains(layer.id)
-                                    || !layer.effects.contains { $0.visible != false })
-                        }
-                        if safeSuffix && mainLayersAllowMultisampling(suffix, visible: frameVisibleLayerIDs,
-                            allowsOrdinaryLayer: allowsOrdinaryLayer) {
-                            seededMultisample = (orderedLayers[start].id, multisampleTargets)
-                        }
+               let start = firstNativeModelLayer(shadowCandidates) {
+                if startsAtClear, let attachments = multisampleTargets.forTarget(mainTarget) {
+                    mainPass.prepareMultisampling(attachments)
+                } else if !startsAtClear {
+                    let suffix = orderedLayers[start...]
+                    let safeSuffix = suffix.allSatisfy { layer in
+                        resolvedMaterialFrameTargetPlans[layer.id] == nil
+                            && !dependencyRuntime.requiresDemandedGraphOutputCapture(for: layer.id)
+                            && !preparationSchedule.authoredRawProviderLayerIDs.contains(layer.id)
+                            && preparationSchedule.providersBeforeLayerID[layer.id] == nil
+                            && utilityExecution.plansByTriggerLayerID[layer.id]?.contains {
+                                Self.executesUtilityPlan($0, framePlans: resolvedMaterialFrameTargetPlans, layers: frameLayersByID)
+                            } != true
+                            && (!frameVisibleLayerIDs.contains(layer.id)
+                                || !layer.effects.contains { $0.visible != false })
+                    }
+                    if safeSuffix && mainLayersAllowMultisampling(suffix, visible: frameVisibleLayerIDs,
+                        allowsOrdinaryLayer: allowsOrdinaryLayer) {
+                        seededMultisample = (orderedLayers[start].id, multisampleTargets)
                     }
                 }
             }

@@ -41,17 +41,13 @@ extension SceneMetalRenderer {
 
             // Keep the pass alive while its ObjectIdentifier is a domain key.
             let pass: SceneMainPassEncoder
-            let acquisition: SceneParticleDepthTargetPool.Acquisition
+            let depth: Depth
             var wasCleared = false
             var modelProjection: ModelProjection = .unwritten
 
-            init(pass: SceneMainPassEncoder, acquisition: SceneParticleDepthTargetPool.Acquisition) {
+            init(pass: SceneMainPassEncoder, depth: Depth) {
                 self.pass = pass
-                self.acquisition = acquisition
-            }
-            var lease: SceneParticleDepthTargetLease? {
-                if case let .acquired(lease) = acquisition { return lease }
-                return nil
+                self.depth = depth
             }
         }
         private let commandBuffer: MTLCommandBuffer
@@ -108,46 +104,40 @@ extension SceneMetalRenderer {
         func sharedDepth(pass: SceneMainPassEncoder, pool: SceneParticleDepthTargetPool,
                          device: MTLDevice, commandBuffer: MTLCommandBuffer,
                          leases: inout [SceneParticleDepthTargetLease]) -> Depth {
-            guard acceptsDepthBindings else { return Depth(acquisition: .allocationFailed, clears: true) }
-            guard self.commandBuffer === commandBuffer, pass.belongs(to: commandBuffer) else {
-                sceneDepthFailureReason = "scene-depth-command-buffer-mismatch"
+            guard acceptsDepth(pass, on: commandBuffer) else {
                 return Depth(acquisition: .allocationFailed, clears: true)
             }
             let key = ObjectIdentifier(pass)
-            if let domain = sceneDepthByPass[key] {
-                return Depth(acquisition: domain.acquisition, clears: true)
-            }
+            if let domain = sceneDepthByPass[key] { return domain.depth }
             let extent = pass.targetExtent
             let acquisition = pool.acquire(device: device, width: extent.width,
                 height: extent.height, on: commandBuffer)
-            sceneDepthByPass[key] = SceneDepthDomain(pass: pass, acquisition: acquisition)
-            if case let .acquired(lease) = acquisition { leases.append(lease) }
+            let depth = Depth(acquisition: acquisition, clears: true)
+            sceneDepthByPass[key] = SceneDepthDomain(pass: pass, depth: depth)
+            if let lease = depth.lease { leases.append(lease) }
             if case .busyOtherFrame = acquisition {
                 depthDeferralReason = "static-model-depth-in-flight"
             }
-            return Depth(acquisition: acquisition, clears: true)
+            return depth
         }
 
         func hasSceneDepthDecision(for pass: SceneMainPassEncoder) -> Bool {
             sceneDepthByPass[ObjectIdentifier(pass)] != nil
         }
 
-        private func qualifiedSceneDepthDomain(pass: SceneMainPassEncoder,
-                                               commandBuffer: MTLCommandBuffer) -> SceneDepthDomain? {
-            guard acceptsDepthBindings else { return nil }
+        private func acceptsDepth(_ pass: SceneMainPassEncoder, on commandBuffer: MTLCommandBuffer) -> Bool {
+            guard acceptsDepthBindings else { return false }
             guard self.commandBuffer === commandBuffer, pass.belongs(to: commandBuffer) else {
                 sceneDepthFailureReason = "scene-depth-command-buffer-mismatch"
-                return nil
+                return false
             }
-            guard let domain = sceneDepthByPass[ObjectIdentifier(pass)],
-                  domain.lease != nil else { return nil }
-            return domain
+            return true
         }
 
         func sceneDepthEncoder(pass: SceneMainPassEncoder,
                                commandBuffer: MTLCommandBuffer) -> MTLRenderCommandEncoder? {
-            guard let domain = qualifiedSceneDepthDomain(pass: pass, commandBuffer: commandBuffer),
-                  let texture = domain.lease?.texture,
+            guard acceptsDepth(pass, on: commandBuffer),
+                  let domain = sceneDepthByPass[ObjectIdentifier(pass)], let texture = domain.depth.lease?.texture,
                   let encoder = pass.encoder(depthTexture: texture,
                       clearsDepth: !domain.wasCleared, clearDepth: 0) else { return nil }
             domain.wasCleared = true
@@ -162,21 +152,26 @@ extension SceneMetalRenderer {
 
         func particleReadOnlyDepth(pass: SceneMainPassEncoder,
                                    commandBuffer: MTLCommandBuffer) -> MTLTexture? {
-            guard let domain = qualifiedSceneDepthDomain(pass: pass, commandBuffer: commandBuffer),
+            guard acceptsDepth(pass, on: commandBuffer),
+                  let domain = sceneDepthByPass[ObjectIdentifier(pass)],
                   domain.modelProjection == .perspective else { return nil }
-            return domain.lease?.texture
+            return domain.depth.lease?.texture
         }
 
         func terminalDepthBinding(pass: SceneMainPassEncoder,
                                   commandBuffer: MTLCommandBuffer) -> SceneImageLayerTerminalDepthBinding? {
-            guard qualifiedSceneDepthDomain(pass: pass, commandBuffer: commandBuffer) != nil else { return nil }
+            guard acceptsDepth(pass, on: commandBuffer),
+                  pass.multisampleAttachments != nil
+                    || sceneDepthByPass[ObjectIdentifier(pass)]?.depth.lease != nil else { return nil }
             return .init { [weak self, weak pass] actualPass in
-                guard let self, let pass else { return nil }
+                guard let self, let pass, self.acceptsDepthBindings else { return nil }
                 guard actualPass === pass else {
                     self.sceneDepthFailureReason = "scene-depth-terminal-pass-mismatch"
                     return nil
                 }
-                return self.sceneDepthEncoder(pass: pass, commandBuffer: commandBuffer)
+                return pass.multisampleAttachments != nil
+                    ? pass.encoder()
+                    : self.sceneDepthEncoder(pass: pass, commandBuffer: commandBuffer)
             }
         }
 
@@ -648,6 +643,7 @@ extension SceneMetalRenderer {
     ) -> Set<Int> {
         let consumers = layerIDs.union(ordinaryLayerIDs)
         guard !consumers.isEmpty else { return [] }
+        if mainPass.multisampleAttachments != nil { return layerIDs }
         let mainConsumers = Set(layerIDs.filter {
             groups?.compositeTargetPass(forRootID: $0) === mainPass || groups == nil
         }).union(ordinaryLayerIDs.filter {

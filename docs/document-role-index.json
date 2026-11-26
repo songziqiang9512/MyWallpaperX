@@ -141,13 +141,13 @@
       "role": "current-state",
       "entrypoint": "docs/README.md",
       "purpose": "全仓任务到实际 owner 的导航与已知边界，不定义新的产品权威。",
-      "lastReviewed": "2026-11-26",
+      "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "810dace09e27720abc29eb0ad51b6738a04a755b3587fe8e39a3554488e08106",
+        "sourceSHA256": "4e563c6449b4880c8f86eb272b0ba799635f518f860d2ef1e7f727973cf7427e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对聚光计划供给、透明排序和工作卡取证入口。",
-        "limitations": "仅覆盖本批导航和对应的签名运行证据。"
+        "scope": "校对普通终端实际样本与相机深度的接线和代表证据。",
+        "limitations": "桌面短窗及原生深度门；含局部图和实际根读回的默认月亮仍待收敛。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "88960fb047144d827947a5eb35ab3d304b1f4fd2bf8362ad067545ff2c5d9146",
+        "sourceSHA256": "4b3f5b2e866aee25f9de4c245bbc3f71808ab3cc919c0844bd5d199496d94479",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对 Scene 根采样收敛、独立消费者和官版选项导航。",
-        "limitations": "架构及源码核对，发布范围仍以执行证据为准。"
+        "scope": "校对普通终端实际样本与相机深度的接线和代表证据。",
+        "limitations": "桌面短窗及原生深度门；含局部图和实际根读回的默认月亮仍待收敛。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4c7c80f7f0ad209f1588b2ce20d7a2110d14d46103aff644f135624e9e52b025",
+        "sourceSHA256": "2bee4d914de16b668bed0e9e80dc9572e16744b710fa243bf4d6ae3d12041679",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对主线合入、当前逐档执行与签名 4× 短窗回执。",
-        "limitations": "4× 取证覆盖该作品的清屏后颜色前缀，不授任意作者层序或硬件。"
+        "scope": "校对普通终端实际样本与相机深度的接线和代表证据。",
+        "limitations": "桌面短窗及原生深度门；含局部图和实际根读回的默认月亮仍待收敛。"
       }
     },
     {
@@ -883,13 +883,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene 当前架构与源码地图",
-      "lastReviewed": "2026-11-26",
+      "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "acf1a68267fde565fcd85f1f118be19d502fc18dc302fbe782c45ef93a126efa",
+        "sourceSHA256": "c4d5d5a30aab76cd5db99e5bc1db37c7dcab61e699d4b3da9c108f9c052874d0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对聚光计划供给、透明排序和工作卡取证入口。",
-        "limitations": "仅覆盖本批导航和对应的签名运行证据。"
+        "scope": "校对普通终端实际样本与相机深度的接线和代表证据。",
+        "limitations": "桌面短窗及原生深度门；含局部图和实际根读回的默认月亮仍待收敛。"
       }
     },
     {

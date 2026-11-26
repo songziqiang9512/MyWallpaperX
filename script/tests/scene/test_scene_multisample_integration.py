@@ -9,9 +9,10 @@ import re
 import subprocess
 import tempfile
 import unittest
+from io import BytesIO
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 from script.scene.scene_wallpaper_graph_output_metrics import (
     structured_runtime_observations,
@@ -21,6 +22,13 @@ from script.scene.scene_wallpaper_graph_output_metrics import (
 from script.tests.scene.test_scene_composition_authored_order_integration import fixture_entries as composition_fixture
 from script.tests.scene.test_scene_directional_shadow_integration import quad
 from script.tests.scene.test_scene_named_model_shadow import named_fixture
+from script.tests.scene.test_scene_native_world_composition import (
+    DEPTH_CARD_COLORS,
+    GREEN,
+    ORANGE,
+    measure_capture,
+    perspective_image_depth_entries,
+)
 from script.tests.scene.test_scene_reflection_history_integration import (
     CANVAS,
     METAL_FAILURE,
@@ -38,6 +46,30 @@ BACKGROUND_LAYER, ALPHA_LAYER, TEXT_LAYER, UNPREPARED_SPOT_LAYER = 29, 30, 31, 3
 
 
 def model_input(variant):
+    if variant in ("shared-depth", "shared-depth-renamed"):
+        entries = perspective_image_depth_entries(7)
+        scene = json.loads(entries["scene.json"])
+        scene["objects"] = [layer for layer in scene["objects"] if layer["id"] != 22]
+        for layer in scene["objects"]:
+            layer.pop("effects", None)
+        writer = next(layer for layer in scene["objects"] if layer["id"] == 21)
+        stem = "depth_card_21"
+        if variant == "shared-depth-renamed":
+            writer.update(id=121, image="models/camera-band.json")
+            entries[writer["image"]] = entries.pop(f"models/{stem}.json").replace(
+                stem.encode(), b"camera-band")
+            entries["materials/camera-band.json"] = entries.pop(f"materials/{stem}.json").replace(
+                stem.encode(), b"camera-band")
+            stem = "camera-band"
+        color = DEPTH_CARD_COLORS[1]
+        stripe = Image.new("RGBA", (16, 4))
+        stripe.paste((*color, 128), (0, 0, 5, 4))
+        stripe.paste((*color, 255), (11, 0, 16, 4))
+        png = BytesIO()
+        stripe.save(png, format="PNG")
+        entries[f"materials/{stem}.png"] = png.getvalue()
+        entries["scene.json"] = json.dumps(scene).encode()
+        return entries, [layer["id"] for layer in scene["objects"] if "model" in layer]
     alternate = variant == "renamed-hdr"
     stem = "offset-stripe" if alternate else "receiver"
     entries = model_reflection_entries(0, stem=stem)
@@ -318,6 +350,35 @@ class SceneMultisampleIntegrationTests(unittest.TestCase):
             for count in text_count[1:]:
                 self.assertAlmostEqual(count, text_count[0], delta=0.05 * text_count[0])
             (self.work / name / "glyph-pixels.json").write_text(json.dumps(text_count) + "\n")
+
+    def test_plain_translucent_writer_shares_the_native_camera_depth(self):
+        regions = {
+            "near-model": {"world": [.30, .16, 0], "expectedRGB": ORANGE},
+            "exposed-image": {"world": [.36, -.55, 0], "expectedRGB": DEPTH_CARD_COLORS[1]},
+            "transparent-hole": {"world": [0, -.55, 0], "expectedRGB": (0, 0, 0)},
+            "far-model-through-hole": {"world": [0, -.35, 0], "expectedRGB": GREEN},
+            "partial-alpha": {"world": [-.36, -.55, 0],
+                "expectedRGB": tuple(round(channel * 128 / 255) for channel in DEPTH_CARD_COLORS[1])},
+        }
+        for name, writer_id in (("shared-depth", 21), ("shared-depth-renamed", 121)):
+            with self.subTest(variant=name):
+                arms, model_ids = self.comparison(name)
+                baseline = arms[0][1][0]
+                for samples, (image, rows) in arms:
+                    self.assert_model_pass(rows, samples, model_ids)
+                    writer, = [row for row in rows if row["kind"] == "ordinary" and row.get("layerID") == writer_id]
+                    near, far = [row for row in rows if row["kind"] == "model"]
+                    self.assertEqual(writer["outcome"], "draw-encoded")
+                    self.assertEqual(writer["target"]["textureToken"], near["target"]["textureToken"])
+                    self.assertTrue(rows.index(near) < rows.index(writer) < rows.index(far))
+                    if samples > 1:
+                        self.assertIsNotNone(ImageChops.difference(image, baseline).getbbox())
+                    capture = self.work / name / f"requested-{samples}/evidence/scene-after-window.png"
+                    measured = measure_capture(capture, regions)
+                    for region, record in regions.items():
+                        self.assertGreater(measured[region]["count"], 0)
+                        for actual, expected in zip(measured[region]["mean"], record["expectedRGB"], strict=True):
+                            self.assertAlmostEqual(actual, expected, delta=2, msg=(name, samples, region))
 
     def test_color_prefix_keeps_its_authored_read_and_real_model_samples(self):
         arms, _ = self.comparison("color-prefix")

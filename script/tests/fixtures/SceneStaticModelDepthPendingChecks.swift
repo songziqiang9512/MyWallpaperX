@@ -25,7 +25,7 @@ import Dispatch
         let queue = device.makeCommandQueue(), let gate = device.makeSharedEvent() else {
    return ["metalUnavailable": true]
   }
-  let pipeline = SceneStaticModelPipeline(device: device)!
+  let pipeline = SceneStaticModelPipeline(device: device, rasterSampleCount: 4)!
   let whiteDescriptor = MTLTextureDescriptor.texture2DDescriptor(
    pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false)
   whiteDescriptor.storageMode = .shared; whiteDescriptor.usage = .shaderRead
@@ -66,7 +66,7 @@ import Dispatch
    (id, SceneMatrix.translation(SIMD3(32, 32, 0)) * SceneMatrix.scale(SIMD3(repeating: scale)))
   })
 
-  func encode(_ blocked: Bool) -> Frame {
+  func encode(_ blocked: Bool, native: Bool = false) -> Frame {
    let command = queue.makeCommandBuffer()!
    if blocked { command.encodeWaitForEvent(gate, value: 1) }
    let descriptor = MTLTextureDescriptor.texture2DDescriptor(
@@ -81,6 +81,22 @@ import Dispatch
    let state = SceneMetalRenderer.StaticModelFrame(commandBuffer: command)
    var leases: [SceneParticleDepthTargetLease] = []
    renderer.dependencyRuntime.encoded.removeAll()
+   if native {
+    let attachment = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm,
+     width: 64, height: 64, mipmapped: false)
+    attachment.storageMode = .memoryless; attachment.usage = .renderTarget
+    attachment.sampleCount = 4; attachment.textureType = .type2DMultisample
+    let color = device.makeTexture(descriptor: attachment)!
+    attachment.pixelFormat = .depth32Float
+    let depth = device.makeTexture(descriptor: attachment)!
+    precondition(pass.prepareMultisampling(.init(color: color, depth: depth)!))
+    let unavailable = renderer.unavailableSharedTerminalDepthLayers([], state: state,
+     orderedLayers: layers, ordinaryLayerIDs: [3], visible: [1, 2, 3],
+     worldFrames: world, snapshot: dynamic, batches: [:], particlePipeline: nil,
+     mainPass: pass, groups: nil, commandBuffer: command, leases: &leases)
+    precondition(unavailable.isEmpty)
+    precondition(state.terminalDepthBinding(pass: pass, commandBuffer: command)?.encoder(pass) != nil)
+   }
    if usePreparation {
     let candidates = renderer.shadowDrawCandidates(orderedLayers: layers, visible: [1, 2],
      worldFrames: world, snapshot: dynamic, groups: nil)!
@@ -126,7 +142,8 @@ import Dispatch
    frame.command.addCompletedHandler { _ in firstDone.signal() }
    frame.command.commit()
   }
-  let first = held[0], second = encode(false)
+  let first = held[0], second = encode(false), native = encode(false, native: true)
+  native.command.commit()
   let firstStillPending = held.allSatisfy { $0.command.status != .completed } && gate.signaledValue == 0
   // The frame owner has classified busy. Cancel the unsubmitted candidate;
   // the production propagation to FrameOutcome is separately exercised by App.
@@ -134,6 +151,7 @@ import Dispatch
   let pendingBytes = renderer.staticModelDepthTargetPool.residentByteCost
   gate.signaledValue = 1
   held.forEach { $0.command.waitUntilCompleted() }
+  native.command.waitUntilCompleted()
   let completionsObserved = (0..<3).allSatisfy { _ in firstDone.wait(timeout: .now() + 10) == .success }
   let recovered = encode(false)
   let recoveredDone = DispatchSemaphore(value: 0)
@@ -150,6 +168,10 @@ import Dispatch
    "second-busy-is-owned-frame-decision": second.leases.isEmpty
     && second.deferral == "static-model-depth-in-flight",
    "second-remains-unsubmitted": second.command.status == .notEnqueued,
+   "native-raster-bypasses-the-held-private-depth-pool": native.leases.isEmpty
+    && native.deferral == nil && native.encoded[1] == true && native.encoded[2] == true
+    && native.command.status == .completed && native.command.error == nil
+    && rgb(native) == [0, 255, 0, 255],
    "cancelled-pixels-untouched": secondRGB == [17, 17, 17, 17],
    "completion-restores-both-draws": recovered.leases.count == 1
     && recovered.deferral == nil && recovered.encoded[1] == true && recovered.encoded[2] == true,

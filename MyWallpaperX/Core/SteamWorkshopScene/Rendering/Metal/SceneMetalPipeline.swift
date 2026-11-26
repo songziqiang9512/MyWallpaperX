@@ -51,6 +51,7 @@ struct SceneImageLayerPipeline {
     private enum DepthMode: Hashable {
         case readOnly, readWrite, writeOnly
     }
+    private let multisampleDepthWriter: MTLRenderPipelineState?
     private let depthBindings: [DepthMode: (pipeline: MTLRenderPipelineState, stencil: MTLDepthStencilState)]
     private let additiveMaterialState: MTLRenderPipelineState?
     private let normalDepthMaterialState: MTLRenderPipelineState?
@@ -150,7 +151,12 @@ struct SceneImageLayerPipeline {
         }
         if preparesDepth && blendMode == .sourceOver {
             descriptor.depthAttachmentPixelFormat = .depth32Float
-            let readOnlyPipeline = try? device.makeRenderPipelineState(descriptor: descriptor)
+            func makeDepthPipeline(samples: Int) -> MTLRenderPipelineState? {
+                descriptor.rasterSampleCount = samples
+                return try? device.makeRenderPipelineState(descriptor: descriptor)
+            }
+            let depthSamples = multisampleState?.sampleCount ?? 1
+            let readOnlyPipeline = makeDepthPipeline(samples: 1)
             var discardsEmptyDepthWrites = true
             constants.setConstantValue(&discardsEmptyDepthWrites, type: .bool, index: 1)
             let writingPipeline: MTLRenderPipelineState?
@@ -158,10 +164,13 @@ struct SceneImageLayerPipeline {
                 name: "sceneImageLayerFrag", constantValues: constants
             ) {
                 descriptor.fragmentFunction = writer
-                writingPipeline = try? device.makeRenderPipelineState(descriptor: descriptor)
+                writingPipeline = makeDepthPipeline(samples: 1)
+                multisampleDepthWriter = depthSamples > 1 ? makeDepthPipeline(samples: depthSamples) : nil
             } else {
                 writingPipeline = nil
+                multisampleDepthWriter = nil
             }
+            descriptor.rasterSampleCount = 1
             var bindings: [DepthMode: (MTLRenderPipelineState, MTLDepthStencilState)] = [:]
             for mode in [DepthMode.readOnly, .readWrite, .writeOnly] {
                 guard let pipeline = mode == .readOnly ? readOnlyPipeline : writingPipeline else { continue }
@@ -187,11 +196,19 @@ struct SceneImageLayerPipeline {
             } else { normalDepthMaterialState = nil }
         } else {
             depthBindings = [:]
+            multisampleDepthWriter = nil
             normalDepthMaterialState = nil
         }
     }
 
-    func supports(_ renderState: SceneMaterialRenderState) -> Bool {
+    func supports(_ renderState: SceneMaterialRenderState, rasterSampleCount: Int = 1) -> Bool {
+        if rasterSampleCount != 1 {
+            guard multisampleState?.sampleCount == rasterSampleCount,
+                  renderState.supportsImageTranslucent else { return false }
+            guard let mode = Self.depthMode(for: renderState) else { return true }
+            return depthBindings[mode] != nil
+                && (mode == .readOnly || multisampleDepthWriter != nil)
+        }
         if renderState.supportsImageAdditiveRGB { return additiveMaterialState != nil }
         if renderState.supportsImageNormalDepth, let mode = Self.depthMode(for: renderState) {
             return normalDepthMaterialState != nil && depthBindings[mode] != nil
@@ -251,8 +268,9 @@ struct SceneImageLayerPipeline {
         return bindDepth(encoder: encoder, mode: .readOnly, cullMode: .none)
     }
 
-    func bind(encoder: MTLRenderCommandEncoder, renderState: SceneMaterialRenderState) -> Bool {
-        guard supports(renderState) else { return false }
+    func bind(encoder: MTLRenderCommandEncoder, renderState: SceneMaterialRenderState,
+              rasterSampleCount: Int = 1) -> Bool {
+        guard supports(renderState, rasterSampleCount: rasterSampleCount) else { return false }
         if renderState.supportsImageAdditiveRGB {
             guard let additiveMaterialState else { return false }
             bind(additiveMaterialState, encoder: encoder)
@@ -260,12 +278,14 @@ struct SceneImageLayerPipeline {
         }
         let cullMode: MTLCullMode = renderState.cullMode == .normal ? .back : .none
         guard let mode = Self.depthMode(for: renderState) else {
-            bind(encoder: encoder)
+            guard bind(encoder: encoder, rasterSampleCount: rasterSampleCount) else { return false }
             encoder.setCullMode(cullMode)
             return true
         }
-        return bindDepth(encoder: encoder, mode: mode, cullMode: cullMode,
-            pipeline: renderState.supportsImageNormalDepth ? normalDepthMaterialState : nil)
+        let pipeline = rasterSampleCount == 1
+            ? (renderState.supportsImageNormalDepth ? normalDepthMaterialState : nil)
+            : (mode == .readOnly ? multisampleState?.pipeline : multisampleDepthWriter)
+        return bindDepth(encoder: encoder, mode: mode, cullMode: cullMode, pipeline: pipeline)
     }
 
     private func bindDepth(

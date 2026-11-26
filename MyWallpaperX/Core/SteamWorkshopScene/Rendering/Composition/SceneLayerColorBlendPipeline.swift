@@ -307,7 +307,7 @@ enum SceneLayerColorBlendRenderer {
             guard layer.utilityLayer == nil,
                   let prepared = layer.imageMaterialRenderState,
                   terminalMaterialState == prepared,
-                  pipeline.supports(terminalMaterialState),
+                  pipeline.supports(terminalMaterialState, rasterSampleCount: mainPass.rasterSampleCount),
                   needsDepth == (terminalDepth != nil),
                   blendMode == 0, geometryProduct == nil else { return false }
         } else if terminalDepth != nil {
@@ -336,7 +336,8 @@ enum SceneLayerColorBlendRenderer {
                 )
             }
             if let terminalMaterialState {
-                guard pipeline.bind(encoder: encoder, renderState: terminalMaterialState) else { return false }
+                guard pipeline.bind(encoder: encoder, renderState: terminalMaterialState,
+                    rasterSampleCount: mainPass.rasterSampleCount) else { return false }
             } else if terminalDepth != nil {
                 guard pipeline.bindReadOnlyDepth(encoder: encoder) else { return false }
             } else {

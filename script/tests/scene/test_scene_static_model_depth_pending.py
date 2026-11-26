@@ -57,6 +57,11 @@ class SceneStaticModelDepthPendingTests(unittest.TestCase):
         for report in self.cases.values():
             self.assertTrue(all(report['checks'][key] for key in required), report)
 
+    def test_native_terminal_does_not_wait_for_three_private_depth_frames(self):
+        for report in self.cases.values():
+            self.assertTrue(report['checks']['actual-three-submissions-held'], report)
+            self.assertTrue(report['checks']['native-raster-bypasses-the-held-private-depth-pool'], report)
+
     def test_actual_current_frame_excess_remains_sticky_and_color_stays_usable(self):
         for report in self.cases.values():
             for key in ['four-same-pass-models-use-one-domain',

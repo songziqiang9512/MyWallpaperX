@@ -467,8 +467,9 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
     }
 
     static func finiteTerminalStates(_ device: MTLDevice, _ queue: MTLCommandQueue,
-                                     _ library: MTLLibrary) -> [[String: Any]] {
-        let pipeline = SceneImageLayerPipeline(device: device, library: library, preparesDepth: true)!
+                                     _ library: MTLLibrary, samples: Int = 1) -> [[String: Any]] {
+        let pipeline = SceneImageLayerPipeline(device: device, library: library, preparesDepth: true,
+            rasterSampleCount: samples)!
         let base = SceneImageLayerPipeline(device: device, library: library)!
         func policy(_ read: Bool, _ write: Bool, _ cull: String = "nocull") -> SceneMaterialRenderState {
             SceneMaterialRenderState.compile(blending: "translucent", depthTest: read ? "enabled" : "disabled",
@@ -525,10 +526,20 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
             let output = target(device, width: 32, height: 32, format: .bgra8Unorm, seed: 31)
             let desc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .depth32Float,
                 width: 32, height: 32, mipmapped: false)
-            desc.storageMode = .private; desc.usage = .renderTarget
+            desc.storageMode = samples == 1 ? .private : .memoryless
+            desc.usage = .renderTarget
+            if samples > 1 {
+                desc.textureType = .type2DMultisample
+                desc.sampleCount = samples
+            }
             let depth = device.makeTexture(descriptor: desc)!, command = queue.makeCommandBuffer()!
             let pass = SceneMainPassEncoder(commandBuffer: command, target: output,
                 clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
+            if samples > 1 {
+                desc.pixelFormat = .bgra8Unorm
+                let color = device.makeTexture(descriptor: desc)!
+                precondition(pass.prepareMultisampling(.init(color: color, depth: depth)!))
+            }
             var cleared = false
             let binding = SceneImageLayerTerminalDepthBinding { actual in
                 guard actual === pass, actual.belongs(to: command),
@@ -540,7 +551,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
                       alpha: Float = 1) -> Bool {
                 var values = uniforms; values.alpha = alpha
                 let encoder = binding.encoder(pass)!
-                guard pipeline.bind(encoder: encoder, renderState: state) else { return false }
+                guard pipeline.bind(encoder: encoder, renderState: state, rasterSampleCount: samples) else { return false }
                 pipeline.drawLayer(texture: texture, mvp: mvp, uniforms: values, encoder: encoder)
                 return true
             }
@@ -548,7 +559,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
             precondition(draw(amber, front, policy(false, true)))
             // A color-only encoder closes depth; a wrong capability must not
             // clear it or emit pixels before the healthy terminal draw.
-            precondition(pass.withReadableTarget { _, _ in true } == true)
+            if samples == 1 { precondition(pass.withReadableTarget { _, _ in true } == true) }
             var authored = transformed(scaleX, 2, 0, 0); authored.columns.3.z = 0.9
             var terminal = authored; terminal.columns.3.z = 0.4
             let layer = SceneRenderDescriptor.Layer(id: 812, colorBlendMode: 0,
@@ -599,7 +610,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
             var row: [String: Any] = ["name": name, "drawn": drawn, "missingRejected": missingRejected,
                 "stateMismatchRejected": stateMismatchRejected, "wrongPassRejected": wrongPassRejected,
                 "overlayDrawn": overlayDrawn, "overlay": bgra(16, 16),
-                "supports": pipeline.supports(state), "baseSupports": base.supports(state),
+                "supports": pipeline.supports(state, rasterSampleCount: samples), "baseSupports": base.supports(state),
                 "unsupportedPoliciesRejected": ["normal", "additive"].allSatisfy {
                     !pipeline.supports(SceneMaterialRenderState.compile(blending: $0,
                         depthTest: "disabled", depthWrite: "disabled", cullMode: "nocull", alphaWriting: nil)!)
@@ -885,6 +896,9 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
         if CommandLine.arguments.contains("--terminal-finite-only") {
             print(String(decoding: try JSONSerialization.data(withJSONObject:
                 ["finiteStates": finiteTerminalStates(device, queue, library),
+                 "nativeFiniteStates": Dictionary(uniqueKeysWithValues: [2, 4]
+                     .filter(device.supportsTextureSampleCount)
+                     .map { (String($0), finiteTerminalStates(device, queue, library, samples: $0)) }),
                  "terminalDepth": terminalDepth(device, queue, library)]), as: UTF8.self)); return
         }
         let fog = try String(contentsOfFile: CommandLine.arguments[2], encoding: .utf8)

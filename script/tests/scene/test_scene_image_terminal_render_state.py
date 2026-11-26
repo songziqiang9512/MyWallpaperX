@@ -199,6 +199,23 @@ class SceneImageTerminalRenderStateTests(unittest.TestCase):
         if cls.result.get("metalUnavailable"):
             raise unittest.SkipTest("Metal unavailable")
 
+    def test_native_depth_writes_preserve_coverage_bands_and_occlusion(self):
+        if self.compile_only:
+            self.skipTest("GPU execution was disabled")
+        native = self.result["nativeFiniteStates"]
+        if not native:
+            self.skipTest("Metal device has no native multisample raster")
+        baseline = {row["name"]: row for row in self.result["finiteStates"]}
+        for samples, cases in native.items():
+            for row in cases:
+                with self.subTest(samples=samples, state=row["name"]):
+                    self.assertTrue(row["supports"] and row["drawn"] and row["completed"], row)
+                    reference = baseline[row["name"]]
+                    for field in ("left", "right", "farPeer", "overlay"):
+                        self.assertEqual(row[field], reference[field], (field, row))
+                    for field in ("coveragePixels", "coverageFarPeerPixels"):
+                        self.assertEqual(row.get(field), reference.get(field), (field, row))
+
     def test_fixture_compiles_without_requiring_gpu_execution(self):
         if self.compile_only:
             self.assertEqual(self.result, {"compiled": True, "gpuExecuted": False})
