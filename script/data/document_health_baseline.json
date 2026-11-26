@@ -121,8 +121,8 @@
       "bytes": 7411
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 414,
-      "bytes": 78598
+      "lines": 421,
+      "bytes": 79555
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 485,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 387761
+      "bytes": 388836
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 57,
-      "bytes": 7140
+      "bytes": 7358
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "9be46f8e448bdaa64699e48d78c1b0b3a864385c7d312e8d7111ba2b4c8e91c7",
-      "after": "02d182707f5a3678ca7773363fa2a81b473fbd718afcec50adbebf05277b2592",
+      "before": "02d182707f5a3678ca7773363fa2a81b473fbd718afcec50adbebf05277b2592",
+      "after": "92e7075bd5262d9b6be8dbd65f5d5f20c74d837f3a9b921002a31875f17fe71b",
       "owner": "Scene particle simulation",
-      "reason": "约束旧实例颜色转换在有出生颜色声明的粒子上。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#instance-color-revision"
+      "reason": "记录普通连续发射的阶段、容量和运动接线设计。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7787d58730e8ec0fd24637a3f8293c4a999e794fa2b6a12c24976e18abb36c78",
-      "after": "82f26464283af97705f1e22b3b7e1df2dd7e026007bd15023ad07910b92aa67d",
+      "before": "82f26464283af97705f1e22b3b7e1df2dd7e026007bd15023ad07910b92aa67d",
+      "after": "0a7062727b7067e5de3d4e123024fe66b9506ca32f6aedbff790c30d9162da76",
       "owner": "Scene particle simulation",
-      "reason": "记录真实发射根的深度对照及同帧时钟测得的连续出生组。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-continuous-birth-cadence-292"
+      "reason": "归档短寿命、饱和容量、阻尼和重力的实际相位对照。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "5508f96625aa65a17e8fe4b063761690a0d5626fe4cce5cba42e5f575d335fa1",
-      "after": "a3c7e62c1b1a70e60ea31f28a31b0a65867d8cd25dea9686525e651d60a3c0f8",
+      "before": "a3c7e62c1b1a70e60ea31f28a31b0a65867d8cd25dea9686525e651d60a3c0f8",
+      "after": "2bf2d2fb3da2df9fa3ed2c6e8d62e83c88b5c505ad19ea8543b4203827ebe7eb",
       "owner": "Scene particle simulation",
-      "reason": "记录真实发射根的深度对照及同帧时钟测得的连续出生组。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-continuous-birth-cadence-292"
+      "reason": "把两个实测断点的下一步收窄到相位与阻尼时长。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
     },
     {
       "section": "bodies",
