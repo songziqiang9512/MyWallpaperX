@@ -493,7 +493,7 @@ ambient 接通与 L0 实测使用签名 Debug `82d701ba…191a154`，4396 构建
 <a id="instance-color"></a>
 ## 粒子实例的出生颜色替换
 
-直色替换、出生时机及 RG8 的 R,R,R,G texture view 归[实例颜色合同](particle-component-coverage.md#instance-color)。Mirage 固定源码仅供 initializer→override→birth 研究，未资格 colorn Timeline。
+直色替换、出生时机及 RG8 的 R,R,R,G texture view 归[实例颜色合同](particle-component-coverage.md#instance-color)。<br><a id="particle-instance-color-revision"></a>3383210272 根场景 version4。官版2.8.0.42与同签名本机 `77c36b34…e8926` 对照固定位置，跨越颜色轨红蓝段后，同一老粒和改名臂保红，延迟5.5s的新生取蓝，均匹配同端字面参照。第二板的官方 version3/4/5 封包同 PKGV magic，4→5只差 scene.json 的一个版本字节。各三帧，(.25,.5,.75) 在 v3/4 的 colorn、legacy 替换为 RGB8(16,64,143)，v5及三臂 Color Random 为(64,128,191)，平面 RGBA、RG88均成立。原338 stock beam_1 的同位置 v4(14,58,130)→v5(58,116,174)，白参照(231,231,231)，本机 v3 同样品仍走直读。场景版本色域是后续修复目标，角度与节拍尚未裁决。原图、同包证明及独审归 `.artifacts/scene-colorn-revision-20261126/evidence.zip`。
 
 签名 `-Onone` Debug baseline exec `c2fea04e…de86c3`、候选 `ee27529d…5e7b30`，metallib 保 `c83cb6aa…dca45`；两次4396个构建输入各无漂移，前后仅该产品文件不同。原 Parser/Simulator 的71方法通过，补零蓝通道被覆盖、legacy/normalized 等价与优先级、黑色、brightness/flags、后继 colorchange、改名/表示变体、新旧出生 cohort 与健康 peer。cohort 传入已解析的当前 override，不冒充 VM/Timeline 端到端。
 

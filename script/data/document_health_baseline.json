@@ -121,8 +121,8 @@
       "bytes": 7411
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 412,
-      "bytes": 77411
+      "lines": 414,
+      "bytes": 78203
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 467,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 369396
+      "bytes": 370124
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 239,
-      "bytes": 68160
+      "lines": 240,
+      "bytes": 68527
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "f3d04dc97a2319148060a066e774251fdf13de5cbcfc78cd238274b6c3fb8620",
-      "after": "df06d39a2af6513c3f0793bb705a9e6bfbbee9fbdcd169d828a4bccddb4f298c",
+      "before": "988dce1c623323866c537128dccdaee6d1fc04d2607c55cba2adb090fa293575",
+      "after": "c097e6c6f9435950725042ea8d4c25a2bef38e6ad45c70bde871093333badcc5",
       "owner": "Scene",
-      "reason": "记录子系统父点流、晚生保留与生命周期实测。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#child-declaration-options"
+      "reason": "登记双宽束实例色版本差异、官版出生时序与实施边界。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#instance-color-revision"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "911f3662b059988f224f6ca41d755a24a28637f1a5df6da00db8da49433bb354",
-      "after": "51d59f3366f88a657fdf53fe3ec09c569925381ee9f7510bce11b5a23f09165b",
+      "before": "51d59f3366f88a657fdf53fe3ec09c569925381ee9f7510bce11b5a23f09165b",
+      "after": "d2a595c4ce758a36737049be85c05850e5fd9ebc5244dd5b775d9c165d9a6530",
       "owner": "Scene",
-      "reason": "记录两份原包的子束合成、隔离像素反例和独立旧复制样本。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#thunderbolt-native-branches"
+      "reason": "登记双宽束实例色版本差异、官版出生时序与实施边界。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-instance-color-revision"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e3ccdabd383d26f4f535fce53c58041837aa80e0bfc36ce861c8eeb30c1f5b0f",
-      "after": "34ffd437f1f17d93abccfa572ba019cdb46afa10ccf7c2ae5ec13ce396ae310c",
+      "before": "e0bb358fc3f0cb7e5062d59a71dce55063d50cea6a4ca70c8cfe2f03ed965960",
+      "after": "294726741619ccba3e11dcb3b367102d0994058bfcff14f90e1a7827979cdce1",
       "owner": "Scene",
-      "reason": "记录子系统父点流、晚生保留与生命周期实测。",
+      "reason": "登记双宽束实例色版本差异、官版出生时序与实施边界。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
