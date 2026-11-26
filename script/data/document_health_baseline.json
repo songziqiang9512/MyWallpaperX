@@ -125,12 +125,12 @@
       "bytes": 81534
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 485,
-      "bytes": 95946
+      "lines": 486,
+      "bytes": 96067
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 391549
+      "bytes": 392633
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 57,
-      "bytes": 7244
+      "lines": 59,
+      "bytes": 8044
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -459,15 +459,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "c548b280881bd5a7537e12bdbff40ccc19819a7e78c95a1cb6a323da4d56076a",
-      "after": "00bcca94ec7c57e57226b8ccbbc3e0939d334fac80890b132f01c1ac29903e4e",
-      "owner": "Scene composition and named graph output",
-      "reason": "登记透明和背景来源共用截点及几何失败回退。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#forward-composition-named-epoch"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-resource-admission.md",
       "before": "2731b347d82b356ce22a39188d370970d18be4f973545a00ac6671c88f8647cb",
       "after": "0c4bfeee431dc47d0a5ac1a48fe6b8c50ba83bbd45d3812180b6d1b01300020b",
@@ -576,15 +567,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "39e50e5d981b696fa5f0ef097a0d0bd119c17a0e5c4119928493c44aff63d324",
-      "after": "f27c956e3738fbdb9f8f1e9693ce2c5bb5eda2647486a8710d458aa0a88d9d19",
-      "owner": "Scene particle simulation",
-      "reason": "补充跨版本实帧、作者颜色和未复现的空值分支",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-birth-color-composition"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/development-workflow.md",
       "before": "3d06b07015ac6d6d1edc3486908fa7372b1fcf0fe15eb6b97a05cd6e311ab545",
       "after": "1ef5200da31d5985fece01ffe41b838e454aa548ac4f09c1ee9188f0ee742917",
@@ -663,6 +645,33 @@
       "owner": "Shared system media artwork palette",
       "reason": "登记共享封面色相排序、缺位及对比职责。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#media-palette-hue-ranking"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "48fdfecd39d7454f73ffe2c8b770aa779b0b50fcc04a16a6ffb48bd75c5c957a",
+      "after": "0549c5663deb3b9fbf2dd1145f6b30988f541e32bedf07632707aec61340ade4",
+      "owner": "Scene composition",
+      "reason": "按对照修订文字源的 Alpha 存储及直接输出材质的接入。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#text-source-capture"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "f27c956e3738fbdb9f8f1e9693ce2c5bb5eda2647486a8710d458aa0a88d9d19",
+      "after": "e8dfab5ee91291cc418d4a2e2bef251862f76f40a374fa8690a761729acf7153",
+      "owner": "Scene composition",
+      "reason": "登记两端钟层画面、控制分支和独立样本。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#clock-text-capture-alpha-375"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "0624ce9b52f3c2ddf4fc15624c9a9fc6fb7fb652f87bb02cfe9980560678aeff",
+      "after": "6e5f700bdf5f8a3a26a6242379f1b1ef7261bd171375fccb885e3c0c295e1eba",
+      "owner": "Scene composition",
+      "reason": "保留最近复报的开放项目，移出已验证时钟项。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
 }

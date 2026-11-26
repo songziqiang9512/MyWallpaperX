@@ -89,7 +89,8 @@ nonisolated struct SceneResolvedMaterialTemplate {
         case namedLayerTarget(SceneNamedTextureReference)
         case sceneBackground, sceneEnvironment, system
     }
-    struct GraphRole: Hashable { let bindings: [Int] = [] }
+    struct GraphBindingRole: Hashable { let slot: Int }
+    struct GraphRole: Hashable { let bindings: [GraphBindingRole] = [] }
     struct EffectContext: Hashable {
         let key: Graph.EffectKey
         let input: Graph.TextureIdentity

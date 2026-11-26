@@ -402,7 +402,8 @@ source identity、采样用途、颜色表示及物理格式是不同事实。�
 
 Program 只对已证明的颜色槽做 PMA/straight 适配；data/signal 保原通道。有限 HDR RGB 保留到作者运算与终端，不能提前裁到 0–1；零 alpha 和输出 coverage 沿现表示合同。作者显式饱和仍执行。
 
-独立顶层可见文字的首个 effect 若直接把 layer source 写入后续读取的 framebuffer，准备期可选择保留文字下方当前背景的 RGB：source capture 使用 `glyphRGB + prefixRGB × (1 − glyphAlpha)`，alpha 仍为 glyph coverage。该资格只用于 captured-layer source；图 provider、parented text、image、无后续读取或被覆盖的 target 均沿原路径。SDR/HDR 使用同一颜色合同，不把背景 alpha 混入字形 coverage。
+<a id="text-source-capture"></a>
+独立顶层可见文字的首个 effect 若实际读取捕获的 layer source 并写自身输出或后续读取的 framebuffer，沿原有序前缀捕获。RGB 仍用 `glyphRGB + prefixRGB × (1 − coverage)`，其中 glyphRGB 按有效字形覆盖预乘。载体只将 alpha 存为 `coverage²`，后继在实际纹理上取样；背景 alpha 不混入该通道。SDR/HDR 共用此合同。无特效、子层、图 provider、图像及未消费的 framebuffer 沿原路径。首 effect 停用或失败仍从原字形继续，前缀只在捕获时读取一次。
 
 仅红通道 scalar 或 alpha-only 读取有各自准备证明，不能从一条 swizzle 推出整张纹理是 mask。未知用途、混合颜色/数据流或反射不守恒保持局部拒绝。R/A preserved-channel 路径不能外推所有 `.xw` generic artifact 已有完整输出证明。
 

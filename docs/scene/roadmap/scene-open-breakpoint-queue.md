@@ -9,19 +9,21 @@
 <a id="user-feedback"></a>
 ## 当前用户反馈
 
-以下是仍待核查或修复的用户观察。逐项固定原包、属性、画幅和触发输入，对照官方实机后确认差异。证据链接用于复用既有对照条件。
+优先处理最近仍在复报的项目。逐项固定原包、属性、画幅和触发输入，对照官方实机确认差异，优先复用已有对照条件。
 
 | 样本 | 本轮反馈 | 复验起点 |
 |---|---|---|
-| 3042492564 | 切「人物动作(动画)」后左人掉下 | [原包热切和冷载对照](../capabilities/runtime-evidence-current.md#author-float-reload-304)中，本机左、右按作者脚本停在 Y665.2/1891.1 并恢复，未复现下坠。本次官版弹窗 CLI 对照仅证明直接绑定生效，仍需通过实际属性面板核热回调和姿态。 |
-| 3750813609 | 时钟的白光混入黑色，官版为白光 | 原钟层 358 有 Blur 与 Clouds。固定同一字形和底图，逐步隔离文字覆盖、模糊与末端混合。 |
 | 3603711180 | 歌曲文字位置错 | [标题、艺人、时间和封面供给](../capabilities/runtime-evidence-current.md#author-player-text-current-360)有同输入对照。以同媒体、字体和画幅比较首行与次行的盒位置。 |
 | 3781003282 | 指针粒子移到浅色区时中央有半透明白方 | [旧红尾随鼠标](../capabilities/runtime-evidence-current.md#pointer-halo-378)。在浅、深背景重复同一路径，检查中央 Sprite 的覆盖与混合。 |
 | 2868108515 | 剑链左侧仍有蜘蛛网状叠影 | 沿[旧高通对照](../capabilities/runtime-evidence-current.md#author-chain-godrays-local-grid)，按新叠影位置固定同场景时刻，比较 39/e43181 开关下的残差。 |
 | 3769688830 | 本机玩偶水球持续向左转，用户在官版看到头朝上的往返摆动 | [旧实测含 spinorb/e524 与父层摆动](../capabilities/runtime-evidence-current.md#orb-spin-parent-motion-376)。对齐自转属性、父层相位和默认版本，分别比较静止头向和摆动轨迹。 |
-| 3382111183 | 人物脚下短横线本机呈白，官版有颜色 | 复用[六层定位](../capabilities/runtime-evidence-current.md#floor-beam-continuous-emission)和[实例色对照](../capabilities/runtime-evidence-current.md#particle-instance-color-revision)，用同曲同布景帧测实际短横线的 RGB 并核对应层，区分地面斜线。 |
 | 3673609113 | 人偶运动和音条抖动时出现上一帧残影 | [旧残影归因](../capabilities/runtime-evidence-current.md#author-motion-history-367)覆盖飘带。新对照固定人偶和音条各自的高运动 ROI，比较历史源清除、当前帧及官版连续图。 |
 | 3187857248 | 仍有时拖不动 | 沿[拖动证据](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318)匹配两端当前骨位置，重复真实按下、拖动和释放，记录命中归属。 |
+| 3586705329 | 图5的拼贴竖状拉伸随镜头大小变化 | [官版同样出现的 Scroll 边带](../capabilities/runtime-evidence-current.md#author-collage-edge-358)可复用。将反馈图注册到同画幅、镜头和滚动相位，区分已量过的边带与额外变形。 |
+| 3337494481 | 图6的背面文字、封面穿透模型，封面与一圈文字位置不合，加载极慢 | [文本遮挡](../capabilities/runtime-evidence-current.md#author-box-text-occlusion-333)及[封面深度](../capabilities/runtime-evidence-current.md#author-box-cover-depth-333)分别有验证。按当前签名原包重新固定视角、媒体和音频，分开核残余遮挡及147/748的投影位置、作者独立音频轨。加载沿下方首屏性能证据。 |
+| 3372715909 | 右上角时钟仍缺失 | 复用[文字46/60与作者视频克隆的实机对照](../capabilities/runtime-evidence-current.md#author-clock-video-order-337)。核当前原包默认状态、视频属性热切及终帧层序。 |
+| 3042492564 | 切「人物动作(动画)」后左人掉下 | [原包热切和冷载对照](../capabilities/runtime-evidence-current.md#author-float-reload-304)中，本机左、右按作者脚本停在 Y665.2/1891.1 并恢复，未复现下坠。本次官版弹窗 CLI 对照仅证明直接绑定生效，仍需通过实际属性面板核热回调和姿态。 |
+| 3382111183 | 人物脚下短横线本机呈白，官版有颜色 | 复用[六层定位](../capabilities/runtime-evidence-current.md#floor-beam-continuous-emission)和[实例色对照](../capabilities/runtime-evidence-current.md#particle-instance-color-revision)，用同曲同布景帧测实际短横线的 RGB 并核对应层，区分地面斜线。 |
 
 <a id="implementation-gaps"></a>
 ## 独立实测的开放断点
