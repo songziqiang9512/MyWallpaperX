@@ -15,7 +15,7 @@
 |---|---|---|
 | 2868108515 | 剑链左侧的叠影仍可见 | [两端原包及只关 Godrays 的对照](../capabilities/runtime-evidence-current.md#author-chain-left-step-286)已定位接缝，单独冻结剑图与 Godrays 未重现原包幅度。复验两端原包的底图采样与效果相位。 |
 | 3769688830 | 本机玩偶水球持续向左转，用户在官版看到头朝上的往返摆动 | [两端同窗热切](../capabilities/runtime-evidence-current.md#orb-spin-official-live-376)和[本机冷启动读取](../capabilities/runtime-evidence-current.md#orb-spin-cold-defaults-376)已核。待验证真实面板写入及官版冷启动恢复。 |
-| 3673609113 | 人偶运动和音条抖动时出现上一帧残影 | [两端的受控姿态对照](../capabilities/runtime-evidence-current.md#author-puppet-history-367)已定位吹喇叭人偶的作者末级历史。继续对齐原包自然动作及音条，核实际姿态、音频与连续呈现。 |
+| 3673609113 | 人偶运动和音条抖动时出现上一帧残影 | [受控姿态](../capabilities/runtime-evidence-current.md#author-puppet-history-367)定位末级历史，[自然动作与脉冲](../capabilities/runtime-evidence-current.md#author-natural-audio-history-367)核本机图像顺序和频谱同代。余下对齐官版本机的连续呈现与实际频带值，区分整图残影和1552音频累计。 |
 | 3586705329 | 图5的拼贴竖状拉伸随镜头大小变化 | [官版同样出现的 Scroll 边带](../capabilities/runtime-evidence-current.md#author-collage-edge-358)可复用。将反馈图注册到同画幅、镜头和滚动相位，区分已量过的边带与额外变形。 |
 | 3337494481 | 图6斜视时封面与外圈文字位置不合 | [环字深度](../capabilities/runtime-evidence-current.md#author-box-ring-depth-333)已消除背面穿透。[本机原包 front 定位](../capabilities/runtime-evidence-current.md#author-box-oblique-333)已量两层相对位移，剩同视角、同音源官版对照。加载见性能区。 |
 | 3372715909 | 右上角时钟仍缺失 | [当前本机原包](../capabilities/runtime-evidence-current.md#author-clock-full-337)确认重开后仍由视频盖住钟字，官版原包冷开黑帧后退出。剩余要有官版原包可见帧或用户当时的属性、视频和画面，现有缩减包已确认克隆追加层序。 |

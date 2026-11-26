@@ -166,7 +166,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 419712
+      "bytes": 420463
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 55,
-      "bytes": 7248
+      "bytes": 7362
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -733,19 +733,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "574a7e1aa912407492795925128bb9c91323d99cd5b9d42b43eb7df1a8751c4c",
-      "after": "b97309c7e8e82687fc4e4e3c9d37580fbb30eebc6626d31115014ecf9ef2c550",
-      "owner": "Scene property playback evidence",
-      "reason": "登记自转设置首次启动实际消费和真实面板的剩余验证边界。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#orb-spin-cold-defaults-376"
+      "before": "b97309c7e8e82687fc4e4e3c9d37580fbb30eebc6626d31115014ecf9ef2c550",
+      "after": "0efe4042bbdf658118dafeddd27c54f48a4181ae3a4324e4e3240f6e148699c2",
+      "owner": "Scene visual composition evidence",
+      "reason": "登记作者自然动作、两类音频图形与末级画面历史的顺序和两端对照边界。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-natural-audio-history-367"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "60bb62600f2e53d47a2f8cf2b8d9f7533f30e337dd66ae83b074df1576e75a8f",
-      "after": "04cd389cbab40ce860dc8efaedec40a744b7282729ef156adb9c6a8911dc57de",
-      "owner": "Scene property playback evidence",
-      "reason": "登记自转设置首次启动实际消费和真实面板的剩余验证边界。",
+      "before": "04cd389cbab40ce860dc8efaedec40a744b7282729ef156adb9c6a8911dc57de",
+      "after": "c8af9cb79fd58bedb2f99c16341a51f92975dea4f3f8a68a584c22a598c11d6c",
+      "owner": "Scene visual composition evidence",
+      "reason": "登记作者自然动作、两类音频图形与末级画面历史的顺序和两端对照边界。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
