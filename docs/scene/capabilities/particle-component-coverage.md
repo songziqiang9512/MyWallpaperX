@@ -232,7 +232,7 @@ General 世界粒子沿原参考坐标。无控制点的根球形发射器显式
 
 原 ChildRuntime 处理已准入的 static、spawn、natural-death 和 follow child 及其局部时间。child 不是克隆父 RNG/clock 的另一个全局系统；父末帧/自然死亡与显式 stop/destroy 分开，不能擅自给未接入的碰撞/delete 事件生成 child。
 
-当前 strict 计划最多 depth two，每深度系统数和粒子容量分别受原 64/65,536 预算约束；static Rope 另有 template/扩张预算。预算是当前实现限制，不能冒充所有作者格式的永久语义。
+当前 strict 计划最多 depth two，每深度系统数和粒子容量分别受原 64/65,536 预算约束；static Rope 另有 template/扩张预算。带后代的一级静态子系统只创建一个实例，主线夹具证实缺省上限 512 会按模板放大预算，可能使 Rope 绘制降级；同一形状的显式低上限实测可绘制。预算是当前实现限制，不能冒充所有作者格式的永久语义。
 
 hidden/dormant child 的实例和潜在 renderer 需求保持。已提交销毁 root 时，由实际归属退休其 CPU root 与独占 ChildRuntime；健康 root 的 RNG、clock 和状态不变。冻结 DrawBatch 继续是值，不被退休操作追写。
 

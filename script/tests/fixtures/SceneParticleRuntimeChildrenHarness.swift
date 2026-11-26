@@ -228,44 +228,45 @@ extension Harness {
         }
 
         let staticRuntime = runtime(991, "particles/root-static.json")
-        let staticFirst = staticRuntime.advance(by: 1.0 / 60.0)
+        // One callback covers the age-zero birth step and the short particle's death step.
+        let staticFirst = staticRuntime.advance(by: 1.0 / 30.0)
         let staticFirstLifecycle = staticRuntime.lifecycleSnapshot
         let staticSecond = staticRuntime.advance(by: 1.0 / 60.0)
         let staticInstances = instances(staticFirst, path: "particles/static-world.json")
 
         let spawnRuntime = runtime(992, "particles/root-spawn.json")
         _ = spawnRuntime.advance(by: 1.0 / 60.0)
-        let spawnSecond = spawnRuntime.advance(by: 1.0 / 60.0)
+        let spawnSecond = spawnRuntime.advance(by: 1.0 / 30.0)
         let spawnSecondLifecycle = spawnRuntime.lifecycleSnapshot
         let spawnThird = spawnRuntime.advance(by: 1.0 / 60.0)
 
         let deathRuntime = runtime(993, "particles/root-death.json")
-        _ = deathRuntime.advance(by: 1.0 / 60.0)
-        let deathSecond = deathRuntime.advance(by: 1.0 / 60.0)
+        _ = deathRuntime.advance(by: 1.0 / 30.0)
+        let deathSecond = deathRuntime.advance(by: 1.0 / 30.0)
         let deathSecondLifecycle = deathRuntime.lifecycleSnapshot
         let deathThird = deathRuntime.advance(by: 1.0 / 60.0)
 
         let depthRuntime = runtime(994, "particles/root-depth-two.json")
         _ = depthRuntime.advance(by: 1.0 / 60.0)
-        let depthSecond = depthRuntime.advance(by: 1.0 / 60.0)
+        let depthSecond = depthRuntime.advance(by: 1.0 / 30.0)
         let depthSecondLifecycle = depthRuntime.lifecycleSnapshot
-        let depthThird = depthRuntime.advance(by: 1.0 / 60.0)
+        let depthThird = depthRuntime.advance(by: 1.0 / 30.0)
         let depthThirdLifecycle = depthRuntime.lifecycleSnapshot
         let depthFourth = depthRuntime.advance(by: 1.0 / 60.0)
 
         let replacementRuntime = runtime(995, "particles/root-replace-depth-one.json")
         _ = replacementRuntime.advance(by: 1.0 / 60.0)
-        let replacementSecond = replacementRuntime.advance(by: 1.0 / 60.0)
+        let replacementSecond = replacementRuntime.advance(by: 1.0 / 30.0)
         let replacementSecondLifecycle = replacementRuntime.lifecycleSnapshot
-        let replacementThird = replacementRuntime.advance(by: 1.0 / 60.0)
+        let replacementThird = replacementRuntime.advance(by: 1.0 / 30.0)
         let replacementThirdLifecycle = replacementRuntime.lifecycleSnapshot
 
         let nestedReplacementRuntime = runtime(996, "particles/root-replace-depth-two.json")
         _ = nestedReplacementRuntime.advance(by: 1.0 / 60.0)
-        _ = nestedReplacementRuntime.advance(by: 1.0 / 60.0)
-        let nestedReplacementThird = nestedReplacementRuntime.advance(by: 1.0 / 60.0)
+        _ = nestedReplacementRuntime.advance(by: 1.0 / 30.0)
+        let nestedReplacementThird = nestedReplacementRuntime.advance(by: 1.0 / 30.0)
         let nestedReplacementThirdLifecycle = nestedReplacementRuntime.lifecycleSnapshot
-        let nestedReplacementFourth = nestedReplacementRuntime.advance(by: 1.0 / 60.0)
+        let nestedReplacementFourth = nestedReplacementRuntime.advance(by: 1.0 / 30.0)
         let nestedReplacementFourthLifecycle = nestedReplacementRuntime.lifecycleSnapshot
 
         return [

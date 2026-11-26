@@ -64,6 +64,8 @@ Layer `color` setter接受有限三分量原值；[公开颜色教程](https://d
 
 Coordinator增量折入成功TRS journal，供后继回调入参；有效init/返回归同owner journal。passive Timeline仍投影动画，当帧准入值取自layerPlan。首次跨层写入缺定义时，最终typed overlay从已收敛的plan取该定义及seed，同帧发布值与world变换资格；其余目标复用原索引，提交后按revision刷新。未知目标、阶段前缀及拓扑生效时机保持。
 
+<a id="timeline-transform-callback-input"></a>同一层属性有已准备的 TRS 回调和当帧 Timeline 样本时，帧首的 typed snapshot 以当前轨道供公开 Layer getter 与 `update(value)`。上帧的 authored TRS journal 不覆盖这个采样。暂停轨供冻结后的样本。当前帧后续 setter、回调返回、准入和最终变换继续按已存在的顺序提交。仅有直接 setter、无当前样本或无该属性绑定时，沿现有已提交值。复用当前 prepared 回调目标和轨道值，在原合并处一次处理，不新增播放状态或持久来源标记。以同属性穿越多帧、暂停、跨层 setter 和真实作者的可见过渡验收。[飞机运行证据](runtime-evidence-current.md#author-aircraft-timeline-input)。
+
 原vector C入口在update前消费timer/事件前缀并统一getter。仅当前序写入实际改变TRS init入参时，用脚本单位暂置原owner读基线，退出即清。回调内setter优先，返回沿原journal。初始化内timer/video-ended改同字段的入参同步待证；骨骼/getTransformMatrix保原阶段。
 
 当前callback抛错/bad-return或本地提交失败的写入不折入后继输入；最终沿原owner原子拒绝、依赖拒绝和commit/discard，健康peer及重绘重试保持。前序成功回调输入只是本cadence候选，不新增跨owner回放或全局反事实事务，shared堆副作用也不冒充typed回滚。旧按诊断字符串吞掉angles坏返回的分支退出；真实write-only合法setter由原C入口处理。

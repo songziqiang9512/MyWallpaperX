@@ -37,7 +37,9 @@ class SceneStaticModelRenderingTests(unittest.TestCase):
     def test_renderer_uses_existing_main_pass_and_surface_route(self) -> None:
         renderer = read_source_family(RENDERER)
         view = VIEW.read_text(encoding="utf-8")
-        host = HOST.with_name("SceneDesktopWallpaperSession.swift").read_text(encoding="utf-8")
+        surface_preparation = HOST.with_name(
+            "SceneDesktopWallpaperSession+SurfacePreparation.swift"
+        ).read_text(encoding="utf-8")
         topology = TOPOLOGY.read_text(encoding="utf-8")
         model_case = renderer.split('case "model":', 1)[1].split(
             'case "quad":', 1
@@ -65,13 +67,13 @@ class SceneStaticModelRenderingTests(unittest.TestCase):
         self.assertIn("worldFrames[layer.id]", model_stage)
         self.assertIn("cameraFrame.resolvesPerspective(", model_stage)
         self.assertIn("usesPerspective: cameraFrame.resolvesPerspective(for: layer)", model_stage)
-        self.assertIn("cameraFrame.reverseDepthViewProjection(", model_stage)
+        self.assertIn("camera.reverseDepthViewProjection(", model_stage)
         self.assertIn("clearDepth: 0", model_stage)
         self.assertNotIn("makeCommandQueue", model_case + model_stage)
         self.assertNotIn("CAMetalLayer", model_case + model_stage)
         self.assertIn("staticModelResources: staticModelResources", view)
         self.assertIn("prepared static model layers:", view)
-        self.assertIn("launchContext.preparedDeviceResources.staticModels", host)
+        self.assertIn("launchContext.preparedDeviceResources.staticModels", surface_preparation)
 
     def test_mdl_material_dependency_is_published_before_vm_projection(self) -> None:
         source_facts = SOURCE_FACTS.read_text(encoding="utf-8")

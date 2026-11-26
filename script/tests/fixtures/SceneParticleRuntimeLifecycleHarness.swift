@@ -42,7 +42,7 @@ extension Harness {
             "material": "materials/unused.json",
             "maxcount": 8,
             "emitter": [[
-                "name": "sphererandom", "rate": 120,
+                "name": "sphererandom", "rate": 0, "instantaneous": 2,
                 "distancemin": 0, "distancemax": 0,
             ]],
             "initializer": [[
@@ -51,7 +51,7 @@ extension Harness {
             "renderer": [["name": "sprite"]],
         ])
         let subframe = SceneParticleSimulator(definition: subframeDefinition, seed: 19)
-        subframe.advance(by: 1.0 / 60.0)
+        subframe.advance(by: 1.0 / 30.0)
         let subframeSnapshot = subframe.frameSnapshot()
         let transientBeforeConsume = subframe.renderParticlesForCurrentAdvance().count
         _ = subframe.consumeBirthEvents()
@@ -103,7 +103,7 @@ extension Harness {
             "material": "materials/shared.json", "maxcount": 100,
             "controlpoint": [["id": 1, "flags": 1, "offset": "0 0 0"]],
             "emitter": [[
-                "name": "sphererandom", "rate": 50, "controlpoint": 1,
+                "name": "sphererandom", "rate": 0, "instantaneous": 3, "controlpoint": 1,
                 "distancemin": 0, "distancemax": 0,
             ]],
             "initializer": [
@@ -116,7 +116,7 @@ extension Harness {
         try writeJSON([
             "material": "materials/shared.json", "maxcount": 100,
             "emitter": [[
-                "name": "sphererandom", "rate": 120,
+                "name": "sphererandom", "rate": 0, "instantaneous": 2,
                 "distancemin": 0, "distancemax": 0,
             ]],
             "initializer": [

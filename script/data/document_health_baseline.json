@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 66,
-      "bytes": 22679
+      "bytes": 23027
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -98,7 +98,7 @@
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 142012
+      "bytes": 141789
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -154,15 +154,15 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 414,
-      "bytes": 78160
+      "bytes": 78357
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 474,
       "bytes": 93961
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 599,
-      "bytes": 389696
+      "lines": 600,
+      "bytes": 391192
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -177,8 +177,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 228,
-      "bytes": 42881
+      "lines": 230,
+      "bytes": 43655
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 120,
@@ -193,8 +193,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 64,
-      "bytes": 8952
+      "lines": 63,
+      "bytes": 8671
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -387,11 +387,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "42ed5f2ea24d816a8426b8dc937a59b02d9a53ce8574e6f8f36e509f06d6886b",
-      "after": "200372bd1a218f3d7b9e3b93d3d11a4d0d2c0c60c42eaa3f9d933cde556ac938",
-      "owner": "repository governance",
-      "reason": "Use the current test collection paths and repair the navigation after the script move.",
-      "decision": "docs/development/repository-workflow.md#并行与验证"
+      "before": "054e62eb6224311796533c29704e0c69917dec10b916bf9c3be425f6d49b5ca5",
+      "after": "1834ce0a9264973ac96c4889608417acda6c02ef584f1d529183899457ddbdab",
+      "owner": "Scene 与三引擎画质",
+      "reason": "合入主线已落库正文及其现行职责。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
@@ -621,8 +621,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "b531dceb8270dbb67fbdc83284be9fdf3e0f1f8a293443b3a53decf76ae5c46a",
-      "after": "5bacd0e70d867d376760e5f8f1b2d2d52408ac8ee0cc6dd92a881a49a7d409ef",
+      "before": "5bacd0e70d867d376760e5f8f1b2d2d52408ac8ee0cc6dd92a881a49a7d409ef",
+      "after": "959df4d0458be9ad616ed874a8e9aebdd6417414cfab91cde9a6c1cb4a09ef85",
       "owner": "Scene 与三引擎画质",
       "reason": "合入主线已落库正文及其现行职责。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
@@ -639,8 +639,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4597608db202497a09004c5aeee7b5f9c3b09c6f4cd852c54e63ff96ef9cd630",
-      "after": "695c0a27c82196c947742e15c4f304117fa53d6a1692189546f8fd4064201db8",
+      "before": "695c0a27c82196c947742e15c4f304117fa53d6a1692189546f8fd4064201db8",
+      "after": "2c83007844eb112dd5b5f2b3d263aa263c4c3a881bc85510cc0d260326870b13",
       "owner": "Scene 与三引擎画质",
       "reason": "合并画质与主线的执行合同及不同构建身份下的证据，保持单一现役入口。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
@@ -657,8 +657,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "3dcf7f5d2515f20ef724a8cbcaa458889916bcf55fc547c87645e34549612620",
-      "after": "41700f2a4954e0d77edaaafaf1f5bd709d7ef36a99178eb3c7f7bf61629b2e80",
+      "before": "41700f2a4954e0d77edaaafaf1f5bd709d7ef36a99178eb3c7f7bf61629b2e80",
+      "after": "87ea653be930eeba06b6a15cc350a89f5b16f4be54e498343578f579725beec7",
       "owner": "Scene 与三引擎画质",
       "reason": "合入主线已落库正文及其现行职责。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"

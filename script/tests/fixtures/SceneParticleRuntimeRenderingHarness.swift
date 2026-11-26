@@ -928,6 +928,7 @@ extension Harness {
         let afterDiscard = playback.committedNonemptyBatchLayerIDs.sorted()
 #endif
         let retried = playback.advance(by: 1.0 / 30.0)
+        let drained = playback.advance(by: 1.0 / 60.0)
 #if DEBUG
         let committed = playback.committedNonemptyBatchLayerIDs.sorted()
 #endif
@@ -937,6 +938,7 @@ extension Harness {
         var facts: [String: Any] = [
             "rejectedCount": rejected.reduce(0) { $0 + $1.instances.count },
             "retriedCount": retried.reduce(0) { $0 + $1.instances.count },
+            "drainedCount": drained.reduce(0) { $0 + $1.instances.count },
         ]
 #if DEBUG
         facts["beforeCommit"] = beforeCommit

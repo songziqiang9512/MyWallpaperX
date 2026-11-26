@@ -386,7 +386,7 @@ extension Harness {
                 ["name": "sprite"], ["name": "spritetrail", "length": 0.4],
                 ["name": "rope"], ["name": "ropetrail", "length": 0.5],
             ], lifetime: 4, burst: 8,
-                children: [["name": middle, "type": "static"], follow])
+                children: [["name": middle, "type": "static", "maxcount": 8], follow])
             let shared = runtime("particles/prefix-root.json", id: 410, peer: false)
             let compact = runtime("particles/prefix-root.json", id: 410, peer: false)
             defer { [shared, compact].forEach { $0.teardown() } }

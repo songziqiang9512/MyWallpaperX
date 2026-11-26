@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9e9c8a7c9bb4baacf9af0715ce52ed7372fac3626968e741c9d6fdf13f151af0",
+        "sourceSHA256": "e3eada22403d3801fe83d5794258069c8e332215ef91a83c603d1a60eb923963",
         "method": "document_registry --audit + document_health --check",
-        "scope": "抗锯齿请求与实际主域采样读数的导航",
-        "limitations": "验证和详细投递合同归 Scene。"
+        "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
+        "limitations": "导航复核，实际渲染证据仍绑定其原构建。"
       }
     },
     {
@@ -377,7 +377,7 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6e4062a79d99904f2852f632223a1a3dd691c2ad0eff5dfaa39333768cb87701",
+        "sourceSHA256": "8b1a22042063afd7ee6ad05b9d2e5bd2e6bdbb0086c4fd803d8c6e8efa518fa0",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
         "limitations": "导航复核，实际渲染证据仍绑定其原构建。"
@@ -1003,7 +1003,7 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "906d2209a458b935be2dad38975947d2745f516f2a0839b8bbcad8bccb28bfa3",
+        "sourceSHA256": "88ce38a01944375740c3536c602dbd6a56cebfcf4cdd50c04b2281b6b66c301e",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
         "limitations": "导航复核，实际渲染证据仍绑定其原构建。"
@@ -1044,7 +1044,7 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b9e7712cfdf43e7a300f290b0884d9ce57b21ce6f0e1c01b309a591bc860cbf5",
+        "sourceSHA256": "bd122071ccbdc5b019bf0fb1df55c4b3b511562e8b2817fb4a18368090a6f6ec",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
         "limitations": "导航复核，实际渲染证据仍绑定其原构建。"

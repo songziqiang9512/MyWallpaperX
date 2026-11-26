@@ -402,7 +402,7 @@ class SceneParticleRuntimeTests(
         self.assertEqual(
             result["transientRestored"], result["transientBeforeConsume"]
         )
-        self.assertEqual(result["steadyPersistentCount"], 1)
+        self.assertEqual(result["steadyPersistentCount"], 2)
         self.assertEqual(result["steadyTransientCount"], 0)
 
     def test_subframe_lifetime_renders_root_and_child_sprite_once_without_resurrection(self) -> None:
@@ -550,8 +550,8 @@ class SceneParticleRuntimeTests(
         self.assertAlmostEqual(result["prewarm"]["simulationTime"], 0.1)
         for name in ("eventspawn", "eventfollow", "eventspawnNested", "eventfollowNested"):
             self.assertAlmostEqual(result[name]["simulationTime"], 0.1 + 5 / 120)
-        self.assertAlmostEqual(result["eventdeath"]["simulationTime"], 0.1 + 4 / 120)
-        self.assertAlmostEqual(result["eventdeathNested"]["simulationTime"], 0.1 + 2 / 120)
+        self.assertAlmostEqual(result["eventdeath"]["simulationTime"], 0.1 + 3 / 120)
+        self.assertAlmostEqual(result["eventdeathNested"]["simulationTime"], 0.1 + 1 / 120)
         self.assertEqual(result["disabledDynamic"]["count"], 2)
         self.assertAlmostEqual(result["disabledDynamic"]["alpha"], 0.25)
         self.assertAlmostEqual(result["disabledDynamic"]["size"], 4)
@@ -712,7 +712,7 @@ class SceneParticleRuntimeTests(
                             self.assertTrue(all(f[0] == 0 and f[2:] == [1, 0] for f in row["wholeFrames"]))
                             endpoints = [row["ranges"][0][0], row["ranges"][-1][-1]]
                             expected = {"repeat": [0, 2], "scroll": ([.75, 1.75] if phase_index == 0 else [.25, 1.25]),
-                                        "smooth": ([.9354166667, .9979166667] if phase_index == 0 else [.8729166667, .9979166667])}.get(row["name"], [0, 1])
+                                        "smooth": ([.9375, 1] if phase_index == 0 else [.875, 1])}.get(row["name"], [0, 1])
                             for actual, value in zip(endpoints, expected):
                                 self.assertAlmostEqual(actual, value, delta=1e-6, msg=str(row))
                     sprite_pixels = phase["spritePixels"]
@@ -890,7 +890,8 @@ class SceneParticleRuntimeTests(
         self.assertIn("particle current nonempty: layers=[]", result["initial"])
         self.assertIn("particle committed nonempty: layers=[]", result["initial"])
         self.assertGreater(result["rejectedCount"], 0)
-        self.assertEqual(result["retriedCount"], 0)
+        self.assertEqual(result["retriedCount"], 1)
+        self.assertEqual(result["drainedCount"], 0)
         self.assertEqual(result["beforeCommit"], [200])
         self.assertEqual(result["afterDiscard"], [200])
         self.assertIn("particle current nonempty: layers=[200]", result["discarded"])

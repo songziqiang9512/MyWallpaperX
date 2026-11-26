@@ -553,6 +553,7 @@
           "SceneTextureCandidate.swift",
           "SceneTextureLoader+Candidate.swift",
           "SceneTextureLoader.swift",
+          "SceneOrdinaryImageMipSelection.swift",
           "SceneTextureMipUploader.swift",
           "SceneTexturePathResolver.swift",
           "SceneTextureProviderPublication.swift",
@@ -634,6 +635,8 @@
           "SceneDesktopWallpaperLaunchContext+StartupReport.swift",
           "SceneDesktopWallpaperLaunchFrameSchema.swift",
           "ScenePreparedDeviceResources.swift",
+          "ScenePreparedDeviceResources+AutomaticMip.swift",
+          "ScenePreparedDeviceResourcesTask.swift",
           "ScenePreparedDeviceResources+SourceMaterials.swift",
           "ScenePreparedPuppetResources.swift",
           "SceneInitialPresentationCohort.swift",
@@ -1542,6 +1545,7 @@
         "SceneTexContainer.swift",
         "SceneTexDataReader.swift",
         "SceneTimelineAnimation.swift",
+        "SceneTubeLightDefinition.swift",
         "SceneWebMContainer.swift"
       ],
       "responsibility": "Authored file and value models, decoding and parsing; no live rendering ownership."
