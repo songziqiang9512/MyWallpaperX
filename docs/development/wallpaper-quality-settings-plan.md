@@ -233,16 +233,16 @@ LZ4 首次读取仍经原 TEX 快照、长度和解码总账。同步 Compressio
 | 高 | 2048 | 1024 |
 | 超高 | 4096，沿原接收区选择 | 1024，沿现行路径 |
 
-**实现和生效**先验禁用、定向上限 1024 和现行自适应上限。高图集预约仍整体优先保护必需主附件，分配失败走原局部回退。当前原定向 fit 基于 1024 的保守边界，逐灯分配及高图回退也有 1024 固定值。试 512 时用同一有效 extent 接通投影边界／texel 稳定网格、逐灯与整组回退、实际 atlas viewport 和 receiver 采样，验证不会越过档上限或削掉有效投影。禁用改变实际阴影生产和读取，保直接表面光、相机深度、体积遮挡与作者 `castsShadow` 声明。作者设为投影的点光仍按现有定义排除在无阴影体积积分外。中／高／超高在只有点光／聚光时可等效。 [作者点光资格](../../MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePointLightDefinition.swift)
+**实现和生效**定向低档以实际 512 接通拟合边距、稳定网格、atlas 视口和采样。更高档、逐灯和整组回退保守按原 1024 拟合。禁用停产三类影图，保直接光、相机深度、体积遮挡和作者 `castsShadow` 资格。
 
-**实测验收**用固定 world 网格和亚 texel 四相位的原生 Metal 正控，量投影轮廓位移、静态邻点亮度随时间变差、接触间隙、遮挡孔洞和自阴影伪影。动态骨骼、组裁剪、合法屏外 caster、点光六面接缝、聚光锥边界、多灯紧预算、草木 cutout 和原独立实体遮挡为正反例。比较每灯 map 真实物理尺寸、caster draws 和深度 pass、接收者着色成本、纹理计费及连续帧 P95。低档的柔化或边缘跳变须守预定可见容差，关闭时三种可选阴影工作实际归零，且直接光与普通遮挡保持。 [实际投影与覆盖合同](../scene/capabilities/advanced-object-coverage.md#model-directional-shadow-density) · [完整回归与影边成本](../scene/capabilities/model-runtime-evidence.md#model-directional-shadow-filter) · [官版阴影图与滤波](#official-shadow-atlas)
+点光候选将高／超高每面升至 1280／1536，单灯 37.5／54 MiB。先以实际空闲物理额度预约整组，扩档失败一次即尝试只还原点光规格，保定向和聚光。整组仍失败则沿基础回退。扩档不驱逐暖资源。六面交角选择沿原 X／Y／Z 次序。选择前保同尺度整数 texel 中心，避免各轴归一化把真等值方向舍入成异值。实际采样仍用当前面真实 texel 与径向深度。 [候选画面与状态](wallpaper-quality-work-card.md#scene-point-shadow-density-trial) · [作者点光资格](../../MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePointLightDefinition.swift)
+
+**实测验收**固定 world 网格和四个亚 texel 相位，量影边位移、亮度波动、接触间隙、孔洞和自阴影。核动态骨骼、组裁剪、具名／合法屏外 caster、点光接缝、聚光锥、多灯紧预算、镂空和独立实体遮挡。比较真实图尺寸、caster draws、深度 pass、receiver 成本、计费和连续帧 P95。禁用时三类阴影工作归零，直接光与普通遮挡保持。 [实际投影与覆盖合同](../scene/capabilities/advanced-object-coverage.md#model-directional-shadow-density) · [影边成本](../scene/capabilities/model-runtime-evidence.md#model-directional-shadow-filter) · [官版阴影图与滤波](#official-shadow-atlas)
 
 <a id="scene-shadow-steady-author"></a>
-沿现有签名桌面选片和持续呈现门，用 3589454154 的定向阴影低／高档做 A/A/B/B/A，再以独立 3455121165 比较点光与聚光低／中。固定 30 FPS、物理屏幕、同一构建、作者包和当前 1 GiB 解码额度。有效窗口在完成接管后预热 30 秒，再采至少 60 秒。用首帧准备和实际灯图收据确认档位，长稳窗关闭捕获及阶段重诊断。按完整端点收据核实呈速率、周期尾部、GPU 失败及排空，报告各臂离群。分别记录调度重对齐、drawable 缺失和计时器及准入失期。失期率以两者之和除以（有效 FPS × 有效秒数）。P99 至多比本机 A/A 多一个实际刷新周期，失期率净增至多 1 个百分点。GPU／帧时间变化超过 A/A 波动才归因于档位。如果原版接管、正影图绑定或无并行 GPU 的条件不足，对应窗口不进入配对。 [现有桌面选片基准](../../script/web/wallpaper_startup_benchmark.py)
+在物理桌面上按 A/A/B/B/A 对照。3589454154 用定向低／高，3455121165 用点光与聚光低／中，均固定 30 FPS、同一构建、原包和 1 GiB 解码额度。点光扩档另以未改 3455121165 和兼容默认 60 FPS、超高阴影对照现役。在独立短窗核真实灯图与聚光不变，正式长窗关捕获和阶段重诊断。桌面接管后预热 30 秒，采至少 60 秒，核完整呈现端点、离群、GPU 失败和排空。分列调度重对齐、drawable 缺失、计时器和准入失期。失期率为两种失期之和除以（有效 FPS × 秒数）。两项均以候选最差值减基线最好值。呈现 P99 差最多一个实测最短刷新周期，失期率差最多 1 个百分点。GPU 与帧时间差须超 A/A 波动才归因。接管、实际图接收或独占 GPU 任一缺失，剔除该窗。 [桌面选片基准](../../script/web/wallpaper_startup_benchmark.py)
 
-显示取证独立运行。固定作者时钟，先用禁用档与高档同相定位确由阴影引起的像素边，再量候选和自身重复的轮廓位置及相邻相位。画面不产生可定位的差别时保留该作品只有实际影图接收和呈现证据。复用原已验具名边界和跨面负控，避免用全图颜色距离推断具体影边。长窗数据给实呈及处理时间，插座量能耗另走原门。
-
-M4 以 `ca99fa2cb` 同一签名 Swift／Metal 载荷做 18 次独立证据窗启动，固定壁钟，每臂取实际 3024×1964 可呈现完成帧并排空。3589454154 的定向灯 259 在禁用档无影图，低／高写入并接收 512²／2048²。冻结到 0.25／1.25 秒时，用 8 位亮度码值，限三档各自两次启动的同像素偏差 ≤2、禁用最暗值比该档最亮值至少高 12，并内缩 1 px，低／高分别有 137,108／126,786 和 131,223／91,263 个满足条件的像素。高档的两个相位各有一个经第二次启动确认的局部亮度过渡，同位置低档缺少相同的过渡，跨档影边几何仍待证。独立 3455121165 的聚光 101 低／中实际用 512²／1024²，点光 105 用 1536×1024／3072×2048，禁用无影图。本次相位达标的稳定暗区为零，留实际图接收证据。正常桌面首个低档窗 60.00 秒实呈 29.88 FPS，呈现间隔 P99 为 41.67 ms，GPU P95 为 16.77 ms，GPU 失败为零且退出排空。第二窗采集约 4.4 秒后 Windows VM 收到外部启动请求，随后还收到作者点击输入，剔除该窗并停在高档之前。当前仅有单个有效桌面窗。独立复核、裁片和收据归 `.artifacts/wallpaper-quality-shadow-frozen-repeats`。
+画面另行固定作者时钟，以禁用图定位阴影，逐档重复并量边缘位置及相邻相位。无可定位差异的作品只提供实际影图接收和呈现证据。能耗另走物理测量门。18 个固定相位的签名收据和首个 30 FPS 有效桌面窗见[工作卡](wallpaper-quality-work-card.md#scene-shadow-steady-prior)。独立复核与裁片归 `.artifacts/wallpaper-quality-shadow-frozen-repeats`。
 
 <a id="scene-volume-quality"></a>
 ### 体积照明
@@ -581,7 +581,7 @@ Win32 2.8.0.42 从 `0x4d9280` 读取 `shadows`，禁用／低／中／高／超�
 
 随包 `generic2` 默认反射读 `_rt_Reflection`，`generic3/4` 及 `genericimage2/3/4` 默认反射读 `_rt_MipMappedFrameBuffer`。后面三种图像 shader 的部分组合还单独读 `_rt_FullFrameBuffer` 作合成，保留该身份以区分两条消费。作者的独立 Reflection 特效沿标准 pass 的颜色输入和 mask 按轴取像素，随包默认无上述两种反射附件绑定。独立场内显式绑定仍按实际资源核对。此前 3470948192 在原官版的开／关／开改变模型轮廓，参数相位和尖端的像素还未配对。 [官版 2D 材质](https://docs.wallpaperengine.io/en/scene/lighting/introduction.html) · [作者 Reflection 效果](https://docs.wallpaperengine.io/en/scene/effects/effect/reflection.html) · [已有作者对照](../scene/capabilities/model-runtime-evidence.md#model-screen-reflection)
 
-官版 2.8.0.42 同一第三版具名色板完成原设置面板开／关／开。窗口重开后，显式历史目标随关档呈不透明黑并随开档复原，普通反射也随之退出和恢复。同帧前缀与自带贴图保持。热改观察有独立时间窗，适配沿本机现有冷接管。该证据确定 `_rt_MipMappedFrameBuffer` 的供货边界。精确尺寸、物理 mip 层数、上一帧年龄、`_rt_Reflection` 的作者显式访问和桌面热切仍各有独立资格。 [开关与像素实测](../scene/capabilities/runtime-evidence-current.md#official-reflection-toggle) · [公开 CLI](https://help.wallpaperengine.io/en/functionality/cli.html)
+官版 2.8.0.42 同一第三版具名色板完成原设置面板开／关／开。窗口重开后，显式历史目标随关档呈不透明黑并随开档复原，普通反射也随之退出和恢复。同帧前缀与自带贴图保持。热改观察有独立时间窗，适配沿本机现有冷接管。该证据确定 `_rt_MipMappedFrameBuffer` 的供货边界。精确尺寸、物理 mip 层数、上一帧年龄、`_rt_Reflection` 的作者显式访问和桌面热切仍各有独立资格。 本机 985 个可读作者包、1,868 个松散文本无 `_rt_Reflection` 或 stock debug 材质显式引用，实际绑定对象的五个 generic2 材质均未启用反射。双包与显式探针已封装回读，归 `.artifacts/wallpaper-quality-reflection-view-probe-20261126`。先验证其独立视角与历史 mip 均非黑且可区分，再做官版开／关／开。 [开关与像素实测](../scene/capabilities/runtime-evidence-current.md#official-reflection-toggle) · [公开 CLI](https://help.wallpaperengine.io/en/functionality/cli.html)
 
 改造前的签名 M4 画面对照中，普通反射接收区由 RGB 179／128／128 变为基准灰，显式槽 3 与 Shader 缺省槽 2 在关档仍从上一完成帧采晚层红。现役在这两个槽供独立不透明黑。随包 Reflection 无遮罩、普通混合的红蓝上下镜像在两档均实际画成蓝／红，旁置原图在两档均为红／蓝。独立的透视图以 `_rt_FullFrameBuffer` 在 layer 20 槽 0 读取同帧前缀，后继 Program 和遮挡继续接原主域。两档五处固定探针均命中原色预期，归属同一构图收据的实际捕获均完成。 [完成帧与作者效果验收](../../script/tests/scene/test_scene_authored_environment_integration.py) · [同帧前缀验收](../../script/tests/scene/test_scene_native_world_composition.py)
 
