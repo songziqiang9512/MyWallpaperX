@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 374983
+      "bytes": 376511
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -145,8 +145,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 230,
-      "bytes": 43379
+      "lines": 239,
+      "bytes": 44877
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 120,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 63,
-      "bytes": 8671
+      "lines": 64,
+      "bytes": 9081
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -451,11 +451,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "bdd3c5b35a039c3b3fa2094f5b04c6865d98d3d4ce705b583bd99cd715328af7",
-      "after": "61cf3c805a2ce775ecdabd3dc4e093d36a025fb679322be83cc24e41af8f0388",
+      "before": "61cf3c805a2ce775ecdabd3dc4e093d36a025fb679322be83cc24e41af8f0388",
+      "after": "ef6e9c90865473eeccb7b91f5f3a97d963766b44dd1fe5a4eec41a41b0727c3b",
       "owner": "Scene Timeline and SceneScript",
-      "reason": "登记实际绑定的变换回调输入优先级、官版三卡和原包恢复证据。",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#timeline-transform-callback-input"
+      "reason": "登记作者热切与冷载证据、四种速度的实帧及属性倍率设计。",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#property-timeline-rate"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a3607f70918c8ddff58a6d3430146d052fc760c60bbbe2a459c1410f4e11458a",
-      "after": "c9b8c0ccf8be8ce8f06af639e76b3cb6ab9be989e8c159235d24fbe9b216a0af",
+      "before": "c9b8c0ccf8be8ce8f06af639e76b3cb6ab9be989e8c159235d24fbe9b216a0af",
+      "after": "17e5afe395a8e168a912d89b00b238a297b117b3246026a7f39e88e02d7da469",
       "owner": "Scene Timeline and SceneScript",
-      "reason": "登记实际绑定的变换回调输入优先级、官版三卡和原包恢复证据。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-aircraft-timeline-input"
+      "reason": "登记作者热切与冷载证据、四种速度的实帧及属性倍率设计。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-float-reload-304"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "92d5d8457e59f4d20c41641a994f3dbf3b0ecb0cf2fa8ace2e7269c6235f53fe",
-      "after": "7900bd439153ac62bb9a3e8df11b3064ddf12782e1aa0c3266c7d7bc6beb062d",
-      "owner": "Scene Timeline and SceneScript evidence",
-      "reason": "登记飞机同包官版与本机的动画输入断点和回调控制。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-aircraft-timeline-input"
+      "before": "c83644ced4ef7f10cbf7255e0c0ecdee0f49e2c77c37676b1e2f270386df5b89",
+      "after": "d43e33ec4d77aa1a3080167417c0b91c7db94661d3c29a283bf9bbd826b2c7a5",
+      "owner": "Scene Timeline and SceneScript",
+      "reason": "登记作者热切与冷载证据、四种速度的实帧及属性倍率设计。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-float-reload-304"
     },
     {
       "section": "bodies",

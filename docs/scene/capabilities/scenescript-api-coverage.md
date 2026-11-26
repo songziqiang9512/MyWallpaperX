@@ -165,6 +165,15 @@ pass Combined wrapper依原timelineTargets精确匹配已编译目标，供hasCu
 
 最近真实C/VM与共享coordinator/Playback/Transaction核同pass/改名、current无参/同名、跨域/missing/duplicate、保留句柄/退休/回滚、精确冷目标、Vec2/Vec3、init/事件/timer及真正update角色；App复用冻结九卡和既有官方oracle。作者后继输入、材质与事件资格统一见[运行证据](runtime-evidence-current.md#component-animation-scope)，静态九卡不升级为完整作者动画、其他组件或持续播放；不强制显隐或重复旧矩阵。
 
+<a id="property-timeline-rate"></a>
+### 属性 Timeline 的播放倍率设计
+
+[IAnimation.rate](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IAnimation.html) 读写当前属性动画的速度。本机属性句柄还未将此值交给播放状态。当次设置走已有动画命令、目标身份、顺序准入及回滚。原 PlaybackRuntime 的共享轨道状态持有倍率，默认 1。切换在 SceneClock 的当前进度重新锚定，0 保持位置，负值向前一个关键帧方向推进。Loop 的负进度按完整周期取模，关键帧插值继续由原求值器处理。暂停、停止、改进度与播放继续通过同一状态。状态边界及事件回放沿实际对照核准。
+
+在冷准备统一当前属性和具名句柄的既有目标索引，别名与联动成员回到同一播放状态。getter 经原句柄存活检查，读取本次有序 journal 中最近的已写倍率或向原运行时按目标查询已提交值。旧 JS 对象上自行长出的 `rate` 字段退役。沿现有同步域负责寿命，不设第二份播放表、逐帧快照或额外时钟。错误类型在写入入口拒绝，后继失败走现有 owner 回滚。
+
+验收用真实接口核 1/0/2/−1、改变速度的连续起点、跨零回绕、别名读取、停止/暂停与不受影响的邻轨，保回调失败和健康 peer。验证分别保独立形状和作者速度项的实际画面。[实帧对照](runtime-evidence-current.md#timeline-rate-oracle)。
+
 <a id="animation-events"></a>
 ### Property 与 Puppet 的共同 animationEvent 接收
 
