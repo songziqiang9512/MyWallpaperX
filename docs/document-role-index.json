@@ -392,7 +392,7 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2a2fa665078fd7fc414a38ad0702ca7a0006e077e71a581abe046d96bccce453",
+        "sourceSHA256": "b695ac4a802415c108686fc51162cb0bb6daa2ba395d008c2ec8ab62795cbc5d",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对点光体积遮挡重放、根采样解析与原主色合成。",
         "limitations": "实际覆盖和作者输入范围以现役工作卡为准。"

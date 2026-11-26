@@ -192,9 +192,12 @@ extension SceneMetalRenderer {
                 } else {
                     guard cameraFrame.defaultsToPerspective,
                           cameraFrame.resolvesPerspective(for: layer) else { continue }
-                    if layer.contentKind != "image", layer.contentKind != "text", !layer.effects.isEmpty,
+                    if layer.contentKind == "solid", !layer.effects.isEmpty,
                        let claim = imageCompositor.preflightResolvedMaterialClaim(layerID: id).execution,
-                       claim.sceneBackgroundRequirement == nil, claim.supportsTerminalMaterialReplay {
+                       initialResolvedTerminalReplayTarget(
+                           claim: claim, layer: layer, cameraFrame: cameraFrame,
+                           imageTextures: imageTextures, isVisible: true, mainSource: mainTarget
+                       ) != nil {
                         continue
                     }
                 }
