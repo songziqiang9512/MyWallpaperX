@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3f354b8217b0d45e99beb0802817b42bc9648c9fe717d80458cc9f2aff26af88",
+        "sourceSHA256": "1a13ee5b649ed2b5ad3e69a0139343a959c0497589dfec13fd11f0feceb06381",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene 热升帧率时在途周期及同帧消费",
-        "limitations": "本机热切验证所得，不授官版热改与整机能耗资格。"
+        "scope": "原尺寸点光网格的准入与分档",
+        "limitations": "限同一宽光与受控混合回放，准入矩阵尚未通过。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "456ed2506932cfb3791c7aca20003e8d71c591386d26e6aee59b2f2e68dc1d26",
+        "sourceSHA256": "40efc4a080a086ee90aa48d388f7efdfec1e6afe7f097f56cb57c2e70319f33c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene 粒子调档的画面回归门和独立作者",
-        "limitations": "只复核本批帧率实施段。"
+        "scope": "低／中体积档的下一批准入和真实反例",
+        "limitations": "只复核本批体积实施段。"
       }
     },
     {
@@ -1003,10 +1003,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c2597462a1541dab27548b536c918e461e26b25f3e5c9817fe290e2e64d7aa09",
+        "sourceSHA256": "5738c189cdb84b4e9b54f247d30c157cacfb9a4948452d4f4254016fa5dbedb4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "M4 10→60 FPS 单粒子实窗及原作者轨迹",
-        "limitations": "签名诊断一屏及当次时序。"
+        "scope": "Apple M4 实体深度回放与细灯分区",
+        "limitations": "只量原生图形阶段，整帧、终端呈现和能耗在窗外。"
       }
     },
     {

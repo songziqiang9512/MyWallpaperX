@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 153593
+      "bytes": 155136
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 139071
+      "bytes": 139386
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -138,7 +138,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 329658
+      "bytes": 330966
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -603,11 +603,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6c1fbe8f16cf61133e42f0708c7e52277610430d84df936cdeef1d043e9de896",
-      "after": "fa391ce3a303344f2de868358eb31f97bae1805fe5c6d06be61e12b001baba28",
+      "before": "fa391ce3a303344f2de868358eb31f97bae1805fe5c6d06be61e12b001baba28",
+      "after": "13beb6669bd468b99aec1982c56b5cbae5d8d5f32c9818d4d0f28129d59145cf",
       "owner": "scene-runtime",
-      "reason": "M4 10→60 FPS 单粒子实窗及原作者轨迹",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-particle-rate-transition"
+      "reason": "Apple M4 实体深度回放与细灯分区",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-segment-mean"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "80a2e531dce58323d7ebd1f3f23b0d5f4d4ad8a253a212d8f89b8f2e79940864",
-      "after": "6a5681c45ea7168a59390ff48b9ec936d837cbd9b1b4844c9214b4a552d9d5f0",
+      "before": "6a5681c45ea7168a59390ff48b9ec936d837cbd9b1b4844c9214b4a552d9d5f0",
+      "after": "7c11704e98a526ab6094d845c9476dd05cf67999926ba5d094fa03b1a31fbaeb",
       "owner": "scene-runtime",
-      "reason": "Scene 热升帧率时在途周期及同帧消费",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-particle-rate-transition"
+      "reason": "原尺寸点光网格的准入与分档",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-segment-mean"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "5a0223e136f966799aefeceb3e0fc801589cbe6b1e6b40be7d608cb5c9f16b8a",
-      "after": "d6ab1d9abf8c76a02da6a2761b846267a1b015d9fc3778d95dd33a650a81d736",
+      "before": "d6ab1d9abf8c76a02da6a2761b846267a1b015d9fc3778d95dd33a650a81d736",
+      "after": "daa3a48d59e42543c74ba16cbcfb35f00ab18f348cb2faa72cc6b9ba7bb19b36",
       "owner": "scene-runtime",
-      "reason": "Scene 粒子调档的画面回归门和独立作者",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-particle-rate-transition"
+      "reason": "低／中体积档的下一批准入和真实反例",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-segment-mean"
     },
     {
       "section": "bodies",
