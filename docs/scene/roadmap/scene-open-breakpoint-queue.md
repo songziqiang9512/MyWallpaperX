@@ -30,7 +30,6 @@
 | 2927205881 · 高倍率剩余覆盖 | [同包晚帧](../capabilities/runtime-evidence-current.md#particle-live-continuous-frame-292)仍有亮列及左缘残差。对齐实际更新时长与同源音频，核精确阻尼和控制点组合。 |
 | Sphere 全零方向 | [隔离对照](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)中官版无像素，本机出现静点。原作者盘点未发现活动声明；用实际子事件或占槽对照区分出生和可见性。 |
 | 粒子高阻尼和侧转 | [同龄大阻尼](../capabilities/runtime-evidence-current.md#particle-movement-half-life)的 drag40 官/本相差约 15 px，drag20 在容差内。[正交 Sprite](../capabilities/runtime-evidence-current.md#particle-around-phase-frame)的精确 90° 另有投影差。[分相位板](../capabilities/runtime-evidence-current.md#particle-live-update-phases-292)证实首步重力与后继阻尼的差异，继续核阻尼时长、组合输入与正交 quad。 |
-| GLSL sampler 宏别名 | 签名App四面板已复现：仅采样调用宏的字面槽0实绘，声明直接或经include展开到槽0均在冷接口旁路，无效槽8同样拒绝。基线归`.artifacts/scene-sampler-declaration-baseline-20261127/evidence.zip`。沿现有宏展开统一声明与资源需求，保include顺序、条件与格式。 |
 | 粒子颜色定义空值 | [同板实测](../capabilities/runtime-evidence-current.md#particle-birth-color-composition)有实例色时，空 Color List 在 v4/v5、HSV `huemin:null` 在 v4 的官版结果与本机不同。先区分缺项、显式空和错误类型的定义入口语义。 |
 
 <a id="performance"></a>
