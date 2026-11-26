@@ -5,7 +5,7 @@
 <a id="execution"></a>
 ## 当前执行方式
 
-Effect 名称是作者内容与编辑器分类，不是渲染算法选择器。definition/material/shader 先进入共享准备链，GraphExecutor 编码其有序节点，再由唯一 compositor 输出。能读取某个 effect 定义或执行一个节点，不代表整套效果/样本已完成。
+definition/material/shader 进入共享准备链，GraphExecutor 按作者顺序编码，由唯一 compositor 输出。以实际执行和终图核验效果，名称仅作作者分类。
 
 | 类别 | 当前共同消费 | 需要分别证明 |
 |---|---|---|
@@ -15,7 +15,7 @@ Effect 名称是作者内容与编辑器分类，不是渲染算法选择器。d
 | 颜色、叠加与 mask | typed sampler purpose、颜色表示及 blend | 独立信号、数据通道、输出 alpha 与未支持表达 |
 | 生成、光线、Fluid 等 | 已准入作者 Program、source carrier 或共享图 | 多输入、前后背景、反馈及官方同状态画面 |
 
-材质和采样细节见[Shader/Graph](render-graph-shader-coverage.md)，不为每个效果建立独立 runtime、时钟、resource registry 或输出。
+材质和采样归[Shader/Graph](render-graph-shader-coverage.md)，共享 runtime、时钟和资源。
 
 <a id="composition"></a>
 ## Composition、背景与依赖
@@ -36,7 +36,7 @@ quad 由已编译 launch envelope 的完整准备结果、实际 sampler 与 gra
 
 嵌套组与 named provider 沿原 pool、reservation、typed dependency 和 pin 工作。隐藏 provider 仍可能被活 consumer 使用，不能因不可见清除其准备或发布。跨 consumer 的背景 prefix 依赖与独立 prepass 不是同一语义。
 
-Utility provider 在原 source 触发点执行一次，由同一 compositor 发布；当前可见输出继续主合成，隐藏输出只供 named consumer。资源与 ticket 合同见[Named 输入职责](render-graph-shader-coverage.md#named-input-ownership)。
+Utility 在原触发点执行一次。帧预检只为同一捕获计划中的 utility 预约图事务；当前无执行入口时跳过该层，让健康层继续。seal 仍要求已预约事务确实消费。可见输出继续主合成，隐藏输出只供 named consumer。[资源与 ticket](render-graph-shader-coverage.md#named-input-ownership)仍归原 compositor。
 
 无 child 的 captured-main source Program 在帧顺序中的当前层截点捕获并编码，读取同一 attachment 上已提交的颜色。source capture MVP 与最终 output MVP 分开；透视、深度、passthrough 和带依赖 utility 的支持范围由原 SourceRoute/Camera/Dependency owner 决定。声明依赖与实际来源的区分见[Framebuffer 来源合同](render-graph-shader-coverage.md#framebuffer-source-declarations)。
 

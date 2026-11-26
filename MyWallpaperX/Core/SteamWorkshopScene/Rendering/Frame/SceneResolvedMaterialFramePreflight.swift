@@ -150,22 +150,14 @@ extension SceneMetalRenderer {
             var framebufferSourceMaterial: SceneResolvedMaterialRuntimeBridge.FramebufferSourceMaterial?
             var effectSourceExtent: SceneLayerEffectSourceExtent?
             var scaledFramebufferBase: SceneGraphRenderTargetPlan.ScaledFramebufferBase?
+            // A utility outside the capture schedule has no encoder to consume its reservation.
+            guard layer.utilityLayer == nil || utilityExecution.captureLayerIDs.contains(layerID) else {
+                continue
+            }
             let preparedSourceMaterial = imageCompositor.resolvedMaterialRuntime?.sourceMaterials[layerID]
             if layer.utilityLayer?.framebufferSource != nil {
                 guard case .capturedMain? = preparedSourceMaterial?.outputDomain,
                       imagePipeline?.supportsReadOnlyDepth == true else { continue }
-            }
-            // A utility composition owns a graph transaction only when its
-            // typed utility plan can actually capture and consume that
-            // transaction.  Keeping an unsupported utility claim in the
-            // prepared ledger would leave it allocation-committed forever;
-            // the strict predecessor gate would then reject an unrelated
-            // later image layer.  The ordinary composition fallback remains
-            // available for this frame-local unsupported unit.
-            if layer.contentKind == "composition",
-               layer.utilityLayer?.kind == .composition,
-               !utilityExecution.captureLayerIDs.contains(layer.id) {
-                continue
             }
             let route = imageCompositor.preflightResolvedMaterialClaim(
                 layerID: layer.id

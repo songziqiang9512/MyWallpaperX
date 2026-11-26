@@ -4,7 +4,7 @@
 
 本页维护未闭问题、输入定位和下一步。按画面合成/正常播放、可证性能成本、属性接线、工具资格排序。架构归[当前主链](../architecture/runtime-architecture.md)，领域合同归[能力入口](../capabilities/README.md)，冻结身份与覆盖范围归[运行证据](../capabilities/runtime-evidence-current.md)。
 
-11-26 实库986件，124个新ID以 `3302e6d0` 默认跑4秒，123件有匹配GPU终帧、124件停止排空。5件串行8秒复现门禁信号，4个产品断点及1个筛查分母见下。短窗覆盖默认播放，输入与报告索引归 `.artifacts/scene-author-intake-20261126/`。11-24的340件与11-25的3件分别归 `.artifacts/scene-new-author-intake-20261124/`、`.artifacts/scene-evidence/runs/scene-author-intake-delta-20261125/`，已核ID复用同身份结果。
+11-26 实库986件，124个新ID以 `3302e6d0` 默认跑4秒，123件有匹配GPU终帧、124件排空。串行复验确认4个产品断点与1个分母误报。短窗索引归 `.artifacts/scene-author-intake-20261126/`。11-24的340件与11-25的3件分别归 `.artifacts/scene-new-author-intake-20261124/`、`.artifacts/scene-evidence/runs/scene-author-intake-delta-20261125/`，已核ID复用同身份结果。
 
 11-24 的31项观察按首个可见断点复核。接续先对照页尾[已修复的用户反馈](#resolved-user-feedback)及[运行证据](../capabilities/runtime-evidence-current.md)。优先处理可复现的播放阻断、画面及交互差异，沿各行停止线推进。11-07补报13项中8项实跑、5项仅有census，定位与图1–5归`.artifacts/scene-user-feedback-20261107/`。
 
@@ -15,7 +15,7 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| 全屏工具挡首帧 · 3842633043 | 604读取前序全屏172/583，执行计划未接该依赖，预检仍占第14个事务，只有13个编码，seal反复拒绝。原包 `lightning=false` 两前序捕获及终图恢复。优先统一捕获准入；604具名混合需官版对照。 |
+| 全屏闪电 · 3842633043 | 启动阻断已修复。[本机终图与官版开关](../capabilities/runtime-evidence-current.md#utility-capture-admission-3842633043)确认原包可播、604仍缺。沿原具名发布接通先于604的172/583图尾，在两段Blend的实际slot核同帧采样及终图。前向截点不得提前捕获。 |
 | 材质参数双名 · 3833869818 | 53/59/86 的 `Opacity` 与 `u_Opacity` 同值，冷绑定按命中数拒绝，三个活动材质透传。42另有 `Base px/u_Base` 同值和Thickness/Tint异值。合并同一uniform的等价输入，异值优先级须官版；用改名、动态值及真冲突对照，保实际材质和尾图。 |
 | 隐藏动画图具名供货 · 3258021301 | 211/e1持续读不到208。208无effect，默认隐藏，41帧TEX已载入；专用动画链未给原named捕获需要的当前帧映射。沿原sprite选帧和纹理映射供货，保静态反例、帧相位和211实际合成。 |
 | Sphere 全零方向的出生可见性（待证） | [固定零半径初速](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)已恢复。显式全零 Directions 的隔离 Sprite 官版无像素、本机有静点。现库860可读包及松散/库存的1,834个显式声明未见全零。重启须活动输入或子事件/占槽证据区分出生与可见性，保零速度和非零轴。 |

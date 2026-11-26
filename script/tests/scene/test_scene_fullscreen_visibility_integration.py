@@ -15,6 +15,7 @@ import struct
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 import zlib
 
 from script.tests.scene.test_scene_composition_authored_order_integration import VERTEX, encoded, measure_capture
@@ -272,6 +273,38 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
 
     def test_prepared_fullscreen_can_show_and_hide_in_authored_slot(self):
         self.run_case()
+
+    def test_forward_fullscreen_dependency_leaves_prefix_and_later_draws_playing(self):
+        base_fixture = fixture_entries
+
+        def with_forward_provider(**parameters):
+            project, entries = base_fixture(**parameters)
+            scene = json.loads(entries["scene.json"])
+            # The provider captures the main target later; it cannot be executed early.
+            scene["objects"].insert(1, {
+                "id": 71, "name": "Read a later fullscreen cut", "image": "models/util/fullscreenlayer.json",
+                "origin": "128 128 0", "size": "256 256", "dependencies": [20],
+                "effects": [{"id": 713, "file": "effects/later_color/effect.json", "visible": True,
+                             "passes": [{"id": 714, "textures": [None, "_rt_imageLayerComposite_20_a"]}]}]})
+            entries.update({
+                "scene.json": encoded(scene),
+                "effects/later_color/effect.json": encoded({"passes": [{"material": "materials/later_color.json"}]}),
+                "materials/later_color.json": encoded({"passes": [{
+                    "shader": "later_color", "textures": [None, None], "blending": "normal",
+                    "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]}),
+                "shaders/later_color.vert": VERTEX,
+                "shaders/later_color.frag": b"uniform sampler2D g_Texture1;\nvarying vec2 v_TexCoord;\n"
+                    b"void main(){float red=texSample2D(g_Texture1,v_TexCoord).r;"
+                    b"gl_FragColor=vec4(red,0.0,0.0,1.0);}\n",
+            })
+            return project, entries
+
+        with patch(f"{__name__}.fixture_entries", with_forward_provider):
+            log, _ = self.run_case(launch={"mode": "on"}, initially_dimmed=True,
+                                   sequence=[{"mode": "off"}, {"mode": "on"}], expected_dims=[False, True])
+        self.assertNotRegex(log, r"frame-success-blueprint-rejected|predecessor-output-not-consumed")
+        self.assertRegex(log, r"phase=utility-capture layer=20 status=succeeded")
+        self.assertNotRegex(log, r"phase=utility-capture layer=71 status=")
 
     def test_fullscreen_reads_visible_children_before_later_peer_with_hidden_final_trigger(self):
         self.run_case(inactive_effect=True, fullscreen_children=True,
