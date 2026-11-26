@@ -413,21 +413,30 @@ nonisolated enum SceneParticleSimulationMath {
         let first = SIMD3<Int>(xy && xz ? 1 : 0, !xy && yz ? 1 : 0, !xz && !yz ? 1 : 0)
         let second = SIMD3<Int>(xy || xz ? 1 : 0, !xy || yz ? 1 : 0, !xz || !yz ? 1 : 0)
         let lattice = SIMD3(Int(cell.x), Int(cell.y), Int(cell.z))
-        func corner(_ distance: SIMD3<Float>, at index: SIMD3<Int>) -> Float {
+        let lowerZ = Int(simplexPermutation[lattice.z & 255])
+        let upperZ = Int(simplexPermutation[(lattice.z &+ 1) & 255])
+        func corner(_ distance: SIMD3<Float>, x: Int, y: Int, zHash: Int) -> Float {
             let weight = 0.6 - simd_length_squared(distance)
             guard weight > 0 else { return 0 }
-            let z = Int(simplexPermutation[index.z & 255])
-            let y = Int(simplexPermutation[(index.y + z) & 255])
-            let hash = Int(simplexPermutation[(index.x + y) & 255])
+            let yHash = Int(simplexPermutation[(y + zHash) & 255])
+            let hash = Int(simplexPermutation[(x + yHash) & 255])
             let squared = weight * weight
             return squared * squared * simd_dot(simplexGradients[hash % 12], distance)
         }
         // The continuous field's far corner uses the starting Z lattice index for its gradient.
         return 32 * (
-            corner(offset, at: lattice)
-            + corner(offset - SIMD3<Float>(first) + 1.0 / 6, at: lattice &+ first)
-            + corner(offset - SIMD3<Float>(second) + 1.0 / 3, at: lattice &+ second)
-            + corner(offset - 0.5, at: lattice &+ SIMD3(1, 1, 0))
+            corner(offset, x: lattice.x, y: lattice.y, zHash: lowerZ)
+            + corner(
+                offset - SIMD3<Float>(first) + 1.0 / 6,
+                x: lattice.x &+ first.x, y: lattice.y &+ first.y,
+                zHash: first.z == 0 ? lowerZ : upperZ
+            )
+            + corner(
+                offset - SIMD3<Float>(second) + 1.0 / 3,
+                x: lattice.x &+ second.x, y: lattice.y &+ second.y,
+                zHash: second.z == 0 ? lowerZ : upperZ
+            )
+            + corner(offset - 0.5, x: lattice.x &+ 1, y: lattice.y &+ 1, zHash: lowerZ)
         )
     }
 

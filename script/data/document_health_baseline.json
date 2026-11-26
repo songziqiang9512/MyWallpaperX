@@ -158,7 +158,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 429,
-      "bytes": 82343
+      "bytes": 82473
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 486,
@@ -166,7 +166,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 410750
+      "bytes": 411800
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 57,
-      "bytes": 7649
+      "bytes": 7620
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -723,30 +723,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "b81c50afdc0be645bf6eab76512f2c87d3e1c360d3c19c307cac085edf0ec25b",
-      "after": "135c92c5a81abd342f4cd79e92ac1bffd78b84d16adcae19ccc186ab897ca618",
-      "owner": "Scene composition and quality evidence",
-      "reason": "Preserve integrated author Sprite coverage and runtime evidence from both worktrees.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6989c1af3814333d9abfc34b07cc4745d33c0d38452ec4f82543263d2e1c815b",
-      "after": "52596cd64106ce82ce6adfb225554578d6ce72bb6d7f0120c848fd8b3d95895d",
-      "owner": "Scene startup and quality evidence",
-      "reason": "Merge the first-surface prewarm measurement into the combined active runtime evidence.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "624ff26cce861cb2428330a37d7b9dec61323c9bf057f6e15951e463929f6086",
       "after": "83962074438454dc02459c98bfa0023ae8d4dab31fdc02672a4b79dfd0a0608d",
       "owner": "Scene startup and quality evidence",
       "reason": "Merge the first-surface prewarm measurement into the combined active runtime evidence.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "135c92c5a81abd342f4cd79e92ac1bffd78b84d16adcae19ccc186ab897ca618",
+      "after": "e0f0cfa09b07f125fb9416d4a4b4d986dfc11312ca8e4ed34b478f6d9c22fd88",
+      "owner": "Scene particles and quality evidence",
+      "reason": "Preserve the author Sprite and simplex evidence and the previously integrated quality evidence.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "52596cd64106ce82ce6adfb225554578d6ce72bb6d7f0120c848fd8b3d95895d",
+      "after": "f969349553bb673d83f4d0302686265480a908ce74232d3bef383abbf3627194",
+      "owner": "Scene particles and quality evidence",
+      "reason": "Preserve the author Sprite and simplex evidence and the previously integrated quality evidence.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md"
     }
   ]
 }
