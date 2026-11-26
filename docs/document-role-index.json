@@ -378,9 +378,9 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0f628839d5835700088f754eafa4679948eaaf0af08c1f42eb72927cef6e3998",
+        "sourceSHA256": "24067f7c2484df14818470d7782b88dcc9e8852afec9494a7b45fed22dee9a6d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对实际阴影规格、有效的受光绑定、逐屏完成回执和原启动事务。",
+        "scope": "核对候选点光档位的实际读数、冷资源顺序和未完成的验收。",
         "limitations": "画面和持续呈现的证据边界见现役工作卡。"
       }
     },
@@ -392,9 +392,9 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "82e88776980ee376ecc3493d56817ce11220b428335535c3235ee20c0936c5a6",
+        "sourceSHA256": "fedd173bd6967110283b5613eb8bbf7e702187cd6bfb365b94a01e496c05d235",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对实际阴影规格、有效的受光绑定、逐屏完成回执和原启动事务。",
+        "scope": "核对候选点光档位的实际读数、冷资源顺序和未完成的验收。",
         "limitations": "画面和持续呈现的证据边界见现役工作卡。"
       }
     },

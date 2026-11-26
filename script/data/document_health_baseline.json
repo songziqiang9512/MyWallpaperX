@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 593,
-      "bytes": 175634
+      "bytes": 176537
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 153466
+      "bytes": 154138
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -696,24 +696,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "d68cfc25c4d9123e247481aa31a5f0cd25eacf55a1b233ad954f3c794a81767c",
-      "after": "de447a9fe6f51e38d68a3d795bee99e6690b5366c108144f353e9e4998973024",
-      "owner": "Scene playback quality",
-      "reason": "明确阴影实际绑定、灯图规格及共用的逐屏反馈职责。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-shadow-feedback"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "8915d6f2c649b3e7c6bd343f4317c36d98b23a7528f024f2eaa799dcce0066be",
-      "after": "1af0d98bc87e3b628b096682127869c9bd868d71469ba0ca3b9307c28f316a91",
-      "owner": "Scene playback quality",
-      "reason": "明确阴影实际绑定、灯图规格及共用的逐屏反馈职责。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-shadow-readout"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "7a6375845f7a11c8536132ce15c28e776ec0db13fc587b68f3fc3cfc3d71ea25",
       "after": "747e76134817e4af4ba2a221010fc37df41bf5f68f79baa5a902472d10519d72",
@@ -738,6 +720,24 @@
       "owner": "Scene Generic shader compiler",
       "reason": "记录跨阶段数值名称与普通结构成员的编译合同、签名实绘和回归边界。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#stage-scoped-uniform-runtime"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-settings-plan.md",
+      "before": "de447a9fe6f51e38d68a3d795bee99e6690b5366c108144f353e9e4998973024",
+      "after": "31204ac0cca3babb1eb237e3ea8e49b1c8476ffd58312171dcd46d2744343d39",
+      "owner": "Scene playback quality",
+      "reason": "记录最新点光尺寸复验、真实冷目标争用和原准入优先级。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-shadow-feedback"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "1af0d98bc87e3b628b096682127869c9bd868d71469ba0ca3b9307c28f316a91",
+      "after": "a0b5b81dbc9b631fc4a48e8abe487c4dec1168c2d90264770fa12f288a283b2c",
+      "owner": "Scene playback quality",
+      "reason": "记录最新点光尺寸复验、真实冷目标争用和原准入优先级。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-point-shadow-density-trial"
     }
   ]
 }
