@@ -674,24 +674,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "6ea23c66a8cb9f409fe452d7dfe6ac455842ae1caba0520493d8ca250b2de9fa",
-      "after": "3f59a7e9d3ceb7e333a4101f4a8930c906c3ba98c74e218eaa795bdbd7e3b1a4",
-      "owner": "Scene particle runtime and evidence",
-      "reason": "Preserve the current main particle birth palette and the existing quality evidence on the merge.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9e7e92adbdb4985540b0689ceb8591f644a04b36c3caddb7482f67d49c6b54d9",
-      "after": "6d6a8d23770bfd9ef3ace0ade879620b7e274f7b0a900c426800875ba9307140",
-      "owner": "Scene particle runtime and evidence",
-      "reason": "Preserve the current main particle birth palette and the existing quality evidence on the merge.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "e091839decc7e93015e19e6111f9730916bbe869c8e35685c37e0ccf32faa3ae",
       "after": "736dc49a40d757f869367e10c69085acfdf334eafd89a91d25e359fb06ba3ce1",
@@ -734,6 +716,24 @@
       "owner": "Scene base images and quality settings",
       "reason": "Specify and verify texture mip selection at actual ordinary and dynamic-model consumers.",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-texture-deferred-quality"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "c6e746924a512ee6dc601dcb922a7a249a54ad33c002be57ded269e03063a8f6",
+      "after": "3f59a7e9d3ceb7e333a4101f4a8930c906c3ba98c74e218eaa795bdbd7e3b1a4",
+      "owner": "Scene particle and quality evidence owners",
+      "reason": "Bind the retained merged evidence to the current particle HSV baseline.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "39e50e5d981b696fa5f0ef097a0d0bd119c17a0e5c4119928493c44aff63d324",
+      "after": "6d6a8d23770bfd9ef3ace0ade879620b7e274f7b0a900c426800875ba9307140",
+      "owner": "Scene particle and quality evidence owners",
+      "reason": "Bind the retained merged evidence to the current particle HSV baseline.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
     }
   ]
 }
