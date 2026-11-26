@@ -1,6 +1,23 @@
 import Metal
 
 extension SceneResolvedMaterialGraphExecutor {
+    func prepareCapturedMaterial(
+        program: SceneResolvedMaterialProgram,
+        material: SceneResolvedMaterialExecutionCapabilityCatalog.MaterialCapability,
+        capture: SceneGraphResourcePassEncoder.PreparedCommand,
+        target: MTLTexture
+    ) -> (SceneGraphResourcePassEncoder.PreparedCommand, SceneResolvedMaterialPassEncoder.PreparedPass)? {
+        guard material.attachmentStorage == .color, target.pixelFormat == material.targetFormat.metalPixelFormat,
+              program.frontendProgram.supportsLocalAttachmentOverwrite,
+              let source = program.textureSlots[0]?.resource.publication.candidate,
+              source.texture === capture.writtenTexture, source.uvTransform == .identity,
+              source.texture.width == target.width, source.texture.height == target.height,
+              source.texture.pixelFormat == target.pixelFormat,
+              let redirected = capture.retargetingPlainSourceCapture(toEquivalentTarget: target),
+              let pass = materialEncoder.prepareCaptureTail(program: program, target: target) else { return nil }
+        return (redirected, pass)
+    }
+
     func prepareMaterialPass(
         program: SceneResolvedMaterialProgram,
         material: SceneResolvedMaterialExecutionCapabilityCatalog.MaterialCapability,

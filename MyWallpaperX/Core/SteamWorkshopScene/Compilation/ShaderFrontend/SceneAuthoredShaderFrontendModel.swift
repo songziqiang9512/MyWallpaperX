@@ -469,6 +469,7 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
         let metalSourceSHA256: String
         let physicalTextureSlots: [Int]
         var usesSceneProjection: Bool? = nil
+        var isFragmentLocal: Bool? = nil
     }
 
     enum VertexPositionInput: String, Codable, Hashable, Sendable {
@@ -534,6 +535,14 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
     var attachmentReadVariant: AttachmentReadVariant?
 
     var supportsTerminalMaterialReplay: Bool { vertexPositionInput == .targetPixels }
+
+    var supportsLocalAttachmentOverwrite: Bool {
+        guard vertexPositionInput == .targetPixels, fragmentOutputChannelUse == .redDefined,
+              let attachmentReadVariant else { return false }
+        return attachmentReadVariant.usesSceneProjection != true
+            && attachmentReadVariant.isFragmentLocal == true
+            && attachmentReadVariant.physicalTextureSlots.isEmpty
+    }
 
     /// Older, fixed-unit artifacts remain valid ordinary cards but cannot
     /// advertise the new authored-quad attribute contract.

@@ -236,6 +236,7 @@ nonisolated extension SceneResolvedMaterialProgram {
 
     enum PassRole: String, Hashable {
         case offscreenOverwrite
+        case offscreenAttachmentOverwrite
         case terminalSourceOver
         case terminalStraightSourceOver
         case terminalAttachmentSourceOver
@@ -251,13 +252,15 @@ nonisolated extension SceneResolvedMaterialProgram {
         }
 
         var readsCurrentAttachment: Bool {
-            self == .terminalAttachmentSourceOver
+            self == .offscreenAttachmentOverwrite || self == .terminalAttachmentSourceOver
                 || self == .terminalAttachmentStraightSourceOver
         }
 
+        var isOffscreen: Bool { terminalReplayBlendMode == nil }
+
         var terminalReplayBlendMode: Int? {
             switch self {
-            case .offscreenOverwrite: nil
+            case .offscreenOverwrite, .offscreenAttachmentOverwrite: nil
             case .terminalSourceOver, .terminalStraightSourceOver,
                  .terminalAttachmentSourceOver, .terminalAttachmentStraightSourceOver: 0
             case .terminalAdditive, .terminalStraightAdditive: 31

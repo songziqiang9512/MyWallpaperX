@@ -175,9 +175,9 @@ class SceneAuthoredShaderSamePixelSourceTests(unittest.TestCase):
         expectations = {}
 
         def add(name, vertex=VERTEX, fragment=FRAGMENT, *, accepted=True, count=1,
-                varying="bridgeUV", matrix="g_ModelViewProjectionMatrix"):
+                varying="bridgeUV", matrix="g_ModelViewProjectionMatrix", fragment_local=True):
             cases.append({"name": name, "vertexSource": vertex, "fragmentSource": fragment})
-            expectations[name] = (accepted, count, varying, matrix)
+            expectations[name] = (accepted, count, varying, matrix, fragment_local)
 
         add("split-xy-zw-independent-auxiliary")
         add("renamed-varying", VERTEX.replace("bridgeUV", "renamedCoordinates"),
@@ -203,6 +203,9 @@ class SceneAuthoredShaderSamePixelSourceTests(unittest.TestCase):
             "gl_FragColor = source", "source += texture2D(g_Texture0, vec2((bridgeUV.xy)));\n gl_FragColor = source"
         ), count=2)
         add("authored-sample-spelling", fragment=FRAGMENT.replace("texture2D", "texSample2D"))
+        add("derivative-observes-other-fragments", fragment=FRAGMENT.replace(
+            "gl_FragColor = source", "gl_FragColor = dFdx(source)"), fragment_local=False)
+        add("renamed-color-variable", fragment=FRAGMENT.replace("source", "dFdxColor"))
         add("other-slot-offset-lod-unrestricted", fragment=FRAGMENT.replace(
             "texture2D(g_Texture1, bridgeUV.zw + vec2(0.125))",
             "texture2DLod(g_Texture1, bridgeUV.zw * vec2(2.0), 1.0)"))
@@ -255,14 +258,15 @@ class SceneAuthoredShaderSamePixelSourceTests(unittest.TestCase):
         reject("malformed-source", fragment=FRAGMENT + "(")
 
         results = self.evaluate(cases)
-        for name, (accepted, count, varying, matrix) in expectations.items():
+        for name, (accepted, count, varying, matrix, fragment_local) in expectations.items():
             with self.subTest(name=name):
                 fact = results[name].get("fact")
                 if not accepted:
                     self.assertIsNone(fact)
                 else:
                     self.assertEqual(fact, {"textureSlot": 0, "sampleCallCount": count,
-                        "coordinateVaryingName": varying, "positionMatrixUniformName": matrix})
+                        "coordinateVaryingName": varying, "positionMatrixUniformName": matrix,
+                        "isFragmentLocal": fragment_local})
 
     def test_projected_background_reads_require_the_same_pixel(self) -> None:
         vertex = """
@@ -304,7 +308,7 @@ void main() {{ gl_FragColor = texSample2D(g_Texture2, {uv}); }}
         results = self.evaluate(cases)
         self.assertEqual(results["projected"]["fact"], {
             "textureSlot": 2, "sampleCallCount": 1, "coordinateVaryingName": "projection",
-            "positionMatrixUniformName": "g_ModelViewProjectionMatrix",
+            "positionMatrixUniformName": "g_ModelViewProjectionMatrix", "isFragmentLocal": True,
         })
         self.assertEqual(results["renamed"]["fact"]["textureSlot"], 4)
         self.assertEqual(results["renamed"]["fact"]["coordinateVaryingName"], "placement")

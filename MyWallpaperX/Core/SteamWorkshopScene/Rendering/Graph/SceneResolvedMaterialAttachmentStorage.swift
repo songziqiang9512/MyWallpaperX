@@ -50,7 +50,7 @@ nonisolated enum SceneResolvedMaterialAttachmentStorage {
             && target.mipmapLevelCount == 1
             && target.sampleCount == 1
             && target.usage.contains(.renderTarget)
-            && (role != .offscreenOverwrite || target.usage.contains(.shaderRead))
+            && (!role.isOffscreen || target.usage.contains(.shaderRead))
     }
 
     static func writeMask(for content: SceneTextureContent) -> MTLColorWriteMask {

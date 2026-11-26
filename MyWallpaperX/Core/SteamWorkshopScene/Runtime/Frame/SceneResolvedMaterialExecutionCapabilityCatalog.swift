@@ -155,6 +155,12 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             materials[.init(effect: node.effect, nodeIndex: node.nodeIndex)]
         }
 
+        var supportsSingleCapturedMaterial: Bool {
+            guard sourceRoute == .capturedMainTargetTexture, !isGraphOutputProvider,
+                  stages.count == 1, let graph = stages.first?.product.graph else { return false }
+            return graph.renderTargets.isEmpty && graph.nodes.count == 1
+        }
+
         func material(effect: Graph.EffectKey, nodeIndex: Int) -> MaterialCapability? {
             materials[.init(effect: effect, nodeIndex: nodeIndex)]
         }

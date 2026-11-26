@@ -263,11 +263,11 @@ Geometry 的 primary named 输入表示 provider 自身的 authored-local 色图
 <a id="childless-composition-local-effect-raster"></a>
 ### 无子 Composition 的局部效果栅格
 
-无子 Composition 在作者位取主画布前缀，取样及回绘沿原 UV 和投影。工作栅格由作者局部尺寸给定，世界 TRS、窗口和相机只影响取源及放置。Metal 真实物理/映射尺寸继续提供 `g_TextureNResolution`，`g_TexelSize` 仍属当前画面。
+无子 Composition 在作者位取主画布，原 UV、TRS 和相机决定取样与摆位；作者局部尺寸定义栅格。`g_TextureNResolution` 取真实物理与映射尺寸，`g_TexelSize` 属画面。单一全覆盖颜色段可与截取共用 encoder。冷准备证明单来源同像素、片元独立；实际绑定为等规格的原截取时，资源 owner 在材质终图截取，再用原材质无混合读 `color(0)`，保量化、颜色表示与 compositor。其余外纹理、局部覆盖、具名、历史及准备不可用沿分开编码，失败归原事务。
 
-原 FramePreflight 为已有局部尺寸、正交、无成员且读取主画布的普通 Composition 优先预约精确作者栅格。超过常用2048时，沿已有精确目标偏好与原子预算准入，为捕获和 graph pair 选择同一尺寸。异尺寸偏好按原顺序共用一个额外尺寸名额。超硬限、预算拒绝与历史链沿原等比限额绘制。停用效果的透传沿同一栅格。组、显式 framebuffer source、具名发布、透视、attachment-read replay 与其他层保各自路径。沿唯一 compositor 回绘，不伪报纹理尺寸，也不追加栅格或资源 owner。
+正交无成员、取主画布且有作者尺寸时，FramePreflight 按精确目标偏好与原子预算预约同栅格捕获和 graph pair。超常用2048时按原顺序共享一个异尺寸档；超硬限、预算拒绝及历史保等比限额。停用透传保栅格；组、显式来源、透视或主附件重放各沿自身路径。
 
-验收保原背景截点、改名、非等比放置和小局部窗，补超2048的真采样及超硬限反例。原344的官版相邻像素、`Resolution`、格距与实际 GPU 回绘和成本须同条件复核，独立宽幅作者另验颜色链。旧314的弧、平移和 Spin 沿原合成验证。
+验收截点、改名、局部/非等比、超2048采样和超限，合并另验完整 HDR/SDR 像素、非同像素、独立作者和整景成本。344格距与314弧仍沿实图核。
 
 <a id="plain-project-color-blend"></a>
 ### 无效果 Project 的作者位颜色混合

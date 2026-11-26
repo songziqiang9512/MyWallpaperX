@@ -84,8 +84,10 @@ final class SceneResolvedMaterialGraphExecutor {
                 return ["activation-passthrough:\(reason)"]
             }
             return commands.compactMap { command in
-                guard case let .material(pass) = command else { return nil }
-                return pass.programCacheKey
+                switch command {
+                case let .material(pass), let .capturedMaterial(_, pass): pass.programCacheKey
+                default: nil
+                }
             }
         }
 #endif
@@ -110,7 +112,7 @@ final class SceneResolvedMaterialGraphExecutor {
         fileprivate let ownerToken: UUID
         fileprivate let resetGeneration: UInt64
         fileprivate let queueIdentity: ObjectIdentifier
-        var sourceCommand: Command
+        var sourceCommand: Command?
         /// Held by the existing submission ledger through GPU completion.
         let terminalInputPins: [SceneGraphRenderTargetResidencyPin]
     }
@@ -129,11 +131,17 @@ final class SceneResolvedMaterialGraphExecutor {
             targetOrdinal: Int
         )
         case material(SceneResolvedMaterialPassEncoder.PreparedPass)
+        case capturedMaterial(SceneGraphResourcePassEncoder.PreparedCommand, SceneResolvedMaterialPassEncoder.PreparedPass)
+
+        var includesSourceCapture: Bool {
+            if case .capturedMaterial = self { return true }
+            return false
+        }
 
         var writtenTexture: MTLTexture {
             switch self {
             case let .resource(command), let .functionClear(command, _, _): command.writtenTexture
-            case let .material(pass): pass.writtenTexture
+            case let .material(pass), let .capturedMaterial(_, pass): pass.writtenTexture
             }
         }
     }
@@ -433,6 +441,13 @@ final class SceneResolvedMaterialGraphExecutor {
             var stageEntry = VisualFailureSnapshot(
                 pair: pair, publications: publications, commandCount: stageCommands.count
             )
+            let captureForMaterial: SceneGraphResourcePassEncoder.PreparedCommand?
+            if terminalReplayTarget == nil, stageCommands.isEmpty, capability.supportsSingleCapturedMaterial,
+               case let .resource(capture) = sourceCommand {
+                captureForMaterial = capture
+            } else {
+                captureForMaterial = nil
+            }
             let preparation = prepare(
                 stageIndex: index,
                 transition: transition,
@@ -448,6 +463,7 @@ final class SceneResolvedMaterialGraphExecutor {
                     ? terminalReplayTarget : nil,
                 terminalReplayBlendMode: terminalReplayBlendMode,
                 terminalReplayIsOptional: terminalReplayIsOptional,
+                captureForMaterial: captureForMaterial,
                 executionTrace: executionTrace,
                 terminalMaterialReplay: &stageTerminalReplay,
                 visualFailureSnapshot: stageEntry,
@@ -623,7 +639,7 @@ final class SceneResolvedMaterialGraphExecutor {
             ownerToken: ownerToken,
             resetGeneration: self.resetGeneration,
             queueIdentity: queueIdentity,
-            sourceCommand: sourceCommand,
+            sourceCommand: stages.first?.commands.first?.includesSourceCapture == true ? nil : sourceCommand,
             terminalInputPins: terminalInputPins
         )
 #if DEBUG
@@ -655,7 +671,7 @@ final class SceneResolvedMaterialGraphExecutor {
               mainPass.belongs(to: commandBuffer),
               let replay = preparedGraph.terminalMaterialReplay else { return false }
         return mainPass.encodePreparedDraw { target, buffer in
-            materialEncoder.terminalDraw(replay, target: target, commandBuffer: buffer)
+            materialEncoder.drawInsideExistingEncoder(replay, target: target, commandBuffer: buffer)
         }
     }
 
@@ -712,7 +728,7 @@ final class SceneResolvedMaterialGraphExecutor {
               commandBuffer.status == .notEnqueued else {
             return .failure(.stalePreparation)
         }
-        guard encode(preparedGraph.sourceCommand, commandBuffer: commandBuffer) else {
+        if let source = preparedGraph.sourceCommand, !encode(source, commandBuffer: commandBuffer) {
             return .failure(.encodeRejected)
         }
         for (stageIndex, stage) in preparedGraph.stages.enumerated() {
@@ -763,6 +779,13 @@ final class SceneResolvedMaterialGraphExecutor {
             resourceEncoder?.encode(value, commandBuffer: commandBuffer) == true
         case let .material(value):
             materialEncoder.encode(value, commandBuffer: commandBuffer)
+        case let .capturedMaterial(capture, pass):
+            if let draw = materialEncoder.drawInsideExistingEncoder(pass,
+                target: capture.writtenTexture, commandBuffer: commandBuffer) {
+                resourceEncoder?.encode(capture, commandBuffer: commandBuffer, afterCapture: draw) == true
+            } else {
+                false
+            }
         }
     }
 

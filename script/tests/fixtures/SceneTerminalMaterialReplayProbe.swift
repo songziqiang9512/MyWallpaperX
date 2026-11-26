@@ -60,11 +60,11 @@ private func terminalReplayProbe(device: MTLDevice, queue: MTLCommandQueue) -> [
                               usage: [.shaderRead, .renderTarget])
     let wrongMain = SceneMainPassEncoder(commandBuffer: command, target: wrongTarget,
         clearColor: MTLClearColor(), clearEnabled: true)
-    let targetRejected = !wrongMain.encodePreparedDraw { encoder.terminalDraw(pass, target: $0, commandBuffer: $1) }
+    let targetRejected = !wrongMain.encodePreparedDraw { encoder.drawInsideExistingEncoder(pass, target: $0, commandBuffer: $1) }
     let wrongCommand = queue.makeCommandBuffer()!
     let commandRejected = !main.belongs(to: wrongCommand)
     let roleRejected = !encoder.encode(pass, commandBuffer: command)
-    let success = main.encodePreparedDraw { encoder.terminalDraw(pass, target: $0, commandBuffer: $1) }
+    let success = main.encodePreparedDraw { encoder.drawInsideExistingEncoder(pass, target: $0, commandBuffer: $1) }
     let sharedEncoderRemainsOpen = main.encoder() != nil
     let finished = main.finishEnsuringClear()
     command.commit(); command.waitUntilCompleted()
@@ -105,7 +105,7 @@ private func terminalReplayProbe(device: MTLDevice, queue: MTLCommandQueue) -> [
         let straightMain = SceneMainPassEncoder(commandBuffer: straightCommand, target: target,
             clearColor: .init(red: 0, green: 0, blue: 1, alpha: 1), clearEnabled: true)
         let drawn = straightMain.encodePreparedDraw {
-            encoder.terminalDraw(straightPass, target: $0, commandBuffer: $1)
+            encoder.drawInsideExistingEncoder(straightPass, target: $0, commandBuffer: $1)
         }
         let finished = straightMain.finishEnsuringClear()
         straightCommand.commit(); straightCommand.waitUntilCompleted()
@@ -129,7 +129,7 @@ private func terminalReplayProbe(device: MTLDevice, queue: MTLCommandQueue) -> [
         let main = SceneMainPassEncoder(commandBuffer: command, target: renderOnlyTarget,
             clearColor: .init(red: 0, green: 0, blue: 1, alpha: 1), clearEnabled: true)
         let drawn = main.encodePreparedDraw {
-            encoder.terminalDraw(renderOnlyPass, target: $0, commandBuffer: $1)
+            encoder.drawInsideExistingEncoder(renderOnlyPass, target: $0, commandBuffer: $1)
         }
         let finished = main.finishEnsuringClear()
         command.commit(); command.waitUntilCompleted()
@@ -161,7 +161,7 @@ private func terminalReplayProbe(device: MTLDevice, queue: MTLCommandQueue) -> [
             clearColor: .init(red: 16.0 / 255, green: 24.0 / 255,
                 blue: 32.0 / 255, alpha: 96.0 / 255), clearEnabled: true)
         let drawn = main.encodePreparedDraw {
-            additiveEncoder.terminalDraw(additivePass, target: $0, commandBuffer: $1)
+            additiveEncoder.drawInsideExistingEncoder(additivePass, target: $0, commandBuffer: $1)
         }
         let finished = main.finishEnsuringClear()
         command.commit(); command.waitUntilCompleted()
@@ -192,7 +192,7 @@ private func terminalReplayProbe(device: MTLDevice, queue: MTLCommandQueue) -> [
     let staleCommand = queue.makeCommandBuffer()!
     let staleMain = SceneMainPassEncoder(commandBuffer: staleCommand, target: target,
         clearColor: MTLClearColor(), clearEnabled: true)
-    let staleRejected = !staleMain.encodePreparedDraw { encoder.terminalDraw(pass, target: $0, commandBuffer: $1) }
+    let staleRejected = !staleMain.encodePreparedDraw { encoder.drawInsideExistingEncoder(pass, target: $0, commandBuffer: $1) }
     let encodedModel = try! JSONEncoder().encode(material.frontendProgram)
     var oldObject = try! JSONSerialization.jsonObject(with: encodedModel) as! [String: Any]
     oldObject.removeValue(forKey: "vertexPositionInput")

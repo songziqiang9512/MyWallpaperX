@@ -114,7 +114,7 @@ private func runActivationCases(
               let stage = preparedGraph.stages.first else {
             return (false, false, false, false, false)
         }
-        let captureWritesTerminal = preparedGraph.sourceCommand.writtenTexture
+        let captureWritesTerminal = preparedGraph.sourceCommand?.writtenTexture
             === preparedGraph.finalTexture
         let bypassRoutePreserved = activationGraph.renderTargets.isEmpty
             ? stage.commands.isEmpty && captureWritesTerminal

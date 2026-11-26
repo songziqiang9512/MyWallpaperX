@@ -173,7 +173,8 @@ final class SceneGraphResourcePassEncoder {
     /// transaction commit remain the caller's responsibility.
     func encode(
         _ command: PreparedCommand,
-        commandBuffer: MTLCommandBuffer
+        commandBuffer: MTLCommandBuffer,
+        afterCapture: ((MTLRenderCommandEncoder) -> Void)? = nil
     ) -> Bool {
         let encoded = withLock {
             guard command.ownerToken == ownerToken,
@@ -193,6 +194,16 @@ final class SceneGraphResourcePassEncoder {
                     target: target,
                     pipeline: pipeline
                 ) else { return false }
+#if DEBUG
+                let tail = afterCapture.map { draw in
+                    { (encoder: MTLRenderCommandEncoder) in
+                        self.recordComposition(command, encoded: true)
+                        draw(encoder)
+                    }
+                }
+#else
+                let tail = afterCapture
+#endif
                 return encodeSourceCapture(
                     source: source,
                     target: target,
@@ -200,7 +211,8 @@ final class SceneGraphResourcePassEncoder {
                     pipeline: pipeline,
                     sourceLighting: sourceLighting,
                     prefixTexture: prefixTexture,
-                    commandBuffer: commandBuffer
+                    commandBuffer: commandBuffer,
+                    afterCapture: tail
                 )
             case .initialization(let target, let clear):
                 guard validTarget(target), valid(clear) else { return false }
@@ -221,6 +233,15 @@ final class SceneGraphResourcePassEncoder {
             }
         }
 #if DEBUG
+        if afterCapture == nil || !encoded {
+            recordComposition(command, encoded: encoded)
+        }
+#endif
+        return encoded
+    }
+
+#if DEBUG
+    private func recordComposition(_ command: PreparedCommand, encoded: Bool) {
         if let trace = command.compositionTrace {
             let source: MTLTexture?
             let prefix: MTLTexture?
@@ -246,9 +267,8 @@ final class SceneGraphResourcePassEncoder {
                     outcome: encoded ? "draw-encoded" : "failed"))
             }
         }
-#endif
-        return encoded
     }
+#endif
 
     private func encodeSourceCapture(
         source: MTLTexture,
@@ -257,7 +277,8 @@ final class SceneGraphResourcePassEncoder {
         pipeline: SceneImageLayerPipeline,
         sourceLighting: SceneBaseMaterialLitCapturePayload?,
         prefixTexture: MTLTexture?,
-        commandBuffer: MTLCommandBuffer
+        commandBuffer: MTLCommandBuffer,
+        afterCapture: ((MTLRenderCommandEncoder) -> Void)?
     ) -> Bool {
         let sourceLighting = sourceLighting?.resolvingEnvironment(
             for: target, commandBuffer: commandBuffer)
@@ -267,7 +288,8 @@ final class SceneGraphResourcePassEncoder {
         descriptor.colorAttachments[0].storeAction = .store
         descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
         #if DEBUG
-        let timestampEncoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: "graph-source-capture")
+        let role = afterCapture == nil ? "graph-source-capture" : "graph-source-capture-material"
+        let timestampEncoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: role)
         #else
         let timestampEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
         #endif
@@ -300,6 +322,7 @@ final class SceneGraphResourcePassEncoder {
                 encoder: encoder
             )
         }
+        afterCapture?(encoder)
         encoder.endEncoding()
         return true
     }
