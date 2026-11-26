@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 55,
-      "bytes": 7362
+      "bytes": 7545
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -742,11 +742,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "04cd389cbab40ce860dc8efaedec40a744b7282729ef156adb9c6a8911dc57de",
-      "after": "c8af9cb79fd58bedb2f99c16341a51f92975dea4f3f8a68a584c22a598c11d6c",
-      "owner": "Scene visual composition evidence",
-      "reason": "登记作者自然动作、两类音频图形与末级画面历史的顺序和两端对照边界。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "before": "c8af9cb79fd58bedb2f99c16341a51f92975dea4f3f8a68a584c22a598c11d6c",
+      "after": "c94da1aeab644add1f78d71c2e4425fb01e97fb37521b882d5d292c78cc443c0",
+      "owner": "Scene Generic shader compiler",
+      "reason": "记录可复用的同槽绘制、声明别名冷拒和无效槽反例。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]
 }
