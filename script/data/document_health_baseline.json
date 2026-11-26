@@ -166,7 +166,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 422456
+      "bytes": 423093
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 54,
-      "bytes": 7078
+      "bytes": 7013
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -742,11 +742,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b76a74d6f04af08a084c9c5f2614f7ca5b3bc70b05cb66be7b77fbf43f08856b",
-      "after": "6203c2c4a3cc4af5060fef29b55001aa755ab07185a84afd2f19986aa799da0d",
-      "owner": "Scene perspective composition evidence",
-      "reason": "登记原作者两端冻结斜视的共面反例、名义与满幅测量，排除重复修正固定投影。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-box-oblique-333"
+      "before": "6203c2c4a3cc4af5060fef29b55001aa755ab07185a84afd2f19986aa799da0d",
+      "after": "ac990be63da659b2db235e862f1317e8415bded4c898d2494206a4ddfdc85d1c",
+      "owner": "Scene effect composition evidence",
+      "reason": "保留两相位的底色覆盖和 Shine 前后对照及官版证据范围。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-chain-matte-286"
     }
   ]
 }
