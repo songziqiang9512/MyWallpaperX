@@ -15,7 +15,7 @@
 |---|---|---|
 | 2868108515 | 剑链左侧的叠影仍可见 | [两端原包及只关 Godrays 的对照](../capabilities/runtime-evidence-current.md#author-chain-left-step-286)已定位接缝，旧密格未复现。锁定相位与背景采样，核接缝强度和位置的剩余差异。 |
 | 3769688830 | 本机玩偶水球持续向左转，用户在官版看到头朝上的往返摆动 | [旧实测含 spinorb/e524 与父层摆动](../capabilities/runtime-evidence-current.md#orb-spin-parent-motion-376)。对齐自转属性、父层相位和默认版本，分别比较静止头向和摆动轨迹。 |
-| 3673609113 | 人偶运动和音条抖动时出现上一帧残影 | [旧残影归因](../capabilities/runtime-evidence-current.md#author-motion-history-367)覆盖飘带。新对照固定人偶和音条各自的高运动 ROI，比较历史源清除、当前帧及官版连续图。 |
+| 3673609113 | 人偶运动和音条抖动时出现上一帧残影 | [两端的受控姿态对照](../capabilities/runtime-evidence-current.md#author-puppet-history-367)已定位吹喇叭人偶的作者末级历史。继续对齐原包自然动作及音条，核实际姿态、音频与连续呈现。 |
 | 3187857248 | 仍有时拖不动 | 沿[拖动证据](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318)匹配两端当前骨位置，重复真实按下、拖动和释放，记录命中归属。 |
 | 3586705329 | 图5的拼贴竖状拉伸随镜头大小变化 | [官版同样出现的 Scroll 边带](../capabilities/runtime-evidence-current.md#author-collage-edge-358)可复用。将反馈图注册到同画幅、镜头和滚动相位，区分已量过的边带与额外变形。 |
 | 3337494481 | 图6的背面文字、封面穿透模型，封面与一圈文字位置不合，加载极慢 | [文本遮挡](../capabilities/runtime-evidence-current.md#author-box-text-occlusion-333)及[封面深度](../capabilities/runtime-evidence-current.md#author-box-cover-depth-333)分别有验证。按当前签名原包重新固定视角、媒体和音频，分开核残余遮挡及147/748的投影位置、作者独立音频轨。加载沿下方首屏性能证据。 |

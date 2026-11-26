@@ -166,7 +166,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 411800
+      "bytes": 412658
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 57,
-      "bytes": 7620
+      "bytes": 7640
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -687,30 +687,12 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "624ff26cce861cb2428330a37d7b9dec61323c9bf057f6e15951e463929f6086",
-      "after": "83962074438454dc02459c98bfa0023ae8d4dab31fdc02672a4b79dfd0a0608d",
-      "owner": "Scene startup and quality evidence",
-      "reason": "Merge the first-surface prewarm measurement into the combined active runtime evidence.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "015f68f2d1a28c0df5748d1d8b008a7d2e8c542cfbed787ad7d7e864dbf10f74",
       "after": "e0f0cfa09b07f125fb9416d4a4b4d986dfc11312ca8e4ed34b478f6d9c22fd88",
       "owner": "Scene particles and quality evidence",
       "reason": "Preserve upstream particle and runtime evidence together with the integrated quality branch authorities.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "70edc4c36b959c09e231cfd3cbcc8c8d81e13de087e1b3a34dc41cc803af43f9",
-      "after": "f969349553bb673d83f4d0302686265480a908ce74232d3bef383abbf3627194",
-      "owner": "Scene particles and quality evidence",
-      "reason": "Preserve upstream particle and runtime evidence together with the integrated quality branch authorities.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md"
     },
     {
       "section": "bodies",
@@ -747,6 +729,24 @@
       "owner": "Scene root raster and playback quality",
       "reason": "Record the local graph execution boundary, one root resolve, and actual default-scene menu and rendering evidence.",
       "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "f969349553bb673d83f4d0302686265480a908ce74232d3bef383abbf3627194",
+      "after": "4b46f763a16cc91c7c878adc0289cebd45b801e4418757e5072d00edf2b2e1ef",
+      "owner": "Scene composition",
+      "reason": "Preserve the upstream controlled puppet history evidence and the integrated quality evidence.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-puppet-history-367"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "3aacbab07c03cf51c339a1139c713fa807c929109e82d4fc4b41951145c904be",
+      "after": "dbdd5d9a10fbf527f12ea1bb37bae1e7924ecf6d4e94b337fe4454a7e6564d1e",
+      "owner": "Scene composition",
+      "reason": "Preserve the upstream controlled puppet history evidence and the integrated quality evidence.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
 }
