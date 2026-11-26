@@ -196,6 +196,7 @@ extension SceneMetalRenderer {
         environmentSource: @escaping (MTLCommandBuffer) -> SceneFrameTextureResource?,
         modelFrame: StaticModelFrame,
         mainPass: SceneMainPassEncoder,
+        seededMultisample: (layerID: Int, targets: MainMultisampleTargets)?,
         compositionGroupRuntime: SceneCompositionGroupFrameRuntime?,
         commandBuffer: MTLCommandBuffer,
         effectExecutionTrace: SceneEffectExecutionFrameTrace?,
@@ -561,6 +562,25 @@ extension SceneMetalRenderer {
                         }
                     }
                 }
+                if let seededMultisample, seededMultisample.layerID == layer.id,
+                   let imagePipeline, let offscreenTexturePool {
+                    _ = mainPass.beginMultisamplingAfterColorPrefix(
+                        attachmentsForTarget: seededMultisample.targets.forTarget
+                    ) { target, buffer in
+                        guard let snapshot = offscreenTexturePool.reserveDisplayScratch(width: target.width,
+                            height: target.height, commandBuffer: buffer),
+                              copySceneColor(target, to: snapshot.texture, commandBuffer: buffer) else { return nil }
+                        mainPass.retainCompositionPin(snapshot.pin)
+#if DEBUG
+                        if let trace = mainPass.compositionTrace, trace.isCompositionSelected {
+                            trace.recordComposition(.init(kind: "msaa-prefix-snapshot", layerID: layer.id,
+                                source: mainPass.compositionTarget, target: .init(snapshot.texture, role: "msaa-prefix"),
+                                access: "color-copy", outcome: "encoded"))
+                        }
+#endif
+                        return { imagePipeline.seedMultisampleColor(from: snapshot.texture, encoder: $0) }
+                    }
+                }
                 let lit = drawStaticModel(layer: layer, state: modelFrame,
                     worldFrames: frameWorldFrames, frameContext: frameContext,
                     cameraFrame: cameraFrame, lighting: frameLightSnapshot,
@@ -685,7 +705,7 @@ extension SceneMetalRenderer {
 
         let mainEncoded = mainPass.finishEnsuringClear()
         reflection.mainSourceCompleted = mainEncoded
-        if sceneColor != nil && !mainEncoded {
+        if !mainEncoded && (sceneColor != nil || mainPass.rasterSampleCount > 1) {
             return .dropped(reasonCode: "scene-color-main-encoder-unavailable")
         }
 #if DEBUG

@@ -93,11 +93,15 @@ def model_input(variant):
                            "radius": 30, "intensity": 25, "innercone": 10, "outercone": 20,
                            "density": 3, "exponent": 2, "volumetricsexponent": 2}
         scene["objects"] = [background, *scene["objects"], suffix, text, unprepared_spot]
-    elif variant == "current-color":
+    elif variant in ("current-color", "color-prefix"):
         _, readers = composition_fixture(copy_background=True, childless=True)
-        _, consumer = json.loads(readers.pop("scene.json"))["objects"]
+        base, consumer = json.loads(readers.pop("scene.json"))["objects"]
         consumer.update(id=87, origin="80 48 0", size="160 96")
-        scene["objects"].append(consumer)
+        if variant == "color-prefix":
+            base.update(id=85, origin="80 48 0", size="160 96")
+            scene["objects"][:0] = [base, consumer]
+        else:
+            scene["objects"].append(consumer)
         entries.update(readers)
     elif variant == "named":
         named_scene, sources = named_fixture("forward-graph-neighbor")
@@ -314,6 +318,40 @@ class SceneMultisampleIntegrationTests(unittest.TestCase):
             for count in text_count[1:]:
                 self.assertAlmostEqual(count, text_count[0], delta=0.05 * text_count[0])
             (self.work / name / "glyph-pixels.json").write_text(json.dumps(text_count) + "\n")
+
+    def test_color_prefix_keeps_its_authored_read_and_real_model_samples(self):
+        arms, _ = self.comparison("color-prefix")
+        for samples, (image, rows) in arms:
+            with self.subTest(samples=samples):
+                self.assert_color(image, (120, 48), (0, 0, 255))
+                openings = [row for row in rows if row["kind"] == "main-raster-open"]
+                root = openings[0]["target"]["textureToken"]
+                reader = next(i for i, row in enumerate(rows) if row.get("layerID") == 87
+                              and row.get("source", {}).get("textureToken") == root
+                              and row["access"] in {"texture-bind", "color-attachment-read", "copy-source"})
+                first_model = next(i for i, row in enumerate(rows)
+                                   if row["kind"] == "model" and row["outcome"] == "draw-encoded")
+                writeback = next(i for i, row in enumerate(rows) if row.get("layerID") == 87
+                                 and row["kind"] == "group" and row["outcome"] == "draw-encoded"
+                                 and row["target"]["textureToken"] == root)
+                self.assertLess(reader, writeback)
+                self.assertLess(writeback, first_model)
+                snapshots = [row for row in rows if row["kind"] == "msaa-prefix-snapshot"]
+                if samples == 1:
+                    self.assertFalse(snapshots)
+                    self.assertTrue(all(row["details"]["sampleCount"] == "1" for row in openings))
+                    continue
+                snapshot, = snapshots
+                native, = [row for row in openings if row["details"]["sampleCount"] != "1"]
+                self.assertLess(writeback, rows.index(snapshot))
+                self.assertLess(rows.index(snapshot), rows.index(native))
+                self.assertLess(rows.index(native), first_model)
+                self.assertEqual(snapshot["source"]["textureToken"], root)
+                self.assertNotEqual(snapshot["target"]["textureToken"], root)
+                self.assertEqual(native["target"]["textureToken"], root)
+                self.assertEqual(native["details"]["sampleCount"], str(samples))
+                self.assertEqual(native["details"]["depthSamples"], str(samples))
+                self.assertEqual(native["details"]["depthClear"], "0.0")
 
     def test_authored_consumers_preserve_the_original_single_sample_output(self):
         for name in ("color-blend", "current-color", "named", "history"):

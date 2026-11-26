@@ -446,30 +446,53 @@ extension SceneMetalRenderer {
         func requiresLiveImageReflection() -> Bool {
             allowsSceneReflection && requiresImageReflection()
         }
+        var seededMultisample: (layerID: Int, targets: MainMultisampleTargets)?
         if let multisampleTargets, frameDescriptor.camera.clearEnabled, groups == nil,
            !modelFrame.collectsVolumeOccluders, !hasReadyReflectiveModel,
-           activeStaticModelNamedAlbedoLayerIDs.isEmpty,
-           dependencyRuntime.nonStaticModelProviderLayerIDs.isEmpty,
-           resolvedMaterialFrameTargetPlans.isEmpty,
-           preparationSchedule.prepassProviderLayerIDs.isEmpty,
-           preparationSchedule.providersBeforeLayerID.isEmpty,
-           mainLayersAllowMultisampling(orderedLayers, visible: frameVisibleLayerIDs, allowsOrdinaryLayer: {
-               [supportsOrdinary = imagePipeline?.multisampleRasterSampleCount == multisampleTargets.sampleCount] layer in
-               supportsOrdinary && layer.utilityLayer == nil && (layer.colorBlendMode ?? 0) == 0
+           activeStaticModelNamedAlbedoLayerIDs.isEmpty {
+            let ordinaryMultisample = imagePipeline?.multisampleRasterSampleCount == multisampleTargets.sampleCount
+            func allowsOrdinaryLayer(_ layer: SceneRenderDescriptor.Layer) -> Bool {
+                ordinaryMultisample && layer.utilityLayer == nil && (layer.colorBlendMode ?? 0) == 0
                    && imageTextures.geometryProducts[layer.id] == nil
                    && modelFrame.imageMaterialStates[layer.id] == nil
                    && baseMaterialProviderBindings.lightingProfile(for: layer)?.surfaceEnabled != true
-           }),
-           !requiresLiveImageReflection(),
-           let draws = modelFrame.prepared ?? shadowCandidates ?? shadowDrawCandidates(
-               orderedLayers: orderedLayers, visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames,
-               snapshot: frameContext.dynamicValues, groups: nil, state: modelFrame) {
-            modelFrame.prepared = draws
-            if draws.values.contains(where: { !$0.isEmpty }),
-               staticModelResources.pipeline?.supportsMultisampleAdditive == true
-                   || !draws.values.contains(where: { $0.contains { $0.entry.materialBlending == .additive } }),
-               let attachments = multisampleTargets.forTarget(mainTarget) {
-                mainPass.prepareMultisampling(attachments)
+            }
+            let startsAtClear = dependencyRuntime.nonStaticModelProviderLayerIDs.isEmpty
+                && resolvedMaterialFrameTargetPlans.isEmpty
+                && preparationSchedule.prepassProviderLayerIDs.isEmpty
+                && preparationSchedule.providersBeforeLayerID.isEmpty
+                && mainLayersAllowMultisampling(orderedLayers, visible: frameVisibleLayerIDs,
+                    allowsOrdinaryLayer: allowsOrdinaryLayer)
+            if (startsAtClear || imagePipeline?.supportsMultisampleColorSeed == true && offscreenTexturePool != nil),
+               !requiresLiveImageReflection(),
+               let draws = modelFrame.prepared ?? shadowCandidates ?? shadowDrawCandidates(
+                   orderedLayers: orderedLayers, visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames,
+                   snapshot: frameContext.dynamicValues, groups: nil, state: modelFrame) {
+                modelFrame.prepared = draws
+                if let start = orderedLayers.firstIndex(where: { draws[$0.id]?.isEmpty == false }),
+                   staticModelResources.pipeline?.supportsMultisampleAdditive == true
+                       || !draws.values.contains(where: { $0.contains { $0.entry.materialBlending == .additive } }) {
+                    if startsAtClear, let attachments = multisampleTargets.forTarget(mainTarget) {
+                        mainPass.prepareMultisampling(attachments)
+                    } else if !startsAtClear {
+                        let suffix = orderedLayers[start...]
+                        let safeSuffix = suffix.allSatisfy { layer in
+                            resolvedMaterialFrameTargetPlans[layer.id] == nil
+                                && !dependencyRuntime.requiresDemandedGraphOutputCapture(for: layer.id)
+                                && !preparationSchedule.authoredRawProviderLayerIDs.contains(layer.id)
+                                && preparationSchedule.providersBeforeLayerID[layer.id] == nil
+                                && utilityExecution.plansByTriggerLayerID[layer.id]?.contains {
+                                    Self.executesUtilityPlan($0, framePlans: resolvedMaterialFrameTargetPlans, layers: frameLayersByID)
+                                } != true
+                                && (!frameVisibleLayerIDs.contains(layer.id)
+                                    || !layer.effects.contains { $0.visible != false })
+                        }
+                        if safeSuffix && mainLayersAllowMultisampling(suffix, visible: frameVisibleLayerIDs,
+                            allowsOrdinaryLayer: allowsOrdinaryLayer) {
+                            seededMultisample = (orderedLayers[start].id, multisampleTargets)
+                        }
+                    }
+                }
             }
         }
         let hasSourceMaterials = runtime?.sourceMaterials.isEmpty == false
@@ -740,6 +763,7 @@ extension SceneMetalRenderer {
             environmentSource: environmentSource,
             modelFrame: modelFrame,
             mainPass: mainPass,
+            seededMultisample: seededMultisample,
             compositionGroupRuntime: compositionGroupRuntime,
             commandBuffer: commandBuffer,
             effectExecutionTrace: effectExecutionTrace,

@@ -4,6 +4,14 @@ import Metal
 import simd
 
 extension SceneMetalRenderer {
+    static func executesUtilityPlan(_ plan: SceneUtilityLayerRuntimePlan,
+                                    framePlans: [Int: SceneResolvedMaterialFrameTargetPlan],
+                                    layers: [Int: SceneRenderDescriptor.Layer]) -> Bool {
+        plan.disposition == .projectColorBlend || framePlans[plan.layerID] != nil
+            || (plan.usesAuthoredLocalSource
+                && layers[plan.layerID]?.effects.contains(where: { $0.visible != false }) == false)
+    }
+
     func renderUtilityPlans(
         triggeredBy layerID: Int,
         frameVisibleLayerIDs: Set<Int>,
@@ -29,10 +37,7 @@ extension SceneMetalRenderer {
         guard let planned = utilityExecution.plansByTriggerLayerID[layerID],
               let imagePipeline, let offscreenTexturePool else { return true }
         let plans = planned.filter {
-            $0.disposition == .projectColorBlend
-                || resolvedMaterialFrameTargetPlans[$0.layerID] != nil
-                || ($0.usesAuthoredLocalSource
-                    && layersByID[$0.layerID]?.effects.contains(where: { $0.visible != false }) == false)
+            Self.executesUtilityPlan($0, framePlans: resolvedMaterialFrameTargetPlans, layers: layersByID)
         }
         guard !plans.isEmpty else { return true }
         // D1: only one render encoder may be active per command buffer, and a

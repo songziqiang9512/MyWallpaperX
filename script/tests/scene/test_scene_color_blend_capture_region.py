@@ -208,6 +208,17 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
             for key in ("readable", "finished", "completed", "samePixels"):
                 self.assertTrue(row[key], row)
 
+    def test_seeded_multisample_preserves_prefix_and_uses_original_output_when_ineligible(self):
+        rows = self.result["seededMultisample"]
+        if not rows:
+            self.skipTest("the device does not support Apple memoryless attachments")
+        self.assertEqual({row["format"] for row in rows}, {80, 115})
+        self.assertIn(2, {row["samples"] for row in rows})
+        for row in rows:
+            with self.subTest(format=row["format"], samples=row["samples"]):
+                self.assertTrue(row["seedPipeline"], row)
+                self.assertEqual(row["cases"], {"seed": True, "prepare-failure": True, "existing-depth": True})
+
     def test_single_clear_main_pass_resolves_multisample_color_and_preserves_reverse_depth(self):
         result = self.result["multisampleResolve"]
         if not result["supported"]:

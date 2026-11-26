@@ -36,7 +36,7 @@ extension SceneMetalRenderer {
         compositionSurface = nil
 #endif
         return PreparedFrame(commandBuffer: commandBuffer, initialVideoPresentation: initialVideoPresentation,
-            rasterSampleCount: mainPassForSubmission?.rasterSampleCount,
+            rasterSampleCount: mainPassForSubmission?.submittedRasterSampleCount,
             observeCompositionSurface: compositionSurface, submit: { present in
 #if DEBUG
             if !SceneGPUStageTimestampHook.isSelected(commandBuffer) {

@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 66,
-      "bytes": 23310
+      "bytes": 23737
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -98,7 +98,7 @@
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 146051
+      "bytes": 146509
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -114,7 +114,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 307,
-      "bytes": 63712
+      "bytes": 64259
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -683,24 +683,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "f1e401ab1f7d3c2fcdccc40ae0417c3d4f3f87e7ac44a9cd61c849f3462664ca",
-      "after": "369bfbd9b7aadc7fd1a2b355a8ba6f0d7e22a1aa5093d330892931cf7b3a9ba7",
-      "owner": "Scene base images and quality settings",
-      "reason": "Specify and verify texture mip selection at actual ordinary and dynamic-model consumers.",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-texture-deferred-quality"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "3f1583b95a7853c180b02ef7d0f88e673434626904fcd71711259c9bd4d18e84",
-      "after": "ff2273cb11bb4794586ad30941b5286b68fd9f80c40047f76d0a1b8d67179544",
-      "owner": "Scene base images and quality settings",
-      "reason": "Specify and verify texture mip selection at actual ordinary and dynamic-model consumers.",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-texture-deferred-quality"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "c6e746924a512ee6dc601dcb922a7a249a54ad33c002be57ded269e03063a8f6",
       "after": "3f59a7e9d3ceb7e333a4101f4a8930c906c3ba98c74e218eaa795bdbd7e3b1a4",
@@ -728,11 +710,29 @@
     },
     {
       "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "369bfbd9b7aadc7fd1a2b355a8ba6f0d7e22a1aa5093d330892931cf7b3a9ba7",
+      "after": "e1898c3ae929018ee8e2e54335659be2acd358d54912a076e381123fedfa23f8",
+      "owner": "Scene ordered root composition and quality",
+      "reason": "Record the verified source, attachment scheduling and sample reporting contract.",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-color-prefix"
+    },
+    {
+      "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "dfdd5a8463c5aa9337cb84979bb9497c42d75b0993d94c966ed7b7cc6e8641c8",
-      "after": "3bd947e524ad4f01c4285bca6184c5246927c3be684f39cede2da5aee03a84f8",
-      "owner": "Scene main color and raster sampling",
-      "reason": "Record the M4 seed experiment and the phased change to the existing main encoder.",
+      "before": "3bd947e524ad4f01c4285bca6184c5246927c3be684f39cede2da5aee03a84f8",
+      "after": "5b73306a4d8521c0dce26d07dcbebfe197972f59936d0d497b0bf5ed4a378a3f",
+      "owner": "Scene ordered root composition and quality",
+      "reason": "Record the verified source, attachment scheduling and sample reporting contract.",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-color-prefix"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "ff2273cb11bb4794586ad30941b5286b68fd9f80c40047f76d0a1b8d67179544",
+      "after": "6e8dffd9c90e936938af9a36b5c28f36ddeac7d41069864944fe53e7e7d63296",
+      "owner": "Scene ordered root composition and quality",
+      "reason": "Record the verified source, attachment scheduling and sample reporting contract.",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-color-prefix"
     }
   ]

@@ -156,6 +156,71 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
         return data
     }
 
+    static func seededMultisample(
+        _ device: MTLDevice, _ queue: MTLCommandQueue, _ library: MTLLibrary
+    ) -> [[String: Any]] {
+        guard device.supportsFamily(.apple1) else { return [] }
+        return [MTLPixelFormat.bgra8Unorm, .rgba16Float].flatMap { format in
+            [2, 4].filter { device.supportsTextureSampleCount($0) }.map { samples in
+                let width = 37, height = 29
+                let prefix = target(device, width: width, height: height, format: format, seed: 703)
+                let expected = pixels(prefix)
+                let pipeline = SceneImageLayerPipeline(device: device, pixelFormat: format,
+                    library: library, rasterSampleCount: samples)!
+                func attachment(_ pixelFormat: MTLPixelFormat, samples: Int) -> MTLTexture {
+                    let desc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: pixelFormat,
+                        width: width, height: height, mipmapped: false)
+                    desc.usage = .renderTarget
+                    desc.storageMode = samples > 1 ? .memoryless : .private
+                    if samples > 1 { desc.textureType = .type2DMultisample; desc.sampleCount = samples }
+                    return device.makeTexture(descriptor: desc)!
+                }
+                let pair = SceneMainPassEncoder.MultisampleAttachments(
+                    color: attachment(format, samples: samples), depth: attachment(.depth32Float, samples: samples))!
+                let cases = ["seed", "prepare-failure", "existing-depth"]
+                let results = cases.map { mode -> Bool in
+                    let output = target(device, width: width, height: height, format: format, seed: 903)
+                    let cb = queue.makeCommandBuffer()!
+                    let pass = SceneMainPassEncoder(commandBuffer: cb, target: output,
+                        clearColor: MTLClearColorMake(0, 0, 0, 0), clearEnabled: true)
+                    if mode == "existing-depth" {
+                        let depth = attachment(.depth32Float, samples: 1)
+                        _ = pass.encoder(depthTexture: depth, clearsDepth: true, clearDepth: 0)
+                    } else { _ = pass.encoder() }
+                    pass.encodeOffscreen { buffer in
+                        let blit = buffer.makeBlitCommandEncoder()!
+                        blit.copy(from: prefix, sourceSlice: 0, sourceLevel: 0, sourceOrigin: .init(),
+                            sourceSize: MTLSizeMake(width, height, 1), to: output,
+                            destinationSlice: 0, destinationLevel: 0, destinationOrigin: .init())
+                        blit.endEncoding()
+                    }
+                    let snapshot = target(device, width: width, height: height, format: format, seed: 503)
+                    var sourceOffered = false
+                    let opened = pass.beginMultisamplingAfterColorPrefix(attachmentsForTarget: { _ in pair }) { root, buffer in
+                        sourceOffered = true
+                        let blit = buffer.makeBlitCommandEncoder()!
+                        blit.copy(from: root, sourceSlice: 0, sourceLevel: 0, sourceOrigin: .init(),
+                            sourceSize: MTLSizeMake(width, height, 1), to: snapshot,
+                            destinationSlice: 0, destinationLevel: 0, destinationOrigin: .init())
+                        blit.endEncoding()
+                        if mode == "prepare-failure" { return nil }
+                        return { pipeline.seedMultisampleColor(from: snapshot, encoder: $0) }
+                    }
+                    let expectedSamples = mode == "seed" ? samples : 1
+                    if !opened { _ = pass.encoder() }
+                    let finished = pass.finishEnsuringClear()
+                    cb.commit(); cb.waitUntilCompleted()
+                    return finished && cb.status == .completed && opened == (mode == "seed")
+                        && sourceOffered == (mode != "existing-depth")
+                        && pass.submittedRasterSampleCount == expectedSamples && pixels(output) == expected
+                }
+                return ["format": format.rawValue, "samples": samples,
+                    "seedPipeline": pipeline.supportsMultisampleColorSeed,
+                    "cases": Dictionary(uniqueKeysWithValues: zip(cases, results))]
+            }
+        }
+    }
+
     static func multisampleResolve(_ device: MTLDevice, _ queue: MTLCommandQueue) throws -> [String: Any] {
         guard device.supportsFamily(.apple1), device.supportsTextureSampleCount(2) else {
             return ["supported": false]
@@ -890,6 +955,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
              "transparentHDR": transparency,
              "terminalDepth": terminalDepth(device, queue, library),
              "multisampleResolve": multisampleResolve(device, queue),
+             "seededMultisample": seededMultisample(device, queue, library),
              "unsupportedEight": unsupportedEight(device, queue, library),
              "repeatedAttachmentReads": repeatedAttachmentReads(device, queue),
              "largeGroupBlend": autoreleasepool { largeGroupBlend(device, queue, library, fog) }]), as: UTF8.self))

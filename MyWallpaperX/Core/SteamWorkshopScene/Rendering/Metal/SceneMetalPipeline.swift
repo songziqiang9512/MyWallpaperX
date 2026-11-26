@@ -47,6 +47,7 @@ struct SceneImageLayerPipeline {
     let pixelFormat: MTLPixelFormat
     let state: MTLRenderPipelineState
     private let multisampleState: (sampleCount: Int, pipeline: MTLRenderPipelineState)?
+    private let multisampleSeedState: MTLRenderPipelineState?
     private enum DepthMode: Hashable {
         case readOnly, readWrite, writeOnly
     }
@@ -56,6 +57,7 @@ struct SceneImageLayerPipeline {
     private let disabledDepthStencilState: MTLDepthStencilState
     private let supportsTranslucentMaterialState: Bool
     var multisampleRasterSampleCount: Int { multisampleState?.sampleCount ?? 1 }
+    var supportsMultisampleColorSeed: Bool { multisampleSeedState != nil }
     var supportsReadOnlyDepth: Bool {
         depthBindings[.readOnly] != nil
     }
@@ -122,10 +124,18 @@ struct SceneImageLayerPipeline {
             descriptor.depthAttachmentPixelFormat = .depth32Float
             multisampleState = (try? device.makeRenderPipelineState(descriptor: descriptor))
                 .map { (rasterSampleCount, $0) }
+            if let seedFragment = library.makeFunction(name: "sceneMainColorSeed") {
+                descriptor.fragmentFunction = seedFragment
+                descriptor.colorAttachments[0].isBlendingEnabled = false
+                multisampleSeedState = try? device.makeRenderPipelineState(descriptor: descriptor)
+                descriptor.fragmentFunction = fragFn
+                descriptor.colorAttachments[0].isBlendingEnabled = true
+            } else { multisampleSeedState = nil }
             descriptor.rasterSampleCount = 1
             descriptor.depthAttachmentPixelFormat = .invalid
         } else {
             multisampleState = nil
+            multisampleSeedState = nil
         }
         if preparesAdditive && blendMode == .sourceOver {
             // This uses the ordinary fragment: straight input is associated
@@ -222,6 +232,18 @@ struct SceneImageLayerPipeline {
         encoder.setFrontFacing(.counterClockwise)
         encoder.setCullMode(.none)
         Self.bindQuad(encoder: encoder)
+    }
+
+    func seedMultisampleColor(from source: MTLTexture, encoder: MTLRenderCommandEncoder) {
+        guard let multisampleSeedState else { return }
+        bind(multisampleSeedState, encoder: encoder)
+        var clipQuad = simd_float4x4(diagonal: SIMD4<Float>(2, 2, 1, 1))
+        encoder.setVertexBytes(&clipQuad, length: MemoryLayout<simd_float4x4>.size, index: 1)
+        encoder.setFragmentTexture(source, index: 0)
+        encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+#if DEBUG
+        SceneGPUStageTimestampHook.drew(encoder)
+#endif
     }
 
     func bindReadOnlyDepth(encoder: MTLRenderCommandEncoder) -> Bool {

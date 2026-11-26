@@ -96,6 +96,13 @@ vertex SceneImageLayerVaryings sceneImageLayerVert(
     return result;
 }
 
+fragment float4 sceneMainColorSeed(
+    float4 position [[position]],
+    texture2d<float, access::read> prefix [[texture(0)]]
+) {
+    return prefix.read(uint2(position.xy));
+}
+
 fragment float4 sceneImageLayerFrag(
     SceneImageLayerVaryings input [[stage_in]],
     texture2d<float> sourceTexture [[texture(0)]],

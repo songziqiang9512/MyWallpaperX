@@ -34,6 +34,8 @@ final class SceneMainPassEncoder {
     private var initialLoadAction: MTLLoadAction?
     private var activeEncoder: MTLRenderCommandEncoder?
     private var activeDepthTexture: MTLTexture?
+    private var openedSingleSampleDepth = false
+    private(set) var submittedRasterSampleCount: Int?
     private let submissionOwner: SceneMainPassEncoder?
     private let worldClipToTargetClip: simd_float4x4?
     private(set) var multisampleAttachments: MultisampleAttachments?
@@ -132,6 +134,31 @@ final class SceneMainPassEncoder {
         return true
     }
 
+    func beginMultisamplingAfterColorPrefix(
+        attachmentsForTarget: (MTLTexture) -> MultisampleAttachments?,
+        prepareSeed: (MTLTexture, MTLCommandBuffer) -> ((MTLRenderCommandEncoder) -> Void)?
+    ) -> Bool {
+        guard isSceneRoot, worldClipToTargetClip == nil, !isFinished, !encodingFailed,
+              multisampleAttachments == nil else { return false }
+        if initialLoadAction == .clear {
+            return attachmentsForTarget(target).map(prepareMultisampling) ?? false
+        }
+        // The original root color stays readable until the native encoder opens.
+        guard initialLoadAction == nil, !openedSingleSampleDepth, !target.isFramebufferOnly,
+              let attachments = attachmentsForTarget(target), attachments.resolves(to: target) else { return false }
+        closeForOffscreen()
+        guard let seed = prepareSeed(target, commandBuffer) else { return false }
+        multisampleAttachments = attachments
+        initialLoadAction = .dontCare
+        guard let native = encoder(required: false) else {
+            multisampleAttachments = nil
+            initialLoadAction = nil
+            return false
+        }
+        seed(native)
+        return true
+    }
+
     /// Group passes share their root submission's lifetime. A source capture
     /// can fail after encoding, so its allocation still lives until completion.
     func retainCompositionPin(_ pin: SceneGraphRenderTargetResidencyPin?) {
@@ -175,7 +202,7 @@ final class SceneMainPassEncoder {
             // A closed memoryless pass has resolved color and discarded its depth.
             guard (depthTexture == nil || depthTexture === multisampleAttachments.depth),
                   !clearsDepth || (activeEncoder == nil && clearDepth == 0),
-                  activeEncoder != nil || initialLoadAction == .clear else {
+                  activeEncoder != nil || initialLoadAction != nil else {
                 if required { encodingFailed = true }
                 return nil
             }
@@ -192,7 +219,7 @@ final class SceneMainPassEncoder {
         color.clearColor = clearColor
         if let multisampleAttachments {
             color.texture = multisampleAttachments.color
-            color.loadAction = .clear
+            color.loadAction = initialLoadAction!
             color.resolveTexture = target
             color.storeAction = .multisampleResolve
             descriptor.depthAttachment.texture = multisampleAttachments.depth
@@ -220,6 +247,7 @@ final class SceneMainPassEncoder {
             return nil
         }
         encoder.label = "Scene main layer composite"
+        submittedRasterSampleCount = rasterSampleCount
 #if DEBUG
         SceneGPUCensus.recordMainPassRender(usesDepth: descriptor.depthAttachment.texture != nil)
         if let trace = compositionTrace, trace.isCompositionSelected {
@@ -246,6 +274,7 @@ final class SceneMainPassEncoder {
 #endif
         activeEncoder = encoder
         activeDepthTexture = depthTexture
+        if multisampleAttachments == nil && depthTexture != nil { openedSingleSampleDepth = true }
         initialLoadAction = nil
         return encoder
     }

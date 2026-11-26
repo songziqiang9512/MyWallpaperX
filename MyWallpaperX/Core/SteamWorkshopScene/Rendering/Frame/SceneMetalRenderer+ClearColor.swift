@@ -42,7 +42,7 @@ extension SceneMetalRenderer {
     }
 
     func mainLayersAllowMultisampling(
-        _ orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>,
+        _ orderedLayers: some Collection<SceneRenderDescriptor.Layer>, visible: Set<Int>,
         allowsOrdinaryLayer: (SceneRenderDescriptor.Layer) -> Bool
     ) -> Bool {
         for layer in orderedLayers where visible.contains(layer.id) {
