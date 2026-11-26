@@ -94,11 +94,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 169264
+      "bytes": 170943
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 145363
+      "bytes": 146051
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -692,24 +692,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "0e1c366468bda56c2fd8f907be5a91c058e8f19b6975f91292316519fc950653",
-      "after": "4aea851d1098668cfe1d74ac8c35c1286478ed2e62493034c193653d6149f4c1",
-      "owner": "Scene base images and quality settings",
-      "reason": "Specify and verify texture mip selection at actual ordinary and dynamic-model consumers.",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-texture-deferred-quality"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "5b863c21812661267bb6aed46de3e46be69b5e3c585ca1525c7e3b687bb90692",
-      "after": "dfdd5a8463c5aa9337cb84979bb9497c42d75b0993d94c966ed7b7cc6e8641c8",
-      "owner": "Scene base images and quality settings",
-      "reason": "Specify and verify texture mip selection at actual ordinary and dynamic-model consumers.",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-texture-deferred-quality"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "3f1583b95a7853c180b02ef7d0f88e673434626904fcd71711259c9bd4d18e84",
       "after": "ff2273cb11bb4794586ad30941b5286b68fd9f80c40047f76d0a1b8d67179544",
@@ -734,6 +716,24 @@
       "owner": "Scene particle and quality evidence owners",
       "reason": "Bind the retained merged evidence to the current particle HSV baseline.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-settings-plan.md",
+      "before": "4aea851d1098668cfe1d74ac8c35c1286478ed2e62493034c193653d6149f4c1",
+      "after": "49589add85ceadabbc365ac93c427b01b3d4499ff808c8ade79e15b72e762163",
+      "owner": "Scene main color and raster sampling",
+      "reason": "Record the M4 seed experiment and the phased change to the existing main encoder.",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-color-prefix"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "dfdd5a8463c5aa9337cb84979bb9497c42d75b0993d94c966ed7b7cc6e8641c8",
+      "after": "3bd947e524ad4f01c4285bca6184c5246927c3be684f39cede2da5aee03a84f8",
+      "owner": "Scene main color and raster sampling",
+      "reason": "Record the M4 seed experiment and the phased change to the existing main encoder.",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-color-prefix"
     }
   ]
 }
