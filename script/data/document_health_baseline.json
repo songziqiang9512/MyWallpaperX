@@ -166,7 +166,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 410122
+      "bytes": 410750
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -198,7 +198,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 57,
-      "bytes": 7596
+      "bytes": 7649
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -733,19 +733,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e720af2346be32c98ca68b1bfa7cbdf17e514752de98298ee7f6bcc856c0f4bf",
-      "after": "6989c1af3814333d9abfc34b07cc4745d33c0d38452ec4f82543263d2e1c815b",
-      "owner": "Scene composition and quality evidence",
-      "reason": "Preserve integrated author Godrays evidence and the existing quality evidence.",
+      "before": "6989c1af3814333d9abfc34b07cc4745d33c0d38452ec4f82543263d2e1c815b",
+      "after": "52596cd64106ce82ce6adfb225554578d6ce72bb6d7f0120c848fd8b3d95895d",
+      "owner": "Scene startup and quality evidence",
+      "reason": "Merge the first-surface prewarm measurement into the combined active runtime evidence.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "6b084590c4b357a73408c92bbf31d24c7658a53e272e89505868eb194ed17856",
-      "after": "624ff26cce861cb2428330a37d7b9dec61323c9bf057f6e15951e463929f6086",
-      "owner": "Scene composition and quality evidence",
-      "reason": "Preserve integrated author Godrays evidence and the existing quality evidence.",
+      "before": "624ff26cce861cb2428330a37d7b9dec61323c9bf057f6e15951e463929f6086",
+      "after": "83962074438454dc02459c98bfa0023ae8d4dab31fdc02672a4b79dfd0a0608d",
+      "owner": "Scene startup and quality evidence",
+      "reason": "Merge the first-surface prewarm measurement into the combined active runtime evidence.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
     }
   ]
