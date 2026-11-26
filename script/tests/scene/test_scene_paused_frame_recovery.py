@@ -138,6 +138,57 @@ CONTINUOUS_RATE_SCENARIO = r'''
         precondition(owner.sceneClock.isPaused && owner.frameTimer == nil && callbacks.count == 5)
         stopped(owner)
     }
+
+    static func particleRateTransition() {
+        let owner = SceneDesktopWallpaperSession()
+        let surface = owner.attach()
+        var samples: [(SceneFrameTiming, TimeInterval)] = []
+        owner.observingTiming = { samples.append(($0, $1)) }
+        owner.activeSimulationProbe = { .dropped }
+        let slow = AnimationFrameRate(rawValue: 10)!
+        let fast = AnimationFrameRate(rawValue: 60)!
+        owner.applyAnimationFrameRate(slow, displayLimit: 120)
+        owner.startFrameDriver()
+        let first = samples[0].0.hostTime
+        TransportTime.now = first + 0.08
+        owner.applyAnimationFrameRate(fast, displayLimit: 120)
+        surface.metalView.submissions.blocked = true
+        precondition(RunLoop.main.fireNext() && samples.count == 1)
+        TransportTime.now += 0.005
+        surface.metalView.submissions.complete()
+        precondition(samples.count == 2)
+        let step = 1.0 / 60
+        let transition = samples[1]
+        precondition(abs(transition.0.rawFrameTime - (0.085 + step)) < 1e-8)
+        precondition(transition.0.simulationFrameTime == transition.0.rawFrameTime)
+        precondition(abs(transition.1 - 0.1) < 1e-8, "old in-flight period was dropped")
+        let second = transition.0.hostTime
+        TransportTime.now = second + 0.06
+        precondition(RunLoop.main.fireNext() && samples.count == 3)
+        precondition(samples[2].0.rawFrameTime > 2 * step && abs(samples[2].1 - step) < 1e-8,
+                     "one-time budget survived a consumed, unpresented frame")
+        let third = samples[2].0.hostTime
+        TransportTime.now = third + 0.005
+        owner.applyAnimationFrameRate(slow, displayLimit: 120)
+        TransportTime.now = third + 0.045
+        owner.applyAnimationFrameRate(fast, displayLimit: 24)
+        TransportTime.now = third + 0.07
+        owner.applyAnimationFrameRate(fast, displayLimit: 120)
+        precondition(RunLoop.main.fireNext() && samples.count == 4)
+        precondition(samples[3].0.rawFrameTime > 2 * step && abs(samples[3].1 - 0.1) < 1e-8)
+        owner.applyAnimationFrameRate(slow, displayLimit: 120)
+        owner.applyAnimationFrameRate(fast, displayLimit: 120)
+        owner.setPlaybackPaused(true)
+        stopped(owner)
+        TransportTime.now += 1
+        owner.setPlaybackPaused(false)
+        precondition(samples.count == 5 && samples[4].0.rawFrameTime == 0)
+        TransportTime.now += 0.06
+        precondition(RunLoop.main.fireNext() && samples.count == 6)
+        precondition(samples[5].0.rawFrameTime > 2 * step && abs(samples[5].1 - step) < 1e-8)
+        owner.setPlaybackPaused(true)
+        stopped(owner)
+    }
 '''
 
 
@@ -163,6 +214,9 @@ def production_harness(sources=None):
     frame = method(driver, "private func renderFrame()")
     frame = frame[:frame.index("        promotePendingDeferredLayerVisibilityIfReady()")]
     frame += ('        guard let activeSimulationProbe else { fatalError("ordinary simulation entered during paused recovery") }\n'
+              '        let (timing, particleInterval) = advanceFrameTiming(\n'
+              '            hostTime: CACurrentMediaTime(), wallDate: Date())\n'
+              '        observingTiming?(timing, particleInterval)\n'
               '        return activeSimulationProbe()\n    }')
     # Surface identity and retry cancellation belong to this production prefix;
     # the later cursor/audio/VM context disposal is outside this transport test.
@@ -174,7 +228,7 @@ def production_harness(sources=None):
         method(driver, "private var sceneBusyFrameRetryInterval:").replace("private var", "var"),
         *(method(driver, signature) for signature in [
             "func startFrameDriver(", "func retuneFrameDriver(", "func scheduleFrameDriver(",
-            "private func armFrameDriver(", "private func waitForFrameAdmission(",
+            "private func armFrameDriver(", "private func waitForFrameAdmission(", "private func advanceFrameTiming(",
         ]),
         *(method(submission, signature) for signature in [
             "func renderSurfaces(", "var awaitsInitialPresentation:",
@@ -269,6 +323,9 @@ class ScenePausedFrameRecoveryTests(unittest.TestCase):
 
     def test_continuous_rate_retunes_existing_timer_and_skips_expired_slots(self):
         self.run_scenario("continuousRate")
+
+    def test_live_rate_transition_keeps_the_old_particle_interval_once(self):
+        self.run_scenario("particleRateTransition")
 
     def test_old_candidate_failure_preserves_new_success(self):
         self.run_scenario("oldCandidate")

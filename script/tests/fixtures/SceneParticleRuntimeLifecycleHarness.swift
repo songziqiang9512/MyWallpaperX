@@ -271,6 +271,15 @@ extension Harness {
         _ = stalled.advance(by: 0.1, renderFrameInterval: 0.1)
         advanceDense(stallReference, steps: 6)
 
+        let transition = make(), transitionReference = make()
+        let transitionDelta = 0.085 + step
+        _ = transition.advance(by: transitionDelta, renderFrameInterval: 0.1)
+        advanceDense(transitionReference, steps: 6)
+        _ = transitionReference.advance(by: transitionDelta - 6 * step)
+        let transitionContinues = matches(transition, dense: transitionReference, steps: 6)
+        _ = transition.advance(by: 0.06, renderFrameInterval: step)
+        advanceDense(transitionReference, steps: 2)
+
         let unspecified = make(), twoSteps = make()
         _ = unspecified.advance(by: 0.25)
         advanceDense(twoSteps, steps: 2)
@@ -278,6 +287,8 @@ extension Harness {
             "tenFPSAdvancesSixFixedSteps": matches(tenFPS, dense: sixSteps, steps: 6),
             "twentyFourFPSRetainsFractionalStepRemainder": matches(twentyFourFPS, dense: sixtySteps, steps: 60),
             "tenFPSStallBoundedAndDebtDropped": stallBounded && matches(stalled, dense: stallReference, steps: 13),
+            "transitionPreservesFixedStepStateAndFastStallBound": transitionContinues
+                && matches(transition, dense: transitionReference, steps: 8),
             "unspecifiedCadenceKeepsTwoStepBound": matches(unspecified, dense: twoSteps, steps: 2),
         ]
     }

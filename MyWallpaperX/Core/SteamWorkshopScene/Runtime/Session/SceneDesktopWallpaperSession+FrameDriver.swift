@@ -164,6 +164,14 @@ extension SceneDesktopWallpaperSession {
         }
         return true
     }
+    private func advanceFrameTiming(hostTime: TimeInterval, wallDate: Date)
+        -> (SceneFrameTiming, particleInterval: TimeInterval) {
+        let timing = sceneClock.advance(hostTime: hostTime, wallDate: wallDate)
+        // The elapsed sample may include time under a slower, superseded rate.
+        let particleInterval = max(sceneFrameInterval, pendingParticleFrameInterval)
+        pendingParticleFrameInterval = 0
+        return (timing, particleInterval)
+    }
     private func renderFrame() -> SceneFrameDriverAttempt {
         // Preparing the paused first frame can admit new media providers. They
         // must inherit the pause even when the scene clock was already frozen.
@@ -204,10 +212,8 @@ extension SceneDesktopWallpaperSession {
 #else
         let wallDate = Date()
 #endif
-        let advancedTiming = sceneClock.advance(
-            hostTime: CACurrentMediaTime(),
-            wallDate: wallDate
-        )
+        let (advancedTiming, renderFrameInterval) = advanceFrameTiming(
+            hostTime: CACurrentMediaTime(), wallDate: wallDate)
 #if DEBUG
         let timing: SceneFrameTiming
         if let sceneTime = Self.debugSceneTimeOverride {
@@ -904,7 +910,6 @@ extension SceneDesktopWallpaperSession {
         }
         let spriteTimes = launchContext.textureAnimationPlaybackRuntime.playbackTimes(
             layerIDs: spriteLayerIDs, sceneTime: timing.sceneTime)
-        let renderFrameInterval = sceneFrameInterval
         for (displayID, surface) in surfaces {
 #if DEBUG
             logDebugDynamicLayerVisibilityIfChanged(

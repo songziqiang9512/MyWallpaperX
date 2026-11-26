@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 64,
-      "bytes": 20747
+      "bytes": 20976
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -74,11 +74,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 153021
+      "bytes": 153593
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 138764
+      "bytes": 139071
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -94,7 +94,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 292,
-      "bytes": 59672
+      "bytes": 59867
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -138,7 +138,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 328713
+      "bytes": 329658
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -369,20 +369,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "faaa28b23610b78386410c5549724ae728db8defc33561900719ef5027c3b55f",
-      "after": "59f15193e62e616d7c63d5738bf9ae06bbb67bdcf2ca1b5ad91c269eae2eb031",
+      "before": "59f15193e62e616d7c63d5738bf9ae06bbb67bdcf2ca1b5ad91c269eae2eb031",
+      "after": "02b91afbe07c1220a346b2140f231dff7009ce300149d77efa0768e1c0a660cb",
       "owner": "scene-runtime",
-      "reason": "反射供货、资源优先级及原持久颜色",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-quality"
+      "reason": "帧计时和粒子固定步进的热切职责",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-particle-rate-transition"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "eef5d21286bf671a9c7ce6b347fcffd44c40d07f8b12b74c44bbf233026d511f",
-      "after": "89cfd7490d0b39c2018e7849a33b19aff96981e0b8ce29ae13dc6a20653c5b3b",
+      "before": "89cfd7490d0b39c2018e7849a33b19aff96981e0b8ce29ae13dc6a20653c5b3b",
+      "after": "a63c96933a1d6a422bff0840069e035036a8bce7e23d14d1c5f08323ce9847af",
       "owner": "scene-runtime",
-      "reason": "反射关档黑纹理的 typed publication 入口",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-quality"
+      "reason": "粒子帧率热切消费的原 Session 与 Surface",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-particle-rate-transition"
     },
     {
       "section": "bodies",
@@ -603,11 +603,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "22ac78fe9b56a3862d1b080e3b3d1a7cc0d5a035d3510c751c38128c71e1192e",
-      "after": "6c1fbe8f16cf61133e42f0708c7e52277610430d84df936cdeef1d043e9de896",
+      "before": "6c1fbe8f16cf61133e42f0708c7e52277610430d84df936cdeef1d043e9de896",
+      "after": "fa391ce3a303344f2de868358eb31f97bae1805fe5c6d06be61e12b001baba28",
       "owner": "scene-runtime",
-      "reason": "签名 M4 反射关档、LOD alpha、HDR 持久 raw 及真实邻例",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-quality"
+      "reason": "M4 10→60 FPS 单粒子实窗及原作者轨迹",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-particle-rate-transition"
     },
     {
       "section": "bodies",
@@ -675,11 +675,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "96ce8e387056819430b489c071cc791a7fe7d63736f1d91c869c19d5949b79e6",
-      "after": "80a2e531dce58323d7ebd1f3f23b0d5f4d4ad8a253a212d8f89b8f2e79940864",
+      "before": "80a2e531dce58323d7ebd1f3f23b0d5f4d4ad8a253a212d8f89b8f2e79940864",
+      "after": "6a5681c45ea7168a59390ff48b9ec936d837cbd9b1b4844c9214b4a552d9d5f0",
       "owner": "scene-runtime",
-      "reason": "关档作者环境不透明黑、原池预算及实际验收",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-quality"
+      "reason": "Scene 热升帧率时在途周期及同帧消费",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-particle-rate-transition"
     },
     {
       "section": "bodies",
@@ -702,11 +702,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "66a7d5a232fa00f1741ed02567f69fc4c0b0ca4748672216f2f9bda08954cb20",
-      "after": "5a0223e136f966799aefeceb3e0fc801589cbe6b1e6b40be7d608cb5c9f16b8a",
+      "before": "5a0223e136f966799aefeceb3e0fc801589cbe6b1e6b40be7d608cb5c9f16b8a",
+      "after": "d6ab1d9abf8c76a02da6a2761b846267a1b015d9fc3778d95dd33a650a81d736",
       "owner": "scene-runtime",
-      "reason": "官方反射语义适配及受控、作者邻例验收",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-quality"
+      "reason": "Scene 粒子调档的画面回归门和独立作者",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-particle-rate-transition"
     },
     {
       "section": "bodies",

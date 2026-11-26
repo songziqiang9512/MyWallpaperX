@@ -241,6 +241,7 @@ final class SceneDesktopWallpaperSession {
     }
     var sceneClock = SceneClock(hostTime: 0)
     var activeSimulationProbe: (() -> SceneFrameDriverAttempt)?
+    var observingTiming: ((SceneFrameTiming, TimeInterval) -> Void)?
     var launchContext: Int? = 1
     var dynamicTextTextures: SceneDynamicTextTextureStore? = .init()
     var mediaThumbnailTextures: SceneMediaThumbnailTextureStore? = .init()
@@ -261,6 +262,7 @@ final class SceneDesktopWallpaperSession {
     var initialPresentationCohort = SceneInitialPresentationCohort()
     var frameTimer: Timer?
     var frameDriverDeadline: CFTimeInterval?
+    var pendingParticleFrameInterval: TimeInterval = 0
     var pausedFrameRetryDeadline: CFTimeInterval?
     var onFirstFrameCompletion: ((CGDirectDisplayID, Bool) -> Void)?
     var videoTextureSourceRegistry: VideoProviders?
@@ -963,6 +965,7 @@ final class SceneDesktopWallpaperSession {
         case "busyExpiry": synchronousExpiry(.deferred)
         case "activeAdmissionWake", "activeAdmissionTimeout", "activeAdmissionMixed": activeAdmission(scenario)
         case "continuousRate": continuousRate()
+        case "particleRateTransition": particleRateTransition()
         case "oldCandidate": oldCandidate()
         case "replacedSurface": replacedSurface()
         case "teardown": teardown()

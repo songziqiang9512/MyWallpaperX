@@ -86,6 +86,7 @@ final class SceneDesktopWallpaperSession {
     var globalPointerEventMonitor: Any?
     var frameTimer: Timer?
     var frameDriverDeadline: CFTimeInterval?
+    var pendingParticleFrameInterval: TimeInterval = 0
     var pausedFrameRetryDeadline: CFTimeInterval?
     var screenReconciliationWorkItem: DispatchWorkItem?
     var screenTopology: [SceneScreenTopology] = []
@@ -150,7 +151,12 @@ final class SceneDesktopWallpaperSession {
         let previousFPS = effectiveAnimationFPS
         animationFrameRate = frameRate
         displayCadenceLimit = displayLimit
-        if effectiveAnimationFPS != previousFPS { retuneFrameDriver() }
+        let nextFPS = effectiveAnimationFPS
+        guard nextFPS != previousFPS else { return }
+        if nextFPS > previousFPS, frameTimer != nil, !sceneClock.isPaused {
+            pendingParticleFrameInterval = max(pendingParticleFrameInterval, 1 / previousFPS)
+        }
+        retuneFrameDriver()
     }
 
     func applyScenePostProcessing(_ mode: ScenePostProcessingMode) {

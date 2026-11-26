@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "59f25584d36369ccdddd67a400ea511bb47c049cf2809bffbcfa15ddfc4531fb",
+        "sourceSHA256": "d0c7e00014610ff0df6d790de99563ca303ac1ee6509682dd69829e2d4b27fee",
         "method": "document_registry --audit + document_health --check",
-        "scope": "反射关档黑纹理的 typed publication 入口",
-        "limitations": "只复核反射 owner 与源码导航。"
+        "scope": "粒子帧率热切消费的原 Session 与 Surface",
+        "limitations": "只复核可执行的帧率链路。"
       }
     },
     {
@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d55168b8bf0feb073018fe83b4480b89441054151e6baef0c94da25e209c1a0a",
+        "sourceSHA256": "3f354b8217b0d45e99beb0802817b42bc9648c9fe717d80458cc9f2aff26af88",
         "method": "document_registry --audit + document_health --check",
-        "scope": "关档作者环境不透明黑、原池预算及实际验收",
-        "limitations": "固定官版具名窗及 M4 签名 App，不授其它目标、显示或功耗资格。"
+        "scope": "Scene 热升帧率时在途周期及同帧消费",
+        "limitations": "本机热切验证所得，不授官版热改与整机能耗资格。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "144b0102c03e8608293da7176e6cdede8206e5ad3f9f8d161f3955975909ac9e",
+        "sourceSHA256": "456ed2506932cfb3791c7aca20003e8d71c591386d26e6aee59b2f2e68dc1d26",
         "method": "document_registry --audit + document_health --check",
-        "scope": "官方反射语义适配及受控、作者邻例验收",
-        "limitations": "只复核反射执行段。"
+        "scope": "Scene 粒子调档的画面回归门和独立作者",
+        "limitations": "只复核本批帧率实施段。"
       }
     },
     {
@@ -871,10 +871,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9e70cf9f2cf5670dd009153cd81c5372b9fe99f200f60006b5861dc5cb6601cb",
+        "sourceSHA256": "cac594b9de453ea34e7c7da371471f07b90eb277dc84305a44abf1e0e56c6439",
         "method": "document_registry --audit + document_health --check",
-        "scope": "反射供货、资源优先级及原持久颜色",
-        "limitations": "只复核场景反射运行合同。"
+        "scope": "帧计时和粒子固定步进的热切职责",
+        "limitations": "只复核热切周期与原生命周期。"
       }
     },
     {
@@ -1003,10 +1003,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "41e5b5aff59d0da5411ca335a75bb916b35691525ba8a8c87d44dd8c4274b08e",
+        "sourceSHA256": "c2597462a1541dab27548b536c918e461e26b25f3e5c9817fe290e2e64d7aa09",
         "method": "document_registry --audit + document_health --check",
-        "scope": "签名 M4 反射关档、LOD alpha、HDR 持久 raw 及真实邻例",
-        "limitations": "实窗与本机工作计数，未量整机能耗。"
+        "scope": "M4 10→60 FPS 单粒子实窗及原作者轨迹",
+        "limitations": "签名诊断一屏及当次时序。"
       }
     },
     {
