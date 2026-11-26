@@ -630,20 +630,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "307672ca09b0a372213dda58ee3c79ec8dccf362ffd7fb3ad2e564f503020070",
+      "before": "07b0018996e0ce5b5d2c12c1e5d445c8c31f0cced8ad6150bd1f3c5d289bcaa2",
       "after": "8ba7954e60fc26951f61514257324090eb4b19390edb6271c802a1ada97d2ce3",
       "owner": "Scene Composition",
-      "reason": "将主分支已验证的前置合成输出行为与画质分支正文合并。",
+      "reason": "核对主父提交与合并后正文的准确预算。",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "c741dd51d20a2eb8e2b8876e13be2af26c33d0160ba42dacfc7c574d3fd01d5b",
-      "after": "18090dda1ab00673307a53ec7056dca5e6b78d05a53959d492a405541b02f892",
-      "owner": "Scene 与三引擎画质",
-      "reason": "从主分支正文核对已合入的 Scene 合同和画质证据，保留双方工作及合并正文的实际预算。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+      "before": "ac3b4da03f511eeb67fb0566033f89bd364619ee4f07dd9d2cfb6b8896fc25f4",
+      "after": "9b75e557f70bbd0dc4db5944d448e40a9c136009fac7b31f3f2bc369a065ef8a",
+      "owner": "Scene Composition",
+      "reason": "核对主父提交与合并后正文的准确预算。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
     },
     {
       "section": "bodies",
