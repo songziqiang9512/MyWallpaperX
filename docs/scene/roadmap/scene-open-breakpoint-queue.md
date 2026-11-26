@@ -23,7 +23,6 @@
 | 3673609113 | 人偶运动和音条抖动时出现上一帧残影 | [旧残影归因](../capabilities/runtime-evidence-current.md#author-motion-history-367)覆盖飘带。新对照固定人偶和音条各自的高运动 ROI，比较历史源清除、当前帧及官版连续图。 |
 | 3187857248 | 仍有时拖不动 | 沿[拖动证据](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318)匹配两端当前骨位置，重复真实按下、拖动和释放，记录命中归属。 |
 | 3586705329 | 拼贴有竖状拉伸，随镜头大小变化 | 沿[已登记的拼贴层](../capabilities/runtime-evidence-current.md#author-collage-edge-358)固定两档作者镜头缩放和同一竖区，对照局部工作栅格、采样边与后继视口。 |
-| 3337494481 | 文字和封面可透过模型 | 沿[盒体深度对照](../capabilities/runtime-evidence-current.md#author-box-text-occlusion-333)固定真实封面、同角度及前后深度，分别核文字、媒体图像的终端深度和顺序。 |
 
 <a id="implementation-gaps"></a>
 ## 独立实测的开放断点

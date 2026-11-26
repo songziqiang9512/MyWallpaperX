@@ -172,8 +172,7 @@ struct SceneImageLayerPipeline {
         if renderState.supportsImageNormalDepth, let mode = Self.depthMode(for: renderState) {
             return normalDepthMaterialState != nil && depthBindings[mode] != nil
         }
-        guard supportsTranslucentMaterialState, renderState.blending == .translucent,
-              renderState.alphaWriting == .unspecified else { return false }
+        guard supportsTranslucentMaterialState, renderState.supportsImageTranslucent else { return false }
         guard let mode = Self.depthMode(for: renderState) else { return true }
         return depthBindings[mode] != nil
     }

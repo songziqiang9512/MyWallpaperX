@@ -410,7 +410,7 @@ nonisolated struct SceneRenderDescriptorBuilder {
             facts[identity] = (
                 state.flatMap {
                     if normalDepth { return $0 }
-                    if $0.blending == .translucent, $0.alphaWriting == .unspecified {
+                    if $0.supportsImageTranslucent {
                         return $0.withoutDepthWrite
                     }
                     return additiveImage && $0.supportsImageAdditiveRGB ? $0 : nil
