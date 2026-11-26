@@ -162,7 +162,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 394820
+      "bytes": 394919
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -193,8 +193,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 61,
-      "bytes": 8052
+      "lines": 60,
+      "bytes": 7812
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -639,11 +639,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "efe2fd2380d3f426fabca6d06f0bd9184b610e65ee472403875f3c3033a8e110",
-      "after": "6ef007d6d7b0dd7bb2c3b111930df346ae800e198dd08597e2928ab13875f342",
-      "owner": "Scene Composition",
-      "reason": "核对主父提交与透明前向合成合并后正文的准确预算。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
+      "before": "6ef007d6d7b0dd7bb2c3b111930df346ae800e198dd08597e2928ab13875f342",
+      "after": "e81ae75a49a2c92f973ad87731cc910d3f7790f19eab8fe2bde987e3a77b0887",
+      "owner": "Scene authored video order",
+      "reason": "按合并后的作者视频层序证据正文核对预算。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-clock-video-order-337"
     },
     {
       "section": "bodies",
