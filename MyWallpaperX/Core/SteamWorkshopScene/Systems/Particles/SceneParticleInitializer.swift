@@ -79,58 +79,42 @@ nonisolated enum SceneParticleEventValueContext: Equatable, Sendable {
     }
 }
 
-nonisolated struct SceneParticleHSVColor: Equatable, Sendable {
-    let hueMinimum: Double?
-    let hueMaximum: Double?
-    let hueSteps: Int?
-    let saturationMinimum: Double?
-    let saturationMaximum: Double?
-    let valueMinimum: Double?
-    let valueMaximum: Double?
-    let hasMalformedFields: Bool
-    let unsupportedFieldNames: [String]
-
-    nonisolated init(root: [String: Any]) {
-        func number(_ key: String) -> Double? {
-            guard let value = root[key] as? NSNumber,
-                  CFGetTypeID(value) != CFBooleanGetTypeID() else { return nil }
-            return value.doubleValue
-        }
-        func integer(_ key: String) -> Int? {
-            guard let value = number(key), value.isFinite else { return nil }
-            return Int(exactly: value)
-        }
-        hueMinimum = number("huemin")
-        hueMaximum = number("huemax")
-        hueSteps = integer("huesteps")
-        saturationMinimum = number("saturationmin")
-        saturationMaximum = number("saturationmax")
-        valueMinimum = number("valuemin")
-        valueMaximum = number("valuemax")
-
-        let supported = Set([
-            "id", "name", "huemin", "huemax", "huesteps",
-            "saturationmin", "saturationmax", "valuemin", "valuemax",
-        ])
-        unsupportedFieldNames = root.keys.filter { !supported.contains($0) }.sorted()
-        let parsed: [String: Any?] = [
-            "huemin": hueMinimum, "huemax": hueMaximum, "huesteps": hueSteps,
-            "saturationmin": saturationMinimum, "saturationmax": saturationMaximum,
-            "valuemin": valueMinimum, "valuemax": valueMaximum,
-        ]
-        hasMalformedFields = parsed.contains { key, value in
-            guard let raw = root[key] else { return false }
-            guard let number = raw as? NSNumber else { return true }
-            return CFGetTypeID(number) == CFBooleanGetTypeID() || value == nil
-        }
-    }
-}
-
 nonisolated struct SceneParticleHSVColorPlan: Equatable, Sendable {
-    let hue: ClosedRange<Double>
-    let hueSteps: Int
+    let hueStart: Double
+    let hueStride: Double
+    let huePickCount: Double
     let saturation: ClosedRange<Double>
     let value: ClosedRange<Double>
+
+    init?(root: [String: Any]) {
+        func number(_ key: String, default fallback: Double) -> Double? {
+            guard let raw = root[key] else { return fallback }
+            guard let value = raw as? NSNumber, CFGetTypeID(value) != CFBooleanGetTypeID(),
+                  value.floatValue.isFinite else { return nil }
+            return value.doubleValue
+        }
+
+        guard let hueMinimum = number("huemin", default: 0),
+              let hueMaximum = number("huemax", default: 1),
+              let rawSteps = number("huesteps", default: 6), let hueSteps = Int(exactly: rawSteps),
+              let saturationMinimum = number("saturationmin", default: 0.5),
+              let saturationMaximum = number("saturationmax", default: 1),
+              let valueMinimum = number("valuemin", default: 0.5),
+              let valueMaximum = number("valuemax", default: 1) else { return nil }
+        let steps = Double(max(1, hueSteps))
+        let span = hueMaximum - hueMinimum
+        hueStart = hueMinimum
+        if steps == 1 {
+            hueStride = 0
+        } else if span == 0 {
+            hueStride = 1 / steps
+        } else {
+            hueStride = span / (abs(span) == 1 ? steps : steps - 1)
+        }
+        huePickCount = steps + 1
+        saturation = min(saturationMinimum, saturationMaximum) ... max(saturationMinimum, saturationMaximum)
+        value = min(valueMinimum, valueMaximum) ... max(valueMinimum, valueMaximum)
+    }
 }
 
 nonisolated struct SceneParticleTurbulentVelocity: Equatable, Sendable {
@@ -170,7 +154,7 @@ nonisolated struct SceneParticleInitializer: Equatable, Sendable {
     let minimum: SceneParticleNumericValue?
     let maximum: SceneParticleNumericValue?
     let exponent: Double?
-    let hsvColor: SceneParticleHSVColor?
+    let hsvColor: SceneParticleHSVColorPlan?
     let turbulentVelocity: SceneParticleTurbulentVelocity?
     let positionOffset: SceneParticlePositionOffset?
     let colors: [SceneParticleNumericValue]?
@@ -178,30 +162,6 @@ nonisolated struct SceneParticleInitializer: Equatable, Sendable {
 }
 
 extension SceneParticleInitializer {
-    nonisolated var boundedHSVColor: SceneParticleHSVColorPlan? {
-        guard case .hsvColor = kind, let value = hsvColor,
-              !value.hasMalformedFields, value.unsupportedFieldNames.isEmpty,
-              let hueMinimum = value.hueMinimum, let hueMaximum = value.hueMaximum,
-              let hueSteps = value.hueSteps,
-              let saturationMinimum = value.saturationMinimum,
-              let saturationMaximum = value.saturationMaximum,
-              let valueMinimum = value.valueMinimum, let valueMaximum = value.valueMaximum,
-              hueMinimum.isFinite, hueMaximum.isFinite,
-              saturationMinimum.isFinite, saturationMaximum.isFinite,
-              valueMinimum.isFinite, valueMaximum.isFinite,
-              (0 ... 1).contains(hueMinimum), (hueMinimum ... 1).contains(hueMaximum),
-              (1 ... 1_024).contains(hueSteps),
-              (0 ... 1).contains(saturationMinimum),
-              (saturationMinimum ... 1).contains(saturationMaximum),
-              (0 ... 1).contains(valueMinimum),
-              (valueMinimum ... 1).contains(valueMaximum) else { return nil }
-        return .init(
-            hue: hueMinimum ... hueMaximum, hueSteps: hueSteps,
-            saturation: saturationMinimum ... saturationMaximum,
-            value: valueMinimum ... valueMaximum
-        )
-    }
-
     nonisolated var boundedPositionOffset: SceneParticlePositionOffsetPlan? {
         guard case .positionOffset = kind, let value = positionOffset,
               !value.hasMalformedFields, value.unsupportedFieldNames.isEmpty,

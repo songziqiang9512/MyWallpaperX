@@ -84,6 +84,13 @@ Remap 和 Position Offset 保现有八角三维梯度噪声，格点求和及插
 <a id="hdr-instance-brightness"></a>
 `instanceoverride.brightness` 在场景装载时由 HDR 与 Bloom 同开选中，强度为0也有效。沿原 typed slider 和 Simulator 出生 writer 给直色乘有限标量，缺省或不可用取1。三类颜色均可乘，保零值、超白、alpha、后继 writer 与材质 `overbright`。热值只供有绑定的根实例，不传 child 模板。父事件颜色仍是实际出生值。禁用颜色覆盖沿原实现，官版 bit8、运行中切换 Bloom、脚本和动画供值待证。[运行对照](runtime-evidence-current.md#hdr-particle-instance-brightness)
 
+<a id="hsv-birth-color"></a>
+### HSV 出生色
+
+`hsvcolorrandom` 在定义入口直接准备色相起点、步距和采样区间。色相缺省 0…1，饱和度与值各缺省 0.5…1，步数缺省 6。步数不大于 1 时取色相起点；多步采样索引 0 到步数。相同色相端点以起点沿整圈步进，正反完整色环也按步数等分。其它区间以有符号端点差除以步数减一，最高采样可多走一步；负余角只输出该饱和值对应的无彩底色。饱和度和值各取两端之间的随机数，保留原始有限通道值交给现有出生结果与附件处理。无关字段不阻断，错型与不可表达端点局部退出。
+
+单个 HSV writer 沿原出生计划给粒子赋色。验收覆盖固定、完整、稀疏及反向区间、缺省饱和度和值、改名及实际作者成景。多颜色 writer 的组合仍有连乘差异，实例色的色相重基与版本叠乘也待实现。[运行证据](runtime-evidence-current.md#particle-hsv-birth-color-oracle)
+
 <a id="ordinary-particle-sdr-material-gain"></a>
 ### 普通粒子在归一化颜色附件的材质增亮
 

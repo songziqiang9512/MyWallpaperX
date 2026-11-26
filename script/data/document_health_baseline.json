@@ -121,8 +121,8 @@
       "bytes": 7411
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 421,
-      "bytes": 79922
+      "lines": 428,
+      "bytes": 80945
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 485,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 389826
+      "bytes": 390643
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 57,
-      "bytes": 7180
+      "bytes": 7302
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "92e7075bd5262d9b6be8dbd65f5d5f20c74d837f3a9b921002a31875f17fe71b",
-      "after": "a24c0a340e9d14f56b316b1af4a8022375a8b8cec8140762095dc9ac1ca5a898",
-      "owner": "Scene particle simulation",
-      "reason": "同步实时分组、容量和 Movement 的接线及同包可见结果。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
+      "before": "a24c0a340e9d14f56b316b1af4a8022375a8b8cec8140762095dc9ac1ca5a898",
+      "after": "c6e746924a512ee6dc601dcb922a7a249a54ad33c002be57ded269e03063a8f6",
+      "owner": "scene",
+      "reason": "添加同板验证的 HSV 单写入解析、色相与接受范围合同",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#hsv-birth-color"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0a7062727b7067e5de3d4e123024fe66b9506ca32f6aedbff790c30d9162da76",
-      "after": "0c7edf1c10887dba8908ce0c07ec7c54b24f4e90a87bf87de99676d2eb3d7c8e",
-      "owner": "Scene particle simulation",
-      "reason": "同步实时分组、容量和 Movement 的接线及同包可见结果。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
+      "before": "0c7edf1c10887dba8908ce0c07ec7c54b24f4e90a87bf87de99676d2eb3d7c8e",
+      "after": "39e50e5d981b696fa5f0ef097a0d0bd119c17a0e5c4119928493c44aff63d324",
+      "owner": "scene",
+      "reason": "替换旧 HSV 保白证据，记录实帧收益与剩余写入差异",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-hsv-birth-color-oracle"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a3c7e62c1b1a70e60ea31f28a31b0a65867d8cd25dea9686525e651d60a3c0f8",
-      "after": "2bf2d2fb3da2df9fa3ed2c6e8d62e83c88b5c505ad19ea8543b4203827ebe7eb",
-      "owner": "Scene particle simulation",
-      "reason": "把两个实测断点的下一步收窄到相位与阻尼时长。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
+      "before": "e091839decc7e93015e19e6111f9730916bbe869c8e35685c37e0ccf32faa3ae",
+      "after": "736dc49a40d757f869367e10c69085acfdf334eafd89a91d25e359fb06ba3ce1",
+      "owner": "scene",
+      "reason": "移除已修并收敛为已测的颜色写入组合差异",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
     },
     {
       "section": "bodies",
