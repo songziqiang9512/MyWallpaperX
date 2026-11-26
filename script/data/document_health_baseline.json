@@ -98,7 +98,7 @@
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 141782
+      "bytes": 142012
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -157,12 +157,12 @@
       "bytes": 78160
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 467,
-      "bytes": 92877
+      "lines": 474,
+      "bytes": 93961
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 599,
-      "bytes": 387758
+      "bytes": 388913
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -194,7 +194,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 64,
-      "bytes": 8824
+      "bytes": 8780
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -387,11 +387,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "96e35acfb2dd2e75a36b5fe8149620b86a9acfe3910b78f30a6ae12a1cef742f",
-      "after": "054e62eb6224311796533c29704e0c69917dec10b916bf9c3be425f6d49b5ca5",
-      "owner": "三引擎画质与 Scene 提交",
-      "reason": "同步实际采样数的投递、用户读数与本地化入口。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
+      "before": "42ed5f2ea24d816a8426b8dc937a59b02d9a53ce8574e6f8f36e509f06d6886b",
+      "after": "200372bd1a218f3d7b9e3b93d3d11a4d0d2c0c60c42eaa3f9d933cde556ac938",
+      "owner": "repository governance",
+      "reason": "Use the current test collection paths and repair the navigation after the script move.",
+      "decision": "docs/development/repository-workflow.md#并行与验证"
     },
     {
       "section": "bodies",
@@ -405,11 +405,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "3129e1d8ec2186675df643eb29e8018de84d23cc65b9722a597e7d7a6e95af3a",
+      "before": "aa654dc68242a363c3ac093b2da326052959c279e3fbc8fb6b6a139a6a25827e",
       "after": "8c8b1f7d01bd30b9a3b63c4e033381801c49f93aca56aa85ee09710bcf10efd1",
-      "owner": "Scene 与三引擎画质",
-      "reason": "合入主线已落库正文及其现行职责。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+      "owner": "Scene particle audio",
+      "reason": "Report steady-emitter use of the shared author bands.",
+      "decision": "docs/architecture/system-audio-spectrum-design.md"
     },
     {
       "section": "bodies",
@@ -513,8 +513,8 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "b3c9883c49d5016ecb01b24260abeff25405a861a6cbc8b64f5f1ceeca1076a8",
-      "after": "6ae04ea33db8de7685d9913f69e5f8cbd4fc1a764e2227c6271137675a671fb3",
+      "before": "6ae04ea33db8de7685d9913f69e5f8cbd4fc1a764e2227c6271137675a671fb3",
+      "after": "79613c8887a2c10b8949c91a470405be076f051100d6c50128b50c31911f21f7",
       "owner": "Scene 与三引擎画质",
       "reason": "合并画质与主线的执行合同及不同构建身份下的证据，保持单一现役入口。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
@@ -630,8 +630,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "9afac01530b6baccc2e0d4aba86dcc69f093720df666ce67a91eb6be2d92aa66",
-      "after": "899a8c8d15481209c70794c76dd5eb50b386e6f9dcbd20760cd743c8301e0bce",
+      "before": "899a8c8d15481209c70794c76dd5eb50b386e6f9dcbd20760cd743c8301e0bce",
+      "after": "307672ca09b0a372213dda58ee3c79ec8dccf362ffd7fb3ad2e564f503020070",
       "owner": "Scene 与三引擎画质",
       "reason": "合并画质与主线的执行合同及不同构建身份下的证据，保持单一现役入口。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
@@ -639,8 +639,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ecaf8f49568ef7ee0093c19f51ae1b1f3a3911b5cf4416e5cbc4b0aedfdf4c6e",
-      "after": "ce212bb0d0e9a426288e83a38caa51353aaea614b34d509c6943a7816483e57b",
+      "before": "ce212bb0d0e9a426288e83a38caa51353aaea614b34d509c6943a7816483e57b",
+      "after": "4597608db202497a09004c5aeee7b5f9c3b09c6f4cd852c54e63ff96ef9cd630",
       "owner": "Scene 与三引擎画质",
       "reason": "合并画质与主线的执行合同及不同构建身份下的证据，保持单一现役入口。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"

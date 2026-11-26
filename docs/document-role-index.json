@@ -377,7 +377,7 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "acfb725384321ddeedbe5969b6d06b30a9a1b1bce2080c0248432bcd80834ea9",
+        "sourceSHA256": "6e4062a79d99904f2852f632223a1a3dd691c2ad0eff5dfaa39333768cb87701",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
         "limitations": "导航复核，实际渲染证据仍绑定其原构建。"
@@ -1003,7 +1003,7 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "46556cc495fdff15fbcd8964a38121c9a84c778c3a142ea55ff5f7163243da3f",
+        "sourceSHA256": "9b1ec78e19a8a62b90ad1d863d8b36f80813e11e61701a14c5b8f3c048c83f8c",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
         "limitations": "导航复核，实际渲染证据仍绑定其原构建。"

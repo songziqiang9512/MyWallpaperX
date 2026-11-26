@@ -386,20 +386,16 @@ nonisolated enum SceneResolvedMaterialDirectUserBindingContract {
         "animation", "script", "scriptproperties",
     ]
 
-    static func matches(_ keys: [String]) -> Bool {
-        let keySet = Set(keys)
-        return keySet.count == keys.count
-            && requiredKeys.isSubset(of: keySet)
-            && keySet.isDisjoint(with: producerKeys)
-    }
-
     static func matches(
         dynamic: Template.DynamicUniform,
         fallback: Template.StaticUniformValue
     ) -> Bool {
-        dynamic.authoredBindingKeys == fallback.authoredBindingKeys
-            && matches(dynamic.authoredBindingKeys)
-            && matches(fallback.authoredBindingKeys)
+        let keys = dynamic.authoredBindingKeys
+        guard keys == fallback.authoredBindingKeys else { return false }
+        let keySet = Set(keys)
+        return keySet.count == keys.count
+            && requiredKeys.isSubset(of: keySet)
+            && keySet.isDisjoint(with: producerKeys)
     }
 }
 

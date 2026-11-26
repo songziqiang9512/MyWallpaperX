@@ -593,7 +593,10 @@ nonisolated struct ScenePuppetAnimationEvaluator {
             preparedAnimations[clip.animation.id] = .success(try Self.prepare(animation: clip.animation, rig: rig))
         }
         if selection.clips.contains(where: {
-            ((try? preparedAnimations[$0.animation.id]?.get().referenceBoneCount) ?? 0) > 0
+            guard case let .success(prepared) = preparedAnimations[$0.animation.id] else {
+                return false
+            }
+            return prepared.referenceBoneCount > 0
         }), selection.clips.reduce(0, { $0 + ($1.layer.additive == false ? 1 : 0) }) > 1 {
             throw ScenePuppetAnimationEvaluationFailure.unsupportedReferenceComposition
         }

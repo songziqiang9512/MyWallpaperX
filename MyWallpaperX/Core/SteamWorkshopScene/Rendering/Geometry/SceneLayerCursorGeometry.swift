@@ -173,36 +173,28 @@ nonisolated enum SceneLayerCursorGeometry {
         return inverse
     }
 
-    /// Converts clip coordinates into the effect-texture coordinate convention
-    /// consumed by authored projection uniforms. Authored shaders first map a
-    /// screen pointer into clip space and then multiply the projected result by
-    /// 0.5, so the inverse must produce `2 * layerLocal` rather than the
-    /// `layerLocal` returned by a bare output-MVP inverse. The authored shader
-    /// owns any later centered-local-to-UV conversion; adding a translation here
-    /// would double that conversion for cursor ripple and move X-Ray to an edge.
-    ///
-    /// Identity is supplied only when the admitted execution graph has proven
-    /// that no effect projection uniform is read.
+    /// In effect coordinates, clip Z=0 is at the output geometry's origin
+    /// depth. DepthParallax and similar effects also read the direction basis.
     static func effectTextureProjectionInverse(
         inverseModelViewProjection: simd_double4x4?,
+        projectedOrigin: SIMD4<Float>,
         required: Bool
     ) -> simd_float4x4? {
         guard required else { return matrix_identity_float4x4 }
-        guard let inverseModelViewProjection,
-              let inverse = floatInverseModelViewProjection(inverseModelViewProjection) else {
-            return nil
-        }
-        let centeredLocalToEffectTexture = simd_float4x4(
-            SIMD4(2, 0, 0, 0),
-            SIMD4(0, 2, 0, 0),
-            SIMD4(0, 0, 1, 0),
-            SIMD4(0, 0, 0, 1)
-        )
-        let projection = centeredLocalToEffectTexture * inverse
-        for column in 0..<4 {
-            for row in 0..<4 where !projection[column][row].isFinite { return nil }
-        }
-        return projection
+        guard let inverseModelViewProjection else { return nil }
+        let (x, y, depth, translation) = inverseModelViewProjection.columns
+        let origin = SIMD4<Double>(projectedOrigin)
+        // Inverse times projected origin is (0,0,0,1). Use that identity
+        // to shift clip depth without subtracting nearly equal depth terms.
+        let relativeTranslation = origin.w == 0 ? translation
+            : (SIMD4(0, 0, 0, 1) - x * origin.x - y * origin.y) / origin.w
+        let scale = SIMD4<Double>(2, 2, 1, 1)
+        return floatInverseModelViewProjection(simd_double4x4(columns: (
+            x * scale,
+            y * scale,
+            depth * scale,
+            relativeTranslation * scale
+        )))
     }
 
     private static func localPoint(

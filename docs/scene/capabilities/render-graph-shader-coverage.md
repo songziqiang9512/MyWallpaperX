@@ -340,6 +340,13 @@ Geometry 的 primary named 输入表示 provider 自身的 authored-local 色图
 
 用两侧不同的主画布核越界采样经作者 Program 又回到可见区，保改名、过滤、常规来源、组和透视邻例。原包以同 zoom、固定 Scroll 和 off 的实际末端区分左缘回卷、右缘延伸及完整作者画布预测。
 
+<a id="effect-texture-plane-projection"></a>
+### 效果纹理的投影深度
+
+效果纹理的逆投影由当前输出 MVP 和其一次 Double 逆矩阵准备。本机效果坐标以输出几何原点的裁剪深度为零，XY 沿用居中坐标的二倍。除 W、半幅和到 UV 的平移与翻转由作者 shader 处理。只调整平移列，将绝对裁剪深度改成相对输出原点，保原三列方向基和正反矩阵 ABI。旧透视方案从近裁剪面取点，遮罩几乎不动。沿已有 CPU 指针入口继续用原逆矩阵作射线与局部平面相交。
+
+斜置景深视差读取逆矩阵的方向基。让所有 Z=0 像素直接落在同一张倾斜纹理面会改变这个方向，在 3695791724 派生图上造成与官版不符的近水平移动。效果 projection 和 CPU 射线消费各自定义的深度，继续复用同一输出几何与一次逆矩阵。同包正对 X-Ray 和斜置景深视差已有实帧对照。斜置 X-Ray 已恢复跟随，精确放置仍待核对。[运行证据](runtime-evidence-current.md#xray-perspective-pointer-294)。
+
 <a id="named-source-execution-cuts"></a>
 ### Named 来源的执行截点设计
 

@@ -52,7 +52,11 @@ class SceneStaticModelRenderingTests(unittest.TestCase):
         self.assertIn("entry.material.resolvingDynamicValues(", model_stage)
         self.assertIn(").resolvingDynamicViewTintBack(", model_stage)
         self.assertIn("material: draw.material", model_stage)
-        self.assertIn("cameraPosition: cameraFrame.perspectiveEyePosition", model_stage)
+        self.assertRegex(
+            model_stage,
+            r"cameraPosition: draw\.material\.legacyLighting == nil\s*"
+            r"\? cameraFrame\.perspectiveEyePosition : cameraFrame\.legacyModelEyePosition,",
+        )
         self.assertIn("let frameLightSnapshot = SceneLightSnapshot.make(", renderer)
         self.assertIn("layersByID: frameLayersByID", renderer)
         self.assertIn("worldFramesByLayerID: frameWorldFrames", renderer)
