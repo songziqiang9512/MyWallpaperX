@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 150,
-      "bytes": 27210
+      "bytes": 27958
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -102,7 +102,7 @@
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 156623
+      "bytes": 158474
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -679,11 +679,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "01cec9fda26c33131b9467327385ca2dffded38d2a2c9da649e84d57bf8be99d",
-      "after": "ce0d5897e88e42358a63be2f1a6d3b2ee5560722caccd3bc82c525cd9a1874f2",
+      "before": "ce0d5897e88e42358a63be2f1a6d3b2ee5560722caccd3bc82c525cd9a1874f2",
+      "after": "82908b56b9070b7bf3ecb3cb86c659361d9969d4c89f405a2f442794416b5570",
       "owner": "runtime quality contract",
-      "reason": "约定提档后独立目标的资源优先级和可观察验收。",
-      "decision": "docs/architecture/wallpaper-quality-execution-contract.md#quality-combination-checks"
+      "reason": "明确纹理选级原因、实际绑定确认与逐屏生命周期。",
+      "decision": "docs/architecture/wallpaper-quality-execution-contract.md#quality-textures"
     },
     {
       "section": "bodies",
@@ -733,11 +733,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "6cf29caf6104af268c16cad089ce3efcf74ab7463118d6214b2f8ea0d98191da",
-      "after": "c9b81013fdd56853efd8a8d589428f4750110dbdeebe6071d3f07faaaa4d1ae9",
+      "before": "c9b81013fdd56853efd8a8d589428f4750110dbdeebe6071d3f07faaaa4d1ae9",
+      "after": "1e4a514a8265c37b1c00f103a97c24658419d6253fd4424de8a43f5903815308",
       "owner": "Scene quality rendering",
-      "reason": "登记签名原设置体积切换、实际回执和画面证据。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-volume-frame-readout"
+      "reason": "登记三档原窗口纹理与点光体积组合实测，给出实际回显与二维覆盖下一批范围。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-texture-rollout"
     },
     {
       "section": "bodies",

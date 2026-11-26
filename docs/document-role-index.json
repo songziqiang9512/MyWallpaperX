@@ -192,9 +192,9 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2439f23ba343b682d11e2e1b9789be2818e25d71463fafaa14d13d568cecc58c",
+        "sourceSHA256": "413cc8ce67bce00c87166fc30599aa48345a661266ec9fedd3f925a5ab1f34f7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对用户请求、实际档反馈与独立画质设置在冷池压力下的画面合同。",
+        "scope": "明确纹理选级原因、实际绑定确认与逐屏生命周期。",
         "limitations": "画面和持续呈现的证据边界见现役工作卡。"
       }
     },
@@ -392,9 +392,9 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8121231bf4c24352c3c47c667c2805c156afc956135ffbfd2fb0f4d42ea937fb",
+        "sourceSHA256": "c46baa600e990d3e76a0fce4109010b888bbefc63d5d5a7ba2ab9b0bb2336aea",
         "method": "document_registry --audit + document_health --check",
-        "scope": "登记签名原设置体积切换、实际回执和画面证据。",
+        "scope": "登记三档原窗口纹理与点光体积组合实测，给出实际回显与二维覆盖下一批范围。",
         "limitations": "画面和持续呈现的证据边界见现役工作卡。"
       }
     },
