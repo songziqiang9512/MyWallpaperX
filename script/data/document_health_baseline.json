@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 406316
+      "bytes": 406822
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 54,
-      "bytes": 7105
+      "bytes": 7078
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -658,11 +658,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "54722e4bd8079da2e3ea53bc24a9eacaa0b74d70afd5ed6b1a1e4018806df167",
-      "after": "3650e174f79ae580423d3f7ad76fb047d50548a6f5431f7f8cc853f55e5dfb34",
-      "owner": "Scene particle simulation",
-      "reason": "同步步进寿命数组的就地填充合同、实际交错首帧收益和剩余启动边界。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-life-buffer-evidence"
+      "before": "3650e174f79ae580423d3f7ad76fb047d50548a6f5431f7f8cc853f55e5dfb34",
+      "after": "bb13eac5477c353874d9a6ae68579da2c0b4128d59d3fa2220e640b60a85f27a",
+      "owner": "Scene perspective composition evidence",
+      "reason": "登记原作者两端冻结斜视的共面反例、名义与满幅测量，排除重复修正固定投影。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-box-oblique-333"
     }
   ]
 }
