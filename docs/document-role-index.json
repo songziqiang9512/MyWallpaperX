@@ -363,10 +363,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b08c4e207895d95cf39cf0760a6f0d42b5ddad00d600951045bff3659b21d074",
+        "sourceSHA256": "0bf330c98abefe015b796d21621f856ebfefc08a7cab02034a7fabd056758cfd",
         "method": "document_registry --audit + document_health --check",
-        "scope": "直接 SDR 同帧签名资格与实窗交错验收",
-        "limitations": "单灯路径已经试验，设备矩阵和公开档位尚未获证。"
+        "scope": "同会话整帧对照和体积双档退出",
+        "limitations": "只覆盖一个单宽灯和直接 SDR。"
       }
     },
     {
@@ -377,10 +377,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "19ddc7bfe4ae0bba6bfa5f0d0cd3857cff9af9312cc2c18c22ccfdf3c4f7ee39",
+        "sourceSHA256": "4eede6f661f8b0e214e887f8cd98a8009331aa778264a58980df940d69bd6d2e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "体积双步长签名画面及帧成本下一顺序",
-        "limitations": "只复核体积档的实际实施段。"
+        "scope": "真实缩窗回退与实窗成本取舍",
+        "limitations": "只复核本批体积实施段。"
       }
     },
     {
@@ -1003,10 +1003,10 @@
       "lastReviewed": "2026-11-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7f59ac2e6a7e3ecf28589cabf8fa85bc89447b71a224978199f32f82c43c61da",
+        "sourceSHA256": "f527ed5a9336efc372e9d0005a9ecae265f3acef3059182142658a666c2aa706",
         "method": "document_registry --audit + document_health --check",
-        "scope": "签名 BGRA8 同帧、窗口及冻结主附件计时",
-        "limitations": "未证整帧提速、独立宽灯、HDR 或逐刷新呈现。"
+        "scope": "同会话镜像 GPU 计时和签名缩窗出图",
+        "limitations": "交错含前帧反射，未证多屏、HDR 和稳定整帧收益。"
       }
     },
     {
