@@ -621,10 +621,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "087250ed4df93a1880690dccc2b305df51bbf933e887e3d1e2cdf0ad8a7f293d",
+      "before": "a24c0a340e9d14f56b316b1af4a8022375a8b8cec8140762095dc9ac1ca5a898",
       "after": "6ea23c66a8cb9f409fe452d7dfe6ac455842ae1caba0520493d8ca250b2de9fa",
       "owner": "Scene main synchronization",
-      "reason": "保留主线连续粒子发射实现及质量分支相关证据。",
+      "reason": "和当前主线预算绑定，并保留两边的现役证据。",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
     },
     {
@@ -639,10 +639,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a656a73ba9d26bf8609e97a7723205378fc3dd1ee0a27b81f5bd4ee9c310ff2d",
+      "before": "0c7edf1c10887dba8908ce0c07ec7c54b24f4e90a87bf87de99676d2eb3d7c8e",
       "after": "9e7e92adbdb4985540b0689ceb8591f644a04b36c3caddb7482f67d49c6b54d9",
       "owner": "Scene main synchronization",
-      "reason": "保留主线连续粒子发射实现及质量分支相关证据。",
+      "reason": "和当前主线预算绑定，并保留两边的现役证据。",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#live-continuous-emission-phase"
     },
     {
