@@ -234,6 +234,8 @@ LZ4 同步消费 TEX 快照中已验证的输入区间，省压缩数据复制�
 
 **选型为点光保当前球内有限视线的分段 Gauss–Legendre 求积，聚光保自己的有序光锥绘制。** 点光需要清屏透视根域、作者无阴影的合格点光、至少一个合格的根域实体写入者。用独立遮挡深度截取视线，进出球界之后在最近点分段，高档每段用四点，超高用六点，指数零直接用线段长度。聚光当前是按作者 TRS 及材质参数绘制的锥形覆盖，沿根层、父层和组 source 位置合成。两者已有真实链证据，通用照明、多重散射及更广聚光遮挡须各自验收。 [点光合同](../scene/capabilities/advanced-object-coverage.md#point-light-volume) · [点光 MSL](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/ScenePointVolume.metal) · [实际遮挡生产](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift) · [聚光锥合同](../scene/capabilities/advanced-object-coverage.md#spot-light-frame) · [代表实播证据](../scene/capabilities/runtime-evidence-current.md#point-light-volume) · [官方点光／聚光作者控制](https://docs.wallpaperengine.io/en/scene/models/lighting.html)
 
+逐屏回显复用完成帧的质量回执。点光取得独立深度并编码积分时登记实际管线。若所有参与点光指数为零，登记解析积分。取得合格积分计划而深度或编码失败时登记点光不可用。聚光只在作者光锥实际编码时登记，可与点光并存。两者均无回执的完成帧显示未绘制体积光，成功的禁用帧单独回显。超高请求实际执行四点时说明降档。原持久颜色携带原回执，活动屏、首次完成、旧请求和失败沿既有质量事件，无每帧额外投递。验收检查禁用／四点／六点、解析和纯聚光并档、两者并存、失败与冷切旧帧，最后走原设置控件与签名窗口。
+
 | 算法 | 对本项目的取舍 |
 |---|---|
 | **原尺寸四点／六点积分与有序光锥** | 点光在同一实际遮挡深度上积分，按真实光球投影的保守并集收紧片元覆盖，输出直加原主颜色。全屏仍走本档同一积分。六点适用于真实高指数峰值，沿同一 PSO 槽冷准备。两点未复现收益，实验已退役。聚光开关沿真实 producer，保作者锥形覆盖和顺序。 [实测](wallpaper-quality-work-card.md#scene-volume-point-coverage) |

@@ -378,9 +378,9 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "883ebc1162d52cbc375b5c414fca19f3700587f4236c17c8a87d8247848579ba",
+        "sourceSHA256": "39ea8185fe60183559e27a7900caa1e4db0c8ccc35356700a528f532b80a0ff7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对实际 caster、终端容量、前向供货与原有绘制时序。",
+        "scope": "点光、聚光完成帧的体积回执边界。",
         "limitations": "画面和持续呈现的证据边界见现役工作卡。"
       }
     },
@@ -392,9 +392,9 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "843bf4d53d2bf64258c6edf75c45dadd518cd6744e26e17cef353a0ad29f1472",
+        "sourceSHA256": "993b3e309aae51e67c6b346e1a2be55ec3fbe21e0e3e9caa70af1f1dfb93e558",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核 M4 签名实绘在扩档、退档、独立体积资源和原作者样本上的证据边界。",
+        "scope": "匹配逐屏设置回执、实际窗口及独立测试的同帧 GPU 绑定。",
         "limitations": "画面和持续呈现的证据边界见现役工作卡。"
       }
     },

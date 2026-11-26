@@ -97,12 +97,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 593,
-      "bytes": 177130
+      "lines": 595,
+      "bytes": 177852
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 155467
+      "bytes": 155922
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -705,15 +705,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "31204ac0cca3babb1eb237e3ea8e49b1c8476ffd58312171dcd46d2744343d39",
-      "after": "f22bf40c2909d1dba5332239a63d4928d94776b45ebae8626238261119e384ac",
-      "owner": "Scene point-shadow tier",
-      "reason": "绑定影图计划、共享容量和扩档资源的准备及消费顺序。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-shadow-quality"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "f52c1636e26bc81b41f57989377ab5697e32fdc95474db579190c8ae77403a37",
       "after": "356b088789baa22241b4798020bfa31276c1a870bdf00d1d92836e0c0deac4f4",
@@ -741,11 +732,20 @@
     },
     {
       "section": "bodies",
+      "path": "docs/development/wallpaper-quality-settings-plan.md",
+      "before": "f22bf40c2909d1dba5332239a63d4928d94776b45ebae8626238261119e384ac",
+      "after": "fc7c3dccbf0f2bb2b621fb376b9b1b185c4ba916ba2398511d277239ff62de6f",
+      "owner": "Scene quality rendering",
+      "reason": "固定现役体积档的真实消费与失败回显设计。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-volume-quality"
+    },
+    {
+      "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "003f84a2395e062ad4aaa4e57bc54edae876abcead7f1624891befaf4a8c9181",
-      "after": "aa9f036fc27c62af121531ade1f1b018d48aaa41d33a50706777b16c3b51531f",
-      "owner": "Scene point-shadow tier",
-      "reason": "登记实际组合预约修复、作者实绘和具名证据边界。",
+      "before": "aa9f036fc27c62af121531ade1f1b018d48aaa41d33a50706777b16c3b51531f",
+      "after": "6cf29caf6104af268c16cad089ce3efcf74ab7463118d6214b2f8ea0d98191da",
+      "owner": "Scene quality rendering",
+      "reason": "登记点光扩档的实际控件和同帧终图收据。",
       "decision": "docs/development/wallpaper-quality-work-card.md#scene-point-shadow-density-trial"
     }
   ]
