@@ -683,7 +683,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
         }
         self.assertEqual(actual, expected)
 
-    def test_registered_stock_default_unblocks_only_typed_implicit_input(self) -> None:
+    def test_implicit_stage_input_is_independent_of_auxiliary_asset_purpose(self) -> None:
         self.assertEqual(
             self.result["implicitFramebufferSchema"],
             {
@@ -691,7 +691,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "registeredAuthoredCandidate": "0",
                 "unprovenAuthoredCandidate": "0",
                 "graphAuthoredCandidate": "",
-                "unknownDefault": "",
+                "unknownDefault": "0",
             },
         )
 
