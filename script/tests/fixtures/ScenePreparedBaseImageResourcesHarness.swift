@@ -870,7 +870,7 @@ enum Checks {
                 device: device, spriteTextureLoader: .init(), sceneGeneration: 1, cacheDirectory: root,
                 dynamicImageRequestsProvider: {
                     .init(models: models, retainsModelDefaultAliases: retainsAliases,
-                        automaticMipConstraints: .init(dynamicLayerIDs: [], exactSources: []))
+                        automaticMipConstraints: .init(preservedLayerIDs: [], exactSources: []))
                 }, deferredBaseImageLayerIDs: deferred, ordinaryColorMipLongEdge: auto ? nil : 2048,
                 automaticDrawableExtent: auto ? CGSize(width: 1024, height: 512) : nil, cancellationCheck: {})
         }

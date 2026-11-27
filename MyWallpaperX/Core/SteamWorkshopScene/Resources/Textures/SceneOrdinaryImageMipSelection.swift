@@ -59,10 +59,18 @@ nonisolated struct SceneAutomaticTextureProjection {
     struct Source {
         var worldExtent: SIMD2<Double>
         var layerIDs: [Int]
+        var captureExtent: SIMD2<Int> = .zero
 
-        mutating func include(layerID: Int, worldExtent other: SIMD2<Double>) {
+        mutating func include(layerID: Int, worldExtent other: SIMD2<Double>, capture: SIMD2<Int> = .zero) {
             layerIDs.append(layerID)
             worldExtent = SIMD2(max(worldExtent.x, other.x), max(worldExtent.y, other.y))
+            captureExtent = SIMD2(max(captureExtent.x, capture.x), max(captureExtent.y, capture.y))
+        }
+
+        func minimumExtent(for cover: Double) -> SIMD2<Int>? {
+            guard let projection = SceneAutomaticTextureProjection.minimumExtent(
+                worldExtent: worldExtent, coverScale: cover) else { return nil }
+            return SIMD2(max(projection.x, captureExtent.x), max(projection.y, captureExtent.y))
         }
 
         func maximumCoverScale(for physical: CGSize) -> Double {

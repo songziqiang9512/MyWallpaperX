@@ -10,6 +10,8 @@ import unittest
 ROOT = Path(__file__).resolve().parents[3]
 SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneOrdinaryImageMipSelection.swift"
 
+CAPTURE_POLICY = SOURCE.parents[2] / "Rendering/Targets/SceneOffscreenResolutionPolicy.swift"
+
 HARNESS = r'''
 import Foundation
 
@@ -49,6 +51,17 @@ enum Harness {
             .baseIndex(in: odd, maximumSingleLevelDimension: 4096) == 0)
         precondition(SceneOrdinaryImageMipSelection.minimumExtent(SIMD2(2000, 1017))
             .baseIndex(in: odd, maximumSingleLevelDimension: 4096) == 1)
+        var local = SceneAutomaticTextureProjection.Source(worldExtent: wide, layerIDs: [71])
+        local.include(layerID: 901, worldExtent: tall, capture: SIMD2(2015, 1017))
+        local.include(layerID: 902, worldExtent: wide, capture: SIMD2(1900, 1016))
+        let smallWindow = local.minimumExtent(for: 0.5)!
+        precondition(smallWindow == SIMD2(2015, 1017))
+        precondition(SceneOrdinaryImageMipSelection.minimumExtent(smallWindow)
+            .baseIndex(in: odd, maximumSingleLevelDimension: 4096) == 1)
+        let enlarged = local.minimumExtent(for: 1)!
+        precondition(enlarged == SIMD2(2015, 1018))
+        precondition(SceneOrdinaryImageMipSelection.minimumExtent(enlarged)
+            .baseIndex(in: odd, maximumSingleLevelDimension: 4096) == 0)
         let smallDrawable = SceneOrdinaryImageMipSelection.minimumExtent(SIMD2(1000, 500))
         precondition(smallDrawable.baseIndex(in: [(5000, 2500)], maximumSingleLevelDimension: 4096) == 0)
         precondition(smallDrawable.baseIndex(in: [(10000, 5000), (5000, 2500)],
@@ -58,6 +71,11 @@ enum Harness {
         precondition(smallDrawable.baseIndex(in: [(8192, 4096), (4096, 2048)],
                                             maximumSingleLevelDimension: 4096) == 1)
 
+        let maximumHeaderDimension = CGFloat(Float(UInt32.max))
+        precondition(SceneOffscreenResolutionPolicy.preferredImageCaptureExtent(
+            CGSize(width: maximumHeaderDimension, height: maximumHeaderDimension)) == nil)
+        precondition(SceneOffscreenResolutionPolicy.preferredImageCaptureExtent(
+            CGSize(width: 2560, height: 1465)) == SIMD2(2560, 1465))
         let zoomed = SceneAutomaticTextureProjection(canvasWidth: 3000, canvasHeight: 2000, zoom: 2)!
         precondition(zoomed.coverScale(for: CGSize(width: 1500, height: 900)) == 1)
         precondition(SceneAutomaticTextureProjection(canvasWidth: nil, canvasHeight: 2000, zoom: nil) == nil)
@@ -77,7 +95,7 @@ class SceneTextureQualityProjectionTests(unittest.TestCase):
             harness.write_text(HARNESS)
             binary = temporary / "checks"
             build = subprocess.run(
-                ["xcrun", "swiftc", str(SOURCE), str(harness), "-module-cache-path",
+                ["xcrun", "swiftc", str(SOURCE), str(CAPTURE_POLICY), str(harness), "-module-cache-path",
                  str(temporary / "modules"), "-o", str(binary)],
                 capture_output=True, text=True, timeout=45,
             )

@@ -96,7 +96,7 @@ enum SceneOffscreenResolutionPolicy {
     static func preferredImageCaptureExtent(_ mappedSize: CGSize) -> SIMD2<Int>? {
         let width = Int(mappedSize.width), height = Int(mappedSize.height)
         guard max(width, height) > standardMaximumDimension,
-              width * height <= standardMaximumDimension * standardMaximumDimension else { return nil }
+              Double(width) * Double(height) <= Double(standardMaximumDimension * standardMaximumDimension) else { return nil }
         return SIMD2(width, height)
     }
 

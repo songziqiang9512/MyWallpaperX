@@ -696,28 +696,31 @@ extension SceneDesktopWallpaperHost {
                     "scenescript-family-candidate-publication"
                 )
         }
-        var automaticMipConstraints: ScenePreparedBaseImageResources.AutomaticMipConstraints?
-        if automaticDrawableExtent != nil {
+        let scalableEffectColors: Set<Int> = sceneRenderQuality.textures == .full
+            ? [] : resolvedMaterialExecutionCapabilities.scalableEffectColorLayerIDs
+        let automaticMipConstraints: ScenePreparedBaseImageResources.AutomaticMipConstraints? = automaticDrawableExtent.flatMap { _ in
             let targets = timelineTargets.union(propertyBindingTargets)
                 .union(committedPrograms.vectorProgram.definitions.map(\.target))
                 .union(committedPrograms.scalarProgram.definitions.map(\.target))
-            if !targets.contains(.camera(.zoom)), !targets.contains(.camera(.generalZoom)) {
-                automaticMipConstraints = .init(dynamicLayerIDs: Set(targets.compactMap { target in
-                    switch target {
-                    case let .layer(id, .scale), let .layer(id, .perspective),
-                         let .layer(id, .size), let .layer(id, .angles): return id
-                    default: return nil
-                    }
-                }), exactSources: materialAssetCatalog.preparedSourceIdentities)
-            }
+            guard !targets.contains(.camera(.zoom)), !targets.contains(.camera(.generalZoom)) else { return nil }
+            var preserved = Set(targets.compactMap { target -> Int? in
+                switch target {
+                case let .layer(id, .scale), let .layer(id, .perspective),
+                     let .layer(id, .size), let .layer(id, .angles): return id
+                default: return nil
+                }
+            })
+            preserved.formUnion(runtimeInput.renderDescriptor.layers.lazy.filter {
+                !$0.effects.isEmpty && !scalableEffectColors.contains($0.id)
+            }.map(\.id))
+            return .init(preservedLayerIDs: preserved, exactSources: materialAssetCatalog.preparedSourceIdentities)
         }
         let assetLaunchStates = materialAssetCatalog.launchStates
         deviceResourcesPreparation.completeResourcePlanning(.init(
             dynamicImageModelPaths: committedPrograms.domain?.dynamicImageRequestedModelPaths ?? [],
             hasStatefulLayerMutationOwner: committedPrograms.domain?.hasStatefulLayerMutationOwner == true,
             automaticMipConstraints: automaticMipConstraints,
-            scalableEffectColorLayerIDs: sceneRenderQuality.textures == .performance
-                ? resolvedMaterialExecutionCapabilities.scalableEffectColorLayerIDs : [],
+            scalableEffectColorLayerIDs: scalableEffectColors,
             modelMaterialPlan: modelMaterialPlan,
             modelAlbedoStates: modelMaterialPlan.assetDemands.reduce(into: [:]) {
                 $0[$1] = assetLaunchStates[$1]

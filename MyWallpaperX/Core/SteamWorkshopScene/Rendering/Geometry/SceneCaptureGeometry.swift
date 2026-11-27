@@ -133,6 +133,16 @@ nonisolated struct SceneLayerEffectSourceExtent: Equatable {
         return SceneLayerEffectSourceExtent(pixelSize: candidateMappedSize)
     }
 
+    func placementSize(worldExtent: SIMD2<Float>) -> CGSize {
+        func quantizedUp(_ value: Float) -> CGFloat {
+            guard value.isFinite, value > 0 else { return 0 }
+            let quantum: CGFloat = 128
+            return (CGFloat(value) / quantum).rounded(.up) * quantum
+        }
+        return CGSize(width: max(pixelSize.width, quantizedUp(worldExtent.x)),
+                      height: max(pixelSize.height, quantizedUp(worldExtent.y)))
+    }
+
     /// A solid's authored local size supplies the minimum source allocation,
     /// independently of its display transform. Callers may use a projected
     /// fallback only when the authored size is absent; an explicit invalid

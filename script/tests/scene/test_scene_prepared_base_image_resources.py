@@ -60,6 +60,10 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
             "nonisolated struct SceneUserPropertyBindingReference"))
         atlas = workspace / "SceneTextureAtlasDeclarations.swift"
         atlas.write_text(texture_atlas_declarations())
+        capture = workspace / "SceneLayerEffectSourceExtent.swift"
+        capture.write_text("import Foundation\n" + swift_declaration(
+            (SCENE / "Rendering/Geometry/SceneCaptureGeometry.swift").read_text(),
+            "nonisolated struct SceneLayerEffectSourceExtent"))
         compile_result = subprocess.run(
             ["xcrun", "swiftc", "-swift-version", "5",
              str(SCENE / "Resources/Assets/SceneResourceIndex.swift"),
@@ -69,6 +73,7 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
              str(SCENE / "Runtime/Session/ScenePreparedDeviceResources+Puppets.swift"),
              str(SCENE / "Runtime/Session/ScenePreparedDeviceResources+AutomaticMip.swift"),
              str(SCENE / "Resources/Textures/SceneOrdinaryImageMipSelection.swift"), str(RESOLVER),
+             str(SCENE / "Rendering/Targets/SceneOffscreenResolutionPolicy.swift"), str(capture),
              str(SCENE / "Resources/Textures/SceneNamedTextureReference.swift"),
              str(SCENE / "Rendering/Dependencies/SceneNamedTextureDependencyReferenceAnalysis.swift"),
              str(SCENE / "Systems/Properties/SceneUserProperty.swift"), str(binding),

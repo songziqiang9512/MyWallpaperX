@@ -323,11 +323,11 @@ final class ScenePreparedBaseImageResources {
                         }
                         mipReason = .alreadyFits
                     }
-                    if layer.effects.isEmpty, let automaticCover, let world = Self.automaticMipWorldExtent(layer, size: geometry[layer.id]),
-                       let required = SceneAutomaticTextureProjection.minimumExtent(worldExtent: world, coverScale: automaticCover) {
-                        if size[0] / 2 >= Float(required.x), size[1] / 2 >= Float(required.y) {
-                            automaticSources[entry.source, default: .init(worldExtent: world, layerIDs: [])]
-                                .include(layerID: layer.id, worldExtent: world)
+                    if let automaticCover, let use = Self.automaticMipUse(layer, size: geometry[layer.id], originalSize: size),
+                       let required = SceneAutomaticTextureProjection.minimumExtent(worldExtent: use.world, coverScale: automaticCover) {
+                        if size[0] / 2 >= Float(max(required.x, use.capture.x)), size[1] / 2 >= Float(max(required.y, use.capture.y)) {
+                            automaticSources[entry.source, default: .init(worldExtent: use.world, layerIDs: [])]
+                                .include(layerID: layer.id, worldExtent: use.world, capture: use.capture)
                             mipTailLayers.append(layer)
                             continue
                         }
@@ -857,9 +857,7 @@ final class ScenePreparedBaseImageResources {
             deferredLock.unlock()
 
             func load(at cover: Double) -> SceneBaseImageTextureLoad.Outcome {
-                let minimum = automaticSource.flatMap {
-                    SceneAutomaticTextureProjection.minimumExtent(worldExtent: $0.worldExtent, coverScale: cover)
-                }
+                let minimum = automaticSource?.minimumExtent(for: cover)
                 let selection = minimum.map(SceneOrdinaryImageMipSelection.minimumExtent) ?? entry.deferredMip?.selection
                 defer { deferredTextureLoader.evictDecodedCaches() }
                 return SceneBaseImageTextureLoad.load(

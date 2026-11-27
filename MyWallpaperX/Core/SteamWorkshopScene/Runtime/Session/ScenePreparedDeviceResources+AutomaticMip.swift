@@ -1,5 +1,6 @@
 import Foundation
 import Metal
+import simd
 
 extension ScenePreparedBaseImageResources {
     struct ImagePlanning {
@@ -10,7 +11,7 @@ extension ScenePreparedBaseImageResources {
     }
 
     struct AutomaticMipConstraints {
-        let dynamicLayerIDs: Set<Int>
+        let preservedLayerIDs: Set<Int>
         let exactSources: Set<SceneTextureLoader.SourceKey>
     }
 
@@ -40,10 +41,29 @@ extension ScenePreparedBaseImageResources {
         return (automaticProjection, fullResolutionLayerIDs)
     }
 
-    static func automaticMipWorldExtent(_ layer: SceneRenderDescriptor.Layer, size: [Float]?) -> SIMD2<Double>? {
+    static func automaticMipUse(
+        _ layer: SceneRenderDescriptor.Layer, size: [Float]?, originalSize: [Float]
+    ) -> (world: SIMD2<Double>, capture: SIMD2<Int>)? {
         guard layer.usesPerspective != true,
-              layer.anglesXYZ?.prefix(2).allSatisfy({ $0 == 0 }) != false else { return nil }
-        return SceneAutomaticTextureProjection.worldExtent(size: size ?? layer.renderSizeWH, scale: layer.scaleXYZ)
+              layer.anglesXYZ?.prefix(2).allSatisfy({ $0 == 0 }) != false,
+              let world = SceneAutomaticTextureProjection.worldExtent(
+                size: size ?? layer.renderSizeWH, scale: layer.scaleXYZ) else { return nil }
+        if layer.effects.isEmpty { return (world, .zero) }
+
+        // The fixed local grid is independent of the drawable and survives normal mip changes.
+        let mapped = CGSize(width: CGFloat(originalSize[0]), height: CGFloat(originalSize[1]))
+        guard layer.anglesXYZ?.allSatisfy({ $0 == 0 }) != false,
+              SceneOffscreenResolutionPolicy.preferredImageCaptureExtent(mapped) == nil,
+              let extent = SceneLayerEffectSourceExtent.resolve(publishedRenderSizeWH: size,
+                  authoredRenderSizeWH: layer.renderSizeWH, candidateMappedSize: mapped) else { return nil }
+        let placed = extent.placementSize(worldExtent: SIMD2(
+            simd_length(SIMD4(Float(world.x), 0, 0, 0)), simd_length(SIMD4(Float(world.y), 0, 0, 0))))
+        guard let width = Int(exactly: placed.width.rounded(.up)),
+              let height = Int(exactly: placed.height.rounded(.up)),
+              let (captureWidth, captureHeight) = SceneOffscreenResolutionPolicy.resolvedDimensions(
+                width: width, height: height, hardLimit: SceneOffscreenResolutionPolicy.standardMaximumDimension,
+                policy: .standard) else { return nil }
+        return (world, SIMD2(captureWidth, captureHeight))
     }
 
     typealias AutomaticMipPlan = (source: SceneAutomaticTextureProjection.Source, selection: SceneOrdinaryImageMipSelection)
@@ -70,9 +90,8 @@ extension ScenePreparedBaseImageResources {
         return candidates.reduce(into: [:]) { plans, element in
             let (source, use) = element
             guard !exactSources.contains(source), !constraints.exactSources.contains(source),
-                  constraints.dynamicLayerIDs.isDisjoint(with: use.layerIDs),
-                  let minimum = SceneAutomaticTextureProjection.minimumExtent(worldExtent: use.worldExtent,
-                    coverScale: cover) else { return }
+                  constraints.preservedLayerIDs.isDisjoint(with: use.layerIDs),
+                  let minimum = use.minimumExtent(for: cover) else { return }
             plans[source] = (use, .minimumExtent(minimum))
         }
     }
@@ -136,9 +155,7 @@ extension ScenePreparedBaseImageResources {
     ) -> [SceneTextureLoader.SourceKey: SceneBaseImageTextureLoad.Loaded] {
         var updates: [SceneTextureLoader.SourceKey: SceneBaseImageTextureLoad.Loaded] = [:]
         for (source, request) in requests {
-            guard let minimum = SceneAutomaticTextureProjection.minimumExtent(
-                worldExtent: request.use.worldExtent, coverScale: cover
-            ) else { continue }
+            guard let minimum = request.use.minimumExtent(for: cover) else { continue }
             do {
                 defer { loader.evictDecodedCaches() }
                 try checkCancellation()

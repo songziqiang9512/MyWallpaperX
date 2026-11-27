@@ -262,23 +262,8 @@ extension SceneMetalRenderer {
                     }
                     // Ordinary terminals retain placement density; shared named
                     // textures above retain layer-local sampling dimensions.
-                    let onCanvasWidth = simd_length(model.columns.0)
-                    let onCanvasHeight = simd_length(model.columns.1)
-                    func quantizedUp(_ value: CGFloat) -> CGFloat {
-                        guard value.isFinite, value > 0 else { return 0 }
-                        let quantum: CGFloat = 128
-                        return (value / quantum).rounded(.up) * quantum
-                    }
-                    desiredSize = CGSize(
-                        width: max(
-                            extent.pixelSize.width,
-                            quantizedUp(CGFloat(onCanvasWidth))
-                        ),
-                        height: max(
-                            extent.pixelSize.height,
-                            quantizedUp(CGFloat(onCanvasHeight))
-                        )
-                    )
+                    desiredSize = extent.placementSize(worldExtent: SIMD2(
+                        simd_length(model.columns.0), simd_length(model.columns.1)))
                     break
                 }
                 let usesAuthoredBackgroundWork = claim.sceneBackgroundRequirement != nil
