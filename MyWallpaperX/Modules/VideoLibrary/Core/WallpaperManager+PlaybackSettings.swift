@@ -297,6 +297,7 @@ extension WallpaperManager {
         // Scene 显示集也从持久化设置起步，避免本会话首次 setDisplayConfiguration
         // 用全屏默认值覆盖用户的多屏选择。
         SceneDaemonClient.shared.setMultiDisplayEnabled(settings.multiDisplayEnabled)
+        SceneDaemonClient.shared.setCanvasFit(settings.videoFillMode == .aspectFit)
         lastEngineProjectionBaseline = settings
     }
 
@@ -331,6 +332,7 @@ extension WallpaperManager {
 
         if previous?.videoFillMode != next.videoFillMode {
             WallpaperEngine.shared.setFillMode(next.videoFillMode.ipcValue)
+            SceneDaemonClient.shared.setCanvasFit(next.videoFillMode == .aspectFit)
         }
     }
 

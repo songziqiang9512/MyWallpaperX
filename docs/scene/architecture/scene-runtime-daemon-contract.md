@@ -28,7 +28,7 @@ stdin/stdout 使用 newline JSON。字段、版本、合法域及命令解码的
 | 候选 | commitCandidate、finalizeCandidate、cancelCandidate |
 | 输出活动与退役 | setOutputActive、retireOutput |
 | 属性 / 用户资源 / 快捷方式 | setProperty、setUserTextures、setUserShortcuts |
-| 宿主策略 | setDisplayConfiguration、setPerformanceProfile、pause、resume、setVolume、setMuted |
+| 宿主策略 | setDisplayConfiguration、setCanvasFit、setPerformanceProfile、pause、resume、setVolume、setMuted |
 | 系统输入 | publishAudioSpectrum、publishSystemMedia、publishSystemMediaArtwork、controlSystemMedia |
 | 截图 / 退出 | captureFrame（ScreenCaptureKit → JPEG → frameCaptured）、shutdown |
 

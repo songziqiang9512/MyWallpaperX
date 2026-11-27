@@ -412,6 +412,8 @@ final class SceneDaemonRuntime {
             host.applyDisplayConfiguration(topology)
         case let .setPerformanceProfile(profile):
             host.applyPerformanceProfile(profile)
+        case let .setCanvasFit(fits):
+            host.setCanvasFit(fits)
         case let .setVolume(volume):
             PlaybackVolumeState.shared.setNormalizedVolume(volume)
             host.setMasterVolume(Double(volume))

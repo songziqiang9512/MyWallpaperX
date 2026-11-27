@@ -22,6 +22,16 @@ enum SceneTextTextureLoader {
         let lineBounds: SceneTextRowLimit.LineBounds
     }
 
+    private struct PrimaryLineBox {
+        let ascent: CGFloat
+        let stride: CGFloat
+        let finalDescent: CGFloat
+
+        func height(rows: Int) -> CGFloat {
+            ascent + CGFloat(rows - 1) * stride + finalDescent
+        }
+    }
+
     private static let maxDimension = 2048
     private static let maxAutoSizeDimension: Float = 16_384
 
@@ -163,9 +173,14 @@ enum SceneTextTextureLoader {
             )
         guard let positioned = positionText(
             prepared.text, wrapWidth: CGFloat(prepared.wrapWidth * layout.scale),
-            lineBounds: prepared.lineBounds, style: style, font: font, layout: layout
+            lineBounds: prepared.lineBounds, primaryLineBox: prepared.primaryLineBox,
+            style: style, font: font, layout: layout
         ) else { return nil }
-        let expansion = verticalInkExpansion(positioned.frame, height: layout.height)
+        // Rebased fallback ink can extend outside the nominal content box.
+        // Keep the existing decoration margin around that actual ink.
+        let decorationOutset = positioned.origins == nil ? 0 : CGFloat(inset * layout.scale)
+        let expansion = verticalInkExpansion(positioned.frame, origins: positioned.origins,
+                                             height: layout.height, decorationOutset: decorationOutset)
         let expandedHeight = CGFloat(layout.height) + expansion.top + expansion.bottom
         let fit = min(1, CGFloat(maxDimension) / expandedHeight)
         let width = max(1, Int((CGFloat(layout.width) * fit).rounded()))
@@ -196,7 +211,7 @@ enum SceneTextTextureLoader {
             context.scaleBy(x: CGFloat(width) / CGFloat(layout.width),
                             y: CGFloat(height) / expandedHeight)
             context.translateBy(x: 0, y: expansion.bottom)
-            draw(frame: positioned.frame, attributed: positioned.attributed,
+            draw(frame: positioned.frame, attributed: positioned.attributed, origins: positioned.origins,
                  style: style, font: font, layout: layout, context: context)
             return true
         }
@@ -240,14 +255,15 @@ enum SceneTextTextureLoader {
         text: String,
         style: SceneTextDescriptor,
         font: CTFont
-    ) -> (text: String, size: [Float], wrapWidth: Float, lineBounds: SceneTextRowLimit.LineBounds)? {
-        let lineBounds = SceneTextRowLimit.lineBounds(
+    ) -> (text: String, size: [Float], wrapWidth: Float,
+          lineBounds: SceneTextRowLimit.LineBounds, primaryLineBox: PrimaryLineBox?)? {
+        let policy = SceneTextRowLimit.layoutPolicy(
             text: text, font: font, useEllipsis: style.limitRows && style.useEllipsis
         )
         let attributes = [
             kCTFontAttributeName: font,
             kCTParagraphStyleAttributeName: SceneTextRowLimit.paragraphStyle(
-                alignment: .natural, lineBounds: lineBounds
+                alignment: .natural, lineBounds: policy.bounds
             )
         ] as CFDictionary
         let wrapWidth = Float(SceneTextRowLimit.wrapWidth(
@@ -255,7 +271,7 @@ enum SceneTextTextureLoader {
         ))
         let content = SceneTextRowLimit.limitedText(
             text, style: style, attributes: attributes,
-            wrapWidth: CGFloat(wrapWidth), lineBounds: lineBounds
+            wrapWidth: CGFloat(wrapWidth), lineBounds: policy.bounds
         )
         guard let attributed = CFAttributedStringCreate(
             kCFAllocatorDefault,
@@ -275,28 +291,56 @@ enum SceneTextTextureLoader {
             ),
             nil
         )
+        var measuredHeight = ceil(measured.height)
+        let primaryLineBox = policy.usesPrimaryLineBox ? primaryLineBox(for: font) : nil
+        if let primaryLineBox, measuredHeight > 0 {
+            let path = CGPath(rect: CGRect(x: 0, y: 0, width: CGFloat(wrapWidth),
+                                           height: measuredHeight), transform: nil)
+            let frame = CTFramesetterCreateFrame(framesetter, CFRange(), path, nil)
+            let rows = CFArrayGetCount(CTFrameGetLines(frame))
+            if rows > 0 { measuredHeight = ceil(primaryLineBox.height(rows: rows)) }
+        }
         // Saved editor size is an observation, not a text layout constraint.
         // Both initial and dynamic content derive their extent from the font,
         // width/row limits and full padding on each edge.
         let padding = max(0, style.padding) * 2
         let size = [
             max(1, Float(ceil(measured.width)) + padding),
-            max(1, Float(ceil(measured.height)) + padding),
+            max(1, Float(measuredHeight) + padding),
         ]
         // Padding is authored input. Reject an unrepresentable extent before
         // rasterLayout converts scaled dimensions to integer texture sizes.
         guard size.allSatisfy(\.isFinite) else { return nil }
-        return (content, size, wrapWidth, lineBounds)
+        return (content, size, wrapWidth, policy.bounds, primaryLineBox)
+    }
+
+    /// Read the authored font's native baseline rounding independent of fallback runs.
+    private static func primaryLineBox(for font: CTFont) -> PrimaryLineBox? {
+        let reference = NSAttributedString(string: " \n ", attributes: [
+            NSAttributedString.Key(kCTFontAttributeName as String): font
+        ])
+        let framesetter = CTFramesetterCreateWithAttributedString(reference)
+        let maximum = CGFloat(maxAutoSizeDimension)
+        let height = ceil(CTFramesetterSuggestFrameSizeWithConstraints(
+            framesetter, CFRange(), nil, CGSize(width: maximum, height: maximum), nil).height)
+        let path = CGPath(rect: CGRect(x: 0, y: 0, width: maximum, height: height), transform: nil)
+        let frame = CTFramesetterCreateFrame(framesetter, CFRange(), path, nil)
+        guard CFArrayGetCount(CTFrameGetLines(frame)) == 2 else { return nil }
+        var origins = [CGPoint](repeating: .zero, count: 2)
+        CTFrameGetLineOrigins(frame, CFRange(), &origins)
+        return PrimaryLineBox(ascent: height - origins[0].y, stride: origins[0].y - origins[1].y,
+                              finalDescent: origins[1].y)
     }
 
     private static func positionText(
         _ text: String,
         wrapWidth: CGFloat,
         lineBounds: SceneTextRowLimit.LineBounds,
+        primaryLineBox: PrimaryLineBox?,
         style: SceneTextDescriptor,
         font: CTFont,
         layout: SceneTextGeometry.RasterLayout
-    ) -> (frame: CTFrame, attributed: CFAttributedString)? {
+    ) -> (frame: CTFrame, attributed: CFAttributedString, origins: [CGPoint]?)? {
         let padding = CGFloat(layout.padding)
         let contentWidth = CGFloat(layout.contentWidth)
         let contentHeight = CGFloat(layout.contentHeight)
@@ -347,14 +391,30 @@ enum SceneTextTextureLoader {
             textWidth: wrapWidth
         )
         let path = CGPath(rect: CGRect(x: x, y: y, width: wrapWidth, height: textHeight), transform: nil)
-        return (CTFramesetterCreateFrame(framesetter, CFRange(location: 0, length: 0), path, nil), attributed)
+        let frame = CTFramesetterCreateFrame(framesetter, CFRange(), path, nil)
+        guard let primaryLineBox else { return (frame, attributed, nil) }
+        let rows = CFArrayGetCount(CTFrameGetLines(frame))
+        guard rows > 0 else { return (frame, attributed, nil) }
+        let scale = CGFloat(layout.scale)
+        let height = primaryLineBox.height(rows: rows) * scale
+        let top = verticalOrigin(alignment: style.verticalAlignment, padding: padding,
+                                 contentHeight: contentHeight, textHeight: height) + height
+        var origins = [CGPoint](repeating: .zero, count: rows)
+        CTFrameGetLineOrigins(frame, CFRange(), &origins)
+        for index in origins.indices {
+            origins[index] = CGPoint(x: x + origins[index].x,
+                y: top - (primaryLineBox.ascent + CGFloat(index) * primaryLineBox.stride) * scale)
+        }
+        return (frame, attributed, origins)
     }
 
-    private static func verticalInkExpansion(_ frame: CTFrame, height: Int) -> (top: CGFloat, bottom: CGFloat) {
+    private static func verticalInkExpansion(
+        _ frame: CTFrame, origins adjustedOrigins: [CGPoint]?, height: Int, decorationOutset: CGFloat
+    ) -> (top: CGFloat, bottom: CGFloat) {
         let lines = CTFrameGetLines(frame) as! [CTLine]
-        var origins = [CGPoint](repeating: .zero, count: lines.count)
-        CTFrameGetLineOrigins(frame, CFRange(location: 0, length: 0), &origins)
-        let pathY = CTFrameGetPath(frame).boundingBoxOfPath.minY
+        var origins = adjustedOrigins ?? [CGPoint](repeating: .zero, count: lines.count)
+        if adjustedOrigins == nil { CTFrameGetLineOrigins(frame, CFRange(), &origins) }
+        let pathY = adjustedOrigins == nil ? CTFrameGetPath(frame).boundingBoxOfPath.minY : 0
         var low = CGFloat.infinity
         var high = -CGFloat.infinity
         for (line, origin) in zip(lines, origins) {
@@ -366,15 +426,19 @@ enum SceneTextTextureLoader {
             low = min(low, minY)
             high = max(high, maxY)
         }
-        guard low < 0 || high > CGFloat(height) else { return (0, 0) }
+        guard low - decorationOutset < 0 || high + decorationOutset > CGFloat(height) else {
+            return (0, 0)
+        }
         // Native ink can cover one row above its ideal outline. Keep a clear
         // sampling row outside that coverage and the rounded lower edge.
-        return (max(0, ceil(high) + 2 - CGFloat(height)), max(0, 1 - floor(low)))
+        return (max(0, ceil(high + decorationOutset) + 2 - CGFloat(height)),
+                max(0, 1 - floor(low - decorationOutset)))
     }
 
     private static func draw(
         frame: CTFrame,
         attributed: CFAttributedString,
+        origins: [CGPoint]?,
         style: SceneTextDescriptor,
         font: CTFont,
         layout: SceneTextGeometry.RasterLayout,
@@ -438,11 +502,23 @@ enum SceneTextTextureLoader {
             let outlineFrame = CTFramesetterCreateFrame(
                 outlineFramesetter, CFRange(location: 0, length: 0), CTFrameGetPath(frame), nil
             )
-            CTFrameDraw(outlineFrame, context)
+            drawLines(outlineFrame, origins: origins, context: context)
         }
-        CTFrameDraw(frame, context)
+        drawLines(frame, origins: origins, context: context)
         if shadow != nil { context.endTransparencyLayer() }
         context.restoreGState()
+    }
+
+    private static func drawLines(_ frame: CTFrame, origins: [CGPoint]?, context: CGContext) {
+        guard let origins else {
+            CTFrameDraw(frame, context)
+            return
+        }
+        let lines = CTFrameGetLines(frame) as! [CTLine]
+        for (line, origin) in zip(lines, origins) {
+            context.textPosition = origin
+            CTLineDraw(line, context)
+        }
     }
 
     private static func color(_ rgb: [Float], brightness: Float, alpha: CGFloat = 1) -> CGColor {

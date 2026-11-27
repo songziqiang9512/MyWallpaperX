@@ -245,6 +245,8 @@ struct HotkeySettingsSnapshot: Equatable { init(settings: WallpaperSettings) {} 
     var switchFailed: ((PlaybackSwitchTicket, String) -> Void)?, switchLost: ((PlaybackSwitchTicket, String) -> Void)?
     var multiDisplayEnabled = false
     func setMultiDisplayEnabled(_ value: Bool) { multiDisplayEnabled = value }
+    var canvasFitCommands: [Bool] = []
+    func setCanvasFit(_ value: Bool) { canvasFitCommands.append(value) }
 }
 @MainActor final class RecordingAudioService {
     var changes: [(SystemAudioSpectrumStyle, SystemAudioSpectrumSensitivity, Int)] = []
@@ -267,6 +269,7 @@ struct HotkeySettingsSnapshot: Equatable { init(settings: WallpaperSettings) {} 
     var currentSystemAudioSpectrumPeakCapsEnabled = true
     var currentSpectrumLevels: [Float] = [], currentPlaybackContentKind = Runtime.other
     var currentWebAudioSpectrumRequested = false
+    var fillModeCommands: [String] = []
     var effectiveVolumeNormalized: Float = 0, targetPlaybackRate: Float = 1
     var displaySessions: [Int: Session] = [:]
     let systemAudioSpectrumService = RecordingAudioService()
@@ -279,7 +282,7 @@ struct HotkeySettingsSnapshot: Equatable { init(settings: WallpaperSettings) {} 
     func send(_ command: DaemonCommand, to session: Session) { session.commands.append(command) }
     func setVolume(_ value: Float) { effectiveVolumeNormalized = value / 100 }
     func setPlaybackRate(_ value: Float) { targetPlaybackRate = value }
-    func setFillMode(_ value: String) {}
+    func setFillMode(_ value: String) { fillModeCommands.append(value) }
     func setLoopCurrentItem(_ value: Bool) {}
     func updateWebDisplayConfiguration(multiDisplayEnabled: Bool) {}
     // Native process/IPC is a recording leaf; the play payload below is real.
@@ -438,6 +441,21 @@ extension Notification.Name {
                 precondition(matches(restarted.commands[0], .defaults), "replacement helper must inherit current configuration")
             }
         }
+        let scene = SceneDaemonClient.shared
+        scene.canvasFitCommands = []
+        engine.fillModeCommands = []
+        let manager = WallpaperManager()
+        manager.settings = try JSONDecoder().decode(WallpaperSettings.self,
+            from: Data(#"{"videoFillMode":"保持原尺寸"}"#.utf8))
+        manager.bindSettings()
+        manager.configureRuntimeSwitching()
+        precondition(scene.canvasFitCommands == [true] && engine.fillModeCommands.isEmpty)
+        manager.settings.volume = 41
+        precondition(scene.canvasFitCommands == [true] && engine.fillModeCommands.isEmpty)
+        manager.settings.videoFillMode = .aspectFill
+        manager.settings.videoFillMode = .aspectFit
+        precondition(scene.canvasFitCommands == [true, false, true])
+        precondition(engine.fillModeCommands == ["aspectFill", "aspectFit"])
         print("manager-spectrum-projection-pass")
     }
 }

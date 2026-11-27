@@ -48987,40 +48987,6 @@
         }
       }
     },
-    "Video Fill Mode": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Video Fill Mode"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "视频填充模式"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Режим заполнения видео"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Video-Füllmodus"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mode de remplissage vidéo"
-          }
-        }
-      }
-    },
     "Video Library": {
       "localizations": {
         "en": {
@@ -50241,6 +50207,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Échec du changement de fond d’écran"
+          }
+        }
+      }
+    },
+    "Wallpaper Fill Mode": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wallpaper Fill Mode"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "壁纸填充模式"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Режим заполнения экрана"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Füllmodus für Hintergrundbilder"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mode de remplissage du fond d’écran"
           }
         }
       }

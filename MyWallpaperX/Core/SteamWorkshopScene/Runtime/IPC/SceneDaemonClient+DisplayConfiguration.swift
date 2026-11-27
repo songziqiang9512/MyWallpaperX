@@ -4,6 +4,13 @@ import Foundation
 
 @MainActor
 extension SceneDaemonClient {
+    func setCanvasFit(_ fits: Bool) {
+        fitsCanvas = fits
+        if endpointReady {
+            send(["v": SceneDaemonProtocol.version, "cmd": "setCanvasFit", "fits": fits])
+        }
+    }
+
     func setMultiDisplayEnabled(_ enabled: Bool) {
         updateDisplayConfiguration(multiDisplayEnabled: enabled)
     }

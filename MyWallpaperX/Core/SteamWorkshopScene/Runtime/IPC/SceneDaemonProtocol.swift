@@ -29,6 +29,7 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
     case retireOutput(requestID: UUID, operationID: UUID, requireRequestRetirement: Bool = false)
     case setDisplayConfiguration([SceneScreenTopology])
     case setPerformanceProfile(PlaybackPerformanceProfile)
+    case setCanvasFit(Bool)
     /// Normalized master volume (0...1) applied after authored/user volume.
     case setVolume(Float)
     case setMuted(Bool)
@@ -260,6 +261,11 @@ nonisolated enum SceneDaemonProtocol {
                 return .failure(.invalidPayload(action))
             }
             return .success(.setPerformanceProfile(profile))
+        case "setCanvasFit":
+            guard let fits = boolean(payload["fits"]) else {
+                return .failure(.invalidPayload(action))
+            }
+            return .success(.setCanvasFit(fits))
         case "setVolume":
             guard let volume = finiteDouble(payload["volume"]),
                   (0 ... 1).contains(volume) else {

@@ -58,6 +58,15 @@ def fixture_cases():
         ("last-row-ellipsis", {"content": "12:34 7:05 Hamburg0123", "pointSize": 32,
                                "limitWidth": True, "maxWidth": 400, "limitRows": True,
                                "useEllipsis": True}),
+        ("primary-baselines", {"fontPath": "fonts/Alcubierre.otf", "content": "H\nH\nH",
+                               "pointSize": 12}),
+        ("mixed-baselines", {"fontPath": "fonts/Alcubierre.otf", "content": "H\n汉H\nH",
+                             "pointSize": 12}),
+        ("renamed-mixed-baselines", {"fontPath": "fonts/layout-font.otf", "content": "H\n汉H\nH",
+                                     "pointSize": 12}),
+        ("wrapped-outline-baselines", {"fontPath": "fonts/layout-font.otf", "content": "汉H 汉H 汉H",
+                                       "pointSize": 25, "limitWidth": True, "maxWidth": 195,
+                                       "outlineThickness": 3, "padding": 0, "verticalAlignment": "top"}),
     ]
     return [base | fields | {"id": index + 101, "name": name}
             for index, (name, fields) in enumerate(variations)]
@@ -94,6 +103,9 @@ struct SceneRenderDescriptor {
         let pointSize, maxWidth: Float
         let limitWidth, limitRows, useEllipsis: Bool
         let maxRows: Int
+        let outlineThickness: Float?
+        let padding: Float?
+        let verticalAlignment: String?
     }
 
     static func bytes(_ texture: MTLTexture) -> [UInt8] {
@@ -107,23 +119,31 @@ struct SceneRenderDescriptor {
                            pixels: [UInt8]) -> [String: Any] {
         let width = raster.texture.width, height = raster.texture.height
         var count = 0, minX = width, minY = height, maxX = -1, maxY = -1
+        var inkRowStarts: [Int] = []
+        var previousRowHadInk = false
         var alpha: [UInt8] = []
         alpha.reserveCapacity(width * height)
-        for y in 0..<height { for x in 0..<width {
-            let coverage = pixels[(y * width + x) * 4 + 3]
-            alpha.append(coverage)
-            if coverage > 0 {
-                count += 1
-                minX = min(minX, x); maxX = max(maxX, x)
-                minY = min(minY, y); maxY = max(maxY, y)
+        for y in 0..<height {
+            var hasInk = false
+            for x in 0..<width {
+                let coverage = pixels[(y * width + x) * 4 + 3]
+                alpha.append(coverage)
+                if coverage > 0 {
+                    hasInk = true
+                    count += 1
+                    minX = min(minX, x); maxX = max(maxX, x)
+                    minY = min(minY, y); maxY = max(maxY, y)
+                }
             }
-        } }
+            if hasInk && !previousRowHadInk { inkRowStarts.append(y) }
+            previousRowHadInk = hasInk
+        }
         func digest(_ value: [UInt8]) -> String {
             SHA256.hash(data: Data(value)).map { String(format: "%02x", $0) }.joined()
         }
         return ["size": [width, height], "logicalSize": raster.renderSizeWH,
             "centerOffsetY": raster.centerOffsetY, "alphaPixels": count,
-            "inkBounds": [minX, minY, maxX, maxY],
+            "inkBounds": [minX, minY, maxX, maxY], "inkRowStarts": inkRowStarts,
             "pixelSHA256": digest(pixels), "alphaSHA256": digest(alpha)]
     }
 
@@ -202,10 +222,13 @@ struct SceneRenderDescriptor {
         let layers = inputs.map { value in
             let style = SceneTextDescriptor(fontPath: value.fontPath, pointSize: value.pointSize,
                 colorRGB: value.color, brightness: 1, horizontalAlignment: "center",
-                verticalAlignment: "center", screenAnchor: "none", padding: 32,
+                verticalAlignment: value.verticalAlignment ?? "center", screenAnchor: "none",
+                padding: value.padding ?? 32,
                 limitRows: value.limitRows, maxRows: value.maxRows, limitWidth: value.limitWidth,
                 maxWidth: value.maxWidth, useEllipsis: value.useEllipsis, opaqueBackground: false,
-                backgroundColorRGB: [0, 0, 0], backgroundBrightness: 1, outline: nil, dropShadow: nil)
+                backgroundColorRGB: [0, 0, 0], backgroundBrightness: 1,
+                outline: value.outlineThickness.map { .init(thickness: $0, colorRGB: [1, 0, 0]) },
+                dropShadow: nil)
             return SceneRenderDescriptor.Layer(id: value.id, contentKind: "text", name: value.name,
                 text: value.content, textStyle: style)
         }
@@ -222,8 +245,8 @@ struct SceneRenderDescriptor {
             let initialPixels = bytes(initial.texture), dynamicPixels = bytes(dynamic.texture)
             let resolution = try SceneTextFontResolver.resolve(path: value.fontPath,
                 size: CGFloat(SceneTextGeometry.pointSizeInPixels(value.pointSize)), resourceView: resourceView)
-            let policy = SceneTextRowLimit.lineBounds(text: value.content, font: resolution.font,
-                useEllipsis: value.useEllipsis)
+            let policy = SceneTextRowLimit.layoutPolicy(text: value.content, font: resolution.font,
+                useEllipsis: value.useEllipsis).bounds
             let qualificationText = value.content + (value.useEllipsis ? "…" : "")
             result[value.name] = [
                 "initial": statistics(initial, pixels: initialPixels),
@@ -314,15 +337,16 @@ class SceneTextNativeBoundsTests(unittest.TestCase):
         embedded = root / "fonts"
         stock.mkdir(parents=True)
         embedded.mkdir()
-        for name in ("spincycle_3d_ot.otf", "Atami-Regular.otf"):
+        for name in ("spincycle_3d_ot.otf", "Atami-Regular.otf", "Alcubierre.otf"):
             shutil.copy2(FONT_ROOT / name, stock / name)
         shutil.copy2(FONT_ROOT / "spincycle_3d_ot.otf", embedded / "owned-renamed-clock.otf")
         shutil.copy2(FONT_ROOT / "Atami-Regular.otf", embedded / "alternate.otf")
+        shutil.copy2(FONT_ROOT / "Alcubierre.otf", embedded / "layout-font.otf")
         (embedded / "invalid.otf").write_bytes(b"invalid author font")
         fixture, harness, binary = root / "fixture.json", root / "Harness.swift", root / "probe"
         fixture.write_text(json.dumps(fixture_cases(), sort_keys=True), encoding="utf-8")
         harness.write_text(HARNESS, encoding="utf-8")
-        inputs = [*SWIFT_SOURCES, FONT_ROOT / "spincycle_3d_ot.otf", FONT_ROOT / "Atami-Regular.otf",
+        inputs = [*SWIFT_SOURCES, *stock.iterdir(), *embedded.iterdir(),
                   fixture, harness, Path(__file__).resolve()]
         before = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
         command = ["xcrun", "--sdk", "macosx", "swiftc", *map(str, SWIFT_SOURCES),
@@ -388,6 +412,22 @@ class SceneTextNativeBoundsTests(unittest.TestCase):
         self.assertEqual(stock["policy"], renamed["policy"])
         self.assertEqual(stock["initial"]["alphaSHA256"], white["initial"]["alphaSHA256"])
         self.assertNotEqual(stock["initial"]["pixelSHA256"], white["initial"]["pixelSHA256"])
+
+    def test_fallback_ink_does_not_change_primary_font_baseline_stride(self):
+        cases = self.result["cases"]
+        primary = cases["primary-baselines"]["initial"]
+        mixed = cases["mixed-baselines"]["initial"]
+        self.assertEqual(mixed, cases["renamed-mixed-baselines"]["initial"])
+        self.assertEqual(len(primary["inkRowStarts"]), 3, primary)
+        self.assertEqual(len(mixed["inkRowStarts"]), 3, mixed)
+        self.assertEqual(mixed["logicalSize"][1], primary["logicalSize"][1])
+        self.assertEqual(mixed["inkRowStarts"][::2], primary["inkRowStarts"][::2])
+        self.assertGreater(mixed["alphaPixels"], primary["alphaPixels"])
+        wrapped = cases["wrapped-outline-baselines"]["initial"]
+        rows = wrapped["inkRowStarts"]
+        self.assertEqual(len(rows), 3, wrapped)
+        self.assertGreater(rows[0], 0, wrapped)
+        self.assertEqual([rows[1] - rows[0], rows[2] - rows[1]], [122, 122], wrapped)
 
     def test_empty_and_whitespace_sources_stay_legal_without_false_fallback(self):
         for name in ("empty", "spaces"):

@@ -20,7 +20,9 @@ nonisolated enum SceneTextRowLimit {
     /// representable right/top edge and cannot place glyphs in any raster.
     /// Qualify the actual content before truncation; keep one policy through
     /// row selection, measurement and drawing, including dynamic updates.
-    static func lineBounds(text: String, font: CTFont, useEllipsis: Bool) -> LineBounds {
+    static func layoutPolicy(
+        text: String, font: CTFont, useEllipsis: Bool
+    ) -> (bounds: LineBounds, usesPrimaryLineBox: Bool) {
         let attributes: [NSAttributedString.Key: Any] = [
             NSAttributedString.Key(kCTFontAttributeName as String): font,
             NSAttributedString.Key(kCTParagraphStyleAttributeName as String):
@@ -32,12 +34,21 @@ nonisolated enum SceneTextRowLimit {
         let line = CTLineCreateWithAttributedString(attributed)
         let bounds = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
         // Empty/whitespace-only ink is legal and must not acquire a fallback.
-        if bounds.isNull { return .glyphPath }
+        if bounds.isNull { return (.glyphPath, false) }
         let usableX = bounds.width == 0
             || (bounds.minX.isFinite && bounds.maxX.isFinite && bounds.maxX > bounds.minX)
         let usableY = bounds.height == 0
             || (bounds.minY.isFinite && bounds.maxY.isFinite && bounds.maxY > bounds.minY)
-        return usableX && usableY ? .glyphPath : .typographic
+        var ascent: CGFloat = 0
+        var descent: CGFloat = 0
+        var leading: CGFloat = 0
+        _ = CTLineGetTypographicBounds(line, &ascent, &descent, &leading)
+        // Different glyph fonts should not promote their vertical metrics to
+        // the paragraph. Pure primary-font text can keep native positioning.
+        let usesPrimaryLineBox = abs(ascent - CTFontGetAscent(font)) > 0.5
+            || abs(descent - CTFontGetDescent(font)) > 0.5
+            || abs(leading - CTFontGetLeading(font)) > 0.5
+        return (usableX && usableY ? .glyphPath : .typographic, usesPrimaryLineBox)
     }
 
     static func paragraphStyle(

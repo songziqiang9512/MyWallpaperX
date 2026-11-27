@@ -140,6 +140,14 @@ final class SceneDesktopWallpaperSession {
 
     /// 性能预算档（M0.7）：帧节奏与预算束随命令热切换，不重启壁纸。
     private(set) var performanceProfile: PlaybackPerformanceProfile = .current
+    var fitsCanvas = false {
+        didSet {
+            guard fitsCanvas != oldValue else { return }
+            for surface in surfaces.values {
+                surface.metalView.fitsCanvas = fitsCanvas
+            }
+        }
+    }
 
     func applyPerformanceProfile(_ profile: PlaybackPerformanceProfile) {
         performanceProfile = profile

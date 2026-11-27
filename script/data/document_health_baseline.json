@@ -85,8 +85,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 272,
-      "bytes": 51010
+      "lines": 283,
+      "bytes": 52838
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -102,7 +102,7 @@
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 73,
-      "bytes": 6248
+      "bytes": 6263
     },
     "docs/scene/capabilities/README.md": {
       "lines": 31,
@@ -130,11 +130,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 411489
+      "bytes": 413769
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 177,
-      "bytes": 30726
+      "lines": 186,
+      "bytes": 31858
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -450,15 +450,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "a1bf3fc2ed65e7dbcc4ee6111749cbdbdccdf4edca798d5feeea896cf2ba3af5",
-      "after": "a30118866e1a1ece2b67e6f49a0c24d822e4e7f465438018becb28b1fbd9f97b",
-      "owner": "Scene",
-      "reason": "记录子系统父点流、晚生保留与生命周期实测。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#particle-child-control-stream"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
       "before": "d68b57ad4ea2b3481fc0736d18c3c2f157b72f83c846741a0ccfea6f66ade46c",
       "after": "5601a91ca514ef21a5e0123c21f2274a6eb1f12481995cbe3b7a320a4530ca6f",
@@ -621,15 +612,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "51ab0c44e7ee50643e905f9f62e62c2451dec75db0bc1757d8f8ca88f64c2c57",
-      "after": "01ab3b1eee3aadf18ef6654299f22c0bd42cbde422fe25052b0f14eab0a27404",
-      "owner": "Scene input",
-      "reason": "记录作者骨坐标与绘制视差的分工及半径边界回归。",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#cursor-puppet-surface"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "9c8f37d3e780a3e7110797eba998ce14292659c3e857b392e9caabae027d929c",
       "after": "cb49d76c6c7c1ef6e5ed01896c80dd53a7746efea26611435a71df25deec7ae7",
@@ -657,21 +639,48 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d85228f5ca0e88de4435effe9587b9c6d89ed7cc077b5ae36fb668f5cbded948",
-      "after": "2e5f2ce596fb10658abde5a242fc6b78acc19e744e433032b408a45db2f18616",
-      "owner": "Scene runtime evidence",
-      "reason": "记录 Shimmer 封面与默认渐变的官版本机同色板和原包 GPU 绑定。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#active-media-effect-gaps-20261127"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "d56d61045fd46c6f011171ff840776ecfbeaa08a331912b31baf1c56ee17fada",
       "after": "a736fff32cafaa5a9ca3b544737cdc2440be839cb9343c6fda19c89851d7539e",
       "owner": "Scene sampler preparation",
       "reason": "记录媒体覆盖依赖已赋值效果槽及冷准备边界。",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#media-gradient-sampler"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "01ab3b1eee3aadf18ef6654299f22c0bd42cbde422fe25052b0f14eab0a27404",
+      "after": "185a0f227ba013f6bd53cabff782d84d424a7ca531b0674a1b04b994ff83a4bc",
+      "owner": "Scene text",
+      "reason": "记录回退字形沿主字体基线定位。",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#text-fallback-line-metrics"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "2e5f2ce596fb10658abde5a242fc6b78acc19e744e433032b408a45db2f18616",
+      "after": "0600bbbacdfc0c340327c8d744186f7e01234422c245cfee61e8f6cb8cb6a14c",
+      "owner": "Scene runtime evidence",
+      "reason": "记录原包画幅、文字行框和共用填充模式的真 daemon 热切。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#scene-text-layout-engine-20261128"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "3dbfd8a2ce24e15a0fcbd6afb7d0311b3ad596efab19e6a31a956f97a17726a6",
+      "after": "ccf54060dac9119431b73d0d9892cf38ddd6407c26098dfd81d308410a2378d0",
+      "owner": "Scene Surface geometry",
+      "reason": "记录 Video 与 Scene 共用填充偏好、Scene 画幅热更新及呈现边界。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#scene-display-fit"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
+      "before": "64c2a894f55294e3ef857dfcfd832213caf042a1c81159341e26d2e548e32d02",
+      "after": "3239e0165870a1523058f25d08c71b2c42481b06a23bb2c9886563cc3112d0f3",
+      "owner": "Scene daemon IPC",
+      "reason": "登记窗口填充模式的控制入口。",
+      "decision": "docs/scene/architecture/scene-runtime-daemon-contract.md#protocol"
     }
   ]
 }

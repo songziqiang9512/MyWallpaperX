@@ -27,7 +27,7 @@ public struct WallpaperSettings: Codable, Equatable {
     var idleTimeoutMinutes: Int = 10 // 不活跃超时时间（分钟）
     var pauseWhenOtherAppFocused: Bool = false // 其他应用焦点时暂停（默认关：对齐官方 Wallpaper Engine"仅全屏暂停"的默认语义）
     var multiDisplayEnabled: Bool = true // 多屏适配
-    var videoFillMode: VideoFillMode = .aspectFill // 视频填充模式
+    var videoFillMode: VideoFillMode = .aspectFill // Video 与 Scene 共用，保留原持久化键
     var syncSystemWallpaper: Bool = false // 同步改变系统壁纸
     var pauseWhenUnplugged: Bool = false // 未连接电源时暂停播放
     var pauseWhenIdle: Bool = false // 电脑不活跃时暂停播放

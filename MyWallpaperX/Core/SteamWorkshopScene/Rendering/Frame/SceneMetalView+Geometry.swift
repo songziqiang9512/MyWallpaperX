@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 
 extension SceneMetalView {
     override func viewDidMoveToWindow() {
@@ -9,7 +10,6 @@ extension SceneMetalView {
 
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
-        metalLayer.frame = bounds
         updateDrawableSize()
     }
 
@@ -54,19 +54,31 @@ extension SceneMetalView {
 
     func updateDrawableSize() {
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
+        let camera = renderer.renderDescriptor.camera
+        let contentRect = fitsCanvas
+            ? SceneCameraProjection.fittedCanvasRect(
+                in: bounds, orthoWidth: camera.orthoWidth, orthoHeight: camera.orthoHeight)
+            : bounds
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        metalLayer.frame = contentRect
+        layer?.backgroundColor = contentRect == bounds ? nil : CGColor(gray: 0, alpha: 1)
         metalLayer.contentsScale = scale
         let pixelSize = CGSize(
-            width: max(bounds.width, 1) * scale,
-            height: max(bounds.height, 1) * scale
+            width: max(contentRect.width, 1) * scale,
+            height: max(contentRect.height, 1) * scale
         )
-        if metalLayer.drawableSize != pixelSize {
+        let sizeChanged = metalLayer.drawableSize != pixelSize
+        if sizeChanged {
             metalLayer.drawableSize = pixelSize
-            if (renderer.renderDescriptor.hdrEnabled && !renderer.renderDescriptor.camera.clearEnabled)
-                || renderer.hasPreparedReflectionConsumers {
-                invalidateResolvedMaterialRuntime(reason: .allocationReprepare)
-            } else {
-                onRenderInvalidated?()
-            }
+        }
+        CATransaction.commit()
+        guard sizeChanged else { return }
+        if (renderer.renderDescriptor.hdrEnabled && !camera.clearEnabled)
+            || renderer.hasPreparedReflectionConsumers {
+            invalidateResolvedMaterialRuntime(reason: .allocationReprepare)
+        } else {
+            onRenderInvalidated?()
         }
     }
 }

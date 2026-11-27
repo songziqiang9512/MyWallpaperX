@@ -254,6 +254,17 @@ disjoint 准备空窗不退休 Session 的用户贴图请求。原 Session 在�
 
 验收复用按需DEBUG快照、原App及输入/退休门：按displayID核实例/真实几何、playing进展和paused VM/frame/sprite/root/active-child观测值，像素、allocation/GPU和capture终态继续归原门。DEBUG同集合事件先真缩窗再恢复live几何；移除事件只从原resolver结果取非空子集，交与normal debounce共用的实际协调步骤，不改env屏数冒充物理拓扑、不存override/cache。2→1/3→1须保survivors、精确退休差集、保健康输入重试、撤removed重试及物理按住反例；真实removed导出尾期间健康屏可提交，stop-before-drain仍等原尾。暂停/恢复诊断只比同次resume前后成员，不因dwell期间合法缩减误报恢复失败。新增 A→AB、混合 AB→BC、disjoint A→B 与空解析分别验真实 worker、当前输入/意图对齐、取消/失败及退出尾；长准备期间 retained 必须有真实输出，paused 不得增加 VM cadence。DEBUG accepted暂停截图仅标目标Surface需提交并唤醒原frozen driver，不借内容失效撤cohort、不重跑VM/清graph，也不因拒绝/playing请求重启cadence。初始新增屏的长starttime、准备期间size/rate/CP edit、stop/emit/destroy、晚取消仍独立验收；单物理屏的多个DEBUG View不授真实多屏、物理缩放/EDR、严格RNG轨迹同态、媒体连续或性能。
 
+<a id="scene-display-fit"></a>
+### 壁纸填充模式与 Scene 画幅
+
+显示设置的「壁纸填充模式」同时适用于 Video 与 Scene。沿用既有 `WallpaperSettings.videoFillMode` 持久化字段、导入值和默认「填充屏幕」，由它裁决启动、导入、重置和热更新。Video 继续原 `setFillMode` 镜像及 daemon 命令。选择「保持原尺寸」时，有有效正交画布的 Scene 按作者比例居中完整显示，余下区域以黑色填充。原生透视和未声明有效画幅的 Scene 沿原方式。此设置与作者属性独立，保留屏幕锚点。
+
+设置按原差分投影把当前模式送入 Scene daemon，并在提交每笔加载前重放。Host 供当前及新建 Session 和 Surface。准备中的候选在既有首次呈现交接后采用最新值，回滚由原会话配置同步。原 Scene 独立偏好和偏好广播退出。Surface View 在窗口尺寸、backing 或模式变动时求内接矩形，一块现有 CAMetalLayer 按此矩形配置 drawable。GPU、画布/屏幕锚点、SceneScript 的当前输出分辨率及视口相关特效共同消费实际 drawable，指针同用其显示矩形，留边不触发普通命中。变化沿原尺寸失效与冻结帧重绘，输出读回代表 drawable 内容，作者缩放/平移继续作用于该 drawable。
+
+Video 的画幅过渡由 AVPlayerLayer 对同一视频做缩放及裁切。Scene 的屏幕锚点、输入和尺寸相关渲染目标都取自实际画幅。Scene 切换在同一次尺寸更新采用新画幅，保同一帧的几何和输入一致。
+
+验收核旧 Video 偏好和导入值、同一选择热送两端、Scene daemon 重连与新启动的首次布局，以及等比、宽、窄和无正交尺寸。真实原包比较两种模式，核原贴边 HUD、热切、暂停与窗口像素。
+
 ## 线程与销毁
 
 - AppKit、Session cadence、QuickJS、输入及 Metal encode 在 daemon 主 RunLoop。VM 在激活时 adoptCurrentThread；搬线程必须连同 VM、输入与提交寿命迁移。
