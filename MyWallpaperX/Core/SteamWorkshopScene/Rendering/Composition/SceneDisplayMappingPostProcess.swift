@@ -5,6 +5,10 @@ import Metal
 /// always uses a distinct source; eligible cleared frames read the attachment.
 /// The existing target pool owns residency; this owner never retains history.
 final class SceneDisplayMappingPostProcess {
+    enum HDRRequest {
+        case off, targetUnavailable, enabled
+    }
+
     enum Input: Equatable {
         case textureSource
         case colorAttachment

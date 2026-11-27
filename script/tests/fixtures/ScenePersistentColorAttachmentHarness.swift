@@ -154,7 +154,8 @@ import CoreGraphics
                 bloomPostProcess: bloom, displayMappingPostProcess: mapping)
             let bloomPrepared = MWXPipelineAttempts()
             var frameIndex: UInt64 = 20
-            func renderBloomTerminal(_ target: MTLTexture, output: Mapping.Output, faultIndex: UInt) -> Int {
+            func renderBloomTerminal(_ target: MTLTexture, output: Mapping.Output, faultIndex: UInt)
+                -> (attempts: Int, use: ScenePostProcessingUse?) {
                 frameIndex += 1
                 let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: frameIndex,
                     generation: frameIndex, definitions: []).snapshot
@@ -164,9 +165,11 @@ import CoreGraphics
                         dayTime: 0, frameTime: 1 / 60, pointerCurrentNDC: .zero, pointerPreviousNDC: .zero))
                 let cb = queue.makeCommandBuffer()!
                 MWXArmEncoderFault(cb, faultIndex)
+                var terminalUse: ScenePostProcessingUse?
                 precondition(hdrRenderer.encodeTerminalColor(sourceCompleted: true, sceneColor: nil,
                     target: target, offscreenTexturePool: nil, dynamicValues: snapshot, commandBuffer: cb,
-                    output: output, input: mode(mapping, target)) == nil)
+                    output: output, input: mode(mapping, target), displayHDRRequest: output.isLinear ? .enabled : .off,
+                    observePostProcessing: { terminalUse = $0 }) == nil)
                 let attempts = MWXEncoderAttempts()
                 MWXArmEncoderFault(cb, 0)
                 cb.commit(); cb.waitUntilCompleted()
@@ -174,7 +177,7 @@ import CoreGraphics
                 if let record = bloomOwner.commandBufferRecords[ObjectIdentifier(cb)] {
                     bloomOwner.completeCommandBuffer(identity: ObjectIdentifier(cb), observationID: record.observationID, status: .completed)
                 }
-                return Int(attempts)
+                return (Int(attempts), terminalUse)
             }
             var bloomExact = true, bloomChangedPixels = true
             for (index, output) in [Mapping.Output.sRGB, .extendedLinearSRGB(headroom: 4)].enumerated() {
@@ -215,13 +218,16 @@ import CoreGraphics
                 bloomExact = bloomExact && sameBits(read(native), read(reference))
                 let merged = texture(w, h)
                 fill(merged, input)
-                let count = renderBloomTerminal(merged, output: output, faultIndex: 0)
-                pixels["combinedBloom-\(index)-matchesAndSavesOnePass"] = count == bloomPasses
+                let result = renderBloomTerminal(merged, output: output, faultIndex: 0)
+                let outputUse: ScenePostProcessingUse.Display = output.isLinear ? .edr : .sdr
+                pixels["combinedBloom-\(index)-matchesAndSavesOnePass"] = result.attempts == bloomPasses
+                    && result.use == .init(hdrWorkingSpace: true, bloom: .hdr, display: outputUse)
                     && sameBits(read(merged), read(reference))
                 for failure in [1, bloomPasses] {
                     fill(merged, input)
-                    let attempts = renderBloomTerminal(merged, output: output, faultIndex: UInt(failure))
-                    faults["bloom-\(index)-encoder-\(failure)-stillMaps"] = attempts == failure + 1
+                    let result = renderBloomTerminal(merged, output: output, faultIndex: UInt(failure))
+                    faults["bloom-\(index)-encoder-\(failure)-stillMaps"] = result.attempts == failure + 1
+                        && result.use == .init(hdrWorkingSpace: true, bloom: .unavailable, display: outputUse)
                         && sameBits(read(merged), read(mappedWithoutBloom))
                 }
                 comparedPixels += w * h

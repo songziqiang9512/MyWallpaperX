@@ -39,7 +39,8 @@ class SettingsCacheActionsTests(unittest.TestCase):
         actual = fixture.read_text().replace("// ACTUAL_INTERVAL_REFRESH", refresh)
         readout_source = readouts.read_text()
         labels = [line for line in source.splitlines()
-                  if line.lstrip().startswith(("let sceneTextureUseLabel =", "let sceneShadowUseLabel =", "let sceneVolumeUseLabel ="))]
+                  if line.lstrip().startswith(("let scenePostProcessingUseLabel =", "let sceneTextureUseLabel =",
+                                               "let sceneShadowUseLabel =", "let sceneVolumeUseLabel ="))]
         actual = actual.replace("// ACTUAL_SHADOW_LABEL", "\n".join(
             [*labels, declaration(readout_source, "    static func makeSceneEffectReadout(")]))
         actual = actual.replace("// ACTUAL_CONFIGURED_WALLPAPER_SCREENS", declaration(
@@ -53,7 +54,7 @@ class SettingsCacheActionsTests(unittest.TestCase):
             ("// ACTUAL_RENDER_READOUTS", "    func refreshSceneRenderReadouts("),
             ("// ACTUAL_RASTER_SAMPLE_READOUT", "    private func refreshSceneRasterSampleReadout("),
             ("// ACTUAL_RENDER_READOUT_TITLE", "    private func sceneRenderReadoutTitle("),
-            ("// ACTUAL_RENDER_READOUT_DISPLAY", "    private func sceneRenderReadoutDisplayName("),
+            ("// ACTUAL_RENDER_READOUT_DISPLAY", "    private func postProcessingUseDescription("),
             ("// ACTUAL_SHADOW_USE_DESCRIPTION", "    private func shadowUseDescription("),
             ("// ACTUAL_VOLUME_USE_DESCRIPTION", "    private func volumeUseDescription("),
             ("// ACTUAL_TEXTURE_USE_DESCRIPTION", "    private func textureUseDescription("),

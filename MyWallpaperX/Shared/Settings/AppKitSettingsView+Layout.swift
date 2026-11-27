@@ -414,7 +414,8 @@ extension AppKitSettingsContainerView {
             scenePostProcessingPopup.lastItem?.representedObject = mode.rawValue
         }
         qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Post-Processing"), iconSystemName: "sun.max",
-            subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: scenePostProcessingPopup))
+            subtitle: String(localized: "Some effect changes require reloading the wallpaper"),
+            trailing: scenePostProcessingPopup, readout: scenePostProcessingUseLabel))
         for mode in SceneTextureQuality.allCases {
             let title = switch mode {
             case .automatic: String(localized: "Automatic")
@@ -605,7 +606,7 @@ extension AppKitSettingsContainerView {
         refreshSceneQualityPreset(quality)
         refreshSceneQualityReapplyTitle(quality.scene)
         if sender === sceneAntiAliasingPopup || sender === sceneTextureQualityPopup
-            || sender === sceneShadowsPopup || sender === sceneVolumeLightingPopup {
+            || sender === sceneShadowsPopup || sender === sceneVolumeLightingPopup || sender === scenePostProcessingPopup {
             refreshSceneRenderReadouts(quality.scene)
         }
     }

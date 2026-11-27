@@ -136,7 +136,7 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 
 候选冻结的冷准备请求随原 `candidatePrepared` 回执交给 [原切换执行](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient+SwitchEndpoint.swift)，只有对应请求完成实呈与接管后才供设置比较。两个超高后处理共用一个准备值。若活动回执与已保存冷档有差分，「重新应用」显示待应用，可用于恢复尝试。帧率与同域显示 HDR 热更沿原回路。提示对应准备的请求，实际每帧及每屏的回退仍由消费者决定。 [接管验收](../../development/wallpaper-quality-work-card.md#scene-cold-quality-receipt)
 
-后处理的「超高」和「超高（显示 HDR）」共用作者工作域、资源、颜色传递函数与终端映射。App 保存选择，Scene daemon 将同一意愿交给活动、候选及以后安装的 Surface；Metal View 只消费显示意愿和当前屏有效 headroom。普通超高始终使用 SDR 范围，显示 HDR 按屏申请 EDR。切换这两档不重建 Program、附件、作者时钟或 raw history。已暂停的活动 Surface 用原冻结帧刷新，候选继续按原接管状态。当前余量若在开启后变化，原屏幕参数通知进入同一 Surface 的暂停输出失效。这条类型化路径接管后退出独立 HDR 偏好通知及跨进程强制同步。 [单内屏暂停热切验收](../../development/wallpaper-quality-work-card.md#scene-paused-display-hdr-live)
+后处理的「超高」和「超高（显示 HDR）」共用作者工作域、资源、颜色传递函数与终端映射。App 保存选择，Scene daemon 将同一意愿交给活动、候选及以后安装的 Surface；Metal View 只消费显示意愿和当前屏有效 headroom。普通超高始终使用 SDR 范围，显示 HDR 按屏申请 EDR。切换这两档不重建 Program、附件、作者时钟或 raw history。已暂停的活动 Surface 用原冻结帧刷新，候选继续按原接管状态。当前余量若在开启后变化，原屏幕参数通知进入同一 Surface 的暂停输出失效。这条类型化路径接管后退出独立 HDR 偏好通知及跨进程强制同步。终端实际回执随当前呈现候选携带，保存已完成 raw 的颜色链只保合成前事实。复用 raw 导出时按本次 Bloom 与显示映射确认，回拷原色时舍弃未到 drawable 的泛光结果。实际工作域、泛光类别与显示能力限制共用现有逐屏完成回执和去重。 [单内屏暂停热切验收](../../development/wallpaper-quality-work-card.md#scene-paused-display-hdr-live)
 
 <a id="scene-hdr-bloom-reconstruction"></a>
 超高工作域的 [HDR Bloom](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneBloomPostProcess.swift) 在 Apple 支持的单采样 RGBA16Float 路径冷选颜色附件输入。完整下采样后，逆序加载细级当前像素，按原权重重建到同一附件，最后合成到原显示侧。只持一份纹理链和一个重建 PSO。附件 PSO 准备失败走旧分离纹理实现。中途编码失败保原主色，后续帧从下采样重新写入。同一已准备 HDR 工作域的显示热切复用该工作集。 [真实尺寸与验收](../../development/wallpaper-quality-work-card.md#scene-hdr-bloom-attachment)

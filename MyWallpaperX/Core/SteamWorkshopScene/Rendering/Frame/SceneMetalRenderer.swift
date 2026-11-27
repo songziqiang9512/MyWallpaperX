@@ -70,6 +70,7 @@ struct SceneMetalRenderer {
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         onDrawableWillPresent: ((CAMetalDrawable) -> Void)? = nil,
         displayOutput: SceneDisplayMappingPostProcess.Output = .sRGB,
+        displayHDRRequest: SceneDisplayMappingPostProcess.HDRRequest = .off,
         to drawable: CAMetalDrawable
     ) -> FrameOutcome {
         // Record renderer CPU time across every return path in Debug.
@@ -249,14 +250,18 @@ struct SceneMetalRenderer {
             didFailMultisamplePreparation: mainPassForSubmission?.didFailMultisamplePreparation == true,
             shadow: modelFrame.shadowUse,
             volume: .rendered(volumeUse), textures: mainPassForSubmission?.textureUse)
+        var outputUse = renderUse ?? SceneFrameRenderUse(
+            rasterSampleCount: nil, didFailMultisamplePreparation: false, shadow: nil)
         if let failure = encodeTerminalColor(
             sourceCompleted: sceneColor?.requiresDraw == false || reflectionFrame?.mainSourceCompleted == true,
             sceneColor: sceneColor, target: drawable.texture,
             offscreenTexturePool: offscreenTexturePool, dynamicValues: frameContext.dynamicValues,
             commandBuffer: commandBuffer, output: displayOutput,
-            input: displayMappingInput, renderUse: renderUse,
+            input: displayMappingInput, displayHDRRequest: displayHDRRequest, renderUse: renderUse,
             compositionGroupRuntime: compositionGroupRuntime,
-            executionTrace: effectExecutionTrace) { return failure }
+            executionTrace: effectExecutionTrace, observePostProcessing: { outputUse.postProcessing = $0 }) {
+            return failure
+        }
         let preparedFrame = makePreparedFrame(
             commandBuffer: commandBuffer,
             drawable: drawable,
@@ -270,7 +275,7 @@ struct SceneMetalRenderer {
             frameDepthLeases: frameDepthLeases,
             reflectionFrame: reflectionFrame,
             modelFrame: modelFrame,
-            mainPassForSubmission: mainPassForSubmission, renderUse: renderUse,
+            mainPassForSubmission: mainPassForSubmission, renderUse: outputUse,
             particleBatches: particleBatches,
             particlePipeline: particlePipeline,
             initialVideoPresentation: initialVideoPresentation

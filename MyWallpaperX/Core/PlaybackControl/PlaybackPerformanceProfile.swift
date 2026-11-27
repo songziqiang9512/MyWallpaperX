@@ -34,6 +34,27 @@ nonisolated enum ScenePostProcessingMode: String, Sendable {
     var appliesBloom: Bool { preparationMode != .disabled }
 }
 
+nonisolated struct ScenePostProcessingUse: Hashable, Sendable {
+    enum Bloom: String, Sendable {
+        case disabled, inactive, standard, hdr, unsupported, unavailable
+    }
+
+    enum Display: String, Sendable {
+        case sdr, noHDRContent, targetUnavailable, limitedHeadroom, edr, unmapped
+
+        var requestedHDR: Bool {
+            switch self {
+            case .sdr, .unmapped: false
+            case .noHDRContent, .targetUnavailable, .limitedHeadroom, .edr: true
+            }
+        }
+    }
+
+    let hdrWorkingSpace: Bool
+    let bloom: Bloom
+    let display: Display
+}
+
 nonisolated enum SceneShadowQuality: String, Sendable {
     case disabled
     case low
@@ -104,6 +125,7 @@ nonisolated struct SceneFrameRenderUse: Equatable, Sendable {
     let shadow: SceneShadowUse?
     var volume: SceneVolumeUse? = nil
     var textures: SceneTextureUseSample? = nil
+    var postProcessing: ScenePostProcessingUse? = nil
 }
 
 nonisolated enum SceneVolumeLightingQuality: String, Sendable {

@@ -777,6 +777,8 @@ performanceTelemetry?.recordPreparation(
             performanceTelemetry: performanceTelemetry,
             onDrawableWillPresent: onDrawableWillPresent,
             displayOutput: displayOutput,
+            displayHDRRequest: !hdrDisplayRequested ? .off
+                : metalLayer.wantsExtendedDynamicRangeContent ? .enabled : .targetUnavailable,
             to: drawable
         )
         if !outcome.isPrepared { preparedTextSnapshot = nil }

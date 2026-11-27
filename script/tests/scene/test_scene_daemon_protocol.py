@@ -538,6 +538,18 @@ import Foundation
             SceneRasterDisplayStatus(displayID: 3, samples: nil)
         ]
         let texturesRoundTrip = SceneDaemonProtocol.rasterDisplayStatuses(textureDisplays.map(\.wireObject)) == textureDisplays
+        let postDisplays = [
+            SceneRasterDisplayStatus(displayID: 1, samples: 2, postProcessing:
+                .init(hdrWorkingSpace: false, bloom: .standard, display: .noHDRContent)),
+            SceneRasterDisplayStatus(displayID: 2, samples: 2, postProcessing:
+                .init(hdrWorkingSpace: true, bloom: .hdr, display: .edr)),
+            SceneRasterDisplayStatus(displayID: 3, samples: nil)
+        ]
+        let postRoundTrip = SceneDaemonProtocol.rasterDisplayStatuses(postDisplays.map(\.wireObject)) == postDisplays
+        let badPostKeepsRaster = SceneDaemonProtocol.rasterDisplayStatuses([[
+            "displayID": 7, "samples": 4,
+            "postProcessing": ["hdrWorkingSpace": 1, "bloom": "hdr", "display": "edr"]
+        ]]) == [.init(displayID: 7, samples: 4)]
         let malformedTexturePreservesOtherQuality = SceneDaemonProtocol.rasterDisplayStatuses([[
             "displayID": 7, "samples": 4, "volume": "disabled",
             "textures": ["reduced": ["width": true, "height": 12, "baseMip": 2, "mipCount": 2, "reason": "authoredMip"]]
@@ -727,6 +739,8 @@ import Foundation
             "malformedShadowPreservesRaster": malformedShadowPreservesRaster,
             "volumeRoundTrips": volumeRoundTrips,
             "texturesRoundTrip": texturesRoundTrip,
+            "postRoundTrip": postRoundTrip,
+            "badPostKeepsRaster": badPostKeepsRaster,
             "malformedTexturePreservesOtherQuality": malformedTexturePreservesOtherQuality,
             "malformedVolumePreservesOtherQuality": malformedVolumePreservesOtherQuality,
             "duplicateDisplayRejected": duplicateDisplayRejected,

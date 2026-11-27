@@ -577,6 +577,32 @@ extension Notification.Name {
         pump()
         checks["native-shadow-readout-clears-on-stop"] = shadowLabel.isHidden && shadowLabel.toolTip == nil
 
+        let postLabel = view.scenePostProcessingUseLabel
+        daemon.activePreparedRenderQuality = .init(postProcessing: .ultra)
+        let standardUse = ScenePostProcessingUse(hdrWorkingSpace: false, bloom: .standard, display: .sdr)
+        daemon.activeRasterDisplayStatuses = [.init(displayID: testDisplays[0], samples: 1, postProcessing: standardUse)]
+        view.refreshSceneRenderReadouts(.init(postProcessing: .ultraDisplayHDR))
+        checks["native-post-sdr-acknowledges-equivalent-hot-request"] = !postLabel.isHidden
+            && postLabel.stringValue == "SDR working space · Standard Bloom · Scene has no HDR output"
+        view.refreshSceneRenderReadouts(.init(postProcessing: .disabled))
+        checks["native-post-cold-edit-preserves-previous-result"] =
+            postLabel.stringValue == "Previous setting in use: SDR working space · Standard Bloom · SDR output"
+
+        daemon.activeRasterDisplayStatuses = [
+            .init(displayID: testDisplays[0], samples: 1, postProcessing: .init(
+                hdrWorkingSpace: true, bloom: .hdr, display: .edr)),
+            .init(displayID: testDisplays[1], samples: 1, postProcessing: .init(
+                hdrWorkingSpace: true, bloom: .hdr, display: .targetUnavailable))
+        ]
+        view.refreshSceneRenderReadouts(.init(postProcessing: .ultraDisplayHDR))
+        checks["native-post-displays-separate-output-limits"] = postLabel.stringValue == "Varies by display"
+            && postLabel.toolTip?.contains("HDR display output") == true
+            && postLabel.toolTip?.contains("display has no HDR support") == true
+        daemon.activePreparedRenderQuality = nil
+        daemon.activeRasterDisplayStatuses = []
+        view.refreshSceneRenderReadouts()
+        checks["native-post-clears-on-stop"] = postLabel.isHidden && postLabel.toolTip == nil
+
         daemon.activePreparedRenderQuality = .init(volumeLighting: .ultra)
         let volumeLabel = view.sceneVolumeUseLabel
         let volumes: [(SceneVolumeUse, String)] = [

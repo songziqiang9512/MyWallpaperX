@@ -10,6 +10,7 @@ extension SceneDesktopWallpaperSession {
             let shadow: SceneShadowUse?
             let volume: SceneVolumeUse?
             var textures: SceneTextureUseSample?
+            let postProcessing: ScenePostProcessingUse?
         }
 
         struct Observation {
@@ -24,11 +25,12 @@ extension SceneDesktopWallpaperSession {
 
         mutating func observe(
             _ samples: Int?, didFailPreparation: Bool = false, shadow: SceneShadowUse? = nil,
-            volume: SceneVolumeUse? = nil, textures: SceneTextureUseSample? = nil
+            volume: SceneVolumeUse? = nil, textures: SceneTextureUseSample? = nil,
+            postProcessing: ScenePostProcessingUse? = nil
         ) -> Observation? {
-            guard samples != nil || shadow != nil || volume != nil || textures != nil else { return nil }
+            guard samples != nil || shadow != nil || volume != nil || textures != nil || postProcessing != nil else { return nil }
             let use = Use(samples: samples, didFailPreparation: samples == 1 && didFailPreparation,
-                          shadow: shadow, volume: volume, textures: textures)
+                          shadow: shadow, volume: volume, textures: textures, postProcessing: postProcessing)
             var comparison = use
             comparison.textures = textures ?? completed?.textures
             if comparison == completed, inFlight.isEmpty || (inFlight.count == 1 && inFlight[use] != nil) { return nil }
@@ -63,7 +65,8 @@ extension SceneDesktopWallpaperSession {
                 fallback = nil
             }
             return .init(displayID: displayID, samples: use?.samples, fallback: fallback,
-                         shadow: use?.shadow, volume: use?.volume, textures: use?.textures?.bindings)
+                         shadow: use?.shadow, volume: use?.volume, textures: use?.textures?.bindings,
+                         postProcessing: use?.postProcessing)
         }
     }
 
@@ -247,7 +250,8 @@ extension SceneDesktopWallpaperSession {
                 surface.qualityStatus.observe(use.rasterSampleCount,
                     didFailPreparation: use.didFailMultisamplePreparation,
                     shadow: use.shadow.map { shadowsDisabled ? .disabled : $0 },
-                    volume: use.volume.map { allowsProjectedSpotVolume ? $0 : .disabled }, textures: use.textures)
+                    volume: use.volume.map { allowsProjectedSpotVolume ? $0 : .disabled }, textures: use.textures,
+                    postProcessing: use.postProcessing)
             }
             : nil
         guard awaitsInitialPresentation || sceneClock.isPaused

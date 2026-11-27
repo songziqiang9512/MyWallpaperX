@@ -301,6 +301,8 @@ enum SceneDaemonProtocol {
             '    private static func integer(', '    private static func finiteDouble(',
             '    private static func unsignedInteger(', '    static func rasterDisplayStatuses(',
             '    private static func shadowUse(', '    private static func volumeUse(',
+            '    private static func textureUse(', '    private static func textureBinding(_ raw:',
+            '    private static func postProcessingUse(',
             '    static func writeRenderQuality(')) + r'''
 }
 struct DaemonPlaybackProcessRegistry {static let shared=Self();let acceptsNewProcesses=true}

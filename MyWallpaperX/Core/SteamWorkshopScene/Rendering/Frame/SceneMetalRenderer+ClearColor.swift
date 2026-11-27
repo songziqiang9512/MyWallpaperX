@@ -314,14 +314,21 @@ extension SceneMetalRenderer {
                              dynamicValues: SceneDynamicSnapshot, commandBuffer: MTLCommandBuffer,
                              output: SceneDisplayMappingPostProcess.Output = .sRGB,
                              input: SceneDisplayMappingPostProcess.Input = .textureSource,
+                             displayHDRRequest: SceneDisplayMappingPostProcess.HDRRequest = .off,
                              renderUse: SceneFrameRenderUse? = nil,
                              compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil,
-                             executionTrace: SceneEffectExecutionFrameTrace? = nil) -> FrameOutcome? {
+                             executionTrace: SceneEffectExecutionFrameTrace? = nil,
+                             observePostProcessing: (ScenePostProcessingUse) -> Void = { _ in }) -> FrameOutcome? {
         // Consume the existing main-pass completion fact (or completed paused
         // raw). Neither Bloom nor either display input may read an unsafe source.
         guard sourceCompleted else {
             return .dropped(reasonCode: "scene-color-main-encoder-unavailable")
         }
+        let authoredBloom = renderDescriptor.camera.bloom
+        let bloom = authoredBloom.allowsBloom && (bloomPostProcess != nil || authoredBloom.enabled
+            || dynamicValues[.scene(.bloomEnabled)] != nil) ? authoredBloom.resolving(dynamicValues) : authoredBloom
+        var drewBloom = false
+        var mapped = false
         if let sceneColor, let display = sceneColor.display {
             // Only display scratch sees Bloom or the nonlinear output curve.
             // A paused export reuses raw without traversing authored layers.
@@ -342,11 +349,10 @@ extension SceneMetalRenderer {
             }
 #endif
             if copied {
-                bloomPostProcess?.encode(configuration: renderDescriptor.camera.bloom.resolving(
-                    dynamicValues), source: display,
-                    commandBuffer: commandBuffer)
+                drewBloom = bloomPostProcess?.encode(configuration: bloom, source: display,
+                    commandBuffer: commandBuffer) == true
             }
-            let mapped = copied && displayMappingPostProcess?.encode(
+            mapped = copied && displayMappingPostProcess?.encode(
                 source: display, target: target,
                 commandBuffer: commandBuffer, output: output) == true
             if !mapped && output.isLinear {
@@ -355,6 +361,8 @@ extension SceneMetalRenderer {
             if !mapped && !copySceneColor(sceneColor.raw, to: target, commandBuffer: commandBuffer) {
                 return .dropped(reasonCode: "scene-color-display-export-unavailable")
             }
+            // Raw fallback leaves the processed display scratch unpublished.
+            drewBloom = drewBloom && mapped
 #if DEBUG
             if let executionTrace, executionTrace.isCompositionSelected {
                 executionTrace.recordComposition(.init(kind: "export",
@@ -379,16 +387,15 @@ extension SceneMetalRenderer {
             }
             let attachment = input == .colorAttachment
                 ? displayMappingPostProcess?.attachmentDraw(for: target, output: output) : nil
-            var mapped = false
             if let bloomPostProcess {
-                let bloom = renderDescriptor.camera.bloom.resolving(dynamicValues)
                 if let attachment, bloomPostProcess.usesHDR {
-                    mapped = bloomPostProcess.encodeHDR(configuration: bloom, source: target,
+                    drewBloom = bloomPostProcess.encodeHDR(configuration: bloom, source: target,
                         commandBuffer: commandBuffer, combineRole: "bloom-hdr-combine-display-mapping") { encoder in
                             attachment.encode(on: encoder)
                         }
+                    mapped = drewBloom
                 } else {
-                    bloomPostProcess.encode(configuration: bloom, source: target, commandBuffer: commandBuffer)
+                    drewBloom = bloomPostProcess.encode(configuration: bloom, source: target, commandBuffer: commandBuffer)
                 }
             }
             if input == .colorAttachment {
@@ -437,6 +444,30 @@ extension SceneMetalRenderer {
                 access: "terminal-output", outcome: "sealed"))
         }
 #endif
+        let bloomUse: ScenePostProcessingUse.Bloom
+        if drewBloom {
+            bloomUse = bloom.hdr == nil ? .standard : .hdr
+        } else if !authoredBloom.allowsBloom {
+            bloomUse = .disabled
+        } else if !bloom.enabled || (bloom.hdr.map { $0.strength <= 0 } ?? (bloom.strength == 0)) {
+            bloomUse = .inactive
+        } else if let hdr = bloom.hdr, hdr.iterations < 2 {
+            bloomUse = .unsupported
+        } else {
+            bloomUse = .unavailable
+        }
+        let hdrWorkingSpace = renderDescriptor.hdrEnabled
+        let displayUse: ScenePostProcessingUse.Display = if hdrWorkingSpace && !mapped {
+            .unmapped
+        } else {
+            switch displayHDRRequest {
+            case .off: .sdr
+            case _ where !hdrWorkingSpace: .noHDRContent
+            case .targetUnavailable: .targetUnavailable
+            case .enabled: output.uniform > 1 ? .edr : .limitedHeadroom
+            }
+        }
+        observePostProcessing(.init(hdrWorkingSpace: hdrWorkingSpace, bloom: bloomUse, display: displayUse))
         return nil
     }
 

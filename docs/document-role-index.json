@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "dfd01bec3aecddcd708727cdf0bc9983f8f07a4a5b769fe6b4c17dc1ecc8a511",
+        "sourceSHA256": "dac61ccae59fb60bec5dec12613d2c3cfc62e8ca5c177ff48bb45268439c6b98",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定位无模型普通图元根段的冷准备、投影边界与实际采样回执。",
-        "limitations": "源图与当前执行角色对应。"
+        "scope": "定位后处理实际编码、Surface 完成和设置回显。",
+        "limitations": "实测限单物理 XDR 和工作卡所述范围，混合屏待核。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "eb8864cffae01968af80bdade139d29fcf4b1425f1be0b631e766a002fef0189",
+        "sourceSHA256": "210649efecaee43b58b3739758f712d8520e2b49da5b2fc34b39d8b74a99c231",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定义普通二维原生几何覆盖、图内采样边界与各按实际职责的特效组合。",
-        "limitations": "样本和实际执行范围见工作卡。"
+        "scope": "规定后处理实际输出回执与 raw 回退边界。",
+        "limitations": "实测限单物理 XDR 和工作卡所述范围，混合屏待核。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4381a4cd676e296b7a2e7b6a552ef7b55110ff264bdf079df485eba6f3a8d82e",
+        "sourceSHA256": "b1154a6f6dfa43b62ac536b1f59f4bdab9306fc602ccd1eba8b6bc7f50f69803",
         "method": "document_registry --audit + document_health --check",
-        "scope": "记录普通二维清屏根段的选型、尾部试验退出及实画门。",
-        "limitations": "更广硬件、持续性能和实际应用入口的证据见工作卡。"
+        "scope": "先定义后处理终端实际回执、暂停路径和失败范围。",
+        "limitations": "实测限单物理 XDR 和工作卡所述范围，混合屏待核。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d8e90e6713552aa3d76637ba050cd15b5d774d01d57151bc4508d7419f107960",
+        "sourceSHA256": "6aa8d9900def514dd6e371bc246e8ac2d1d3230b7059f87cb48e528920a555da",
         "method": "document_registry --audit + document_health --check",
-        "scope": "记录真实普通几何覆盖、单采样负控和同一产品设置动作的逐屏实际回执。",
-        "limitations": "正式长窗和物理混合屏待验。"
+        "scope": "登记真作者原生设置往返、画质回显和实窗对照。",
+        "limitations": "实测限单物理 XDR 和工作卡所述范围，混合屏待核。"
       }
     },
     {
@@ -886,10 +886,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7dbf6f7306d51bf29d229403864a9e3a1d62e1f38cc5b5b992ad1b5fef15c12a",
+        "sourceSHA256": "e14aa4699140b98dd04d2bb93f837ae5bdabe7eaeed03919ae46697cfd586d67",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通无模型根段复用投影与单一主编码器，沿兼容路径处理实际回退。",
-        "limitations": "同步根域职责，画面与硬件范围见现役工作卡。"
+        "scope": "同步合成前 raw 和本次终端后处理回执的归属。",
+        "limitations": "实测限单物理 XDR 和工作卡所述范围，混合屏待核。"
       }
     },
     {

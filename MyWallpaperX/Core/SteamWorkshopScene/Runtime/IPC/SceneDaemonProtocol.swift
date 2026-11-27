@@ -105,6 +105,7 @@ nonisolated struct SceneRasterDisplayStatus: Equatable, Sendable {
     var shadow: SceneShadowUse? = nil
     var volume: SceneVolumeUse? = nil
     var textures: SceneTextureUse? = nil
+    var postProcessing: ScenePostProcessingUse? = nil
 
     var wireObject: [String: Any] {
         var object: [String: Any] = ["displayID": displayID]
@@ -136,6 +137,10 @@ nonisolated struct SceneRasterDisplayStatus: Equatable, Sendable {
             row["reduced"] = textures.reduced.map(Self.textureBinding)
             row["retained"] = textures.retained.map(Self.textureBinding)
             object["textures"] = row
+        }
+        if let postProcessing {
+            object["postProcessing"] = ["hdrWorkingSpace": postProcessing.hdrWorkingSpace,
+                "bloom": postProcessing.bloom.rawValue, "display": postProcessing.display.rawValue] as [String: Any]
         }
         return object
     }
@@ -174,9 +179,17 @@ nonisolated enum SceneDaemonProtocol {
             if object["fallback"] != nil, (samples != 1 || fallback == nil) { return nil }
             statuses.append(.init(displayID: id, samples: samples.map(Int.init), fallback: fallback,
                 shadow: shadowUse(object["shadow"]), volume: volumeUse(object["volume"]),
-                textures: textureUse(object["textures"])))
+                textures: textureUse(object["textures"]), postProcessing: postProcessingUse(object["postProcessing"])))
         }
         return statuses
+    }
+
+    private static func postProcessingUse(_ raw: Any?) -> ScenePostProcessingUse? {
+        guard let row = raw as? [String: Any], let hdr = boolean(row["hdrWorkingSpace"]),
+              let bloom = (row["bloom"] as? String).flatMap(ScenePostProcessingUse.Bloom.init(rawValue:)),
+              let display = (row["display"] as? String).flatMap(ScenePostProcessingUse.Display.init(rawValue:))
+        else { return nil }
+        return .init(hdrWorkingSpace: hdr, bloom: bloom, display: display)
     }
 
     private static func textureUse(_ raw: Any?) -> SceneTextureUse? {

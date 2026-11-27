@@ -251,6 +251,25 @@ import Metal
         checks["actualHelperNilMappingRawOutput"] = read(nilMappingTarget) == [3, 0.25, 0.5, 1]
             && owner.completedSceneColor?.displayMapped == false
 
+        begin(owner, 4, 8)
+        let bloomFallbackCB = queue.makeCommandBuffer()!, bloomFallbackTarget = texture(8)
+        let bloomFallback = owner.reserveSceneColor(pool: storage, width: 8, height: 8,
+            frameIndex: 4, commandBuffer: bloomFallbackCB)!
+        let bloomFallbackRenderer = SceneMetalRenderer(renderDescriptor: .init(hdrEnabled: true,
+            camera: .init(clearColor: [3, 0.25, 0.5],
+                bloom: .init(enabled: true, strength: 1, threshold: 0.3, tint: SIMD3(repeating: 1)))),
+            imageCompositor: .init(resolvedMaterialRuntime: owner),
+            bloomPostProcess: bloom, displayMappingPostProcess: nil)
+        var fallbackUse: ScenePostProcessingUse?
+        precondition(bloomFallbackRenderer.encodeTerminalColor(sourceCompleted: true, sceneColor: bloomFallback,
+            target: bloomFallbackTarget, offscreenTexturePool: storage, dynamicValues: nilSnapshot,
+            commandBuffer: bloomFallbackCB, observePostProcessing: { fallbackUse = $0 }) == nil)
+        complete(bloomFallbackCB)
+        checks["bloomOnUnpublishedDisplayScratchDoesNotCount"] = !bloomFallback.requiresDraw
+            && read(bloomFallback.display!)[0] > 3
+            && read(bloomFallbackTarget) == [3, 0.25, 0.5, 1]
+            && fallbackUse == .init(hdrWorkingSpace: true, bloom: .unavailable, display: .unmapped)
+
         // A fixed linear surface may never publish unconverted raw fallback.
         // Use the real terminal helper and cancellation owner for both routes.
         for accumulating in [false, true] {
@@ -271,13 +290,15 @@ import Metal
                 }
                 MWXArmBlitFault(cb, fault == "blit" ? 1 : 0)
                 MWXArmEncoderFault(cb, fault == "encoder" ? 1 : 0)
+                var terminalUse: ScenePostProcessingUse?
                 let outcome = terminalRenderer(fault == "pipeline" ? nil : mapping).encodeTerminalColor(sourceCompleted: sourceCompleted,
                     sceneColor: reservation, target: display, offscreenTexturePool: storage,
                     dynamicValues: nilSnapshot, commandBuffer: cb,
-                    output: .extendedLinearSRGB(headroom: 4))
+                    output: .extendedLinearSRGB(headroom: 4), displayHDRRequest: .enabled,
+                    observePostProcessing: { terminalUse = $0 })
                 MWXArmBlitFault(cb, 0); MWXArmEncoderFault(cb, 0)
                 checks["linear-\(accumulating)-\(fault)-dropsUnconvertedOutput"] = outcome == .dropped(
-                    reasonCode: "scene-linear-display-export-unavailable")
+                    reasonCode: "scene-linear-display-export-unavailable") && terminalUse == nil
                 owner.cancelUnsubmittedFrame(on: cb); _ = owner.endFrame()
                 checks["linear-\(accumulating)-\(fault)-keepsCompleted"] =
                     owner.completedSceneColor?.persistenceReservation?.raw === previousCompleted
@@ -289,16 +310,35 @@ import Metal
         let linearReservation = owner.reserveSceneColor(pool: storage, width: 8, height: 8,
             frameIndex: 6, commandBuffer: linearCB)!
         copy(linearReservation.previous!, linearReservation.raw, linearCB)
+        var extendedUse: ScenePostProcessingUse?
         let linearOutcome = terminalRenderer(mapping).encodeTerminalColor(sourceCompleted: true, sceneColor: linearReservation,
             target: linearTarget, offscreenTexturePool: storage, dynamicValues: nilSnapshot,
-            commandBuffer: linearCB, output: .extendedLinearSRGB(headroom: 4))
+            commandBuffer: linearCB, output: .extendedLinearSRGB(headroom: 4), displayHDRRequest: .enabled,
+            renderUse: newRawQuality, observePostProcessing: { extendedUse = $0 })
         checks["linearRecoveryEncodes"] = linearOutcome == nil
+            && extendedUse == .init(hdrWorkingSpace: true, bloom: .inactive, display: .edr)
         complete(linearCB)
         let linearPixels = read(linearTarget)
         checks["linearRecoveryPreservesRawAndDecodesTerminal"] =
             read(linearReservation.raw) == [3, 0.25, 0.5, 1]
             && abs(linearPixels[0] - 4) < 0.002 && abs(linearPixels[1] - 0.050876) < 0.001
             && abs(linearPixels[2] - 0.214041) < 0.001 && linearPixels[3] == 1
+
+        begin(owner, 6, 8)
+        let limitedCB = queue.makeCommandBuffer()!, limitedTarget = texture(8)
+        let limited = owner.reserveSceneColor(pool: storage, width: 8, height: 8,
+            frameIndex: 6, commandBuffer: limitedCB)!
+        var limitedUse: ScenePostProcessingUse?
+        precondition(terminalRenderer(mapping).encodeTerminalColor(sourceCompleted: true, sceneColor: limited,
+            target: limitedTarget, offscreenTexturePool: storage, dynamicValues: nilSnapshot,
+            commandBuffer: limitedCB, output: .extendedLinearSRGB(headroom: 1), displayHDRRequest: .enabled,
+            renderUse: newRawQuality, observePostProcessing: { limitedUse = $0 }) == nil)
+        complete(limitedCB)
+        checks["pausedRawReexportReportsNewHeadroom"] = !limited.requiresDraw && limited.raw === linearReservation.raw
+            && limited.producerReceipt == linearReservation.producerReceipt
+            && limitedUse == .init(hdrWorkingSpace: true, bloom: .inactive, display: .limitedHeadroom)
+            && owner.completedSceneColor?.persistenceReservation?.renderUse == newRawQuality
+            && read(limitedTarget)[0] == 1 && read(limited.raw)[0] == 3
 
         for index in 1...3 {
             let failurePool = pool(); var allocations = 0

@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 68,
-      "bytes": 26123
+      "bytes": 26261
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 172,
-      "bytes": 34305
+      "bytes": 34385
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -97,12 +97,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 597,
-      "bytes": 179449
+      "lines": 599,
+      "bytes": 180387
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 160032
+      "bytes": 160470
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 309,
-      "bytes": 67221
+      "bytes": 67533
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -705,48 +705,48 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "1a309e76c0206e9e71d8a352f5ad39f7ca4078a7feb7446db4e3a6f59221ae19",
-      "after": "f725c384edc8fde3704f6b924283e6155ba30e4c4699dfa96cd54138bd4882f5",
-      "owner": "playback source map",
-      "reason": "定位无模型普通图元根段的冷准备、投影边界与实际采样回执。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
+      "path": "docs/architecture/wallpaper-quality-execution-contract.md",
+      "before": "1506186d1fc2da4af9d2b2bb5a1af35807534d666718a88ebc9b7ade06ba66ed",
+      "after": "8a174c31890e2a32bb97d20f76aff53891b9cf831ba1fb07ba8f9d3fb4328e79",
+      "owner": "runtime quality contract",
+      "reason": "规定后处理实际输出回执与 raw 回退边界。",
+      "decision": "docs/architecture/wallpaper-quality-execution-contract.md#quality-option-semantics"
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "832fe53d1c7d5de6de2d7c7ddd149efefa2ec12f645397ccb10b0fdd1dd7aefa",
-      "after": "1506186d1fc2da4af9d2b2bb5a1af35807534d666718a88ebc9b7ade06ba66ed",
-      "owner": "runtime quality contract",
-      "reason": "定义普通二维原生几何覆盖、图内采样边界与各按实际职责的特效组合。",
-      "decision": "docs/architecture/wallpaper-quality-execution-contract.md#quality-effect-families"
+      "path": "docs/architecture/repository-map.md",
+      "before": "f725c384edc8fde3704f6b924283e6155ba30e4c4699dfa96cd54138bd4882f5",
+      "after": "a7f85b90efb3727e4ba685519e5a9437b2cc2c1f43a8076be6299ad51b092181",
+      "owner": "playback source map",
+      "reason": "定位后处理实际编码、Surface 完成和设置回显。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-post-processing-feedback"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "fc7c3dccbf0f2bb2b621fb376b9b1b185c4ba916ba2398511d277239ff62de6f",
-      "after": "fd276f05041188c4aea95ed10b71697eb80bb272bdc9f183984c0844d01d8a5b",
+      "before": "fd276f05041188c4aea95ed10b71697eb80bb272bdc9f183984c0844d01d8a5b",
+      "after": "85c8d258d266d55db14064d888a8f5cb1d2df3a0f5c25c59989f60f6aadafa6d",
       "owner": "wallpaper quality design",
-      "reason": "记录普通二维清屏根段的选型、尾部试验退出及实画门。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-ordinary-quad"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "7057ebf6f7d86dbc423926aafcb98d18479b007beb81d809d4f41ad959d9fcee",
-      "after": "9cc10b19ce8e89e2890c3ebfd8a83622ba7c366acc38656b9fa97f252660cc88",
-      "owner": "Scene rendering",
-      "reason": "普通无模型根段复用投影与单一主编码器，沿兼容路径处理实际回退。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#raster-sample-domain"
+      "reason": "先定义后处理终端实际回执、暂停路径和失败范围。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-post-processing-feedback"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "070a00a487106e55098f9a7f5e94df31fb706df04f5d082606f604c05eb0b33a",
-      "after": "d23c7b0bb27b7f8e29d638bb9d541ee64feedeb12b4dc5422e782a717e6973ab",
+      "before": "d23c7b0bb27b7f8e29d638bb9d541ee64feedeb12b4dc5422e782a717e6973ab",
+      "after": "f7b597be2ae7d36a067a128098e05596fce1a8fa295016e147f5fabbe1293a66",
       "owner": "wallpaper quality execution",
-      "reason": "记录真实普通几何覆盖、单采样负控和同一产品设置动作的逐屏实际回执。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+      "reason": "登记真作者原生设置往返、画质回显和实窗对照。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-paused-display-hdr-live"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "9cc10b19ce8e89e2890c3ebfd8a83622ba7c366acc38656b9fa97f252660cc88",
+      "after": "99969be2a78d04c3040e1420beec2ae12a2d12db33a732632c1f0109ac9a7fb6",
+      "owner": "Scene rendering",
+      "reason": "同步合成前 raw 和本次终端后处理回执的归属。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-post-processing-feedback"
     }
   ]
 }
