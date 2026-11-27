@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "308b1db90eeeb4dca8dc0e8425cbb80f26de6da449bec98743960d914a0516f4",
+        "sourceSHA256": "5e944ab7ae4d2d75728547a27baec53290d51de2d26ab8eb8afc57f7ca21be3d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "登记真作者原生设置往返、画质回显和实窗对照。",
-        "limitations": "实测限单物理 XDR 和工作卡所述范围，混合屏待核。"
+        "scope": "真实差异与资源数据决定继续顺序，预登记两个局部效果真实样本。",
+        "limitations": "两个候选只核原包资产与现有执行阶段，降档终图和成本尚未实测。"
       }
     },
     {

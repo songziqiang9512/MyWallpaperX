@@ -102,7 +102,7 @@
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 160470
+      "bytes": 160958
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -714,15 +714,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "d23c7b0bb27b7f8e29d638bb9d541ee64feedeb12b4dc5422e782a717e6973ab",
-      "after": "f7b597be2ae7d36a067a128098e05596fce1a8fa295016e147f5fabbe1293a66",
-      "owner": "wallpaper quality execution",
-      "reason": "登记真作者原生设置往返、画质回显和实窗对照。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-paused-display-hdr-live"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "9cc10b19ce8e89e2890c3ebfd8a83622ba7c366acc38656b9fa97f252660cc88",
       "after": "99969be2a78d04c3040e1420beec2ae12a2d12db33a732632c1f0109ac9a7fb6",
@@ -747,6 +738,15 @@
       "owner": "Scene runtime evidence",
       "reason": "记录 Shimmer 封面与默认渐变的官版本机同色板和原包 GPU 绑定。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#active-media-effect-gaps-20261127"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "f7b597be2ae7d36a067a128098e05596fce1a8fa295016e147f5fabbe1293a66",
+      "after": "da7706ab9708df8545afdb8414701df1c08976b399e46fa544692ede4a2aaaf4",
+      "owner": "wallpaper quality execution",
+      "reason": "记录按真实正常画面和资源收益排序，限制昂贵无差异的档位扩展。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     }
   ]
 }
