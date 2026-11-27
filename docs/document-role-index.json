@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b7aee9a70521a542d4100eac548fec7d2bd6a10580b57edab7f67cb2fd8ae96d",
+        "sourceSHA256": "daa032d7356c9e2f88b7c32dd2b3737c0809ee52fabf5411978ae48506c0cb1d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核隐藏同源局部图参与现有 Auto 尺寸合并的语义。",
-        "limitations": "单内屏签名 Debug 的冷端纹理绑定、终图与分配。候选热切、持续实呈和功耗未测。"
+        "scope": "明确纹理实际分配与帧驱动目标的边界。",
+        "limitations": "单内屏配对短窗及独立后台分配。两相邻前台反向窗、发布级稳态、物理多屏和能耗待验。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7a96335a2639c32a325f050c5e44fb194f6982e1ab06bb0231e9d09910f4233c",
+        "sourceSHA256": "b54695661b9da6193adfb1bdc6704f56dda776d8433d763049fff68ae44518f6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核隐藏同源冷端试验的退出与重新进入条件。",
-        "limitations": "单内屏签名 Debug 的冷端纹理绑定、终图与分配。候选热切、持续实呈和功耗未测。"
+        "scope": "记录现役 LZ4 未用级的阶段原生测量及改造取舍。",
+        "limitations": "单内屏配对短窗及独立后台分配。两相邻前台反向窗、发布级稳态、物理多屏和能耗待验。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c87222e68536a1ef3337dd0130b9084b02ff123bd4e39aeeae5248bf50124d8a",
+        "sourceSHA256": "e77f2e05269576a84734e23761dcaa4f4732d52ead8403f76aab5efa40139064",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核独立作者样本、终图、纹理分配和原型退出。",
-        "limitations": "单内屏签名 Debug 的冷端纹理绑定、终图与分配。候选热切、持续实呈和功耗未测。"
+        "scope": "记录两部原作的三档持续呈现与实际设备分配。",
+        "limitations": "单内屏配对短窗及独立后台分配。两相邻前台反向窗、发布级稳态、物理多屏和能耗待验。"
       }
     },
     {

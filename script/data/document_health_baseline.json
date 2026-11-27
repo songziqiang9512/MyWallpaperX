@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 174,
-      "bytes": 36674
+      "bytes": 36734
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 198799
+      "bytes": 200394
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 179966
+      "bytes": 181146
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -724,29 +724,29 @@
     {
       "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "5338bbe832f83f0edd2cc3ad51f4ef78a0daa016fe48895efe32f9581d403e67",
-      "after": "52ef72faa8e272efee81be208c84bbd1f67b5f9f4c2b2d0150801102b1938f55",
+      "before": "52ef72faa8e272efee81be208c84bbd1f67b5f9f4c2b2d0150801102b1938f55",
+      "after": "715d6ab562639c506ccb2f6781914ca76fdadd4d734c85402a8f7bd9c1f29154",
       "owner": "wallpaper-quality",
-      "reason": "明确隐藏局部图参与现有 Auto 同源需求。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-dormant-source"
+      "reason": "明确纹理实际分配与帧驱动目标的边界。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-texture-playback-timing"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "d91c4d599a200b83d46a88e2fb2d0a31916803ad6f5d96d8297843aa9d66792f",
-      "after": "32cc618f405368f7aaae3e21a2607760d933c97dec3faca9d32d2bfb8cf12965",
+      "before": "32cc618f405368f7aaae3e21a2607760d933c97dec3faca9d32d2bfb8cf12965",
+      "after": "046c5f2d752c6d9517c9b093e60254fa64f885e17d82970ea075a1671b65d72b",
       "owner": "wallpaper-quality",
-      "reason": "登记隐藏同源原型退场与重新取证条件。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-dormant-source"
+      "reason": "记录现役 LZ4 未用级的阶段原生测量及改造取舍。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-lz4-prefix-cost"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "8d0d4411d5951b4cc84c8e48ebdbac3d7328e5c449f0c58d408797936464bfc7",
-      "after": "a9cbadc09778dceae69a1594ccd0200dfca97fb94bca809df33f6c6e90f66d32",
+      "before": "a9cbadc09778dceae69a1594ccd0200dfca97fb94bca809df33f6c6e90f66d32",
+      "after": "f4d22d75bb304d193b37b6a914f07b23ec132c8784ea31aeb798b5f167d7fa5c",
       "owner": "wallpaper-quality",
-      "reason": "记录冷端纹理的真实分配、终图和样本边界，安排持续实呈测试。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-dormant-source"
+      "reason": "记录两部原作的三档持续呈现与实际设备分配。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-texture-playback-timing"
     },
     {
       "section": "bodies",
