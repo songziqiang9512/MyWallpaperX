@@ -649,12 +649,13 @@ extension SceneMetalRenderer {
             return .deferred(reasonCode: reason)
         }
         // The late named-shadow owner prepares its own ordered depth set.
-        let needsLiveReflection = optionalScratch != nil && !preparesNamedModelShadow
+        let hasLiveReflectionDemand = !preparesNamedModelShadow
             && (hasReadyReflectiveModel || requiresLiveImageReflection())
+        let needsLiveReflection = optionalScratch != nil && hasLiveReflectionDemand
         let clearsAuthoredEnvironment = !allowsSceneReflection && requiresImageReflection()
         if !allowsSceneReflection {
             reflection.use = .disabled
-        } else if needsLiveReflection {
+        } else if hasLiveReflectionDemand {
             reflection.use = .unavailable
         }
         let clearedEnvironmentNeedsDepthCapacity = clearsAuthoredEnvironment && (

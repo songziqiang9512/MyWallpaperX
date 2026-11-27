@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 70,
-      "bytes": 28532
+      "bytes": 28577
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 175,
-      "bytes": 37848
+      "bytes": 37914
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 206346
+      "bytes": 207541
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 190083
+      "bytes": 191973
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 337,
-      "bytes": 75794
+      "bytes": 75881
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -715,47 +715,47 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "822a033754d30c53f56d6e1bc2e59937f23a9b28132f3e39224731b290be8e18",
-      "after": "36ef7a6e7bad73a8cb767878f16dc17841ed0e45b8c4c2122ef682f3f96a46e8",
+      "before": "36ef7a6e7bad73a8cb767878f16dc17841ed0e45b8c4c2122ef682f3f96a46e8",
+      "after": "b4f94fdaeb0a235338e61b12c84de9399035ed00aa482f3392fc9f2e8a9879b0",
       "owner": "wallpaper-quality",
-      "reason": "原生设置分类与统一质量保存、回显和恢复源码入口。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#quality-native-settings-reconciliation"
+      "reason": "核对反射需求、附件准入与完成回显的源码入口。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-reservation-failure"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "48daeb41a4c5acc25efae583d2ef3b7b9af5d60b3c1522ee4f453e727e68fc1a",
-      "after": "9a6dd08a527f78c7d6ea1b69a38d425d012aa6433ea898a2941f137793c4498d",
+      "before": "9a6dd08a527f78c7d6ea1b69a38d425d012aa6433ea898a2941f137793c4498d",
+      "after": "5c753ee732fbc813d7e4854ae39cb88d170020665c708c55614f3d5cbee0a851",
       "owner": "wallpaper-quality",
-      "reason": "新设置工具栏的画质消费者，以及便携文档和恢复日志的单一协调点。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#quality-native-settings-reconciliation"
+      "reason": "明确有需求但可选附件预约不足时的反射回显。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-reservation-failure"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "293f0aa9f561567acb83d62c55cf50734a45c1d6b06e4d2dab48082665dc1675",
-      "after": "2b3f9ad80d8de2ec4097c5f632f4dc0ada3dcbfb1abc07e12cc5149f5d08ba67",
+      "before": "2b3f9ad80d8de2ec4097c5f632f4dc0ada3dcbfb1abc07e12cc5149f5d08ba67",
+      "after": "8fb5ffa6899f6e5eab5e0a64e1a1c67bf55e8b2b6a38f7503e2bab8902da6521",
       "owner": "wallpaper-quality",
-      "reason": "合并原生窗口与质量字段，保持两套格式的兼容与统一执行链。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#quality-native-settings-reconciliation"
+      "reason": "记录终端纹理试验退出与反射资源拒绝时的局部回执设计。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-reservation-failure"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "2fc4559c33bb12530ea97b27ee46344d5ef7a82d3652629b01cb25688b32a256",
-      "after": "af59e327b19bc85c778b2734259a4713026ffa695c1f8edfe1278ba2834b3199",
+      "before": "af59e327b19bc85c778b2734259a4713026ffa695c1f8edfe1278ba2834b3199",
+      "after": "55728b1fe0404df11194a3829956b035040e6891482e92cc864e23ad728ac50c",
       "owner": "wallpaper-quality",
-      "reason": "主线最新设置基点、AppKit 页、便携恢复和现役质量路线。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#quality-native-settings-reconciliation"
+      "reason": "审计两类未发布纹理试验及独立玻璃、模型原作的反射失败与恢复。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-reservation-failure"
     },
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "8492b61135830e7ac08c81e13269c47f0fb46a31778b93874a454d7bd4fb3a8e",
-      "after": "cbe6051f40604d6f6a2eece2c210baae58d9eb7700be89adc2bece084570c9e1",
+      "before": "cbe6051f40604d6f6a2eece2c210baae58d9eb7700be89adc2bece084570c9e1",
+      "after": "c6f65d4efe6f00c7d7cb6c2491fa8ebb0d2cf4ff9da305fd9723a711fce29e52",
       "owner": "wallpaper-quality",
-      "reason": "核 Auto 准备到同源、延迟与已发布纹理热升的有效覆盖。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-padding-auto"
+      "reason": "核对早期反射需求、已有资源门及提交事实的边界。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-reservation-failure"
     }
   ]
 }

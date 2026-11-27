@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cf277155e82756843fd9454716ff94f4e3d42ac5e1a90e7e2f85590d7fd06c1b",
+        "sourceSHA256": "3c599a5d063970ee4717db723e292c897e5337d14523f9957007888ba892cd78",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原生设置分类与统一质量保存、回显和恢复源码入口。",
-        "limitations": "M4 本机原生表单与隔离 App 验证。未重测混合物理显示器及 Windows 官版。"
+        "scope": "核对反射需求、附件准入与完成回显的源码入口。",
+        "limitations": "签名 M4 完成帧和受控资源拒绝。未新增整场功耗、物理多屏或 Windows 官版对照。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0529049752071ec3f7401c5b40ed9bbba58727775ae8df400165b38f9b6d6b86",
+        "sourceSHA256": "cf5da68704ea7e69ab9ac1d487042cd8396a2405ed70a05d182f82d1f52ba2a7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "新设置工具栏的画质消费者，以及便携文档和恢复日志的单一协调点。",
-        "limitations": "M4 本机原生表单与隔离 App 验证。未重测混合物理显示器及 Windows 官版。"
+        "scope": "明确有需求但可选附件预约不足时的反射回显。",
+        "limitations": "签名 M4 完成帧和受控资源拒绝。未新增整场功耗、物理多屏或 Windows 官版对照。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f47f5382c3ee8b2521b033cf9335731110746b86d84789f8da1d62ddb01e6d88",
+        "sourceSHA256": "49077839a864d848bed7da9bc4f8df017a831a4ca4d031f7d9ce6ec204f03760",
         "method": "document_registry --audit + document_health --check",
-        "scope": "合并原生窗口与质量字段，保持两套格式的兼容与统一执行链。",
-        "limitations": "M4 本机原生表单与隔离 App 验证。未重测混合物理显示器及 Windows 官版。"
+        "scope": "记录终端纹理试验退出与反射资源拒绝时的局部回执设计。",
+        "limitations": "签名 M4 完成帧和受控资源拒绝。未新增整场功耗、物理多屏或 Windows 官版对照。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "160285d1e4338fdc9a0368a803a4ea5feaaef9ef00ca04e7ae33c605d50ef26a",
+        "sourceSHA256": "6792765ce023026a27d5b6856b18ad010b454efd2412638325f0e9e736c9403b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "主线最新设置基点、AppKit 页、便携恢复和现役质量路线。",
-        "limitations": "M4 本机原生表单与隔离 App 验证。未重测混合物理显示器及 Windows 官版。"
+        "scope": "审计两类未发布纹理试验及独立玻璃、模型原作的反射失败与恢复。",
+        "limitations": "签名 M4 完成帧和受控资源拒绝。未新增整场功耗、物理多屏或 Windows 官版对照。"
       }
     },
     {
@@ -886,10 +886,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "27f022654d77fa818d908074155e0de1c8fd28278517a702f9f4b88d20cc3f3d",
+        "sourceSHA256": "0b4766ce12407266796441918caa204bd79d966e5722718ab259a3b5b1629f83",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核 Auto 准备到同源、延迟与已发布纹理热升的有效覆盖。",
-        "limitations": "M4 签名 App 单窗完成帧和单源纹理回收。未测整场功耗或物理多屏。"
+        "scope": "核对早期反射需求、已有资源门及提交事实的边界。",
+        "limitations": "签名 M4 完成帧和受控资源拒绝。未新增整场功耗、物理多屏或 Windows 官版对照。"
       }
     },
     {
