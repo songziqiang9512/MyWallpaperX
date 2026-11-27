@@ -226,6 +226,11 @@ extension SceneResolvedMaterialShaderSchema {
             }
             return selectedPurpose
         }
+        if case let .provider(.system(name)) = reference,
+           SceneTextureProviderIdentity.mediaThumbnail(forSystemName: name) != nil,
+           hasMediaGradientRole(sampler) {
+            return .preservedChannels
+        }
         guard case let .asset(path) = reference else { return declared }
         let registeredPurpose = SceneStockTextureSemanticRegistry.purpose(for: path)
         if let declared, let registeredPurpose, declared != registeredPurpose {
@@ -248,6 +253,13 @@ extension SceneResolvedMaterialShaderSchema {
         else { return candidatePurpose }
         guard candidatePurpose == nil || candidatePurpose == defaultPurpose else { return nil }
         return candidatePurpose ?? defaultPurpose
+    }
+
+    nonisolated static func hasMediaGradientRole(_ sampler: Sampler) -> Bool {
+        guard permitsOrdinarySourcePurpose(sampler),
+              sampler.formatKey == nil, sampler.readinessCombo == nil,
+              case let .asset(defaultPath)? = sampler.defaultTexture else { return false }
+        return SceneStockTextureSemanticRegistry.purpose(for: defaultPath) == .preservedChannels
     }
 
     nonisolated static func sourceReadPurpose(

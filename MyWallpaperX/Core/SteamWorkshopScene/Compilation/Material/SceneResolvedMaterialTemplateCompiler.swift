@@ -22,7 +22,8 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         shaderContract: SceneShaderContract,
         inheritedInactiveCombos: Set<String> = [],
         provenSceneScriptValueTargets: Set<SceneDynamicTarget> = [],
-        compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal
+        compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal,
+        omitUnassignedSystemTexture: (Int, String) -> Bool = { _, _ in false }
     ) -> Result<Template, Failure> {
         do {
             guard material.nodeIndex == node.nodeIndex, node.kind == .material,
@@ -34,7 +35,8 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
             let textures = try textureSlots(
                 material.textureSlots,
                 layerID: context.node.effect.layerID,
-                context: context
+                context: context,
+                omitUnassignedSystemTexture: omitUnassignedSystemTexture
             )
             let uniforms = try uniformDeclarations(
                 material,
@@ -187,7 +189,8 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
     )
     private static func textureSlots(
         _ authored: [SceneResolvedMaterialNode.TextureSlot?], layerID: Int,
-        context: GraphContext? = nil
+        context: GraphContext? = nil,
+        omitUnassignedSystemTexture: (Int, String) -> Bool = { _, _ in false }
     ) throws -> TextureProjection {
         guard authored.count == 8
         else { throw Failure(phase: .texture, code: .textureSlotsInvalid) }
@@ -227,11 +230,18 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                 let reference = try textureReference(
                     candidate, slot: index, layerID: layerID, context: context
                 )
+                if slot.candidates.count == 1,
+                   case let .provider(.system(name)) = reference,
+                   omitUnassignedSystemTexture(index, name) {
+                    return nil
+                }
                 return Template.TextureCandidate(
                     reference: reference, provenance: candidate.provenance
                 )
             }
-            slots[index] = .init(index: index, candidates: candidates)
+            if !candidates.isEmpty {
+                slots[index] = .init(index: index, candidates: candidates)
+            }
         }
         return (slots, diagnostics)
     }

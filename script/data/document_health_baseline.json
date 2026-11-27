@@ -125,12 +125,12 @@
       "bytes": 83459
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 495,
-      "bytes": 98986
+      "lines": 500,
+      "bytes": 99746
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 410830
+      "bytes": 411489
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 56,
-      "bytes": 7797
+      "lines": 55,
+      "bytes": 7520
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -658,20 +658,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4c09ae78503c44cafa63050f337d3109011357810771dc4da5745aa2502bd26a",
-      "after": "d85228f5ca0e88de4435effe9587b9c6d89ed7cc077b5ae36fb668f5cbded948",
+      "before": "d85228f5ca0e88de4435effe9587b9c6d89ed7cc077b5ae36fb668f5cbded948",
+      "after": "2e5f2ce596fb10658abde5a242fc6b78acc19e744e433032b408a45db2f18616",
       "owner": "Scene runtime evidence",
-      "reason": "记录原材双向边缘差图、官方条件对照与两个真实样本合成回执。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#aa-member-conditions-304"
+      "reason": "记录 Shimmer 封面与默认渐变的官版本机同色板和原包 GPU 绑定。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#active-media-effect-gaps-20261127"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "2ad1ebdda1c48c9abf9c2d2eb8a023dea80048a97ac978bc7a2a4f87898fbfc9",
-      "after": "d56d61045fd46c6f011171ff840776ecfbeaa08a331912b31baf1c56ee17fada",
-      "owner": "Scene shader preparation",
-      "reason": "在预处理原职责内记录未求值点路径和官版布尔分支规则。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#shader-directive-member-operand"
+      "before": "d56d61045fd46c6f011171ff840776ecfbeaa08a331912b31baf1c56ee17fada",
+      "after": "a736fff32cafaa5a9ca3b544737cdc2440be839cb9343c6fda19c89851d7539e",
+      "owner": "Scene sampler preparation",
+      "reason": "记录媒体覆盖依赖已赋值效果槽及冷准备边界。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#media-gradient-sampler"
     }
   ]
 }

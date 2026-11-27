@@ -571,6 +571,10 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
 
     def test_official_sampler_modes_are_typed_without_custom_purpose(self) -> None:
         self.assertEqual(
+            self.result["mediaGradientDefaultProofs"],
+            {"plain": True, "noCompetingMode": True, "noFormatDrivenDefault": True},
+        )
+        self.assertEqual(
             self.result["samplerSchema"],
             {
                 "regularGraph": "premultiplied-color",
@@ -586,6 +590,12 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "neighboringWaterRippleNormalUnproven": "unproven",
                 "customWaterRippleNormalUnproven": "unproven",
                 "registeredStockShimmerGradient": "preserved-channels",
+                "mediaCoverGradient": "preserved-channels",
+                "previousMediaCoverGradient": "preserved-channels",
+                "unknownSystemGradient": "unproven",
+                "mediaCoverUntypedDefault": "unproven",
+                "mediaCoverNoiseDefault": "unproven",
+                "mediaCoverExplicitMask": "mask",
                 "registeredStockLightShaftsGradient": "preserved-channels",
                 "registeredStockFireGradient": "preserved-channels",
                 "registeredStockFireGradientConflict": "unproven",

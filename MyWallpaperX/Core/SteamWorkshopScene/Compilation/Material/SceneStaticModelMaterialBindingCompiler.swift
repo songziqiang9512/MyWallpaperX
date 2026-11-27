@@ -41,7 +41,7 @@ nonisolated struct SceneStaticModelMaterialBindingCompiler {
               pass.userTextureInputs.first.flatMap({ $0 }) == nil,
               let shaderPath = pass.shaderPath,
               let contract = contractsByShader[Self.normalizedShader(shaderPath)] else { return nil }
-        return SceneResolvedMaterialShaderSchema.unconditionalColorAssetDefault(
+        return SceneResolvedMaterialShaderSchema.unconditionalAssetDefault(
             slot: 0, contract: contract, combos: pass.combos
         )?.value
     }
