@@ -316,8 +316,8 @@ extension Notification.Name {
         _ = view.sceneQualityPresetPopup.sendAction(view.sceneQualityPresetPopup.action, to: view)
         window.makeFirstResponder(view.nextField); pump()
         checks["native-preset-replaces-unsubmitted-draft-and-refreshes-rows-in-one-write"] =
-            requests.requests.count == 4 && requests.requests.last == 15
-            && view.sceneFPSField.stringValue == "15"
+            requests.requests.count == 4 && requests.requests.last == 30
+            && view.sceneFPSField.stringValue == "30"
             && view.sceneShadowsPopup.selectedItem?.representedObject as? String == "medium"
             && view.scenePostProcessingPopup.selectedItem?.representedObject as? String == "enabled"
             && view.sceneReflectionsSwitch.state == .on
@@ -325,7 +325,7 @@ extension Notification.Name {
         _ = view.sceneAntiAliasingPopup.sendAction(view.sceneAntiAliasingPopup.action, to: view)
         checks["native-aa-setting-persists-and-leaves-derived-preset"] =
             requests.requests.count == 5 && PlaybackQualityPreference.current.scene.antiAliasing == .msaa4
-            && view.sceneQualityPresetPopup.indexOfSelectedItem == 0 && view.sceneFPSField.stringValue == "15"
+            && view.sceneQualityPresetPopup.indexOfSelectedItem == 0 && view.sceneFPSField.stringValue == "30"
         _ = try draft("88", in: view.sceneFPSField)
         let restore = NSButton()
         _ = restore.sendAction(NSSelectorFromString("restoreDefaultQuality"), to: view)
@@ -349,13 +349,13 @@ extension Notification.Name {
         _ = view.sceneQualityPresetPopup.sendAction(view.sceneQualityPresetPopup.action, to: view)
         checks["native-ultra-preset-selects-ultra-volume"] = requests.requests.count == 8
             && PlaybackQualityPreference.current.scene.volumeLighting == .ultra
-            && view.sceneFPSField.stringValue == "30"
+            && view.sceneFPSField.stringValue == "60"
             && view.sceneVolumeLightingPopup.selectedItem?.representedObject as? String == "ultra"
         let volumePopup = view.sceneVolumeLightingPopup
         volumePopup.selectItem(at: volumePopup.indexOfItem(withRepresentedObject: "enabled"))
         _ = volumePopup.sendAction(volumePopup.action, to: view)
         checks["native-high-volume-preserves-rate-and-makes-ultra-preset-custom"] =
-            requests.requests.count == 9 && requests.requests.last == 30
+            requests.requests.count == 9 && requests.requests.last == 60
             && PlaybackQualityPreference.current.scene.volumeLighting == .enabled
             && view.sceneQualityPresetPopup.indexOfSelectedItem == 0
         volumePopup.selectItem(at: volumePopup.indexOfItem(withRepresentedObject: "ultra"))
@@ -697,6 +697,26 @@ extension Notification.Name {
         daemon.activeRasterDisplayStatuses = []
         view.refreshSceneRenderReadouts()
         checks["native-texture-readout-clears-on-stop"] = textureLabel.isHidden && textureLabel.toolTip == nil
+
+        let presets = view.sceneQualityPresetPopup
+        let previousPresetSaves = requests.requests.count
+        for (mode, fps, shadow, antiAliasing) in [
+            ("low", 25, "low", SceneAntiAliasingMode.none),
+            ("medium", 30, "medium", .none),
+            ("high", 30, "high", .msaa2),
+            ("ultra", 60, "ultra", .msaa2),
+        ] {
+            presets.selectItem(at: presets.indexOfItem(withRepresentedObject: mode))
+            _ = presets.sendAction(presets.action, to: view)
+            checks["native-preset-\(mode)-reads-its-fps-and-full-quality"] =
+                presets.selectedItem?.representedObject as? String == mode
+                && view.sceneFPSField.integerValue == fps
+                && PlaybackQualityPreference.current.animationFrameRate.rawValue == fps
+                && view.sceneShadowsPopup.selectedItem?.representedObject as? String == shadow
+                && PlaybackQualityPreference.current.scene.antiAliasing == antiAliasing
+        }
+        checks["native-four-preset-actions-save-once-each"] =
+            Array(requests.requests.dropFirst(previousPresetSaves)) == [25, 30, 30, 60]
 
         let locale = UserDefaults.standard.string(forKey: "AppleLocale")
         let separator = locale == "de_DE" ? "," : "."

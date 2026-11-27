@@ -32,10 +32,10 @@ html,body{margin:0;height:100%;background:rgb(185,15,38)}
 const fpsMarker = document.getElementById("fps");
 window.wallpaperPropertyListener = {
   applyGeneralProperties(p) {
-    fpsMarker.style.background = p.fps === 15 ? "rgb(12,190,38)"
+    fpsMarker.style.background = p.fps === 30 ? "rgb(25,185,215)"
       : p.fps === 25 ? "rgb(196,40,210)"
       : p.fps === 60 ? "rgb(22,34,215)"
-      : typeof p.fps === "number" ? "rgb(25,185,215)" : "rgb(223,175,7)";
+      : "rgb(223,175,7)";
   }
 };
 const mark = document.getElementById("mark");
@@ -298,7 +298,7 @@ def main():
                     and all(row["videoRetained"] and row["ticket"] == current["ticket"] for row in prepared)
                     and len(set(requests)) == len(modes) and requests[-1] == current["request"]
                     and observation["presented"] == observation["finalized"] == [current["request"]]
-                    and observation["effectiveFPS"] == (25 if args.scene_selection_edit == "fps" else 15)
+                    and observation["effectiveFPS"] == (25 if args.scene_selection_edit == "fps" else 30)
                     and (not portable or observation["importedWhilePreparing"])
                     and observation["appliedTextures"] == "quality" and observation["applied"] == modes[-1]
                     and observation["pendingQualityVisible"] is portable):
@@ -310,8 +310,8 @@ def main():
             metadata["pixels"] = verify_pixels(output / "switch")
             red, green, blue = metadata["pixels"]["webGeneralFPSMarkerRGB"]
             # The WindowServer capture can encode the authored sRGB colors in the display profile.
-            if green - max(red, blue) < 60:
-                raise RuntimeError(f"real Web author page did not receive follow-animation fps=15, marker RGB {[red, green, blue]}")
+            if min(green, blue) - red < 60:
+                raise RuntimeError(f"real Web author page did not receive follow-animation fps=30, marker RGB {[red, green, blue]}")
         metadata["passed"] = source == tree_identity(scene)
         if not metadata["passed"]:
             raise RuntimeError("isolated input source changed")

@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 70,
-      "bytes": 28026
+      "bytes": 28047
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 174,
-      "bytes": 36734
+      "bytes": 36975
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -102,7 +102,7 @@
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 181146
+      "bytes": 181914
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -715,20 +715,20 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "02333f4efc3a47c8b7fdbae3cfd4c452773410f0f6747de9e75a33d387906054",
-      "after": "6ce38d0a72617221e6bda8ec6d75dae54cf91cbb87ba98c7e3c8ce35a5faefa7",
-      "owner": "Scene script owner construction",
-      "reason": "核场景脚本构造权限到基础图准备的源码入口。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-computed-model"
+      "before": "6ce38d0a72617221e6bda8ec6d75dae54cf91cbb87ba98c7e3c8ce35a5faefa7",
+      "after": "29507a0cfd164597ad312f76143854ad1ece9b661c1500342fc56170174928b1",
+      "owner": "wallpaper-quality",
+      "reason": "明确播放偏好与预设投影为同一源码入口。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-quality-presets"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "52ef72faa8e272efee81be208c84bbd1f67b5f9f4c2b2d0150801102b1938f55",
-      "after": "715d6ab562639c506ccb2f6781914ca76fdadd4d734c85402a8f7bd9c1f29154",
+      "before": "715d6ab562639c506ccb2f6781914ca76fdadd4d734c85402a8f7bd9c1f29154",
+      "after": "af182e11b6c9ddf37ab7b813f107bc607329538e101e3ff4037f28d50ee0fcc0",
       "owner": "wallpaper-quality",
-      "reason": "明确纹理实际分配与帧驱动目标的边界。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-texture-playback-timing"
+      "reason": "记录用户指定预设向量、原记录和相同帧率的分派。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-quality-presets"
     },
     {
       "section": "bodies",
@@ -742,11 +742,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "a9cbadc09778dceae69a1594ccd0200dfca97fb94bca809df33f6c6e90f66d32",
-      "after": "f4d22d75bb304d193b37b6a914f07b23ec132c8784ea31aeb798b5f167d7fa5c",
+      "before": "f4d22d75bb304d193b37b6a914f07b23ec132c8784ea31aeb798b5f167d7fa5c",
+      "after": "bd75215ddc251f642a90d5beb338969627985918825f32b869922ba934772efc",
       "owner": "wallpaper-quality",
-      "reason": "记录两部原作的三档持续呈现与实际设备分配。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-texture-playback-timing"
+      "reason": "核四档原生动作、Scene 接管及冷恢复、Web 实际投递和便携导入。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-quality-presets"
     },
     {
       "section": "bodies",

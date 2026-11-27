@@ -193,6 +193,7 @@ enum DebugPlaybackCoexistenceRunner {
         let daemon = SceneDaemonClient.shared
         let controller = SettingsWindowController.shared
         let edit = DebugScenePlaybackRunner.argumentValue(after: "--mwx-debug-scene-selection-edit") ?? "cold"
+        let initialFPS = PlaybackQualityPreference.current.animationFrameRate.rawValue
         controller.showWindow()
         defer { controller.window?.close() }
         guard let window = controller.window, let root = window.contentView,
@@ -277,7 +278,7 @@ enum DebugPlaybackCoexistenceRunner {
         let current = try await receipt(for: scene, runtime: .scene, after: initial)
         let importedWhilePreparing = try await portableImport?.value ?? false
         if edit == "portable" { didSave = PlaybackQualityPreference.current.scene.textures == .performance }
-        let expectedFPS = edit == "fps" ? 25 : 15
+        let expectedFPS = edit == "fps" ? 25 : initialFPS
         let cadence = try await wait("Scene cadence after selection") {
             daemon.activeAnimationCadence.flatMap { $0.requestedFPS.rawValue == expectedFPS ? $0 : nil }
         }

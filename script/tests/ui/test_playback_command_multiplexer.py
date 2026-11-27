@@ -223,10 +223,10 @@ final class Handler: PlaybackEngineControlling {
 
         let vectors: [(SceneQualityPreset, Int, ScenePostProcessingMode, SceneShadowQuality,
                        SceneVolumeLightingQuality, SceneReflectionQuality, SceneAntiAliasingMode)] = [
-            (.low, 10, .disabled, .low, .enabled, .disabled, .none),
-            (.medium, 15, .enabled, .medium, .enabled, .enabled, .none),
-            (.high, 25, .enabled, .high, .enabled, .enabled, .msaa2),
-            (.ultra, 30, .ultra, .adaptive, .ultra, .enabled, .msaa2)
+            (.low, 25, .disabled, .low, .enabled, .disabled, .none),
+            (.medium, 30, .enabled, .medium, .enabled, .enabled, .none),
+            (.high, 30, .enabled, .high, .enabled, .enabled, .msaa2),
+            (.ultra, 60, .ultra, .adaptive, .ultra, .enabled, .msaa2)
         ]
         var quality = PlaybackQualityPreference.read(from: defaults)
         for (preset, fps, postProcessing, shadows, volumeLighting, reflections, antiAliasing) in vectors {
@@ -234,18 +234,22 @@ final class Handler: PlaybackEngineControlling {
             let expected = SceneRenderQuality(postProcessing: postProcessing, shadows: shadows,
                 volumeLighting: volumeLighting, reflections: reflections, textures: .full, antiAliasing: antiAliasing)
             scene.qualityCommands.removeAll()
+            let previousRate = quality.animationFrameRate
             preset.apply(to: &quality)
             mux.applyQualityPreference(quality, defaults: defaults)
             mux.applyQualityPreference(quality, defaults: defaults)
             let persisted = PlaybackQualityPreference.read(from: defaults)
             precondition(persisted == quality && SceneQualityPreset.matching(persisted) == preset)
             precondition(persisted.keepsLegacySceneDecodeLimit && persisted.webFrameRateMode == .display)
-            precondition(scene.qualityCommands == [.setAnimationFrameRate(frameRate), .setSceneRenderQuality(expected)])
+            let expectedCommands: [WallpaperEngineCommand] = previousRate == frameRate
+                ? [.setSceneRenderQuality(expected)]
+                : [.setAnimationFrameRate(frameRate), .setSceneRenderQuality(expected)]
+            precondition(scene.qualityCommands == expectedCommands)
         }
         precondition(web.qualityCommands.isEmpty && video.qualityCommands.isEmpty)
 
         var manualRate = quality
-        manualRate.animationFrameRate = .standard
+        manualRate.animationFrameRate = AnimationFrameRate(rawValue: 59)!
         precondition(SceneQualityPreset.matching(manualRate) == nil)
         quality.webFrameRateMode = .followAnimationFrameRate
         precondition(SceneQualityPreset.matching(quality) == .ultra)
@@ -257,14 +261,21 @@ final class Handler: PlaybackEngineControlling {
         precondition(quality.webFrameRateMode == .followAnimationFrameRate && quality.keepsLegacySceneDecodeLimit)
         precondition(scene.qualityCommands == [.setAnimationFrameRate(quality.animationFrameRate),
             .setSceneRenderQuality(quality.scene)])
-        precondition(web.qualityCommands == [.setWebFrameRateSuggestion(15)] && video.qualityCommands.isEmpty)
+        precondition(web.qualityCommands == [.setWebFrameRateSuggestion(30)] && video.qualityCommands.isEmpty)
+
+        scene.qualityCommands.removeAll()
+        SceneQualityPreset.high.apply(to: &quality)
+        mux.applyQualityPreference(quality, defaults: defaults)
+        precondition(SceneQualityPreset.matching(PlaybackQualityPreference.read(from: defaults)) == .high)
+        precondition(scene.qualityCommands == [.setSceneRenderQuality(quality.scene)])
+        precondition(web.qualityCommands == [.setWebFrameRateSuggestion(30)] && video.qualityCommands.isEmpty)
 
         scene.qualityCommands.removeAll()
         quality.scene.textures = .performance
         mux.applyQualityPreference(quality, defaults: defaults)
         precondition(SceneQualityPreset.matching(PlaybackQualityPreference.read(from: defaults)) == nil)
         precondition(scene.qualityCommands == [.setSceneRenderQuality(quality.scene)])
-        precondition(web.qualityCommands == [.setWebFrameRateSuggestion(15)] && video.qualityCommands.isEmpty)
+        precondition(web.qualityCommands == [.setWebFrameRateSuggestion(30)] && video.qualityCommands.isEmpty)
 
         var fresh = PlaybackQualityPreference.defaults
         SceneQualityPreset.ultra.apply(to: &fresh)
@@ -272,13 +283,17 @@ final class Handler: PlaybackEngineControlling {
         precondition(!fresh.keepsLegacySceneDecodeLimit && PlaybackQualityPreference.read(from: defaults) == fresh)
 
         var previousUltra = defaults.dictionary(forKey: PlaybackQualityPreference.userDefaultsKey)!
+        previousUltra["animationFramesPerSecond"] = 30
         previousUltra["scenePointVolumeQuality"] = "enabled"
         defaults.set(previousUltra, forKey: PlaybackQualityPreference.userDefaultsKey)
         var expectedPreviousUltra = fresh
+        expectedPreviousUltra.animationFrameRate = AnimationFrameRate(rawValue: 30)!
         expectedPreviousUltra.scene.volumeLighting = .enabled
         let retained = PlaybackQualityPreference.read(from: defaults)
         precondition(retained == expectedPreviousUltra && SceneQualityPreset.matching(retained) == nil)
-        precondition(defaults.dictionary(forKey: PlaybackQualityPreference.userDefaultsKey)?["scenePointVolumeQuality"] as? String == "enabled")
+        let persistedPreviousUltra = defaults.dictionary(forKey: PlaybackQualityPreference.userDefaultsKey)
+        precondition(persistedPreviousUltra?["animationFramesPerSecond"] as? Int == 30)
+        precondition(persistedPreviousUltra?["scenePointVolumeQuality"] as? String == "enabled")
     }
 }
 '''

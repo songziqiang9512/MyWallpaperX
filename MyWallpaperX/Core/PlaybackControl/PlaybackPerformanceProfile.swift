@@ -206,10 +206,10 @@ nonisolated enum SceneQualityPreset: String, CaseIterable, Sendable {
         let (fps, postProcessing, shadows, reflections, antiAliasing): (
             Int, ScenePostProcessingMode, SceneShadowQuality, SceneReflectionQuality, SceneAntiAliasingMode
         ) = switch self {
-        case .low: (10, .disabled, .low, .disabled, .none)
-        case .medium: (15, .enabled, .medium, .enabled, .none)
-        case .high: (25, .enabled, .high, .enabled, .msaa2)
-        case .ultra: (30, .ultra, .adaptive, .enabled, .msaa2)
+        case .low: (25, .disabled, .low, .disabled, .none)
+        case .medium: (30, .enabled, .medium, .enabled, .none)
+        case .high: (30, .enabled, .high, .enabled, .msaa2)
+        case .ultra: (60, .ultra, .adaptive, .enabled, .msaa2)
         }
         return (AnimationFrameRate(rawValue: fps)!, .init(postProcessing: postProcessing, shadows: shadows,
             volumeLighting: self == .ultra ? .ultra : .enabled,

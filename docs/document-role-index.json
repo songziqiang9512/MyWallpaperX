@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "42d13fa5798e671e28dc21b51efd006af950585c8ed08daf0a2700aae589b702",
+        "sourceSHA256": "7f86e76aa8457dfd42a76e334ae835ef1d7d57afa310435693dbbabe7bf91267",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核场景脚本构造权限到基础图准备的源码入口。",
-        "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
+        "scope": "明确播放偏好与预设投影为同一源码入口。",
+        "limitations": "原生四档及单屏签名中档产品链。没有重复四档物理呈现或混合屏性能测量。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "daa032d7356c9e2f88b7c32dd2b3737c0809ee52fabf5411978ae48506c0cb1d",
+        "sourceSHA256": "6ac58551121d56e2a2a7fb24697e6afc52e01d3fde077067afe27e4f1ec22f51",
         "method": "document_registry --audit + document_health --check",
-        "scope": "明确纹理实际分配与帧驱动目标的边界。",
-        "limitations": "单内屏配对短窗及独立后台分配。两相邻前台反向窗、发布级稳态、物理多屏和能耗待验。"
+        "scope": "记录用户指定预设向量、原记录和相同帧率的分派。",
+        "limitations": "原生四档及单屏签名中档产品链。没有重复四档物理呈现或混合屏性能测量。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e77f2e05269576a84734e23761dcaa4f4732d52ead8403f76aab5efa40139064",
+        "sourceSHA256": "0c839120402a6ad9f270ff9e0c1499ec3945e288d25a251149175ad1bb27d985",
         "method": "document_registry --audit + document_health --check",
-        "scope": "记录两部原作的三档持续呈现与实际设备分配。",
-        "limitations": "单内屏配对短窗及独立后台分配。两相邻前台反向窗、发布级稳态、物理多屏和能耗待验。"
+        "scope": "核四档原生动作、Scene 接管及冷恢复、Web 实际投递和便携导入。",
+        "limitations": "原生四档及单屏签名中档产品链。没有重复四档物理呈现或混合屏性能测量。"
       }
     },
     {
