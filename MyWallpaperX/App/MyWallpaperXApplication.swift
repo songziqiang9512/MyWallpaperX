@@ -328,6 +328,9 @@ enum MyWallpaperXApplication {
                 })
                 try profile.clearRecoveryAfterReset()
                 workspace.presentation.resetViewState()
+                let updater = AppUpdateController.shared
+                updater.setAutomaticUpdateChecksEnabled(true)
+                updater.setAutomaticUpdateDownloadsEnabled(true)
                 workspace.setPersonalSettingsReady(true)
             } catch {
                 workspace.setPersonalSettingsReady(profile.allowsEditing)

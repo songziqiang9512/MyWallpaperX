@@ -127,6 +127,15 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
     func show(relativeTo window: NSWindow?) {}
 }
 
+@MainActor final class AppUpdateController {
+    static let shared = AppUpdateController()
+    var automaticUpdateChecksEnabled: Bool? { nil }
+    var automaticUpdateDownloadsEnabled: Bool { false }
+    func setAutomaticUpdateDownloadsEnabled(_ enabled: Bool) {}
+    func checkForUpdates(_ sender: Any?) {}
+    func setAutomaticUpdateChecksEnabled(_ enabled: Bool) {}
+}
+
 @MainActor final class SettingsContentViewController {
     let view = NSView()
     var personalSettings: PersonalSettingsImportCoordinator?

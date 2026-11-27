@@ -113,13 +113,13 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "产品目标内的 SwiftUI import、NSHosting 接点和 SwiftUI-to-AppKit bridge 经可复现扫描与构建门证明全部为零，且长期架构合同已接管最终职责后，将本文转为 historical-evidence。",
-      "lastReviewed": "2026-11-25",
+      "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "892c19b76f95ed687492b749e2e29bc6a33152245a6dd3431c99b17e530b7053",
+        "sourceSHA256": "bb5ea45df1965984b102fae75ee7409ec0f3a0f546242ec250ae19c5e28a7b74",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原生详情更新边界、目录可用性与轨道回显",
-        "limitations": "原生 Inspector 和宿主已验；完整桌面播放沿原独立路径"
+        "scope": "新原生设置工具栏及壁纸质量单一分类，保持主线页面与从属行为。",
+        "limitations": "M4 本机原生表单与隔离 App 验证。未重测混合物理显示器及 Windows 官版。"
       }
     },
     {
@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7cb65bf2d1203e2570d3ee994d9af40580494c3cb2ebe1aa319ee9c96ca19b3f",
+        "sourceSHA256": "cf277155e82756843fd9454716ff94f4e3d42ac5e1a90e7e2f85590d7fd06c1b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核 Auto 有效映射阈值的现有准备和实际绑定入口。",
-        "limitations": "M4 签名 App 单窗完成帧和单源纹理回收。未测整场功耗或物理多屏。"
+        "scope": "原生设置分类与统一质量保存、回显和恢复源码入口。",
+        "limitations": "M4 本机原生表单与隔离 App 验证。未重测混合物理显示器及 Windows 官版。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1a4137b6d156d55e6ab2e0c23dc295e2f881287c7b993c98f5436ee7a2bd3612",
+        "sourceSHA256": "0529049752071ec3f7401c5b40ed9bbba58727775ae8df400165b38f9b6d6b86",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核整比填充原生 BC Auto 的覆盖、门槛和热升规则。",
-        "limitations": "M4 签名 App 单窗完成帧和单源纹理回收。未测整场功耗或物理多屏。"
+        "scope": "新设置工具栏的画质消费者，以及便携文档和恢复日志的单一协调点。",
+        "limitations": "M4 本机原生表单与隔离 App 验证。未重测混合物理显示器及 Windows 官版。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b7bf659a8f7a84f8ddd5f559df9d85fb484ac3f66714479a1a50a008b2308dab",
+        "sourceSHA256": "f47f5382c3ee8b2521b033cf9335731110746b86d84789f8da1d62ddb01e6d88",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核 Auto 有效映射、原单级边界及热升和退役设计。",
-        "limitations": "M4 签名 App 单窗完成帧和单源纹理回收。未测整场功耗或物理多屏。"
+        "scope": "合并原生窗口与质量字段，保持两套格式的兼容与统一执行链。",
+        "limitations": "M4 本机原生表单与隔离 App 验证。未重测混合物理显示器及 Windows 官版。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "51ec1a9c110f134d821a9ccb5a43ca00e2750876a46db5e98089fe305575bade",
+        "sourceSHA256": "160285d1e4338fdc9a0368a803a4ea5feaaef9ef00ca04e7ae33c605d50ef26a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核两部独立原作的有效绑定、实配回收和同窗终图。",
-        "limitations": "M4 签名 App 单窗完成帧和单源纹理回收。未测整场功耗或物理多屏。"
+        "scope": "主线最新设置基点、AppKit 页、便携恢复和现役质量路线。",
+        "limitations": "M4 本机原生表单与隔离 App 验证。未重测混合物理显示器及 Windows 官版。"
       }
     },
     {

@@ -1,57 +1,15 @@
 import AppKit
 
 extension AppKitSettingsContainerView {
-    @objc func openScreenSaverSettings() { dependency.actions.openScreenSaverSettings() }
-
     func setupSections() {
-        // 分组顺序固定：播放、系统、节能、显示、维护；由左侧导航决定当前显示哪些块。
-        setupPlaybackSection()
-        setupSystemSection()
-        setupEfficiencySection()
-        setupQualitySection()
-        setupDisplaySection()
-        setupMaintenanceSection()
-
-        addSection(playbackModesSection)
-        addSection(audioSection)
-        addSection(systemSection)
-        addSection(hotkeysSection)
-        addSection(efficiencySection)
-        addSection(qualitySection)
-        addSection(displaySection)
-        addSection(maintenanceSection)
-    }
-
-    func applyVisibleSections() {
-        playbackModesSection.isHidden = !visibleSections.contains(.playbackModes)
-        audioSection.isHidden = !visibleSections.contains(.audio)
-        systemSection.isHidden = !visibleSections.contains(.system)
-        hotkeysSection.isHidden = !visibleSections.contains(.hotkeys)
-        efficiencySection.isHidden = !visibleSections.contains(.efficiency)
-        qualitySection.isHidden = !visibleSections.contains(.quality)
-        displaySection.isHidden = !visibleSections.contains(.display)
-
-        let showsMaintenance = visibleSections.contains(.maintenance)
-        maintenanceSection.isHidden = !showsMaintenance
-    }
-
-    func refreshSectionChromeAndLayout() {
-        let sections = [
-            playbackModesSection,
-            audioSection,
-            systemSection,
-            hotkeysSection,
-            efficiencySection,
-            qualitySection,
-            displaySection,
-            maintenanceSection
-        ]
-        sections.forEach { $0.refreshSeparators() }
-
-        needsLayout = true
-        contentContainer.needsLayout = true
-        contentStack.needsLayout = true
-        scheduleDocumentFrameUpdate()
+        setupPlaybackSection(forms[.playback]!)
+        setupQualitySection(forms[.quality]!)
+        setupDisplaySection(forms[.display]!)
+        setupSystemSection(forms[.system]!)
+        setupHotkeysSection(forms[.hotkeys]!)
+        setupEfficiencySection(forms[.efficiency]!)
+        setupMaintenanceSection(forms[.maintenance]!)
+        setupAboutSection(forms[.about]!)
     }
 
     func scheduleDocumentFrameUpdate() {
@@ -59,291 +17,235 @@ extension AppKitSettingsContainerView {
         isDocumentFrameUpdateScheduled = true
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            self.isDocumentFrameUpdateScheduled = false
+            isDocumentFrameUpdateScheduled = false
             self.updateDocumentFrame()
         }
     }
 
-    private func addSection(_ section: NSView) {
-        contentStack.addArrangedSubview(section)
-        section.translatesAutoresizingMaskIntoConstraints = false
-        section.widthAnchor.constraint(equalTo: contentStack.widthAnchor).isActive = true
-    }
-
-    private func setupPlaybackSection() {
-        // 播放控制区只放与播放状态相关的可逆配置，避免和系统集成配置混在一起。
-        playbackModesSection.addRow(makeSettingRow(title: String(localized: "Loop"), iconSystemName: "repeat", trailing: loopSwitch))
-        playbackModesSection.addRow(makeSettingRow(title: String(localized: "Play in Order"), iconSystemName: "list.number", trailing: sequentialSwitch))
-        playbackModesSection.addRow(makeSettingRow(title: String(localized: "Shuffle"), iconSystemName: "shuffle", trailing: randomSwitch))
-        let autoSwitchRow = makeSettingRow(title: String(localized: "Auto Switch"), iconSystemName: "arrow.triangle.2.circlepath", trailing: autoSwitchSwitch)
-        autoSwitchRowView = autoSwitchRow
-        playbackModesSection.addRow(autoSwitchRow)
+    private func setupPlaybackSection(_ form: SettingsFormView) {
+        loopSwitch.title = String(localized: "Loop")
+        sequentialSwitch.title = String(localized: "Play in Order")
+        randomSwitch.title = String(localized: "Shuffle")
+        form.addGroup(String(localized: "Playback Modes"), controls: [loopSwitch, sequentialSwitch, randomSwitch])
 
         intervalField.alignment = .right
-        intervalField.translatesAutoresizingMaskIntoConstraints = false
+        intervalField.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         intervalField.delegate = self
         intervalField.widthAnchor.constraint(equalToConstant: 46).isActive = true
-
-        timeUnitPopup.translatesAutoresizingMaskIntoConstraints = false
         for unit in TimeUnit.allCases {
             timeUnitPopup.addItem(withTitle: unit.rawValue)
             timeUnitPopup.lastItem?.representedObject = unit
         }
 
-        let intervalControls = NSStackView(views: [intervalField, timeUnitPopup])
-        intervalControls.orientation = .horizontal
-        intervalControls.alignment = .centerY
-        intervalControls.spacing = 8
+        let intervalLabel = NSTextField(labelWithString: String(localized: "Interval"))
+        intervalField.setAccessibilityLabel(intervalLabel.stringValue)
+        let interval = SettingsFormView.controls(
+            [intervalLabel, intervalField, timeUnitPopup], horizontal: true, indent: SettingsPanelLayout.subordinateInset
+        )
+        intervalRowView = interval
+        autoSwitchSwitch.title = String(localized: "Auto Switch")
+        autoSwitchRow = form.addGroup(String(localized: "Wallpaper Rotation"), controls: [autoSwitchSwitch, interval])
 
-        intervalRowView = makeSettingRow(title: String(localized: "-  Interval"), iconSystemName: "timer", trailing: intervalControls)
-        if let intervalRowView {
-            playbackModesSection.addRow(intervalRowView)
-        }
+        form.addDivider()
+        muteSwitch.title = String(localized: "Mute")
+        volumeSlider.setAccessibilityLabel(String(localized: "Volume"))
+        styleSlider(volumeSlider, valueLabel: volumeValueLabel, width: 200)
+        let volume = SettingsFormView.controls([volumeSlider, volumeValueLabel, muteSwitch], horizontal: true)
+        form.addGroup(String(localized: "Volume"), controls: [volume])
 
-        volumeSlider.translatesAutoresizingMaskIntoConstraints = false
-        volumeSlider.widthAnchor.constraint(equalToConstant: 230).isActive = true
-        volumeValueLabel.alignment = .right
-        volumeValueLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
-        volumeValueLabel.translatesAutoresizingMaskIntoConstraints = false
-        volumeValueLabel.widthAnchor.constraint(equalToConstant: 40).isActive = true
-
-        let volumeControls = NSStackView(views: [volumeValueLabel, volumeSlider, muteSwitch])
-        volumeControls.orientation = .horizontal
-        volumeControls.alignment = .centerY
-        volumeControls.spacing = 8
-        audioSection.addRow(makeSettingRow(title: String(localized: "Volume / Mute"), iconSystemName: "speaker.slash", trailing: volumeControls))
-
-        // 播放速率行：开关控制滑块显隐，滑杆覆盖 0.25x 到 2x。
-        playbackRateSwitch.toolTip = String(localized: "Enable to adjust playback speed")
-        playbackRateSlider.translatesAutoresizingMaskIntoConstraints = false
-        playbackRateSlider.widthAnchor.constraint(equalToConstant: 230).isActive = true
-        playbackRateSlider.numberOfTickMarks = 0
-        playbackRateSlider.allowsTickMarkValuesOnly = false
-        playbackRateValueLabel.alignment = .right
-        playbackRateValueLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
-        playbackRateValueLabel.translatesAutoresizingMaskIntoConstraints = false
-        playbackRateValueLabel.widthAnchor.constraint(equalToConstant: 40).isActive = true
-
-        let rateControls = NSStackView(views: [playbackRateValueLabel, playbackRateSlider, playbackRateSwitch])
-        rateControls.orientation = .horizontal
-        rateControls.alignment = .centerY
-        rateControls.spacing = 8
-        let rateRow = makeSettingRow(title: String(localized: "Playback Speed"), iconSystemName: "speedometer", trailing: rateControls)
-        audioSection.addRow(rateRow)
+        playbackRateSwitch.title = String(localized: "Adjust Playback Speed")
+        playbackRateSlider.setAccessibilityLabel(String(localized: "Playback Speed"))
+        styleSlider(playbackRateSlider, valueLabel: playbackRateValueLabel, width: 160)
+        let rate = SettingsFormView.controls(
+            [playbackRateSlider, playbackRateValueLabel], horizontal: true, indent: SettingsPanelLayout.subordinateInset
+        )
+        playbackRateControls = rate
+        form.addGroup(String(localized: "Speed"), controls: [playbackRateSwitch, rate])
     }
 
-    private func setupSystemSection() {
-        // 系统集成区只放会影响全局快捷键、同步壁纸和开机行为的配置。
-        startOnBootSwitch.toolTip = String(localized: "Launch the app at login")
+    private func setupSystemSection(_ form: SettingsFormView) {
+        startOnBootSwitch.title = String(localized: "Launch at Login")
+        restorePlaybackOnLaunchSwitch.title = String(localized: "Resume Playback at Launch")
         restorePlaybackOnLaunchSwitch.toolTip = String(localized: "Restore the last wallpaper (Video, Web or Scene) at launch. When off, no wallpaper plays at launch. Static image wallpapers are kept by the system and are not affected.")
+        form.addGroup(String(localized: "Startup"), controls: [startOnBootSwitch, restorePlaybackOnLaunchSwitch])
+
+        syncSystemWallpaperSwitch.title = String(localized: "Sync System Wallpaper")
         syncSystemWallpaperSwitch.toolTip = String(localized: "Also update the system wallpaper when the wallpaper changes: a still frame for Video, and one frame captured after the launch transition for Web and Scene. Static image wallpapers are always applied directly.")
-        systemAudioSpectrumSwitch.toolTip = String(localized: "Capture system audio and show a spectrum bar at the bottom of the desktop")
-        systemHotkeysSwitch.toolTip = String(localized: "Allow global F1–F12 shortcuts to control the wallpaper")
+        form.addGroup(String(localized: "Desktop"), controls: [syncSystemWallpaperSwitch])
 
-        sceneMediaInfoSwitch.toolTip = String(localized: "Shows the current track and artwork on Scene wallpapers. macOS asks for permission the first time Apple Music is read. If you denied it, allow it in System Settings > Privacy & Security > Automation and turn this on again.")
-        systemSection.addRow(makeSettingRow(title: String(localized: "Wallpaper Song Info"), iconSystemName: "music.note",
-            subtitle: String(localized: "Show the current track and artwork on supported Scene and Web wallpapers"), trailing: sceneMediaInfoSwitch))
-
-        systemSection.addRow(makeSettingRow(title: String(localized: "Launch at Login"), iconSystemName: "power", trailing: startOnBootSwitch))
-        systemSection.addRow(makeSettingRow(title: String(localized: "Resume Playback at Launch"), iconSystemName: "arrow.counterclockwise.circle", trailing: restorePlaybackOnLaunchSwitch))
-        systemSection.addRow(makeSettingRow(title: String(localized: "Sync System Wallpaper"), iconSystemName: "photo.on.rectangle", trailing: syncSystemWallpaperSwitch))
-        let systemAudioSpectrumRow = makeSettingRow(
-            title: String(localized: "Audio Spectrum"),
-            iconSystemName: "chart.bar.xaxis",
-            subtitle: String(localized: "A visual effect that applies only to Video wallpapers"),
-            trailing: systemAudioSpectrumSwitch
-        )
-        systemAudioSpectrumRow.identifier = NSUserInterfaceItemIdentifier("settings.row.system-audio-spectrum")
-        systemSection.addRow(systemAudioSpectrumRow)
+        form.addDivider()
+        systemAudioSpectrumSwitch.title = String(localized: "Audio Spectrum")
         for barCount in [16, 20, 28, 36, 48] {
             systemAudioSpectrumBarCountPopup.addItem(withTitle: String(localized: "\(barCount) bars"))
             systemAudioSpectrumBarCountPopup.lastItem?.representedObject = barCount
         }
         systemAudioSpectrumColorWell.supportsAlpha = false
-        systemAudioSpectrumColorWell.color = .white
-        systemAudioSpectrumOffsetXSlider.translatesAutoresizingMaskIntoConstraints = false
-        systemAudioSpectrumOffsetXSlider.widthAnchor.constraint(equalToConstant: 180).isActive = true
-        systemAudioSpectrumOffsetYSlider.translatesAutoresizingMaskIntoConstraints = false
-        systemAudioSpectrumOffsetYSlider.widthAnchor.constraint(equalToConstant: 180).isActive = true
-        for label in [systemAudioSpectrumOffsetXValueLabel, systemAudioSpectrumOffsetYValueLabel] {
-            label.alignment = .right
-            label.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
-            label.translatesAutoresizingMaskIntoConstraints = false
-            label.widthAnchor.constraint(equalToConstant: 36).isActive = true
-        }
 
-        let spectrumBarCountRow = makeSettingRow(
-            title: String(localized: "-  Bar Count"),
-            iconSystemName: "square.split.2x1",
-            trailing: systemAudioSpectrumBarCountPopup
+        let spectrum = SettingsFormView(rowSpacing: SettingsPanelLayout.controlSpacing)
+        let sensitivity = String(localized: "Sensitivity")
+        systemAudioSpectrumSensitivityPopup.setAccessibilityLabel(sensitivity)
+        for choice in SystemAudioSpectrumSensitivity.allCases {
+            systemAudioSpectrumSensitivityPopup.addItem(withTitle: choice.displayName)
+            systemAudioSpectrumSensitivityPopup.lastItem?.representedObject = choice
+        }
+        let response = String(localized: "Spectrum Response")
+        systemAudioSpectrumStylePopup.setAccessibilityLabel(response)
+        for choice in SystemAudioSpectrumStyle.allCases {
+            systemAudioSpectrumStylePopup.addItem(withTitle: choice.displayName)
+            systemAudioSpectrumStylePopup.lastItem?.representedObject = choice
+        }
+        spectrum.addGroup(response, controls: [systemAudioSpectrumStylePopup])
+        spectrum.addGroup(sensitivity, controls: [systemAudioSpectrumSensitivityPopup])
+        spectrum.addGroup(String(localized: "Bar Count"), controls: [systemAudioSpectrumBarCountPopup])
+        spectrum.addGroup(String(localized: "Color"), controls: [systemAudioSpectrumColorWell])
+        for (title, slider, valueLabel) in [
+            (String(localized: "X Position"), systemAudioSpectrumOffsetXSlider, systemAudioSpectrumOffsetXValueLabel),
+            (String(localized: "Y Position"), systemAudioSpectrumOffsetYSlider, systemAudioSpectrumOffsetYValueLabel)
+        ] {
+            slider.setAccessibilityLabel(title)
+            styleSlider(slider, valueLabel: valueLabel, width: 160)
+            spectrum.addGroup(title, controls: [SettingsFormView.controls([slider, valueLabel], horizontal: true)])
+        }
+        systemAudioSpectrumPeakCapsSwitch.title = String(localized: "Show Peak Caps")
+        let spectrumOptions = SettingsFormView.controls(
+            [spectrum, systemAudioSpectrumPeakCapsSwitch], indent: SettingsPanelLayout.subordinateInset
         )
-        let spectrumColorRow = makeSettingRow(
-            title: String(localized: "-  Color"),
-            iconSystemName: "paintpalette",
-            trailing: systemAudioSpectrumColorWell
-        )
-        let offsetXControls = NSStackView(views: [systemAudioSpectrumOffsetXValueLabel, systemAudioSpectrumOffsetXSlider])
-        offsetXControls.orientation = .horizontal
-        offsetXControls.alignment = .centerY
-        offsetXControls.spacing = 8
-        let offsetYControls = NSStackView(views: [systemAudioSpectrumOffsetYValueLabel, systemAudioSpectrumOffsetYSlider])
-        offsetYControls.orientation = .horizontal
-        offsetYControls.alignment = .centerY
-        offsetYControls.spacing = 8
-        let spectrumOffsetXRow = makeSettingRow(
-            title: String(localized: "-  X Position"),
-            iconSystemName: "arrow.left.and.right",
-            trailing: offsetXControls
-        )
-        let spectrumOffsetYRow = makeSettingRow(
-            title: String(localized: "-  Y Position"),
-            iconSystemName: "arrow.up.and.down",
-            trailing: offsetYControls
-        )
-        let spectrumPeakCapsRow = makeSettingRow(
-            title: String(localized: "-  Show Peak Caps"),
-            iconSystemName: "rectangle.topthird.inset.filled",
-            trailing: systemAudioSpectrumPeakCapsSwitch
-        )
-        let spectrumOptionsStack = NSStackView(views: [
-            spectrumBarCountRow,
-            makeInlineSeparator(horizontalInset: 14),
-            spectrumColorRow,
-            makeInlineSeparator(horizontalInset: 14),
-            spectrumOffsetXRow,
-            makeInlineSeparator(horizontalInset: 14),
-            spectrumOffsetYRow,
-            makeInlineSeparator(horizontalInset: 14),
-            spectrumPeakCapsRow
+        systemAudioSpectrumOptionsContainer = spectrumOptions
+        form.addGroup(String(localized: "Video"), controls: [
+            systemAudioSpectrumSwitch,
+            SettingsFormView.detail(String(localized: "A visual effect that applies only to Video wallpapers"),
+                                    indent: SettingsPanelLayout.checkboxTextInset),
+            spectrumOptions
         ])
-        spectrumOptionsStack.orientation = .vertical
-        spectrumOptionsStack.alignment = .leading
-        spectrumOptionsStack.distribution = .fill
-        spectrumOptionsStack.spacing = 0
-        spectrumOptionsStack.translatesAutoresizingMaskIntoConstraints = false
-        // 与 hotkeyRowsStack 同构：子行和内嵌分隔线显式 pin 宽到栈宽，
-        // 否则右缘控件不与主行对齐、分隔线塌缩成短划。
-        for child in spectrumOptionsStack.arrangedSubviews {
-            child.translatesAutoresizingMaskIntoConstraints = false
-            child.widthAnchor.constraint(equalTo: spectrumOptionsStack.widthAnchor).isActive = true
-        }
-        systemAudioSpectrumOptionsContainer = makeEmbeddedRow(content: spectrumOptionsStack)
-        if let systemAudioSpectrumOptionsContainer {
-            systemAudioSpectrumOptionsContainer.identifier = NSUserInterfaceItemIdentifier("settings.row.system-audio-spectrum.options")
-            spectrumOptionsStack.identifier = NSUserInterfaceItemIdentifier("settings.stack.system-audio-spectrum.options")
-            systemSection.addRow(systemAudioSpectrumOptionsContainer)
-        }
-        hotkeysSection.addRow(makeSettingRow(title: String(localized: "Playback Shortcuts"), iconSystemName: "keyboard", trailing: systemHotkeysSwitch))
 
-        hotkeyRowsStack.orientation = .vertical
-        hotkeyRowsStack.alignment = .leading
-        hotkeyRowsStack.distribution = .fill
-        hotkeyRowsStack.spacing = 0
-        hotkeyRowsStack.translatesAutoresizingMaskIntoConstraints = false
+        sceneMediaInfoSwitch.title = String(localized: "Wallpaper Song Info")
+        sceneMediaInfoSwitch.toolTip = String(localized: "Shows the current track and artwork on Scene wallpapers. macOS asks for permission the first time Apple Music is read. If you denied it, allow it in System Settings > Privacy & Security > Automation and turn this on again.")
+        let audioListening = String(localized: "Listen to System Audio")
+        webAudioListeningSwitch.title = audioListening
+        sceneAudioListeningSwitch.title = audioListening
+        form.addGroup(String(localized: "Web Wallpaper"), controls: [webAudioListeningSwitch])
+        form.addGroup(String(localized: "Scene"), controls: [sceneAudioListeningSwitch])
+        form.addGroup(String(localized: "Wallpaper"), controls: [
+            sceneMediaInfoSwitch,
+            SettingsFormView.detail(String(localized: "Show the current track and artwork on supported Scene and Web wallpapers"),
+                                    indent: SettingsPanelLayout.checkboxTextInset)
+        ])
+    }
 
+    private func setupHotkeysSection(_ form: SettingsFormView) {
         for action in SystemHotkeyAction.allCases {
-            let toggle = NSSwitch()
             let popup = NSPopUpButton()
-
-            let controls = NSStackView(views: [popup, toggle])
-            controls.orientation = .horizontal
-            controls.alignment = .centerY
-            controls.spacing = 8
-
-            if !hotkeyRowsStack.arrangedSubviews.isEmpty {
-                let separator = makeInlineSeparator(horizontalInset: 14)
-                hotkeyRowsStack.addArrangedSubview(separator)
-                separator.translatesAutoresizingMaskIntoConstraints = false
-                separator.widthAnchor.constraint(equalTo: hotkeyRowsStack.widthAnchor).isActive = true
+            popup.autoenablesItems = false
+            popup.setAccessibilityLabel(action.displayName)
+            popup.target = self
+            popup.action = #selector(handleHotkeyPopupChange(_:))
+            for shortcut in FunctionKeyShortcut.allCases {
+                popup.addItem(withTitle: shortcut.displayName)
+                popup.lastItem?.representedObject = shortcut
             }
-
-            let row = makeSettingRow(title: action.displayName, iconSystemName: "command", trailing: controls)
-            hotkeyRowsStack.addArrangedSubview(row)
-            row.translatesAutoresizingMaskIntoConstraints = false
-            row.widthAnchor.constraint(equalTo: hotkeyRowsStack.widthAnchor).isActive = true
-
-            hotkeyEnableSwitches[action] = toggle
+            form.addGroup(action.displayName, controls: [popup])
             hotkeyPopups[action] = popup
-        }
-
-        hotkeyRowsContainer = makeEmbeddedRow(content: hotkeyRowsStack)
-        if let hotkeyRowsContainer {
-            hotkeysSection.addRow(hotkeyRowsContainer)
         }
     }
 
-    private func setupEfficiencySection() {
-        // 性能区的开关会直接影响引擎暂停状态，改动后必须同步到 WallpaperEngine。
+    private func setupEfficiencySection(_ form: SettingsFormView) {
+        pauseOtherAppFocusedSwitch.title = String(localized: "Pause When Another App Is Focused")
         pauseOtherAppFocusedSwitch.toolTip = String(localized: "Pause the wallpaper while another app is in front (excluding Finder on the desktop and this app)")
+        pauseOtherAppFullscreenSwitch.title = String(localized: "Pause When Another App Is Full Screen")
         pauseOtherAppFullscreenSwitch.toolTip = String(localized: "Pause the wallpaper when another app enters full screen and covers the main desktop")
-        pauseWhenUnpluggedSwitch.toolTip = String(localized: "Pause the wallpaper on battery to save power")
-        pauseWhenIdleSwitch.toolTip = String(localized: "Pause the wallpaper when the Mac has been idle for a while")
-
-        efficiencySection.addRow(makeSettingRow(title: String(localized: "Pause When Another App Is Focused"), iconSystemName: "app.badge", trailing: pauseOtherAppFocusedSwitch))
-        efficiencySection.addRow(makeSettingRow(title: String(localized: "Pause When Another App Is Full Screen"), iconSystemName: "arrow.up.left.and.arrow.down.right", trailing: pauseOtherAppFullscreenSwitch))
-        efficiencySection.addRow(makeSettingRow(title: String(localized: "Pause When on Battery"), iconSystemName: "battery.25", trailing: pauseWhenUnpluggedSwitch))
-        efficiencySection.addRow(makeSettingRow(title: String(localized: "Pause When Idle"), iconSystemName: "moon.zzz", trailing: pauseWhenIdleSwitch))
+        pauseWhenUnpluggedSwitch.title = String(localized: "Pause When on Battery")
+        pauseWhenIdleSwitch.title = String(localized: "Pause When Idle")
 
         for value in [5, 10, 15, 20, 30, 60] {
             idleTimeoutPopup.addItem(withTitle: String(localized: "\(value) min"))
             idleTimeoutPopup.lastItem?.representedObject = value
         }
-        idleTimeoutRowView = makeSettingRow(title: String(localized: "-  Idle Time"), iconSystemName: "clock", trailing: idleTimeoutPopup)
-        if let idleTimeoutRowView {
-            efficiencySection.addRow(idleTimeoutRowView)
-        }
+        let idleLabel = NSTextField(labelWithString: String(localized: "Idle Time"))
+        idleTimeoutPopup.setAccessibilityLabel(idleLabel.stringValue)
+        let timeout = SettingsFormView.controls(
+            [idleLabel, idleTimeoutPopup], horizontal: true, indent: SettingsPanelLayout.subordinateInset
+        )
+        idleTimeoutRowView = timeout
+        form.addGroup(String(localized: "Pause"), controls: [
+            pauseOtherAppFocusedSwitch, pauseOtherAppFullscreenSwitch, pauseWhenUnpluggedSwitch, pauseWhenIdleSwitch, timeout
+        ])
+
     }
 
-    private func setupDisplaySection() {
-        // 显示区处理窗口外观、屏幕适配和画面比例，不混入播放策略。
+    private func setupDisplaySection(_ form: SettingsFormView) {
         for (index, style) in LibraryBackgroundStyle.allCases.enumerated() {
             libraryBackgroundPopup.addItem(withTitle: style.title)
             libraryBackgroundPopup.lastItem?.tag = index
             libraryBackgroundPopup.lastItem?.representedObject = style
         }
-        displaySection.addRow(makeSettingRow(title: String(localized: "App Theme"), iconSystemName: "rectangle.on.rectangle",
-            trailing: libraryBackgroundPopup))
+        libraryBackgroundPopup.setAccessibilityLabel(String(localized: "App Theme"))
+        form.addGroup(String(localized: "App Theme"), controls: [libraryBackgroundPopup])
+
         for (index, action) in LibraryCardClickAction.allCases.enumerated() {
             libraryCardClickPopup.addItem(withTitle: action.title)
             libraryCardClickPopup.lastItem?.tag = index
             libraryCardClickPopup.lastItem?.representedObject = action
         }
-        displaySection.addRow(makeSettingRow(title: String(localized: "Card Click Action"), iconSystemName: "cursorarrow.click",
-            trailing: libraryCardClickPopup))
-        let screenSaverButton = NSButton(title: String(localized: "Configure"), target: self, action: #selector(openScreenSaverSettings))
-        screenSaverButton.bezelStyle = .rounded
-        displaySection.addRow(makeSettingRow(title: String(localized: "Lock Screen & Screen Saver"), iconSystemName: "display",
-            subtitle: String(localized: "Play local videos muted on loop as the system screen saver"), trailing: screenSaverButton))
-        multiDisplaySwitch.toolTip = String(localized: "Show the wallpaper on all displays (Video, Web and Scene)")
-        displaySection.addRow(makeSettingRow(title: String(localized: "Multiple Displays"), iconSystemName: "rectangle.on.rectangle", trailing: multiDisplaySwitch))
+        libraryCardClickPopup.setAccessibilityLabel(String(localized: "Card Click Action"))
+        form.addGroup(String(localized: "Card Click Action"), controls: [libraryCardClickPopup])
 
-        let fillModeControls = NSStackView(views: [fillModeFitButton, fillModeFillButton])
-        fillModeControls.orientation = .horizontal
-        fillModeControls.alignment = .centerY
-        fillModeControls.spacing = 16
-        displaySection.addRow(makeSettingRow(title: String(localized: "Wallpaper Fill Mode"), iconSystemName: "aspectratio", trailing: fillModeControls))
+        keepDockIconSwitch.title = String(localized: "Keep Dock Icon When the Main Window Is Closed")
+        form.addGroup("Dock", controls: [keepDockIconSwitch])
+
+        form.addDivider()
+        multiDisplaySwitch.title = String(localized: "Show Wallpaper on All Displays")
+        multiDisplaySwitch.toolTip = String(localized: "Show the wallpaper on all displays (Video, Web and Scene)")
+        form.addGroup(String(localized: "Wallpaper"), controls: [multiDisplaySwitch])
+        form.addGroup(String(localized: "Wallpaper Fill Mode"), controls: [fillModeFitButton, fillModeFillButton])
+
+        form.addDivider()
+        let screenSaver = NSButton(title: String(localized: "Configure"), target: self, action: #selector(openScreenSaverSettings))
+        screenSaver.bezelStyle = .rounded
+        form.addGroup(String(localized: "Lock Screen & Screen Saver"), controls: [
+            screenSaver, SettingsFormView.detail(String(localized: "Play local videos muted on loop as the system screen saver"))
+        ])
     }
 
-    private func setupMaintenanceSection() {
-        // 维护区只承载导入导出、清缓存和重置应用这类高风险动作，和普通设置分开。
-        configureMaintenanceActionButton(exportProfileButton)
+    private func setupMaintenanceSection(_ form: SettingsFormView) {
         exportProfileButton.target = self
         exportProfileButton.action = #selector(handleExportProfile)
-
-        configureMaintenanceActionButton(importProfileButton)
         importProfileButton.target = self
         importProfileButton.action = #selector(handleImportProfile)
 
-        configureMaintenanceActionButton(clearCacheButton)
-        configureMaintenanceActionButton(resetSettingsButton, tint: .systemRed)
-
-        maintenanceSection.addRow(makeMaintenanceActionRow(button: exportProfileButton, iconSystemName: "square.and.arrow.up"))
-        maintenanceSection.addRow(makeMaintenanceActionRow(button: importProfileButton, iconSystemName: "square.and.arrow.down"))
-        maintenanceSection.addRow(makeMaintenanceActionRow(button: clearCacheButton, iconSystemName: "trash"))
-        maintenanceSection.addRow(makeMaintenanceActionRow(button: resetSettingsButton, iconSystemName: "arrow.counterclockwise"))
+        let transfer = SettingsFormView.controls([importProfileButton, exportProfileButton], horizontal: true)
+        form.addGroup(String(localized: "Personal Settings"), controls: [transfer])
+        form.addGroup(String(localized: "Cache"), controls: [clearCacheButton])
+        form.addDivider()
+        form.addGroup(String(localized: "Reset"), controls: [resetSettingsButton])
     }
 
-    private func setupQualitySection() {
+    private func setupAboutSection(_ form: SettingsFormView) {
+        let github = NSButton(title: "GitHub", target: self, action: #selector(openProjectWebsite))
+        github.toolTip = String(localized: "View the project, report issues, or star it on GitHub")
+        form.addGroup("MyWallpaperX", controls: [
+            SettingsFormView.detail(String(localized: "Simple by intention, pure by design.\nA native wallpaper manager built for macOS.")), github
+        ])
+        form.addDivider()
+        let update = NSButton(title: String(localized: "Check for Updates"), target: self, action: #selector(checkForUpdates(_:)))
+        var controls = [update]
+        if dependency.actions.automaticUpdateChecksEnabled() != nil {
+            let checks = NSButton(
+                checkboxWithTitle: String(localized: "Automatically Check for Updates"),
+                target: self, action: #selector(changeAutomaticUpdateChecks(_:))
+            )
+            let downloads = NSButton(
+                checkboxWithTitle: String(localized: "Automatically Download and Install Updates"),
+                target: self, action: #selector(changeAutomaticUpdateDownloads(_:))
+            )
+            automaticUpdateChecksButton = checks
+            automaticUpdateDownloadsButton = downloads
+            refreshUpdaterControls()
+            controls = [checks, downloads, update]
+        }
+        form.addGroup(String(localized: "Software Update"), controls: controls)
+    }
+
+    private func setupQualitySection(_ form: SettingsFormView) {
         let rateInput = NSStackView(views: [sceneFPSField, sceneFPSControl])
         rateInput.spacing = 8
         let sceneFPSControls = NSStackView(views: [rateInput, sceneFPSEffectiveLabel])
@@ -363,11 +265,10 @@ extension AppKitSettingsContainerView {
             sceneQualityPresetPopup.lastItem?.representedObject = preset.rawValue
         }
         sceneQualityPresetPopup.setAccessibilityLabel(String(localized: "Scene Quality Preset"))
-        qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Quality Preset"),
-            iconSystemName: "slider.horizontal.3", trailing: sceneQualityPresetPopup))
+        form.addGroup(String(localized: "Scene Quality Preset"), controls: [sceneQualityPresetPopup])
 
         sceneFPSControls.spacing = 2
-        sceneFPSField.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        sceneFPSField.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         sceneFPSField.alignment = .right
         sceneFPSField.delegate = self
         sceneFPSField.widthAnchor.constraint(equalToConstant: 44).isActive = true
@@ -379,9 +280,9 @@ extension AppKitSettingsContainerView {
         sceneFPSControl.action = #selector(handleSceneFrameRateSlider(_:))
         sceneFPSControl.widthAnchor.constraint(equalToConstant: 120).isActive = true
         sceneFPSControl.setAccessibilityLabel(String(localized: "Animation Frame Rate"))
-        qualitySection.addRow(makeSettingRow(
-            title: String(localized: "Animation Frame Rate"), iconSystemName: "gauge.with.needle",
-            subtitle: String(localized: "Sets the frame rate cap for Scene wallpapers"), trailing: sceneFPSControls))
+        form.addGroup(String(localized: "Animation Frame Rate"), controls: [
+            sceneFPSControls, SettingsFormView.detail(String(localized: "Sets the frame rate cap for Scene wallpapers"))
+        ])
         for mode in SceneAntiAliasingMode.allCases {
             let title = switch mode {
             case .none: String(localized: "None")
@@ -398,9 +299,10 @@ extension AppKitSettingsContainerView {
         antiAliasingControls.orientation = .vertical
         antiAliasingControls.alignment = .trailing
         antiAliasingControls.spacing = 2
-        qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Anti-Aliasing"),
-            iconSystemName: "viewfinder",
-            subtitle: String(localized: "Uses multisampling where the Scene supports it", table: "SceneQuality"), trailing: antiAliasingControls))
+        form.addGroup(String(localized: "Scene Anti-Aliasing"), controls: [
+            antiAliasingControls,
+            SettingsFormView.detail(String(localized: "Uses multisampling where the Scene supports it", table: "SceneQuality"))
+        ])
 
         let modes: [(ScenePostProcessingMode, String)] = [
             (.disabled, String(localized: "Disabled")),
@@ -413,9 +315,8 @@ extension AppKitSettingsContainerView {
             scenePostProcessingPopup.addItem(withTitle: title)
             scenePostProcessingPopup.lastItem?.representedObject = mode.rawValue
         }
-        qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Post-Processing"), iconSystemName: "sun.max",
-            subtitle: String(localized: "Some effect changes require reloading the wallpaper"),
-            trailing: scenePostProcessingPopup, readout: scenePostProcessingUseLabel))
+        addQualityEffect(String(localized: "Scene Post-Processing"), control: scenePostProcessingPopup,
+                         readout: scenePostProcessingUseLabel, to: form)
         for mode in SceneTextureQuality.allCases {
             let title = switch mode {
             case .automatic: String(localized: "Automatic")
@@ -425,9 +326,8 @@ extension AppKitSettingsContainerView {
             sceneTextureQualityPopup.addItem(withTitle: title)
             sceneTextureQualityPopup.lastItem?.representedObject = mode.rawValue
         }
-        qualitySection.addRow(makeSettingRow(title: String(localized: "Texture Resolution"), iconSystemName: "square.stack.3d.up",
-            subtitle: String(localized: "Some effect changes require reloading the wallpaper"),
-            trailing: sceneTextureQualityPopup, readout: sceneTextureUseLabel))
+        addQualityEffect(String(localized: "Texture Resolution"), control: sceneTextureQualityPopup,
+                         readout: sceneTextureUseLabel, to: form)
         let shadowTiers: [(SceneShadowQuality, String)] = [
             (.disabled, String(localized: "Disabled")),
             (.low, String(localized: "Low")),
@@ -439,10 +339,8 @@ extension AppKitSettingsContainerView {
             sceneShadowsPopup.addItem(withTitle: title)
             sceneShadowsPopup.lastItem?.representedObject = tier.rawValue
         }
-        sceneShadowsPopup.setAccessibilityLabel(String(localized: "Scene Shadows"))
-        qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Shadows"), iconSystemName: "shadow",
-            subtitle: String(localized: "Some effect changes require reloading the wallpaper"),
-            trailing: sceneShadowsPopup, readout: sceneShadowUseLabel))
+        addQualityEffect(String(localized: "Scene Shadows"), control: sceneShadowsPopup,
+                         readout: sceneShadowUseLabel, to: form)
         let volumeTiers: [(SceneVolumeLightingQuality, String)] = [
             (.disabled, String(localized: "Disabled")),
             (.enabled, String(localized: "High")),
@@ -452,38 +350,50 @@ extension AppKitSettingsContainerView {
             sceneVolumeLightingPopup.addItem(withTitle: title)
             sceneVolumeLightingPopup.lastItem?.representedObject = tier.rawValue
         }
-        qualitySection.addRow(makeSettingRow(title: String(localized: "Volumetric Lighting"), iconSystemName: "light.max",
-            subtitle: String(localized: "Some effect changes require reloading the wallpaper"),
-            trailing: sceneVolumeLightingPopup, readout: sceneVolumeUseLabel))
-        qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Reflections"), iconSystemName: "sparkle",
-            subtitle: String(localized: "Some effect changes require reloading the wallpaper"),
-            trailing: sceneReflectionsSwitch, readout: sceneReflectionUseLabel))
-        configureMaintenanceActionButton(reapplySceneQualityButton)
+        addQualityEffect(String(localized: "Volumetric Lighting"), control: sceneVolumeLightingPopup,
+                         readout: sceneVolumeUseLabel, to: form)
+        addQualityEffect(String(localized: "Scene Reflections"), control: sceneReflectionsSwitch,
+                         readout: sceneReflectionUseLabel, to: form)
         reapplySceneQualityButton.identifier = NSUserInterfaceItemIdentifier("settings.scene.reapply-quality")
         reapplySceneQualityButton.isEnabled = false
         reapplySceneQualityButton.target = self
         reapplySceneQualityButton.action = #selector(reapplySceneQuality)
-        qualitySection.addRow(makeMaintenanceActionRow(button: reapplySceneQualityButton, iconSystemName: "arrow.clockwise"))
+        reapplySceneQualityRow = form.addGroup(String(localized: "Scene"), controls: [
+            reapplySceneQualityButton,
+            SettingsFormView.detail(String(localized: "Some effect changes require reloading the wallpaper"))
+        ])
+        form.addDivider()
         webFrameRatePopup.addItems(withTitles: [
             String(localized: "Match Display (up to 60 FPS)"),
             String(localized: "Follow Animation Frame Rate"),
         ])
-        qualitySection.addRow(makeSettingRow(
-            title: String(localized: "Web Frame Rate Suggestion"), iconSystemName: "globe",
-            subtitle: String(localized: "Applies when the Web wallpaper uses the suggested frame rate"), trailing: webFrameRatePopup))
-        qualitySection.addRow(makeSettingRow(
-            title: String(localized: "Video Quality"), iconSystemName: "film",
-            trailing: NSTextField(labelWithString: String(localized: "Original Video"))))
+        let webFrameRateTitle = String(localized: "Web Frame Rate Suggestion")
+        webFrameRatePopup.setAccessibilityLabel(webFrameRateTitle)
+        form.addGroup(webFrameRateTitle, controls: [
+            webFrameRatePopup,
+            SettingsFormView.detail(String(localized: "Applies when the Web wallpaper uses the suggested frame rate"))
+        ])
+        form.addGroup(String(localized: "Video Quality"), controls: [
+            NSTextField(labelWithString: String(localized: "Original Video"))
+        ])
         let controls: [NSControl] = [sceneQualityPresetPopup, sceneAntiAliasingPopup, scenePostProcessingPopup, sceneTextureQualityPopup,
                                      sceneShadowsPopup, sceneVolumeLightingPopup, sceneReflectionsSwitch, webFrameRatePopup]
         for control in controls {
             control.target = self
             control.action = #selector(handleQualityChange(_:))
         }
-        configureMaintenanceActionButton(resetQualityButton)
         resetQualityButton.target = self
         resetQualityButton.action = #selector(restoreDefaultQuality)
-        qualitySection.addRow(makeMaintenanceActionRow(button: resetQualityButton, iconSystemName: "arrow.counterclockwise"))
+        form.addGroup(String(localized: "Wallpaper Quality"), controls: [resetQualityButton])
+    }
+
+    private func addQualityEffect(_ title: String, control: NSControl, readout: NSTextField,
+                                  to form: SettingsFormView) {
+        control.setAccessibilityLabel(title)
+        let column = SettingsFormView.controls([control, readout])
+        readout.widthAnchor.constraint(lessThanOrEqualTo: column.widthAnchor,
+                                       constant: -SettingsPanelLayout.columnSpacing).isActive = true
+        form.addGroup(title, controls: [column])
     }
 
     func refreshQualityControls() {
@@ -552,14 +462,14 @@ extension AppKitSettingsContainerView {
             .map { $0 != requested.preparationQuality } ?? false
         let title = pending ? String(localized: "Reapply Current Scene (Pending Changes)")
                             : String(localized: "Reapply Current Scene")
-        let button = reapplySceneQualityButton
-        if let row = button.superview, row.isHidden == pending {
+        if let row = reapplySceneQualityRow, row.isHidden == pending {
             row.isHidden = !pending
-            qualitySection.refreshSeparators()
+            if visibleSection == .quality {
+                scheduleDocumentFrameUpdate()
+                onFormHeightChanged?()
+            }
         }
-        guard button.title != title else { return }
-        let style = button.attributedTitle.attributes(at: 0, effectiveRange: nil)
-        button.attributedTitle = NSAttributedString(string: title, attributes: style)
+        reapplySceneQualityButton.title = title
     }
 
     @objc private func handleSceneFrameRateSlider(_ sender: SceneFrameRateSlider) {
@@ -606,7 +516,7 @@ extension AppKitSettingsContainerView {
         saveEditedQuality(quality, previousPreparation: previousPreparation)
         refreshSceneQualityPreset(quality)
         refreshSceneQualityReapplyTitle(quality.scene)
-        if sender === sceneAntiAliasingPopup || sender === sceneTextureQualityPopup
+        if sender === sceneReflectionsSwitch || sender === sceneAntiAliasingPopup || sender === sceneTextureQualityPopup
             || sender === sceneShadowsPopup || sender === sceneVolumeLightingPopup || sender === scenePostProcessingPopup {
             refreshSceneRenderReadouts(quality.scene)
         }
@@ -642,251 +552,33 @@ extension AppKitSettingsContainerView {
         scenePostProcessingPopup.selectItem(at: scenePostProcessingPopup.indexOfItem(withRepresentedObject: mode.rawValue))
     }
 
-    func applyNativeControlSizes() {
-        // 控件尺寸统一收口，避免每个控件自己定义大小导致页面观感失衡。
-        let switches: [NSSwitch] = [
-            loopSwitch,
-            randomSwitch,
-            sequentialSwitch,
-            autoSwitchSwitch,
-            muteSwitch,
-            playbackRateSwitch,
-            startOnBootSwitch,
-            restorePlaybackOnLaunchSwitch,
-            syncSystemWallpaperSwitch,
-            sceneMediaInfoSwitch,
-            systemAudioSpectrumSwitch,
-            systemHotkeysSwitch,
-            pauseOtherAppFocusedSwitch,
-            pauseOtherAppFullscreenSwitch,
-            pauseWhenUnpluggedSwitch,
-            pauseWhenIdleSwitch,
-            sceneReflectionsSwitch,
-            multiDisplaySwitch
-        ]
-        switches.forEach { $0.controlSize = .mini }
-        hotkeyEnableSwitches.values.forEach { $0.controlSize = .mini }
-
-        let popups: [NSPopUpButton] = [timeUnitPopup, idleTimeoutPopup, libraryBackgroundPopup, libraryCardClickPopup, webFrameRatePopup, scenePostProcessingPopup] + hotkeyPopups.values
-            + [sceneQualityPresetPopup, sceneAntiAliasingPopup, sceneShadowsPopup, sceneVolumeLightingPopup, sceneTextureQualityPopup, systemAudioSpectrumBarCountPopup]
-        popups.forEach { $0.controlSize = .small }
-
-        intervalField.controlSize = .small
-        sceneFPSField.controlSize = .small
-        sceneFPSControl.controlSize = .small
-        volumeSlider.controlSize = .small
-        playbackRateSlider.controlSize = .small
-        exportProfileButton.controlSize = .regular
-        importProfileButton.controlSize = .regular
-        clearCacheButton.controlSize = .regular
-        resetSettingsButton.controlSize = .regular
+    private func styleSlider(_ slider: NSSlider, valueLabel: NSTextField, width: CGFloat) {
+        slider.controlSize = .small
+        slider.widthAnchor.constraint(equalToConstant: width).isActive = true
+        valueLabel.alignment = .right
+        valueLabel.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        valueLabel.widthAnchor.constraint(equalToConstant: 40).isActive = true
     }
 
-
-    private func makeSettingRow(title: String, iconSystemName: String? = nil, subtitle: String? = nil,
-                                trailing: NSView, leadingInset: CGFloat = 0, readout: NSTextField? = nil) -> NSView {
-        // 标题在左、控件在右，中间留伸缩空白，保持系统设置类页面的稳定对齐。
-        let titleLabel = NSTextField(labelWithString: title)
-        titleLabel.font = .systemFont(ofSize: 13, weight: .regular)
-        titleLabel.alignment = .left
-        titleLabel.lineBreakMode = .byTruncatingTail
-        titleLabel.toolTip = title
-        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        titleLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
-
-        let textContentView: NSView
-        if let subtitle {
-            let subtitleLabel = NSTextField(wrappingLabelWithString: subtitle)
-            subtitleLabel.font = .systemFont(ofSize: 11, weight: .regular)
-            subtitleLabel.textColor = .secondaryLabelColor
-            subtitleLabel.maximumNumberOfLines = 3
-            subtitleLabel.toolTip = subtitle
-            let textStack = NSStackView(views: [titleLabel, subtitleLabel])
-            if let readout { textStack.addArrangedSubview(readout) }
-            textStack.orientation = .vertical
-            textStack.alignment = .leading
-            textStack.distribution = .gravityAreas
-            textStack.spacing = 2
-            textStack.widthAnchor.constraint(lessThanOrEqualToConstant: 430).isActive = true
-            textContentView = textStack
-        } else {
-            textContentView = titleLabel
-        }
-
-        let leadingView = makeLeadingRowContent(iconSystemName: iconSystemName, content: textContentView)
-
-        trailing.setContentHuggingPriority(.required, for: .horizontal)
-        trailing.setContentCompressionResistancePriority(.required, for: .horizontal)
-
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        spacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-
-        let rowStack = NSStackView(views: [leadingView, spacer, trailing])
-        rowStack.orientation = .horizontal
-        rowStack.alignment = .centerY
-        rowStack.distribution = .fill
-        rowStack.spacing = 6
-        rowStack.translatesAutoresizingMaskIntoConstraints = false
-
-        let container = NSView()
-        container.translatesAutoresizingMaskIntoConstraints = false
-        container.identifier = NSUserInterfaceItemIdentifier("settings.row.\(sanitizedIdentifierComponent(from: title))")
-        container.addSubview(rowStack)
-        let topInset: CGFloat = 9
-        let bottomInset: CGFloat = 9
-        NSLayoutConstraint.activate([
-            rowStack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 14 + leadingInset),
-            rowStack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -14),
-            rowStack.topAnchor.constraint(equalTo: container.topAnchor, constant: topInset),
-            rowStack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -bottomInset)
-        ])
-        return container
+    @objc private func openScreenSaverSettings() { dependency.actions.openScreenSaverSettings() }
+    @objc private func openProjectWebsite() { dependency.actions.openProjectWebsite() }
+    @objc private func checkForUpdates(_ sender: NSButton) { dependency.actions.checkForUpdates(sender) }
+    func refreshUpdaterControls() {
+        guard let checks = automaticUpdateChecksButton,
+              let enabled = dependency.actions.automaticUpdateChecksEnabled() else { return }
+        checks.state = enabled ? .on : .off
+        automaticUpdateDownloadsButton?.isEnabled = enabled
+        automaticUpdateDownloadsButton?.state = dependency.actions.automaticUpdateDownloadsEnabled() ? .on : .off
     }
 
-    private func configureMaintenanceActionButton(_ button: NSButton, tint: NSColor? = nil) {
-        button.isBordered = false
-        button.bezelStyle = .regularSquare
-        button.contentTintColor = tint
-        button.image = nil
-        button.font = .systemFont(ofSize: 13, weight: .regular)
-        button.alignment = .left
-        button.setButtonType(.momentaryPushIn)
-        let foregroundColor = tint ?? .labelColor
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 13, weight: .regular),
-            .foregroundColor: foregroundColor
-        ]
-        button.attributedTitle = NSAttributedString(string: button.title, attributes: attributes)
-        button.contentTintColor = nil
+    @objc private func changeAutomaticUpdateDownloads(_ sender: NSButton) {
+        dependency.actions.setAutomaticUpdateDownloadsEnabled(sender.state == .on)
     }
 
-    private func makeMaintenanceActionRow(button: NSButton, iconSystemName: String) -> NSView {
-        let container = NSView()
-        container.translatesAutoresizingMaskIntoConstraints = false
-
-        let iconView = makeRowIconView(systemName: iconSystemName, tintColor: button.attributedTitle.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor ?? .secondaryLabelColor)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        iconView.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(iconView)
-        container.addSubview(button)
-
-        NSLayoutConstraint.activate([
-            iconView.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 14),
-            iconView.centerYAnchor.constraint(equalTo: button.centerYAnchor),
-            button.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 10),
-            button.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor, constant: -14),
-            button.topAnchor.constraint(equalTo: container.topAnchor, constant: 10),
-            button.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -10)
-        ])
-
-        return container
+    @objc private func changeAutomaticUpdateChecks(_ sender: NSButton) {
+        dependency.actions.setAutomaticUpdateChecksEnabled(sender.state == .on)
+        refreshUpdaterControls()
     }
-
-    private func makeLeadingRowContent(iconSystemName: String?, content: NSView) -> NSView {
-        guard let iconSystemName else { return content }
-
-        let iconView = makeRowIconView(systemName: iconSystemName, tintColor: .secondaryLabelColor)
-        let container = NSView()
-        container.translatesAutoresizingMaskIntoConstraints = false
-        container.identifier = NSUserInterfaceItemIdentifier("settings.leading.\(iconSystemName)")
-        iconView.translatesAutoresizingMaskIntoConstraints = false
-        content.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(iconView)
-        container.addSubview(content)
-
-        NSLayoutConstraint.activate([
-            iconView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            iconView.centerYAnchor.constraint(equalTo: content.centerYAnchor),
-            iconView.topAnchor.constraint(greaterThanOrEqualTo: container.topAnchor),
-            iconView.bottomAnchor.constraint(lessThanOrEqualTo: container.bottomAnchor),
-            content.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 10),
-            content.topAnchor.constraint(equalTo: container.topAnchor),
-            content.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            content.trailingAnchor.constraint(equalTo: container.trailingAnchor)
-        ])
-
-        return container
-    }
-
-    private func makeRowIconView(systemName: String, tintColor: NSColor) -> NSView {
-        let container = NSView()
-        container.translatesAutoresizingMaskIntoConstraints = false
-        container.identifier = NSUserInterfaceItemIdentifier("settings.icon.\(systemName)")
-
-        let imageView = NSImageView()
-        imageView.translatesAutoresizingMaskIntoConstraints = false
-        imageView.imageScaling = .scaleProportionallyDown
-        if let image = NSImage(
-            systemSymbolName: systemName,
-            accessibilityDescription: nil
-        )?.withSymbolConfiguration(.init(pointSize: 12, weight: .regular)) {
-            image.isTemplate = true
-            imageView.image = image
-        }
-        imageView.contentTintColor = tintColor
-        container.addSubview(imageView)
-
-        NSLayoutConstraint.activate([
-            container.widthAnchor.constraint(equalToConstant: 14),
-            imageView.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-            imageView.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            imageView.widthAnchor.constraint(equalToConstant: 12),
-            imageView.heightAnchor.constraint(equalToConstant: 12),
-            imageView.topAnchor.constraint(greaterThanOrEqualTo: container.topAnchor),
-            imageView.bottomAnchor.constraint(lessThanOrEqualTo: container.bottomAnchor)
-        ])
-
-        return container
-    }
-
-    private func sanitizedIdentifierComponent(from title: String) -> String {
-        let normalized = title
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: "-  ", with: "")
-            .replacingOccurrences(of: " ", with: "-")
-        return normalized.isEmpty ? "untitled" : normalized
-    }
-
-    private func makeEmbeddedRow(content: NSView, centered: Bool = false) -> NSView {
-        // 嵌入式行只包裹二级控件，不再重复加装饰容器，避免视觉层级失真。
-        let row: NSStackView
-        if centered {
-            row = NSStackView(views: [NSView(), content, NSView()])
-        } else {
-            row = NSStackView(views: [content])
-            content.translatesAutoresizingMaskIntoConstraints = false
-            content.widthAnchor.constraint(equalTo: row.widthAnchor).isActive = true
-        }
-
-        row.orientation = .horizontal
-        row.alignment = .centerY
-        row.distribution = .fill
-        row.spacing = 0
-        row.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
-        return row
-    }
-
-    private func makeInlineSeparator(horizontalInset: CGFloat) -> NSView {
-        let container = NSView()
-        container.translatesAutoresizingMaskIntoConstraints = false
-
-        let separator = NSBox()
-        separator.translatesAutoresizingMaskIntoConstraints = false
-        separator.boxType = .separator
-        container.addSubview(separator)
-
-        NSLayoutConstraint.activate([
-            separator.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: horizontalInset),
-            separator.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -horizontalInset),
-            separator.topAnchor.constraint(equalTo: container.topAnchor),
-            separator.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            container.heightAnchor.constraint(equalToConstant: 1)
-        ])
-
-        return container
-    }
-
 }
 
 final class SceneFrameRateSlider: NSSlider {

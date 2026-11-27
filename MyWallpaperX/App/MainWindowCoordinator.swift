@@ -15,9 +15,9 @@ enum MainWindowCoordinator {
     static var wallpaperManager: WallpaperManager = .shared
     static var observerTokens: [NSObjectProtocol] = []
 
-    static func setDockIconVisible(_ visible: Bool) {
-        // Dock 图标显示状态必须和主窗口显隐同步，否则会出现“窗口关了但进程看起来还在前台”的错觉。
-        let targetPolicy: NSApplication.ActivationPolicy = visible ? .regular : .accessory
+    static func setDockIconVisible(_ visible: Bool, keepInDock: Bool? = nil) {
+        let shouldShow = visible || (keepInDock ?? wallpaperManager.settings.keepDockIconVisible)
+        let targetPolicy: NSApplication.ActivationPolicy = shouldShow ? .regular : .accessory
         if NSApp.activationPolicy() != targetPolicy {
             NSApp.setActivationPolicy(targetPolicy)
         }
@@ -70,7 +70,6 @@ enum MainWindowCoordinator {
         // an app reopen reuses the same live composition instead of reviving a
         // closed window whose subscriptions were already torn down.
         resetModuleStateForClosedMainWindow()
-        // 关闭主窗口时隐藏 Dock 图标，维持“窗口即应用入口”的表现。
         setDockIconVisible(false)
     }
 

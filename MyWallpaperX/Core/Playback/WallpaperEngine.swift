@@ -107,6 +107,8 @@ public final class WallpaperEngine: NSObject {
     var currentSystemAudioSpectrumBarCount = WallpaperEngine.defaultSpectrumBarCount
     var currentSystemAudioSpectrumPeakCapsEnabled = true
     var currentWebAudioSpectrumRequested = false
+    var webWallpaperAudioListening = true
+    var sceneWallpaperAudioListening = true
     var currentSpectrumLevels: [Float]
     var systemAudioSpectrumService: SystemAudioSpectrumService
     var sceneDaemonAudioSpectrumDemand = SceneAudioSpectrumCaptureDemand.none

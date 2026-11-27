@@ -46,7 +46,10 @@ class SettingsCacheActionsTests(unittest.TestCase):
             [*labels, declaration(readout_source, "    static func makeSceneEffectReadout(")]))
         actual = actual.replace("// ACTUAL_CONFIGURED_WALLPAPER_SCREENS", declaration(
             display_configuration.read_text(), "    var configuredWallpaperScreens:"))
-        actual += "\n" + declaration(settings_components.read_text(), "final class SettingsGroupView:") + "\n"
+        actual += "\n" + declaration(source, "enum AppSettingsSection:") + "\n"
+        components = settings_components.read_text()
+        for signature in ("enum SettingsPanelLayout", "final class SettingsFormView:"):
+            actual += "\n" + declaration(components, signature) + "\n"
         actual += "\n" + declaration(daemon_protocol.read_text(), "nonisolated struct SceneRasterDisplayStatus:") + "\n"
         layout_source = layout.read_text() + "\n" + readout_source
         for marker, signature in (
@@ -61,10 +64,7 @@ class SettingsCacheActionsTests(unittest.TestCase):
             ("// ACTUAL_REFLECTION_USE_DESCRIPTION", "    private func reflectionUseDescription("),
             ("// ACTUAL_TEXTURE_USE_DESCRIPTION", "    private func textureUseDescription("),
             ("// ACTUAL_EFFECT_READOUT", "    private func refreshSceneEffectReadout("),
-            ("// ACTUAL_SETTINGS_ROW", "    private func makeSettingRow("),
-            ("// ACTUAL_LEADING_ROW_CONTENT", "    private func makeLeadingRowContent("),
-            ("// ACTUAL_ROW_ICON", "    private func makeRowIconView("),
-            ("// ACTUAL_SANITIZED_ROW_IDENTIFIER", "    private func sanitizedIdentifierComponent("),
+            ("// ACTUAL_QUALITY_EFFECT_ROW", "    private func addQualityEffect("),
             ("// ACTUAL_RESTORE_QUALITY_CONTROLS", "    func refreshQualityControls("),
             ("// ACTUAL_REFRESH_SCENE_QUALITY_PRESET", "    private func refreshSceneQualityPreset("),
             ("// ACTUAL_QUALITY_ACTION", "    @objc private func handleQualityChange("),
@@ -103,7 +103,7 @@ class SettingsCacheActionsTests(unittest.TestCase):
                 checks = json.loads(run.stdout)
                 self.assertTrue(checks)
                 for name, value in checks.items():
-                    with self.subTest(region=region, name=name): self.assertIs(value, True)
+                    with self.subTest(region=region, name=name): self.assertIs(value, True, run.stderr)
         self.assertEqual(hashes, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths})
 
     def test_clear_once_and_report_only_after_all_providers_finish(self):

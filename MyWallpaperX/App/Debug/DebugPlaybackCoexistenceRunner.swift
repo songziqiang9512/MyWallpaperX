@@ -186,6 +186,19 @@ enum DebugPlaybackCoexistenceRunner {
         result["savedPaused"] = true
     }
 
+    private static func selectQualitySettings(in window: NSWindow) throws -> (root: NSView, settings: AppKitSettingsContainerView) {
+        guard let root = window.contentView,
+              let settings = root.subviews.compactMap({ $0 as? AppKitSettingsContainerView }).first,
+              let toolbar = window.toolbar,
+              let item = toolbar.items.first(where: { $0.itemIdentifier.rawValue == AppSettingsSection.quality.rawValue }),
+              let target = item.target, let action = item.action,
+              NSApp.sendAction(action, to: target, from: item),
+              settings.visibleSection == .quality, toolbar.selectedItemIdentifier == item.itemIdentifier else {
+            throw Failure("native Scene quality category unavailable")
+        }
+        return (root, settings)
+    }
+
     private static func editQualityDuringSceneSelection(_ scene: WallpaperReference, web: WallpaperReference,
                                                         video: WallpaperReference, workspace: WallpaperLibraryWorkspace,
                                                         directory: URL) async throws -> [String: Any] {
@@ -196,10 +209,8 @@ enum DebugPlaybackCoexistenceRunner {
         let initialFPS = PlaybackQualityPreference.current.animationFrameRate.rawValue
         controller.showWindow()
         defer { controller.window?.close() }
-        guard let window = controller.window, let root = window.contentView,
-              let settings = root.subviews.compactMap({ $0 as? AppKitSettingsContainerView }).first else {
-            throw Failure("native Scene quality controls unavailable")
-        }
+        guard let window = controller.window else { throw Failure("native settings window unavailable") }
+        let (root, settings) = try selectQualitySettings(in: window)
         workspace.requestSingle(video)
         let initial = try await receipt(for: video, runtime: .video, after: nil)
         try await capture("selection-edit-video", receipt: initial, directory: directory)
@@ -306,9 +317,9 @@ enum DebugPlaybackCoexistenceRunner {
         let controller = SettingsWindowController.shared
         controller.showWindow()
         defer { controller.window?.close() }
-        guard let window = controller.window, let root = window.contentView,
-              let settings = root.subviews.compactMap({ $0 as? AppKitSettingsContainerView }).first,
-              settings.reapplySceneQualityButton.isHiddenOrHasHiddenAncestor, workspace.presentation.switchPage(.downloads)
+        guard let window = controller.window else { throw Failure("native settings window unavailable") }
+        let (root, settings) = try selectQualitySettings(in: window)
+        guard settings.reapplySceneQualityButton.isHiddenOrHasHiddenAncestor, workspace.presentation.switchPage(.downloads)
         else { throw Failure("native Scene quality control or Downloads page unavailable") }
         _ = try await wait("Scene and Web in Downloads") {
             let references = workspace.presentation.queryResult.items.map(\.reference)

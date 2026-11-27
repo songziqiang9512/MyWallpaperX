@@ -20,14 +20,12 @@ class WallpaperManager: ObservableObject {
     }
 
     struct HotkeySettingsSnapshot: Equatable {
-        let systemHotkeysEnabled: Bool
         let previousWallpaperHotkey: FunctionKeyShortcut
         let nextWallpaperHotkey: FunctionKeyShortcut
         let togglePlaybackHotkey: FunctionKeyShortcut
         let toggleMuteHotkey: FunctionKeyShortcut
 
         init(settings: WallpaperSettings) {
-            systemHotkeysEnabled = settings.systemHotkeysEnabled
             previousWallpaperHotkey = settings.previousWallpaperHotkey
             nextWallpaperHotkey = settings.nextWallpaperHotkey
             togglePlaybackHotkey = settings.togglePlaybackHotkey

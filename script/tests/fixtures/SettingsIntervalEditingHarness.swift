@@ -66,11 +66,17 @@ extension Notification.Name {
     let scenePostProcessingPopup = NSPopUpButton(), sceneTextureQualityPopup = NSPopUpButton()
     let sceneShadowsPopup = NSPopUpButton(), sceneVolumeLightingPopup = NSPopUpButton()
     // ACTUAL_SHADOW_LABEL
-    lazy var shadowRow = makeSettingRow(title: "Scene Shadows", iconSystemName: "shadow",
-        subtitle: "Some effect changes require reloading the wallpaper", trailing: sceneShadowsPopup, readout: sceneShadowUseLabel)
+    lazy var shadowRow: SettingsFormView = {
+        let form = SettingsFormView()
+        addQualityEffect("Scene Shadows", control: sceneShadowsPopup, readout: sceneShadowUseLabel, to: form)
+        return form
+    }()
     let sceneReflectionsSwitch = NSSwitch(), webFrameRatePopup = NSPopUpButton()
     let reapplySceneQualityButton = NSButton(title: "Reapply Current Scene", target: nil, action: nil)
-    let qualitySection = SettingsGroupView(title: nil)
+    let qualitySection = SettingsFormView()
+    var reapplySceneQualityRow: NSGridRow?
+    let visibleSection: AppSettingsSection = .quality
+    var onFormHeightChanged: (() -> Void)?
     let loopSwitch = NSSwitch(), randomSwitch = NSSwitch(), sequentialSwitch = NSSwitch(), autoSwitchSwitch = NSSwitch()
     let intervalField = NSTextField(frame: .init(x: 20, y: 70, width: 160, height: 28))
     let sceneFPSField = NSTextField(frame: .init(x: 198, y: 70, width: 40, height: 28))
@@ -80,14 +86,14 @@ extension Notification.Name {
     let volumeSlider = NSSlider(), volumeValueLabel = NSTextField(), muteSwitch = NSSwitch()
     let playbackRateSlider = NSSlider(value: 1, minValue: 0.25, maxValue: 2, target: nil, action: nil)
     let playbackRateValueLabel = NSTextField(), playbackRateSwitch = NSSwitch()
-    var intervalRowView: NSView? = NSView(), autoSwitchRowView: NSView? = NSView()
+    var intervalRowView: NSView? = NSView()
+    var autoSwitchRow: NSGridRow?
+    lazy var playbackRateControls: NSView? = SettingsFormView.controls([playbackRateSlider, playbackRateValueLabel])
     let nextField = NSTextField(frame: .init(x: 20, y: 20, width: 160, height: 28))
     init(_ dependency: AppSettingsPanelDependency) {
         self.dependency = dependency
         super.init(frame: .init(x: 0, y: 0, width: 360, height: 160))
-        let qualityRetryRow = NSView()
-        qualityRetryRow.addSubview(reapplySceneQualityButton)
-        qualitySection.addRow(qualityRetryRow)
+        reapplySceneQualityRow = qualitySection.addGroup("Scene", controls: [reapplySceneQualityButton])
         intervalField.delegate = self
         sceneFPSField.delegate = self
         sceneFPSControl.frame = .init(x: 188, y: 20, width: 148, height: 28)
@@ -162,10 +168,7 @@ extension Notification.Name {
     // ACTUAL_REFLECTION_USE_DESCRIPTION
     // ACTUAL_TEXTURE_USE_DESCRIPTION
     // ACTUAL_EFFECT_READOUT
-    // ACTUAL_SETTINGS_ROW
-    // ACTUAL_LEADING_ROW_CONTENT
-    // ACTUAL_ROW_ICON
-    // ACTUAL_SANITIZED_ROW_IDENTIFIER
+    // ACTUAL_QUALITY_EFFECT_ROW
     // ACTUAL_RESTORE_QUALITY_CONTROLS
     // ACTUAL_REFRESH_SCENE_QUALITY_PRESET
     // ACTUAL_QUALITY_ACTION
@@ -521,7 +524,7 @@ extension Notification.Name {
         let readoutFrame = shadowRow.convert(shadowLabel.bounds, from: shadowLabel)
         let popupFrame = shadowRow.convert(shadows.bounds, from: shadows)
         checks["native-shadow-readout-wraps-without-covering-the-popup"] =
-            shadowRow.bounds.contains(readoutFrame) && readoutFrame.height > 16 && readoutFrame.maxX < popupFrame.minX
+            shadowRow.bounds.contains(readoutFrame) && readoutFrame.height > 16 && !readoutFrame.intersects(popupFrame)
 
         daemon.activeRasterDisplayStatuses = [
             .init(displayID: testDisplays[0], samples: 1, shadow: usedMaps),
@@ -746,7 +749,7 @@ extension Notification.Name {
         _ = view.playbackRateSwitch.sendAction(view.playbackRateSwitch.action, to: view.playbackRateSwitch.target)
         checks["playback-rate-native-disable-keeps-existing-reset-and-hidden-controls"] =
             !dependency.settings.playbackRateEnabled && dependency.settings.playbackRate == 1
-            && rateSlider.isHidden && rateLabel.isHidden
+            && view.playbackRateControls?.isHidden == true
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

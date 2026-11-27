@@ -31,7 +31,6 @@ public struct WallpaperSettings: Codable, Equatable {
     var syncSystemWallpaper: Bool = false // 同步改变系统壁纸
     var pauseWhenUnplugged: Bool = false // 未连接电源时暂停播放
     var pauseWhenIdle: Bool = false // 电脑不活跃时暂停播放
-    var systemHotkeysEnabled: Bool = false // 响应系统快捷键
     var previousWallpaperHotkey: FunctionKeyShortcut = .none
     var nextWallpaperHotkey: FunctionKeyShortcut = .none
     var togglePlaybackHotkey: FunctionKeyShortcut = .none
@@ -48,6 +47,9 @@ public struct WallpaperSettings: Codable, Equatable {
     var systemAudioSpectrumPeakCapsEnabled: Bool = true
     var libraryBackgroundStyle: LibraryBackgroundStyle = .listCoverTint
     var libraryCardClickAction: LibraryCardClickAction = .selectOnly
+    var keepDockIconVisible = false
+    var webWallpaperAudioListening = true
+    var sceneWallpaperAudioListening = true
     var screenSaver = ScreenSaverPreferences()
 
     init() {}
@@ -92,11 +94,13 @@ public struct WallpaperSettings: Codable, Equatable {
         syncSystemWallpaper = try container.decodeIfPresent(Bool.self, forKey: .syncSystemWallpaper) ?? defaults.syncSystemWallpaper
         pauseWhenUnplugged = try container.decodeIfPresent(Bool.self, forKey: .pauseWhenUnplugged) ?? defaults.pauseWhenUnplugged
         pauseWhenIdle = try container.decodeIfPresent(Bool.self, forKey: .pauseWhenIdle) ?? defaults.pauseWhenIdle
-        systemHotkeysEnabled = try container.decodeIfPresent(Bool.self, forKey: .systemHotkeysEnabled) ?? defaults.systemHotkeysEnabled
-        previousWallpaperHotkey = try container.decodeIfPresent(FunctionKeyShortcut.self, forKey: .previousWallpaperHotkey) ?? defaults.previousWallpaperHotkey
-        nextWallpaperHotkey = try container.decodeIfPresent(FunctionKeyShortcut.self, forKey: .nextWallpaperHotkey) ?? defaults.nextWallpaperHotkey
-        togglePlaybackHotkey = try container.decodeIfPresent(FunctionKeyShortcut.self, forKey: .togglePlaybackHotkey) ?? defaults.togglePlaybackHotkey
-        toggleMuteHotkey = try container.decodeIfPresent(FunctionKeyShortcut.self, forKey: .toggleMuteHotkey) ?? defaults.toggleMuteHotkey
+        let legacy = try decoder.container(keyedBy: LegacyCodingKeys.self)
+        if try legacy.decodeIfPresent(Bool.self, forKey: .systemHotkeysEnabled) != false {
+            previousWallpaperHotkey = try container.decodeIfPresent(FunctionKeyShortcut.self, forKey: .previousWallpaperHotkey) ?? defaults.previousWallpaperHotkey
+            nextWallpaperHotkey = try container.decodeIfPresent(FunctionKeyShortcut.self, forKey: .nextWallpaperHotkey) ?? defaults.nextWallpaperHotkey
+            togglePlaybackHotkey = try container.decodeIfPresent(FunctionKeyShortcut.self, forKey: .togglePlaybackHotkey) ?? defaults.togglePlaybackHotkey
+            toggleMuteHotkey = try container.decodeIfPresent(FunctionKeyShortcut.self, forKey: .toggleMuteHotkey) ?? defaults.toggleMuteHotkey
+        }
         playbackRate = try container.decodeIfPresent(Double.self, forKey: .playbackRate) ?? defaults.playbackRate
         playbackRateEnabled = try container.decodeIfPresent(Bool.self, forKey: .playbackRateEnabled) ?? defaults.playbackRateEnabled
         systemAudioSpectrumEnabled = try container.decodeIfPresent(Bool.self, forKey: .systemAudioSpectrumEnabled) ?? defaults.systemAudioSpectrumEnabled
@@ -111,7 +115,14 @@ public struct WallpaperSettings: Codable, Equatable {
             .flatMap(LibraryBackgroundStyle.init(rawValue:)) ?? defaults.libraryBackgroundStyle
         libraryCardClickAction = (try? container.decode(String.self, forKey: .libraryCardClickAction))
             .flatMap(LibraryCardClickAction.init(rawValue:)) ?? defaults.libraryCardClickAction
+        keepDockIconVisible = try container.decodeIfPresent(Bool.self, forKey: .keepDockIconVisible) ?? defaults.keepDockIconVisible
+        webWallpaperAudioListening = try container.decodeIfPresent(Bool.self, forKey: .webWallpaperAudioListening) ?? defaults.webWallpaperAudioListening
+        sceneWallpaperAudioListening = try container.decodeIfPresent(Bool.self, forKey: .sceneWallpaperAudioListening) ?? defaults.sceneWallpaperAudioListening
         screenSaver = try container.decodeIfPresent(ScreenSaverPreferences.self, forKey: .screenSaver) ?? defaults.screenSaver
+    }
+
+    private enum LegacyCodingKeys: String, CodingKey {
+        case systemHotkeysEnabled
     }
 
     enum CodingKeys: String, CodingKey {
@@ -137,7 +148,6 @@ public struct WallpaperSettings: Codable, Equatable {
         case syncSystemWallpaper
         case pauseWhenUnplugged
         case pauseWhenIdle
-        case systemHotkeysEnabled
         case previousWallpaperHotkey
         case nextWallpaperHotkey
         case togglePlaybackHotkey
@@ -154,6 +164,9 @@ public struct WallpaperSettings: Codable, Equatable {
         case systemAudioSpectrumPeakCapsEnabled
         case libraryBackgroundStyle
         case libraryCardClickAction
+        case keepDockIconVisible
+        case webWallpaperAudioListening
+        case sceneWallpaperAudioListening
         case screenSaver
     }
 }
@@ -221,8 +234,8 @@ public enum SystemAudioSpectrumStyle: String, Codable, CaseIterable, Identifiabl
 
     public var displayName: String {
         switch self {
-        case .balanced: return String(localized: "Even Pulse")
-        case .banded: return String(localized: "Band Fluctuation")
+        case .balanced: return String(localized: "Balanced Response")
+        case .banded: return String(localized: "Boosted Response")
         }
     }
 }

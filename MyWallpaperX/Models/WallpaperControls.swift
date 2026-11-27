@@ -52,12 +52,21 @@ public enum SystemHotkeyAction: String, CaseIterable, Identifiable {
 
     public var id: String { rawValue }
 
+    var settingsKeyPath: WritableKeyPath<WallpaperSettings, FunctionKeyShortcut> {
+        switch self {
+        case .previous: \.previousWallpaperHotkey
+        case .next: \.nextWallpaperHotkey
+        case .playPause: \.togglePlaybackHotkey
+        case .muteToggle: \.toggleMuteHotkey
+        }
+    }
+
     public var displayName: String {
         switch self {
-        case .previous: return String(localized: "-  Previous")
-        case .next: return String(localized: "-  Next")
-        case .playPause: return String(localized: "-  Play/Pause")
-        case .muteToggle: return String(localized: "-  Mute/Unmute")
+        case .previous: return String(localized: "Previous Wallpaper")
+        case .next: return String(localized: "Next Wallpaper")
+        case .playPause: return String(localized: "Play/Pause")
+        case .muteToggle: return String(localized: "Mute/Unmute")
         }
     }
 }

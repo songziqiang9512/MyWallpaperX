@@ -12,7 +12,7 @@
 <a id="decision"></a>
 ## 实施裁决
 
-1. 在 AppKit 设置的「节能与暂停」附近新增「壁纸质量」区域。首批整合现有 Scene 30／60 FPS 与 HDR 显示入口，让 Web 可选采用该帧率建议，Video 明示按当前素材播放。用户原有偏好升级后保持同等行为。
+1. 在原生设置工具栏统一提供「壁纸质量」。从既有设定兼容地迁移帧率和 HDR 意图，Web 可跟随动画帧率建议，Video 明示按当前素材播放。
 2. Scene 以官方完整档位作为评估范围，沿现有帧节奏、Program、资源和 Metal 渲染入口分批交付。先验证全景 Bloom、实时反射、模型阴影和体积光的开关，再验证各质量档。动画帧率扩展到 10–120 FPS 的计划分两段，MSAA 保持默认 1×，2×／4×／8× 逐档验证。
 3. Web 通过官方兼容桥交付 FPS 建议，作品自行控制绘制和媒体。Video 的节能入口选用真实较低规格文件，先评估来源已有档，再用离线 A/B 决定是否上线可选派生。预设只能组合已经有效、已验收的控件。
 4. 首批完成条件为升级、导入恢复和复位正确，Scene 实际控制提交节奏，Web 在真实宿主中正确收发建议值，Video 的适用范围一目了然，三引擎候选、暂停、恢复和输出交接通过代表验证。后续每项都以独立可见结果和成本取证决定发布。
@@ -31,7 +31,7 @@
 
 ### 入口与作用范围
 
-- 复用 `SettingsWindowController`、`AppKitSettingsView` 和 `AppSettingsPanelDependency`。质量区域由动画帧率、Scene 质量、Web 建议和 Video 素材组成。Scene 后处理统一管理显示 HDR。作品的作者属性仍可从原属性面板操作。 [布局现址](../../MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift) · [设置动作注入](../../MyWallpaperX/Shared/Settings/AppSettingsPanelDependency.swift)
+- 复用 `SettingsWindowController`、`AppKitSettingsView` 和 `AppSettingsPanelDependency`。质量区域由动画帧率、Scene 质量、Web 建议和 Video 素材组成。Scene 后处理统一管理显示 HDR。作品的作者属性仍可从原属性面板操作。 <a id="quality-native-settings-reconciliation"></a> 新原生设置以分类工具栏、SettingsFormView、当前页尺寸及依赖注入为唯一入口。「壁纸质量」作为独立分类使用同一表格布局，原保存、预设、显示 HDR、FPS、Video/Web 字段和 Scene 已完成回执随页保留。节能页退役旧 30／60 FPS 控件，系统页退役独立 Scene HDR 开关。便携 v8 质量与主线新增偏好共用主恢复日志，继续兼容旧记录，并保各引擎的原事件和重载职责。验收核原生分类、新偏好与便携提交、实际质量接管、独立签名原作；主工作树只读。 [布局现址](../../MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift) · [设置动作注入](../../MyWallpaperX/Shared/Settings/AppSettingsPanelDependency.swift)
 - 全局「动画帧率」现已支持 10–120 的 1 FPS 滑杆、键盘步进和直接输入。副标题说明 Scene 使用此调度上限，受当前屏幕组合限制时并列显示意愿与生效值。Web 可选「随显示器（最高 60）」或「跟随动画帧率」，缺省随显示器；跟随后，帧率、预设或 Web 模式变更将重算作品建议。Video 显示已知的片源分辨率与素材帧率，派生达到交付门后再显示素材选择。静态图、封面、系统屏保与锁屏遵循各自既有路径。
 - 使用 AppKit 原生 segmented control、popup、switch，连续 FPS 用带数值反馈和键盘步进的 slider。Tab、VoiceOver 读出控件名和当前值，说明和失败状态用文字表达；窄窗、浅／深色及已支持语言的长文案实查。拖动时可预览数字，触发资源准备或 IPC 只在一次完成编辑时合并提交。 [本地化与布局标准](localization-contract.md#layout)
 - 「恢复默认画质」沿一次差分更新复位帧率、Web 模式和已交付的画质字段。显示 HDR 随后处理档恢复为普通超高。直接调档需要冷准备时会自动重新应用当前 Scene。导入后仍有差分、或自动应用失败时，设置提供原手动动作。帧率受限时可看到确认的生效值，其他质量控件显示所选档及适用说明。未完善的档位留在开发验证面。Web 无作者回执时显示「作品支持时应用」。 [重新应用与验收](wallpaper-quality-work-card.md#quality-reapply-current-scene)

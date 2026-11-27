@@ -25,7 +25,12 @@ struct SPUUserUpdateState { let userInitiated: Bool }
     var checkCalls = 0
     var lastSender: Any?
     let updater = UpdateAvailability()
-    final class UpdateAvailability { var canCheckForUpdates = true }
+    final class UpdateAvailability {
+        var canCheckForUpdates = true
+        var automaticallyChecksForUpdates = true { didSet { automaticPreferenceWrites += 1 } }
+        var automaticallyDownloadsUpdates = true
+        var automaticPreferenceWrites = 0
+    }
     init(startingUpdater: Bool, updaterDelegate: AnyObject?, userDriverDelegate: any SPUStandardUserDriverDelegate) {
         started = startingUpdater; delegate = userDriverDelegate
         Self.instances += 1; Self.latest = self
@@ -109,6 +114,32 @@ struct SPUUserUpdateState { let userInitiated: Bool }
         #else
         checks["configuredStartPolicy"] = transport.started
         #endif
+        #if DEBUG
+        checks["automaticPreferenceOnlyAvailableWithActiveUpdater"] = updates.automaticUpdateChecksEnabled == nil
+        #else
+        checks["automaticPreferenceOnlyAvailableWithActiveUpdater"] = updates.automaticUpdateChecksEnabled == true
+            && transport.updater.automaticPreferenceWrites == 0
+        #endif
+        updates.setAutomaticUpdateChecksEnabled(false)
+        #if DEBUG
+        checks["automaticPreferenceWriteUsesActiveUpdaterOnly"] = transport.updater.automaticallyChecksForUpdates
+            && transport.updater.automaticPreferenceWrites == 0
+        #else
+        checks["automaticPreferenceWriteUsesActiveUpdaterOnly"] = updates.automaticUpdateChecksEnabled == false
+            && transport.updater.automaticPreferenceWrites == 1
+        #endif
+        #if DEBUG
+        checks["automaticDownloadPreferenceRequiresActiveUpdater"] = !updates.automaticUpdateDownloadsEnabled
+        #else
+        checks["automaticDownloadPreferenceRequiresActiveUpdater"] = updates.automaticUpdateDownloadsEnabled
+        #endif
+        updates.setAutomaticUpdateDownloadsEnabled(false)
+        #if DEBUG
+        checks["automaticDownloadToggleChangesOnlySparklePreference"] = transport.updater.automaticallyDownloadsUpdates
+        #else
+        checks["automaticDownloadToggleChangesOnlySparklePreference"] = !transport.updater.automaticallyDownloadsUpdates
+            && transport.updater.automaticPreferenceWrites == 1
+        #endif
         let update = SUAppcastItem(displayVersionString: "9.1")
         let menu = NSMenuItem(title: "检查更新…", action: #selector(AppUpdateController.checkForUpdates(_:)), keyEquivalent: "")
         transport.updater.canCheckForUpdates = false
@@ -121,19 +152,19 @@ struct SPUUserUpdateState { let userInitiated: Bool }
         updates.standardUserDriverWillHandleShowingUpdate(true, forUpdate: update, state: .init(userInitiated: false))
         projection.update()
         checks["scheduledUpdateHasVisibleMenuAndIconReminder"] = updates.validateMenuItem(menu)
-            && menu.title == "发现新版本 9.1…" && projection.label == "↑ —"
-            && button.toolTip?.contains("有可用更新") == true
+            && menu.title == "New Version 9.1 Available…" && projection.label == "↑ —"
+            && button.toolTip == "MyWallpaperX · An update is available. Check for updates from the app menu."
         let reminderImage = button.image, reminderAssignments = button.assignments
         for _ in 0..<100 { projection.update() }
         checks["unchangedReminderDoesNotRebuildIcon"] = button.image === reminderImage && button.assignments == reminderAssignments
         updates.standardUserDriverWillHandleShowingUpdate(true, forUpdate: .init(displayVersionString: "9.2"), state: .init(userInitiated: false))
         projection.update()
         checks["versionOnlyChangeUpdatesMenuWithoutRebuildingSameHint"] = updates.validateMenuItem(menu)
-            && menu.title == "发现新版本 9.2…" && button.image === reminderImage
+            && menu.title == "New Version 9.2 Available…" && button.image === reminderImage
         updates.standardUserDriverDidReceiveUserAttention(forUpdate: update)
         projection.update()
         checks["userAttentionRetiresBothReminderSurfaces"] = updates.validateMenuItem(menu)
-            && menu.title == "检查更新…" && projection.label == "—" && button.toolTip == "MyWallpaperX · 壁纸控制"
+            && menu.title == "Check for Updates…" && projection.label == "—" && button.toolTip == "MyWallpaperX · Wallpaper Control"
         updates.standardUserDriverWillHandleShowingUpdate(true, forUpdate: update, state: .init(userInitiated: false))
         updates.standardUserDriverWillFinishUpdateSession()
         projection.update()
@@ -175,7 +206,7 @@ class StatusBarIconProjectionTests(unittest.TestCase):
                 run = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30)
                 self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
                 checks = json.loads(run.stdout)
-                self.assertEqual(len(checks), 20)
+                self.assertEqual(len(checks), 24)
                 for name, passed in checks.items():
                     with self.subTest(mode=mode, name=name):
                         self.assertTrue(passed)

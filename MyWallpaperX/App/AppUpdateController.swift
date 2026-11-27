@@ -27,6 +27,34 @@ final class AppUpdateController: NSObject, SPUStandardUserDriverDelegate, NSMenu
         _ = updaterController
     }
 
+    var automaticUpdateChecksEnabled: Bool? {
+        #if DEBUG
+        nil
+        #else
+        updaterController.updater.automaticallyChecksForUpdates
+        #endif
+    }
+
+    func setAutomaticUpdateChecksEnabled(_ enabled: Bool) {
+        #if !DEBUG
+        updaterController.updater.automaticallyChecksForUpdates = enabled
+        #endif
+    }
+
+    var automaticUpdateDownloadsEnabled: Bool {
+        #if DEBUG
+        false
+        #else
+        updaterController.updater.automaticallyDownloadsUpdates
+        #endif
+    }
+
+    func setAutomaticUpdateDownloadsEnabled(_ enabled: Bool) {
+        #if !DEBUG
+        updaterController.updater.automaticallyDownloadsUpdates = enabled
+        #endif
+    }
+
     var supportsGentleScheduledUpdateReminders: Bool { true }
 
     func standardUserDriverWillHandleShowingUpdate(_ handleShowingUpdate: Bool,

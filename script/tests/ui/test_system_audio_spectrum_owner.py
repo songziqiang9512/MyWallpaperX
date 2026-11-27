@@ -236,6 +236,7 @@ struct HotkeySettingsSnapshot: Equatable { init(settings: WallpaperSettings) {} 
 @MainActor final class PlaybackCommandMultiplexer {
     enum Command { case setVolume(Float) }
     static let shared = PlaybackCommandMultiplexer(); func dispatch(_ value: Command) {}
+    var isPlaybackPaused = false
 }
 @MainActor final class SceneDaemonClient {
     static let shared = SceneDaemonClient()
@@ -243,12 +244,18 @@ struct HotkeySettingsSnapshot: Equatable { init(settings: WallpaperSettings) {} 
     var switchPrepared: ((PlaybackSwitchTicket, PlaybackSwitchEndpoint) -> Void)?
     var switchVisible: ((PlaybackSwitchTicket, UUID) -> Void)?
     var switchFailed: ((PlaybackSwitchTicket, String) -> Void)?, switchLost: ((PlaybackSwitchTicket, String) -> Void)?
+    var spectrumDeliveryTarget: Never? { nil }
     var multiDisplayEnabled = false
     func setMultiDisplayEnabled(_ value: Bool) { multiDisplayEnabled = value }
     var canvasFitCommands: [Bool] = []
     func setCanvasFit(_ value: Bool) { canvasFitCommands.append(value) }
 }
 @MainActor final class RecordingAudioService {
+    var captureRequests: [[Bool]] = []
+    func setConsumers(overlayEnabled: Bool, webEnabled: Bool, sceneEnabled: Bool,
+                      includeCurrentProcessAudio: Bool, sceneCaptureScopeEpoch: UInt64) {
+        captureRequests.append([overlayEnabled, webEnabled, sceneEnabled])
+    }
     var changes: [(SystemAudioSpectrumStyle, SystemAudioSpectrumSensitivity, Int)] = []
     func updateConfiguration(style: SystemAudioSpectrumStyle, sensitivity: SystemAudioSpectrumSensitivity, barCount: Int) {
         changes.append((style, sensitivity, barCount))
@@ -257,7 +264,10 @@ struct HotkeySettingsSnapshot: Equatable { init(settings: WallpaperSettings) {} 
 @MainActor final class WallpaperEngine {
     final class Process { var isRunning = true }
     final class Session { let process = Process(); var commands: [DaemonCommand] = [] }
-    struct Delivery { var currentOverlayLevels: [Float] = [] }
+    struct Delivery {
+        var currentOverlayLevels: [Float] = []
+        func configure(overlay: Bool, web: Bool, barCount: Int, routing: SceneAudioSpectrumCaptureRoutingState, scene: Never?) {}
+    }
     static let shared = WallpaperEngine()
     var videoEndDeliveryAdmission: (() -> Bool)?
     var switchPrepared: ((PlaybackSwitchTicket, PlaybackSwitchEndpoint) -> Void)?
@@ -274,7 +284,11 @@ struct HotkeySettingsSnapshot: Equatable { init(settings: WallpaperSettings) {} 
     var displaySessions: [Int: Session] = [:]
     let systemAudioSpectrumService = RecordingAudioService()
     var spectrumDelivery = Delivery()
-    func refreshSystemAudioSpectrumCapture() {}
+    var webWallpaperAudioListening = true
+    var sceneWallpaperAudioListening = true
+    var sceneDaemonAudioSpectrumDemand = SceneAudioSpectrumCaptureDemand.none
+    var sceneDaemonAudioSpectrumGeneration: UInt64?
+    var sceneAudioSpectrumCaptureRouting = SceneAudioSpectrumCaptureRoutingState()
     func currentWebSpectrumSnapshot() -> [Float]? { nil }
     func clearedWebSpectrumLevels() -> [Float] { [] }
     enum Command { case pushAudioSpectrum([Float]) }
@@ -457,6 +471,27 @@ extension Notification.Name {
         manager.settings.videoFillMode = .aspectFit
         precondition(scene.canvasFitCommands == [true, false, true])
         precondition(engine.fillModeCommands == ["aspectFill", "aspectFit"])
+        engine.currentWebAudioSpectrumRequested = true
+        engine.sceneDaemonAudioSpectrumDemand = .init(requiresSpectrum: true, includesCurrentProcessOutput: false)
+        engine.sceneDaemonAudioSpectrumGeneration = 1
+        engine.currentSystemAudioSpectrumEnabled = true
+        engine.displaySessions[1] = WallpaperEngine.Session()
+        engine.refreshSystemAudioSpectrumCapture()
+        precondition(engine.systemAudioSpectrumService.captureRequests.last == [true, true, true])
+        manager.settings.webWallpaperAudioListening = false
+        precondition(engine.systemAudioSpectrumService.captureRequests.last == [true, false, true])
+        manager.settings.sceneWallpaperAudioListening = false
+        precondition(engine.systemAudioSpectrumService.captureRequests.last == [true, false, false])
+        manager.settings.webWallpaperAudioListening = true
+        precondition(engine.systemAudioSpectrumService.captureRequests.last == [true, true, false])
+        manager.settings.sceneWallpaperAudioListening = true
+        precondition(engine.systemAudioSpectrumService.captureRequests.last == [true, true, true])
+        let captureRequests = engine.systemAudioSpectrumService.captureRequests.count
+        manager.settings.volume = 41
+        precondition(engine.systemAudioSpectrumService.captureRequests.count == captureRequests)
+        PlaybackCommandMultiplexer.shared.isPlaybackPaused = true
+        engine.refreshSystemAudioSpectrumCapture()
+        precondition(engine.systemAudioSpectrumService.captureRequests.last == [false, false, false])
         print("manager-spectrum-projection-pass")
     }
 }
@@ -475,7 +510,10 @@ extension Notification.Name {
             + '\n' + method(application, '    func setAsWallpaper(')
         for marker, fragment in [
             ('// SETTINGS_BINDINGS', bindings), ('// MANAGER_METHODS', methods),
-            ('// CONFIGURE_SPECTRUM', method(audio, '    public func configureSystemAudioSpectrum(')),
+            ('// CONFIGURE_SPECTRUM', '\n'.join(method(audio, signature) for signature in [
+                '    public func configureSystemAudioSpectrum(', '    func setWallpaperAudioListening(',
+                '    func refreshSystemAudioSpectrumCapture(',
+            ])),
             ('// PLAY_COMMAND', play_command),
         ]:
             harness = harness.replace(marker, fragment)
@@ -488,7 +526,8 @@ extension Notification.Name {
                 str(ROOT / 'MyWallpaperX/Models/WallpaperSettings.swift'),
                 str(ROOT / 'MyWallpaperX/Models/WallpaperControls.swift'),
                 str(ROOT / 'MyWallpaperX/Models/ScreenSaverPreferences.swift'),
-                str(PLAYBACK / 'DaemonProtocol.swift'), str(source),
+                str(PLAYBACK / 'DaemonProtocol.swift'),
+                str(ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift'), str(source),
                 '-module-cache-path', str(work / 'modules'), '-o', str(binary)],
                 capture_output=True, text=True, timeout=120)
             self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)

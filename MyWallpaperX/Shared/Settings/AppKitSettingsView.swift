@@ -7,24 +7,13 @@ import AppKit
 import Combine
 import ServiceManagement
 import UniformTypeIdentifiers
+import Foundation
 
 enum AppSettingsSection: String, CaseIterable {
-    case playbackModes
-    case audio
-    case system
-    case hotkeys
-    case efficiency
-    case quality
-    case display
-    case maintenance
+    case playback, quality, display, system, hotkeys, efficiency, maintenance, about
 }
 
 final class AppKitSettingsContainerView: NSView {
-    private enum LayoutSeed {
-        static let initialDocumentWidth: CGFloat = 760
-        static let initialDocumentHeight: CGFloat = 1200
-    }
-
     final class FlippedDocumentView: NSView {
         override var isFlipped: Bool { true }
 
@@ -46,58 +35,46 @@ final class AppKitSettingsContainerView: NSView {
     var isUpdatingUI = false
     var isDocumentFrameUpdateScheduled = false
     // refreshFromState 的差分快照：滑块拖动等高频 settings 写入会反复触发全量回填，
-    // 这里记录三条昂贵路径（热键菜单重建、SMAppService 同步查询、fittingSize 整树求解）
+    // 这里记录三条昂贵路径（热键菜单状态、SMAppService 同步查询、fittingSize 整树求解）
     // 的相关输入，值未变时跳过对应工作。
-    var lastHotkeyInputsSignature: [String] = []
+    var lastHotkeyInputsSignature: [FunctionKeyShortcut] = []
     private var lastStartOnBootSetting: Bool?
     private var lastKnownStartOnBootSystemEnabled: Bool?
-    private var scrollToTopObserver: NSObjectProtocol?
     private var muteStateObserver: NSObjectProtocol?
     private var loginItemSyncFailureObserver: NSObjectProtocol?
     private var windowBecameKeyObserver: NSObjectProtocol?
-    var visibleSections: Set<AppSettingsSection>
-    private let topContentInset: CGFloat
+    private(set) var visibleSection: AppSettingsSection
     private let scrollView = NSScrollView()
     let contentContainer = FlippedDocumentView()
 
-    let contentStack: NSStackView = {
-        let stack = NSStackView()
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.distribution = .fill
-        stack.spacing = 20
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        return stack
-    }()
+    let forms = Dictionary(uniqueKeysWithValues: AppSettingsSection.allCases.map { ($0, SettingsFormView()) })
+    var onFormHeightChanged: (() -> Void)?
+    private var activeForm: SettingsFormView { forms[visibleSection]! }
 
-    let playbackModesSection = SettingsGroupView(title: String(localized: "Playback Modes"))
-    let audioSection = SettingsGroupView(title: String(localized: "Audio & Speed"))
-    let systemSection = SettingsGroupView(title: String(localized: "System Behavior"))
-    let hotkeysSection = SettingsGroupView(title: String(localized: "Keyboard Shortcuts"))
-    let efficiencySection = SettingsGroupView(title: String(localized: "Energy Saving & Pausing"))
-    let qualitySection = SettingsGroupView(title: String(localized: "Wallpaper Quality"))
-    let displaySection = SettingsGroupView(title: String(localized: "Display Settings"))
-    let maintenanceSection = SettingsGroupView(title: nil)
+    static func checkbox() -> NSButton {
+        NSButton(checkboxWithTitle: "", target: nil, action: nil)
+    }
 
-    let loopSwitch = NSSwitch()
-    let randomSwitch = NSSwitch()
-    let sequentialSwitch = NSSwitch()
-    let autoSwitchSwitch = NSSwitch()
+    let loopSwitch = AppKitSettingsContainerView.checkbox()
+    let randomSwitch = AppKitSettingsContainerView.checkbox()
+    let sequentialSwitch = AppKitSettingsContainerView.checkbox()
+    let autoSwitchSwitch = AppKitSettingsContainerView.checkbox()
     let intervalField = NSTextField()
     let timeUnitPopup = NSPopUpButton()
     var intervalRowView: NSView?
-    var autoSwitchRowView: NSView?
+    var autoSwitchRow: NSGridRow?
     let volumeSlider = NSSlider(value: 50, minValue: 0, maxValue: 100, target: nil, action: nil)
     let volumeValueLabel = NSTextField(labelWithString: "50%")
-    let muteSwitch = NSSwitch()
+    let muteSwitch = AppKitSettingsContainerView.checkbox()
 
     let playbackRateSlider = NSSlider(value: 1.0, minValue: 0.25, maxValue: 2.0, target: nil, action: nil)
     let playbackRateValueLabel = NSTextField(labelWithString: "")
-    let playbackRateSwitch = NSSwitch()
+    let playbackRateSwitch = AppKitSettingsContainerView.checkbox()
+    var playbackRateControls: NSView?
 
-    let startOnBootSwitch = NSSwitch()
-    let restorePlaybackOnLaunchSwitch = NSSwitch()
-    let syncSystemWallpaperSwitch = NSSwitch()
+    let startOnBootSwitch = AppKitSettingsContainerView.checkbox()
+    let restorePlaybackOnLaunchSwitch = AppKitSettingsContainerView.checkbox()
+    let syncSystemWallpaperSwitch = AppKitSettingsContainerView.checkbox()
     let sceneQualityPresetPopup = NSPopUpButton()
     let sceneAntiAliasingPopup = NSPopUpButton()
     let sceneRasterSamplesLabel = NSTextField(labelWithString: "")
@@ -112,30 +89,31 @@ final class AppKitSettingsContainerView: NSView {
 
     let sceneReflectionsSwitch = NSSwitch()
     let sceneReflectionUseLabel = AppKitSettingsContainerView.makeSceneEffectReadout()
-    let sceneMediaInfoSwitch = NSSwitch()
     let webFrameRatePopup = NSPopUpButton()
     let reapplySceneQualityButton = NSButton(title: String(localized: "Reapply Current Scene"), target: nil, action: nil)
+    var reapplySceneQualityRow: NSGridRow?
     let resetQualityButton = NSButton(title: String(localized: "Restore Default Quality"), target: nil, action: nil)
+    let sceneMediaInfoSwitch = AppKitSettingsContainerView.checkbox()
     private var sceneMediaAuthorizationCheckID = UUID()
-    let systemAudioSpectrumSwitch = NSSwitch()
+    let systemAudioSpectrumSwitch = AppKitSettingsContainerView.checkbox()
+    let systemAudioSpectrumStylePopup = NSPopUpButton()
+    let webAudioListeningSwitch = AppKitSettingsContainerView.checkbox()
+    let sceneAudioListeningSwitch = AppKitSettingsContainerView.checkbox()
+    let systemAudioSpectrumSensitivityPopup = NSPopUpButton()
     let systemAudioSpectrumBarCountPopup = NSPopUpButton()
     let systemAudioSpectrumColorWell = NSColorWell()
     let systemAudioSpectrumOffsetXSlider = NSSlider(value: 0, minValue: -30, maxValue: 30, target: nil, action: nil)
     let systemAudioSpectrumOffsetYSlider = NSSlider(value: 0, minValue: -20, maxValue: 20, target: nil, action: nil)
     let systemAudioSpectrumOffsetXValueLabel = NSTextField(labelWithString: "0%")
     let systemAudioSpectrumOffsetYValueLabel = NSTextField(labelWithString: "0%")
-    let systemAudioSpectrumPeakCapsSwitch = NSSwitch()
+    let systemAudioSpectrumPeakCapsSwitch = AppKitSettingsContainerView.checkbox()
     var systemAudioSpectrumOptionsContainer: NSView?
-    let systemHotkeysSwitch = NSSwitch()
-    let hotkeyRowsStack = NSStackView()
-    var hotkeyRowsContainer: NSView?
-    var hotkeyEnableSwitches: [SystemHotkeyAction: NSSwitch] = [:]
     var hotkeyPopups: [SystemHotkeyAction: NSPopUpButton] = [:]
 
-    let pauseOtherAppFocusedSwitch = NSSwitch()
-    let pauseOtherAppFullscreenSwitch = NSSwitch()
-    let pauseWhenUnpluggedSwitch = NSSwitch()
-    let pauseWhenIdleSwitch = NSSwitch()
+    let pauseOtherAppFocusedSwitch = AppKitSettingsContainerView.checkbox()
+    let pauseOtherAppFullscreenSwitch = AppKitSettingsContainerView.checkbox()
+    let pauseWhenUnpluggedSwitch = AppKitSettingsContainerView.checkbox()
+    let pauseWhenIdleSwitch = AppKitSettingsContainerView.checkbox()
     let idleTimeoutPopup = NSPopUpButton()
     var idleTimeoutRowView: NSView?
 
@@ -146,11 +124,15 @@ final class AppKitSettingsContainerView: NSView {
     let sceneFPSField = NSTextField(string: "")
     let sceneFPSEffectiveLabel = NSTextField(labelWithString: "")
 
-    let multiDisplaySwitch = NSSwitch()
+    let keepDockIconSwitch = AppKitSettingsContainerView.checkbox()
+    let multiDisplaySwitch = AppKitSettingsContainerView.checkbox()
     let libraryBackgroundPopup = NSPopUpButton()
     let libraryCardClickPopup = NSPopUpButton()
     let fillModeFitButton = NSButton(radioButtonWithTitle: String(localized: "Fit"), target: nil, action: nil)
     let fillModeFillButton = NSButton(radioButtonWithTitle: String(localized: "Fill Screen"), target: nil, action: nil)
+
+    var automaticUpdateChecksButton: NSButton?
+    var automaticUpdateDownloadsButton: NSButton?
 
     let clearCacheButton = NSButton(title: String(localized: "Clear Cache"), target: nil, action: nil)
     let resetSettingsButton = NSButton(title: String(localized: "Reset App"), target: nil, action: nil)
@@ -159,22 +141,17 @@ final class AppKitSettingsContainerView: NSView {
 
     init(
         dependency: AppSettingsPanelDependency,
-        visibleSections: Set<AppSettingsSection>,
-        topContentInset: CGFloat
+        visibleSection: AppSettingsSection
     ) {
         self.dependency = dependency
-        self.visibleSections = visibleSections
-        self.topContentInset = topContentInset
+        self.visibleSection = visibleSection
         super.init(frame: .zero)
         setupLayout()
         setupSections()
-        primeInitialDocumentFrame()
-        applyNativeControlSizes()
         bindEvents()
         observeManager()
         observePanelActivation()
-        observeScrollToTopRequests()
-        applyVisibleSections()
+        attachActiveForm()
         refreshFromState()
     }
 
@@ -184,9 +161,6 @@ final class AppKitSettingsContainerView: NSView {
     }
 
     deinit {
-        if let scrollToTopObserver {
-            NotificationCenter.default.removeObserver(scrollToTopObserver)
-        }
         if let muteStateObserver {
             NotificationCenter.default.removeObserver(muteStateObserver)
         }
@@ -215,7 +189,7 @@ final class AppKitSettingsContainerView: NSView {
         autoSwitchSwitch.state = settings.autoSwitchEnabled ? .on : .off
         autoSwitchSwitch.isEnabled = autoSwitchAvailable
         // 循环播放模式下隐藏自动切换整行（含间隔时间），其他模式下显示。
-        autoSwitchRowView?.isHidden = !autoSwitchAvailable
+        autoSwitchRow?.isHidden = !autoSwitchAvailable
         intervalRowView?.isHidden = !(settings.autoSwitchEnabled && autoSwitchAvailable)
         intervalField.isEnabled = autoSwitchAvailable && settings.autoSwitchEnabled
         timeUnitPopup.isEnabled = autoSwitchAvailable && settings.autoSwitchEnabled
@@ -238,8 +212,7 @@ final class AppKitSettingsContainerView: NSView {
         playbackRateSlider.doubleValue = clampedRate
         playbackRateValueLabel.stringValue = playbackRateLabel(clampedRate)
         // 开关关闭时隐藏滑块和数值标签，只保留开关本身。
-        playbackRateSlider.isHidden = !settings.playbackRateEnabled
-        playbackRateValueLabel.isHidden = !settings.playbackRateEnabled
+        playbackRateControls?.isHidden = !settings.playbackRateEnabled
 
         // 登录项开关以系统真值对账：注册失败或用户在系统设置里移除后，
         // 面板显示实际状态而不是 settings 里的乐观值。
@@ -254,13 +227,24 @@ final class AppKitSettingsContainerView: NSView {
         startOnBootSwitch.state = (lastKnownStartOnBootSystemEnabled ?? false) ? .on : .off
         restorePlaybackOnLaunchSwitch.state = settings.restorePlaybackOnLaunch ? .on : .off
         syncSystemWallpaperSwitch.state = settings.syncSystemWallpaper ? .on : .off
+        webAudioListeningSwitch.state = settings.webWallpaperAudioListening ? .on : .off
+        sceneAudioListeningSwitch.state = settings.sceneWallpaperAudioListening ? .on : .off
+        keepDockIconSwitch.state = settings.keepDockIconVisible ? .on : .off
+        systemAudioSpectrumStylePopup.selectItem(
+            at: SystemAudioSpectrumStyle.allCases.firstIndex(of: settings.systemAudioSpectrumStyle)!
+        )
         systemAudioSpectrumSwitch.state = settings.systemAudioSpectrumEnabled ? .on : .off
         systemAudioSpectrumOptionsContainer?.isHidden = !settings.systemAudioSpectrumEnabled
+        systemAudioSpectrumStylePopup.isEnabled = settings.systemAudioSpectrumEnabled
+        systemAudioSpectrumSensitivityPopup.isEnabled = settings.systemAudioSpectrumEnabled
         systemAudioSpectrumBarCountPopup.isEnabled = settings.systemAudioSpectrumEnabled
         systemAudioSpectrumColorWell.isEnabled = settings.systemAudioSpectrumEnabled
         systemAudioSpectrumOffsetXSlider.isEnabled = settings.systemAudioSpectrumEnabled
         systemAudioSpectrumOffsetYSlider.isEnabled = settings.systemAudioSpectrumEnabled
         systemAudioSpectrumPeakCapsSwitch.isEnabled = settings.systemAudioSpectrumEnabled
+        systemAudioSpectrumSensitivityPopup.selectItem(
+            at: SystemAudioSpectrumSensitivity.allCases.firstIndex(of: settings.systemAudioSpectrumSensitivity)!
+        )
         selectSystemAudioSpectrumBarCount(settings.systemAudioSpectrumBarCount)
         systemAudioSpectrumColorWell.color = color(fromHex: settings.systemAudioSpectrumColorHex) ?? .white
         systemAudioSpectrumOffsetXSlider.doubleValue = settings.systemAudioSpectrumOffsetX * 100
@@ -268,8 +252,6 @@ final class AppKitSettingsContainerView: NSView {
         systemAudioSpectrumOffsetXValueLabel.stringValue = "\(Int(round(settings.systemAudioSpectrumOffsetX * 100)))%"
         systemAudioSpectrumOffsetYValueLabel.stringValue = "\(Int(round(settings.systemAudioSpectrumOffsetY * 100)))%"
         systemAudioSpectrumPeakCapsSwitch.state = settings.systemAudioSpectrumPeakCapsEnabled ? .on : .off
-        systemHotkeysSwitch.state = settings.systemHotkeysEnabled ? .on : .off
-        hotkeyRowsContainer?.isHidden = !settings.systemHotkeysEnabled
 
         pauseOtherAppFocusedSwitch.state = settings.pauseWhenOtherAppFocused ? .on : .off
         pauseOtherAppFullscreenSwitch.state = settings.pauseWhenOtherAppFullscreen ? .on : .off
@@ -285,47 +267,42 @@ final class AppKitSettingsContainerView: NSView {
         libraryCardClickPopup.selectItem(withTag: LibraryCardClickAction.allCases.firstIndex(of: settings.libraryCardClickAction) ?? 0)
 
         refreshHotkeyRowsIfInputsChanged()
-        applyVisibleSections()
-        // fittingSize 对整棵内容树求解 document 高度，只在可见性行/分区实际变化时重算。
         if layoutVisibilitySignature() != visibilityBefore {
-            refreshSectionChromeAndLayout()
+            scheduleDocumentFrameUpdate()
+            onFormHeightChanged?()
         }
     }
 
-    /// 影响文档高度求解的可见性快照：分区显隐 + 各整行/嵌入容器显隐，
-    /// 以及播放速率行内会改变行高的滑块/数值标签。
     private func layoutVisibilitySignature() -> [Bool?] {
-        [
-            playbackModesSection.isHidden,
-            audioSection.isHidden,
-            systemSection.isHidden,
-            hotkeysSection.isHidden,
-            efficiencySection.isHidden,
-            qualitySection.isHidden,
-            displaySection.isHidden,
-            maintenanceSection.isHidden,
-            autoSwitchRowView?.isHidden,
-            intervalRowView?.isHidden,
-            playbackRateSlider.isHidden,
-            playbackRateValueLabel.isHidden,
-            systemAudioSpectrumOptionsContainer?.isHidden,
-            hotkeyRowsContainer?.isHidden,
-            idleTimeoutRowView?.isHidden
-        ]
+        switch visibleSection {
+        case .playback: [autoSwitchRow?.isHidden, intervalRowView?.isHidden, playbackRateControls?.isHidden]
+        case .system: [systemAudioSpectrumOptionsContainer?.isHidden]
+        case .efficiency: [idleTimeoutRowView?.isHidden]
+        default: []
+        }
     }
 
-    func updateVisibleSections(_ visibleSections: Set<AppSettingsSection>) {
-        guard self.visibleSections != visibleSections else { return }
-        self.visibleSections = visibleSections
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.applyVisibleSections()
-            self.refreshSectionChromeAndLayout()
-        }
+    func showSection(_ section: AppSettingsSection) {
+        guard visibleSection != section else { return }
+        activeForm.removeFromSuperview()
+        visibleSection = section
+        attachActiveForm()
+        if section == .about { refreshUpdaterControls() }
+        scrollView.contentView.scroll(to: .zero)
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+    }
+
+    private func attachActiveForm() {
+        let form = activeForm
+        contentContainer.addSubview(form)
+        NSLayoutConstraint.activate([
+            form.topAnchor.constraint(equalTo: contentContainer.topAnchor, constant: SettingsPanelLayout.pageInset),
+            form.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor, constant: SettingsPanelLayout.pageInset),
+            form.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor, constant: -SettingsPanelLayout.pageInset)
+        ])
     }
 
     private func setupLayout() {
-        // 设置页内容使用滚动承载，让内容可以自然穿入顶部材质过渡区。
         wantsLayer = false
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.borderType = .noBorder
@@ -335,27 +312,14 @@ final class AppKitSettingsContainerView: NSView {
         scrollView.autohidesScrollers = true
         scrollView.scrollerStyle = .overlay
 
-        // 给 documentView 一个非零初始尺寸，避免内部行在宽度为 0 的中间态下提前解约束。
-        contentContainer.frame = NSRect(
-            x: 0,
-            y: 0,
-            width: max(bounds.width, LayoutSeed.initialDocumentWidth),
-            height: max(bounds.height, LayoutSeed.initialDocumentHeight)
-        )
+        contentContainer.frame.size.width = SettingsPanelLayout.pageWidth
         scrollView.documentView = contentContainer
         addSubview(scrollView)
-        contentContainer.addSubview(contentStack)
-
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
-
-            contentStack.topAnchor.constraint(equalTo: contentContainer.topAnchor, constant: topContentInset),
-            contentStack.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor, constant: 20),
-            contentStack.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor, constant: -20),
-            contentStack.bottomAnchor.constraint(lessThanOrEqualTo: contentContainer.bottomAnchor, constant: -18)
+            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
     }
 
@@ -364,36 +328,18 @@ final class AppKitSettingsContainerView: NSView {
         scheduleDocumentFrameUpdate()
     }
 
-    private func primeInitialDocumentFrame() {
-        let seededWidth = max(bounds.width, LayoutSeed.initialDocumentWidth)
-        let seededHeight = max(
-            contentStack.fittingSize.height + topContentInset + 18,
-            LayoutSeed.initialDocumentHeight
-        )
-        contentContainer.frame = NSRect(x: 0, y: 0, width: seededWidth, height: seededHeight)
+    func preferredFormHeight(at width: CGFloat) -> CGFloat {
+        if contentContainer.frame.width != width { contentContainer.frame.size.width = width }
+        contentContainer.layoutSubtreeIfNeeded()
+        return activeForm.fittingSize.height + SettingsPanelLayout.pageInset + SettingsPanelLayout.bottomInset
     }
 
     func updateDocumentFrame() {
         let viewportSize = scrollView.contentSize
         guard viewportSize.width > 0 else { return }
 
-        let fittingHeight = contentStack.fittingSize.height + topContentInset + 18
-        let targetHeight = max(viewportSize.height, fittingHeight)
-        let targetFrame = NSRect(x: 0, y: 0, width: viewportSize.width, height: targetHeight)
-
-        if contentContainer.frame.integral != targetFrame.integral {
-            contentContainer.frame = targetFrame
-        }
-    }
-
-    private func observeScrollToTopRequests() {
-        scrollToTopObserver = NotificationCenter.default.addObserver(
-            forName: .appKitRequestScrollToTopForCurrentSelection,
-            object: nil,
-            queue: .main
-        ) { _ in
-            // 设置页改为固定高度后，不再处理滚动复位。
-        }
+        let targetHeight = max(viewportSize.height, preferredFormHeight(at: viewportSize.width))
+        if contentContainer.frame.height != targetHeight { contentContainer.frame.size.height = targetHeight }
     }
 
     private func bindEvents() {
@@ -428,6 +374,14 @@ final class AppKitSettingsContainerView: NSView {
         sceneMediaInfoSwitch.action = #selector(handleSceneMediaInfoToggle)
         systemAudioSpectrumSwitch.target = self
         systemAudioSpectrumSwitch.action = #selector(handleSystemAudioSpectrumToggle)
+        webAudioListeningSwitch.target = self
+        webAudioListeningSwitch.action = #selector(handleEngineAudioListeningChange(_:))
+        sceneAudioListeningSwitch.target = self
+        sceneAudioListeningSwitch.action = #selector(handleEngineAudioListeningChange(_:))
+        systemAudioSpectrumStylePopup.target = self
+        systemAudioSpectrumStylePopup.action = #selector(handleSystemAudioSpectrumStyleChange)
+        systemAudioSpectrumSensitivityPopup.target = self
+        systemAudioSpectrumSensitivityPopup.action = #selector(handleSystemAudioSpectrumSensitivityChange)
         systemAudioSpectrumBarCountPopup.target = self
         systemAudioSpectrumBarCountPopup.action = #selector(handleSystemAudioSpectrumBarCountChange)
         systemAudioSpectrumColorWell.target = self
@@ -438,18 +392,6 @@ final class AppKitSettingsContainerView: NSView {
         systemAudioSpectrumOffsetYSlider.action = #selector(handleSystemAudioSpectrumOffsetChange)
         systemAudioSpectrumPeakCapsSwitch.target = self
         systemAudioSpectrumPeakCapsSwitch.action = #selector(handleSystemAudioSpectrumPeakCapsToggle)
-        systemHotkeysSwitch.target = self
-        systemHotkeysSwitch.action = #selector(handleSystemHotkeysToggle)
-
-        for action in SystemHotkeyAction.allCases {
-            hotkeyEnableSwitches[action]?.target = self
-            hotkeyEnableSwitches[action]?.action = #selector(handleHotkeyEnableToggle(_:))
-            hotkeyEnableSwitches[action]?.tag = hotkeyTag(for: action)
-
-            hotkeyPopups[action]?.target = self
-            hotkeyPopups[action]?.action = #selector(handleHotkeyPopupChange(_:))
-            hotkeyPopups[action]?.tag = hotkeyTag(for: action)
-        }
 
         pauseOtherAppFocusedSwitch.target = self
         pauseOtherAppFocusedSwitch.action = #selector(handlePerformanceToggle)
@@ -462,6 +404,8 @@ final class AppKitSettingsContainerView: NSView {
         idleTimeoutPopup.target = self
         idleTimeoutPopup.action = #selector(handleIdleTimeoutChange)
 
+        keepDockIconSwitch.target = self
+        keepDockIconSwitch.action = #selector(handleKeepDockIconToggle)
         multiDisplaySwitch.target = self
         multiDisplaySwitch.action = #selector(handleMultiDisplayToggle)
         libraryBackgroundPopup.target = self
@@ -643,8 +587,7 @@ final class AppKitSettingsContainerView: NSView {
         guard !isUpdatingUI else { return }
         let enabled = playbackRateSwitch.state == .on
         dependency.settings.playbackRateEnabled = enabled
-        playbackRateSlider.isHidden = !enabled
-        playbackRateValueLabel.isHidden = !enabled
+        playbackRateControls?.isHidden = !enabled
         // 关闭时把速率重置为正常速度，避免关掉开关后引擎还在以异常速率播放。
         if !enabled {
             dependency.settings.playbackRate = 1.0
@@ -700,6 +643,30 @@ final class AppKitSettingsContainerView: NSView {
         dependency.settings.systemAudioSpectrumEnabled = (systemAudioSpectrumSwitch.state == .on)
     }
 
+    @objc private func handleKeepDockIconToggle() {
+        dependency.settings.keepDockIconVisible = keepDockIconSwitch.state == .on
+    }
+
+    @objc private func handleEngineAudioListeningChange(_ sender: NSButton) {
+        if sender === webAudioListeningSwitch {
+            dependency.settings.webWallpaperAudioListening = sender.state == .on
+        } else {
+            dependency.settings.sceneWallpaperAudioListening = sender.state == .on
+        }
+    }
+
+    @objc private func handleSystemAudioSpectrumStyleChange() {
+        guard let style = systemAudioSpectrumStylePopup.selectedItem?.representedObject as? SystemAudioSpectrumStyle else { return }
+        dependency.settings.systemAudioSpectrumStyle = style
+    }
+
+    @objc private func handleSystemAudioSpectrumSensitivityChange() {
+        guard !isUpdatingUI,
+              let sensitivity = systemAudioSpectrumSensitivityPopup.selectedItem?.representedObject as? SystemAudioSpectrumSensitivity
+        else { return }
+        dependency.settings.systemAudioSpectrumSensitivity = sensitivity
+    }
+
     @objc private func handleSystemAudioSpectrumBarCountChange() {
         guard !isUpdatingUI else { return }
         guard let barCount = systemAudioSpectrumBarCountPopup.selectedItem?.representedObject as? Int else { return }
@@ -722,11 +689,6 @@ final class AppKitSettingsContainerView: NSView {
     @objc private func handleSystemAudioSpectrumPeakCapsToggle() {
         guard !isUpdatingUI else { return }
         dependency.settings.systemAudioSpectrumPeakCapsEnabled = (systemAudioSpectrumPeakCapsSwitch.state == .on)
-    }
-
-    @objc private func handleSystemHotkeysToggle() {
-        guard !isUpdatingUI else { return }
-        dependency.settings.systemHotkeysEnabled = (systemHotkeysSwitch.state == .on)
     }
 
     private func selectSystemAudioSpectrumBarCount(_ barCount: Int) {

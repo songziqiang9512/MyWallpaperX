@@ -5,9 +5,11 @@
 
 import Foundation
 import AppKit
+import Combine
 import QuartzCore
 
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
+ private var dockPreferenceObserver: AnyCancellable?
  private var statusBarController: StatusBarController?
  private var pendingInitialWindowOpen: DispatchWorkItem?
  private var didPrepareProductTermination = false
@@ -44,6 +46,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  // （激活门判定 isPlaying 或 scene 意图已在途）。
  MainMenuBuilder.installMainMenu()
  MainWindowCoordinator.setDockIconVisible(false)
+ dockPreferenceObserver = WallpaperManager.shared.$settings.map(\.keepDockIconVisible).removeDuplicates().dropFirst()
+     .sink { keepInDock in
+         MainWindowCoordinator.setDockIconVisible(MainWindowCoordinator.mainWindow()?.isVisible == true, keepInDock: keepInDock)
+     }
  // 注册本地 Help Book，确保帮助菜单能找到文档。
  if let helpPath = Bundle.main.path(forResource: "MyWallpaperXHelp", ofType: nil) {
  NSHelpManager.shared.registerBooks(in: Bundle(path: helpPath) ?? .main)
@@ -84,7 +90,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  }
 
  @objc func showAboutMenuAction(_ sender: Any?) {
- AboutWindowController.shared.show()
+ NSApp.orderFrontStandardAboutPanel(sender)
  }
 
  func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {

@@ -59,8 +59,9 @@ class PersonalSettingsImportTests(unittest.TestCase):
         sort_fixture_path = ROOT / 'script/tests/fixtures/PersonalSettingsVideoSortHarness.swift'
         screen_saver_fixture_path = ROOT / 'script/tests/fixtures/ScreenSaverPreferencesChecks.swift'
         source_fixture_path = ROOT / 'script/tests/fixtures/PersonalSettingsSourcePersistenceChecks.swift'
+        playlist_fixture_path = ROOT / 'script/tests/fixtures/PersonalSettingsPlaylistMetadataChecks.swift'
         inputs = sources + [persistence_path, images_path, index_path, manager_path, removal_path, fixture_path,
-                            sort_fixture_path, screen_saver_fixture_path, source_fixture_path]
+                            sort_fixture_path, screen_saver_fixture_path, source_fixture_path, playlist_fixture_path]
         identities = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
         persistence, images, manager = (p.read_text() for p in (persistence_path, images_path, manager_path))
         fixture = fixture_path.read_text()
@@ -108,7 +109,7 @@ extension WallpaperIndexStore {
             binary = work / 'checks'
             build = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-warnings-as-errors', '-parse-as-library',
                 *map(str, sources), str(store), str(actual), str(sort_fixture_path), str(screen_saver_fixture_path),
-                str(source_fixture_path), '-module-cache-path', str(work / 'modules'),
+                str(source_fixture_path), str(playlist_fixture_path), '-module-cache-path', str(work / 'modules'),
                 '-o', str(binary)], capture_output=True, text=True, timeout=120)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             home = work / 'home'; home.mkdir()

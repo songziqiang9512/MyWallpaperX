@@ -5,8 +5,8 @@
   "maxReviewAgeDays": 60,
   "bodies": {
     "docs/architecture/appkit-migration.md": {
-      "lines": 216,
-      "bytes": 25405
+      "lines": 218,
+      "bytes": 27384
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
       "lines": 52,
@@ -14,15 +14,15 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 70,
-      "bytes": 28406
+      "bytes": 28532
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
       "bytes": 18931
     },
     "docs/architecture/system-audio-spectrum-design.md": {
-      "lines": 51,
-      "bytes": 8829
+      "lines": 53,
+      "bytes": 9334
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 202,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 175,
-      "bytes": 37712
+      "bytes": 37848
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 205788
+      "bytes": 206346
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 189441
+      "bytes": 190083
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -373,11 +373,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/appkit-migration.md",
-      "before": "e837183ea29c4e646a7e192b21b471648e03fdfc036b337511a216e9efcb6c7b",
-      "after": "bb2ed54842c2bdb56a29a856453daf5e5dc4d25bd4938d4c2bc6f0a6d0cc5272",
-      "owner": "原生详情合同",
-      "reason": "校正同视图恢复的现役元数据与目录发布职责",
-      "decision": "docs/architecture/appkit-migration.md#inspector"
+      "before": "bb2ed54842c2bdb56a29a856453daf5e5dc4d25bd4938d4c2bc6f0a6d0cc5272",
+      "after": "689a3f8749276a2e2d435eb36d0e2a996952b841aa083854e5ec574fdb8542b9",
+      "owner": "wallpaper-quality",
+      "reason": "新原生设置工具栏及壁纸质量单一分类，保持主线页面与从属行为。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#quality-native-settings-reconciliation"
     },
     {
       "section": "bodies",
@@ -400,11 +400,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "8c8b1f7d01bd30b9a3b63c4e033381801c49f93aca56aa85ee09710bcf10efd1",
-      "after": "813d81425506a46e9a87619cb6d80fb420999b8a17da83ad09aff0ed1f1f28ba",
-      "owner": "Scene author audio history",
-      "reason": "登记实际归一化历史、双向频带换峰和分母隔离后的终帧证据。",
-      "decision": "docs/architecture/system-audio-spectrum-design.md#author-spectrum-normalized-history"
+      "before": "813d81425506a46e9a87619cb6d80fb420999b8a17da83ad09aff0ed1f1f28ba",
+      "after": "b11b599db8bb18ae11fef06a649fa794979b399e180ef65849689030c1ae4bf9",
+      "owner": "SystemAudioSpectrum",
+      "reason": "登记 Web 与 Scene 独立监听偏好在现有采集链的消费与清零行为。",
+      "decision": "docs/architecture/system-audio-spectrum-design.md"
     },
     {
       "section": "bodies",
@@ -715,38 +715,38 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "40715bdaeb961682c14dbcd1cf2796491b4c2d67b5748e5c9e04ad2a0ad3770c",
-      "after": "822a033754d30c53f56d6e1bc2e59937f23a9b28132f3e39224731b290be8e18",
+      "before": "822a033754d30c53f56d6e1bc2e59937f23a9b28132f3e39224731b290be8e18",
+      "after": "36ef7a6e7bad73a8cb767878f16dc17841ed0e45b8c4c2122ef682f3f96a46e8",
       "owner": "wallpaper-quality",
-      "reason": "核 Auto 有效映射阈值的现有准备和实际绑定入口。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-padding-auto"
+      "reason": "原生设置分类与统一质量保存、回显和恢复源码入口。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#quality-native-settings-reconciliation"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "f0fa475fa32fa4a6f00d7dcb848fe067271f035799cfc1d7ecea10d53a055dda",
-      "after": "48daeb41a4c5acc25efae583d2ef3b7b9af5d60b3c1522ee4f453e727e68fc1a",
+      "before": "48daeb41a4c5acc25efae583d2ef3b7b9af5d60b3c1522ee4f453e727e68fc1a",
+      "after": "9a6dd08a527f78c7d6ea1b69a38d425d012aa6433ea898a2941f137793c4498d",
       "owner": "wallpaper-quality",
-      "reason": "核整比填充原生 BC Auto 的覆盖、门槛和热升规则。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-padding-auto"
+      "reason": "新设置工具栏的画质消费者，以及便携文档和恢复日志的单一协调点。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#quality-native-settings-reconciliation"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "4218e4bbd1813b1ecdd058c86a2f5ea66048032e6919281311111197fcf956d8",
-      "after": "293f0aa9f561567acb83d62c55cf50734a45c1d6b06e4d2dab48082665dc1675",
+      "before": "293f0aa9f561567acb83d62c55cf50734a45c1d6b06e4d2dab48082665dc1675",
+      "after": "2b3f9ad80d8de2ec4097c5f632f4dc0ada3dcbfb1abc07e12cc5149f5d08ba67",
       "owner": "wallpaper-quality",
-      "reason": "核 Auto 有效映射、原单级边界及热升和退役设计。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-padding-auto"
+      "reason": "合并原生窗口与质量字段，保持两套格式的兼容与统一执行链。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#quality-native-settings-reconciliation"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "32884be2d0003dabb13eff4634162aa8de8b0d99816dd2236a4aa57073529053",
-      "after": "2fc4559c33bb12530ea97b27ee46344d5ef7a82d3652629b01cb25688b32a256",
+      "before": "2fc4559c33bb12530ea97b27ee46344d5ef7a82d3652629b01cb25688b32a256",
+      "after": "af59e327b19bc85c778b2734259a4713026ffa695c1f8edfe1278ba2834b3199",
       "owner": "wallpaper-quality",
-      "reason": "核两部独立原作的有效绑定、实配回收和同窗终图。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-padding-auto"
+      "reason": "主线最新设置基点、AppKit 页、便携恢复和现役质量路线。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#quality-native-settings-reconciliation"
     },
     {
       "section": "bodies",

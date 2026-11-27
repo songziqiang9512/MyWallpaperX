@@ -125,7 +125,7 @@ import ImageIO
         guard collections.snapshot.organizationState == state.organizationState else { throw UserCollectionsError.organizationConflict }
         try validateSources(plan)
         guard currentPreferences() == preferences else { throw PersonalSettingsError.preferencesChanged }
-        var recovery = Recovery(schemaVersion: 3, stage: .prepared, importedAt: Date(), plan: plan, videoSortPatch: videoSortPatch)
+        var recovery = Recovery(schemaVersion: 4, stage: .prepared, importedAt: Date(), plan: plan, videoSortPatch: videoSortPatch)
         try writeRecovery(recovery)
         recoveryMessage = PersonalSettingsError.recoveryRequired("prepared").localizedDescription
         return try await apply(&recovery, generation: epoch)
@@ -227,6 +227,12 @@ import ImageIO
             before.playbackPerformanceProfile = nil; target.playbackPerformanceProfile = nil
             before.animationFramesPerSecond = nil; target.animationFramesPerSecond = nil
             before.webFrameRateMode = nil; target.webFrameRateMode = nil
+            if recovery.schemaVersion == 3 {
+                before.upgradeRecoverySettingsV3()
+                target.upgradeRecoverySettingsV3()
+            }
+            before.normalizeLegacyShortcutSnapshot()
+            target.normalizeLegacyShortcutSnapshot()
             guard before == current || target == current else {
                 throw PersonalSettingsError.preferencesChanged
             }
@@ -370,7 +376,7 @@ import ImageIO
         do { data = try Data(contentsOf: recoveryURL) }
         catch let error as CocoaError where error.code == .fileReadNoSuchFile { return nil }
         let record = try JSONDecoder().decode(Recovery.self, from: data)
-        guard record.schemaVersion == 3 else {
+        guard [3, 4].contains(record.schemaVersion) else {
             throw PersonalSettingsError.invalidPayload(String(localized: "Import Restored Version"))
         }
         return record
