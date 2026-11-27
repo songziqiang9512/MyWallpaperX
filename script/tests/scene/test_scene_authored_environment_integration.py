@@ -96,8 +96,10 @@ class SceneAuthoredEnvironmentIntegrationTests(unittest.TestCase):
         if not configured:
             raise unittest.SkipTest("requires an explicitly frozen Debug App executable")
         cls.app = Path(configured).resolve(strict=True)
-        cls.artifacts = [cls.app, cls.app.with_name("MyWallpaperX.debug.dylib"),
-                         cls.app.parent.parent / "Resources/default.metallib"]
+        cls.artifacts = [cls.app, cls.app.parent.parent / "Resources/default.metallib"]
+        debug_library = cls.app.with_name("MyWallpaperX.debug.dylib")
+        if debug_library.is_file():
+            cls.artifacts.append(debug_library)
         cls.identity = {str(p): reflection.sha256(p) for p in cls.artifacts}
         destination = os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE")
         if destination:
@@ -134,7 +136,7 @@ class SceneAuthoredEnvironmentIntegrationTests(unittest.TestCase):
         (content / "project.json").write_text(json.dumps({"type": "scene", "file": "scene.json"}))
         (content / "scene.pkg").write_bytes(reflection.make_package(list(entries.items())))
         command = [str(self.app), "--mwx-debug-scene-root", str(content),
-                   "--mwx-debug-scene-duration", "6"]
+                   "--mwx-debug-scene-background", "--mwx-debug-scene-duration", "6"]
         if capture:
             command += ["--mwx-debug-scene-evidence-dir", str(work / "evidence")]
         if reflection_quality is not None:

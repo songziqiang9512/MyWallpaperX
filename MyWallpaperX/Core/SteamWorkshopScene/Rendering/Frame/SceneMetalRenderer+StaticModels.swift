@@ -365,7 +365,7 @@ extension SceneMetalRenderer {
                 reflectionTexture: environment?.publication.texture,
                 frameEpoch: textureRegistry.frameEpoch, commandBuffer: commandBuffer,
                 rasterSampleCount: rasterSampleCount, observeShadowBindings: observeShadowBindings,
-                encoder: encoder)
+                observeReflectionBinding: environment?.recordEnvironmentSample, encoder: encoder)
             if encoded && state.collectsVolumeOccluders && usesPerspective && pass.isSceneRoot
                 && draw.entry.writesDepth && draw.entry.materialBlending == .normal && draw.alpha == 1 {
                 state.volumeOccluders.append(.init(mesh: draw.mesh,

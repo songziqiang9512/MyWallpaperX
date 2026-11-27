@@ -67,6 +67,7 @@ final class SceneResolvedMaterialPassEncoder {
         var writtenTexture: MTLTexture { target }
         var sampledTextures: [MTLTexture] { bindings.map(\.texture) }
         fileprivate var bindings: [Binding]
+        fileprivate let recordEnvironmentSample: (() -> Void)?
         fileprivate let uniformBytes: Data
         fileprivate let uniformBufferIndex: Int
     }
@@ -224,8 +225,9 @@ final class SceneResolvedMaterialPassEncoder {
                 return .failure(.bindingsRejected)
             }
         }
+        var recordEnvironmentSample: (() -> Void)?
         guard let bindings = validatedBindings(program, target: target,
-                                                attachmentReadSlot: read?.sourceSlot) else {
+                attachmentReadSlot: read?.sourceSlot, recordEnvironmentSample: &recordEnvironmentSample) else {
             return .failure(.bindingsRejected)
         }
         #if SCENE_GRAPH_TESTING
@@ -274,6 +276,7 @@ final class SceneResolvedMaterialPassEncoder {
             pipeline: cached.pipeline,
             target: target,
             bindings: bindings,
+            recordEnvironmentSample: recordEnvironmentSample,
             uniformBytes: program.uniformBytes,
             uniformBufferIndex: program.frontendProgram.uniformBufferIndex
         )
@@ -458,6 +461,7 @@ final class SceneResolvedMaterialPassEncoder {
             encoder.setFragmentSamplerState(binding.sampler, index: binding.slot)
         }
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        pass.recordEnvironmentSample?()
 #if DEBUG
         recordComposition(pass, encoded: true)
 #endif
@@ -508,7 +512,8 @@ final class SceneResolvedMaterialPassEncoder {
     private func validatedBindings(
         _ program: SceneResolvedMaterialProgram,
         target: MTLTexture,
-        attachmentReadSlot: Int?
+        attachmentReadSlot: Int?,
+        recordEnvironmentSample: inout (() -> Void)?
     ) -> [Binding]? {
         let slots = program.semanticIdentity.shader.textureSlots
         var result: [Binding] = []
@@ -527,6 +532,9 @@ final class SceneResolvedMaterialPassEncoder {
                     ? canvasSamplers.repeating : canvasSamplers.clamp
             } else {
                 sampler = samplers.state(for: candidate.sampling)
+            }
+            if slotIndex != attachmentReadSlot, let observe = slot.resource.recordEnvironmentSample {
+                recordEnvironmentSample = observe
             }
             result.append(.init(slot: slotIndex, texture: texture, sampler: sampler))
         }

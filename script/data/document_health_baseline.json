@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 68,
-      "bytes": 26869
+      "bytes": 27128
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 172,
-      "bytes": 35169
+      "bytes": 35334
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 190654
+      "bytes": 191784
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 170855
+      "bytes": 171912
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 337,
-      "bytes": 74457
+      "bytes": 74755
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -134,7 +134,7 @@
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 74,
-      "bytes": 6601
+      "bytes": 6725
     },
     "docs/scene/capabilities/README.md": {
       "lines": 31,
@@ -705,57 +705,57 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
-      "before": "3239e0165870a1523058f25d08c71b2c42481b06a23bb2c9886563cc3112d0f3",
-      "after": "5667574dda7f7bf6dbd8521ea577103c4667ce44250df691aa51fc8ab8bcd994",
-      "owner": "Scene presentation and resource preparation",
-      "reason": "同步同笔请求的质量和作品适配，以及现役热更新命令。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-work-presentation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "e37b308d3e14be1a4f7b342e69f2a03921fbf6ef838c4a2024238049d6d614e7",
-      "after": "69e40755bea9c293668adabef1eb637bf57fa39a89473792574ea7ef3f207efd",
-      "owner": "Scene presentation and resource preparation",
-      "reason": "定位共享作品取景和 Auto 密度的生产入口。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-work-presentation"
+      "before": "69e40755bea9c293668adabef1eb637bf57fa39a89473792574ea7ef3f207efd",
+      "after": "171023396101f95dda4039b4c137eb7a42f3f6a96335cfba51d9226e7a6ff82b",
+      "owner": "Scene quality feedback",
+      "reason": "更新反射的已完成采样回执，保原帧与逐屏请求边界。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-feedback"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "3f587db28ed69fc9cb779e9b48c0f4442f024122d1b73c182f9eb3b28e8db5f5",
-      "after": "4f9ea930ca1b42748c0fc9a8e4f913ec5044e58a199f2c81e21128f28aa7c1e6",
-      "owner": "Scene presentation and resource preparation",
-      "reason": "规定有效作品适配、投影范围、缩放和 Auto 成组发布。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-work-presentation"
+      "before": "4f9ea930ca1b42748c0fc9a8e4f913ec5044e58a199f2c81e21128f28aa7c1e6",
+      "after": "d3e86d49c57194b3ee0b8c77b3beaabe5e0af442024aff6135237a2f55f7fc42",
+      "owner": "Scene quality feedback",
+      "reason": "更新反射的已完成采样回执，保原帧与逐屏请求边界。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-feedback"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "298ddec2747cbebc084b1c078b3791c2f12ff50610625f00546581aa3798d0aa",
-      "after": "ac8377d5258dc507cc3b197479e88cd5ac0af922986442fbf721d6c6ba1acbdc",
-      "owner": "Scene presentation and resource preparation",
-      "reason": "设计作品适配与 Auto 冷选、同尺寸热升的相机密度契约。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-work-presentation"
+      "before": "ac8377d5258dc507cc3b197479e88cd5ac0af922986442fbf721d6c6ba1acbdc",
+      "after": "d12e59073d365b75006f848ab669bb1e7af8881192f4d22d34bdceb28a855d0d",
+      "owner": "Scene quality feedback",
+      "reason": "更新反射的已完成采样回执，保原帧与逐屏请求边界。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-feedback"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "6adb4a366c9ee41724c287b03404829106aee0a0f1fef607dd3353b1a3d6976d",
-      "after": "1f64e07cd908b00c85a9778d053f725752ef8dea7b8ec397b8b571a48c02ec7d",
-      "owner": "Scene presentation and resource preparation",
-      "reason": "核作品级适配和实际 Auto 冷选、热升、终图。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-work-presentation"
+      "before": "1f64e07cd908b00c85a9778d053f725752ef8dea7b8ec397b8b571a48c02ec7d",
+      "after": "852aa4ad35f225841c91e9db1d8de80b64e86c2564e12228f6af1eea51be649e",
+      "owner": "Scene quality feedback",
+      "reason": "更新反射的已完成采样回执，保原帧与逐屏请求边界。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-feedback"
     },
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "4d767024d8f99530082b32aaba0a3f8f238e5f969e570c5fc0ce200c1396ec0c",
-      "after": "8626053707cab5d2e139f23fc6bd00509c21392428992b667d3571cfa74a8a33",
-      "owner": "Scene presentation and resource preparation",
-      "reason": "合入作品调节并保留现役质量、实际取景和重绘边界。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-work-presentation"
+      "before": "8626053707cab5d2e139f23fc6bd00509c21392428992b667d3571cfa74a8a33",
+      "after": "f9624cfc8b43bae67f3c4f19e6f7a3bd13bdf7d00ff0eb86a1b6ffcbce8af7e0",
+      "owner": "Scene quality feedback",
+      "reason": "更新反射的已完成采样回执，保原帧与逐屏请求边界。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-feedback"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
+      "before": "5667574dda7f7bf6dbd8521ea577103c4667ce44250df691aa51fc8ab8bcd994",
+      "after": "bdc6b924eb3f81ec8f9c1738def66354b29970852f1cfcef4ea9d25400c0452b",
+      "owner": "Scene quality feedback",
+      "reason": "更新反射的已完成采样回执，保原帧与逐屏请求边界。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-feedback"
     }
   ]
 }

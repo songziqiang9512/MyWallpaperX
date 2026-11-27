@@ -51,6 +51,7 @@ enum SceneOffscreenEffectRenderer {
                 litPayload: sourceLighting.lights,
                 encoder: encoder
             )
+            sourceLighting.recordEnvironmentSample()
         } else {
             pipeline.bind(encoder: encoder)
             pipeline.drawLayer(

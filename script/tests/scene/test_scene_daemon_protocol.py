@@ -577,6 +577,17 @@ import Foundation
                 "displayID": 7, "samples": 4, "shadow": "disabled", "volume": volume
             ]]) == [.init(displayID: 7, samples: 4, shadow: .disabled)]
         }
+        let reflectionOutcomes: [SceneReflectionUse?] = [
+            nil, .disabled, .cleared, .inactive, .waitingForHistory, .unavailable, .live
+        ]
+        let reflectionDisplays = reflectionOutcomes.enumerated().map { index, use in
+            SceneRasterDisplayStatus(displayID: UInt32(index + 1), samples: 2, reflection: use)
+        }
+        let reflectionRoundTrips = SceneDaemonProtocol.rasterDisplayStatuses(
+            reflectionDisplays.map(\.wireObject)) == reflectionDisplays
+        let malformedReflectionKeepsRaster = SceneDaemonProtocol.rasterDisplayStatuses([[
+            "displayID": 7, "samples": 4, "shadow": "disabled", "reflection": "unknown"
+        ]]) == [.init(displayID: 7, samples: 4, shadow: .disabled)]
         let textureDisplays = [
             SceneRasterDisplayStatus(displayID: 1, samples: 4, textures: .init(
                 reduced: .init(width: 1632, height: 1105, baseMip: 2, mipCount: 2, reason: .authoredMip),
@@ -787,6 +798,8 @@ import Foundation
             "rasterSamplesValid": rasterSamplesValid,
             "malformedShadowPreservesRaster": malformedShadowPreservesRaster,
             "volumeRoundTrips": volumeRoundTrips,
+            "reflectionRoundTrips": reflectionRoundTrips,
+            "malformedReflectionKeepsRaster": malformedReflectionKeepsRaster,
             "texturesRoundTrip": texturesRoundTrip,
             "postRoundTrip": postRoundTrip,
             "badPostKeepsRaster": badPostKeepsRaster,

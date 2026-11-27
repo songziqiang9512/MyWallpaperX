@@ -159,6 +159,7 @@ extension Notification.Name {
     // ACTUAL_RENDER_READOUT_DISPLAY
     // ACTUAL_SHADOW_USE_DESCRIPTION
     // ACTUAL_VOLUME_USE_DESCRIPTION
+    // ACTUAL_REFLECTION_USE_DESCRIPTION
     // ACTUAL_TEXTURE_USE_DESCRIPTION
     // ACTUAL_EFFECT_READOUT
     // ACTUAL_SETTINGS_ROW
@@ -628,6 +629,37 @@ extension Notification.Name {
         daemon.activeRasterDisplayStatuses = []
         view.refreshSceneRenderReadouts()
         checks["native-volume-readout-clears-on-stop"] = volumeLabel.isHidden && volumeLabel.toolTip == nil
+
+        let reflectionLabel = view.sceneReflectionUseLabel
+        daemon.activePreparedRenderQuality = .init(reflections: .enabled)
+        let reflectionCases: [(SceneReflectionUse, String)] = [
+            (.waitingForHistory, "Waiting for reflection history"),
+            (.unavailable, "Reflection input unavailable"),
+            (.inactive, "No scene reflection sampled"),
+            (.live, "Live scene reflection"),
+        ]
+        for (use, title) in reflectionCases {
+            daemon.activeRasterDisplayStatuses = [.init(displayID: testDisplays[0], samples: 2, reflection: use)]
+            view.refreshSceneRenderReadouts(.init(reflections: .enabled))
+            checks["native-reflection-\(use.rawValue)"] = !reflectionLabel.isHidden
+                && reflectionLabel.stringValue == title
+        }
+        view.refreshSceneRenderReadouts(.init(reflections: .disabled))
+        checks["native-reflection-pending-keeps-active-sample"] =
+            reflectionLabel.stringValue == "Previous setting in use: Live scene reflection"
+        daemon.activePreparedRenderQuality = .init(reflections: .disabled)
+        daemon.activeRasterDisplayStatuses = [
+            .init(displayID: testDisplays[0], samples: 2, reflection: .cleared),
+            .init(displayID: testDisplays[1], samples: 2, reflection: .disabled)
+        ]
+        view.refreshSceneRenderReadouts(.init(reflections: .disabled))
+        checks["native-reflection-per-display"] = reflectionLabel.stringValue == "Varies by display"
+            && reflectionLabel.toolTip?.contains("cleared environment") == true
+            && reflectionLabel.toolTip?.contains("Disabled") == true
+        daemon.activePreparedRenderQuality = nil
+        daemon.activeRasterDisplayStatuses = []
+        view.refreshSceneRenderReadouts()
+        checks["native-reflection-readout-clears-on-stop"] = reflectionLabel.isHidden && reflectionLabel.toolTip == nil
 
         let textureLabel = view.sceneTextureUseLabel
         daemon.activePreparedRenderQuality = .init(textures: .full)

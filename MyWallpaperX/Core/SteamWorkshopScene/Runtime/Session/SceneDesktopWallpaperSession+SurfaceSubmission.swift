@@ -11,6 +11,7 @@ extension SceneDesktopWallpaperSession {
             let volume: SceneVolumeUse?
             var textures: SceneTextureUseSample?
             let postProcessing: ScenePostProcessingUse?
+            let reflection: SceneReflectionUse?
         }
 
         struct Observation {
@@ -26,11 +27,13 @@ extension SceneDesktopWallpaperSession {
         mutating func observe(
             _ samples: Int?, didFailPreparation: Bool = false, shadow: SceneShadowUse? = nil,
             volume: SceneVolumeUse? = nil, textures: SceneTextureUseSample? = nil,
-            postProcessing: ScenePostProcessingUse? = nil
+            postProcessing: ScenePostProcessingUse? = nil, reflection: SceneReflectionUse? = nil
         ) -> Observation? {
-            guard samples != nil || shadow != nil || volume != nil || textures != nil || postProcessing != nil else { return nil }
+            guard samples != nil || shadow != nil || volume != nil || textures != nil
+                    || postProcessing != nil || reflection != nil else { return nil }
             let use = Use(samples: samples, didFailPreparation: samples == 1 && didFailPreparation,
-                          shadow: shadow, volume: volume, textures: textures, postProcessing: postProcessing)
+                          shadow: shadow, volume: volume, textures: textures, postProcessing: postProcessing,
+                          reflection: reflection)
             var comparison = use
             comparison.textures = textures ?? completed?.textures
             if comparison == completed, inFlight.isEmpty || (inFlight.count == 1 && inFlight[use] != nil) { return nil }
@@ -66,7 +69,7 @@ extension SceneDesktopWallpaperSession {
             }
             return .init(displayID: displayID, samples: use?.samples, fallback: fallback,
                          shadow: use?.shadow, volume: use?.volume, textures: use?.textures?.bindings,
-                         postProcessing: use?.postProcessing)
+                         postProcessing: use?.postProcessing, reflection: use?.reflection)
         }
     }
 
@@ -251,7 +254,7 @@ extension SceneDesktopWallpaperSession {
                     didFailPreparation: use.didFailMultisamplePreparation,
                     shadow: use.shadow.map { shadowsDisabled ? .disabled : $0 },
                     volume: use.volume.map { allowsProjectedSpotVolume ? $0 : .disabled }, textures: use.textures,
-                    postProcessing: use.postProcessing)
+                    postProcessing: use.postProcessing, reflection: use.reflection)
             }
             : nil
         guard awaitsInitialPresentation || sceneClock.isPaused

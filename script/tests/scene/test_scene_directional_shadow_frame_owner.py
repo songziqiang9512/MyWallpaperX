@@ -82,6 +82,8 @@ struct SceneRenderDescriptor {
   var alpha:Double? = 1;var contentKind:String = "model"
   var modelShadowCastIntent:SceneShadowCastIntent? = nil;var colorBlendMode:Int? = nil
   var anglesXYZ:[Float]? = nil
+  struct TextStyle {let screenAnchor:String}
+  var textStyle:TextStyle? = nil
   var puppetAnimationLayers:[ScenePuppetAnimationLayer] = []
  }
  struct CameraDescriptor {

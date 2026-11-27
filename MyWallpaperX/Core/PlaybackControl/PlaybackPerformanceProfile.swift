@@ -126,6 +126,7 @@ nonisolated struct SceneFrameRenderUse: Equatable, Sendable {
     var volume: SceneVolumeUse? = nil
     var textures: SceneTextureUseSample? = nil
     var postProcessing: ScenePostProcessingUse? = nil
+    var reflection: SceneReflectionUse? = nil
 }
 
 nonisolated enum SceneVolumeLightingQuality: String, Sendable {
@@ -134,6 +135,10 @@ nonisolated enum SceneVolumeLightingQuality: String, Sendable {
     case ultra
 
     var isEnabled: Bool { self != .disabled }
+}
+
+nonisolated enum SceneReflectionUse: String, Hashable, Sendable {
+    case disabled, cleared, inactive, waitingForHistory, unavailable, live
 }
 
 nonisolated enum SceneReflectionQuality: String, Sendable {

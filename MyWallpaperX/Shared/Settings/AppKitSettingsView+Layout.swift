@@ -456,7 +456,8 @@ extension AppKitSettingsContainerView {
             subtitle: String(localized: "Some effect changes require reloading the wallpaper"),
             trailing: sceneVolumeLightingPopup, readout: sceneVolumeUseLabel))
         qualitySection.addRow(makeSettingRow(title: String(localized: "Scene Reflections"), iconSystemName: "sparkle",
-            subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: sceneReflectionsSwitch))
+            subtitle: String(localized: "Some effect changes require reloading the wallpaper"),
+            trailing: sceneReflectionsSwitch, readout: sceneReflectionUseLabel))
         configureMaintenanceActionButton(reapplySceneQualityButton)
         reapplySceneQualityButton.identifier = NSUserInterfaceItemIdentifier("settings.scene.reapply-quality")
         reapplySceneQualityButton.isEnabled = false

@@ -249,7 +249,8 @@ struct SceneMetalRenderer {
             rasterSampleCount: mainPassForSubmission?.submittedRasterSampleCount,
             didFailMultisamplePreparation: mainPassForSubmission?.didFailMultisamplePreparation == true,
             shadow: modelFrame.shadowUse,
-            volume: .rendered(volumeUse), textures: mainPassForSubmission?.textureUse)
+            volume: .rendered(volumeUse), textures: mainPassForSubmission?.textureUse,
+            reflection: reflectionFrame?.use)
         var outputUse = renderUse ?? SceneFrameRenderUse(
             rasterSampleCount: nil, didFailMultisamplePreparation: false, shadow: nil)
         if let failure = encodeTerminalColor(

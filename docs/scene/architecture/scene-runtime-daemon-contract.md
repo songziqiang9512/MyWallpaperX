@@ -35,7 +35,7 @@ stdin/stdout 使用 newline JSON。字段、版本、合法域及命令解码的
 
 request、record、revision 与 endpoint generation 保持原身份。普通控制保序，高频可丢弃输入只在相邻控制屏障内 latest-only；不能越过 load/pause/shutdown。控制无法接纳则终结该端点，不静默沿旧状态继续。协议不匹配拒绝本端点，不改变其他引擎协议。
 
-事件的语义不能混同：launchStateChanged 是准备状态；candidatePrepared 是当前候选所需 Surface 首帧 GPU 完成；firstFramePresented 是 drawable 实际呈现。property/textureUpdateResult 是原 revision 的接纳回执；launchResourcesReleased 才允许结算对应来源租约。统计/截图不授播放权，exited 消息也不代替 transport 的真实进程退出。 captureFrame 在普通构建中可用；DEBUG PNG/Metal readback 是独立验证入口。
+事件的语义不能混同：launchStateChanged 是准备状态；candidatePrepared 是当前候选所需 Surface 首帧 GPU 完成；firstFramePresented 是 drawable 实际呈现。property/textureUpdateResult 是原 revision 的接纳回执；launchResourcesReleased 才允许结算对应来源租约。统计/截图不授播放权，exited 消息也不代替 transport 的真实进程退出。活动请求的 animationCadenceChanged 复用逐屏完成回执，质量项包含实际场景反射绑定或准备状态。 captureFrame 在普通构建中可用；DEBUG PNG/Metal readback 是独立验证入口。
 
 <a id="candidate"></a>
 ## 候选交接

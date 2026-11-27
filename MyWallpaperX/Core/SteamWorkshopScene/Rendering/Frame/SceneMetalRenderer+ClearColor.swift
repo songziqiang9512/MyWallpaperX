@@ -107,6 +107,7 @@ extension SceneMetalRenderer {
         private var history: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?
         private(set) var scratchReady = false
         var mainSourceCompleted = false
+        var use: SceneReflectionUse = .inactive
         var preparedEnvironment: SceneFrameTextureResource? { resource }
 
         var snapshot: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation? {
@@ -131,7 +132,9 @@ extension SceneMetalRenderer {
             guard actual === commandBuffer, scratchReady else { return nil }
             if attempted { return resource }
             attempted = true
-            guard let history, let source = history.previous, let sourceIdentity = history.previousReceipt else {
+            guard let history else { return nil }
+            guard let source = history.previous, let sourceIdentity = history.previousReceipt else {
+                use = .waitingForHistory
                 return nil
             }
             let target: MTLTexture, generation: UInt64
@@ -175,6 +178,10 @@ extension SceneMetalRenderer {
             guard encoded == true else { return nil }
             resource = .sameFrameEnvironment(frameEpoch: frameEpoch,
                 allocationGeneration: generation, texture: target, source: sourceIdentity)
+            if resource != nil {
+                use = .inactive
+                resource?.recordEnvironmentSample = { [weak self] in self?.use = .live }
+            }
             return resource
         }
 
@@ -183,8 +190,10 @@ extension SceneMetalRenderer {
             guard let reserved = pool?.reserveEnvironment(width: extent.width, height: extent.height,
                 commandBuffer: commandBuffer, cleared: true) else { return nil }
             pins.append(reserved.pin)
-            return .clearedFrameEnvironment(frameEpoch: frameEpoch,
+            var cleared = SceneFrameTextureResource.clearedFrameEnvironment(frameEpoch: frameEpoch,
                 allocationGeneration: reserved.pin.generation, texture: reserved.texture)
+            cleared?.recordEnvironmentSample = { [weak self] in self?.use = .cleared }
+            return cleared
         }
 
         func arm() {

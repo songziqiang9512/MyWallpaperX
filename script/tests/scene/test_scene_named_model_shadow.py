@@ -318,6 +318,7 @@ struct SceneBaseMaterialLitCapturePayload {
  var pipeline:UnusedLitPipeline {fatalError("unexpected lit-image route")}
  var normalTexture:MTLTexture? {nil};var materialMapTexture:MTLTexture? {nil}
  var environmentTexture:MTLTexture? {nil};var lights:Int {0}
+ func recordEnvironmentSample() {fatalError("unexpected lit-image route")}
  func resolvingEnvironment(for texture:MTLTexture,commandBuffer:MTLCommandBuffer)->Self? {fatalError("unexpected lit-image route")}
  func validated(for texture:MTLTexture)->Self? {fatalError("unexpected lit-image route")}
 }

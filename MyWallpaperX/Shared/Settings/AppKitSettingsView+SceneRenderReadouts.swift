@@ -62,6 +62,22 @@ extension AppKitSettingsContainerView {
             && displays.contains { $0.volume != nil }
         refreshSceneEffectReadout(sceneVolumeUseLabel, details: volumeDetails, names: names,
                                   waiting: waiting, previous: previousVolume, hidden: hidden)
+        let reflectionDetails = displays.map { $0.reflection.map(reflectionUseDescription) ?? waiting }
+        let previousReflection = prepared.map { $0.reflections != requested.reflections } == true
+            && displays.contains { $0.reflection != nil }
+        refreshSceneEffectReadout(sceneReflectionUseLabel, details: reflectionDetails, names: names,
+                                  waiting: waiting, previous: previousReflection, hidden: hidden)
+    }
+
+    private func reflectionUseDescription(_ use: SceneReflectionUse) -> String {
+        switch use {
+        case .disabled: String(localized: "Disabled")
+        case .cleared: String(localized: "Reflection disabled · cleared environment", table: "SceneQuality")
+        case .inactive: String(localized: "No scene reflection sampled", table: "SceneQuality")
+        case .waitingForHistory: String(localized: "Waiting for reflection history", table: "SceneQuality")
+        case .unavailable: String(localized: "Reflection input unavailable", table: "SceneQuality")
+        case .live: String(localized: "Live scene reflection", table: "SceneQuality")
+        }
     }
 
     private func refreshSceneEffectReadout(_ field: NSTextField, details: [String], names: [String],

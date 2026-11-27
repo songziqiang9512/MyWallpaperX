@@ -109,11 +109,13 @@ nonisolated struct SceneRasterDisplayStatus: Equatable, Sendable {
     var volume: SceneVolumeUse? = nil
     var textures: SceneTextureUse? = nil
     var postProcessing: ScenePostProcessingUse? = nil
+    var reflection: SceneReflectionUse? = nil
 
     var wireObject: [String: Any] {
         var object: [String: Any] = ["displayID": displayID]
         object["samples"] = samples
         object["fallback"] = fallback?.rawValue
+        object["reflection"] = reflection?.rawValue
         switch shadow {
         case nil: break
         case .disabled: object["shadow"] = "disabled"
@@ -182,7 +184,8 @@ nonisolated enum SceneDaemonProtocol {
             if object["fallback"] != nil, (samples != 1 || fallback == nil) { return nil }
             statuses.append(.init(displayID: id, samples: samples.map(Int.init), fallback: fallback,
                 shadow: shadowUse(object["shadow"]), volume: volumeUse(object["volume"]),
-                textures: textureUse(object["textures"]), postProcessing: postProcessingUse(object["postProcessing"])))
+                textures: textureUse(object["textures"]), postProcessing: postProcessingUse(object["postProcessing"]),
+                reflection: (object["reflection"] as? String).flatMap(SceneReflectionUse.init(rawValue:))))
         }
         return statuses
     }

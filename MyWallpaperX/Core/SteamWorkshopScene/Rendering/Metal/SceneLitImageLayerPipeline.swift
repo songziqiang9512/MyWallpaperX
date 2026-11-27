@@ -148,7 +148,12 @@ struct SceneBaseMaterialLitCapturePayload {
     let normal: TextureInput
     let materialMap: TextureInput
     private var environmentSource: ((MTLCommandBuffer) -> SceneFrameTextureResource?)?
-    private(set) var environmentTexture: MTLTexture?
+    private var environment: SceneFrameTextureResource?
+    var environmentTexture: MTLTexture? { environment?.publication.texture }
+
+    func recordEnvironmentSample() {
+        environment?.recordEnvironmentSample?()
+    }
     var requiresReflection: Bool { lights.reflection.x > 0 && normalTexture != nil }
     var hasDirectLighting: Bool { lights.reflection.w != 0 }
     var normalTexture: MTLTexture? {
@@ -176,7 +181,6 @@ struct SceneBaseMaterialLitCapturePayload {
         self.normal = normal
         self.materialMap = materialMap
         self.environmentSource = environmentSource
-        self.environmentTexture = nil
         var packed = lights
         packed.ambientHasNormal.w = 0
         if case let .ready(binding, encoding) = normal {
@@ -224,7 +228,7 @@ struct SceneBaseMaterialLitCapturePayload {
             mapAllowedComponents: lights.mapSamplingComponents.y,
             mapRequiredComponents: lights.mapSamplingComponents.y,
             emission: lights.emission, environmentSource: environmentSource)
-        value?.environmentTexture = environmentTexture
+        value?.environment = environment
         return value
     }
 
@@ -233,7 +237,7 @@ struct SceneBaseMaterialLitCapturePayload {
     func resolvingEnvironment(for target: MTLTexture, commandBuffer: MTLCommandBuffer) -> Self? {
         guard var value = validated(for: target) else { return nil }
         if value.requiresReflection, value.environmentTexture == nil {
-            value.environmentTexture = value.environmentSource?(commandBuffer)?.publication.texture
+            value.environment = value.environmentSource?(commandBuffer)
         }
         value.environmentSource = nil
         if let texture = value.environmentTexture,
@@ -241,7 +245,7 @@ struct SceneBaseMaterialLitCapturePayload {
            texture.device.registryID == target.device.registryID {
             value.lights.reflection.z = 1
         } else {
-            value.environmentTexture = nil
+            value.environment = nil
             value.lights.reflection.z = 0
         }
         return value.hasDirectLighting || value.environmentTexture != nil ? value : nil

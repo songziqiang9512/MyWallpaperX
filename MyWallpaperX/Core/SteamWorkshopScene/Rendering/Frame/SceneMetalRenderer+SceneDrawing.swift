@@ -646,6 +646,11 @@ extension SceneMetalRenderer {
         let needsLiveReflection = optionalScratch != nil && !preparesNamedModelShadow
             && (hasReadyReflectiveModel || requiresLiveImageReflection())
         let clearsAuthoredEnvironment = !allowsSceneReflection && requiresImageReflection()
+        if !allowsSceneReflection {
+            reflection.use = .disabled
+        } else if needsLiveReflection {
+            reflection.use = .unavailable
+        }
         let clearedEnvironmentNeedsDepthCapacity = clearsAuthoredEnvironment && (
             !staticModelResources.isEmpty && frameVisibleLayerIDs.contains { staticModelResources[$0] != nil }
                 || particleBatches.contains { $0.draw.renderState.depthWriteEnabled })

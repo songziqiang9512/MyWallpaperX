@@ -429,6 +429,7 @@ struct SceneStaticModelPipeline {
         commandBuffer: MTLCommandBuffer? = nil,
         rasterSampleCount: Int = 1,
         observeShadowBindings: ShadowBindingObserver? = nil,
+        observeReflectionBinding: (() -> Void)? = nil,
         encoder: MTLRenderCommandEncoder
     ) -> Bool {
         guard Self.isFinite(modelMatrix),
@@ -644,9 +645,6 @@ struct SceneStaticModelPipeline {
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
 #endif
         encoder.setRenderPipelineState(reflectiveState ?? colorState)
-        if reflectiveState != nil {
-            encoder.setFragmentTexture(reflectionTexture, index: 6)
-        }
         encoder.setDepthStencilState(depthState)
         encoder.setFrontFacing(frontFacing)
         encoder.setCullMode(material.cullMode)
@@ -695,6 +693,10 @@ struct SceneStaticModelPipeline {
             length: MemoryLayout<SceneStaticModelUniforms>.stride,
             index: 1
         )
+        if reflectiveState != nil {
+            encoder.setFragmentTexture(reflectionTexture, index: 6)
+            observeReflectionBinding?()
+        }
         encoder.drawIndexedPrimitives(
             type: .triangle,
             indexCount: mesh.indexCount,

@@ -278,6 +278,7 @@ nonisolated enum SceneAssetTextureLaunchState: Hashable {
 nonisolated struct SceneFrameTextureResource {
     let publication: SceneTextureProviderPublication
     let resourceGeneration: UInt64
+    var recordEnvironmentSample: (() -> Void)? = nil
 
     static func reservedNamedLayerTarget(
         reference: SceneNamedTextureReference,

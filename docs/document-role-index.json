@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "282be38fbcc4ec10cb7c04cf6f9500f919df5c26528cc7bd920e881ebc02261c",
+        "sourceSHA256": "f0f1315b41d556d7644ad854ac93fda035aff827733da3f9a1c8ccd08a5008b8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定位共享作品取景和 Auto 密度的生产入口。",
-        "limitations": "沿合入后的真实链路与最近验收。多屏组合以受控计算为证，运行证据限所测目标。"
+        "scope": "核设置回显、完成帧、Surface 和 daemon 的原职责链。",
+        "limitations": "文档导航和签名 Debug 单内屏取证，未验证物理多屏及整机功耗。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "88a29aa9562dd0fa4a27d42b5daa57c4427015f87a788ffdcc798d46b9d530aa",
+        "sourceSHA256": "fa159887d961c2a7f1d9a0d36cef6f094e057c4f2ef9ad25b2d305f08c0dca86",
         "method": "document_registry --audit + document_health --check",
-        "scope": "规定有效作品适配、投影范围、缩放和 Auto 成组发布。",
-        "limitations": "沿合入后的真实链路与最近验收。多屏组合以受控计算为证，运行证据限所测目标。"
+        "scope": "核真实反射环境和逐屏完成回显，保已有纹理与合成合同。",
+        "limitations": "文档导航和签名 Debug 单内屏取证，未验证物理多屏及整机功耗。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c7a3aecacc257556371e2b34c6defc2df2f0934308cd526d084c14177d2557c4",
+        "sourceSHA256": "cef86fb0690c1c8f2433922e537bf72599f8fd68397503f6386d8331ab75e62e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "设计作品适配与 Auto 冷选、同尺寸热升的相机密度契约。",
-        "limitations": "沿合入后的真实链路与最近验收。多屏组合以受控计算为证，运行证据限所测目标。"
+        "scope": "核反射实际绑定、逐屏回执及相位对照要求。",
+        "limitations": "文档导航和签名 Debug 单内屏取证，未验证物理多屏及整机功耗。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b4a789eb995e591d6a1d34ae3bb2d0c4d79c6936b791d3df50fd3c7a2e93e388",
+        "sourceSHA256": "800dd2ed2237465209805dc4b977094643e904ad715f7b6197e55c367503d200",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核作品级适配和实际 Auto 冷选、热升、终图。",
-        "limitations": "沿合入后的真实链路与最近验收。多屏组合以受控计算为证，运行证据限所测目标。"
+        "scope": "核签名原作的开关、回显、GPU 绑定与终图证据。",
+        "limitations": "文档导航和签名 Debug 单内屏取证，未验证物理多屏及整机功耗。"
       }
     },
     {
@@ -886,10 +886,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6c8221692b38dad9848181cfc5a12c5aad266078943b9f5c5a5230c136d6e899",
+        "sourceSHA256": "c7a4f7c7f8b137ad33be72875b0c380d0b09a289dd33f69e8da9c025351ab39a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "合入作品调节并保留现役质量、实际取景和重绘边界。",
-        "limitations": "沿合入后的真实链路与最近验收。多屏组合以受控计算为证，运行证据限所测目标。"
+        "scope": "核实时与清黑环境消费及完成帧的归属。",
+        "limitations": "文档导航和签名 Debug 单内屏取证，未验证物理多屏及整机功耗。"
       }
     },
     {
@@ -946,10 +946,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "266a8d3e84dd8c35ffa6e0c7cb8c0cf93a579668c1b2076178b9c1b4751092f4",
+        "sourceSHA256": "655477760097fbba49d1939fc8dba253d970fdc573f395ae667b9d68c118d0ac",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步同笔请求的质量和作品适配，以及现役热更新命令。",
-        "limitations": "沿合入后的真实链路与最近验收。多屏组合以受控计算为证，运行证据限所测目标。"
+        "scope": "核活动请求逐屏实际反射字段与兼容回显。",
+        "limitations": "文档导航和签名 Debug 单内屏取证，未验证物理多屏及整机功耗。"
       }
     },
     {

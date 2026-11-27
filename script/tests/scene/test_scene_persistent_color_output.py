@@ -379,6 +379,7 @@ import Metal
             && first.reservation.previousReceipt == nil && owner.completedSceneColor == nil
             && first.reflection.resolve(first.commandBuffer) == nil
             && first.reflection.resolve(first.commandBuffer) == nil
+            && first.reflection.use == .waitingForHistory
         let firstReceipt = first.reservation.producerReceipt
         checks["receiptComesFromRealSubmission"] = firstReceipt.frameIndex == 1
             && firstReceipt.frameEpoch == 101 && firstReceipt.executionEpoch == owner.executionEpoch
@@ -403,6 +404,8 @@ import Metal
             && second.reservation.previousReceipt == firstReceipt
             && second.reservation.member != first.reservation.member && second.reservation.requiresDraw
         let a = second.reflection.resolve(second.commandBuffer)!
+        checks["preparedEnvironmentAloneDoesNotCountAsSampling"] = second.reflection.use == .inactive
+
         checks["environmentReusesPreviousWithoutSeparateTexture"] =
             a.publication.texture === first.reservation.raw
             && a.publication.texture !== second.reservation.raw

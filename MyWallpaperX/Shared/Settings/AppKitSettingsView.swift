@@ -111,6 +111,7 @@ final class AppKitSettingsContainerView: NSView {
     let sceneVolumeUseLabel = AppKitSettingsContainerView.makeSceneEffectReadout()
 
     let sceneReflectionsSwitch = NSSwitch()
+    let sceneReflectionUseLabel = AppKitSettingsContainerView.makeSceneEffectReadout()
     let sceneMediaInfoSwitch = NSSwitch()
     let webFrameRatePopup = NSPopUpButton()
     let reapplySceneQualityButton = NSButton(title: String(localized: "Reapply Current Scene"), target: nil, action: nil)
