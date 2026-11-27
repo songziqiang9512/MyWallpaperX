@@ -4,6 +4,34 @@ import Foundation
 
 @MainActor
 extension SceneDaemonClient {
+    func updatePresentation(_ presentation: ScenePlaybackPresentation, recordID: String) {
+        var requests: Set<UUID> = []
+        if activeIntent?.recordID == recordID {
+            activeIntent?.presentation = presentation
+            if let activeRequestID { requests.insert(activeRequestID) }
+        }
+        if pendingIntent?.recordID == recordID {
+            pendingIntent?.presentation = presentation
+            if let pendingRequestID { requests.insert(pendingRequestID) }
+        }
+        if queuedSwitchPreparation?.request.recordID == recordID {
+            queuedSwitchPreparation?.request.presentation = presentation
+        }
+        if committedSwitchRecovery?.request.recordID == recordID {
+            committedSwitchRecovery?.request.presentation = presentation
+        }
+        for revision in Array(pendingTextureUpdates.keys)
+        where pendingTextureUpdates[revision]?.fallbackBaseIntent?.recordID == recordID {
+            pendingTextureUpdates[revision]?.fallbackBaseIntent?.presentation = presentation
+        }
+        guard endpointReady else { return }
+        for requestID in requests {
+            send(["v": SceneDaemonProtocol.version, "cmd": "setPresentation",
+                  "requestID": requestID.uuidString,
+                  "presentation": SceneDaemonProtocol.presentationObject(presentation)])
+        }
+    }
+
     func setCanvasFit(_ fits: Bool) {
         fitsCanvas = fits
         if endpointReady {

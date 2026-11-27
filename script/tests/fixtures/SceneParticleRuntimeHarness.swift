@@ -22,6 +22,7 @@ struct SceneRenderDescriptor: Codable {
     var colorTargetFormat: ColorTargetFormat { .init() }
 
     struct Layer: Codable {
+        struct TextStyle: Codable { let screenAnchor: String? }
         let id: Int
         let name: String?
         let contentKind: String
@@ -41,6 +42,7 @@ struct SceneRenderDescriptor: Codable {
         var parentAttachmentBindFrame: [Float]? = nil
         var childLayerIDs: [Int] = []
         var usesPerspective: Bool? = nil
+        var textStyle: TextStyle? = nil
         var timelines: [SceneDocument.SceneObjectTimeline] = []
         var timelineDiagnostics: [String] = []
         var parallaxDepthXY: [Float]? = nil

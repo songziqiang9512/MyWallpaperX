@@ -394,7 +394,7 @@ import QuartzCore
         let empty = SceneVideoTextureSourceRegistry(epoch: 1)
         let emptyPending = empty.pendingSceneScriptMetadataSources.isEmpty
         empty.completeSceneScriptMetadataPreparation()
-        let noVideo = empty.sceneScriptSnapshots(sceneTime: 0)
+        let noVideo = empty.sceneScriptSnapshots(hostTime: 0)
         empty.stop()
         guard let device = MTLCreateSystemDefaultDevice() else { fatalError("Metal unavailable") }
         var rows: [[String: Any]] = []
@@ -431,11 +431,11 @@ import QuartzCore
         ]
         try registry.prepareDynamicVideoSources(resources: resources, modelPaths: Set(resources.keys), device: device)
         let pending = registry.pendingSceneScriptMetadataSources
-        let unpublished = registry.sceneScriptSnapshots(sceneTime: 0).sources.compactMap { $0 }.isEmpty
+        let unpublished = registry.sceneScriptSnapshots(hostTime: 0).sources.compactMap { $0 }.isEmpty
         for source in pending { _ = await source.preparePlaybackMetadata() }
         registry.completeSceneScriptMetadataPreparation()
         registry.bindPreparedVideoConsumers([layerID: model, badID: model + "-bad"])
-        let snapshot = registry.sceneScriptSnapshots(sceneTime: 0)
+        let snapshot = registry.sceneScriptSnapshots(hostTime: 0)
         guard let index = snapshot.layerBindings[layerID], let prepared = snapshot.sources[index] else {
             fatalError("healthy metadata unavailable")
         }
@@ -512,27 +512,27 @@ import QuartzCore
             if case let .setCurrentTime(value) = command.action { return value }; return nil
         }
         try commit(first, firstTime)
-        let afterSeek = good.playbackSnapshot(sceneTime: 0)!
+        let afterSeek = good.playbackSnapshot(hostTime: 0)!
         registry.bindPreparedVideoConsumers([layerID: model, badID: model + "-bad"])
         let addedViewSource = try registry.source(sourceKey: goodKey, preparedFile: goodFile,
             owner: .ordinary, layerID: layerID, device: device)
         let reused = addedViewSource === good && registry.pendingSceneScriptMetadataSources.isEmpty
             && good.hasPlaybackMetadata && registry.preparedVideoSourceReferences[model] == index
-            && registry.sceneScriptSnapshots(sceneTime: 0).layerBindings[layerID] == index
-            && good.playbackSnapshot(sceneTime: 0)?.currentTime == afterSeek.currentTime
+            && registry.sceneScriptSnapshots(hostTime: 0).layerBindings[layerID] == index
+            && good.playbackSnapshot(hostTime: 0)?.currentTime == afterSeek.currentTime
         let secondTime = timing(0.01)
-        let second = try evaluate(registry.sceneScriptSnapshots(sceneTime: 0.01), secondTime)
+        let second = try evaluate(registry.sceneScriptSnapshots(hostTime: 0.01), secondTime)
         try commit(second, secondTime)
 
         let deadline = CACurrentMediaTime() + 5
-        while good.playbackSnapshot(sceneTime: CACurrentMediaTime() - clock)!.endedGeneration == 0,
+        while good.playbackSnapshot(hostTime: CACurrentMediaTime())!.endedGeneration == 0,
               CACurrentMediaTime() < deadline {
             _ = good.currentFrame(for: timing(CACurrentMediaTime() - clock))
             try await Task.sleep(for: .milliseconds(8))
         }
         let eofTime = timing(CACurrentMediaTime() - clock)
-        let eofSnapshot = good.playbackSnapshot(sceneTime: eofTime.sceneTime)!
-        let eof = try evaluate(registry.sceneScriptSnapshots(sceneTime: eofTime.sceneTime), eofTime)
+        let eofSnapshot = good.playbackSnapshot(hostTime: eofTime.hostTime)!
+        let eof = try evaluate(registry.sceneScriptSnapshots(hostTime: eofTime.hostTime), eofTime)
         let eofCommands = ordered(eof)
         try commit(eof, eofTime)
 
@@ -540,7 +540,7 @@ import QuartzCore
               let shared = SceneVideoTextureSource(owner: .ordinary, preparedFile: goodFile, device: device) else {
             fatalError("cancellation Source unavailable")
         }
-        let cancellationStartedPending = cancelled.isPreparingItem && cancelled.playbackSnapshot(sceneTime: 0) == nil
+        let cancellationStartedPending = cancelled.isPreparingItem && cancelled.playbackSnapshot(hostTime: 0) == nil
         cancelled.stop()
         let cancelledReady = await cancelled.preparePlaybackMetadata()
         let waiter = Task { await shared.preparePlaybackMetadata() }
@@ -550,13 +550,13 @@ import QuartzCore
         try await Task.sleep(for: .milliseconds(20))
         let player = Mirror(reflecting: cancelled).children.compactMap { $0.value as? AVPlayer }.first!
         let cancelledStayedUnavailable = !cancelledReady && !cancelled.hasPlaybackMetadata
-            && !cancelled.isPreparingItem && cancelled.playbackSnapshot(sceneTime: 0) == nil && player.currentItem == nil
+            && !cancelled.isPreparingItem && cancelled.playbackSnapshot(hostTime: 0) == nil && player.currentItem == nil
         shared.stop()
         return [
             "name": name, "layerID": layerID, "duration": prepared.duration,
             "pendingSources": pending.count, "noUnpreparedNumericSnapshot": unpublished,
             "pendingAfterPreparation": registry.pendingSceneScriptMetadataSources.count,
-            "failedSnapshotAbsent": bad.playbackSnapshot(sceneTime: 0) == nil,
+            "failedSnapshotAbsent": bad.playbackSnapshot(hostTime: 0) == nil,
             "failedBindingAbsent": snapshot.layerBindings[badID] == nil,
             "unavailableRowRetained": snapshot.sources.contains { $0 == nil },
             "failedPreparedReferenceAbsent": registry.preparedVideoSourceReferences[model + "-bad"] == nil,

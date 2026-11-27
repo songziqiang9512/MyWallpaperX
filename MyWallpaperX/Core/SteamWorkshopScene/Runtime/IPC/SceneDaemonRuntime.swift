@@ -285,7 +285,7 @@ final class SceneDaemonRuntime {
     private func handle(_ command: SceneDaemonCommand) {
         switch command {
         case let .loadScene(
-            rootURL, overrides, textureReferences, shortcuts, profile, recordID, requiredTextureKeys, requestID, source
+            rootURL, overrides, textureReferences, shortcuts, profile, recordID, requiredTextureKeys, requestID, source, presentation
         ):
             lastPropertyRevision = 0
             // Explicit parent identities use a cancellable prepare/commit/
@@ -307,6 +307,7 @@ final class SceneDaemonRuntime {
                 ),
                 userShortcuts: shortcuts,
                 requiredUserTextureKeys: requiredTextureKeys,
+                presentation: presentation,
                 recordID: recordID,
                 requestID: requestID ?? UUID()
             ) { _ in }
@@ -414,6 +415,8 @@ final class SceneDaemonRuntime {
             host.applyPerformanceProfile(profile)
         case let .setCanvasFit(fits):
             host.setCanvasFit(fits)
+        case let .setPresentation(presentation, requestID):
+            host.updatePresentation(presentation, requestID: requestID)
         case let .setVolume(volume):
             PlaybackVolumeState.shared.setNormalizedVolume(volume)
             host.setMasterVolume(Double(volume))

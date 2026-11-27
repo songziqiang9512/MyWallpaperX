@@ -27,7 +27,7 @@
             actionableKeys: [], effectiveValues: catalog.defaultValues)
         precondition(readOnlyContext.definitions.contains { $0.key == "authorNote" },
             "an implicit authored note stays visible even without a runtime consumer")
-        precondition(!readOnlyContext.hasEditorControls, "author notes cannot manufacture editable runtime controls")
+        precondition(readOnlyContext.actionableDefinitions.isEmpty, "author notes cannot manufacture editable runtime controls")
         func descendants<T: NSView>(_ view: NSView, _ type: T.Type) -> [T] {
             (view as? T).map { [$0] } ?? view.subviews.flatMap { descendants($0, type) }
         }

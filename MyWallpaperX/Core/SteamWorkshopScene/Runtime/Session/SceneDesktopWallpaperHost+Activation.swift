@@ -12,6 +12,7 @@ extension SceneDesktopWallpaperHost {
         let session = SceneDesktopWallpaperSession(textureDecodeCacheBudget: textureDecodeCacheBudget,
             surfacePreparationQueue: launchPreparationQueue)
         session.launchRequestID = firstPresentation.requestID
+        session.presentation = pendingPresentation
         configure(session)
         candidateSession = session
         candidateCompletion = completion
@@ -60,7 +61,10 @@ extension SceneDesktopWallpaperHost {
                 NSLog("MWX Scene: phase=session-activated session=%@ previous=%@ surfaces=%d",
                     session.lifecycleID.uuidString, previous?.lifecycleID.uuidString ?? "none", session.surfaces.count)
 #endif
-                if self.candidatePreparedHandler == nil, let previous { self.retire(previous) }
+                if self.candidatePreparedHandler == nil {
+                    session.presentation = self.pendingPresentation
+                    if let previous { self.retire(previous) }
+                }
                 self.finishCandidate(.success(()))
             }
             if let handler = self.candidatePreparedHandler {
@@ -163,6 +167,7 @@ extension SceneDesktopWallpaperHost {
         unconfirmedPromotion = nil
         // A drawable resize would invalidate the candidate's first-frame proof.
         activeSession?.fitsCanvas = fitsCanvas
+        activeSession?.presentation = pendingPresentation
         promotion.previous?.launchContext?.sceneScriptStorageSession?.retirePersistence()
         activeSession?.launchContext?.sceneScriptStorageSession?.activatePersistence(
             replacing: promotion.previous?.launchContext?.sceneScriptStorageSession)
@@ -257,7 +262,9 @@ extension SceneDesktopWallpaperHost {
     }
 
     func reconcileAudioDemand() {
-        let sessions = [activeSession, candidateSession].compactMap { $0 }.filter(\.isOutputActive)
+        let sessions = [activeSession, candidateSession].compactMap { $0 }.filter {
+            $0.isOutputActive && $0.presentation.listensToAudio
+        }
         SceneAudioSpectrumInbox.shared.setDemand(
             sessions.contains { $0.audioDemand.spectrum },
             requiresCurrentProcessAudioCapture: sessions.contains { $0.audioDemand.currentProcess }

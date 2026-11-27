@@ -390,6 +390,7 @@ def property_launch_harness(host_source: str) -> str:
     ]])
     commands = (ROOT / "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift").read_text()
     control_types = "\n".join([method(commands, signature) for signature in [
+        "nonisolated struct ScenePlaybackPresentation:",
         "nonisolated struct ScenePlaybackTextureReference:",
         "nonisolated struct ScenePlaybackTextureUpdate:",
         "nonisolated enum ScenePlaybackTextureUpdateOutcome:",
@@ -446,6 +447,7 @@ struct SceneScreenTopology {
 }
 @MainActor final class SceneDesktopWallpaperSession {
     var values: [String: SceneUserPropertyValue]
+    var presentation = ScenePlaybackPresentation()
     var calls = 0
     struct PreparedParticleSurface {}
     struct PreparedSurface {}
@@ -486,6 +488,7 @@ struct SceneUserPropertyTextureLoadResult {}
     var nextLaunchRequestGeneration: UInt64 = 0, nextSceneScriptGeneration: UInt64 = 0
     var screenTopology: [SceneScreenTopology] = []
     var pendingLaunchCompletion: (@MainActor (Result<SceneRuntimeModel, Error>) -> Void)?
+    var pendingPresentation = ScenePlaybackPresentation()
     var launchCancellation: SceneWallpaperLaunchCancellation?
     var launchState: SceneWallpaperLaunchState?
     var activeSession: SceneDesktopWallpaperSession?
@@ -525,6 +528,7 @@ struct SceneUserPropertyTextureLoadResult {}
         completion: @escaping (Result<Void, Error>) -> Void) throws {
         began.append(context.generation)
         activeSession = .init(context.values)
+        activeSession?.presentation = pendingPresentation
         completion(.success(()))
     }
     func finishLaunchFailure(_ error: Error, requestID: UUID, recordID: String?,
@@ -646,7 +650,7 @@ struct SceneUserPropertyTextureLoadResult {}
         pendingRequestID = requestID
         replayed.append(request)
         host.requestLaunch(rootURL: request.rootURL, propertyOverrides: request.propertyOverrides,
-            recordID: request.recordID, requestID: requestID) { [weak self] outcome in
+            presentation: request.presentation, recordID: request.recordID, requestID: requestID) { [weak self] outcome in
             if case .success = outcome { self?.completions.append(true) }
             else { self?.completions.append(false) }
         }
@@ -827,8 +831,9 @@ struct SceneUserPropertyTextureLoadResult {}
             let session = SceneDesktopWallpaperSession(initial, acceptsJ: kind != "structural")
             runtime.activeSession = session
             let client = SceneDaemonClient(runtime)
+            let presentation = ScenePlaybackPresentation(alignment: .fit, zoom: 125, listensToAudio: false)
             client.activeIntent = .init(rootURL: URL(fileURLWithPath: "/self-authored"),
-                propertyOverrides: initial, userPropertyTextures: [:], recordID: "record")
+                propertyOverrides: initial, userPropertyTextures: [:], recordID: "record", presentation: presentation)
             runtime.onState = { [weak client] in client?.receive($0) }
             facts[kind + "-initialDispatched"] = client.edit(["K": .number(1)], revision: 1)
             guard await entered(control) else { fatalError("preparation leaf not entered") }
@@ -851,6 +856,7 @@ struct SceneUserPropertyTextureLoadResult {}
                 && client.completions == [false, true]
             facts[kind + "-latestActivated"] = runtime.activeSession?.values == ["K": .number(1), "J": next]
                 && client.activeIntent?.propertyOverrides == runtime.activeSession?.values
+                && runtime.activeSession?.presentation == presentation
                 && client.pendingIntent == nil && runtime.launchState?.phase == .launched
             traces[kind] = runtime.trace
         }

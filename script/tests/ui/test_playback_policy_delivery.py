@@ -88,6 +88,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     func handleLaunchState(_ payload: [String: Any]) { launchFailures.append(payload) }
     func send(_ command: [String: Any]) { commands.append(command) }
     func sendDisplayConfiguration() {}
+    var fitsCanvas = false
     func requestLaunch(_ request: ScenePlaybackLoadRequest) { pendingIntent = request }
     func applyPropertyValues(_ values: [String: SceneUserPropertyValue], revision: UInt64, recordID: String) -> Bool { false }
     func cancelPendingLaunch(recordID: String) -> Bool { false }
@@ -125,7 +126,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         precondition(scene.commands.isEmpty, "App shutdown must not replay a load")
         DaemonPlaybackProcessRegistry.shared.acceptsNewProcesses = true
         scene.replayPendingIntent()
-        precondition(scene.commands.first?["cmd"] as? String == "loadScene")
+        precondition(scene.commands.first?["cmd"] as? String == "setCanvasFit")
+        precondition(scene.commands.dropFirst().first?["cmd"] as? String == "loadScene")
         precondition(scene.commands.last?["cmd"] as? String == "pause")
         // Web preparing alongside retained Video must pause/resume both surfaces.
         engine.currentPlaybackContentKind = .web
@@ -267,8 +269,8 @@ struct Clock {
 }
 final class Providers {
     var paused = false
-    func pause(sceneTime: Double, hostTime: Double) { paused = true }
-    func resume(sceneTime: Double, hostTime: Double) { paused = false }
+    func pause(hostTime: Double) { paused = true }
+    func resume(hostTime: Double) { paused = false }
 }
 final class Sounds {
     var paused = false
@@ -356,12 +358,16 @@ final class Host {
         video = (CORE / "Playback/WallpaperEngine+PlaybackControl.swift").read_text()
         scene = (CORE / "SteamWorkshopScene/Runtime/IPC/SceneDaemonClient.swift").read_text()
         protocol = (CORE / "SteamWorkshopScene/Runtime/IPC/SceneDaemonProtocol.swift").read_text()
+        display = (CORE / "SteamWorkshopScene/Runtime/IPC/SceneDaemonClient+DisplayConfiguration.swift").read_text()
         harness = HARNESS.replace("// VIDEO_METHODS", "\n".join([
             method(video, "func applyPlaybackPaused("), method(video, "func sendPlaybackPaused("),
         ])).replace("// SCENE_METHODS", "\n".join([
             method(scene, "func handle("), method(scene, "func replayPendingIntent("),
             method(scene, "private func sendSimpleCommand("),
-        ])).replace("// SOURCE_ENCODER", method(protocol, "static func sourceObject("))
+            method(display, "func setCanvasFit("),
+        ])).replace("// SOURCE_ENCODER", "\n".join([
+            method(protocol, "static func sourceObject("), method(protocol, "static func presentationObject("),
+        ]))
         with tempfile.TemporaryDirectory(prefix="mwx-pause-delivery-") as directory:
             path = Path(directory)
             (path / "Harness.swift").write_text(harness)

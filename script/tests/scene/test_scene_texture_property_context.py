@@ -28,10 +28,11 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
             builder_leaves, "enum SceneBaseMaterialProviderBindingCompiler {"
         ), "")
         harness = cls.work / "Probe.swift"
+        command = (REPOSITORY_ROOT / "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift").read_text()
         harness.write_text("\n".join([
             builder_leaves, CONTEXT_LEAF_STUBS,
-            method_body((REPOSITORY_ROOT / "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift").read_text(),
-                        "nonisolated enum ScenePlaybackTextureUpdateOutcome:"),
+            method_body(command, "nonisolated enum ScenePlaybackTextureUpdateOutcome:"),
+            method_body(command, "nonisolated struct ScenePlaybackPresentation:"),
         ]))
         sources = builder.SWIFT_SOURCES + [
             SCENE_ROOT / "Resources/Textures/SceneTextureLookupIdentity.swift",
@@ -139,7 +140,7 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
                                   "usertextures": [None, "unsupportedBase"]}),
             self.image(2, instance={"textures": ["materials/other.png"], "usertextures": ["mismatchCover"]}),
         ])
-        self.assertFalse(rejected["contextExists"])
+        self.assertTrue(rejected["contextExists"])
         self.assertEqual(rejected["actionable"], [])
 
     def test_system_path_unknown_undeclared_and_out_of_range_inputs_are_not_controls(self) -> None:
@@ -150,7 +151,7 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
             ])]),
             self.image(2, effects=[self.effect([None] * 8 + ["overflowCover"])]),
         ])
-        self.assertFalse(result["contextExists"])
+        self.assertTrue(result["contextExists"])
         self.assertEqual(result["actionable"], [])
         # One valid authored candidate in a separate supported slot/pass keeps
         # its control; system providers do not become file properties.
@@ -159,10 +160,11 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
         ])
         self.assertEqual(mixed["actionable"], ["effectCover"])
 
-    def test_unreferenced_texture_definitions_do_not_create_a_context(self) -> None:
+    def test_unreferenced_texture_definitions_still_have_no_authored_controls(self) -> None:
         result = self.probe([self.image(1)])
         self.assertTrue(result["declared"])
-        self.assertFalse(result["contextExists"])
+        self.assertTrue(result["contextExists"])
+        self.assertEqual(result["actionable"], [])
 
     def test_direct_model_user_only_and_renamed_material_are_actionable(self) -> None:
         for key, model, material in [
@@ -181,10 +183,10 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
         direct = [{"id": 10, "model": "models/direct.mdl"}]
         passes = [{"shader": "genericimage2", "usertextures": ["modelCover"]}]
         unused = self.probe([], definitions=["modelCover"], model_passes=passes)
-        self.assertFalse(unused["contextExists"])
+        self.assertEqual(unused["actionable"], [])
         later_pass = self.probe(direct, definitions=["modelCover"], model_passes=[
             {"shader": "genericimage2"}, *passes])
-        self.assertFalse(later_pass["contextExists"])
+        self.assertEqual(later_pass["actionable"], [])
         for input_value in ["boolCover", "undeclaredCover",
                             {"type": "system", "name": "modelCover"},
                             {"type": "usershortcut", "name": "modelCover"},
@@ -194,7 +196,6 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
                     definitions={"modelCover": "scenetexture", "boolCover": "bool"},
                     model_passes=[{"shader": "genericimage2", "usertextures": [input_value]}])
                 self.assertEqual(result["actionable"], [])
-                self.assertFalse(result["contextExists"])
 
     def test_declared_underscore_keys_survive_document_catalog_and_source_facts(self) -> None:
         result = self.probe([
@@ -224,14 +225,14 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
             {"type": "system", "name": "_1"}, {"type": "usershortcut", "name": "_1"},
             {"type": "future", "name": "_1"},
         ])])], definitions=definitions)
-        self.assertFalse(result["contextExists"])
+        self.assertEqual(result["actionable"], [])
         self.assertEqual(result["documentTextureInputs"], [
             "path:_badKind", "path:_notDeclared", "path:path.png", "path:_rt_FullFrameBuffer",
             "system:_1", "userShortcut:_1", "unknown:_1",
         ])
         material = self.probe([self.image(1)], material_usertextures=["_badKind"],
                               definitions=definitions)
-        self.assertFalse(material["contextExists"])
+        self.assertEqual(material["actionable"], [])
         self.assertEqual(material["materialTextureInputs"], ["path:_badKind"])
 
 

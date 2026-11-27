@@ -19,6 +19,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "script/tests/fixtures/SceneParticleCameraRenderingHarness.swift",
     REPOSITORY_ROOT / "script/tests/fixtures/SceneParticleOffscreenReadbackHarness.swift",
     SOURCE_ROOT / "Systems/Input/SceneCameraProjection.swift",
+    SOURCE_ROOT / "Rendering/Geometry/SceneLayerScreenAnchor.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleCameraFrame.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleTrailRenderPlan.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleTextureSource.swift",

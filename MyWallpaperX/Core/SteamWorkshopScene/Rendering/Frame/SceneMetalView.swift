@@ -10,9 +10,10 @@ class SceneMetalView: NSView {
     let metalLayer: CAMetalLayer
     let usesLinearDisplayOutput: Bool
     var hdrDisplayRequested = SceneHDRDisplayPreference.isEnabled
-    var fitsCanvas: Bool {
-        didSet { updateDrawableSize() }
-    }
+    private(set) var fitsCanvas: Bool
+    private(set) var cameraAdjustment: SceneCameraProjection.Adjustment
+    private(set) var flippedHorizontally: Bool
+    private(set) var allowsMouseParallax: Bool
     var displayOutput: SceneDisplayMappingPostProcess.Output = .sRGB
     private let solidLayerTexture: MTLTexture?
     private var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
@@ -64,6 +65,28 @@ class SceneMetalView: NSView {
         userPropertyTextureLoad = snapshot
         userPropertyVideoSources = videoSources
     }
+
+    func applyPresentation(fits: Bool, adjustment: SceneCameraProjection.Adjustment,
+                           flipped: Bool, allowsMouseParallax: Bool) {
+        let oldSize = metalLayer.drawableSize
+        let projectionChanged = adjustment != cameraAdjustment || self.allowsMouseParallax != allowsMouseParallax
+        let layoutChanged = adjustment.layout != cameraAdjustment.layout
+        cameraAdjustment = adjustment
+        self.allowsMouseParallax = allowsMouseParallax
+        if fitsCanvas != fits || layoutChanged {
+            fitsCanvas = fits
+            updateDrawableSize()
+        }
+        if flippedHorizontally != flipped {
+            flippedHorizontally = flipped
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            metalLayer.setAffineTransform(CGAffineTransform(scaleX: flipped ? -1 : 1, y: 1))
+            CATransaction.commit()
+            updateMouseLocationInScreen(NSEvent.mouseLocation)
+        }
+        if projectionChanged, oldSize == metalLayer.drawableSize { onRenderInvalidated?() }
+    }
     init?(
         renderDescriptor: SceneRenderDescriptor,
         utilitySourceRoutes: [Int: SceneUtilityLayerSourceRoute.Resolution],
@@ -83,7 +106,10 @@ class SceneMetalView: NSView {
         firstFramePresentationRegistration:
             ((CAMetalDrawable) -> Bool)? = nil,
         frame: NSRect,
-        fitsCanvas: Bool
+        fitsCanvas: Bool,
+        cameraAdjustment: SceneCameraProjection.Adjustment = .init(),
+        flippedHorizontally: Bool = false,
+        allowsMouseParallax: Bool = true
     ) {
         guard let renderer = SceneMetalRenderer(
             renderDescriptor: renderDescriptor,
@@ -103,6 +129,9 @@ class SceneMetalView: NSView {
             firstFramePresentationRegistration
         self.renderer = renderer
         self.fitsCanvas = fitsCanvas
+        self.cameraAdjustment = cameraAdjustment
+        self.flippedHorizontally = flippedHorizontally
+        self.allowsMouseParallax = allowsMouseParallax
         solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
         self.userPropertyTextureLoad = userPropertyTextureLoad
         self.userPropertyVideoSources = userPropertyVideoSources
@@ -131,6 +160,7 @@ class SceneMetalView: NSView {
         #endif
         layer.contentsGravity = .resizeAspect
         layer.frame = CGRect(origin: .zero, size: frame.size)
+        if flippedHorizontally { layer.setAffineTransform(CGAffineTransform(scaleX: -1, y: 1)) }
         // Prime drawableSize so the very first render has a non-zero target.
         let initialScale = NSScreen.main?.backingScaleFactor ?? 1
         layer.contentsScale = initialScale
@@ -577,7 +607,7 @@ class SceneMetalView: NSView {
         let timing = simulationFrame.timing
         let savedContext = simulationFrame.context
         let frameContext: SceneFrameContext
-        if savedContext.screenSize != metalLayer.drawableSize {
+        if savedContext.screenSize != metalLayer.drawableSize || savedContext.allowsMouseParallax != allowsMouseParallax {
             let camera = renderer.renderDescriptor.camera
             frameContext = SceneFrameContext(timing: savedContext.timing,
                 dynamicValues: savedContext.dynamicValues,
@@ -586,6 +616,7 @@ class SceneMetalView: NSView {
                 screenSize: metalLayer.drawableSize, pointer: savedContext.pointer,
                 cameraParallaxPosition: savedContext.cameraParallaxPosition,
                 cameraParallaxMouseInfluence: savedContext.cameraParallaxMouseInfluence,
+                allowsMouseParallax: allowsMouseParallax,
                 materialFunctionMutations: [], audioSpectrum: savedContext.audioSpectrum)
         } else { frameContext = savedContext }
 #if DEBUG
@@ -593,11 +624,12 @@ class SceneMetalView: NSView {
             frameIndex: frameContext.frameIndex, sceneTime: frameContext.sceneTime, snapshot: frameContext.dynamicValues)
 #endif
         let frameProjection = simulationFrame.projection
-        let cameraFrame = savedContext.screenSize == frameContext.screenSize
+        let cameraFrame = savedContext.screenSize == frameContext.screenSize && simulationFrame.camera.adjustment == cameraAdjustment
             ? simulationFrame.camera : renderer.makeCameraFrame(
                 frameContext: frameContext, descriptor: frameProjection.descriptor,
                 layersByID: frameProjection.layersByID, worldFrames: frameProjection.worldFrames,
-                perspectiveReplayRootIDs: frameProjection.utilityExecution.perspectiveReplayRootIDs)
+                perspectiveReplayRootIDs: frameProjection.utilityExecution.perspectiveReplayRootIDs,
+                adjustment: cameraAdjustment)
         let particleBatches = simulationFrame.particles
         let layerTopology = simulationFrame.topology
         let mediaThumbnail = simulationFrame.mediaThumbnail

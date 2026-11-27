@@ -66,6 +66,36 @@ class WorkshopPropertyRowView: NSView {
     }
     required init?(coder: NSCoder) { nil }
 
+    convenience init(style: Style, title: String, control: NSControl) {
+        self.init(style: style)
+        self.title.stringValue = title
+        control.setAccessibilityLabel(title)
+        control.translatesAutoresizingMaskIntoConstraints = false
+        if style == .inline { addTrailingControl(control) }
+        else { content.addArrangedSubview(control) }
+    }
+
+    func addTrailingControl(_ control: NSControl) {
+        let spacer = NSView()
+        spacer.translatesAutoresizingMaskIntoConstraints = false
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        control.translatesAutoresizingMaskIntoConstraints = false
+        content.addArrangedSubview(spacer)
+        content.addArrangedSubview(control)
+    }
+
+    func addSlider(_ slider: NSSlider, summary: NSTextField) {
+        slider.isContinuous = true
+        slider.translatesAutoresizingMaskIntoConstraints = false
+        slider.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        summary.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        summary.textColor = .secondaryLabelColor
+        summary.translatesAutoresizingMaskIntoConstraints = false
+        summary.widthAnchor.constraint(greaterThanOrEqualToConstant: 32).isActive = true
+        content.addArrangedSubview(slider)
+        content.addArrangedSubview(summary)
+    }
+
     static func font(for style: Style) -> NSFont {
         .systemFont(ofSize: style == .note || style == .group ? 12 : 13,
             weight: style == .group ? .semibold : .regular)

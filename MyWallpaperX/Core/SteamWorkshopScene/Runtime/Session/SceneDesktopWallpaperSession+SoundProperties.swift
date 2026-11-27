@@ -53,7 +53,7 @@ extension SceneDesktopWallpaperSession {
             try program.domain?.publishSoundPlaybackSnapshot(base,
                 descriptor: context.runtimeInput.renderDescriptor,
                 soundPlaybackSnapshots: soundPlaybackRegistry?.sceneScriptSnapshots() ?? [:],
-                videoSnapshots: videoTextureSourceRegistry?.sceneScriptSnapshots(sceneTime: timing.sceneTime) ?? .empty,
+                videoSnapshots: videoTextureSourceRegistry?.sceneScriptSnapshots(hostTime: timing.hostTime) ?? .empty,
                 catalogToken: catalogToken)
         } catch {
             return false

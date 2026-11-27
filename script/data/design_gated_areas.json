@@ -654,6 +654,21 @@
       ]
     },
     {
+      "id": "scene-work-presentation",
+      "title": "作品级 Scene 通用调节",
+      "owner": "SteamWorkshopScene properties / Scene Session / Surface camera",
+      "status": "approved",
+      "designDoc": "docs/scene/architecture/runtime-architecture.md",
+      "design_notes": "#scene-work-presentation defines record overrides over the shared fallback, request-scoped updates, a single camera/output, pointer reflection, independent simulation and media timing, spectrum gating and shared reset. Color treatment remains outside the approved changes.",
+      "matchPatterns": [
+        "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopScenePropertyEditorView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneCommonPropertyRows.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneFrameContext.swift",
+        "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift"
+      ],
+      "contentPatterns": []
+    },
+    {
       "id": "scene-property-panel-conditions",
       "title": "Scene panel prepared conditions and reachable controller definitions",
       "owner": "scene-properties-panel",

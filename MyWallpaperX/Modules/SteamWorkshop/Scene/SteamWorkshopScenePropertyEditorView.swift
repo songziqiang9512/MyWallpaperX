@@ -15,8 +15,11 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
     private let flowLayout = NSCollectionViewFlowLayout()
     private let scrollView = WorkshopPropertyScrollView()
     private let reset = NSButton(title: String(localized: "Restore Defaults"), target: nil, action: nil)
-    private lazy var resetRow = WorkshopPropertyPanelLayout.resetRow(reset)
-    private var subscription: AnyCancellable?
+    private lazy var commonRows = SteamWorkshopSceneCommonPropertyRows(reset: reset)
+    private lazy var schemeIndex = context.definitions.firstIndex {
+        $0.key == "schemecolor" && $0.kind == .color && context.actionableKeys.contains($0.key)
+    }
+    private var subscriptions: Set<AnyCancellable> = []
     private var titles: [Int: String] = [:]
     private var titleContents: [Int: WorkshopPropertyTextContent] = [:]
     private var optionLabels: [Int: [String]] = [:]
@@ -58,18 +61,23 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
             cancelShortcutSelection()
             invalidateTextureFeedback()
             cancelEditing()
-            subscription?.cancel()
-            subscription = nil
+            subscriptions.removeAll()
         }
         super.viewWillMove(toWindow: newWindow)
     }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        if window != nil && subscription == nil {
-            subscription = service.objectWillChange.receive(on: RunLoop.main).sink { [weak self] _ in
+        if window != nil && subscriptions.isEmpty {
+            service.objectWillChange.receive(on: RunLoop.main).sink { [weak self] in
                 self?.refreshAcceptedValues()
-            }
+            }.store(in: &subscriptions)
+            Publishers.Merge(
+                WallpaperManager.shared.$settings.map { _ in () },
+                NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification).map { _ in () }
+            ).receive(on: RunLoop.main).sink { [weak self] _ in
+                self?.refreshPresentation()
+            }.store(in: &subscriptions)
             refreshAcceptedValues(forceRows: Set(titles.keys))
         }
     }
@@ -91,6 +99,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
             heights[index] = WorkshopPropertyRowView.height(
                 style: Self.rowStyle(for: context.definitions[index].kind), content: titleContents[index] ?? .init(text: title), rowWidth: width)
         }
+        updateHeaderHeight()
         flowLayout.invalidateLayout()
     }
 
@@ -109,7 +118,11 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         reset.target = self
         reset.action = #selector(resetProperties)
         reset.toolTip = String(localized: "Restore Default Properties for This Scene Wallpaper")
-        reset.isHidden = !context.hasEditorControls
+        commonRows.onDisclosureChanged = { [weak self] in self?.toggleCommon() }
+        commonRows.onEdit = { [weak self] edit in
+            guard let self else { return }
+            refreshPresentation(service.updateScenePresentation(for: record, edit: edit))
+        }
         textureStatus.font = .systemFont(ofSize: 11)
         textureStatus.textColor = .secondaryLabelColor
         textureStatus.setAccessibilityIdentifier("scene-texture-update-status")
@@ -118,7 +131,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         flowLayout.minimumLineSpacing = WorkshopPropertyPanelLayout.rowSpacing
         flowLayout.minimumInteritemSpacing = 0
         flowLayout.scrollDirection = .vertical
-        flowLayout.headerReferenceSize = NSSize(width: 1, height: context.hasEditorControls ? 40 + WorkshopPropertyPanelLayout.rowSpacing : 0)
+        refreshPresentation()
         list.collectionViewLayout = flowLayout
         list.backgroundColors = [.clear]
         list.isSelectable = false
@@ -132,10 +145,48 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         WorkshopPropertyPanelLayout.install(in: self, status: textureStatus, scrollView: scrollView)
     }
 
+    private func refreshPresentation(_ accepted: ScenePlaybackPresentation? = nil) {
+        let value = accepted ?? service.scenePresentation(for: record)
+        let settings = WallpaperManager.shared.settings
+        let screens = settings.multiDisplayEnabled ? NSScreen.screens : Array(NSScreen.screens.prefix(1))
+        reset.isEnabled = context.hasEditorControls || value != ScenePlaybackPresentation()
+        let hasCrop = context.canvasAspect.map { aspect in
+            screens.contains { abs($0.frame.width - $0.frame.height * aspect) > 1 }
+        } ?? false
+        let showsCrop = hasCrop && value.resolvedAlignment(systemFit: settings.videoFillMode == .aspectFit) == .cover
+        let layoutChanged = commonRows.configure(value, hasCanvas: context.canvasAspect != nil, showsCrop: showsCrop,
+            hasParallax: context.supportsMouseParallax, hasAudio: context.supportsAudioProcessing,
+            hasSound: context.hasSound)
+        if layoutChanged { updateHeaderHeight() }
+    }
+
+    private func updateHeaderHeight() {
+        let height = commonRows.height(for: measuredWidth > 0 ? measuredWidth : 324)
+        if flowLayout.headerReferenceSize.height != height {
+            flowLayout.headerReferenceSize = NSSize(width: 1, height: height)
+            flowLayout.invalidateLayout()
+        }
+    }
+
+    private func toggleCommon() {
+        if let schemeIndex {
+            if !commonRows.isExpanded, let row = visibleRows.firstIndex(of: schemeIndex) {
+                ((list.item(at: IndexPath(item: row, section: 0)) as? PropertyItem)?.cell)?.cancelEditing()
+            }
+            project(indices: [schemeIndex])
+            list.reloadData()
+        }
+        refreshPresentation()
+        scrollView.contentView.scroll(to: .zero)
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+    }
+
     private func prepareRows() {
         let displayResolver = WorkshopPropertyDisplayResolver(localization: context.propertyDisplayLocalization)
         for (index, definition) in context.definitions.enumerated() {
-            var content = WorkshopPropertyTextContent(markup: displayResolver.string(definition.title))
+            var content = index == schemeIndex
+                ? WorkshopPropertyTextContent(text: String(localized: "Theme Color"))
+                : WorkshopPropertyTextContent(markup: displayResolver.string(definition.title))
             if definition.kind == .unsupported {
                 let status = definition.runtimeType.isEmpty ? String(localized: "Missing Type") : String(localized: "Unsupported type: \(definition.runtimeType)")
                 if content.isEmpty { content = .init(text: String(localized: "Unnamed Property")) }
@@ -167,6 +218,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
             let definition = context.definitions[index]
             var show = service.shouldDisplaySceneProperty(definition, inputs: inputs,
                 programs: context.conditionPrograms)
+            if index == schemeIndex { show = show && commonRows.isExpanded }
             if definition.kind == .combo {
                 let options = service.visibleScenePropertyOptions(for: definition, inputs: inputs,
                     programs: context.conditionPrograms)
@@ -176,6 +228,10 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
             if show { displayed.insert(index) } else { displayed.remove(index) }
         }
         visibleRows = context.definitions.indices.filter { displayed.contains($0) }
+        if let schemeIndex, let row = visibleRows.firstIndex(of: schemeIndex), row > 0 {
+            visibleRows.remove(at: row)
+            visibleRows.insert(schemeIndex, at: 0)
+        }
     }
 
     private func refreshAcceptedValues(forceRows: Set<Int> = []) {
@@ -266,29 +322,41 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
     func collectionView(_ collectionView: NSCollectionView, viewForSupplementaryElementOfKind kind: NSCollectionView.SupplementaryElementKind,
                         at indexPath: IndexPath) -> NSView {
         let header = collectionView.makeSupplementaryView(ofKind: kind, withIdentifier: .init("reset"), for: indexPath)
-        if resetRow.superview !== header {
-            header.addSubview(resetRow)
+        if commonRows.superview !== header {
+            header.addSubview(commonRows)
             NSLayoutConstraint.activate([
-                resetRow.leadingAnchor.constraint(equalTo: header.leadingAnchor), resetRow.trailingAnchor.constraint(equalTo: header.trailingAnchor),
-                resetRow.topAnchor.constraint(equalTo: header.topAnchor)
+                commonRows.leadingAnchor.constraint(equalTo: header.leadingAnchor), commonRows.trailingAnchor.constraint(equalTo: header.trailingAnchor),
+                commonRows.topAnchor.constraint(equalTo: header.topAnchor)
             ])
         }
         return header
     }
 
     func focusNextPropertyControl(from responder: NSResponder?, reverse: Bool) -> Bool {
-        let view = (responder as? NSTextView)?.delegate as? NSView ?? responder as? NSView
-        var ancestor = view
-        while let current = ancestor, !(current is PropertyCell) { ancestor = current.superview }
-        guard let cell = ancestor as? PropertyCell, cell.isDescendant(of: self),
-              let index = cell.definitionIndex, let row = visibleRows.firstIndex(of: index) else { return false }
+        guard let view = (responder as? NSTextView)?.delegate as? NSView ?? responder as? NSView else { return false }
         let fullAccess = NSApp.isFullKeyboardAccessEnabled
-        let controls = cell.keyboardControls(fullAccess: fullAccess)
         let direction = reverse ? -1 : 1
-        if let current = controls.firstIndex(where: { $0 === view }), controls.indices.contains(current + direction) {
-            return window?.makeFirstResponder(controls[current + direction]) == true
+        var targetRow: Int
+        if fullAccess, view.isDescendant(of: commonRows) {
+            let controls = commonRows.keyboardControls
+            if let current = controls.firstIndex(where: { $0 === view }), controls.indices.contains(current + direction) {
+                let target = controls[current + direction]
+                target.scrollToVisible(target.bounds)
+                return window?.makeFirstResponder(target) == true
+            }
+            guard !reverse else { return false }
+            targetRow = 0
+        } else {
+            var ancestor: NSView? = view
+            while let current = ancestor, !(current is PropertyCell) { ancestor = current.superview }
+            guard let cell = ancestor as? PropertyCell, cell.isDescendant(of: self),
+                  let index = cell.definitionIndex, let row = visibleRows.firstIndex(of: index) else { return false }
+            let controls = cell.keyboardControls(fullAccess: fullAccess)
+            if let current = controls.firstIndex(where: { $0 === view }), controls.indices.contains(current + direction) {
+                return window?.makeFirstResponder(controls[current + direction]) == true
+            }
+            targetRow = row + direction
         }
-        var targetRow = row + direction
         while visibleRows.indices.contains(targetRow) {
             defer { targetRow += direction }
             let kind = context.definitions[visibleRows[targetRow]].kind
@@ -303,7 +371,15 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 return window?.makeFirstResponder(control) == true
             }
         }
-        return false
+        guard reverse, fullAccess else { return false }
+        let header = NSRect(x: 0, y: 0, width: list.bounds.width, height: flowLayout.headerReferenceSize.height)
+        let bottom = NSRect(x: header.minX, y: header.maxY - 1, width: 1, height: 1)
+        list.scrollToVisible(bottom)
+        list.layoutSubtreeIfNeeded()
+        window?.displayIfNeeded()
+        guard let target = commonRows.keyboardControls.last else { return false }
+        target.scrollToVisible(target.bounds)
+        return window?.makeFirstResponder(target) == true
     }
     func collectionView(_ collectionView: NSCollectionView, layout collectionViewLayout: NSCollectionViewLayout,
                         sizeForItemAt indexPath: IndexPath) -> NSSize {
@@ -380,6 +456,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 break
             }
         }
+        refreshPresentation()
     }
 
     private func selectSceneTexture(index: Int) {
@@ -590,30 +667,21 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         private func setupControl() {
             switch kind {
             case .bool:
-                let spacer = NSView()
-                spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
                 let button = NSButton(checkboxWithTitle: "", target: nil, action: nil)
                 button.target = self
                 button.action = #selector(boolChanged)
-                content.addArrangedSubview(spacer)
-                content.addArrangedSubview(button)
+                addTrailingControl(button)
                 toggle = button
             case .slider:
                 let control = WorkshopPropertySlider(value: 0, minValue: 0, maxValue: 1,
                     target: self, action: #selector(sliderChanged))
-                control.isContinuous = true
-                control.setContentHuggingPriority(.defaultLow, for: .horizontal)
                 control.onTrackingBegan = { [weak self] _ in
                     guard let self, let index = self.index else { return }
                     self.sliderSession = Session(index: index, generation: self.generation)
                 }
                 control.onTrackingEnded = { [weak self] _ in self?.sliderSession = nil }
                 let label = NSTextField(labelWithString: "")
-                label.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
-                label.textColor = .secondaryLabelColor
-                label.widthAnchor.constraint(greaterThanOrEqualToConstant: 32).isActive = true
-                content.addArrangedSubview(control)
-                content.addArrangedSubview(label)
+                addSlider(control, summary: label)
                 slider = control; summary = label
             case .textInput:
                 let control = WallpaperFormTextField(string: "")

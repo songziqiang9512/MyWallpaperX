@@ -17,6 +17,7 @@ extension SceneDesktopWallpaperHost {
         userPropertyTextureURLs: [String: URL] = [:],
         userShortcuts: ScenePlaybackShortcutConfiguration = .empty,
         requiredUserTextureKeys: Set<String> = [],
+        presentation: ScenePlaybackPresentation = .init(),
         logURL: URL? = nil,
         recordID: String? = nil,
         requestID: UUID = UUID(),
@@ -29,6 +30,7 @@ extension SceneDesktopWallpaperHost {
         nextLaunchRequestGeneration &+= 1
         nextSceneScriptGeneration &+= 1
         let requestGeneration = nextLaunchRequestGeneration
+        pendingPresentation = presentation
         pendingLaunchCompletion = completion
         let complete: @MainActor (Result<SceneRuntimeModel, Error>) -> Void = { [weak self] result in
             guard let self, self.nextLaunchRequestGeneration == requestGeneration else { return }
@@ -907,10 +909,9 @@ extension SceneDesktopWallpaperHost {
             timelineValues: context.timelinePlaybackRuntime.values(sceneTime: 0),
             sceneScriptValues: [:]).snapshot
         let topology = context.sceneScriptDynamicLayerRuntime.snapshot()
-        let audio = SceneAudioSpectrumInbox.shared.prepareFrame().snapshot
+        // Before the Session starts, the shared spectrum can belong to the outgoing work.
         let preparedSurfaces = try context.makeSurfacePreparationInput(
-            dynamicValues: initialValues, topology: topology,
-            audioInput: .init(left: audio.left, right: audio.right, generation: audio.generation)
+            dynamicValues: initialValues, topology: topology, audioInput: .silent
         ).prepare(displayIDs: surfaceDisplayIDs, cancellation: cancellation)
 #if DEBUG
         let preparedFrameCount = (ScenePerformanceCounterHub.shared.snapshot()[.framesRendered] ?? 0)

@@ -87,7 +87,8 @@ extension SceneMetalRenderer {
             cameraFrame: cameraFrame,
 
             viewportSize: viewportSize,
-            dynamicValues: frameContext.dynamicValues
+            dynamicValues: frameContext.dynamicValues,
+            allowsMouseParallax: frameContext.allowsMouseParallax
         )
         if parallaxConfiguration.enabled && !staticModelResources.isEmpty {
             modelFrame.cameraParallaxOffset = { layer in

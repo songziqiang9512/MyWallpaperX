@@ -113,7 +113,7 @@ final class SceneVideoTextureSource {
     var primeCancelled = false
     var primed = false
     var activated = false
-    var activationSceneTime: Double?
+    var activationHostTime: Double?
     var activationPaused: Bool?
     private(set) var metadataStarted = false
     private var metadataCompletion: CheckedContinuation<Bool, Never>?
@@ -149,10 +149,10 @@ final class SceneVideoTextureSource {
     func hasCompletePrimedPublication(for property: SceneUserPropertyTextureIdentity) -> Bool {
         primed && stopCount == 0 && identity == property
     }
-    func activatePrimed(sceneTime: Double, hostTime: Double, isPaused: Bool) -> Bool {
+    func activatePrimed(hostTime: Double, isPaused: Bool) -> Bool {
         guard hasCompletePrimedPublication(for: identity), !activated else { return false }
         activated = true
-        activationSceneTime = sceneTime
+        activationHostTime = hostTime
         activationPaused = isPaused
         return true
     }
@@ -188,10 +188,10 @@ final class SceneVideoTextureSourceRegistry {
         allowAdoption && candidate.source.hasCompletePrimedPublication(for: candidate.declaration.identity)
     }
     func adoptUserPropertyCandidate(
-        _ candidate: UserPropertyCandidate, sceneTime: Double, hostTime: Double, isPaused: Bool
+        _ candidate: UserPropertyCandidate, hostTime: Double, isPaused: Bool
     ) -> Bool {
         guard canAdoptUserPropertyCandidate(candidate),
-              candidate.source.activatePrimed(sceneTime: sceneTime, hostTime: hostTime, isPaused: isPaused)
+              candidate.source.activatePrimed(hostTime: hostTime, isPaused: isPaused)
             else { return false }
         active.updateValue(candidate.source, forKey: candidate.declaration.identity)?.stop()
         candidate.transferred = true
@@ -649,8 +649,10 @@ final class SceneDesktopWallpaperSession {
         let videoProgram = session.launchContext!.propertyVectorScriptProgram.generation
         let videoPending = session.pendingUserTextureUpdates[session.nextUserTextureGeneration]
         session.surfaces.removeAll()
+        let beforeAdoption = CACurrentMediaTime()
         first.releasePrime = true
         wait("video")
+        let afterAdoption = CACurrentMediaTime()
         let adoptedRevision = session.launchContext!.liveState.revision
         results["videoCurrentContextAdoptsPrimedSourceWithoutSurfaces"] = events["video"] == .applied
             && session.surfaces.isEmpty && first.activated && first.stopCount == 0
@@ -674,8 +676,10 @@ final class SceneDesktopWallpaperSession {
                     && $0.metalView.snapshot.videoDeclarations["other"]?.file
                         === session.userPropertyTextureLoad.videoDeclarations["other"]?.file
             }
-        results["videoActivationUsesCurrentPausedSceneClock"] = first.activated
-            && first.activationSceneTime == 12 && first.activationPaused == true && session.sceneClock.isPaused
+        results["videoActivationUsesCurrentHostTimeAndPausePolicy"] = first.activated
+            && first.activationHostTime.map { (beforeAdoption...afterAdoption).contains($0) } == true
+            && first.activationPaused == true && session.sceneClock.isPaused
+            && session.sceneClock.currentSceneTime(hostTime: afterAdoption) == 12
         let prepared = session.userPropertyTextureLoad
         let videoOutputDirectory = prepared.videoDeclarations["other"]?.file.url.deletingLastPathComponent().path
         results["videoWorkerUsesPrivateOutputDomain"] =

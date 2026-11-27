@@ -15,6 +15,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Systems/Properties/SceneDynamicSnapshot.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerCursorGeometry.swift",
+    SOURCE_ROOT / "Rendering/Geometry/SceneLayerScreenAnchor.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Input/SceneCameraProjection.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleRenderSupport.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCameraFrame.swift",
@@ -30,6 +31,45 @@ HARNESS_SOURCE = (Path(__file__).resolve().parents[1] / "fixtures/SceneParticleC
 
 
 class SceneParticleCameraFrameTests(unittest.TestCase):
+    def test_presentation_adjustment_maps_the_selected_crop_edge(self) -> None:
+        actual = self.result["presentationAdjustment"]
+        for key, expected in [
+            ("horizontal", [[-1, 0], [1, 0]]),
+            ("vertical", [[0, 1], [0, -1]]),
+            ("mixedPerspective", [[-1, 0], [1, 0]]),
+            ("fitEnds", [[0, 0], [0, 0]]),
+            ("stretchedCorners", [[-1, 1], [1, -1]]),
+            ("freeCorners", [[-1, 1], [1, -1]]),
+            ("measuredFreeAxes", [[-224 / 480, 0], [0, 126 / 270]]),
+        ]:
+            for clip_point, edge in zip(actual[key], expected, strict=True):
+                for value, reference in zip(clip_point[:2], edge, strict=True):
+                    self.assertAlmostEqual(value, reference, delta=0.001)
+
+    def test_center_preserves_one_backing_pixel_per_authored_pixel(self) -> None:
+        pixel = self.result["presentationAdjustment"]["centeredPixel"]
+        self.assertAlmostEqual(pixel[0], 2 / 1080, delta=0.000_001)
+        self.assertAlmostEqual(pixel[1], -2 / 1080, delta=0.000_001)
+
+    def test_presentation_zoom_composes_with_authored_camera_and_native_cursor(self) -> None:
+        actual = self.result["presentationAdjustment"]
+        self.assertEqual(actual["zoomExtents"], [[240, 240], [1080, 1080]])
+        for value in actual["zoomCenter"][:2]:
+            self.assertAlmostEqual(value, 0, delta=0.001)
+        self.assertTrue(actual["nativePanIgnored"])
+        center, native, zoomed = actual["nativeCursor"]
+        for axis, full, near in zip(center, native, zoomed, strict=True):
+            self.assertAlmostEqual(near - axis, (full - axis) / 2, delta=0.001)
+
+    def test_presentation_pan_preserves_anchors_and_cursor_hit_inverse(self) -> None:
+        actual = self.result["presentationAdjustment"]
+        for key in ("anchor", "perspectiveAnchor"):
+            for reference, value in zip(*actual[key], strict=True):
+                self.assertAlmostEqual(value, reference, delta=0.001)
+        self.assertLess(actual["unanchored"][1][0], actual["unanchored"][0][0])
+        for value, reference in zip(actual["inversePoint"], [1680, 420, 0], strict=True):
+            self.assertAlmostEqual(value, reference, delta=0.001)
+
     def test_static_camera_translation_roundtrip_and_shared_bases(self) -> None:
         actual = self.result["staticCameraTransforms"]
         for point, expected in zip(actual["pixels"], [[73, 17], [531, 349]]):

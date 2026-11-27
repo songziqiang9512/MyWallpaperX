@@ -61,7 +61,8 @@ extension SceneMetalView {
             : bounds
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        metalLayer.frame = contentRect
+        metalLayer.bounds = CGRect(origin: .zero, size: contentRect.size)
+        metalLayer.position = CGPoint(x: contentRect.midX, y: contentRect.midY)
         layer?.backgroundColor = contentRect == bounds ? nil : CGColor(gray: 0, alpha: 1)
         metalLayer.contentsScale = scale
         let pixelSize = CGSize(

@@ -36,7 +36,7 @@ extension SceneMetalView {
         )
         let cameraFrame = renderer.makeCameraFrame(
             frameContext: frameContext, descriptor: descriptor,
-            layersByID: layersByID, worldFrames: worldFrames)
+            layersByID: layersByID, worldFrames: worldFrames, adjustment: cameraAdjustment)
         let world: SIMD3<Float>?
         if cameraFrame.defaultsToPerspective {
             world = cameraFrame.nativeCursorWorldPosition(pointer.normalizedPosition)
@@ -228,13 +228,14 @@ extension SceneMetalView {
                 let cameraFrame = renderer.makeCameraFrame(
                     frameContext: frameContext, descriptor: descriptor,
                     layersByID: layersByID, worldFrames: worldFrames,
-                    perspectiveReplayRootIDs: perspectiveReplayRootIDs)
+                    perspectiveReplayRootIDs: perspectiveReplayRootIDs, adjustment: cameraAdjustment)
                 cardProjection = (
                     cameraFrame,
                     renderer.parallaxConfiguration(
                         cameraFrame: cameraFrame,
                         viewportSize: frameContext.screenSize,
-                        dynamicValues: dynamicValues
+                        dynamicValues: dynamicValues,
+                        allowsMouseParallax: frameContext.allowsMouseParallax
                     ),
                     frameContext.cameraParallaxPosition
                 )

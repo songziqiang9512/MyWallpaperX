@@ -877,9 +877,9 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "766b3ea7ca656709d28314956b6085a9c7d7fcce636f41c426308692c3489fbd",
+        "sourceSHA256": "899a79df53f67579e932a0ee06d1d86781486aa00aabee8481b06bcca7244e78",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前源码职责、工具入口与文档引用核对。",
+        "scope": "核对 Scene IPC 的加载快照、定向热更新和候选首次呈现交接。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"
       }
     },

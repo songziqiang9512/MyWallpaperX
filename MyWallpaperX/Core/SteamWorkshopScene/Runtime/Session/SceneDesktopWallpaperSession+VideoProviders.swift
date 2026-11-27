@@ -24,18 +24,12 @@ extension SceneDesktopWallpaperSession {
                 frameTimer = nil
                 frameDriverDeadline = nil
             }
-            videoTextureSourceRegistry?.pause(
-                sceneTime: sceneClock.currentSceneTime(hostTime: hostTime),
-                hostTime: hostTime
-            )
+            videoTextureSourceRegistry?.pause(hostTime: hostTime)
             soundPlaybackRegistry?.pause()
         } else {
             guard sceneClock.isPaused else { return }
             sceneClock.resume(hostTime: hostTime)
-            videoTextureSourceRegistry?.resume(
-                sceneTime: sceneClock.currentSceneTime(hostTime: hostTime),
-                hostTime: hostTime
-            )
+            videoTextureSourceRegistry?.resume(hostTime: hostTime)
             if isVisible { soundPlaybackRegistry?.resume() }
             if launchContext != nil {
                 startFrameDriver()

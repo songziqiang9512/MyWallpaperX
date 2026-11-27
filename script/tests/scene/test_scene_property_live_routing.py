@@ -109,6 +109,10 @@ extension Notification.Name {
 @MainActor final class SceneDaemonClient {
     static let shared = SceneDaemonClient()
     var active = false
+    var presentations: [(String, ScenePlaybackPresentation)] = []
+    func updatePresentation(_ value: ScenePlaybackPresentation, recordID: String) {
+        presentations.append((recordID, value))
+    }
     func hasIntent(for id: String) -> Bool { active }
     func preparedCallbackPropertyKeys(for recordID: String, source: ScenePreparedCallbackPropertyReachability.Source?) -> Set<String> { [] }
 }
@@ -203,13 +207,35 @@ extension Notification.Name {
         rows.append(["case": "clear", "outcome": outcomeLabel(cleared), "bookmarkExists": service.defaults.data(forKey: bookmarkKey) != nil, "overrides": service.scenePropertyOverrides(for: record).count, "path": requestPath()])
         _ = await select(png)
         try await waitForReload()
+        let other = SteamWorkshopDownloadRecord(id: "other", contentType: .scene, folderURL: root, title: "other")
+        let ownPresentation = ScenePlaybackPresentation(alignment: .cover, position: 31, zoom: 138, listensToAudio: false)
+        let otherPresentation = ScenePlaybackPresentation(alignment: .fit, zoom: 91)
+        _ = service.updateScenePresentation(for: record) { $0 = ownPresentation }
+        _ = service.updateScenePresentation(for: other) { $0 = otherPresentation }
+        service.requestSceneRender(record, newSelection: false)
+        let firstLoadMatches = spy.requests.last?.recordID == record.id
+            && spy.requests.last?.presentation == ownPresentation
+        service.saveScenePropertyOverrides(service.scenePropertyOverrides(for: record).merging(["schemecolor": .string("0 1 0")]) { _, new in new }, for: record)
         let resetOutcome = await withCheckedContinuation { continuation in
-            service.resetScenePropertyValues(for: record, defaultValues: ["cover": .string("")]) {
+            service.resetScenePropertyValues(for: record, defaultValues: ["cover": .string(""), "schemecolor": .string("1 1 1")]) {
                 continuation.resume(returning: $0)
             }
         }
         service.requestSceneRender(record, newSelection:false)
         rows.append(["case": "reset", "outcome": outcomeLabel(resetOutcome), "bookmarkExists": service.defaults.data(forKey: bookmarkKey) != nil, "overrides": service.scenePropertyOverrides(for: record).count, "path": requestPath()])
+        let resetLoadMatches = spy.requests.last?.recordID == record.id
+            && spy.requests.last?.presentation == ScenePlaybackPresentation()
+            && spy.requests.last?.propertyOverrides["schemecolor"] == nil
+        service.requestSceneRender(other, newSelection: false)
+        let otherLoadMatches = spy.requests.last?.recordID == other.id
+            && spy.requests.last?.presentation == otherPresentation
+        let updates = SceneDaemonClient.shared.presentations
+        rows.append(["case": "reset-presentation", "firstLoad": firstLoadMatches,
+            "resetLoad": resetLoadMatches, "otherLoad": otherLoadMatches,
+            "otherStored": service.scenePresentation(for: other) == otherPresentation,
+            "resetStored": service.scenePresentation(for: record) == .init(),
+            "updateScope": updates.map(\.0) == [record.id, other.id, record.id]
+                && updates.map(\.1) == [ownPresentation, otherPresentation, .init()]])
         let mux = PlaybackCommandMultiplexer.shared
         SceneDaemonClient.shared.active = true
         func waitForPending(_ count: Int = 1) async throws {
@@ -446,6 +472,7 @@ struct PlaybackCommandMultiplexer {
 struct SceneDaemonClient {
     static let shared = Self()
     func hasIntent(for recordID: String) -> Bool { false }
+    func updatePresentation(_ value: ScenePlaybackPresentation, recordID: String) {}
     func preparedCallbackPropertyKeys(for recordID: String, source: ScenePreparedCallbackPropertyReachability.Source?) -> Set<String> { [] }
 }
 @main enum ContextProbe {
@@ -703,6 +730,7 @@ class SceneTextureSelectionAdmissionTests(unittest.TestCase):
             service, "private enum ScenePropertyOverrideStore {"
         ) + "\n" + "\n".join(method_body(service, signature) for signature in [
             "func scenePropertyOverrides(", "func updateScenePropertyValue(",
+            "func scenePresentation(", "func updateScenePresentation(",
             "func resetScenePropertyValues(", "func saveScenePropertyOverrides(",
             "private func scheduleActiveScenePropertyRender(",
         ]) + "\n}\n"
@@ -716,6 +744,7 @@ class SceneTextureSelectionAdmissionTests(unittest.TestCase):
             "nonisolated struct ScenePlaybackTextureReference:",
             "nonisolated struct ScenePlaybackTextureUpdate:",
             "nonisolated enum ScenePlaybackTextureUpdateOutcome:",
+            "nonisolated struct ScenePlaybackPresentation:",
         ])
         runtime = (SCENE_ROOT / "Runtime/IPC/SceneDaemonRuntime.swift").read_text()
         resolve = method_body(runtime, "private static func resolveTextureURLs(")
@@ -813,6 +842,12 @@ class SceneTextureSelectionAdmissionTests(unittest.TestCase):
             self.assertFalse(row["bookmarkExists"])
             self.assertEqual(row["overrides"], 0)
             self.assertEqual(row["path"], "none")
+
+    def test_reset_restores_common_and_author_values_for_one_work(self) -> None:
+        row = self.rows["reset-presentation"]
+        self.assertEqual(row, {"case": "reset-presentation", "firstLoad": True,
+            "resetLoad": True, "otherLoad": True, "otherStored": True,
+            "resetStored": True, "updateScope": True})
 
     def test_live_failure_does_not_save_before_or_after_ack(self) -> None:
         row = self.rows["live-failure"]

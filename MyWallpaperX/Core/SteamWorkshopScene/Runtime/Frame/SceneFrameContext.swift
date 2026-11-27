@@ -28,6 +28,7 @@ nonisolated struct SceneFrameContext: Equatable, Sendable {
     let pointer: SceneSurfacePointerState
     let cameraParallaxPosition: SIMD2<Float>
     let cameraParallaxMouseInfluence: Float
+    let allowsMouseParallax: Bool
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     /// host-shared 频谱输入。无消费者或采集不可用时为稳定零输入。
     let audioSpectrum: SceneAudioSpectrumSnapshot
@@ -40,6 +41,7 @@ nonisolated struct SceneFrameContext: Equatable, Sendable {
         pointer: SceneSurfacePointerState,
         cameraParallaxPosition: SIMD2<Float>,
         cameraParallaxMouseInfluence: Float = 1,
+        allowsMouseParallax: Bool = true,
         materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = [],
         audioSpectrum: SceneAudioSpectrumSnapshot
     ) {
@@ -50,6 +52,7 @@ nonisolated struct SceneFrameContext: Equatable, Sendable {
         self.pointer = pointer
         self.cameraParallaxPosition = cameraParallaxPosition
         self.cameraParallaxMouseInfluence = cameraParallaxMouseInfluence
+        self.allowsMouseParallax = allowsMouseParallax
         self.materialFunctionMutations = materialFunctionMutations
         self.audioSpectrum = audioSpectrum
     }
@@ -80,6 +83,8 @@ nonisolated struct SceneClock {
         fileprivate let pausedHostTime: TimeInterval?
         fileprivate let pausedSceneTime: TimeInterval
         fileprivate let anchorsFirstResumedFrame: Bool
+        fileprivate let rate: Double
+        fileprivate let lastFrameSceneTime: TimeInterval
 
         fileprivate init(
             startHostTime: TimeInterval,
@@ -87,7 +92,9 @@ nonisolated struct SceneClock {
             nextFrameIndex: UInt64,
             pausedHostTime: TimeInterval?,
             pausedSceneTime: TimeInterval,
-            anchorsFirstResumedFrame: Bool
+            anchorsFirstResumedFrame: Bool,
+            rate: Double,
+            lastFrameSceneTime: TimeInterval
         ) {
             self.startHostTime = startHostTime
             self.lastHostTime = lastHostTime
@@ -95,6 +102,8 @@ nonisolated struct SceneClock {
             self.pausedHostTime = pausedHostTime
             self.pausedSceneTime = pausedSceneTime
             self.anchorsFirstResumedFrame = anchorsFirstResumedFrame
+            self.rate = rate
+            self.lastFrameSceneTime = lastFrameSceneTime
         }
     }
 
@@ -104,6 +113,8 @@ nonisolated struct SceneClock {
     private var pausedHostTime: TimeInterval?
     private var pausedSceneTime: TimeInterval = 0
     private var anchorsFirstResumedFrame = false
+    private var rate = 1.0
+    private var lastFrameSceneTime: TimeInterval = 0
 
     nonisolated var isPaused: Bool { pausedHostTime != nil }
 
@@ -114,7 +125,9 @@ nonisolated struct SceneClock {
             nextFrameIndex: nextFrameIndex,
             pausedHostTime: pausedHostTime,
             pausedSceneTime: pausedSceneTime,
-            anchorsFirstResumedFrame: anchorsFirstResumedFrame
+            anchorsFirstResumedFrame: anchorsFirstResumedFrame,
+            rate: rate,
+            lastFrameSceneTime: lastFrameSceneTime
         )
     }
 
@@ -125,6 +138,8 @@ nonisolated struct SceneClock {
         pausedHostTime = state.pausedHostTime
         pausedSceneTime = state.pausedSceneTime
         anchorsFirstResumedFrame = state.anchorsFirstResumedFrame
+        rate = state.rate
+        lastFrameSceneTime = state.lastFrameSceneTime
     }
 
     nonisolated init(hostTime: TimeInterval) {
@@ -141,13 +156,21 @@ nonisolated struct SceneClock {
         pausedHostTime = nil
         pausedSceneTime = 0
         anchorsFirstResumedFrame = false
+        lastFrameSceneTime = 0
+    }
+
+    nonisolated mutating func setPlaybackRate(_ newRate: Double, hostTime: TimeInterval) {
+        guard newRate != rate else { return }
+        let anchor = pausedHostTime ?? (anchorsFirstResumedFrame ? lastHostTime : monotonicHostTime(hostTime))
+        startHostTime = anchor - currentSceneTime(hostTime: anchor) / newRate
+        rate = newRate
     }
 
     nonisolated mutating func pause(hostTime: TimeInterval) {
         guard pausedHostTime == nil else { return }
         let monotonicHostTime = self.monotonicHostTime(hostTime)
         pausedHostTime = monotonicHostTime
-        pausedSceneTime = monotonicHostTime - startHostTime
+        pausedSceneTime = (monotonicHostTime - startHostTime) * rate
         lastHostTime = monotonicHostTime
     }
 
@@ -167,9 +190,9 @@ nonisolated struct SceneClock {
             return pausedSceneTime
         }
         if anchorsFirstResumedFrame {
-            return lastHostTime - startHostTime
+            return (lastHostTime - startHostTime) * rate
         }
-        return monotonicHostTime(hostTime) - startHostTime
+        return (monotonicHostTime(hostTime) - startHostTime) * rate
     }
 
     nonisolated mutating func advance(
@@ -192,9 +215,10 @@ nonisolated struct SceneClock {
         if anchorsFirstResumedFrame {
             startHostTime += monotonicHostTime - lastHostTime
         }
+        let sceneTime = (monotonicHostTime - startHostTime) * rate
         let rawFrameTime = nextFrameIndex == 0 || anchorsFirstResumedFrame
             ? 0
-            : monotonicHostTime - lastHostTime
+            : max(0, sceneTime - lastFrameSceneTime)
         let simulationFrameTime = min(
             rawFrameTime,
             Self.maximumSimulationFrameTime
@@ -202,13 +226,14 @@ nonisolated struct SceneClock {
         let timing = SceneFrameTiming(
             frameIndex: nextFrameIndex,
             hostTime: monotonicHostTime,
-            sceneTime: monotonicHostTime - startHostTime,
+            sceneTime: sceneTime,
             rawFrameTime: rawFrameTime,
             simulationFrameTime: simulationFrameTime,
             droppedFrameTime: rawFrameTime - simulationFrameTime,
             wallDate: wallDate
         )
         lastHostTime = monotonicHostTime
+        lastFrameSceneTime = sceneTime
         anchorsFirstResumedFrame = false
         nextFrameIndex &+= 1
         return timing

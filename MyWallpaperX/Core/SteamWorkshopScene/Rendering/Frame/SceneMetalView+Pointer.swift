@@ -82,7 +82,9 @@ extension SceneMetalView {
             setPointerOutside(primaryButtonIsDown: buttonIsDown)
             return
         }
-        pointerState.sceneScriptCurrent = sample.normalizedPosition
+        var scenePosition = sample.normalizedPosition
+        if flippedHorizontally { scenePosition.x = -scenePosition.x }
+        pointerState.sceneScriptCurrent = scenePosition
         pointerState.sceneScriptPrimaryButtonIsDown = sample.primaryButtonIsDown
         guard sample.isInside else {
             setPointerOutside(
@@ -91,8 +93,8 @@ extension SceneMetalView {
             return
         }
         let normalized = SIMD2(
-            max(-1, min(1, sample.normalizedPosition.x)),
-            max(-1, min(1, sample.normalizedPosition.y))
+            max(-1, min(1, scenePosition.x)),
+            max(-1, min(1, scenePosition.y))
         )
         pointerState.current = normalized
         pointerState.isInside = true

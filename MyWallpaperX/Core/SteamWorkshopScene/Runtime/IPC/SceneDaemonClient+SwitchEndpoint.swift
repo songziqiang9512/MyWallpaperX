@@ -33,12 +33,12 @@ nonisolated struct SceneDaemonStartupPrefixObservation: Sendable {
 @MainActor
 extension SceneDaemonClient {
     struct QueuedSwitchPreparation {
-        let request: ScenePlaybackLoadRequest
+        var request: ScenePlaybackLoadRequest
         let ticket: PlaybackSwitchTicket?
         let resourceLifetime: PlaybackResourceLifetime?
     }
     struct CommittedSwitchRecovery {
-        let request: ScenePlaybackLoadRequest
+        var request: ScenePlaybackLoadRequest
         let ticket: PlaybackSwitchTicket
         let resourceLifetime: PlaybackResourceLifetime?
     }

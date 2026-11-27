@@ -14,7 +14,8 @@ extension SceneMetalRenderer {
             cameraFrame: cameraFrame,
 
             viewportSize: viewportSize,
-            dynamicValues: frameContext.dynamicValues
+            dynamicValues: frameContext.dynamicValues,
+            allowsMouseParallax: frameContext.allowsMouseParallax
         )
         return Dictionary(uniqueKeysWithValues: demands.compactMap { layerID in
             guard let layer = frameProjection.layersByID[layerID] else { return nil }

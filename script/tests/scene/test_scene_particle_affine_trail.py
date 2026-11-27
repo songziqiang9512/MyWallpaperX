@@ -108,11 +108,13 @@ import simd
 
 struct SceneRenderDescriptor {
     struct Layer {
+        struct TextStyle { let screenAnchor: String? }
         var id: Int = 0
         let utilityLayer: Bool?
         let usesPerspective: Bool?
         var hasPerspectiveGeometryConsumer = false
         var hasFramebufferMaterialSource = false
+        var textStyle: TextStyle? = nil
     }
     struct CameraDescriptor {
         let eye: [Float]

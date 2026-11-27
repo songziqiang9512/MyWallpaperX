@@ -478,7 +478,7 @@ final class Sound {var muted=false;var paused=false;func setMuted(_ value:Bool){
     func pause(){paused=true};func resume(){paused=false}}
 final class Clock {var isPaused=false;func pause(hostTime:Double){isPaused=true}
     func resume(hostTime:Double){isPaused=false};func currentSceneTime(hostTime:Double)->Double{0}}
-final class Video {func pause(sceneTime:Double,hostTime:Double){};func resume(sceneTime:Double,hostTime:Double){}}
+final class Video {func pause(hostTime:Double){};func resume(hostTime:Double){}}
 struct LayerTopology {var destroyedAuthoredLayerIDs:Set<Int>=[];func snapshot()->Self{self}}
 struct Context {
     var usesSystemMedia=true

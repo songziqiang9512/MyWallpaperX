@@ -36,6 +36,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Systems/Particles/SceneParticleCameraFrame.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleCameraFrame+LayerCamera.swift",
     SOURCE_ROOT / "Systems/Input/SceneCameraProjection.swift",
+    SOURCE_ROOT / "Rendering/Geometry/SceneLayerScreenAnchor.swift",
     SOURCE_ROOT / "Systems/Input/SceneLayerParallax.swift",
     SOURCE_ROOT / "Systems/Puppet/ScenePuppetAttachmentFrameSnapshot.swift",
     SOURCE_ROOT / "Rendering/Geometry/SceneMatrix.swift",

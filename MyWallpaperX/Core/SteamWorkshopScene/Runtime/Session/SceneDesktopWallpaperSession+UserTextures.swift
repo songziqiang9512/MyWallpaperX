@@ -158,9 +158,8 @@ extension SceneDesktopWallpaperSession {
                     // One key, one candidate, no suspension point from admission
                     // through every surface's immutable binding replacement.
                     let hostTime = CACurrentMediaTime()
-                    let sceneTime = self.sceneClock.currentSceneTime(hostTime: hostTime)
                     for candidate in candidates {
-                        guard registry.adoptUserPropertyCandidate(candidate, sceneTime: sceneTime,
+                        guard registry.adoptUserPropertyCandidate(candidate,
                             hostTime: hostTime, isPaused: self.sceneClock.isPaused) else {
                             pending.finish(.failed("texture-update-video-adoption-failed")); return
                         }
@@ -258,9 +257,8 @@ extension SceneDesktopWallpaperSession {
             sceneClock.reset(hostTime: hostTime)
             if remainsPaused { sceneClock.pause(hostTime: hostTime) }
         }
-        let sceneTime = sceneClock.currentSceneTime(hostTime: hostTime)
         for candidate in candidates {
-            guard registry.adoptUserPropertyCandidate(candidate, sceneTime: sceneTime,
+            guard registry.adoptUserPropertyCandidate(candidate,
                 hostTime: hostTime, isPaused: sceneClock.isPaused) else { return false }
         }
         initialVideoPreparation = nil

@@ -108,7 +108,7 @@
                         && frame.maxY <= webRows[row].bounds.height + 1, "Web property control clipped")
                 }
             }
-            let reset = descendants(web, NSButton.self).first { $0.title == "恢复默认" }!
+            let reset = descendants(web, NSButton.self).first { $0.title == String(localized: "Restore Defaults") }!
             precondition(reset.isDescendant(of: webScroll.documentView!))
             for style: NSScroller.Style in [.overlay, .legacy] {
                 webScroll.scrollerStyle = style; settle(web)
@@ -127,7 +127,7 @@
                 sceneScroll.contentView.scroll(to: .zero); settle(scene)
                 sceneScroll.flashScrollers(); settle(scene)
                 precondition(sceneScroll.verticalScroller?.isHidden == true, "Scene shared-panel scrollbar must stay hidden after style, layout and flash")
-                let sceneReset = descendants(scene, NSButton.self).first { $0.title == "恢复默认" }!
+                let sceneReset = descendants(scene, NSButton.self).first { $0.title == String(localized: "Restore Defaults") }!
                 precondition(sceneReset.isDescendant(of: sceneScroll.documentView!))
                 let sceneResetFrame = sceneReset.convert(sceneReset.bounds, to: scene)
                 let sceneEvent = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: -100, wheel2: 0, wheel3: 0)!
@@ -138,7 +138,7 @@
                 sceneScroll.contentView.scroll(to: .zero); settle(scene)
                 sceneScroll.flashScrollers(); settle(scene)
                 precondition(sceneScroll.verticalScroller?.isHidden == true, "Scene shared-panel scrollbar must stay hidden after style, layout and flash")
-                precondition(descendants(scene, NSButton.self).filter { $0.title == "恢复默认" }.count == 1)
+                precondition(descendants(scene, NSButton.self).filter { $0.title == String(localized: "Restore Defaults") }.count == 1)
             }
             let input = descendants(web, NSTextField.self).first { $0.isEditable }!
             precondition(input.placeholderString == text && input.accessibilityLabel() == text,
@@ -323,18 +323,18 @@
         resourceWindow.isReleasedWhenClosed = false; resourceWindow.contentView = resources; resourceWindow.orderFront(nil); settle(resources)
         let resourceRows = descendants(resources, WorkshopPropertyRowView.self)
         precondition(resourceRows.count == 2 && resourceRows.allSatisfy { $0.style == .resource })
-        let chooseFile = descendants(resourceRows[0], NSButton.self).first { $0.title == "选择文件" }!
+        let chooseFile = descendants(resourceRows[0], NSButton.self).first { $0.title == String(localized: "Choose File") }!
         let beforeRepeatedFile = service.webEvents.count
         chooseFile.performClick(nil); chooseFile.performClick(nil)
         precondition(service.webEvents.count == beforeRepeatedFile + 2
             && service.webEvents.suffix(2).allSatisfy { $0.0 == "resource0" && $0.1 == .string("/own/selected.png") },
             "reselecting the same file must still reach its grant and explicit reapply service entry")
-        let clear = descendants(resourceRows[0], NSButton.self).first { $0.toolTip == "清空当前选择" }!
+        let clear = descendants(resourceRows[0], NSButton.self).first { $0.toolTip == String(localized: "Clear Selection") }!
         clear.performClick(nil)
         precondition(service.webEvents.last?.0 == "resource0" && service.webEvents.last?.1 == .string(""))
         settle(resources)
         precondition(service.webValues["resource1"] == .string("/own/folder"), "file clear must not change directory values")
-        let chooseDirectory = descendants(resources, NSButton.self).first { $0.title == "选择文件夹" }!
+        let chooseDirectory = descendants(resources, NSButton.self).first { $0.title == String(localized: "Choose Folder") }!
         let beforeRepeatedDirectory = service.webEvents.count
         chooseDirectory.performClick(nil); chooseDirectory.performClick(nil)
         precondition(service.webEvents.count == beforeRepeatedDirectory + 2
@@ -412,16 +412,16 @@
         let localizedRuleCatalog = SceneUserPropertyDefinitionParser().parse(properties: ["renamed": ["type": "text", "text": "author_rule"]])
         let localizedRuleContext = SteamWorkshopScenePropertyContext(catalog: localizedRuleCatalog, actionableKeys: [],
             effectiveValues: [:], propertyDisplayLocalization: .init(flat: ["author_rule": "<hr>"]))
-        precondition(localizedRuleContext.definitions.count == 1 && !localizedRuleContext.hasEditorControls,
+        precondition(localizedRuleContext.definitions.count == 1 && localizedRuleContext.actionableDefinitions.isEmpty,
             "localized authored separators are display declarations, never runtime capability")
         let projectionRecord = SteamWorkshopDownloadRecord(id: "only-notes", title: "only-notes")
-        precondition(service.projectedScenePropertyContext(localizedRuleContext, for: projectionRecord) != nil,
+        precondition(service.projectedScenePropertyContext(localizedRuleContext, for: projectionRecord).definitions.count == 1,
             "real Scene admission must retain localized rule-only declarations")
         for markup in ["", "<img src='invalid'>"] {
             let decoration = SceneUserPropertyDefinitionParser().parse(properties: ["note": ["type": "text", "text": markup]])
             let context = SteamWorkshopScenePropertyContext(catalog: decoration, actionableKeys: [], effectiveValues: [:])
-            precondition(service.projectedScenePropertyContext(context, for: projectionRecord) == nil,
-                "empty decorations must not create an available property panel")
+            precondition(service.projectedScenePropertyContext(context, for: projectionRecord).actionableDefinitions.isEmpty,
+                "decorations still supply zero authored controls in the available Scene panel")
         }
         for width: CGFloat in [324, 480] {
             service.webDescriptor = .init(propertyDefinitions: ruleMarkup.indices.map { index in
@@ -456,8 +456,11 @@
                             "rule must fill the title width without clipping: \(frame), row \(row.bounds), width \(width), \(type(of: editor)) \(editor.bounds)")
                     }
                 }
-                precondition(descendants(editor, NSButton.self).allSatisfy { $0.title != "恢复默认" || $0.isHidden },
-                    "read-only author notes and rules must not manufacture a reset action")
+                let offersReset = descendants(editor, NSButton.self).contains {
+                    $0.title == String(localized: "Restore Defaults") && !$0.isHidden
+                }
+                precondition(offersReset == (editor === scene),
+                    "the Scene reset is available for common values independently of author notes")
                 window.contentView = nil; window.close()
             }
         }
@@ -473,11 +476,11 @@
         for editor in [hidden, SteamWorkshopWebPropertyEditorView(record: .init(id: "hidden", title: "hidden"))] {
             precondition(descendants(editor, WorkshopPropertyRowView.self).isEmpty)
             let scroll = descendants(editor, NSScrollView.self).first!
-            let reset = descendants(editor, NSButton.self).first { $0.title == "恢复默认" }!
+            let reset = descendants(editor, NSButton.self).first { $0.title == String(localized: "Restore Defaults") }!
             precondition(!editor.presentsOnlyMessage && !scroll.isHidden && !reset.isHidden,
                 "all conditionally hidden controls must retain recovery, including after reopening")
         }
-        descendants(hidden, NSButton.self).first { $0.title == "恢复默认" }!.performClick(nil)
+        descendants(hidden, NSButton.self).first { $0.title == String(localized: "Restore Defaults") }!.performClick(nil)
         precondition(service.webValues["enabled"] == .bool(true)
             && descendants(hidden, WorkshopPropertyRowView.self).count == 1,
             "reset must restore the self-hidden control")
@@ -500,8 +503,8 @@
         let titleCases: [(kind: SteamWorkshopWebPropertyKind, raw: String, markup: String?, plain: String?, expected: String?)] = [
             (.text, "Raw title", "<b>First</b><hr/>Second &amp; &#20013;", "ignored plain", "First\nSecond & 中"),
             (.text, "Legacy &amp; &#20013;", nil, nil, "Legacy & 中"),
-            (.text, "Raw title", "", "must not fall back", "未命名属性"),
-            (.text, "Raw title", nil, "", "未命名属性"),
+            (.text, "Raw title", "", "must not fall back", String(localized: "Unnamed Property")),
+            (.text, "Raw title", nil, "", String(localized: "Unnamed Property")),
             (.label, "Original note", "", "must not fall back", nil),
             (.group, "Original group", nil, "", nil),
         ]

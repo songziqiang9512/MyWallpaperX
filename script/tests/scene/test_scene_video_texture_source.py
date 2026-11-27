@@ -49,15 +49,13 @@ enum Harness {
         let initiallyPlaying = state.isPlaying
         let initialGeneration = state.contentGeneration
 
-        state.start(sceneTime: 10, hostTime: 100)
+        state.start(hostTime: 100)
         let first = state.planFrame(
             frameIndex: 9,
-            sceneTime: 10.25,
             hostTime: 100.25
         )
         let duplicate = state.planFrame(
             frameIndex: 9,
-            sceneTime: 99,
             hostTime: 999
         )
         let firstPublication = state.didPublish(frameIndex: 9)
@@ -66,146 +64,135 @@ enum Harness {
 
         let second = state.planFrame(
             frameIndex: 10,
-            sceneTime: 10.5,
             hostTime: 100.5
         )
         let secondPublication = state.didPublish(frameIndex: 10)
 
         var discarded = SceneVideoProviderLifecycleState(epoch: 74)
-        discarded.start(sceneTime: 0, hostTime: 0)
+        discarded.start(hostTime: 0)
         let discardedPlan = discarded.planFrame(
             frameIndex: 20,
-            sceneTime: 1,
             hostTime: 1
         )
         discarded.discardPlannedFrame(frameIndex: 20)
         let retriedAfterDiscard = discarded.planFrame(
             frameIndex: 20,
-            sceneTime: 1,
             hostTime: 1
         )
         let retryPublication = discarded.didPublish(frameIndex: 20)
 
         let initialEpoch = state.epoch
-        state.pause(sceneTime: 10.75, hostTime: 100.75)
+        state.pause(hostTime: 100.75)
         let pausedEpoch = state.epoch
         let paused = state.planFrame(
             frameIndex: 11,
-            sceneTime: 50,
             hostTime: 500
         )
-        state.resume(sceneTime: 20, hostTime: 200)
+        state.resume(hostTime: 200)
         let resumedEpoch = state.epoch
         let resumed = state.planFrame(
             frameIndex: 12,
-            sceneTime: 20.25,
             hostTime: 200.25
         )
         let continued = state.planFrame(
             frameIndex: 13,
-            sceneTime: 20.75,
-            hostTime: 8_000
+            hostTime: 200.75
         )
 
         var shiftedHost = SceneVideoProviderLifecycleState(epoch: 73)
-        shiftedHost.start(sceneTime: 10, hostTime: 1_000)
+        shiftedHost.start(hostTime: 1_000)
         let shifted = shiftedHost.planFrame(
             frameIndex: 9,
-            sceneTime: 10.25,
-            hostTime: 9_000
+            hostTime: 1_000.25
         )
 
         var suspendedPause = SceneVideoProviderLifecycleState(epoch: 81)
-        suspendedPause.start(sceneTime: 0, hostTime: 10)
-        _ = suspendedPause.planFrame(frameIndex: 0, sceneTime: 0, hostTime: 10)
+        suspendedPause.start(hostTime: 10)
+        _ = suspendedPause.planFrame(frameIndex: 0, hostTime: 10)
         _ = suspendedPause.didPublish(frameIndex: 0)
-        suspendedPause.suspend(sceneTime: 1, hostTime: 11)
-        suspendedPause.pause(sceneTime: 9, hostTime: 19)
+        suspendedPause.suspend(hostTime: 11)
+        suspendedPause.pause(hostTime: 19)
         let pausedWhileSuspended = suspendedPause.planFrame(
             frameIndex: 1,
-            sceneTime: 12,
             hostTime: 22
         )
 
         // Global suspension can precede the first Source prepare. User play
         // intent starts normally, while the backend only owes one frozen frame.
         var initiallySuspended = SceneVideoProviderLifecycleState(epoch: 87)
-        initiallySuspended.suspend(sceneTime: 10, hostTime: 100)
-        initiallySuspended.start(sceneTime: 20, hostTime: 200)
+        initiallySuspended.suspend(hostTime: 100)
+        initiallySuspended.start(hostTime: 200)
         let startsSuspended = initiallySuspended.isPlaying
             && !initiallySuspended.isAdvancingPlayback
         let frozenFirst = initiallySuspended.planFrame(
-            frameIndex: 0, sceneTime: 20, hostTime: 200
+            frameIndex: 0, hostTime: 200
         )
         let frozenFirstPublication = initiallySuspended.didPublish(frameIndex: 0)
         let frozenNext = initiallySuspended.planFrame(
-            frameIndex: 1, sceneTime: 20, hostTime: 300
+            frameIndex: 1, hostTime: 300
         )
-        initiallySuspended.resumeSuspension(sceneTime: 100, hostTime: 400)
+        initiallySuspended.resumeSuspension(hostTime: 400)
         let resumedFromFrozenFirst = initiallySuspended.planFrame(
-            frameIndex: 2, sceneTime: 100.25, hostTime: 400.25
+            frameIndex: 2, hostTime: 400.25
         )
         let resumesFromFrozenFirst = initiallySuspended.isAdvancingPlayback
 
         var resumedBeforeStart = SceneVideoProviderLifecycleState(epoch: 88)
-        resumedBeforeStart.suspend(sceneTime: 10, hostTime: 100)
-        resumedBeforeStart.resumeSuspension(sceneTime: 20, hostTime: 200)
-        resumedBeforeStart.start(sceneTime: 30, hostTime: 300)
+        resumedBeforeStart.suspend(hostTime: 100)
+        resumedBeforeStart.resumeSuspension(hostTime: 200)
+        resumedBeforeStart.start(hostTime: 300)
         let beforeStartResumePlan = resumedBeforeStart.planFrame(
-            frameIndex: 0, sceneTime: 30.25, hostTime: 300.25
+            frameIndex: 0, hostTime: 300.25
         )
 
         var looping = SceneVideoProviderLifecycleState(epoch: 83)
-        looping.start(sceneTime: 100, hostTime: 200)
+        looping.start(hostTime: 200)
         _ = looping.planFrame(
             frameIndex: 1,
-            sceneTime: 105,
             hostTime: 205
         )
         looping.didReachEnd(duration: 5)
         let loopRestart = looping.planFrame(
             frameIndex: 2,
-            sceneTime: 105.25,
             hostTime: 205.25
         )
 
         func loopPhase(rate: Double, observed: Double, next: Double) -> Double {
             var source = SceneVideoProviderLifecycleState(epoch: 84)
-            source.start(sceneTime: 100, hostTime: 200)
-            source.setRate(rate, sceneTime: 100, hostTime: 200)
-            _ = source.planFrame(frameIndex: 1, sceneTime: 100 + observed, hostTime: 200 + observed)
+            source.start(hostTime: 200)
+            source.setRate(rate, hostTime: 200)
+            _ = source.planFrame(frameIndex: 1, hostTime: 200 + observed)
             source.didReachEnd(duration: 5)
-            return source.planFrame(frameIndex: 2, sceneTime: 100 + next,
-                hostTime: 200 + next).itemTime
+            return source.planFrame(frameIndex: 2, hostTime: 200 + next).itemTime
         }
         let delayedLoop = loopPhase(rate: 1, observed: 5.2, next: 5.25)
         let earlyLoop = loopPhase(rate: 1, observed: 4.99, next: 5.02)
         let fastLoop = loopPhase(rate: 2, observed: 2.6, next: 2.65)
         var repeatedLoop = SceneVideoProviderLifecycleState(epoch: 85)
-        repeatedLoop.start(sceneTime: 0, hostTime: 0)
+        repeatedLoop.start(hostTime: 0)
         for index in 1...10 {
             _ = repeatedLoop.planFrame(frameIndex: UInt64(index),
-                sceneTime: Double(index) * 5.2, hostTime: Double(index) * 5.2)
+                hostTime: Double(index) * 5.2)
             repeatedLoop.didReachEnd(duration: 5)
         }
         let repeatedLoopPhase = repeatedLoop.planFrame(frameIndex: 11,
-            sceneTime: 52.05, hostTime: 52.05).itemTime
+            hostTime: 52.05).itemTime
 
         var earlyAnchor = SceneVideoProviderLifecycleState(epoch: 86)
-        earlyAnchor.start(sceneTime: 100, hostTime: 200)
-        _ = earlyAnchor.planFrame(frameIndex: 1, sceneTime: 104.99, hostTime: 204.99)
+        earlyAnchor.start(hostTime: 200)
+        _ = earlyAnchor.planFrame(frameIndex: 1, hostTime: 204.99)
         earlyAnchor.didReachEnd(duration: 5)
         var earlyPaused = earlyAnchor
-        earlyPaused.pause(sceneTime: 104.995, hostTime: 204.995)
-        earlyPaused.resume(sceneTime: 105.5, hostTime: 205.5)
+        earlyPaused.pause(hostTime: 204.995)
+        earlyPaused.resume(hostTime: 205.5)
         var earlyRate = earlyAnchor
-        earlyRate.setRate(2, sceneTime: 105.01, hostTime: 205.01)
+        earlyRate.setRate(2, hostTime: 205.01)
         var finalEnd = earlyAnchor
         finalEnd.setLoop(false)
         finalEnd.didReachEnd(duration: 5)
-        let negativeAnchorTransitions = close(earlyPaused.currentTime(at: 105.52), 0.015)
-            && close(earlyRate.currentTime(at: 105.03), 0.05)
-            && close(finalEnd.currentTime(at: 110), 5) && !finalEnd.isPlaying
+        let negativeAnchorTransitions = close(earlyPaused.currentTime(at: 205.52), 0.015)
+            && close(earlyRate.currentTime(at: 205.03), 0.05)
+            && close(finalEnd.currentTime(at: 210), 5) && !finalEnd.isPlaying
 
         var playerEvents = SceneVideoPlayerEventState()
         let unanchoredEndRejected = !playerEvents.acceptsEndEvent(
@@ -265,7 +252,7 @@ enum Harness {
                 && close(paused.itemTime, 0.75),
             "resumeIsContinuous": resumed.shouldDecode
                 && close(resumed.itemTime, 1.0),
-            "laterFrameUsesSameSceneAnchor": continued.shouldDecode
+            "laterFrameUsesSameHostAnchor": continued.shouldDecode
                 && close(continued.itemTime, 1.5),
             "suspendedPauseDoesNotAdvance": !pausedWhileSuspended.shouldDecode
                 && close(pausedWhileSuspended.itemTime, 1),
@@ -273,7 +260,7 @@ enum Harness {
                 && frozenFirst.shouldDecode && close(frozenFirst.itemTime, 0)
                 && frozenFirstPublication == 1
                 && !frozenNext.shouldDecode && close(frozenNext.itemTime, 0),
-            "resumeAfterFrozenFirstUsesSceneAnchor": resumesFromFrozenFirst
+            "resumeAfterFrozenFirstUsesHostAnchor": resumesFromFrozenFirst
                 && resumedFromFrozenFirst.shouldDecode
                 && close(resumedFromFrozenFirst.itemTime, 0.25),
             "resumeBeforeFirstStartClearsSuspension": resumedBeforeStart.isAdvancingPlayback
@@ -283,7 +270,7 @@ enum Harness {
             "loopPreservesElapsedPhase": close(delayedLoop, 0.25)
                 && close(earlyLoop, 0.02) && close(fastLoop, 0.3)
                 && close(repeatedLoopPhase, 2.05),
-            "loopRestartsAtLatestSceneTime": loopRestart.shouldDecode
+            "loopRestartsAtLatestHostTime": loopRestart.shouldDecode
                 && close(loopRestart.itemTime, 0.25),
             "endEventBelongsToCurrentAnchor": unanchoredEndRejected
                 && currentEndAccepted
@@ -382,14 +369,14 @@ class SceneVideoProviderLifecycleStateTests(unittest.TestCase):
             "generationIsPublicationDriven",
             "pauseHoldsItemTime",
             "resumeIsContinuous",
-            "laterFrameUsesSameSceneAnchor",
+            "laterFrameUsesSameHostAnchor",
             "suspendedPauseDoesNotAdvance",
             "firstStartPreservesGlobalSuspension",
-            "resumeAfterFrozenFirstUsesSceneAnchor",
+            "resumeAfterFrozenFirstUsesHostAnchor",
             "resumeBeforeFirstStartClearsSuspension",
             "loopNegativeAnchorTransitions",
             "loopPreservesElapsedPhase",
-            "loopRestartsAtLatestSceneTime",
+            "loopRestartsAtLatestHostTime",
             "endEventBelongsToCurrentAnchor",
             "epochIsInherited",
             "stopIsIdempotent",
@@ -426,7 +413,6 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
             "SceneVideoProviderLifecycleState",
             "SceneFrameTiming",
             "timing.frameIndex",
-            "timing.sceneTime",
             "timing.hostTime",
             "contentGeneration",
             "lifecycle.planFrame(",
@@ -450,7 +436,7 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
         self.assertIsNotNone(current_frame)
         assert current_frame is not None
         self.assertIn(
-            "return pendingFrame ?? lastFrame",
+            "return pendingFrame ?? fallback",
             current_frame,
             "shared sources must reuse the last-ready frame for peer surfaces",
         )

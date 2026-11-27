@@ -93,7 +93,7 @@ enum SceneMediaThumbnailTextureStore { struct Snapshot {} }
             && registry.userPropertySources(declarations: declarations.videoDeclarations, device: device).isEmpty
             && player(candidate.source)?.rate == 0
         checks["sameSourceAdoptedPaused"] = registry.adoptUserPropertyCandidate(candidate,
-            sceneTime: 0, hostTime: firstTime.hostTime, isPaused: true)
+            hostTime: firstTime.hostTime, isPaused: true)
             && registry.userPropertySources(declarations: declarations.videoDeclarations, device: device)[property]
                 === candidate.source
         var sources = registry.userPropertySources(declarations: declarations.videoDeclarations, device: device)
@@ -104,7 +104,7 @@ enum SceneMediaThumbnailTextureStore { struct Snapshot {} }
         let peerPrimed = await peerCandidate.source.primeInitialFrame()
         checks["sameURLKeysHaveIndependentSources"] = peerPrimed && candidate.source !== peerCandidate.source
             && registry.adoptUserPropertyCandidate(peerCandidate,
-                sceneTime: 0, hostTime: CACurrentMediaTime(), isPaused: true)
+                hostTime: CACurrentMediaTime(), isPaused: true)
         sources = registry.userPropertySources(declarations: declarations.videoDeclarations, device: device)
         let paused = SceneFrameUserPropertyTextureAssembly.make(prepared: declarations,
             videoSources: sources, timing: firstTime)!
@@ -129,7 +129,7 @@ enum SceneMediaThumbnailTextureStore { struct Snapshot {} }
             textureRegistry: frameRegistry)
         let layer = SceneRenderDescriptor.Layer(id: layerID, contentKind: "solid")
         let start = CACurrentMediaTime()
-        registry.resume(sceneTime: 0, hostTime: start)
+        registry.resume(hostTime: start)
         var frameIndex: UInt64 = 1
         var pixels: [[Float]] = []
         var generations: Set<UInt64> = []
@@ -179,7 +179,7 @@ enum SceneMediaThumbnailTextureStore { struct Snapshot {} }
         foreign.stop()
         checks["replacementAdoptsWithoutReplacingPeer"] = replacementPrimed
             && registry.adoptUserPropertyCandidate(replacement,
-                sceneTime: 2.25, hostTime: CACurrentMediaTime(), isPaused: true)
+                hostTime: CACurrentMediaTime(), isPaused: true)
             && candidate.source.prepareFrame(for: firstTime) == nil
         let replacementTime = SceneFrameTiming(frameIndex: frameIndex + 1,
             hostTime: CACurrentMediaTime(), sceneTime: 2.25)
@@ -275,17 +275,17 @@ enum SceneMediaThumbnailTextureStore { struct Snapshot {} }
         registry.retire(layerIDs: [-811])
         checks["sameSourceBirthActionsRetireKeepsNetDemand"] = native.rate == 1.25 && position() == anchored
             && Set(registry.layerSources(deviceRegistryID: device.registryID).keys) == [-812]
-        guard let logical = source.playbackSnapshot(sceneTime: lastTiming.sceneTime),
-              let peerLogical = peer.playbackSnapshot(sceneTime: lastTiming.sceneTime) else {
+        guard let logical = source.playbackSnapshot(hostTime: lastTiming.hostTime),
+              let peerLogical = peer.playbackSnapshot(hostTime: lastTiming.hostTime) else {
             fatalError("prepared videos must expose playback metadata")
         }
         registry.retire(layerIDs: [-812])
         checks["zeroOrdinaryConsumersPauseOnlyBackend"] = native.rate == 0
-            && source.playbackSnapshot(sceneTime: lastTiming.sceneTime) == logical
-            && peerPlayer.rate > 0 && peer.playbackSnapshot(sceneTime: lastTiming.sceneTime) == peerLogical
+            && source.playbackSnapshot(hostTime: lastTiming.hostTime) == logical
+            && peerPlayer.rate > 0 && peer.playbackSnapshot(hostTime: lastTiming.hostTime) == peerLogical
         try await Task.sleep(for: .milliseconds(120))
         let returning = timing()
-        guard let advanced = source.playbackSnapshot(sceneTime: returning.sceneTime) else {
+        guard let advanced = source.playbackSnapshot(hostTime: returning.hostTime) else {
             fatalError("retiring the final consumer must preserve prepared playback metadata")
         }
         checks["unusedSourceKeepsLogicalPlaybackIntent"] = advanced.isPlaying && advanced.rate == logical.rate
@@ -296,7 +296,7 @@ enum SceneMediaThumbnailTextureStore { struct Snapshot {} }
             && fallback?.contentGeneration == held.contentGeneration
         registry.discardPreparedFrame()
         let resumed = try await nextFrame(after: held.contentGeneration)
-        guard let resumedPlayback = source.playbackSnapshot(sceneTime: lastTiming.sceneTime) else {
+        guard let resumedPlayback = source.playbackSnapshot(hostTime: lastTiming.hostTime) else {
             fatalError("returning consumer must retain playback metadata")
         }
         checks["returningConsumerPublishesCurrentPhase"] = resumed != nil && native.rate == 1.25
@@ -361,8 +361,7 @@ enum SceneMediaThumbnailTextureStore { struct Snapshot {} }
             let registry = SceneVideoTextureSourceRegistry(epoch: 1500)
             let candidate = registry.makeUserPropertyCandidate(declaration: loaded.videoDeclarations[key]!, device: device)!
             guard await candidate.source.primeInitialFrame(),
-                  registry.adoptUserPropertyCandidate(candidate, sceneTime: 0,
-                    hostTime: CACurrentMediaTime(), isPaused: true),
+                  registry.adoptUserPropertyCandidate(candidate, hostTime: CACurrentMediaTime(), isPaused: true),
                   let frame = SceneFrameUserPropertyTextureAssembly.make(prepared: loaded,
                     videoSources: registry.userPropertySources(declarations: loaded.videoDeclarations, device: device),
                     timing: .init(frameIndex: 1, hostTime: CACurrentMediaTime(), sceneTime: 0)) else {

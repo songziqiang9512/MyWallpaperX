@@ -85,8 +85,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 283,
-      "bytes": 52838
+      "lines": 298,
+      "bytes": 56626
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -101,8 +101,8 @@
       "bytes": 13800
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
-      "lines": 73,
-      "bytes": 6263
+      "lines": 74,
+      "bytes": 6520
     },
     "docs/scene/capabilities/README.md": {
       "lines": 31,
@@ -117,8 +117,8 @@
       "bytes": 16744
     },
     "docs/scene/capabilities/material-video-assets.md": {
-      "lines": 68,
-      "bytes": 7411
+      "lines": 69,
+      "bytes": 7730
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 434,
@@ -130,11 +130,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 413769
+      "bytes": 413894
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 186,
-      "bytes": 31858
+      "lines": 202,
+      "bytes": 34916
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -379,11 +379,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/material-video-assets.md",
-      "before": "6d639b0c454eba5ff55af2316f3f37177975fab790e72b539cc3e80ab513bce2",
-      "after": "0ef76e52d15f4f20c7fb565d7e3f208785a929b46f4a8bb9ba2fd93d52089094",
-      "owner": "repository governance",
-      "reason": "Use the current test collection paths and repair the navigation after the script move.",
-      "decision": "docs/development/repository-workflow.md#并行与验证"
+      "before": "0ef76e52d15f4f20c7fb565d7e3f208785a929b46f4a8bb9ba2fd93d52089094",
+      "after": "937a15fbbb1481a3e5cdfd2fe730ac7f76e659475d8552ac2a25f0ef49ef95fa",
+      "owner": "Scene media source",
+      "reason": "将视频和 Sound 的时间合同同步到单调宿主时间。",
+      "decision": "docs/scene/capabilities/material-video-assets.md#position"
     },
     {
       "section": "bodies",
@@ -649,38 +649,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "01ab3b1eee3aadf18ef6654299f22c0bd42cbde422fe25052b0f14eab0a27404",
-      "after": "185a0f227ba013f6bd53cabff782d84d424a7ca531b0674a1b04b994ff83a4bc",
-      "owner": "Scene text",
-      "reason": "记录回退字形沿主字体基线定位。",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#text-fallback-line-metrics"
+      "before": "185a0f227ba013f6bd53cabff782d84d424a7ca531b0674a1b04b994ff83a4bc",
+      "after": "fe6ed0780aedaff307f377a642e0027b575155dcc65061f5019174ddef8bbbff",
+      "owner": "Scene input and property evidence",
+      "reason": "记录官方视口、作品速率和本机媒体与画面回归。",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#scene-extra-presentation-20261128"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2e5f2ce596fb10658abde5a242fc6b78acc19e744e433032b408a45db2f18616",
-      "after": "0600bbbacdfc0c340327c8d744186f7e01234422c245cfee61e8f6cb8cb6a14c",
+      "before": "0600bbbacdfc0c340327c8d744186f7e01234422c245cfee61e8f6cb8cb6a14c",
+      "after": "c9352a188f637c8becdd0750cbb7f68ec233db1b9f7949edf03145bf0cd04e8f",
       "owner": "Scene runtime evidence",
-      "reason": "记录原包画幅、文字行框和共用填充模式的真 daemon 热切。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#scene-text-layout-engine-20261128"
+      "reason": "将作品级取景与监听证据接到运行输入专题。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#text-screen-anchor-viewport"
     },
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "3dbfd8a2ce24e15a0fcbd6afb7d0311b3ad596efab19e6a31a956f97a17726a6",
-      "after": "ccf54060dac9119431b73d0d9892cf38ddd6407c26098dfd81d308410a2378d0",
-      "owner": "Scene Surface geometry",
-      "reason": "记录 Video 与 Scene 共用填充偏好、Scene 画幅热更新及呈现边界。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#scene-display-fit"
+      "before": "ccf54060dac9119431b73d0d9892cf38ddd6407c26098dfd81d308410a2378d0",
+      "after": "43a90f75419bcdd79f7f125f4378835879b0c3efc5f778e4ac502f3bfc75d0ce",
+      "owner": "Scene Session and properties",
+      "reason": "合并作品级通用调节、取景算法、音量、翻转和媒体时钟设计。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#scene-work-presentation"
     },
     {
       "section": "bodies",
       "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
-      "before": "64c2a894f55294e3ef857dfcfd832213caf042a1c81159341e26d2e548e32d02",
-      "after": "3239e0165870a1523058f25d08c71b2c42481b06a23bb2c9886563cc3112d0f3",
+      "before": "3239e0165870a1523058f25d08c71b2c42481b06a23bb2c9886563cc3112d0f3",
+      "after": "5d4cf44aed70afabb00da74299743477eefd105dc6948a722d0389f5caf5c5d6",
       "owner": "Scene daemon IPC",
-      "reason": "登记窗口填充模式的控制入口。",
-      "decision": "docs/scene/architecture/scene-runtime-daemon-contract.md#protocol"
+      "reason": "记录作品通用调节的加载与按请求热更新。",
+      "decision": "docs/scene/architecture/scene-runtime-daemon-contract.md"
     }
   ]
 }

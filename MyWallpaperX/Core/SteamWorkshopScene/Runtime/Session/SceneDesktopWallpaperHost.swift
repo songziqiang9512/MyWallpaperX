@@ -76,6 +76,7 @@ final class SceneDesktopWallpaperHost {
     var screenTopology: [SceneScreenTopology] = []
     private(set) var performanceProfile: PlaybackPerformanceProfile = .current
     private(set) var fitsCanvas = false
+    var pendingPresentation = ScenePlaybackPresentation()
     private var playbackPaused = false
 #if DEBUG
     private var debugPointerOverride: SceneSurfacePointerInput?
@@ -96,6 +97,20 @@ final class SceneDesktopWallpaperHost {
         if unconfirmedPromotion == nil { activeSession?.fitsCanvas = fits }
     }
 
+    func updatePresentation(_ presentation: ScenePlaybackPresentation, requestID: UUID) {
+        // A candidate's first-frame proof is for its original geometry. Apply
+        // edits received after surface installation when the transfer commits.
+        if unconfirmedPromotion?.requestID == requestID ||
+            (launchState?.requestID == requestID && launchState?.isInProgress == true) {
+            pendingPresentation = presentation
+            return
+        }
+        for session in [activeSession, unconfirmedPromotion?.previous].compactMap({ $0 })
+        where session.launchRequestID == requestID {
+            session.presentation = presentation
+        }
+    }
+
     func applyDisplayConfiguration(_ topology: [SceneScreenTopology]) {
         guard topology != screenTopology else { return }
         screenTopology = topology
@@ -111,9 +126,9 @@ final class SceneDesktopWallpaperHost {
     }
 
     func setMasterVolume(_ volume: Double) {
-        activeSession?.soundPlaybackRegistry?.setMasterVolume(volume)
-        candidateSession?.soundPlaybackRegistry?.setMasterVolume(volume)
-        unconfirmedPromotion?.previous?.soundPlaybackRegistry?.setMasterVolume(volume)
+        activeSession?.setMasterVolume(volume)
+        candidateSession?.setMasterVolume(volume)
+        unconfirmedPromotion?.previous?.setMasterVolume(volume)
     }
 
     func setMuted(_ muted: Bool) {

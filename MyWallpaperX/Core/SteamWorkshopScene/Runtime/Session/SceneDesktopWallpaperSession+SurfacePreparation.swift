@@ -69,7 +69,7 @@ extension SceneDesktopWallpaperSession {
         guard pendingSurfacePreparation == nil, !screens.isEmpty,
               let values = evaluationTransaction.committedSnapshot else { return }
         let topology = context.sceneScriptDynamicLayerRuntime.snapshot()
-        let audio = SceneAudioSpectrumInbox.shared.prepareFrame().snapshot
+        let audio = presentation.listensToAudio ? SceneAudioSpectrumInbox.shared.prepareFrame().snapshot : .silent
         let input = context.makeSurfacePreparationInput(dynamicValues: values, topology: topology,
             audioInput: .init(left: audio.left, right: audio.right, generation: audio.generation),
             sceneTime: sceneClock.currentSceneTime(hostTime: CACurrentMediaTime()))
@@ -239,6 +239,7 @@ extension SceneDesktopWallpaperSession {
                 continue
             }
             let frame = screen.frame
+            let framing = effectiveFraming
             let materialRuntime = prepared.materialRuntime
             materialRuntime.installAssetVideoSources(assetVideoSources,
                 declaredIdentities: Set(launchContext.materialAssetCatalog.videoDeclarations.keys),
@@ -273,7 +274,10 @@ extension SceneDesktopWallpaperSession {
                     firstFramePresentationRegistration?.arm(on: drawable) ?? false
                 },
                 frame: frame,
-                fitsCanvas: fitsCanvas
+                fitsCanvas: framing.fits,
+                cameraAdjustment: framing.adjustment,
+                flippedHorizontally: presentation.flippedHorizontally,
+                allowsMouseParallax: presentation.allowsMouseParallax
             ) else {
                 _ = prepared.playback.teardown(reason: "surfaceUnavailable")
                 continue
@@ -466,7 +470,7 @@ extension SceneDesktopWallpaperSession {
                 layerIDs: surface.metalView.spriteAnimationLayerIDs, sceneTime: timing.sceneTime),
             layerTopology: topology, mediaThumbnail: mediaThumbnailTextures!.snapshot(),
             mediaInputGeneration: media.generation,
-            audioSpectrum: SceneAudioSpectrumInbox.shared.prepareFrame().snapshot)
+            audioSpectrum: presentation.listensToAudio ? SceneAudioSpectrumInbox.shared.prepareFrame().snapshot : .silent)
     }
 
     func updatePreparedSurfaceMembership(_ launchContext: SceneDesktopWallpaperLaunchContext) {

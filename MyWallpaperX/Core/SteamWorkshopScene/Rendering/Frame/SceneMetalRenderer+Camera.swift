@@ -7,7 +7,8 @@ extension SceneMetalRenderer {
         descriptor: SceneRenderDescriptor,
         layersByID: [Int: SceneRenderDescriptor.Layer],
         worldFrames: [Int: simd_float4x4],
-        perspectiveReplayRootIDs: Set<Int> = []
+        perspectiveReplayRootIDs: Set<Int> = [],
+        adjustment: SceneCameraProjection.Adjustment = .init()
     ) -> SceneParticleCameraFrame {
         let camera = descriptor.camera
         // Visibility controls consumption, not Timeline playback. Hidden paths
@@ -48,14 +49,16 @@ extension SceneMetalRenderer {
                 worldFrames: worldFrames, dynamicValues: frameContext.dynamicValues
             ),
             dynamicValues: frameContext.dynamicValues,
-            perspectiveReplayRootIDs: perspectiveReplayRootIDs
+            perspectiveReplayRootIDs: perspectiveReplayRootIDs,
+            adjustment: adjustment
         )
     }
 
     func parallaxConfiguration(
         cameraFrame: SceneParticleCameraFrame,
         viewportSize: CGSize,
-        dynamicValues: SceneDynamicSnapshot
+        dynamicValues: SceneDynamicSnapshot,
+        allowsMouseParallax: Bool = true
     ) -> SceneLayerParallax.Configuration {
         let camera = renderDescriptor.camera
         let property = dynamicValues.cameraPropertyProjection()
@@ -64,7 +67,7 @@ extension SceneMetalRenderer {
             camera.orthoHeight ?? Float(viewportSize.height)
         )
         return SceneLayerParallax.Configuration(
-            enabled: property.parallaxEnabled ?? camera.parallaxEnabled,
+            enabled: allowsMouseParallax && (property.parallaxEnabled ?? camera.parallaxEnabled),
             amount: property.parallaxAmount ?? camera.parallaxAmount,
             mouseInfluence:
                 property.parallaxMouseInfluence

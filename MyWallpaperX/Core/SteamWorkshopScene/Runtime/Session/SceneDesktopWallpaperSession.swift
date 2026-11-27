@@ -142,11 +142,46 @@ final class SceneDesktopWallpaperSession {
     private(set) var performanceProfile: PlaybackPerformanceProfile = .current
     var fitsCanvas = false {
         didSet {
-            guard fitsCanvas != oldValue else { return }
-            for surface in surfaces.values {
-                surface.metalView.fitsCanvas = fitsCanvas
-            }
+            guard presentation.fitsCanvas(systemFit: oldValue) != presentation.fitsCanvas(systemFit: fitsCanvas) else { return }
+            updateSurfaceFraming()
         }
+    }
+
+    var presentation = ScenePlaybackPresentation() {
+        didSet {
+            guard presentation != oldValue else { return }
+            updateSurfaceFraming()
+            if presentation.volume != oldValue.volume { setMasterVolume(Double(PlaybackVolumeState.shared.normalizedVolume)) }
+            if presentation.rate != oldValue.rate {
+                sceneClock.setPlaybackRate(Double(presentation.rate) / 100, hostTime: CACurrentMediaTime())
+            }
+            if presentation.listensToAudio != oldValue.listensToAudio { onAudioDemandChanged?() }
+        }
+    }
+
+    var effectiveFraming: (fits: Bool, adjustment: SceneCameraProjection.Adjustment) {
+        let alignment = presentation.resolvedAlignment(systemFit: fitsCanvas)
+        let layout: SceneCameraProjection.Layout = switch alignment {
+        case .system, .cover: .cover
+        case .fit: .fit
+        case .center: .center
+        case .stretch: .stretch
+        case .free: .free
+        }
+        return (layout == .fit, .init(position: presentation.position, zoom: presentation.zoom, layout: layout,
+                                      horizontalPosition: presentation.horizontalPosition, verticalPosition: presentation.verticalPosition))
+    }
+
+    private func updateSurfaceFraming() {
+        let framing = effectiveFraming
+        for surface in surfaces.values {
+            surface.metalView.applyPresentation(fits: framing.fits, adjustment: framing.adjustment,
+                flipped: presentation.flippedHorizontally, allowsMouseParallax: presentation.allowsMouseParallax)
+        }
+    }
+
+    func setMasterVolume(_ volume: Double) {
+        soundPlaybackRegistry?.setMasterVolume(volume * (Double(presentation.volume) / 100))
     }
 
     func applyPerformanceProfile(_ profile: PlaybackPerformanceProfile) {
@@ -189,7 +224,8 @@ final class SceneDesktopWallpaperSession {
         nextVideoProviderEpoch &+= 1
         videoTextureSourceRegistry = SceneVideoTextureSourceRegistry(
             epoch: nextVideoProviderEpoch,
-            capturesLifecycleObservations: context.capturesExecutionObservations
+            capturesLifecycleObservations: context.capturesExecutionObservations,
+            pausedHostTime: sceneClock.isPaused ? CACurrentMediaTime() : nil
         )
         sceneScriptPuppetPoseSurface = nil
         launchContext = context
@@ -217,9 +253,7 @@ final class SceneDesktopWallpaperSession {
         if !isVisible || PlaybackMuteState.shared.isMuted {
             soundPlaybackRegistry.setMuted(true)
         }
-        soundPlaybackRegistry.setMasterVolume(
-            Double(PlaybackVolumeState.shared.normalizedVolume)
-        )
+        setMasterVolume(Double(PlaybackVolumeState.shared.normalizedVolume))
         soundPlaybackRegistry.start(
             paused: !isVisible || sceneClock.isPaused,
             userValues: context.liveState.userValues

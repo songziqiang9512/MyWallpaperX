@@ -17,7 +17,7 @@ extension SceneDesktopWallpaperSession.Surface {
             ? metalView.renderer.particlePointerLocalPositions(frameContext: context,
                 cameraFrame: metalView.renderer.makeCameraFrame(frameContext: context,
                     descriptor: projection.descriptor, layersByID: projection.layersByID,
-                    worldFrames: projection.worldFrames), frameProjection: projection,
+                    worldFrames: projection.worldFrames, adjustment: metalView.cameraAdjustment), frameProjection: projection,
                 demands: CollectionOfOne(layerID)) : [:]
         return try particlePlayback.emissionContext(layerID: layerID, sceneTime: timing.sceneTime, dynamicValues: dynamicValues,
             pointerLocalPosition: pointers[layerID],

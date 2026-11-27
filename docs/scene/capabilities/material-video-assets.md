@@ -14,9 +14,10 @@ Sound 使用独立的 SoundPlaybackProgram/Registry、voice 和局部播放计�
 <a id="position"></a>
 ## 视频时间与发布
 
-原 lifecycle 持 Scene 时间与播放意图，Source 持同 item/目标/UUID 的定位状态。currentTime/stop、真实 EOF 及影响 duration 映射的 loop 变化可请求定位；普通 play/rate/恢复只重锚，不每帧 seek。
+Lifecycle 在单调宿主时间上持播放位置与意图，Source 持同 item/目标/UUID 的定位状态。视频取帧、脚本查询、局部速度和暂停/恢复消费同一时间。作品模拟速度与媒体分离，Sound 随机间隔也走同一个宿主时间。currentTime/stop、真实 EOF 及影响 duration 映射的 loop 变化可请求定位。普通 play/rate/恢复只重锚，不每帧 seek。
 
-- 定位完成只记录 backend 事实，不修改逻辑时钟或立即发布。后续 prepare 按最新 Scene 相位取图；失败保 last-ready，不重建 player/output 猜恢复。
+- Registry 在 Session 暂停时将宿主时间传给新建的普通和素材视频源。首帧等待期间视频保持起始位置，恢复后由同一媒体时钟继续推进。
+- 定位完成只记录 backend 事实，不修改逻辑时钟或立即发布。后续 prepare 按最新视频位置取图。失败保 last-ready。
 - Source 至多保一份未发布 decoded payload。同源同目标可复用，但新定位、目标变化、stop/退出使候选和旧 token 失效；6→2→6 必须产生新的定位关系。
 - publication 由本次计划生成，成功 commit 才推进 generation/last-ready。取得的像素不是可回滚时钟；普通拒帧不恢复已经消费的 Scene 命令或后台 anchor。
 - 未准备输入、坏解码和暂时 pending 只影响实际 consumer；不能重放 VM、回滚整景或拿旧 ready 冒充新定位成功。
@@ -34,7 +35,7 @@ opaque 视频资产可作为 `straightAlbedo` 进入已证明的 shader 颜色�
 <a id="inactive-material-frame-acquisition"></a>
 ### 未使用的材质视频取图
 
-确定无读者的 `.asset` 视频只维持原起播、对时、暂停/恢复及 EOF，不取图、导入 Metal 或发布新 generation。Scene 时间与提交屏障仍由原 Source/Registry 持有；重新消费按当前时间取图。
+确定无读者的 `.asset` 视频只维持原起播、对时、暂停/恢复及 EOF，不取图、导入 Metal 或发布新 generation。视频时间与提交屏障仍由原 Source/Registry 持有。重新消费按当前位置取图。
 
 冷准备沿原材质 demand 和可执行 stage 归属：只有一个逻辑视频绑定且所有用途属于同一个可旁路的 effect，才用其 typed 显隐目标与同帧共享快照，明确为 false 时省取图。普通/base/source材质、动态别名、共享用途及无法证明的读者保持原供货。hidden layer 本身不是停止条件，named、forward 等仍可执行有效 stage。只给符合条件的视频携带一个目标，不另算层树、重解材质或新建需求 owner。
 

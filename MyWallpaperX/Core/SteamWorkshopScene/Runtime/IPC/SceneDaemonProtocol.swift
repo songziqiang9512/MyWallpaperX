@@ -12,7 +12,8 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
         recordID: String?,
         requiredUserTextureKeys: Set<String> = [],
         requestID: UUID? = nil,
-        source: ScenePlaybackSource? = nil
+        source: ScenePlaybackSource? = nil,
+        presentation: ScenePlaybackPresentation = .init()
     )
     case setProperty(
         values: [String: SceneUserPropertyValue],
@@ -30,6 +31,7 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
     case setDisplayConfiguration([SceneScreenTopology])
     case setPerformanceProfile(PlaybackPerformanceProfile)
     case setCanvasFit(Bool)
+    case setPresentation(ScenePlaybackPresentation, requestID: UUID)
     /// Normalized master volume (0...1) applied after authored/user volume.
     case setVolume(Float)
     case setMuted(Bool)
@@ -155,6 +157,11 @@ nonisolated enum SceneDaemonProtocol {
                 }
                 source = decoded
             } else { source = nil }
+            let presentation: ScenePlaybackPresentation
+            if let raw = payload["presentation"] {
+                guard let decoded = decodePresentation(raw) else { return .failure(.invalidPayload("scene-presentation")) }
+                presentation = decoded
+            } else { presentation = .init() }
             return .success(.loadScene(
                 rootURL: rootURL,
                 propertyOverrides: values,
@@ -164,8 +171,15 @@ nonisolated enum SceneDaemonProtocol {
                 recordID: payload["recordID"] as? String,
                 requiredUserTextureKeys: requiredKeys,
                 requestID: requestID,
-                source: source
+                source: source,
+                presentation: presentation
             ))
+        case "setPresentation":
+            guard let raw = payload["presentation"], let presentation = decodePresentation(raw),
+                  let key = payload["requestID"] as? String, let requestID = UUID(uuidString: key) else {
+                return .failure(.invalidPayload("scene-presentation"))
+            }
+            return .success(.setPresentation(presentation, requestID: requestID))
         case "setUserShortcuts":
             guard let configuration = shortcutConfiguration(payload["configuration"]),
                   configuration.revision > 0,
@@ -434,6 +448,22 @@ nonisolated enum SceneDaemonProtocol {
             ))
         }
         return result.sorted { $0.displayID < $1.displayID }
+    }
+
+    static func presentationObject(_ presentation: ScenePlaybackPresentation) -> [String: Any] {
+        ["alignment": presentation.alignment.rawValue, "position": presentation.position,
+         "zoom": presentation.zoom, "listensToAudio": presentation.listensToAudio,
+         "horizontalPosition": presentation.horizontalPosition, "verticalPosition": presentation.verticalPosition,
+         "flippedHorizontally": presentation.flippedHorizontally, "allowsMouseParallax": presentation.allowsMouseParallax,
+         "volume": presentation.volume, "rate": presentation.rate]
+    }
+
+    private static func decodePresentation(_ raw: Any) -> ScenePlaybackPresentation? {
+        guard let object = raw as? [String: Any],
+              let data = try? JSONSerialization.data(withJSONObject: object),
+              let value = try? JSONDecoder().decode(ScenePlaybackPresentation.self, from: data),
+              value.isValid else { return nil }
+        return value
     }
 
     private static func integer(_ raw: Any?) -> Int? {

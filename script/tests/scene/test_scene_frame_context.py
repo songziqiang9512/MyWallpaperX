@@ -137,6 +137,7 @@ struct FrameTestRenderer {
 struct FrameTestMetalLayer { var drawableSize = CGSize(width: 3024, height: 1964) }
 struct SceneMetalView {
     var onRenderInvalidated: (() -> Void)?
+    var allowsMouseParallax = true
     var renderer = FrameTestRenderer()
     var metalLayer = FrameTestMetalLayer()
     var offscreenTexturePool = FrameTestPool()
@@ -207,9 +208,10 @@ enum Harness {
             ],
             audioSpectrum: .silent
         )
-        func makeInput(_ snapshot: SceneDynamicSnapshot, authoredEnabled: Bool = true) -> SIMD2<Float> {
+        func makeInput(_ snapshot: SceneDynamicSnapshot, authoredEnabled: Bool = true, allowsMouseParallax: Bool = true) -> SIMD2<Float> {
             var view = SceneMetalView()
             view.renderer.renderDescriptor.camera.parallaxEnabled = authoredEnabled
+            view.allowsMouseParallax = allowsMouseParallax
             let frame = view.makeFrameContext(
                 timing: second, dynamicValues: snapshot,
                 parallax: SIMD2(0.8, -0.4), audioSpectrum: .silent
@@ -237,6 +239,22 @@ enum Harness {
             makeInput(snapshot(enabled: true, influence: 0.25), authoredEnabled: false),
         ]
         let shaderInputs = SceneAuthoredShaderFrameInputs(frameContext: context)
+        precondition(makeInput(snapshot(enabled: true, influence: 2), allowsMouseParallax: false) == .zero)
+        var speed = SceneClock(hostTime: 0)
+        let wall = Date(timeIntervalSince1970: 1234)
+        _ = speed.advance(hostTime: 0, wallDate: wall)
+        _ = speed.advance(hostTime: 0.25, wallDate: wall)
+        speed.setPlaybackRate(2, hostTime: 0.3125)
+        let fast = speed.advance(hostTime: 0.375, wallDate: wall)
+        precondition(fast.sceneTime == 0.4375 && fast.frameTime == 0.1875 && fast.wallDate == wall)
+        speed.pause(hostTime: 0.375)
+        speed.setPlaybackRate(0.5, hostTime: 20)
+        precondition(speed.currentSceneTime(hostTime: 21) == fast.sceneTime)
+        speed.resume(hostTime: 24)
+        let resumedAtHalfRate = speed.advance(hostTime: 25, wallDate: wall)
+        precondition(resumedAtHalfRate.sceneTime == fast.sceneTime && resumedAtHalfRate.frameTime == 0)
+        let half = speed.advance(hostTime: 25.125, wallDate: wall)
+        precondition(half.sceneTime == 0.5 && half.frameTime == 0.0625 && half.hostTime == 25.125)
         let parallaxVariants = [Float(0), 1, 2, -1].map { influence in
             SceneAuthoredShaderFrameInputs(frameContext: SceneFrameContext(
                 timing: second,
