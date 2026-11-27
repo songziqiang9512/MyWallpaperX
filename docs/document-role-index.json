@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4480f9b132a28c15b591bcba029d6985a40908013697d1cbf0babc2b8d6558fa",
+        "sourceSHA256": "e1434994e5ae8f6b9aeeab43e9c9434cd520270c3e4ee0e76e9a616471a67457",
         "method": "document_registry --audit + document_health --check",
-        "scope": "约定 Auto 根据当前取景后的实际画幅计算需求。",
-        "limitations": "真实收据限 M4 单内屏、锁定输入和指定纹理。异向多屏由几何门覆盖，未量物理多屏和整机功耗。"
+        "scope": "明确单级 PNG TEX 保原上传和回执。",
+        "limitations": "实际终图取自 M4 单内屏签名应用。阶段耗时为已解码图像的原生栅格和上传，分配限指定纹理。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cff1c602dcef0d0f5b9764ee597b25ce9d1bc58fb00d173c84f0a4757986f1e9",
+        "sourceSHA256": "6c13405db90b17adb935f61f3d31a2408466078e93bc1f4863cf54fc6ce8388c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "比较冷端选级与安装后缩级，记录二屏几何和原作验收条件。",
-        "limitations": "真实收据限 M4 单内屏、锁定输入和指定纹理。异向多屏由几何门覆盖，未量物理多屏和整机功耗。"
+        "scope": "明确单级 PNG 试验算法、画面及成本门和退出。",
+        "limitations": "实际终图取自 M4 单内屏签名应用。阶段耗时为已解码图像的原生栅格和上传，分配限指定纹理。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b288d411aa222f3537796917ed4267b2705242b98ea59722962fd30d5424a386",
+        "sourceSHA256": "bbb91711a33d72ff42d9582f59e3104fdceb6e101be0f4aef8f01a9b05f857c0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "记录两部局部多 pass 原作的终图、分配与取景热切。",
-        "limitations": "真实收据限 M4 单内屏、锁定输入和指定纹理。异向多屏由几何门覆盖，未量物理多屏和整机功耗。"
+        "scope": "记录两部 RGB 原作和三份 RGBA 资源的验收结果。",
+        "limitations": "实际终图取自 M4 单内屏签名应用。阶段耗时为已解码图像的原生栅格和上传，分配限指定纹理。"
       }
     },
     {

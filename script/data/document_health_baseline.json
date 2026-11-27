@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 172,
-      "bytes": 34700
+      "bytes": 34741
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 184189
+      "bytes": 185513
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 165620
+      "bytes": 166823
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -723,39 +723,39 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "3e9485cc928417a99de9c2c3acdc8040f586e8e9ef141fc5690ac47e191961a7",
-      "after": "b12a00ad092f8858c2ddfaa6005f2c9cc23d954dd2ef0dfabe357c109d0fae17",
-      "owner": "runtime quality contract",
-      "reason": "约定 Auto 根据当前取景后的实际画幅计算需求。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-fitted-drawable"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "8e45346c1fa39525e3f00b6835f37059bd8081c144916cc2164b75eb9154ed1f",
-      "after": "4ffbc0ececab90dc584457de79d6a6da5321d6104555bbb12c22323474819d62",
-      "owner": "wallpaper quality design",
-      "reason": "比较冷端选级与安装后缩级，记录二屏几何和原作验收条件。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-fitted-drawable"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "64a04d440a2e683abbc30e0da9b7fb344eef7052e1e1042b28651fbfc4025e1b",
-      "after": "b5ea39a4e24bd89ba8be818da46014d983421822afa3b01ed85b5a5e51a25a39",
-      "owner": "wallpaper quality execution",
-      "reason": "记录两部局部多 pass 原作的终图、分配与取景热切。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-auto-fit-delivery"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "3539cbf18cacab234bbcd636b1fcf7825b6858b10405ccc7b0a631fb8a05f17e",
       "after": "49bae5e22dfe385bb79a30f89ec81b2dfa73e2a62918d26b1fd319afd2f5175d",
       "owner": "Scene Surface geometry",
       "reason": "注明冷准备复用逐屏相机取景和保留现役尺寸事件。",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-fitted-drawable"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/wallpaper-quality-execution-contract.md",
+      "before": "b12a00ad092f8858c2ddfaa6005f2c9cc23d954dd2ef0dfabe357c109d0fae17",
+      "after": "04ce1e3ab35266a5f34401472531f011f9ee43da72e8666454891ddb8dd7ee9a",
+      "owner": "runtime quality contract",
+      "reason": "明确单级 PNG TEX 保原上传和回执。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-single-png-color"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-settings-plan.md",
+      "before": "4ffbc0ececab90dc584457de79d6a6da5321d6104555bbb12c22323474819d62",
+      "after": "383d4436e2d808a375a8f70f62bb952c8af88789720188be5a3e8574da8cc915",
+      "owner": "wallpaper quality design",
+      "reason": "明确单级 PNG 试验算法、画面及成本门和退出。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-single-png-color"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "b5ea39a4e24bd89ba8be818da46014d983421822afa3b01ed85b5a5e51a25a39",
+      "after": "09709156f71de74691a2c3eb7ab944ec145e9b609be2b91694bb9d963405b31e",
+      "owner": "wallpaper quality execution",
+      "reason": "记录两部 RGB 原作和三份 RGBA 资源的验收结果。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-single-png-result"
     }
   ]
 }
