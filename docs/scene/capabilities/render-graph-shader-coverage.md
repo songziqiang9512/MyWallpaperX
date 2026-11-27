@@ -74,7 +74,7 @@ Program仍准备一个数值binding，主身份供原ABI/语义身份、直user�
 <a id="prepared-dead-fragment-sampling"></a>
 ### 准备期无输出消费者的采样
 
-资源需求来自本变体真正保留的计算。对 main 顶层、初始化无副作用且结果没有任何存留消费者的局部值，原冷编译投影可沿已有逆序局部闭包删除其纯采样和中间计算；emission、sampler/uniform ABI 与资源需求必须同源退出。不能只放宽缺绑定检查、删除某个纹理参数或按 shader、material 属性名、路径、样本识别，不能为隐藏 sampler 猜 background/previous 或补默认纹理。
+资源需求来自本变体真正保留的计算。对 main 顶层、初始化无副作用且结果没有任何存留消费者的局部值，原冷编译投影可沿已有逆序局部闭包删除其纯采样和中间计算；emission、sampler/uniform ABI 与资源需求必须同源退出。不能只放宽缺绑定检查、删除某个纹理参数或按 shader、material 属性名、路径、样本识别，隐藏 sampler 若仍被读取，由[缺纹理合同](#missing-ordinary-material-texture)与已解析图来源决定实际供给。
 
 复用 DeadBindingAnalyzer 的 statement、binding 与副作用事实，在 BackendCanonicalizer 的共同 vertex/fragment 输入和有界 frontend emitter 承接同一删除结果；保原作者源码、身份与诊断位置，不建另一套 IR/SSA、Program 字段、native probe、状态或普通帧分析。只是物理纹理接口缺席仍不足以取消 Resolution、vertex/varying 或 attachment 的逻辑输入。已有顶点死 varying 投影和相邻准备语义保持。
 
@@ -87,9 +87,9 @@ Program仍准备一个数值binding，主身份供原ABI/语义身份、直user�
 
 可选 sampler 未绑定且当前变体不采样时，原 Schema 确认无 authored/default/graph 来源及 readiness 关闭，将使用的 Resolution 降为已测 `vec4(2)`。两 backend 共用准备输入。活动采样、缺文件、pending、默认及具名资源保独立语义。[官方声明合同](https://docs.wallpaperengine.io/en/scene/shader/variables.html#optional-visible-texture)
 
-<a id="missing-ordinary-material-texture"></a>活动效果的普通可见副槽 `sampler2D` 无来源时，官版按 6×6 不透明黄黑棋盘采样，左上黑，逐像素交替，最近点且重复寻址。物理及映射尺寸均为6。普通显式 TEX 经 VFS 确认缺失也是同一采样。原帧准备采用一个内部系统引用，经现有静态纹理发布，共用一张按需生成的 RGBA8。尺寸、用途、采样器随原 binding publication，下游不根据 nil 猜默认，不新增逐帧合成、缓存或载入路径。
+<a id="missing-ordinary-material-texture"></a>活动效果的普通副槽 `sampler2D` 无来源时，官版按 6×6 不透明黄黑棋盘采样，左上黑，逐像素交替，最近点且重复寻址。物理及映射尺寸均为6。普通显式 TEX 经 VFS 确认缺失也是同一采样。原帧准备采用一个内部系统引用，经现有静态纹理发布，共用一张按需生成的 RGBA8。尺寸、用途、采样器随原 binding publication，下游不根据 nil 猜默认，不新增逐帧合成、缓存或载入路径。
 
-冷准备按实际活动槽资格投影到原资源需求、启动与 prepared 默认选择。作者键名由声明引用，非保留键依原数据流证明用途。已解析普通资源优先。隐式/显式图来源、声明默认、格式/显隐组合、专用纹理、pending 及无法解码的资源沿自身合同。只在候选确实耗尽时选择棋盘。未证用途不得冒充已查证文件缺失。 内部缺失贴图名称归系统供货，作者不能借同名资源触发。贴图已识别但在等待、解码失败，或槽属特定格式／专用提供者时，沿各自准备结果处理。
+冷准备按实际活动槽资格投影到原资源需求、启动与 prepared 默认选择。作者键名由声明引用，非保留键依原数据流证明用途。已解析普通资源优先。隐式/显式图来源、声明默认、格式/显隐组合、专用纹理、pending 及无法解码的资源沿自身合同。只在候选确实耗尽时选择棋盘。未证用途不得冒充已查证文件缺失。官版双槽色板确认，整遍省略图绑定时，未指定角色的 slot0 继续取阶段入口，未赋值且未声明角色的普通隐藏副槽从棋盘取样。显式只绑定副槽时，未赋值的普通隐藏 slot0 取棋盘。逐槽分别判定来源与就绪，不能因副槽缺失阻止 slot0 取得已知阶段入口。保留显式绑定、类型和现有的同帧 FBO 顺序，复用同一棋盘 publication 与 prepared ABI。 内部缺失贴图名称归系统供货，作者不能借同名资源触发。贴图已识别但在等待、解码失败，或槽属特定格式／专用提供者时，沿各自准备结果处理。
 
 验收继续覆盖 Resolution-only、默认和真实资源尺寸及改名/等价变体。活动采样另核官版棋盘及槽位留空、显式缺失、存在资源，保 graph、无活动采样与旧作者局部失败反例。原3556263543须有五道作者效果实际编码并改变时钟字缘。另以独立作者的活动效果验证采样和尺寸。[运行证据](runtime-evidence-current.md#missing-ordinary-material-texture-evidence)
 

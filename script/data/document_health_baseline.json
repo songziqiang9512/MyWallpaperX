@@ -162,11 +162,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 493,
-      "bytes": 98149
+      "bytes": 98650
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 425252
+      "bytes": 425919
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -197,8 +197,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 58,
-      "bytes": 8378
+      "lines": 57,
+      "bytes": 8076
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -670,8 +670,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c79c637c97d149b6ed8b71088276e51a06139bc4ba0110f2dc402a9f421956fe",
-      "after": "1d8487223feb17813ebde0ab5dc1edf83bdda2c849f2331dcc97fa6d4b29e27a",
+      "before": "1d8487223feb17813ebde0ab5dc1edf83bdda2c849f2331dcc97fa6d4b29e27a",
+      "after": "f8432681860777fcae27bca8d03552880a8bf78cd9bcc8e95d27c23aa63c83d4",
       "owner": "Scene open breakpoints",
       "reason": "用当前原包实测定位仍超预算的剩余 GPU 工作。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
@@ -688,11 +688,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "356b088789baa22241b4798020bfa31276c1a870bdf00d1d92836e0c0deac4f4",
-      "after": "71eff5f4666846fd5b538ee60b69389e9ae6bfca982c281cf2ca96b3564bd5dd",
-      "owner": "Scene render graph",
-      "reason": "明确截取与首段共享编码器、其它槽别名和后继读取规则。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#childless-composition-local-effect-raster"
+      "before": "71eff5f4666846fd5b538ee60b69389e9ae6bfca982c281cf2ca96b3564bd5dd",
+      "after": "6b22b6ed48e5e84ebd3491074942397dfb1d228d2ff547b6c32cb5389f6fb302",
+      "owner": "Scene texture admission",
+      "reason": "以官版槽位实验修订普通活动槽的缺省采样与阶段入口的独立判定。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#missing-ordinary-material-texture"
     },
     {
       "section": "bodies",
@@ -742,11 +742,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ac990be63da659b2db235e862f1317e8415bded4c898d2494206a4ddfdc85d1c",
-      "after": "3da1c2f75de047e4d8b87471e264fa35b2a51a3522e80f960ea58c2eb1348c49",
+      "before": "3da1c2f75de047e4d8b87471e264fa35b2a51a3522e80f960ea58c2eb1348c49",
+      "after": "aed9b03e98ceb668645ae3839cf6de97b5f74d8c9c1e411185783368d26007de",
       "owner": "Scene runtime evidence",
-      "reason": "记录同像素首段合并的作者输入、正反例与受控稳态成本。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#first-captured-material-367"
+      "reason": "记录实际媒体封面的双遍绘制、官版同尺寸差图和独立反例。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#precise-blur-hidden-samplers"
     }
   ]
 }

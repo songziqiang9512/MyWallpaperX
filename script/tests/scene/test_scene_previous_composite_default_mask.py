@@ -182,14 +182,14 @@ private func ownPrepared(
         let mask = first.samplers[1]!
         let renamedMask = renamed.samplers[1]!
         let explicit = SceneVFSAssetPath("self-authored/explicit-mask.tex")!
+        let defaultPath = SceneVFSAssetPath("fixtures/unseen-mask-one.tex")!
+        let renamedPath = SceneVFSAssetPath("independent/renamed-mask.tex")!
         let positives: [String: Bool] = [
-            "assetDefault": mask.defaultTexture == .asset(
-                SceneVFSAssetPath("fixtures/unseen-mask-one.tex")!),
-            "renamedAssetDefault": renamedMask.defaultTexture == .asset(
-                SceneVFSAssetPath("independent/renamed-mask.tex")!),
+            "assetDefault": mask.defaultTexture == .asset(defaultPath),
+            "renamedAssetDefault": renamedMask.defaultTexture == .asset(renamedPath),
             "maskModeAndChannel": mask.mode == .opacityMask && mask.channelUse == .redOnly,
-            "typedDefault": Schema.hasTypedAuxiliaryDefault(mask),
-            "renamedTypedDefault": Schema.hasTypedAuxiliaryDefault(renamedMask),
+            "typedDefault": Schema.purpose(for: .asset(defaultPath), sampler: mask) == .mask,
+            "renamedTypedDefault": Schema.purpose(for: .asset(renamedPath), sampler: renamedMask) == .mask,
             "explicitAssetPurpose": Schema.purpose(for: .asset(explicit), sampler: mask) == .mask,
             "userTexturePurpose": Schema.purpose(for: .userProperty(
                 .init(key: "self-authored-mask-property")), sampler: mask) == .mask,
@@ -203,9 +203,10 @@ private func ownPrepared(
         let internalDefault = try ownPrepared(defaultPath: "_rt_unseen_default")
         let conflicting = mask.withSourceProvenPurpose(.straightAlbedo)
         let negatives: [String: Bool] = [
-            "nilDefault": !Schema.hasTypedAuxiliaryDefault(noDefault.samplers[1]!),
-            "internalTargetDefault": !Schema.hasTypedAuxiliaryDefault(internalDefault.samplers[1]!),
-            "conflictingPurpose": !Schema.hasTypedAuxiliaryDefault(conflicting),
+            "nilDefault": noDefault.samplers[1]?.defaultTexture == nil,
+            "internalTargetDefault": internalDefault.samplers[1]?.defaultTexture == .internalTarget(
+                Schema.renderTargetDefault(authoredName: "_rt_unseen_default")),
+            "conflictingPurpose": Schema.purpose(for: .asset(defaultPath), sampler: conflicting) == nil,
         ]
         let output: [String: Any] = [
             "schema": "self-authored-prepared-default-mask-v2",
