@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 200394
+      "bytes": 201355
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 182821
+      "bytes": 183842
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -733,20 +733,20 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "32cc618f405368f7aaae3e21a2607760d933c97dec3faca9d32d2bfb8cf12965",
-      "after": "046c5f2d752c6d9517c9b093e60254fa64f885e17d82970ea075a1671b65d72b",
+      "before": "046c5f2d752c6d9517c9b093e60254fa64f885e17d82970ea075a1671b65d72b",
+      "after": "d8563fd7226a7ad0644df3ce9be251a502e2ff45bec58c43e3d4a16b6ccdeaa1",
       "owner": "wallpaper-quality",
-      "reason": "记录现役 LZ4 未用级的阶段原生测量及改造取舍。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-lz4-prefix-cost"
+      "reason": "核原通用图像 Program 实时环境候选的原作者混合与取样合同。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-genericimage3-reflection"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "bd75215ddc251f642a90d5beb338969627985918825f32b869922ba934772efc",
-      "after": "f4101515291eb0fd5acf590928e3eba8436949a700e4906c1c49b13d50594a69",
+      "before": "f4101515291eb0fd5acf590928e3eba8436949a700e4906c1c49b13d50594a69",
+      "after": "c074688e75265f7e18a908aa659303460bead91169b033be3cba275c912671c4",
       "owner": "wallpaper-quality",
-      "reason": "核 992 个本地原包的点／聚光高档样本资格及现有候选保留门。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-local-shadow-author-scope"
+      "reason": "核原作普通图像反射首断点、真实回退终图及同档波动。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-genericimage3-reflection"
     },
     {
       "section": "bodies",

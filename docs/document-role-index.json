@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b54695661b9da6193adfb1bdc6704f56dda776d8433d763049fff68ae44518f6",
+        "sourceSHA256": "5d4cc8cb34cffa584dfc76a49a486abb168ce18a7fd475ee47dda7cf3b746682",
         "method": "document_registry --audit + document_health --check",
-        "scope": "记录现役 LZ4 未用级的阶段原生测量及改造取舍。",
-        "limitations": "单内屏配对短窗及独立后台分配。两相邻前台反向窗、发布级稳态、物理多屏和能耗待验。"
+        "scope": "核原通用图像 Program 实时环境候选的原作者混合与取样合同。",
+        "limitations": "隔离原包 Metal 完成终图及准备拒绝。原区实际反射与官版对照、候选和实呈成本待验。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6394ac9028b29bfc7eb2f8369b15a44efce57d6292e42f2a3343d4c94adcf477",
+        "sourceSHA256": "d65909a875f2693620c294d36c5bcb5fa67520abf651db5eaf4f4a1d56057fff",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核 992 个本地原包的点／聚光高档样本资格及现有候选保留门。",
-        "limitations": "点／聚光声明静态筛查，真实原包收据复用。未取得第二独立正例和 60 FPS 候选长窗。"
+        "scope": "核原作普通图像反射首断点、真实回退终图及同档波动。",
+        "limitations": "隔离原包 Metal 完成终图及准备拒绝。原区实际反射与官版对照、候选和实呈成本待验。"
       }
     },
     {
