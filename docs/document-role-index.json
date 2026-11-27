@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bd550a94279d6e2348dfe32cd6974f4edbb454947fc1107fa3b24076934e18ec",
+        "sourceSHA256": "bac925a5c93506581f6f0f1903e71c5a13b3d558f8e3a90ef485e8e06aeda0a8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定位混合颜色与独立附件的选级证明。",
-        "limitations": "签名 M4 单内屏，分配限指定纹理。两部高性能终图过门，Auto 降级和热升正例为一部。"
+        "scope": "定位基础色冷选与模型默认别名职责。",
+        "limitations": "签名 M4 单内屏。分配为单纹理，未量长窗、全场峰值或功耗。试验已退出。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7c0c211c7d4dad70654e604c04f44895418505e7d0e97bef72671dacc8431b42",
+        "sourceSHA256": "525364b7348318250eff5291d28c5282aed2d5c21a0d278bbcb670916f00f732",
         "method": "document_registry --audit + document_health --check",
-        "scope": "规定局部数据附件独立以及终端实际颜色采样。",
-        "limitations": "签名 M4 单内屏，分配限指定纹理。两部高性能终图过门，Auto 降级和热升正例为一部。"
+        "scope": "明确计算路径的模型默认供货在缩窄纹理保原范围时仍有效。",
+        "limitations": "签名 M4 单内屏。分配为单纹理，未量长窗、全场峰值或功耗。试验已退出。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a1ea989f0f522cc8628060188015a2a59a641377946934bd6b577a7af9d8a882",
+        "sourceSHA256": "7b92d481f73b0f26ba3b55d73303592c42613596da44fa66a9832853d510b859",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定义独立数据的证明条件和真实作者验收。",
-        "limitations": "签名 M4 单内屏，分配限指定纹理。两部高性能终图过门，Auto 降级和热升正例为一部。"
+        "scope": "记录绕过默认别名的试验、退出条件和后继设计边界。",
+        "limitations": "签名 M4 单内屏。分配为单纹理，未量长窗、全场峰值或功耗。试验已退出。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "dcf0f4ded4f5de3be61ef7e2e9e20c7fc262db8f56d9a6b1075cfc78dda99382",
+        "sourceSHA256": "fa03f449b7c51ad252bb31d4021da80933eba6fb1bb1aeec26e5f0bf7414a06a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "记录两部高性能原作、Auto 热升和保原边界。",
-        "limitations": "签名 M4 单内屏，分配限指定纹理。两部高性能终图过门，Auto 降级和热升正例为一部。"
+        "scope": "核两部原作、逐屏切档、Metal 分配及计算路径可见反例。",
+        "limitations": "签名 M4 单内屏。分配为单纹理，未量长窗、全场峰值或功耗。试验已退出。"
       }
     },
     {
@@ -886,10 +886,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c7508cd7c284af4e9db950fee8574fc3673d75f54c35010c8a1219e262556055",
+        "sourceSHA256": "f301e887281823c3a41aba1e47821f7cdd22a58f0fff94cd707cdd1c9d59dc63",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定位已准备 Program 证明、Auto 需求和数据规格所有权。",
-        "limitations": "签名 M4 单内屏，分配限指定纹理。两部高性能终图过门，Auto 降级和热升正例为一部。"
+        "scope": "说明 Auto 尾链与模型默认目录的发布边界。",
+        "limitations": "签名 M4 单内屏。分配为单纹理，未量长窗、全场峰值或功耗。试验已退出。"
       }
     },
     {
