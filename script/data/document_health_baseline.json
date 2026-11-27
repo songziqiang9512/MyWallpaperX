@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 201355
+      "bytes": 201685
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 183842
+      "bytes": 184590
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -733,19 +733,19 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "046c5f2d752c6d9517c9b093e60254fa64f885e17d82970ea075a1671b65d72b",
-      "after": "d8563fd7226a7ad0644df3ce9be251a502e2ff45bec58c43e3d4a16b6ccdeaa1",
+      "before": "d8563fd7226a7ad0644df3ce9be251a502e2ff45bec58c43e3d4a16b6ccdeaa1",
+      "after": "b1027fdcd59c2c30b734675f2c532dbfbc8e293791f32d77a12e6d1e1a316623",
       "owner": "wallpaper-quality",
-      "reason": "核原通用图像 Program 实时环境候选的原作者混合与取样合同。",
+      "reason": "记录原作官版开关对照和通用图像接入前置。",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-genericimage3-reflection"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "f4101515291eb0fd5acf590928e3eba8436949a700e4906c1c49b13d50594a69",
-      "after": "c074688e75265f7e18a908aa659303460bead91169b033be3cba275c912671c4",
+      "before": "c074688e75265f7e18a908aa659303460bead91169b033be3cba275c912671c4",
+      "after": "13a58399c6e3ad45abe85295773cedd4243cc19e7807fc3ea059e26cb0b628f9",
       "owner": "wallpaper-quality",
-      "reason": "核原作普通图像反射首断点、真实回退终图及同档波动。",
+      "reason": "记录原作官版开关对照和通用图像接入前置。",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-genericimage3-reflection"
     },
     {
