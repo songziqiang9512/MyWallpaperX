@@ -144,9 +144,9 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "25d3170ad09cbf74d97e5d70918493b9a6a0349e29887204731074e114fca01e",
+        "sourceSHA256": "22d7ca63a431c117ad4d9c5d7ccc2f9529f92349a25543f12326f141a8e58294",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核普通颜色选级、原始上传和现有自动发布的源码入口。",
+        "scope": "核普通颜色选级、原生 BC 上传及自动发布的源码入口。",
         "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
       }
     },
@@ -192,9 +192,9 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bc66f585524d2f52bfd3a3fd06eb834fbaafa3dfc4cb865812aa29750bd46e21",
+        "sourceSHA256": "20f87f72de1c245e24e641f793e08c2d9b20c988f00da64f6ae4a39c98ed88ec",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核原始 RGBA 的用途、作者级和保原边界。",
+        "scope": "核原生 BC 作者级、2048 入围门与保原角色。",
         "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
       }
     },
@@ -378,9 +378,9 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4c5fa1472b50ab6a409cfaf682ecc1325a128d0a14bd4b231bc7f9b0cce37086",
+        "sourceSHA256": "113669b52797ef99d505194c272def7a2e3e884a88cdad3024f6ee10af838ac4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核原始 RGBA 在现有纹理选级和上传 owner 的设计。",
+        "scope": "核原生 BC 尾链在同一上传 owner 的设计和保真门。",
         "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
       }
     },
@@ -392,9 +392,9 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4cb92945d1a1f2ea807ae718524a3d61aafd681ea4c3598a5061ec017991bf72",
+        "sourceSHA256": "f9b532284c34dbd2303ec939ba6fac13a8e247b2e7d823d3bd96ae3072575efd",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核四部原作的真实绑定、切档、终图与纹理分配。",
+        "scope": "核独立原作的真实切档、终图、升回和单纹理分配。",
         "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
       }
     },
@@ -886,9 +886,9 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5560aaf919740accad4b47a4d97459f74e7a798cd8fa12433d0a7d152750d953",
+        "sourceSHA256": "b8d14e29941a0e45b78438faabe2b0e47477dcd6bb5a3702e47cc45250876d19",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核选级与上传职责及原始和内嵌图解包边界。",
+        "scope": "核原生 BC 尾链与 TEX 读取、缓存和实际上传的职责。",
         "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
       }
     },

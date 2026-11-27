@@ -9,15 +9,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from script.tests.scene.test_scene_bc_texture_uploader import (
-    HARNESS as SPRITE_HARNESS,
-    SWIFT_SOURCES as SPRITE_SOURCES,
-)
+from script.tests.scene.test_scene_texture_candidate import HARNESS_SUPPORT_SOURCE, SWIFT_SOURCES
 
-SAMPLING_SOURCE = Path(__file__).resolve().parents[1] / "fixtures/SceneTextureSamplingReadback.swift"
-SWIFT_SOURCES = [*SPRITE_SOURCES, SAMPLING_SOURCE]
-# Reuse only the existing link doubles, not the large sprite test program.
-HARNESS = SPRITE_HARNESS.split("@main", 1)[0] + r'''
+HARNESS = HARNESS_SUPPORT_SOURCE + r'''
 @main enum Harness {
     private static var readback: SceneTextureSamplingReadback!
 
@@ -105,7 +99,95 @@ HARNESS = SPRITE_HARNESS.split("@main", 1)[0] + r'''
 
         result["nativeCodecs"] = try codecProbes(device: device)
         result["mixedSelectors"] = try mixedSelectorProbes(device: device)
+        result["authoredTails"] = try authoredTailProbes(directory: directory, device: device)
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: result))
+    }
+
+    static func authoredTailProbes(directory: URL, device: MTLDevice) throws -> [String: Any] {
+        let loader = SceneTextureLoader()
+        let dimensions: [(UInt32, UInt32)] = [(4098, 14), (2049, 7), (1024, 3), (512, 1)]
+        var results: [String: Any] = [:]
+        for (format, native) in [(UInt32(7), MTLPixelFormat.bc1_rgba), (6, .bc2_rgba), (4, .bc3_rgba)] {
+            func fixture(mappedWidth: UInt32 = 4098, corruptPrefix: Bool = false) -> Data {
+                var data = Data("TEXV0005\0TEXI0001\0".utf8)
+                func append(_ value: UInt32) {
+                    var little = value.littleEndian
+                    withUnsafeBytes(of: &little) { data.append(contentsOf: $0) }
+                }
+                for value in [format, 2, 4098, 14, mappedWidth, 14, 0] { append(value) }
+                data.append(Data("TEXB0002\0".utf8))
+                append(1)
+                append(UInt32(dimensions.count))
+                for (index, size) in dimensions.enumerated() {
+                    let (width, height) = size
+                    let blocks = Int((width + 3) / 4 * ((height + 3) / 4))
+                    let rgb = index % 2 == 0 ? UInt8(0xe0) : UInt8(0x1f)
+                    let high = index % 2 == 0 ? UInt8(0x07) : UInt8(0)
+                    var block = Data([rgb, high, rgb, high, 0, 0, 0, 0])
+                    if format == 6 { block = Data(repeating: UInt8(index * 17), count: 8) + block }
+                    if format == 4 {
+                        block = Data([UInt8(index * 53), 0, 0, 0, 0, 0, 0, 0]) + block
+                    }
+                    var bytes = Data(capacity: blocks * block.count)
+                    for _ in 0..<blocks { bytes.append(block) }
+                    if corruptPrefix && index == 0 { bytes.removeLast() }
+                    for value in [width, height, 0, 0, UInt32(bytes.count)] { append(value) }
+                    data.append(bytes)
+                }
+                return data
+            }
+            func open(_ name: String, _ bytes: Data) throws -> SceneTextureLoader.PreparedTexSource {
+                let url = directory.appendingPathComponent("\(format)-\(name).tex")
+                try bytes.write(to: url)
+                guard let prepared = try loader.prepareTexSource(from: url) else { throw HarnessError.load }
+                return prepared
+            }
+            func candidate(_ source: SceneTextureLoader.PreparedTexSource,
+                _ selection: SceneOrdinaryImageMipSelection?, purpose: SceneTextureLoadPurpose = .straightAlbedo
+            ) throws -> SceneTextureCandidate {
+                guard case let .loaded(candidate) = try loader.loadCandidate(from: source, purpose: purpose,
+                    device: device, mipSelection: selection) else { throw HarnessError.load }
+                return candidate
+            }
+            let source = try open("authored", fixture())
+            let autoSelection = SceneOrdinaryImageMipSelection.minimumExtent(SIMD2(1000, 3))
+            let auto = try candidate(source, autoSelection)
+            let performance = try candidate(source, .maximumLongEdge(2048))
+            let full = try candidate(source, nil)
+            let mask = try candidate(source, autoSelection, purpose: .mask)
+            let padded = try candidate(open("padded", fixture(mappedWidth: 4097)), autoSelection)
+            let renamed = try candidate(open("renamed", fixture()), autoSelection)
+            let malformed = try open("malformed", fixture(corruptPrefix: true))
+            let rejected = try loader.loadCandidate(from: malformed, purpose: .straightAlbedo,
+                device: device, mipSelection: autoSelection)
+            var everyAuthorLevelMatches = true
+            for selected in [auto, performance, renamed] {
+                for level in 0..<selected.texture.mipmapLevelCount {
+                    let x = max(1, selected.texture.width >> level) - 1
+                    let y = max(1, selected.texture.height >> level) - 1
+                    let original = try readback.pixel(full.texture, level: level + selected.authoredBaseMip, x: x, y: y)
+                    let result = try readback.pixel(selected.texture, level: level, x: x, y: y)
+                    everyAuthorLevelMatches = everyAuthorLevelMatches && result == original
+                }
+            }
+            let invalidPrefixRejected: Bool
+            if case .failed = rejected { invalidPrefixRejected = true } else { invalidPrefixRejected = false }
+            results[String(format)] = [
+                "bases": [full, auto, performance, mask, padded, renamed].map(\.authoredBaseMip),
+                "sizes": [full, auto, performance].map { [$0.texture.width, $0.texture.height] },
+                "levels": [full, auto, performance].map { $0.texture.mipmapLevelCount },
+                "nativeFormat": [full, auto, performance, mask, padded, renamed].allSatisfy { $0.texture.pixelFormat == native },
+                "straightAlpha": auto.content == full.content && auto.content == .color(.resolved(.straightAlpha)),
+                "sampledLevelsMatch": everyAuthorLevelMatches,
+                "baseRanges": auto.originalMappedSize == full.mappedSize && performance.originalMappedSize == full.mappedSize,
+                "memoryReduces": auto.texture.allocatedSize < full.texture.allocatedSize
+                    && auto.texture.allocatedSize < performance.texture.allocatedSize
+                    && performance.texture.allocatedSize < full.texture.allocatedSize,
+                "cacheKeepsBase": try candidate(source, autoSelection).texture === auto.texture && auto.texture !== full.texture,
+                "invalidPrefixRejected": invalidPrefixRejected,
+            ]
+        }
+        return results
     }
 
     static func codecProbes(device: MTLDevice) throws -> [String: Any] {
@@ -511,6 +593,17 @@ class SceneBCPreservedUploadTests(unittest.TestCase):
                 # linear sampling adds a final RGBA8 write quantization boundary.
                 self.assertLessEqual(value["nearestMaxUNormDelta"], 1)
                 self.assertLessEqual(value["linearMaxUNormDelta"], 2)
+
+    def test_native_straight_color_rebases_author_blocks_on_the_original_upload_path(self) -> None:
+        self.assertEqual(set(self.result["authoredTails"]), {"4", "6", "7"})
+        for fmt, result in self.result["authoredTails"].items():
+            with self.subTest(format=fmt):
+                self.assertEqual(result["bases"], [0, 2, 1, 0, 0, 2])
+                self.assertEqual(result["sizes"], [[4098, 14], [1024, 3], [2049, 7]])
+                self.assertEqual(result["levels"], [4, 2, 3])
+                for key in ("nativeFormat", "straightAlpha", "sampledLevelsMatch", "baseRanges",
+                            "memoryReduces", "cacheKeepsBase", "invalidPrefixRejected"):
+                    self.assertTrue(result[key], result)
 
     def test_cropped_color_decodes_only_used_levels_and_preserves_data_chains(self) -> None:
         for code, alpha in (("7", 255), ("6", 68), ("4", 64)):

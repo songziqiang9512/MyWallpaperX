@@ -16,6 +16,7 @@ nonisolated struct SceneCompressedTextureUploader {
         pixelFormat: MTLPixelFormat,
         purpose: SceneTextureLoadPurpose,
         uploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
+        authoredBaseMip: Int = 0,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
         guard let firstMip = container.mips.first,
@@ -32,6 +33,7 @@ nonisolated struct SceneCompressedTextureUploader {
                 return uploadDirect(
                     mips: container.mips,
                     pixelFormat: pixelFormat,
+                    baseMip: authoredBaseMip,
                     device: device
                 )
             }
@@ -293,16 +295,18 @@ nonisolated struct SceneCompressedTextureUploader {
     private static func uploadDirect(
         mips: [SceneTexContainer.Mip],
         pixelFormat: MTLPixelFormat,
+        baseMip: Int = 0,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
-        guard let firstMip = mips.first,
+        let uploadMips = mips.dropFirst(baseMip)
+        guard let firstMip = uploadMips.first,
               SceneTexContainer.valid2DMipDimensions(mips.map { ($0.width, $0.height) }) else {
             return .decodeFailed("TEX container has an invalid mip chain")
         }
         guard let bytesPerBlock = bytesPerBlock(for: pixelFormat) else {
             return .decodeFailed("unsupported Metal BC pixel format: \(pixelFormat.rawValue)")
         }
-        guard SceneImageTextureUploader.supports2DExtent(width: firstMip.width, height: firstMip.height) else {
+        guard SceneImageTextureUploader.supports2DExtent(width: mips[0].width, height: mips[0].height) else {
             return .decodeFailed("BC mip extent exceeds Metal 2D limits")
         }
         if device.supportsBCTextureCompression == false {
@@ -325,14 +329,14 @@ nonisolated struct SceneCompressedTextureUploader {
             height: firstMip.height,
             mipmapped: false
         )
-        descriptor.mipmapLevelCount = mips.count
+        descriptor.mipmapLevelCount = uploadMips.count
         descriptor.usage = .shaderRead
         descriptor.storageMode = .shared
         guard let texture = device.makeSceneTexture(descriptor: descriptor) else {
             return .textureAllocationFailed(width: firstMip.width, height: firstMip.height)
         }
 
-        for (level, mip) in mips.enumerated() {
+        for (level, mip) in uploadMips.enumerated() {
             let bytesPerRow = ((mip.width - 1) / 4 + 1) * bytesPerBlock
             mip.data.withUnsafeBytes { rawBuffer in
                 texture.replace(

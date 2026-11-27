@@ -646,7 +646,8 @@ nonisolated final class SceneTextureLoader {
         }
         if let pixelFormat = container.metalPixelFormat {
             return (SceneCompressedTextureUploader.upload(container: container, pixelFormat: pixelFormat,
-                purpose: purpose, uploadCommandQueue: uploadCommandQueue, device: device), false)
+                purpose: purpose, uploadCommandQueue: uploadCommandQueue,
+                authoredBaseMip: authoredBaseMip, device: device), false)
         }
         if let pixelFormat = container.rawMetalPixelFormat, let bytesPerPixel = container.rawBytesPerPixel {
             return (SceneTextureMipUploader.uploadRaw(container: container, pixelFormat: pixelFormat,

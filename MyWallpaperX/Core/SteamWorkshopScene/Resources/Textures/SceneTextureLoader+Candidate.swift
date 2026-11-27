@@ -161,7 +161,7 @@ nonisolated extension SceneTextureLoader {
         var mip: (index: Int, reason: SceneTextureUse.Reason?) = (0, nil)
         if let mipSelection, let prepared, purpose == .straightAlbedo,
            spriteFrame == nil, conditionalVariantIDs == nil {
-            mip = ordinaryUploadMip(prepared.resource, selection: mipSelection)
+            mip = ordinaryUploadMip(prepared.resource, selection: mipSelection, device: device)
         }
         var outcome: SceneTextureLoadOutcome
         if let prepared, let conditionalVariantIDs {
@@ -470,8 +470,9 @@ nonisolated extension SceneTextureLoader {
         return mapped
     }
 
-    private func ordinaryUploadMip(_ resource: TexResource, selection: SceneOrdinaryImageMipSelection)
-        -> (index: Int, reason: SceneTextureUse.Reason?) {
+    private func ordinaryUploadMip(
+        _ resource: TexResource, selection: SceneOrdinaryImageMipSelection, device: MTLDevice
+    ) -> (index: Int, reason: SceneTextureUse.Reason?) {
         guard let container = resource.container, container.conditionalVariants.isEmpty,
               !container.isVolume, let base = container.mips.first, container.mips.count > 1
         else { return (0, .noEligibleMip) }
@@ -479,12 +480,17 @@ nonisolated extension SceneTextureLoader {
         let usesRawRGBA = container.format == 0 && container.freeImageFormat == -1
             && !SceneTexContainer.isEmbeddedImagePayload(base.data)
             && !SceneTexContainer.isVideoPayload(base.data)
-        guard usesEmbeddedImage || usesRawRGBA else { return (0, .noEligibleMip) }
+        let usesNativeBC = SceneBCTextureDecoder.Format(texFormat: container.format) != nil
+            && device.supportsBCTextureCompression
+        guard usesEmbeddedImage || usesRawRGBA || usesNativeBC else { return (0, .noEligibleMip) }
         guard base.width == container.imageWidth, base.height == container.imageHeight,
-              !usesRawRGBA || (base.width == container.textureWidth && base.height == container.textureHeight)
+              usesEmbeddedImage || (base.width == container.textureWidth && base.height == container.textureHeight)
         else { return (0, .preservedPixels) }
         let index = selection.baseIndex(in: container.mips.map { ($0.width, $0.height) },
             maximumSingleLevelDimension: Self.maxTextureDimension)
+        if index > 1, usesNativeBC, case .maximumLongEdge = selection {
+            return (1, .authoredMip)
+        }
         if index > 0 { return (index, .authoredMip) }
         switch selection {
         case let .minimumExtent(minimum):
