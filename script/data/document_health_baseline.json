@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 70,
-      "bytes": 27744
+      "bytes": 27892
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 174,
-      "bytes": 36185
+      "bytes": 36280
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 195767
+      "bytes": 196610
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 175745
+      "bytes": 176832
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 337,
-      "bytes": 75003
+      "bytes": 75099
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -715,47 +715,47 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "e010015c898547a48a057e7cecc83c04fd713a3efc5388ff5239c85fdbc0b6f4",
-      "after": "b3bf12674b41fffac731364fc0866b655dfb019214c431064b3f57a5d2773cbb",
-      "owner": "Scene native texture upload",
-      "reason": "核普通颜色选级、原生 BC 上传及自动发布的源码入口。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-tex-bc-native-mips"
+      "before": "b3bf12674b41fffac731364fc0866b655dfb019214c431064b3f57a5d2773cbb",
+      "after": "02333f4efc3a47c8b7fdbae3cfd4c452773410f0f6747de9e75a33d387906054",
+      "owner": "Scene base image preparation",
+      "reason": "核终端混合的冷准备档位资格与实际消费者。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-multipass-standard-capture"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "0eea1e1e98712b41796f8ada88066280c93ef85493da1ee70f12a3762188da42",
-      "after": "ceb28f1f6789fabad70db5cb38ea3e907e3894d90019df06dc0a483cc583e63c",
-      "owner": "Scene native texture upload",
-      "reason": "核原生 BC 作者级、2048 入围门与保原角色。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-tex-bc-native-mips"
+      "before": "ceb28f1f6789fabad70db5cb38ea3e907e3894d90019df06dc0a483cc583e63c",
+      "after": "6dd80a778b520dfcd4245b727b47d5971b16737ae2672d4b977c8655fe2c0204",
+      "owner": "Scene base image preparation",
+      "reason": "核内置加色仅高性能改变已证局部色源。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-multipass-standard-capture"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "c356812556e476198294e39061c1e32fb1f9085e05d1276d9ee835d0820840af",
-      "after": "c6da6f50dc3b43dea6b9968f15da718e176847ad0e9ab398753f724321ce30a9",
-      "owner": "Scene native texture upload",
-      "reason": "核原生 BC 尾链在同一上传 owner 的设计和保真门。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-tex-bc-native-mips"
+      "before": "c6da6f50dc3b43dea6b9968f15da718e176847ad0e9ab398753f724321ce30a9",
+      "after": "9c96c9787ecb941886496ac5bf377a75d9effcdd6724b3cb29653f249bc200a1",
+      "owner": "Scene base image preparation",
+      "reason": "核内置加色的原图、终端背景、样本收益及 Auto 边界。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-multipass-standard-capture"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "0dfc443c8e06426ab5feca283c24ad2eacb72e61c41256db7616937aa0de62af",
-      "after": "f9c90611077f780bfa55f23b60796339c62429cadf2c8298545e0bede05efaa7",
-      "owner": "Scene native texture upload",
-      "reason": "核独立原作的真实切档、终图、升回和单纹理分配。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-tex-bc-native-mips"
+      "before": "f9c90611077f780bfa55f23b60796339c62429cadf2c8298545e0bede05efaa7",
+      "after": "1809100fc55c10d6846b06baa5e72627a12b6000a4153ad85df770fd66cdf88a",
+      "owner": "Scene base image preparation",
+      "reason": "核两位作者的加色终图、切档及实际纹理分配。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-multipass-standard-capture"
     },
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "3a945a374bab02bd102f284c78eb2c7a1197cc0d57c3d69b4f273454cc7c9473",
-      "after": "741fa6a11d134ec6a37888f1c664f1269fdba5b8e739de95a05d8fb348c836ba",
-      "owner": "Scene native texture upload",
-      "reason": "核原生 BC 尾链与 TEX 读取、缓存和实际上传的职责。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-tex-bc-native-mips"
+      "before": "741fa6a11d134ec6a37888f1c664f1269fdba5b8e739de95a05d8fb348c836ba",
+      "after": "f3003fd1a4ebc7133cff8b80b37a44cfc62f723d503b08623ac34783dfbc39b2",
+      "owner": "Scene base image preparation",
+      "reason": "核内置加色局部 Program、原捕获及终端的职责。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-multipass-standard-capture"
     }
   ]
 }

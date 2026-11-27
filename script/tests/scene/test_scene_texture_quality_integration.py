@@ -11,6 +11,7 @@ import unittest
 from PIL import Image
 
 from script.tests.scene.test_scene_embedded_data_mip_resource import _png, _tex
+from script.tests.scene.test_scene_image_terminal_placement_integration import VERTEX, material
 from script.tests.scene.test_scene_mixed_provider_abi_integration import named_vector_entries
 from script.tests.support.scene_pkg_fixture import make_package
 
@@ -121,6 +122,66 @@ class SceneTextureQualityIntegrationTests(unittest.TestCase):
             pixels = image.convert("RGB")
             self.assertEqual(pixels.getpixel((image.width // 2, image.height // 2)), (230, 25, 15))
             self.assertEqual(pixels.getpixel((image.width // 20, image.height // 2)), (15, 50, 225))
+
+    def test_performance_reduces_only_the_prepared_local_additive_color(self):
+        project = {"title": "Owned additive texture quality", "type": "scene", "file": "scene.json"}
+        entries = {}
+        sizes = ((4096, 1152), (2048, 576), (1024, 288))
+        foreground = image_model(entries, "author-color", (85, 15, 30), sizes=sizes)
+        background = image_model(entries, "background", (30, 65, 85), sizes=((64, 64),))
+        effect_path = "effects/local_color/effect.json"
+        material_path = "materials/local_color.json"
+        entries.update({
+            effect_path: json.dumps({
+                "passes": [
+                    {"material": material_path, "target": "_rt_color", "bind": [{"name": "previous", "index": 0}]},
+                    {"material": material_path, "bind": [{"name": "_rt_color", "index": 0}]},
+                ],
+                "fbos": [{"name": "_rt_color", "scale": 1, "format": "rgba8888"}],
+            }).encode(),
+            material_path: material("local_color", None),
+            "shaders/local_color.vert": VERTEX.encode(),
+            "shaders/local_color.frag": b"""uniform sampler2D g_Texture0;
+varying vec2 v_UV;
+void main() { gl_FragColor = texSample2D(g_Texture0, v_UV); }
+""",
+        })
+        effect = [{"id": 31, "file": effect_path, "visible": True}]
+        layers = [
+            {"id": 10, "image": background, "origin": "2048 576 0", "size": "4096 1152"},
+            {"id": 11, "image": foreground, "origin": "2048 576 0", "size": "512 256",
+                "colorBlendMode": 31, "effects": effect},
+        ]
+        controls = [
+            {"id": 12, "image": foreground, "origin": "2650 576 0", "size": "512 256",
+                "colorBlendMode": 31},
+            {"id": 13, "image": foreground, "origin": "1450 576 0", "size": "512 256",
+                "colorBlendMode": 8, "effects": effect},
+        ]
+        for mode, expected in (("performance", sizes[1]), ("auto", sizes[0])):
+            with self.subTest(mode=mode):
+                entries["scene.json"] = json.dumps({"version": 3,
+                    "general": {"orthogonalprojection": {"width": 4096, "height": 1152}, "parallax": False},
+                    "objects": layers + (controls if mode == "performance" else []),
+                }).encode()
+                rows, image_path, _ = self.run_sample(project, entries, mode=mode)
+                captures = [r for r in rows if r["kind"] == "sourceCapture" and r["outcome"] == "encoded"]
+                sources = {(r["source"]["width"], r["source"]["height"]) for r in captures if r.get("layerID") == 11}
+                self.assertEqual(sources, {expected})
+                self.assertEqual({(r["target"]["width"], r["target"]["height"])
+                    for r in captures if r.get("layerID") == 11}, {(512, 256)})
+                phase = {(r["kind"], r["outcome"]) for r in rows if r.get("layerID") == 11}
+                self.assertIn(("color-blend-background", "draw-encoded"), phase)
+                self.assertIn(("tail-consume", "terminal-consumed"), phase)
+                if mode == "performance":
+                    self.assertEqual({(r["source"]["width"], r["source"]["height"])
+                        for r in captures if r.get("layerID") == 13}, {sizes[0]})
+                    self.assertTrue(any(r["kind"] == "sourceCapture" and r["outcome"] == "draw-encoded"
+                        and r.get("layerID") == 12 and (r["source"]["width"], r["source"]["height"]) == sizes[0]
+                        for r in rows))
+                with Image.open(image_path) as image:
+                    rgb = image.convert("RGB")
+                    self.assertEqual(rgb.getpixel((image.width // 2, image.height // 2)), (115, 80, 115))
 
     def test_material_definition_keeps_named_source_at_full_resolution(self):
         project, entries = named_vector_entries("both", forward_nested=True)

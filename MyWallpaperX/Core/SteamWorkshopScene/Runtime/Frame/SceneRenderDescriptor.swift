@@ -300,7 +300,7 @@ nonisolated struct SceneRenderDescriptorBuilder {
                    puppetMeshPath == nil, object.staticModelPath == nil,
                    layer.parentID == nil, layer.childLayerIDs.isEmpty,
                    layer.dependencyLayerIDs.isEmpty, layer.authoredDependencies.isEmpty,
-                   (object.colorBlendMode ?? 0) == 0, object.shape == nil || object.shape == "quad" {
+                   object.shape == nil || object.shape == "quad" {
                     layer.scalableStaticColorSource = true
                 }
                 let acceptsMaterialState: Bool

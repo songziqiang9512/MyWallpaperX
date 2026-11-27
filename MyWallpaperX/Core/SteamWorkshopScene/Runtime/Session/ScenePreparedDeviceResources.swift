@@ -308,7 +308,9 @@ final class ScenePreparedBaseImageResources {
             var exactSources: Set<SceneTextureLoader.SourceKey> = []
             for layer in descriptor.layers {
                 var mipReason = defaultMipReason
-                if layer.scalableStaticColorSource == true, let entry = entries[layer.id],
+                let blend = layer.colorBlendMode ?? 0
+                let scalableBlend = blend == 0 || (blend == 31 && ordinaryColorMipLongEdge != nil && !layer.effects.isEmpty)
+                if layer.scalableStaticColorSource == true, scalableBlend, let entry = entries[layer.id],
                    imageRequests[layer.id] != nil || deferredLayerIDs.contains(layer.id),
                    entry.input.pathExtension.lowercased() == "tex", let size = entry.naturalSizeWH,
                    !fullResolutionLayerIDs.contains(layer.id) {
