@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "88a29aa9562dd0fa4a27d42b5daa57c4427015f87a788ffdcc798d46b9d530aa",
+        "sourceSHA256": "271f2a69a18064c9334f8c878e86c8e104659d9479766c9ae1ad3e041670413a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "规定有效作品适配、投影范围、缩放和 Auto 成组发布。",
-        "limitations": "沿合入后的真实链路与最近验收。多屏组合以受控计算为证，运行证据限所测目标。"
+        "scope": "规范原捕获格两轴覆盖和现有图层混合保原边界。",
+        "limitations": "单内屏签名 Debug 实测范围。文档复核不证明整场资源、持续 GPU 时延或能耗。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c7a3aecacc257556371e2b34c6defc2df2f0934308cd526d084c14177d2557c4",
+        "sourceSHA256": "4187477e3ea9567eb913e7d6189b0269ce6cc1a6fbc7b93c5f20ec803e7dc4a9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "设计作品适配与 Auto 冷选、同尺寸热升的相机密度契约。",
-        "limitations": "沿合入后的真实链路与最近验收。多屏组合以受控计算为证，运行证据限所测目标。"
+        "scope": "复核标准捕获放宽和终端加色的试验停止条件。",
+        "limitations": "单内屏签名 Debug 实测范围。文档复核不证明整场资源、持续 GPU 时延或能耗。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b4a789eb995e591d6a1d34ae3bb2d0c4d79c6936b791d3df50fd3c7a2e93e388",
+        "sourceSHA256": "ad0c72870d880b8712e93c5334a1f9ec0fb867585d1a3b59ed751daf4933d780",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核作品级适配和实际 Auto 冷选、热升、终图。",
-        "limitations": "沿合入后的真实链路与最近验收。多屏组合以受控计算为证，运行证据限所测目标。"
+        "scope": "核两部独立原作的实际切档、完成终图、固定捕获与单源分配。",
+        "limitations": "单内屏签名 Debug 实测范围。文档复核不证明整场资源、持续 GPU 时延或能耗。"
       }
     },
     {
