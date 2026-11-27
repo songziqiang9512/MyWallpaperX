@@ -192,9 +192,9 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fa159887d961c2a7f1d9a0d36cef6f094e057c4f2ef9ad25b2d305f08c0dca86",
+        "sourceSHA256": "4f0cac5276650a16a12117cf2b8a80c857708ea065ae34620366e51257d4bf63",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核真实反射环境和逐屏完成回显，保已有纹理与合成合同。",
+        "scope": "核真实反射环境和逐屏完成回显，保已有纹理与合成合同。 保留已验纹理试验结论。",
         "limitations": "文档导航和签名 Debug 单内屏取证，未验证物理多屏及整机功耗。"
       }
     },
@@ -378,9 +378,9 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cef86fb0690c1c8f2433922e537bf72599f8fd68397503f6386d8331ab75e62e",
+        "sourceSHA256": "7d6bd9bda5daf772120800f6429bb20a54e26d43f5c497734ecb9a8db2a1428d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核反射实际绑定、逐屏回执及相位对照要求。",
+        "scope": "核反射实际绑定、逐屏回执及相位对照要求。 保留已验纹理试验结论。",
         "limitations": "文档导航和签名 Debug 单内屏取证，未验证物理多屏及整机功耗。"
       }
     },
@@ -392,9 +392,9 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "800dd2ed2237465209805dc4b977094643e904ad715f7b6197e55c367503d200",
+        "sourceSHA256": "8105d4092dfc8ae97257b80cb9db82d34df05a2869eae7ac418b434513e6a070",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核签名原作的开关、回显、GPU 绑定与终图证据。",
+        "scope": "核签名原作的开关、回显、GPU 绑定与终图证据。 保留已验纹理试验结论。",
         "limitations": "文档导航和签名 Debug 单内屏取证，未验证物理多屏及整机功耗。"
       }
     },

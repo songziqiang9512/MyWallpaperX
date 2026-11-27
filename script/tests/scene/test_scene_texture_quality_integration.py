@@ -56,7 +56,7 @@ class SceneTextureQualityIntegrationTests(unittest.TestCase):
         environment = {key: val for key, val in os.environ.items()
             if not key.startswith(("MWX_SCENE_", "MYWALLPAPERX_SCENE_"))}
         environment.update(HOME=str(home), CFFIXED_USER_HOME=str(home), MWX_SCENE_DEBUG_SURFACE_COUNT="1")
-        command = [str(self.exe), "--mwx-debug-scene-root", str(content),
+        command = [str(self.exe), "--mwx-debug-scene-root", str(content), "--mwx-debug-scene-background",
             "--mwx-debug-scene-evidence-dir", str(evidence), "--mwx-debug-scene-duration", "10" if resizes else "7",
             "--mwx-debug-scene-after-snapshot-delay", "8" if resizes else "4",
             "-mwx.playback.quality", f"{{ sceneTextureQuality = {mode}; }}"]
@@ -142,8 +142,9 @@ class SceneTextureQualityIntegrationTests(unittest.TestCase):
     def test_computed_model_alias_remains_available_to_an_admitted_creator(self):
         project = {"title": "Owned texture quality alias", "type": "scene", "file": "scene.json"}
         entries = {}
-        shared = image_model(entries, "shared", (230, 25, 15))
-        seed = image_model(entries, "seed", (20, 200, 60))
+        sizes = tuple((4096 >> level, 512 >> level) for level in range(3))
+        shared = image_model(entries, "shared", (230, 25, 15), sizes=sizes)
+        seed = image_model(entries, "seed", (20, 200, 60), sizes=((128, 128),))
         script = """
             let once = false;
             export function update(value) {
@@ -160,16 +161,21 @@ class SceneTextureQualityIntegrationTests(unittest.TestCase):
                 {"id": 12, "image": seed, "origin": "220 200 0", "size": "18 18",
                     "visible": {"value": True, "script": script}}]}
         entries["scene.json"] = json.dumps(scene).encode()
-        rows, picture, _ = self.run_sample(project, entries)
-        dimensions = {(row["source"]["width"], row["source"]["height"]) for row in rows
-            if row.get("layerID") == 11 and row.get("source") and row["source"].get("purpose") == "straightAlbedo"}
-        self.assertIn((4096, 4), dimensions)
-        clone_dimensions = {(row["source"]["width"], row["source"]["height"]) for row in rows
-            if row.get("layerID") != 11 and row.get("source")
-            and row["source"].get("logical") == shared}
-        self.assertIn((4096, 4), clone_dimensions)
-        with Image.open(picture) as opened:
-            image = opened.convert("RGB")
-            red, green, blue = image.getpixel((image.width // 2, image.height // 2))
-        self.assertGreater(red, 170, (red, green, blue))
-        self.assertLess(max(green, blue), 70, (red, green, blue))
+        for mode in ("auto", "performance"):
+            with self.subTest(mode=mode):
+                rows, picture, _ = self.run_sample(project, entries, mode=mode)
+                draws = {(row["layerID"], row["source"]["textureToken"]) for row in rows
+                    if row["kind"] == "ordinary" and row["outcome"] == "draw-encoded"
+                    and row["access"] == "texture-bind" and row.get("source")
+                    and (row["source"]["width"], row["source"]["height"]) == sizes[0]}
+                bound_shared_model_layers = {row["layerID"] for row in rows
+                    if row["kind"] == "source-selection" and row.get("source")
+                    and row["source"].get("logical") == shared
+                    and (row["layerID"], row["source"]["textureToken"]) in draws}
+                self.assertIn(11, bound_shared_model_layers)
+                self.assertTrue(any(layer_id < 0 for layer_id in bound_shared_model_layers))
+                with Image.open(picture) as opened:
+                    image = opened.convert("RGB")
+                    red, green, blue = image.getpixel((image.width // 2, image.height // 2))
+                self.assertGreater(red, 170, (red, green, blue))
+                self.assertLess(max(green, blue), 70, (red, green, blue))
