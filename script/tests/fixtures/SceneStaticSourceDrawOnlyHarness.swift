@@ -192,6 +192,7 @@ final class SceneImageEffectPipelineRepository {
 }
 
 final class SceneMainPassEncoder {
+    var textureUse: SceneTextureUseSample?
     var compositionTrace: SceneEffectExecutionFrameTrace? = nil
     var compositionTarget: SceneCompositionTextureObservation {
         preconditionFailure("composition observation is outside this draw-only fixture")

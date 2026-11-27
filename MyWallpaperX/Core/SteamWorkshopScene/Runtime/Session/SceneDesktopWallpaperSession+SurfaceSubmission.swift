@@ -9,6 +9,7 @@ extension SceneDesktopWallpaperSession {
             let didFailPreparation: Bool
             let shadow: SceneShadowUse?
             let volume: SceneVolumeUse?
+            var textures: SceneTextureUseSample?
         }
 
         struct Observation {
@@ -23,12 +24,14 @@ extension SceneDesktopWallpaperSession {
 
         mutating func observe(
             _ samples: Int?, didFailPreparation: Bool = false, shadow: SceneShadowUse? = nil,
-            volume: SceneVolumeUse? = nil
+            volume: SceneVolumeUse? = nil, textures: SceneTextureUseSample? = nil
         ) -> Observation? {
-            guard samples != nil || shadow != nil || volume != nil else { return nil }
+            guard samples != nil || shadow != nil || volume != nil || textures != nil else { return nil }
             let use = Use(samples: samples, didFailPreparation: samples == 1 && didFailPreparation,
-                          shadow: shadow, volume: volume)
-            if use == completed, inFlight.isEmpty || (inFlight.count == 1 && inFlight[use] != nil) { return nil }
+                          shadow: shadow, volume: volume, textures: textures)
+            var comparison = use
+            comparison.textures = textures ?? completed?.textures
+            if comparison == completed, inFlight.isEmpty || (inFlight.count == 1 && inFlight[use] != nil) { return nil }
             inFlight[use, default: 0] += 1
             latestSubmission &+= 1
             return .init(use: use, revision: latestSubmission)
@@ -39,8 +42,10 @@ extension SceneDesktopWallpaperSession {
             inFlight[observation.use] = count > 0 ? count : nil
             guard succeeded, observation.revision > latestCompletion else { return false }
             latestCompletion = observation.revision
-            guard completed != observation.use else { return false }
-            completed = observation.use
+            var use = observation.use
+            use.textures = use.textures ?? completed?.textures
+            guard completed != use else { return false }
+            completed = use
             return true
         }
     }
@@ -58,7 +63,7 @@ extension SceneDesktopWallpaperSession {
                 fallback = nil
             }
             return .init(displayID: displayID, samples: use?.samples, fallback: fallback,
-                         shadow: use?.shadow, volume: use?.volume)
+                         shadow: use?.shadow, volume: use?.volume, textures: use?.textures?.bindings)
         }
     }
 
@@ -87,10 +92,19 @@ extension SceneDesktopWallpaperSession {
             let simulationFrameIndex = surface.simulationFrame?.timing.frameIndex ?? 0
             let mainFrameStart = ProcessInfo.processInfo.systemUptime
 #endif
+            let textureRevision = surface.metalView.ordinaryTextureRevision
+            let confirmedTextures = surface.qualityStatus.completed?.textures
+            let needsFirstBinding = surface.metalView.hasPreparedOrdinaryTexture
+                && confirmedTextures?.bindings.reduced == nil && confirmedTextures?.bindings.retained == nil
+            let needsFirstReducedBinding = surface.metalView.hasPreparedSmallerTexture
+                && confirmedTextures?.bindings.reduced == nil
+            let observesTextures = onDisplayQualityChanged != nil
+                && (confirmedTextures?.revision != textureRevision || needsFirstBinding || needsFirstReducedBinding)
             let frameOutcome = surface.metalView.renderFrame(
                 simulationFrame: surface.simulationFrame,
                 dynamicTextSnapshot: dynamicTextSnapshot,
                 collectsInitialVideoReadiness: true,
+                textureUseRevision: observesTextures ? textureRevision : nil,
                 performanceTelemetry: performanceTelemetry
             )
 #if DEBUG
@@ -233,7 +247,7 @@ extension SceneDesktopWallpaperSession {
                 surface.qualityStatus.observe(use.rasterSampleCount,
                     didFailPreparation: use.didFailMultisamplePreparation,
                     shadow: use.shadow.map { shadowsDisabled ? .disabled : $0 },
-                    volume: use.volume.map { allowsProjectedSpotVolume ? $0 : .disabled })
+                    volume: use.volume.map { allowsProjectedSpotVolume ? $0 : .disabled }, textures: use.textures)
             }
             : nil
         guard awaitsInitialPresentation || sceneClock.isPaused

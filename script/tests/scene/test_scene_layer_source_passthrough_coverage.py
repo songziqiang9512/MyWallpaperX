@@ -174,6 +174,7 @@ class SceneLayerSourcePassthroughCoverageTests(unittest.TestCase):
             scene / "Resources/Textures/SceneTextureUVTransform.swift",
             scene / "Resources/Textures/SceneTextureLookupIdentity.swift",
             scene / "Resources/Textures/SceneTextureCandidate.swift",
+            REPOSITORY_ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift",
             scene / "Resources/Textures/SceneBaseImageTextureCandidateSupport.swift",
             scene / "Compilation/Material/SceneBaseMaterialProviderBindingProgram.swift",
             scene / "Resources/Textures/SceneBaseMaterialTextureResolver.swift",

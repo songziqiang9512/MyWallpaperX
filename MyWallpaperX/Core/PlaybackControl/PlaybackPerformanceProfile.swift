@@ -70,11 +70,40 @@ nonisolated enum SceneVolumeUse: Hashable, Sendable {
     case rendered(Rendered)
 }
 
+nonisolated struct SceneTextureUse: Hashable, Sendable {
+    enum Reason: String, Sendable {
+        case highQuality
+        case authoredMip
+        case projection
+        case alreadyFits
+        case preservedPixels
+        case noEligibleMip
+        case smallerMipUnavailable
+    }
+
+    struct Binding: Hashable, Sendable {
+        let width: Int
+        let height: Int
+        let baseMip: Int
+        let mipCount: Int
+        let reason: Reason
+    }
+
+    var reduced: Binding?
+    var retained: Binding?
+}
+
+nonisolated struct SceneTextureUseSample: Hashable, Sendable {
+    let revision: UInt64
+    var bindings = SceneTextureUse()
+}
+
 nonisolated struct SceneFrameRenderUse: Equatable, Sendable {
     let rasterSampleCount: Int?
     let didFailMultisamplePreparation: Bool
     let shadow: SceneShadowUse?
     var volume: SceneVolumeUse? = nil
+    var textures: SceneTextureUseSample? = nil
 }
 
 nonisolated enum SceneVolumeLightingQuality: String, Sendable {

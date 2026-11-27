@@ -221,6 +221,10 @@ struct SceneImageLayerCompositor {
 #endif
 
             }
+            if encoded, mainPass.textureUse != nil, request.layer.colorBlendMode ?? 0 == 0,
+               request.baseTextureCandidate?.texture === passthroughPlan.source.texture {
+                recordOrdinaryTextureUse(request.baseTextureCandidate, in: mainPass)
+            }
             return encoded ? .layerSourcePassthrough : .failed
         }
         guard !hasUnclaimedVisibleEffects else {
@@ -559,9 +563,20 @@ struct SceneImageLayerCompositor {
             mainPass: mainPass
         )
         guard rendered else { return .failed }
+        recordOrdinaryTextureUse(request.baseTextureCandidate, in: mainPass)
         return request.geometryProduct == nil
             ? .normal(consumedDependency: hasDependencyInput)
             : .geometryEncoded(consumedDependency: hasDependencyInput)
+    }
+
+    private func recordOrdinaryTextureUse(_ candidate: SceneTextureCandidate?, in pass: SceneMainPassEncoder) {
+        guard pass.textureUse != nil, let candidate, let reason = candidate.ordinaryMipReason else { return }
+        let texture = candidate.texture
+        let keyPath = candidate.embeddedBaseMip > 0 ? \SceneTextureUse.reduced : \SceneTextureUse.retained
+        if let previous = pass.textureUse?.bindings[keyPath: keyPath],
+           previous.width * previous.height >= texture.width * texture.height { return }
+        pass.textureUse?.bindings[keyPath: keyPath] = .init(width: texture.width, height: texture.height,
+            baseMip: candidate.embeddedBaseMip, mipCount: texture.mipmapLevelCount, reason: reason)
     }
 
     private func drawLayerSourcePassthrough(

@@ -7,7 +7,7 @@ extension SceneMetalRenderer {
     /// Produces frame-local passes and leases into renderFrame's rollback
     /// scope; admission and prepass never acquire submission ownership.
     func encodeSceneDrawing(
-        imageTextures: SceneBaseImageTextureSnapshot,
+        imageTextures: SceneBaseImageTextureSnapshot, textureUseRevision: UInt64?,
         layerTopology: SceneScriptLayerTopologySnapshot?,
         userPropertyTextures: [String: MTLTexture],
         userPropertyTextureStates: [SceneUserPropertyTextureIdentity: SceneTextureProviderState],
@@ -133,6 +133,7 @@ extension SceneMetalRenderer {
 #if DEBUG
         mainPass.compositionTrace = effectExecutionTrace
 #endif
+        mainPass.textureUse = textureUseRevision.map { SceneTextureUseSample(revision: $0) }
         compositionGroupRuntime = groups
         mainPassForSubmission = mainPass
 #if DEBUG

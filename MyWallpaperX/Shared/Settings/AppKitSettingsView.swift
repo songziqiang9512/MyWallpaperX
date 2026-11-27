@@ -103,6 +103,7 @@ final class AppKitSettingsContainerView: NSView {
     let sceneRasterSamplesLabel = NSTextField(labelWithString: "")
     let scenePostProcessingPopup = NSPopUpButton()
     let sceneTextureQualityPopup = NSPopUpButton()
+    let sceneTextureUseLabel = AppKitSettingsContainerView.makeSceneEffectReadout()
     let sceneShadowsPopup = NSPopUpButton()
     let sceneShadowUseLabel = AppKitSettingsContainerView.makeSceneEffectReadout()
     let sceneVolumeLightingPopup = NSPopUpButton()

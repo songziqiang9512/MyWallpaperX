@@ -11,6 +11,7 @@ extension SceneBaseImageTextureLoad {
         preparedDirectImageSource: SceneTextureLoader.PreparedDirectImageSource? = nil,
         conditionalVariantIDs: Set<UInt32>? = nil,
         mipSelection: SceneOrdinaryImageMipSelection? = nil,
+        originalMipReason: SceneTextureUse.Reason? = nil,
         checkCancellation: (() throws -> Void)? = nil
     ) throws -> Outcome {
         if let preparedTexSource, preparedTexSource.input != url { throw SceneResourceView.ReadError.invalidHandle }
@@ -30,7 +31,7 @@ extension SceneBaseImageTextureLoad {
         switch outcome {
         case .failed(let failure):
             return .failed(failure)
-        case .loaded(let candidate):
+        case .loaded(var candidate):
             guard let scale = candidate.axisAlignedMappedUVScale(
                 expectedPurpose: purpose
             ) else {
@@ -80,6 +81,7 @@ extension SceneBaseImageTextureLoad {
                     "base color candidate failed its source sampling contract"
                 ))
             }
+            candidate.ordinaryMipReason = candidate.ordinaryMipReason ?? originalMipReason
             return .loaded(Loaded(
                 texture: candidate.texture,
                 candidate: candidate,

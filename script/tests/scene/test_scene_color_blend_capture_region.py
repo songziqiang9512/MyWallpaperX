@@ -32,7 +32,7 @@ SOURCES = [SCENE / p for p in (
     "Diagnostics/ScenePerformanceCounterHub.swift",
     "Diagnostics/SceneGPUCensus.swift",
     "Diagnostics/SceneEffectExecutionFrameTrace.swift",
-    "Diagnostics/SceneEffectExecutionTelemetry.swift")]
+    "Diagnostics/SceneEffectExecutionTelemetry.swift")] + [REPO / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift"]
 SHADER = SCENE / "Rendering/Composition/SceneImageLayer.metal"
 FOG = SHADER.with_name("SceneDistanceFog.metalh")
 

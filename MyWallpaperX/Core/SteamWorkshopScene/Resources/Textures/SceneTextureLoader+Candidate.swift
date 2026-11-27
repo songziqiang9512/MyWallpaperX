@@ -158,10 +158,11 @@ nonisolated extension SceneTextureLoader {
             }
             spriteFrame = nil
         }
-        var embeddedBaseMip = if let mipSelection, let prepared, purpose == .straightAlbedo,
-                                 spriteFrame == nil, conditionalVariantIDs == nil {
-            embeddedUploadBaseMip(prepared.resource, selection: mipSelection)
-        } else { 0 }
+        var mip: (index: Int, reason: SceneTextureUse.Reason?) = (0, nil)
+        if let mipSelection, let prepared, purpose == .straightAlbedo,
+           spriteFrame == nil, conditionalVariantIDs == nil {
+            mip = embeddedUploadMip(prepared.resource, selection: mipSelection)
+        }
         var outcome: SceneTextureLoadOutcome
         if let prepared, let conditionalVariantIDs {
             try checkCancellation?()
@@ -170,28 +171,30 @@ nonisolated extension SceneTextureLoader {
         } else {
             outcome = try load(from: input, source: source, purpose: purpose, device: device,
                 preparedTexSource: prepared, preparedDirectImageSource: preparedDirect,
-                embeddedBaseMip: embeddedBaseMip,
+                embeddedBaseMip: mip.index,
                 checkCancellation: checkCancellation)
         }
-        if embeddedBaseMip > 0 {
+        if mip.index > 0 {
             switch outcome {
             case .loaded: break
             default:
-                embeddedBaseMip = 0
+                mip = (0, .smallerMipUnavailable)
                 outcome = try load(from: input, source: source, purpose: purpose, device: device,
                     preparedTexSource: prepared, checkCancellation: checkCancellation)
             }
         }
         guard case .loaded(let texture) = outcome else { return .failed(outcome) }
         let candidate = try makeCandidate(texture: texture, resource: prepared?.resource, source: source,
-            purpose: purpose, spriteFrame: spriteFrame, embeddedBaseMip: embeddedBaseMip,
+            purpose: purpose, spriteFrame: spriteFrame, embeddedBaseMip: mip.index,
             checkCancellation: checkCancellation)
-        if case .loaded = candidate, spriteFrame == nil, let container, container.rawMetalPixelFormat != nil {
+        guard case .loaded(var loaded) = candidate else { return candidate }
+        loaded.ordinaryMipReason = mip.reason
+        if spriteFrame == nil, let container, container.rawMetalPixelFormat != nil {
             storeRawCandidateLayout(.init(mappedWidth: UInt32(container.imageWidth),
                 mappedHeight: UInt32(container.imageHeight), flags: container.flags, format: container.format),
                 source: source, device: texture.device)
         }
-        return candidate
+        return .loaded(loaded)
     }
 
     /// Catalog-only admission shares the exact source/device cache and typed
@@ -464,13 +467,26 @@ nonisolated extension SceneTextureLoader {
         return mapped
     }
 
-    private func embeddedUploadBaseMip(_ resource: TexResource, selection: SceneOrdinaryImageMipSelection) -> Int {
+    private func embeddedUploadMip(_ resource: TexResource, selection: SceneOrdinaryImageMipSelection)
+        -> (index: Int, reason: SceneTextureUse.Reason?) {
         guard let container = resource.container, container.containerVersion == .texb0003,
               resource.hasValidTexb3EmbeddedMipChain, container.conditionalVariants.isEmpty,
-              !container.isVolume, let base = container.mips.first,
-              base.width == container.imageWidth, base.height == container.imageHeight else { return 0 }
-        return selection.baseIndex(in: container.mips.map { ($0.width, $0.height) },
+              !container.isVolume, let base = container.mips.first, container.mips.count > 1
+        else { return (0, .noEligibleMip) }
+        guard base.width == container.imageWidth, base.height == container.imageHeight else {
+            return (0, .preservedPixels)
+        }
+        let index = selection.baseIndex(in: container.mips.map { ($0.width, $0.height) },
             maximumSingleLevelDimension: Self.maxTextureDimension)
+        if index > 0 { return (index, .authoredMip) }
+        switch selection {
+        case let .minimumExtent(minimum):
+            let firstTail = container.mips[1]
+            let meetsProjection = firstTail.width >= minimum.x && firstTail.height >= minimum.y
+            return (0, meetsProjection ? .noEligibleMip : .projection)
+        case let .maximumLongEdge(limit):
+            return (0, max(base.width, base.height) <= limit ? .alreadyFits : .noEligibleMip)
+        }
     }
 
     private func candidateOutputGeometry(

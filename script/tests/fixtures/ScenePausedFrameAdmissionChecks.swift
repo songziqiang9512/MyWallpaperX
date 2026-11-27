@@ -74,6 +74,19 @@ extension Harness {
         precondition(status.completed?.samples == 4 && status.completed?.didFailPreparation == false)
         precondition(status.observe(4) == nil)
 
+        let texture = SceneTextureUseSample(revision: 0, bindings: .init(reduced:
+            .init(width: 1024, height: 512, baseMip: 1, mipCount: 2, reason: .authoredMip)))
+        let observedTexture = status.observe(4, textures: texture)!
+        let unrelatedChange = status.observe(1)!
+        precondition(status.complete(observedTexture, succeeded: true))
+        precondition(status.complete(unrelatedChange, succeeded: true))
+        precondition(status.completed?.textures == texture && status.observe(1) == nil)
+        let noBinding = SceneTextureUseSample(revision: 1)
+        let failedObservation = status.observe(1, textures: noBinding)!
+        precondition(!status.complete(failedObservation, succeeded: false) && status.completed?.textures == texture)
+        let retry = status.observe(1, textures: noBinding)!
+        precondition(status.complete(retry, succeeded: true) && status.completed?.textures == noBinding)
+
         let owner = SceneDesktopWallpaperSession()
         let surface = owner.attach()
         var changes = 0
@@ -81,30 +94,52 @@ extension Harness {
         let view = surface.metalView
         let shadow: SceneShadowUse = .active([.init(family: .point, face: 1024, limit: .lightFamily)])
         view.renderQuality = (4, shadow)
+        view.renderTextureUse = .init(revision: 0)
+        view.hasPreparedOrdinaryTexture = true
         _ = owner.renderSurfaces()
+        precondition(view.requestedTextureUseRevisions == [0])
         precondition(changes == 0 && surface.qualityStatus.completed == nil)
         complete(view, 0, true)
-        precondition(changes == 1 && surface.qualityStatus.completed?.shadow == shadow)
+        precondition(changes == 1 && surface.qualityStatus.completed?.textures?.bindings == .init())
+
+        // A prepared image can become visible without replacing its texture. An
+        // original binding in the earlier frame must not hide the later smaller one.
+        let retained = SceneTextureUseSample(revision: 0, bindings: .init(retained:
+            .init(width: 2048, height: 1024, baseMip: 0, mipCount: 3, reason: .preservedPixels)))
+        view.renderTextureUse = retained
+        view.hasPreparedSmallerTexture = true
+        _ = owner.renderSurfaces()
+        complete(view, 1, true)
+        precondition(changes == 2 && surface.qualityStatus.completed?.textures == retained)
+        view.renderTextureUse = texture
+        _ = owner.renderSurfaces()
+        precondition(view.requestedTextureUseRevisions == [0, 0, 0])
+        complete(view, 2, true)
+        precondition(changes == 3 && surface.qualityStatus.completed?.textures == texture)
 
         // Retained color has no new quality observations.
         view.renderQuality = (nil, nil)
+        view.renderTextureUse = nil
         _ = owner.renderSurfaces()
-        complete(view, 1, true)
-        precondition(changes == 1 && surface.qualityStatus.completed?.shadow == shadow)
+        precondition(view.requestedTextureUseRevisions == [0, 0, 0, nil])
+        view.ordinaryTextureRevision = 1
+        complete(view, 3, true)
+        precondition(changes == 3 && surface.qualityStatus.completed?.shadow == shadow)
 
         view.renderQuality = (4, .noReceiver)
         _ = owner.renderSurfaces()
-        complete(view, 2, false)
-        precondition(changes == 1 && surface.qualityStatus.completed?.shadow == shadow)
+        precondition(view.requestedTextureUseRevisions.last == 1)
+        complete(view, 4, false)
+        precondition(changes == 3 && surface.qualityStatus.completed?.shadow == shadow)
         _ = owner.renderSurfaces()
         let replacement = owner.attach()
-        complete(view, 3, true)
-        precondition(changes == 1 && replacement.qualityStatus.completed == nil)
+        complete(view, 5, true)
+        precondition(changes == 3 && replacement.qualityStatus.completed == nil)
 
         owner.shadowsDisabled = true
         replacement.metalView.renderQuality = (1, .noReceiver)
         _ = owner.renderSurfaces()
         complete(replacement.metalView, 0, true)
-        precondition(changes == 2 && replacement.qualityStatus.completed?.shadow == .disabled)
+        precondition(changes == 4 && replacement.qualityStatus.completed?.shadow == .disabled)
     }
 }

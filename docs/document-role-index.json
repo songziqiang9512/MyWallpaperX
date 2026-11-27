@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1aa72dd4873057219f318fc8d17c3a03cf789e13477d0ecfee62947f6b36b008",
+        "sourceSHA256": "53d197cd9455eb1369cba2d119e5b9c37169dd3e3f8c7b3097f3efde7c3dac59",
         "method": "document_registry --audit + document_health --check",
-        "scope": "登记体积回执的实际编码、完成观察和 AppKit 消费。",
-        "limitations": "画面和持续呈现的证据边界见现役工作卡。"
+        "scope": "将纹理用户回显指向普通纹理实绑和完成事件。",
+        "limitations": "实际运行范围见现役工作卡。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "413cc8ce67bce00c87166fc30599aa48345a661266ec9fedd3f925a5ab1f34f7",
+        "sourceSHA256": "0d3258c8f3b1b7e270b89e2dc58213d1a0d3ca98347e9b8649e25531accae6fe",
         "method": "document_registry --audit + document_health --check",
-        "scope": "明确纹理选级原因、实际绑定确认与逐屏生命周期。",
-        "limitations": "画面和持续呈现的证据边界见现役工作卡。"
+        "scope": "定义普通纹理首次实绑、每类代表规格和回显范围。",
+        "limitations": "实际运行范围见现役工作卡。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c46baa600e990d3e76a0fce4109010b888bbefc63d5d5a7ba2ab9b0bb2336aea",
+        "sourceSHA256": "e20e4da587b73af38a274915c56d19b4d5f142c20ec8576b931c3bfdb0e30d2d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "登记三档原窗口纹理与点光体积组合实测，给出实际回显与二维覆盖下一批范围。",
-        "limitations": "画面和持续呈现的证据边界见现役工作卡。"
+        "scope": "登记两部真实作者的原生纹理菜单、逐屏回执与同请求完成输出。",
+        "limitations": "实际运行范围见现役工作卡。"
       }
     },
     {
@@ -886,10 +886,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d894302a147c59eee543d0781f9c48251d6d4e3215e4e3a257fa922905093826",
+        "sourceSHA256": "e795d8aa257444901c32a66ffce7f3b6af3bd165ec278752e36f3570f7409a3e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "说明体积完成帧回执的算法、实际编码与失败边界。",
-        "limitations": "画面和持续呈现的证据边界见现役工作卡。"
+        "scope": "补足选级、候选、根绘制及完成回执的唯一生产路径。",
+        "limitations": "实际运行范围见现役工作卡。"
       }
     },
     {

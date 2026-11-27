@@ -46,6 +46,7 @@ struct SceneMetalRenderer {
     let dynamicLayerTopologyCache = SceneDynamicLayerRenderTopologyCache()
     func renderFrame(
         collectsInitialVideoReadiness: Bool = false,
+        textureUseRevision: UInt64? = nil,
         compositionCaptureRequestID: UInt64? = nil,
         imageTextures: SceneBaseImageTextureSnapshot,
         layerTopology: SceneScriptLayerTopologySnapshot? = nil,
@@ -199,7 +200,7 @@ struct SceneMetalRenderer {
         defer { if !didTransferFrameOwnership { compositionGroupRuntime?.cancel() } }
         if sceneColor?.requiresDraw != false {
             if let failure = encodeSceneDrawing(
-                imageTextures: imageTextures,
+                imageTextures: imageTextures, textureUseRevision: textureUseRevision,
                 layerTopology: layerTopology,
                 userPropertyTextures: userPropertyTextures,
                 userPropertyTextureStates: userPropertyTextureStates,
@@ -247,7 +248,7 @@ struct SceneMetalRenderer {
             rasterSampleCount: mainPassForSubmission?.submittedRasterSampleCount,
             didFailMultisamplePreparation: mainPassForSubmission?.didFailMultisamplePreparation == true,
             shadow: modelFrame.shadowUse,
-            volume: .rendered(volumeUse))
+            volume: .rendered(volumeUse), textures: mainPassForSubmission?.textureUse)
         if let failure = encodeTerminalColor(
             sourceCompleted: sceneColor?.requiresDraw == false || reflectionFrame?.mainSourceCompleted == true,
             sceneColor: sceneColor, target: drawable.texture,

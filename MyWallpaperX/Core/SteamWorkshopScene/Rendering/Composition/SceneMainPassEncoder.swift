@@ -37,6 +37,8 @@ final class SceneMainPassEncoder {
     private var openedSingleSampleDepth = false
     private(set) var submittedRasterSampleCount: Int?
     private(set) var didFailMultisamplePreparation = false
+    var textureUse: SceneTextureUseSample?
+
     private let submissionOwner: SceneMainPassEncoder?
     private let worldClipToTargetClip: simd_float4x4?
     private(set) var multisampleAttachments: MultisampleAttachments?

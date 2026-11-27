@@ -353,6 +353,7 @@ enum SceneBaseImageTextureLoad {
         preparedTexSource: SceneTextureLoader.PreparedTexSource? = nil,
         preparedDirectImageSource: SceneTextureLoader.PreparedDirectImageSource? = nil,
         mipSelection: SceneOrdinaryImageMipSelection? = nil,
+        originalMipReason: SceneTextureUse.Reason? = nil,
         checkCancellation: (() throws -> Void)? = nil
     ) -> Outcome {
         do {
@@ -426,7 +427,7 @@ enum SceneBaseImageTextureLoad {
                 loader: loader,
                 device: device, preparedTexSource: preparedTexSource,
                 preparedDirectImageSource: preparedDirectImageSource,
-                mipSelection: mipSelection, checkCancellation: checkCancellation
+                mipSelection: mipSelection, originalMipReason: originalMipReason, checkCancellation: checkCancellation
             )
         } catch { return .failed(.resourceReadFailed(error)) }
     }

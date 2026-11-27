@@ -530,6 +530,18 @@ import Foundation
                 "displayID": 7, "samples": 4, "shadow": "disabled", "volume": volume
             ]]) == [.init(displayID: 7, samples: 4, shadow: .disabled)]
         }
+        let textureDisplays = [
+            SceneRasterDisplayStatus(displayID: 1, samples: 4, textures: .init(
+                reduced: .init(width: 1632, height: 1105, baseMip: 2, mipCount: 2, reason: .authoredMip),
+                retained: .init(width: 4448, height: 1824, baseMip: 0, mipCount: 1, reason: .preservedPixels))),
+            SceneRasterDisplayStatus(displayID: 2, samples: 4, textures: .init()),
+            SceneRasterDisplayStatus(displayID: 3, samples: nil)
+        ]
+        let texturesRoundTrip = SceneDaemonProtocol.rasterDisplayStatuses(textureDisplays.map(\.wireObject)) == textureDisplays
+        let malformedTexturePreservesOtherQuality = SceneDaemonProtocol.rasterDisplayStatuses([[
+            "displayID": 7, "samples": 4, "volume": "disabled",
+            "textures": ["reduced": ["width": true, "height": 12, "baseMip": 2, "mipCount": 2, "reason": "authoredMip"]]
+        ]]) == [.init(displayID: 7, samples: 4, volume: .disabled)]
         let duplicateDisplayRejected: Bool
         if case .failure(.invalidPayload("setDisplayConfiguration")) = decode([
             "v": 2, "cmd": "setDisplayConfiguration", "screens": [
@@ -714,6 +726,8 @@ import Foundation
             "rasterSamplesValid": rasterSamplesValid,
             "malformedShadowPreservesRaster": malformedShadowPreservesRaster,
             "volumeRoundTrips": volumeRoundTrips,
+            "texturesRoundTrip": texturesRoundTrip,
+            "malformedTexturePreservesOtherQuality": malformedTexturePreservesOtherQuality,
             "malformedVolumePreservesOtherQuality": malformedVolumePreservesOtherQuality,
             "duplicateDisplayRejected": duplicateDisplayRejected,
             "badBookmarkRejected": badBookmarkRejected,

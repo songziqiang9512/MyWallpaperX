@@ -159,6 +159,7 @@ extension Notification.Name {
     // ACTUAL_RENDER_READOUT_DISPLAY
     // ACTUAL_SHADOW_USE_DESCRIPTION
     // ACTUAL_VOLUME_USE_DESCRIPTION
+    // ACTUAL_TEXTURE_USE_DESCRIPTION
     // ACTUAL_EFFECT_READOUT
     // ACTUAL_SETTINGS_ROW
     // ACTUAL_LEADING_ROW_CONTENT
@@ -601,6 +602,43 @@ extension Notification.Name {
         daemon.activeRasterDisplayStatuses = []
         view.refreshSceneRenderReadouts()
         checks["native-volume-readout-clears-on-stop"] = volumeLabel.isHidden && volumeLabel.toolTip == nil
+
+        let textureLabel = view.sceneTextureUseLabel
+        daemon.activePreparedRenderQuality = .init(textures: .full)
+        daemon.activeRasterDisplayStatuses = [.init(displayID: testDisplays[0], samples: 1, textures: .init())]
+        view.refreshSceneRenderReadouts(.init(textures: .full))
+        checks["native-texture-observed-empty-is-distinct-from-waiting"] =
+            !textureLabel.isHidden && textureLabel.stringValue == "No ordinary texture observed"
+
+        let texturePopup = view.sceneTextureQualityPopup
+        texturePopup.selectItem(at: texturePopup.indexOfItem(withRepresentedObject: SceneTextureQuality.performance.rawValue))
+        _ = texturePopup.sendAction(texturePopup.action, to: view)
+        checks["native-texture-edit-keeps-previous-actual-receipt"] =
+            textureLabel.stringValue == "Previous setting in use: No ordinary texture observed"
+            && PlaybackQualityPreference.current.scene.textures == .performance
+
+        daemon.activePreparedRenderQuality = .init(textures: .performance)
+        daemon.activeRasterDisplayStatuses = [.init(displayID: testDisplays[0], samples: 1)]
+        view.refreshSceneRenderReadouts()
+        checks["native-texture-new-request-awaits-its-own-receipt"] =
+            textureLabel.stringValue == "Awaiting render result"
+        let smaller: SceneTextureUse.Binding = .init(width: 1632, height: 1105, baseMip: 2, mipCount: 2, reason: .authoredMip)
+        let original: SceneTextureUse.Binding = .init(width: 4448, height: 1824, baseMip: 0, mipCount: 1, reason: .preservedPixels)
+        daemon.activeRasterDisplayStatuses = [
+            .init(displayID: testDisplays[0], samples: 1, textures: .init(reduced: smaller, retained: original)),
+            .init(displayID: testDisplays[1], samples: nil),
+        ]
+        view.refreshSceneRenderReadouts()
+        let textureTip = textureLabel.toolTip ?? ""
+        checks["native-texture-readout-uses-per-display-actual-mip-tail-and-reason"] =
+            textureLabel.stringValue == "Varies by display"
+            && textureTip.contains("\(1632.formatted()) × \(1105.formatted()) · Base mip 2 · Mip levels 2 – Smaller authored mip")
+            && textureTip.contains("\(4448.formatted()) × \(1824.formatted()) · Base mip 0 · Mip levels 1 – Original sampling kept")
+            && textureTip.contains("Display \(testDisplays[1].formatted()): Awaiting render result")
+        daemon.activePreparedRenderQuality = nil
+        daemon.activeRasterDisplayStatuses = []
+        view.refreshSceneRenderReadouts()
+        checks["native-texture-readout-clears-on-stop"] = textureLabel.isHidden && textureLabel.toolTip == nil
 
         let locale = UserDefaults.standard.string(forKey: "AppleLocale")
         let separator = locale == "de_DE" ? "," : "."

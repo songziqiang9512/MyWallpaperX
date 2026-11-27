@@ -425,7 +425,8 @@ extension AppKitSettingsContainerView {
             sceneTextureQualityPopup.lastItem?.representedObject = mode.rawValue
         }
         qualitySection.addRow(makeSettingRow(title: String(localized: "Texture Resolution"), iconSystemName: "square.stack.3d.up",
-            subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: sceneTextureQualityPopup))
+            subtitle: String(localized: "Some effect changes require reloading the wallpaper"),
+            trailing: sceneTextureQualityPopup, readout: sceneTextureUseLabel))
         let shadowTiers: [(SceneShadowQuality, String)] = [
             (.disabled, String(localized: "Disabled")),
             (.low, String(localized: "Low")),
@@ -603,7 +604,8 @@ extension AppKitSettingsContainerView {
         saveEditedQuality(quality, previousPreparation: previousPreparation)
         refreshSceneQualityPreset(quality)
         refreshSceneQualityReapplyTitle(quality.scene)
-        if sender === sceneAntiAliasingPopup || sender === sceneShadowsPopup || sender === sceneVolumeLightingPopup {
+        if sender === sceneAntiAliasingPopup || sender === sceneTextureQualityPopup
+            || sender === sceneShadowsPopup || sender === sceneVolumeLightingPopup {
             refreshSceneRenderReadouts(quality.scene)
         }
     }

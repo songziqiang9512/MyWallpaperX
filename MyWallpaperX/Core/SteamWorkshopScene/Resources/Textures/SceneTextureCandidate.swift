@@ -191,6 +191,7 @@ nonisolated struct SceneTextureCandidate {
     let sampling: SceneTextureSampling
     let authoredFormat: SceneShaderTextureFormat?
     let embeddedBaseMip: Int
+    var ordinaryMipReason: SceneTextureUse.Reason? = nil
 
     init(
         texture: MTLTexture,

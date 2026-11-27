@@ -96,6 +96,7 @@ struct SceneBaseImageTextureLoad {
                      preparedTexSource: SceneTextureLoader.PreparedTexSource? = nil,
                      preparedDirectImageSource: SceneTextureLoader.PreparedDirectImageSource? = nil,
                      mipSelection: SceneOrdinaryImageMipSelection? = nil,
+                     originalMipReason: SceneTextureUse.Reason? = nil,
                      checkCancellation: (() throws -> Void)? = nil) -> Outcome {
         do {
             try checkCancellation?()

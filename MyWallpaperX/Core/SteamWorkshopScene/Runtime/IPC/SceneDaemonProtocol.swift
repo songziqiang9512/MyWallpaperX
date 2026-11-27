@@ -104,6 +104,7 @@ nonisolated struct SceneRasterDisplayStatus: Equatable, Sendable {
     var fallback: Fallback? = nil
     var shadow: SceneShadowUse? = nil
     var volume: SceneVolumeUse? = nil
+    var textures: SceneTextureUse? = nil
 
     var wireObject: [String: Any] {
         var object: [String: Any] = ["displayID": displayID]
@@ -130,7 +131,18 @@ nonisolated struct SceneRasterDisplayStatus: Equatable, Sendable {
             row["point"] = use.point?.rawValue
             object["volume"] = row
         }
+        if let textures {
+            var row: [String: [String: Any]] = [:]
+            row["reduced"] = textures.reduced.map(Self.textureBinding)
+            row["retained"] = textures.retained.map(Self.textureBinding)
+            object["textures"] = row
+        }
         return object
+    }
+
+    private static func textureBinding(_ value: SceneTextureUse.Binding) -> [String: Any] {
+        ["width": value.width, "height": value.height, "baseMip": value.baseMip,
+         "mipCount": value.mipCount, "reason": value.reason.rawValue]
     }
 }
 
@@ -161,9 +173,30 @@ nonisolated enum SceneDaemonProtocol {
             let fallback = (object["fallback"] as? String).flatMap(SceneRasterDisplayStatus.Fallback.init(rawValue:))
             if object["fallback"] != nil, (samples != 1 || fallback == nil) { return nil }
             statuses.append(.init(displayID: id, samples: samples.map(Int.init), fallback: fallback,
-                shadow: shadowUse(object["shadow"]), volume: volumeUse(object["volume"])))
+                shadow: shadowUse(object["shadow"]), volume: volumeUse(object["volume"]),
+                textures: textureUse(object["textures"])))
         }
         return statuses
+    }
+
+    private static func textureUse(_ raw: Any?) -> SceneTextureUse? {
+        guard let row = raw as? [String: Any] else { return nil }
+        let reduced = textureBinding(row["reduced"])
+        let retained = textureBinding(row["retained"])
+        guard row["reduced"] == nil || (reduced?.baseMip ?? 0) > 0,
+              row["retained"] == nil || retained?.baseMip == 0 else { return nil }
+        return .init(reduced: reduced, retained: retained)
+    }
+
+    private static func textureBinding(_ raw: Any?) -> SceneTextureUse.Binding? {
+        guard let row = raw as? [String: Any],
+              let width = unsignedInteger(row["width"]).flatMap(Int.init(exactly:)), width > 0,
+              let height = unsignedInteger(row["height"]).flatMap(Int.init(exactly:)), height > 0,
+              let baseMip = unsignedInteger(row["baseMip"]).flatMap(Int.init(exactly:)),
+              let mipCount = unsignedInteger(row["mipCount"]).flatMap(Int.init(exactly:)), mipCount > 0,
+              let reason = (row["reason"] as? String).flatMap(SceneTextureUse.Reason.init(rawValue:))
+        else { return nil }
+        return .init(width: width, height: height, baseMip: baseMip, mipCount: mipCount, reason: reason)
     }
 
     private static func volumeUse(_ raw: Any?) -> SceneVolumeUse? {

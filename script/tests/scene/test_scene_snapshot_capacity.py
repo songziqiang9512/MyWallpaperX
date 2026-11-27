@@ -17,6 +17,7 @@ SOURCES=[SCENE/p for p in [
  'Diagnostics/SceneGPUCensus.swift','Rendering/Composition/SceneFramebufferSnapshot.swift',
  'Rendering/Composition/SceneMainPassEncoder.swift',
  'Diagnostics/SceneEffectExecutionFrameTrace.swift','Diagnostics/SceneEffectExecutionTelemetry.swift']]
+SOURCES.append(REPO / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift")
 TIMESTAMP_FIXTURE=REPO/'script/tests/fixtures/SceneColorBlendCaptureRegionHarness.swift'
 _timestamp_fixture=TIMESTAMP_FIXTURE.read_text()
 # Reuse the existing no-request observation leaf. render/blit still create

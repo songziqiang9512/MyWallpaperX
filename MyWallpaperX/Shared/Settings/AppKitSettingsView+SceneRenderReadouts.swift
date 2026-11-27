@@ -18,6 +18,11 @@ extension AppKitSettingsContainerView {
         refreshSceneRasterSampleReadout(displays, names: names, waiting: waiting,
             pending: prepared.map { $0.antiAliasing != requested.antiAliasing } ?? false)
         let hidden = displays.isEmpty && prepared == nil
+        let textureDetails = displays.map { $0.textures.map(textureUseDescription) ?? waiting }
+        let previousTextures = prepared.map { $0.textures != requested.textures } == true
+            && displays.contains { $0.textures != nil }
+        refreshSceneEffectReadout(sceneTextureUseLabel, details: textureDetails, names: names,
+                                  waiting: waiting, previous: previousTextures, hidden: hidden)
         let shadowDetails = displays.map { $0.shadow.map(shadowUseDescription) ?? waiting }
         let previousShadow = prepared.map { $0.shadows != requested.shadows } == true && displays.contains { $0.shadow != nil }
         refreshSceneEffectReadout(sceneShadowUseLabel, details: shadowDetails, names: names,
@@ -84,6 +89,28 @@ extension AppKitSettingsContainerView {
     private func sceneRenderReadoutDisplayName(_ id: UInt32, screens: [AppKit.NSScreen]) -> String {
         screens.first { ($0.deviceDescription[NSDeviceDescriptionKey(rawValue: "NSScreenNumber")] as? NSNumber)?.uint32Value == id }?
             .localizedName ?? String(localized: "Display \(id.formatted())", table: "SceneQuality")
+    }
+
+    private func textureUseDescription(_ use: SceneTextureUse) -> String {
+        let bindings = [use.reduced, use.retained].compactMap { $0 }
+        guard !bindings.isEmpty else { return String(localized: "No ordinary texture observed", table: "SceneQuality") }
+        return bindings.map { binding in
+            let width = binding.width.formatted()
+            let height = binding.height.formatted()
+            let mip = binding.baseMip.formatted()
+            let levels = binding.mipCount.formatted()
+            let dimensions = String(localized: "\(width) × \(height) · Base mip \(mip) · Mip levels \(levels)", table: "SceneQuality")
+            let reason = switch binding.reason {
+            case .highQuality: String(localized: "High Quality")
+            case .authoredMip: String(localized: "Smaller authored mip", table: "SceneQuality")
+            case .projection: String(localized: "Original size for projection", table: "SceneQuality")
+            case .alreadyFits: String(localized: "Already within size limit", table: "SceneQuality")
+            case .preservedPixels: String(localized: "Original sampling kept", table: "SceneQuality")
+            case .noEligibleMip: String(localized: "No eligible smaller mip", table: "SceneQuality")
+            case .smallerMipUnavailable: String(localized: "Smaller mip unavailable", table: "SceneQuality")
+            }
+            return "\(dimensions) – \(reason)"
+        }.joined(separator: " / ")
     }
 
     private func volumeUseDescription(_ use: SceneVolumeUse, prepared: SceneVolumeLightingQuality?) -> String {

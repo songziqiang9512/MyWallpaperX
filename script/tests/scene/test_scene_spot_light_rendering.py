@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[3]
 SCENE_ROOT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCES = [*plan_fixture.SOURCES,
     SCENE_ROOT / "Rendering/Composition/SceneMainPassEncoder.swift",
+    ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift",
     SCENE_ROOT / "Rendering/Lighting/SceneSpotLightPipeline.swift",
 ]
 

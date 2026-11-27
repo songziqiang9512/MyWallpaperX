@@ -148,6 +148,7 @@ TEXTURE_SAMPLING_TYPES = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift"
 )
 STATIC_SOURCE_DRAW_ONLY_SOURCES = [
+    REPOSITORY_ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift",
     SCENE_ROOT / "Diagnostics/SceneEffectExecutionFrameTrace.swift",
     SCENE_ROOT / "Diagnostics/SceneEffectExecutionTelemetry.swift",
     SCENE_ROOT / "Resources/Textures/SceneTextureLookupIdentity.swift",

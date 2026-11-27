@@ -35,6 +35,9 @@ class SceneMetalView: NSView {
     weak var preparedBaseImages: ScenePreparedBaseImageResources?
     private var deferredBaseImageURLs: [Int: SceneResourceView.FileInput] = [:]
     private var adoptedDeferredBaseImageURLs: [Int: SceneResourceView.FileInput] = [:]
+    private(set) var ordinaryTextureRevision: UInt64 = 0
+    private(set) var hasPreparedOrdinaryTexture = false
+    private(set) var hasPreparedSmallerTexture = false
     let offscreenTexturePool: SceneOffscreenTexturePool
     var pointerState = SceneSurfacePointerState()
     var sceneScriptPointerEvents = SceneSurfacePointerEventBuffer()
@@ -431,6 +434,8 @@ class SceneMetalView: NSView {
             }
         }
         imageTextures = loaded
+        hasPreparedOrdinaryTexture = loaded.candidates.values.contains { $0.ordinaryMipReason != nil }
+        hasPreparedSmallerTexture = loaded.candidates.values.contains { $0.embeddedBaseMip > 0 }
         spriteAnimations = loadedSpriteAnimations
         specializedBaseTextureSamplings = loadedSpecializedBaseTextureSamplings
 #if DEBUG
@@ -528,13 +533,24 @@ class SceneMetalView: NSView {
     /// Clears rollback records after the property/resource transition has
     /// crossed the host barrier and become the surface's new committed state.
     func commitPreparedDeferredBaseImages(layerIDs: Set<Int>) {
+        var installed = false
         for layerID in layerIDs {
-            adoptedDeferredBaseImageURLs.removeValue(forKey: layerID)
+            guard adoptedDeferredBaseImageURLs.removeValue(forKey: layerID) != nil,
+                  let candidate = imageTextures.candidates[layerID], candidate.ordinaryMipReason != nil else { continue }
+            installed = true
+            if candidate.embeddedBaseMip > 0 { hasPreparedSmallerTexture = true }
+        }
+        if installed {
+            hasPreparedOrdinaryTexture = true
+            ordinaryTextureRevision &+= 1
         }
     }
 
     func replacePreparedBaseImages(_ updates: [Int: SceneBaseImageTextureLoad.Loaded]) {
-        for (layerID, loaded) in updates where imageTextures[layerID] != nil {
+        var changed = false
+        for (layerID, loaded) in updates {
+            guard let previous = imageTextures[layerID] else { continue }
+            if previous !== loaded.texture { changed = true }
             if let product = imageTextures.geometryProducts[layerID] {
                 imageTextures.setPuppetGeometry(product, samplingAtlas: loaded.texture,
                     samplingCandidate: loaded.candidate, layerID: layerID)
@@ -542,6 +558,10 @@ class SceneMetalView: NSView {
                 imageTextures.set(loaded.texture, candidate: loaded.candidate, layerID: layerID)
             }
             specializedBaseTextureSamplings[layerID] = loaded.baseTextureSampling
+        }
+        if changed {
+            hasPreparedSmallerTexture = imageTextures.candidates.values.contains { $0.embeddedBaseMip > 0 }
+            ordinaryTextureRevision &+= 1
         }
     }
 
@@ -570,6 +590,7 @@ class SceneMetalView: NSView {
         simulationFrame: SimulationFrame?,
         dynamicTextSnapshot: SceneDynamicTextTextureStore.Snapshot? = nil,
         collectsInitialVideoReadiness: Bool = false,
+        textureUseRevision: UInt64? = nil,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) -> SceneMetalRenderer.FrameOutcome {
         guard let simulationFrame else {
@@ -714,6 +735,7 @@ performanceTelemetry?.recordPreparation(
         }
         let outcome = renderer.renderFrame(
             collectsInitialVideoReadiness: collectsInitialVideoReadiness,
+            textureUseRevision: textureUseRevision,
             compositionCaptureRequestID: compositionCaptureRequestID,
             imageTextures: frameImageTextures,
             layerTopology: layerTopology,

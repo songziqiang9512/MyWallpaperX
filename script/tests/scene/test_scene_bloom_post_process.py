@@ -757,6 +757,7 @@ class SceneBloomPostProcessTests(unittest.TestCase):
         identity_paths = [Path(__file__), *BLOOM_CHECKS, *SWIFT_SOURCES,
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift",
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
+            ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift",
             *(SCENE / name for name in ("SceneBloomPostProcess.swift", "SceneBloomPostProcess.metal",
                 "SceneDisplayMappingPostProcess.swift", "SceneDisplayMappingPostProcess.metal", "SceneMainPassEncoder.swift"))]
         identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in identity_paths}
@@ -779,7 +780,7 @@ class SceneBloomPostProcessTests(unittest.TestCase):
                 ["xcrun", "-sdk", "macosx", "metallib", str(folder / "bloom.air"),
                  str(folder / "display-mapping.air"),
                  "-o", str(folder / "default.metallib")],
-                ["swiftc","-import-objc-header",str(folder / "Fault.h"),str(folder / "fault.o"),*map(str, SWIFT_SOURCES),str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift"),str(SCENE / "SceneBloomPostProcess.swift"),str(SCENE / "SceneDisplayMappingPostProcess.swift"),str(SCENE / "SceneMainPassEncoder.swift"),str(folder / "Main.swift"),*map(str, BLOOM_CHECKS),"-module-cache-path",str(folder / "module-cache"),"-o",str(folder / "run"),Path(__file__).resolve().parents[3] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift"],
+                ["swiftc","-import-objc-header",str(folder / "Fault.h"),str(folder / "fault.o"),*map(str, SWIFT_SOURCES),str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift"),str(SCENE / "SceneBloomPostProcess.swift"),str(SCENE / "SceneDisplayMappingPostProcess.swift"),str(SCENE / "SceneMainPassEncoder.swift"), str(ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift"),str(folder / "Main.swift"),*map(str, BLOOM_CHECKS),"-module-cache-path",str(folder / "module-cache"),"-o",str(folder / "run"),Path(__file__).resolve().parents[3] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift"],
             ]
             for index, command in enumerate(commands):
                 compiled = subprocess.run(command, capture_output=True, text=True, timeout=120)

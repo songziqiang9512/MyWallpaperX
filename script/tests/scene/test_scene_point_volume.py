@@ -18,6 +18,7 @@ class ScenePointVolumeTests(unittest.TestCase):
                 *model.sources(),
                 scene / "Rendering/Geometry/SceneMatrix.swift",
                 scene / "Rendering/Composition/SceneMainPassEncoder.swift",
+                gpu.REPO / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift",
                 scene / "Rendering/Lighting/ScenePointVolumePipeline.swift",
             ],
             lighting.LIGHTING_STUB,

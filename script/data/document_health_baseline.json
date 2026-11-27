@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 68,
-      "bytes": 25725
+      "bytes": 25912
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 150,
-      "bytes": 27958
+      "bytes": 28198
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -102,7 +102,7 @@
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 158474
+      "bytes": 158892
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 309,
-      "bytes": 66372
+      "bytes": 66827
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -679,10 +679,10 @@
     {
       "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "ce0d5897e88e42358a63be2f1a6d3b2ee5560722caccd3bc82c525cd9a1874f2",
-      "after": "82908b56b9070b7bf3ecb3cb86c659361d9969d4c89f405a2f442794416b5570",
+      "before": "82908b56b9070b7bf3ecb3cb86c659361d9969d4c89f405a2f442794416b5570",
+      "after": "530294af1dd70a92a106f884ac6027fc83e04bc67fcbe0653f04b5847927d683",
       "owner": "runtime quality contract",
-      "reason": "明确纹理选级原因、实际绑定确认与逐屏生命周期。",
+      "reason": "定义普通纹理首次实绑、每类代表规格和回显范围。",
       "decision": "docs/architecture/wallpaper-quality-execution-contract.md#quality-textures"
     },
     {
@@ -715,28 +715,28 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "384ac0cd421d494c78fc14dd9b031f3b74cb1b991262ab6c1a3f5937dfde93a5",
-      "after": "4fcaccd6618d928348dd5d4a978cfca905ffe06ae29c49a779d137cab75cf2ad",
-      "owner": "Scene quality rendering",
-      "reason": "登记体积回执的实际编码、完成观察和 AppKit 消费。",
+      "before": "4fcaccd6618d928348dd5d4a978cfca905ffe06ae29c49a779d137cab75cf2ad",
+      "after": "1a309e76c0206e9e71d8a352f5ad39f7ca4078a7feb7446db4e3a6f59221ae19",
+      "owner": "playback quality navigation",
+      "reason": "将纹理用户回显指向普通纹理实绑和完成事件。",
       "decision": "docs/architecture/repository-map.md#wallpaper-quality"
     },
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "747e76134817e4af4ba2a221010fc37df41bf5f68f79baa5a902472d10519d72",
-      "after": "020615eaef534811005253c930fa6ceab37518f7dc5a12aba0140cea60c44c98",
-      "owner": "Scene quality rendering",
-      "reason": "说明体积完成帧回执的算法、实际编码与失败边界。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#scene-volume-lighting-policy"
+      "before": "020615eaef534811005253c930fa6ceab37518f7dc5a12aba0140cea60c44c98",
+      "after": "7057ebf6f7d86dbc423926aafcb98d18479b007beb81d809d4f41ad959d9fcee",
+      "owner": "Scene render runtime",
+      "reason": "补足选级、候选、根绘制及完成回执的唯一生产路径。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#scene-texture-quality-policy"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "c9b81013fdd56853efd8a8d589428f4750110dbdeebe6071d3f07faaaa4d1ae9",
-      "after": "1e4a514a8265c37b1c00f103a97c24658419d6253fd4424de8a43f5903815308",
+      "before": "1e4a514a8265c37b1c00f103a97c24658419d6253fd4424de8a43f5903815308",
+      "after": "4f9ed69e68f00a0ddbdb3f041098e4b824294857722d84683d2fb571ac9986db",
       "owner": "Scene quality rendering",
-      "reason": "登记三档原窗口纹理与点光体积组合实测，给出实际回显与二维覆盖下一批范围。",
+      "reason": "登记两部真实作者的原生纹理菜单、逐屏回执与同请求完成输出。",
       "decision": "docs/development/wallpaper-quality-work-card.md#scene-texture-rollout"
     },
     {

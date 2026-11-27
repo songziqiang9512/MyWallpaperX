@@ -52,6 +52,7 @@ SWIFT_SOURCES = list(dict.fromkeys([
     SCENE_ROOT / "Resources/Textures/SceneTextureSampling.swift",
     SCENE_ROOT / "Resources/Textures/SceneTextureUVTransform.swift",
     SCENE_ROOT / "Resources/Textures/SceneTextureCandidate.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift",
     SCENE_ROOT / "Resources/Assets/SceneStockTextureSemanticRegistry.swift",
     SCENE_ROOT / "Resources/Textures/SceneTextureSlotBinding.swift",
     SCENE_ROOT / "Resources/Textures/SceneTextureProviderPublication.swift",

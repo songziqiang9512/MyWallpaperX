@@ -145,6 +145,7 @@ import Metal
         candidate_sources = [scene / 'Resources/Textures' / name for name in (
             'SceneTextureSampling.swift', 'SceneTextureUVTransform.swift',
             'SceneTextureCandidate.swift', 'SceneTextureLoader+Candidate.swift', 'SceneOrdinaryImageMipSelection.swift')]
+        candidate_sources.append(Path(__file__).resolve().parents[3] / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift")
         with tempfile.TemporaryDirectory(prefix='mwx-tex-prepared-request-') as directory:
             root = Path(directory)
             single = bytearray(compressed_tex(image_count=1))

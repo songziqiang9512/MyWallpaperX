@@ -50,6 +50,7 @@ final class ScenePreparedBaseImageResources {
         let source: SceneTextureLoader.SourceKey
         var outcome: SceneBaseImageTextureLoad.Outcome?
         let naturalSizeWH: [Float]?
+        var deferredMip: (selection: SceneOrdinaryImageMipSelection?, reason: SceneTextureUse.Reason)?
     }
 
     private struct ConditionalAtlas {
@@ -97,7 +98,6 @@ final class ScenePreparedBaseImageResources {
     private(set) var conditionalPropertyKeys: Set<String>
     private var conditionalProducts: [SceneTextureLoader.SourceKey: ConditionalProduct]
     private var conditionalRequest: ConditionalRequest?
-    private let deferredMipSelections: [Int: SceneOrdinaryImageMipSelection]
     private var deferredStates: [Int: SceneDeferredBaseImageStatus]
     private var requestedGenerations: [Int: UInt64] = [:]
     private var preferredLayerID: Int?
@@ -120,7 +120,6 @@ final class ScenePreparedBaseImageResources {
         conditionalProducts: [SceneTextureLoader.SourceKey: ConditionalProduct],
         dynamicImageResources: [String: ScenePreparedDynamicImageResource],
         deferredLayerIDs: Set<Int>,
-        deferredMipSelections: [Int: SceneOrdinaryImageMipSelection],
         automaticMipProjection: SceneAutomaticTextureProjection?,
         automaticMipTails: [SceneTextureLoader.SourceKey: AutomaticMipTail],
         automaticMipDemand: Double,
@@ -145,7 +144,6 @@ final class ScenePreparedBaseImageResources {
         self.conditionalProducts = conditionalProducts
         self.conditionalPropertyKeys = Set(conditionalAtlases.values.flatMap { $0.conditions.bindings.values.map(\.propertyKey) })
         self.dynamicImageResources = dynamicImageResources
-        self.deferredMipSelections = deferredMipSelections
         self.deferredStates = Dictionary(uniqueKeysWithValues: deferredLayerIDs.map { ($0, .pending) })
         self.deferredLayerIDs = deferredLayerIDs
         self.loadedCount = loadedCount
@@ -279,7 +277,10 @@ final class ScenePreparedBaseImageResources {
                 descriptor: descriptor, drawable: automaticDrawableExtent,
                 ordinaryColorMipLongEdge: ordinaryColorMipLongEdge)
             let automaticCover = automaticDrawableExtent.flatMap { automaticProjection?.coverScale(for: $0) }
-            func loadInitialImage(_ layer: SceneRenderDescriptor.Layer, mipSelection: SceneOrdinaryImageMipSelection? = nil) throws {
+            let defaultMipReason: SceneTextureUse.Reason =
+                ordinaryColorMipLongEdge == nil && automaticDrawableExtent == nil ? .highQuality : .preservedPixels
+            func loadInitialImage(_ layer: SceneRenderDescriptor.Layer, mipSelection: SceneOrdinaryImageMipSelection? = nil,
+                                  originalMipReason: SceneTextureUse.Reason) throws {
                 guard let request = imageRequests.removeValue(forKey: layer.id) else { return }
                 try cancellationCheck()
                 if request.videoPayload {
@@ -295,7 +296,7 @@ final class ScenePreparedBaseImageResources {
                     loader: textureLoader,
                     spriteTextureLoader: spriteTextureLoader,
                     device: device, source: request.source, preparedDirectImageSource: request.direct,
-                    mipSelection: mipSelection,
+                    mipSelection: mipSelection, originalMipReason: originalMipReason,
                     checkCancellation: cancellationCheck
                 )
                 if case let .failed(failure) = outcome { try failure.rethrowResourceReadFailure() }
@@ -312,25 +313,32 @@ final class ScenePreparedBaseImageResources {
             var automaticSources: [SceneTextureLoader.SourceKey: SceneAutomaticTextureProjection.Source] = [:]
             var exactSources: Set<SceneTextureLoader.SourceKey> = []
             for layer in descriptor.layers {
+                var mipReason = defaultMipReason
                 if layer.scalableStaticColorSource == true, let entry = entries[layer.id],
                    imageRequests[layer.id] != nil || deferredLayerIDs.contains(layer.id),
                    entry.input.pathExtension.lowercased() == "tex", let size = entry.naturalSizeWH,
                    !fullResolutionLayerIDs.contains(layer.id) {
-                    if let ordinaryColorMipLongEdge, size.contains(where: { $0 > Float(ordinaryColorMipLongEdge) }) {
-                        mipTailLayers.append(layer)
-                        continue
+                    if let ordinaryColorMipLongEdge {
+                        if size.contains(where: { $0 > Float(ordinaryColorMipLongEdge) }) {
+                            mipTailLayers.append(layer)
+                            continue
+                        }
+                        mipReason = .alreadyFits
                     }
                     if let automaticCover, let world = Self.automaticMipWorldExtent(layer, size: geometry[layer.id]),
-                       let required = SceneAutomaticTextureProjection.minimumExtent(worldExtent: world, coverScale: automaticCover),
-                       size[0] / 2 >= Float(required.x), size[1] / 2 >= Float(required.y) {
-                        automaticSources[entry.source, default: .init(worldExtent: world, layerIDs: [])]
-                            .include(layerID: layer.id, worldExtent: world)
-                        mipTailLayers.append(layer)
-                        continue
+                       let required = SceneAutomaticTextureProjection.minimumExtent(worldExtent: world, coverScale: automaticCover) {
+                        if size[0] / 2 >= Float(required.x), size[1] / 2 >= Float(required.y) {
+                            automaticSources[entry.source, default: .init(worldExtent: world, layerIDs: [])]
+                                .include(layerID: layer.id, worldExtent: world)
+                            mipTailLayers.append(layer)
+                            continue
+                        }
+                        mipReason = .projection
                     }
                 }
                 if automaticProjection != nil, let source = entries[layer.id]?.source { exactSources.insert(source) }
-                try loadInitialImage(layer)
+                if deferredLayerIDs.contains(layer.id) { entries[layer.id]?.deferredMip = (nil, mipReason) }
+                try loadInitialImage(layer, originalMipReason: mipReason)
             }
             let planning = try dynamicImageRequestsProvider?() ?? .init(models: dynamicImageModelPaths)
             let requestedModels = planning.models
@@ -342,13 +350,13 @@ final class ScenePreparedBaseImageResources {
                     materials: imageMaterials, resolver: resolver, loader: textureLoader) : [:]
             let automaticPlans = Self.automaticMipPlans(automaticSources, cover: automaticCover,
                 exactSources: exactSources, constraints: hasDynamicModelLookup ? nil : planning.automaticMipConstraints)
-            var deferredMipSelections: [Int: SceneOrdinaryImageMipSelection] = [:]
             for layer in mipTailLayers {
                 if deferredLayerIDs.contains(layer.id) {
-                    deferredMipSelections[layer.id] = performanceSelection
+                    entries[layer.id]?.deferredMip = (performanceSelection, .preservedPixels)
                 } else {
                     let selection = imageRequests[layer.id].flatMap { automaticPlans[$0.source]?.selection } ?? performanceSelection
-                    try loadInitialImage(layer, mipSelection: aliases[layer.id] == nil ? selection : nil)
+                    try loadInitialImage(layer, mipSelection: aliases[layer.id] == nil ? selection : nil,
+                                         originalMipReason: .preservedPixels)
                 }
             }
 
@@ -523,7 +531,6 @@ final class ScenePreparedBaseImageResources {
                 conditionalProducts: conditionalProducts,
                 dynamicImageResources: dynamicImageResources,
                 deferredLayerIDs: deferredLayerIDs,
-                deferredMipSelections: deferredMipSelections,
                 automaticMipProjection: automaticMipTails.isEmpty ? nil : automaticProjection,
                 automaticMipTails: automaticMipTails,
                 automaticMipDemand: automaticCover ?? 0,
@@ -853,12 +860,13 @@ final class ScenePreparedBaseImageResources {
                 let minimum = automaticSource.flatMap {
                     SceneAutomaticTextureProjection.minimumExtent(worldExtent: $0.worldExtent, coverScale: cover)
                 }
-                let selection = minimum.map(SceneOrdinaryImageMipSelection.minimumExtent) ?? deferredMipSelections[layerID]
+                let selection = minimum.map(SceneOrdinaryImageMipSelection.minimumExtent) ?? entry.deferredMip?.selection
                 defer { deferredTextureLoader.evictDecodedCaches() }
                 return SceneBaseImageTextureLoad.load(
                     from: entry.input, usesPuppet: false, loader: deferredTextureLoader,
                     spriteTextureLoader: deferredSpriteTextureLoader, device: device, source: entry.source,
-                    mipSelection: selection, checkCancellation: checkDeferredCancellation)
+                    mipSelection: selection, originalMipReason: entry.deferredMip?.reason,
+                    checkCancellation: checkDeferredCancellation)
             }
             var outcome: SceneBaseImageTextureLoad.Outcome
             if let warm {

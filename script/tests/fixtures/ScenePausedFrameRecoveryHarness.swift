@@ -183,6 +183,11 @@ final class SceneMetalView {
     var videoPresentation: SceneMetalRenderer.InitialVideoPresentation?
     var renderQuality: (samples: Int?, shadow: SceneShadowUse?) = (nil, nil)
     var renderVolumeUse: SceneVolumeUse?
+    var ordinaryTextureRevision: UInt64 = 0
+    var hasPreparedOrdinaryTexture = false
+    var hasPreparedSmallerTexture = false
+    var renderTextureUse: SceneTextureUseSample?
+    var requestedTextureUseRevisions: [UInt64?] = []
     var presentationFlags: [Bool] = []
     var plan: Plan = .prepared
     var draws = 0, commits = 0, cancels = 0
@@ -196,8 +201,10 @@ final class SceneMetalView {
     var candidates: [SceneMetalRenderer.PreparedFrame] = []
     func renderFrame(simulationFrame: SimulationFrame?, dynamicTextSnapshot: SceneDynamicTextTextureStore.Snapshot?,
                      collectsInitialVideoReadiness: Bool,
+                     textureUseRevision: UInt64?,
                      performanceTelemetry: Int?) -> SceneMetalRenderer.FrameOutcome {
         draws += 1
+        requestedTextureUseRevisions.append(textureUseRevision)
         drawnFrameIndices.append(simulationFrame!.timing.frameIndex)
         drawnMediaGenerations.append(simulationFrame!.mediaThumbnail.generation)
         preparedTextSnapshot = dynamicTextSnapshot
@@ -209,7 +216,8 @@ final class SceneMetalView {
         let candidate = SceneMetalRenderer.PreparedFrame(commandBuffer: buffer,
             initialVideoPresentation: collectsInitialVideoReadiness ? (videoPresentation ?? .init()) : nil,
             renderUse: .init(rasterSampleCount: renderQuality.samples,
-                didFailMultisamplePreparation: false, shadow: renderQuality.shadow, volume: renderVolumeUse),
+                didFailMultisamplePreparation: false, shadow: renderQuality.shadow,
+                volume: renderVolumeUse, textures: renderTextureUse),
             submit: { [self] present in commits += 1; presentationFlags.append(present); buffer.commit() },
             cancel: { [self] in cancels += 1 })
         buffers.append(buffer)

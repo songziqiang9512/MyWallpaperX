@@ -270,6 +270,7 @@ DEPENDENCY_SOURCES = list(dict.fromkeys([
     SCENE/'Rendering/Metal/SceneMetalPipeline.swift', SCENE/'Runtime/Frame/SceneMaterialRenderState.swift',
     SCENE/'Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift',
     SCENE/'Rendering/Composition/SceneMainPassEncoder.swift',
+    REPO / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift",
     SCENE/'Rendering/Geometry/SceneMatrix.swift',
     SCENE/'Diagnostics/SceneGPUCompletionTelemetry.swift',
     SCENE/'Diagnostics/ScenePerformanceCounterHub.swift',
