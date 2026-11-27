@@ -162,11 +162,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 493,
-      "bytes": 97957
+      "bytes": 98149
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 423093
+      "bytes": 425252
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -197,8 +197,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 54,
-      "bytes": 7013
+      "lines": 58,
+      "bytes": 8378
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -670,11 +670,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c8af9cb79fd58bedb2f99c16341a51f92975dea4f3f8a68a584c22a598c11d6c",
-      "after": "c94da1aeab644add1f78d71c2e4425fb01e97fb37521b882d5d292c78cc443c0",
-      "owner": "Scene Generic shader compiler",
-      "reason": "记录可复用的同槽绘制、声明别名冷拒和无效槽反例。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+      "before": "c79c637c97d149b6ed8b71088276e51a06139bc4ba0110f2dc402a9f421956fe",
+      "after": "1d8487223feb17813ebde0ab5dc1edf83bdda2c849f2331dcc97fa6d4b29e27a",
+      "owner": "Scene open breakpoints",
+      "reason": "用当前原包实测定位仍超预算的剩余 GPU 工作。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
     },
     {
       "section": "bodies",
@@ -688,11 +688,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "f52c1636e26bc81b41f57989377ab5697e32fdc95474db579190c8ae77403a37",
-      "after": "356b088789baa22241b4798020bfa31276c1a870bdf00d1d92836e0c0deac4f4",
-      "owner": "Scene shader compatibility evidence",
-      "reason": "登记官版拒绝声明宏别名、本机局部旁路和队列退出依据。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#stage-scoped-varying-symbols"
+      "before": "356b088789baa22241b4798020bfa31276c1a870bdf00d1d92836e0c0deac4f4",
+      "after": "71eff5f4666846fd5b538ee60b69389e9ae6bfca982c281cf2ca96b3564bd5dd",
+      "owner": "Scene render graph",
+      "reason": "明确截取与首段共享编码器、其它槽别名和后继读取规则。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#childless-composition-local-effect-raster"
     },
     {
       "section": "bodies",
@@ -742,11 +742,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b76a74d6f04af08a084c9c5f2614f7ca5b3bc70b05cb66be7b77fbf43f08856b",
-      "after": "ac990be63da659b2db235e862f1317e8415bded4c898d2494206a4ddfdc85d1c",
-      "owner": "Scene effect composition evidence",
-      "reason": "保留两相位的底色覆盖和 Shine 前后对照及官版证据范围。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-chain-matte-286"
+      "before": "ac990be63da659b2db235e862f1317e8415bded4c898d2494206a4ddfdc85d1c",
+      "after": "3da1c2f75de047e4d8b87471e264fa35b2a51a3522e80f960ea58c2eb1348c49",
+      "owner": "Scene runtime evidence",
+      "reason": "记录同像素首段合并的作者输入、正反例与受控稳态成本。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#first-captured-material-367"
     }
   ]
 }

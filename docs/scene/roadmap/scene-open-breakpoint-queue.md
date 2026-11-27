@@ -28,6 +28,9 @@
 |---|---|
 | 3463406101 · 前景回亮 | [归一后历史](../capabilities/runtime-evidence-current.md#forefront-normalized-history-346)已接入。[原低多音](../capabilities/runtime-evidence-current.md#forefront-recovery-346)的早期回亮仍有残差。沿同源分析代次核分母与实际供值。 |
 | 2927205881 · 高倍率剩余覆盖 | [同包晚帧](../capabilities/runtime-evidence-current.md#particle-live-continuous-frame-292)仍有亮列及左缘残差。对齐实际更新时长与同源音频，核精确阻尼和控制点组合。 |
+| 媒体圆形封面的双遍精确模糊 | [两个原包实绘](../capabilities/runtime-evidence-current.md#active-media-effect-gaps-20261127)确认播放时的3042492564/363与2932157836/299均因slot0验证失败透传。对齐前一图输出与作者槽语义，以官方同封面开关对照。 |
+| 3042492564 · 媒体封面抗锯齿 | [播放时两臂](../capabilities/runtime-evidence-current.md#active-media-effect-gaps-20261127)的339/e3均因生成的MSL引用未声明varying而透传。追踪生成前后的varying活性，单独验证当前官版输入和像素。 |
+| 3662390671 · 封面用于 Shimmer | [样式2原包实绘](../capabilities/runtime-evidence-current.md#active-media-effect-gaps-20261127)的419/432拒绝将系统封面供给slot3，两处仅透传。核官版系统槽及渐变读取语义，普通静态渐变作反例。 |
 | Sphere 全零方向 | [隔离对照](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)中官版无像素，本机出现静点。原作者盘点未发现活动声明；用实际子事件或占槽对照区分出生和可见性。 |
 | 粒子高阻尼和侧转 | [同龄大阻尼](../capabilities/runtime-evidence-current.md#particle-movement-half-life)的 drag40 官/本相差约 15 px，drag20 在容差内。[正交 Sprite](../capabilities/runtime-evidence-current.md#particle-around-phase-frame)的精确 90° 另有投影差。[分相位板](../capabilities/runtime-evidence-current.md#particle-live-update-phases-292)证实首步重力与后继阻尼的差异，继续核阻尼时长、组合输入与正交 quad。 |
 | 粒子颜色定义空值 | [同板实测](../capabilities/runtime-evidence-current.md#particle-birth-color-composition)有实例色时，空 Color List 在 v4/v5、HSV `huemin:null` 在 v4 的官版结果与本机不同。先区分缺项、显式空和错误类型的定义入口语义。 |
@@ -40,7 +43,7 @@
 | 3337494481 | [最新同包预热对照](../capabilities/runtime-evidence-current.md#particle-life-buffer-evidence)一对首帧20.86→18.23秒，候选预热13.48秒。只跟进可复验的新热点，保持历史及 RNG。 |
 | 3749463715 | [可比 60fps 运行](../capabilities/runtime-evidence-current.md#gpu-admission-wake-374)实呈从 29.96 提升到 34.80fps，尚低于目标。仅跟进当前路径的新显著成本。 |
 | 3420215721 | [同包实测](../capabilities/runtime-evidence-current.md#scene-playback-triage-342)仍有 GPU 超预算。固定 scene-time 和实际历史源做消融。 |
-| 3673609113 | [实呈与 GPU 回执](../capabilities/runtime-evidence-current.md#inactive-terminal-copy-367)仍显示 GPU 超预算。沿实际帧成本定位，保两级作者历史。人偶及音条残影独立按用户反馈核对。 |
+| 3673609113 | [首段截取合并](../capabilities/runtime-evidence-current.md#first-captured-material-367)已去 4 次离屏编码/帧，60fps 仍超 GPU 预算。沿剩余实际帧成本定位，保两级作者历史。人偶及音条残影独立按用户反馈核对。 |
 | 3808922316 | [同包交错实测](../capabilities/runtime-evidence-current.md#particle-life-buffer-evidence)预热中位降至41.67秒，首帧49.09秒。沿现役短栈找保随机、存量和首帧的单根工作删减。 |
 
 测量与退出条件归[性能方法](performance-convergence-card.md)。
@@ -52,3 +55,4 @@
 |---|---|
 | <a id="legacy-gate-debt"></a>存量回归夹具 | 提交阶段夹具缺 composition trace API；暂停文字的两屏对照在旧签名及文字修订后同样失败。另有旧 347 与 366 resize 的跨 epoch 判定误用，23/23 图在新 epoch 恢复仍被记录为失败。EventDeath 子系统时长在冻结父版本与当前均为.125秒，夹具断言.1333秒。按实际 owner 和输出修对应门。[缩放证据](../capabilities/model-runtime-evidence.md) |
 | 呈现与周期截图 | 后台鼠标输入已有合格 GPU 帧，但部分报告缺 presented 计数或 interval 身份。366 的周期截图有 superseded 和 teardown 拒绝。分别核 present 回调与请求排空，保有效的独立捕获。 |
+| <a id="diagnostic-active-demand"></a>运行检测的活动需求 | [复杂样本复筛](../capabilities/runtime-evidence-current.md#complex-scene-screen-20261127)复现静态具名供货计数将关闭项算缺失，且可能被不相关的成功 ID 抵消；另有视频层未就绪后已退出活动需求，仍被要求后续出图，默认关闭的点击粒子也被算作未加载。沿实际消费成员与活动时序判定，保留未满足的活动请求。 |
