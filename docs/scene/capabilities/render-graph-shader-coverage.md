@@ -15,6 +15,8 @@
 - backend 已删除的纹理参数只有在实际 MSL 接口缺席且没有 Resolution 活读时才退出绑定。fragment-dead varying 的纯顶点计算按既有数据流证明投影；live `gl_Position`、副作用、歧义和实际 inverse 消费不能被删或补 identity。
 - uniform 派生只读常量由原 frontend/normalizer 沿[词法身份合同](#uniform-derived-global-scope)降低。实际资源、类型、反射及 ABI 仍在原入口验证，不能用 metadata 推出整段 shader 已可执行。
 
+<a id="shader-directive-member-operand"></a>预处理整数条件中的点路径没有可用宏值时，比较保留不可求值的结果。布尔运算沿已测的左到右短路行为，最终无值的条件走未成立分支，逻辑取反将无值视为假。普通未定义宏继续按0。官方对照区分这一分支与 `if` 中实际绑定的纹理尺寸，冷准备保持原条件、宏、资源需求与源码映射的职责，不新增运行时变体、uniform 或逐帧处理。静态未选分支的代码不进入任一后端，短路分支的条件操作数仍由原入口解析和报告语法错误。
+
 Generic 的固定一维 varying 数组沿真实双 stage 完整匹配和组件预算准备，不以float/向量元素类型或16/32项数量授播放许可；大于16项接口保原124分量预算，bounded 的类型、索引和展开限制独立。未支持的语法局部拒绝，不交另一个 backend 猜执行。
 
 <a id="shader-value-numeric-arrays"></a>

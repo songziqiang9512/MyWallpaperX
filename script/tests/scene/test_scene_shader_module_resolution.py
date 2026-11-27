@@ -363,15 +363,27 @@ private enum HarnessMain {
         }
 
         try checked("uniform-member-conditions") {
-            // Authored shaders compare runtime uniform members in #if
-            // (`g_Texture0Resolution.x < ...`). The authored dialect turns
-            // the dotted chain into one opaque identifier and an unresolved
-            // name into 0 (ISO C rejects `a.b` here), so the branch stays
-            // inactive instead of rejecting the whole shader.
-            let member = try preprocess(
-                source: "#if g_Texture0Resolution.x < g_Texture0Resolution.y\n#require UnknownV1\n#endif\nvoid main() {}"
-            )
-            try expect(member.moduleDependencies.isEmpty, "Unresolved member condition did not evaluate to 0.")
+            // Member paths are not integer macro operands. Keep parsing
+            // the expression, including the right side of a short circuit.
+            for condition in [
+                "g_Texture0Resolution.x < g_Texture0Resolution.y",
+                "g_Texture0Resolution.y <= 640",
+                "a.b == a.c",
+                "(extent.right <= 640) || 1",
+                "1 && extent.right <= 640",
+            ] {
+                let member = try preprocess(
+                    source: "#if \(condition)\n#require UnknownV1\n#endif\nvoid main() {}"
+                )
+                try expect(member.moduleDependencies.isEmpty, "Unexpected member branch: \(condition)")
+            }
+            for condition in ["1 || extent.right <= 640", "!(extent.right <= 640)", "ordinaryUndefined <= 640"] {
+                try expect(
+                    try diagnostic(source: "#if \(condition)\n#require UnknownV1\n#endif\nvoid main() {}")
+                        == .moduleUnknown,
+                    "Expected active branch: \(condition)"
+                )
+            }
             try expect(
                 try diagnostic(source: "#if a..b\n#endif\nvoid main() {}")
                     == .invalidExpression,
@@ -383,9 +395,9 @@ private enum HarnessMain {
                 "Trailing member dot did not reject."
             )
             try expect(
-                try diagnostic(source: "#if a.b == a.c\n#require UnknownV1\n#endif\nvoid main() {}")
-                    == .moduleUnknown,
-                "Two unresolved members did not both evaluate to 0."
+                try diagnostic(source: "#if 1 || a.b <=\n#endif\nvoid main() {}")
+                    == .invalidExpression,
+                "A short-circuited right operand still requires valid syntax."
             )
         }
 

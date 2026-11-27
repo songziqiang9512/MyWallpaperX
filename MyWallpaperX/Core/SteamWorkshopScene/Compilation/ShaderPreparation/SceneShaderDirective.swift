@@ -325,12 +325,8 @@ extension SceneShaderPreprocessor {
                           expression[index] == "_" || expression[index].isLetter || expression[index].isNumber {
                         index = expression.index(after: index)
                     }
-                    // Wallpaper Engine shaders compare runtime uniform members
-                    // in #if (`g_Texture0Resolution.x < ...`). This is the
-                    // authored dialect, not ISO C: the dotted chain becomes
-                    // one opaque identifier and an unresolved name evaluates
-                    // to 0, so keep the chain together instead of rejecting
-                    // the dot; a non-identifier after it still fails.
+                    // Keep a valid member path whole so the parser can
+                    // distinguish it from an ordinary undefined macro.
                     while index < expression.endIndex, expression[index] == "." {
                         let afterDot = expression.index(after: index)
                         guard afterDot < expression.endIndex,
@@ -365,65 +361,77 @@ extension SceneShaderPreprocessor {
             guard peek == .end else {
                 throw ExpressionError(message: "Unexpected trailing shader condition token.")
             }
-            return value
+            return value ?? 0
         }
 
-        mutating func parseOr() throws -> Int64 {
+        mutating func parseOr() throws -> Int64? {
             var value = try parseAnd()
             while consume(.or) {
                 let right = try parseAnd()
-                value = value != 0 || right != 0 ? 1 : 0
+                if let left = value {
+                    value = left != 0 ? 1 : right.map { $0 != 0 ? 1 : 0 }
+                }
             }
             return value
         }
 
-        mutating func parseAnd() throws -> Int64 {
+        mutating func parseAnd() throws -> Int64? {
             var value = try parseEquality()
             while consume(.and) {
                 let right = try parseEquality()
-                value = value != 0 && right != 0 ? 1 : 0
+                if let left = value {
+                    value = left == 0 ? 0 : right.map { $0 != 0 ? 1 : 0 }
+                }
             }
             return value
         }
 
-        mutating func parseEquality() throws -> Int64 {
+        mutating func parseEquality() throws -> Int64? {
             var value = try parseRelational()
             while [.equal, .notEqual].contains(peek) {
                 let operation = peek
                 index += 1
                 let right = try parseRelational()
+                guard let left = value, let right else {
+                    value = nil
+                    continue
+                }
                 switch operation {
-                case .equal: value = value == right ? 1 : 0
-                case .notEqual: value = value != right ? 1 : 0
+                case .equal: value = left == right ? 1 : 0
+                case .notEqual: value = left != right ? 1 : 0
                 default: break
                 }
             }
             return value
         }
 
-        mutating func parseRelational() throws -> Int64 {
+        mutating func parseRelational() throws -> Int64? {
             var value = try parseUnary()
             while [.less, .lessEqual, .greater, .greaterEqual].contains(peek) {
                 let operation = peek
                 index += 1
                 let right = try parseUnary()
+                guard let left = value, let right else {
+                    value = nil
+                    continue
+                }
                 switch operation {
-                case .less: value = value < right ? 1 : 0
-                case .lessEqual: value = value <= right ? 1 : 0
-                case .greater: value = value > right ? 1 : 0
-                case .greaterEqual: value = value >= right ? 1 : 0
+                case .less: value = left < right ? 1 : 0
+                case .lessEqual: value = left <= right ? 1 : 0
+                case .greater: value = left > right ? 1 : 0
+                case .greaterEqual: value = left >= right ? 1 : 0
                 default: break
                 }
             }
             return value
         }
 
-        mutating func parseUnary() throws -> Int64 {
-            if consume(.not) { return try parseUnary() == 0 ? 1 : 0 }
+        mutating func parseUnary() throws -> Int64? {
+            if consume(.not) { return (try parseUnary() ?? 0) == 0 ? 1 : 0 }
             return try parsePrimary()
         }
 
-        mutating func parsePrimary() throws -> Int64 {
+        mutating func parsePrimary() throws -> Int64? {
             switch peek {
             case let .number(value): index += 1; return value
             case let .identifier(name):
@@ -439,7 +447,7 @@ extension SceneShaderPreprocessor {
                     }
                     return definedNames.contains(identifier) ? 1 : 0
                 }
-                guard let macro = macros[name] else { return 0 }
+                guard let macro = macros[name] else { return name.contains(".") ? nil : 0 }
                 guard let value = macro.expressionValue else {
                     throw ExpressionError(message: "Non-integer macro '\(name)' is invalid in a shader condition.")
                 }
