@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9ca3275103251560c8e369eddef469257ce28ef13a0c213bf5cb7e4fc6681d6d",
+        "sourceSHA256": "31173cdd7091e2744240b54f3d035d4d9bef74c42b483e042beb944b382ea312",
         "method": "document_registry --audit + document_health --check",
-        "scope": "明确播放偏好与预设投影为同一源码入口。",
-        "limitations": "原生四档及单屏签名中档产品链。没有重复四档物理呈现或混合屏性能测量。"
+        "scope": "核原生 BC 作者选级、有效映射和既有块上传责任。",
+        "limitations": "签名 M4 单窗完成帧及同设备单纹理实配。物理多屏、整场耗电与稳态成本未测。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7de9611a7db327bc4abe433202af8a3b627f8a44b98aef9cf36cd5c8df8a35e2",
+        "sourceSHA256": "08ce067d2345597e50c369ed8b36023b725203569f82eff5f3f5622446d41f90",
         "method": "document_registry --audit + document_health --check",
-        "scope": "记录用户指定预设向量、原记录和相同帧率的分派。",
-        "limitations": "原生四档及单屏签名中档产品链。没有重复四档物理呈现或混合屏性能测量。"
+        "scope": "明确整比填充原生 BC 高性能档选级和 Auto／高质量的现役行为。",
+        "limitations": "签名 M4 单窗完成帧及同设备单纹理实配。物理多屏、整场耗电与稳态成本未测。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "91b11381b737bf5ebe1c0c1a7ec451035dd76b8a32febc0c3cf104efe9056e46",
+        "sourceSHA256": "274d33cda176c62a057b3c19ce5b3bea5eb9b652c7d62aa47b59e6db7bf6ac59",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核原通用图像 Program 实时环境候选的原作者混合与取样合同。",
-        "limitations": "隔离原包 Metal 完成终图及准备拒绝。原区实际反射与官版对照、候选和实呈成本待验。"
+        "scope": "复核原生 BC 整比映射、候选传递、失败与终图验收判定。",
+        "limitations": "签名 M4 单窗完成帧及同设备单纹理实配。物理多屏、整场耗电与稳态成本未测。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3a149eba39aa6424f049cc5a38bf175a3066ca1115cbe18ef48af9d5e113469a",
+        "sourceSHA256": "88d0aa05eeac937f205867fdc9222d497206a41d26ff439dab61ec9595cd7e66",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核原作普通图像反射首断点、真实回退终图及同档波动。",
-        "limitations": "隔离原包 Metal 完成终图及准备拒绝。原区实际反射与官版对照、候选和实呈成本待验。"
+        "scope": "核两部独立发布的原作、切档、Metal 实配和同档复拍。",
+        "limitations": "签名 M4 单窗完成帧及同设备单纹理实配。物理多屏、整场耗电与稳态成本未测。"
       }
     },
     {
@@ -886,10 +886,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4167fd8aa479ed24a5bc8ede2680eca10aa34cad31a1d747075a4fe53cd6c0df",
+        "sourceSHA256": "e644e7415ed2f149f0d94e290530c28d9061673c9302fdb3b37aba7088778dce",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核场景脚本权限到原目录及 Auto 准备的职责。",
-        "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
+        "scope": "核 Scene 执行至作者物理级、布局映射与实际消费的单一链路。",
+        "limitations": "签名 M4 单窗完成帧及同设备单纹理实配。物理多屏、整场耗电与稳态成本未测。"
       }
     },
     {

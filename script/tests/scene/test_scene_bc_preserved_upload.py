@@ -108,13 +108,14 @@ HARNESS = HARNESS_SUPPORT_SOURCE + r'''
         let dimensions: [(UInt32, UInt32)] = [(4098, 14), (2049, 7), (1024, 3), (512, 1)]
         var results: [String: Any] = [:]
         for (format, native) in [(UInt32(7), MTLPixelFormat.bc1_rgba), (6, .bc2_rgba), (4, .bc3_rgba)] {
-            func fixture(mappedWidth: UInt32 = 4098, corruptPrefix: Bool = false) -> Data {
+            func fixture(mappedWidth: UInt32 = 4098, mappedHeight: UInt32 = 14,
+                         corruptPrefix: Bool = false) -> Data {
                 var data = Data("TEXV0005\0TEXI0001\0".utf8)
                 func append(_ value: UInt32) {
                     var little = value.littleEndian
                     withUnsafeBytes(of: &little) { data.append(contentsOf: $0) }
                 }
-                for value in [format, 2, 4098, 14, mappedWidth, 14, 0] { append(value) }
+                for value in [format, 2, 4098, 14, mappedWidth, mappedHeight, 0] { append(value) }
                 data.append(Data("TEXB0002\0".utf8))
                 append(1)
                 append(UInt32(dimensions.count))
@@ -129,7 +130,14 @@ HARNESS = HARNESS_SUPPORT_SOURCE + r'''
                         block = Data([UInt8(index * 53), 0, 0, 0, 0, 0, 0, 0]) + block
                     }
                     var bytes = Data(capacity: blocks * block.count)
-                    for _ in 0..<blocks { bytes.append(block) }
+                    let blocksPerRow = Int((width + 3) / 4)
+                    var edgeBlock = block
+                    edgeBlock.replaceSubrange((block.count - 8)..<(block.count - 4), with: [0, 0xf8, 0, 0xf8])
+                    for blockIndex in 0..<blocks {
+                        let isHiddenEdge = index == 1 && mappedWidth == 4094
+                            && blockIndex % blocksPerRow == blocksPerRow - 1
+                        bytes.append(isHiddenEdge ? edgeBlock : block)
+                    }
                     if corruptPrefix && index == 0 { bytes.removeLast() }
                     for value in [width, height, 0, 0, UInt32(bytes.count)] { append(value) }
                     data.append(bytes)
@@ -156,6 +164,24 @@ HARNESS = HARNESS_SUPPORT_SOURCE + r'''
             let full = try candidate(source, nil)
             let mask = try candidate(source, autoSelection, purpose: .mask)
             let padded = try candidate(open("padded", fixture(mappedWidth: 4097)), autoSelection)
+            let performanceSelection = SceneOrdinaryImageMipSelection.maximumLongEdge(2048)
+            let oddWidth = try candidate(open("odd-width", fixture(mappedWidth: 4097)), performanceSelection)
+            let oddHeight = try candidate(open("odd-height", fixture(mappedWidth: 4094, mappedHeight: 13)),
+                performanceSelection)
+            let exactSource = try open("padded-exact", fixture(mappedWidth: 4094, mappedHeight: 12))
+            let exactTail = try candidate(exactSource, performanceSelection)
+            let exactFull = try candidate(exactSource, nil)
+            let exactAuto = try candidate(exactSource, autoSelection)
+            let exactMask = try candidate(exactSource, performanceSelection, purpose: .mask)
+            let exactWarmTail = try candidate(exactSource, performanceSelection)
+            let exactRenamed = try candidate(open("padded-exact-renamed", fixture(mappedWidth: 4094, mappedHeight: 12)),
+                performanceSelection)
+            let logicalEdge = SIMD2<Float>(0.9999, 0.5)
+            let originalUV = logicalEdge * SIMD2(exactFull.uvTransform.xAxis.x, exactFull.uvTransform.yAxis.y)
+            let tailUV = logicalEdge * SIMD2(exactTail.uvTransform.xAxis.x, exactTail.uvTransform.yAxis.y)
+            let sourceEdge = try readback.sample(exactFull.texture, uv: originalUV, mip: 1)
+            let tailEdge = try readback.sample(exactTail.texture, uv: tailUV)
+            let hiddenTail = try readback.sample(exactTail.texture, uv: logicalEdge)
             let renamed = try candidate(open("renamed", fixture()), autoSelection)
             let malformed = try open("malformed", fixture(corruptPrefix: true))
             let rejected = try loader.loadCandidate(from: malformed, purpose: .straightAlbedo,
@@ -185,6 +211,18 @@ HARNESS = HARNESS_SUPPORT_SOURCE + r'''
                     && performance.texture.allocatedSize < full.texture.allocatedSize,
                 "cacheKeepsBase": try candidate(source, autoSelection).texture === auto.texture && auto.texture !== full.texture,
                 "invalidPrefixRejected": invalidPrefixRejected,
+                "paddedBases": [exactFull, exactTail, exactAuto, exactMask, oddWidth, oddHeight, exactRenamed].map(\.authoredBaseMip),
+                "paddedMappedSize": [Int(exactTail.mappedSize.width), Int(exactTail.mappedSize.height)],
+                "paddedKeepsMapping": exactTail.uvTransform == exactFull.uvTransform
+                    && exactTail.originalMappedSize == exactFull.mappedSize
+                    && exactRenamed.uvTransform == exactTail.uvTransform && exactTail.content == exactFull.content,
+                "paddedPhysicalSavings": exactTail.texture.pixelFormat == native
+                    && exactTail.texture.width == 2049 && exactTail.texture.height == 7
+                    && exactTail.texture.allocatedSize < exactFull.texture.allocatedSize,
+                "paddedKeepsMappedEdge": sourceEdge == tailEdge && hiddenTail != tailEdge,
+                "paddedCacheKeepsBase": exactAuto.texture === exactFull.texture
+                    && exactTail.texture !== exactFull.texture
+                    && exactWarmTail.texture === exactTail.texture,
             ]
         }
         return results
@@ -601,8 +639,12 @@ class SceneBCPreservedUploadTests(unittest.TestCase):
                 self.assertEqual(result["bases"], [0, 2, 1, 0, 0, 2])
                 self.assertEqual(result["sizes"], [[4098, 14], [1024, 3], [2049, 7]])
                 self.assertEqual(result["levels"], [4, 2, 3])
+                self.assertEqual(result["paddedBases"], [0, 1, 0, 0, 0, 0, 1])
+                self.assertEqual(result["paddedMappedSize"], [2047, 6])
                 for key in ("nativeFormat", "straightAlpha", "sampledLevelsMatch", "baseRanges",
-                            "memoryReduces", "cacheKeepsBase", "invalidPrefixRejected"):
+                            "memoryReduces", "cacheKeepsBase", "invalidPrefixRejected",
+                            "paddedKeepsMapping", "paddedPhysicalSavings", "paddedKeepsMappedEdge",
+                            "paddedCacheKeepsBase"):
                     self.assertTrue(result[key], result)
 
     def test_cropped_color_decodes_only_used_levels_and_preserves_data_chains(self) -> None:

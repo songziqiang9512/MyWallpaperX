@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 70,
-      "bytes": 28270
+      "bytes": 28352
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -29,8 +29,8 @@
       "bytes": 22304
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
-      "lines": 174,
-      "bytes": 37185
+      "lines": 175,
+      "bytes": 37565
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 204039
+      "bytes": 205014
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 187371
+      "bytes": 188572
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 337,
-      "bytes": 75498
+      "bytes": 75721
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -715,47 +715,47 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "29507a0cfd164597ad312f76143854ad1ece9b661c1500342fc56170174928b1",
-      "after": "c20b886d30d9f8876fe132ad3ac516ae3595106e95b5e0ff7d19644a11374cfb",
+      "before": "c20b886d30d9f8876fe132ad3ac516ae3595106e95b5e0ff7d19644a11374cfb",
+      "after": "40715bdaeb961682c14dbcd1cf2796491b4c2d67b5748e5c9e04ad2a0ad3770c",
       "owner": "wallpaper-quality",
-      "reason": "登记普通粒子共用原生主色和相机深度的设计及实际画面、运行范围。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-ordinary-particle"
+      "reason": "核原生 BC 作者选级、有效映射和既有块上传责任。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-exact-padding"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "af182e11b6c9ddf37ab7b813f107bc607329538e101e3ff4037f28d50ee0fcc0",
-      "after": "f7f26f42a61d0b2a80d34bb54215c7c350915c738347542309dcf5703ef4ff30",
+      "before": "f7f26f42a61d0b2a80d34bb54215c7c350915c738347542309dcf5703ef4ff30",
+      "after": "f0fa475fa32fa4a6f00d7dcb848fe067271f035799cfc1d7ecea10d53a055dda",
       "owner": "wallpaper-quality",
-      "reason": "登记普通粒子共用原生主色和相机深度的设计及实际画面、运行范围。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-ordinary-particle"
+      "reason": "明确整比填充原生 BC 高性能档选级和 Auto／高质量的现役行为。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-exact-padding"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "70ad14232de0f91b6bd0e24719859f380bc9d34252533c965bdf1839ed01a7bd",
-      "after": "de296f50326b35c5b8f62efa932bb534c1a65b17927a3422b91c48f2057a632f",
+      "before": "de296f50326b35c5b8f62efa932bb534c1a65b17927a3422b91c48f2057a632f",
+      "after": "4218e4bbd1813b1ecdd058c86a2f5ea66048032e6919281311111197fcf956d8",
       "owner": "wallpaper-quality",
-      "reason": "登记普通粒子共用原生主色和相机深度的设计及实际画面、运行范围。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-ordinary-particle"
+      "reason": "复核原生 BC 整比映射、候选传递、失败与终图验收判定。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-exact-padding"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "1368654f119c2ce507192577ecebeb299778667641243a3c90266a6cf875024c",
-      "after": "7caddfc8fe2606e93b4eff5431cb34cfe8925ebb68f98764f99c7de2c04a0b87",
+      "before": "7caddfc8fe2606e93b4eff5431cb34cfe8925ebb68f98764f99c7de2c04a0b87",
+      "after": "32884be2d0003dabb13eff4634162aa8de8b0d99816dd2236a4aa57073529053",
       "owner": "wallpaper-quality",
-      "reason": "登记普通粒子共用原生主色和相机深度的设计及实际画面、运行范围。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-ordinary-particle"
+      "reason": "核两部独立发布的原作、切档、Metal 实配和同档复拍。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-exact-padding"
     },
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "bbd1e6f3de265f70c41dc609a87582419439e15b2b6564fe791f2bb7a3669e08",
-      "after": "2adff40097a7aa5e1898baa44e34ea0600ec955410b2f7737c4b7d0d654db4a6",
+      "before": "2adff40097a7aa5e1898baa44e34ea0600ec955410b2f7737c4b7d0d654db4a6",
+      "after": "8492b61135830e7ac08c81e13269c47f0fb46a31778b93874a454d7bd4fb3a8e",
       "owner": "wallpaper-quality",
-      "reason": "登记普通粒子共用原生主色和相机深度的设计及实际画面、运行范围。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-ordinary-particle"
+      "reason": "核 Scene 执行至作者物理级、布局映射与实际消费的单一链路。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-exact-padding"
     }
   ]
 }
