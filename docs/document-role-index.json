@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "53d197cd9455eb1369cba2d119e5b9c37169dd3e3f8c7b3097f3efde7c3dac59",
+        "sourceSHA256": "dfd01bec3aecddcd708727cdf0bc9983f8f07a4a5b769fe6b4c17dc1ecc8a511",
         "method": "document_registry --audit + document_health --check",
-        "scope": "将纹理用户回显指向普通纹理实绑和完成事件。",
-        "limitations": "实际运行范围见现役工作卡。"
+        "scope": "定位无模型普通图元根段的冷准备、投影边界与实际采样回执。",
+        "limitations": "源图与当前执行角色对应。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3887cb46f5b33033b7737f3c5f4a6de512d275eeb7ad1290ee2a98c1525686ca",
+        "sourceSHA256": "eb8864cffae01968af80bdade139d29fcf4b1425f1be0b631e766a002fef0189",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定义每项质量有效规格、实际执行和未覆盖的结果，按效果用途为组合建立可观测验收。",
-        "limitations": "状态按原始消费者取证；实测与缺口见现役工作卡。"
+        "scope": "定义普通二维原生几何覆盖、图内采样边界与各按实际职责的特效组合。",
+        "limitations": "样本和实际执行范围见工作卡。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "39ea8185fe60183559e27a7900caa1e4db0c8ccc35356700a528f532b80a0ff7",
+        "sourceSHA256": "4381a4cd676e296b7a2e7b6a552ef7b55110ff264bdf079df485eba6f3a8d82e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "点光、聚光完成帧的体积回执边界。",
-        "limitations": "画面和持续呈现的证据边界见现役工作卡。"
+        "scope": "记录普通二维清屏根段的选型、尾部试验退出及实画门。",
+        "limitations": "更广硬件、持续性能和实际应用入口的证据见工作卡。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d353386c120d988424892a7a7c437ec83d0b79feb1b2e8df4c4149de7aa44bc3",
+        "sourceSHA256": "d8e90e6713552aa3d76637ba050cd15b5d774d01d57151bc4508d7419f107960",
         "method": "document_registry --audit + document_health --check",
-        "scope": "以手动设置的真实采用为完成条件，按原终端、反射、灯种和纹理用途安排后续批次。",
-        "limitations": "实际运行范围按卡中既有取证。"
+        "scope": "记录真实普通几何覆盖、单采样负控和同一产品设置动作的逐屏实际回执。",
+        "limitations": "正式长窗和物理混合屏待验。"
       }
     },
     {
@@ -886,10 +886,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e795d8aa257444901c32a66ffce7f3b6af3bd165ec278752e36f3570f7409a3e",
+        "sourceSHA256": "7dbf6f7306d51bf29d229403864a9e3a1d62e1f38cc5b5b992ad1b5fef15c12a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "补足选级、候选、根绘制及完成回执的唯一生产路径。",
-        "limitations": "实际运行范围见现役工作卡。"
+        "scope": "普通无模型根段复用投影与单一主编码器，沿兼容路径处理实际回退。",
+        "limitations": "同步根域职责，画面与硬件范围见现役工作卡。"
       }
     },
     {

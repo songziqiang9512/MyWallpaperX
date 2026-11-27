@@ -525,6 +525,7 @@ extension SceneMetalRenderer {
         func requiresLiveImageReflection() -> Bool {
             allowsSceneReflection && requiresImageReflection()
         }
+        var ordinaryRasterProjection: OrdinaryRasterProjection?
         if rootMultisample == nil, let multisampleTargets = nativeRootTargets {
             func allowsOrdinaryLayer(_ layer: SceneRenderDescriptor.Layer) -> Bool {
                 modelFrame.imageMaterialStates[layer.id] == nil
@@ -535,32 +536,62 @@ extension SceneMetalRenderer {
                 && resolvedMaterialFrameTargetPlans.isEmpty
                 && preparationSchedule.prepassProviderLayerIDs.isEmpty
                 && preparationSchedule.providersBeforeLayerID.isEmpty
+            if staticModelResources.isEmpty {
+                var witness: OrdinaryRasterProjection?
+                func allowsClearOrdinaryLayer(_ layer: SceneRenderDescriptor.Layer) -> Bool {
+                    guard allowsOrdinaryLayer(layer) else { return false }
+                    if witness == nil, layer.contentKind != "text", imageTextures[layer.id] != nil,
+                       !layer.effects.contains(where: { $0.visible != false }),
+                       SceneDynamicLayerValues.alpha(layerID: layer.id, authoredValue: layer.alpha,
+                           snapshot: frameContext.dynamicValues) > 0,
+                       baseMaterialProviderBindings.sourceMaterialAlpha(layer: layer, snapshot: frameContext.dynamicValues) > 0 {
+                        let model = ordinaryImageModelMatrix(for: layer, imageTextures: imageTextures,
+                            worldFrames: frameWorldFrames, parallax: parallaxMouseNormalized,
+                            configuration: parallaxConfiguration, camera: cameraFrame,
+                            usesPerspective: cameraFrame.resolvesPerspective(for: layer))
+                        let mvp = cameraFrame.viewProjection(for: layer) * model
+                        if SceneLayerSourcePassthroughPlan.projectedGeometry(for: mvp)?
+                            .cutsPixelCoverage(width: mainTarget.width, height: mainTarget.height) == true {
+                            witness = (layer.id, model, mvp)
+                        }
+                    }
+                    return true
+                }
+                if startsAtClear, !requiresLiveImageReflection(),
+                   !utilityExecution.plansByTriggerLayerID.values.contains(where: { plans in
+                       plans.contains { Self.executesUtilityPlan($0,
+                           framePlans: resolvedMaterialFrameTargetPlans, layers: frameLayersByID) }
+                   }),
+                   mainLayersAllowMultisampling(orderedLayers, visible: frameVisibleLayerIDs,
+                       allowsOrdinaryLayer: allowsClearOrdinaryLayer),
+                   let witness, mainPass.prepareMultisampling(multisampleTargets.forTarget(mainTarget)) {
+                    rootMultisample = .clear(localOutput: nil, resolvesBeforeUtility: nil)
+                    ordinaryRasterProjection = witness
+                }
+            } else if startsAtClear
                 && mainLayersAllowMultisampling(orderedLayers, visible: frameVisibleLayerIDs,
-                    allowsOrdinaryLayer: allowsOrdinaryLayer)
-            if (startsAtClear || imagePipeline?.supportsMultisampleColorSeed == true && offscreenTexturePool != nil),
-               !requiresLiveImageReflection(),
-               let start = firstNativeModelLayer(shadowCandidates) {
-                if startsAtClear {
-                    if mainPass.prepareMultisampling(multisampleTargets.forTarget(mainTarget)) {
-                        rootMultisample = .clear(localOutput: nil, resolvesBeforeUtility: nil)
-                    }
-                } else {
-                    let suffix = orderedLayers[start...]
-                    let safeSuffix = suffix.allSatisfy { layer in
-                        resolvedMaterialFrameTargetPlans[layer.id] == nil
-                            && !dependencyRuntime.requiresDemandedGraphOutputCapture(for: layer.id)
-                            && !preparationSchedule.authoredRawProviderLayerIDs.contains(layer.id)
-                            && preparationSchedule.providersBeforeLayerID[layer.id] == nil
-                            && utilityExecution.plansByTriggerLayerID[layer.id]?.contains {
-                                Self.executesUtilityPlan($0, framePlans: resolvedMaterialFrameTargetPlans, layers: frameLayersByID)
-                            } != true
-                            && (!frameVisibleLayerIDs.contains(layer.id)
-                                || !layer.effects.contains { $0.visible != false })
-                    }
-                    if safeSuffix && mainLayersAllowMultisampling(suffix, visible: frameVisibleLayerIDs,
-                        allowsOrdinaryLayer: allowsOrdinaryLayer) {
-                        rootMultisample = .afterColor(layerID: orderedLayers[start].id, targets: multisampleTargets)
-                    }
+                    allowsOrdinaryLayer: allowsOrdinaryLayer) {
+                if !requiresLiveImageReflection(), firstNativeModelLayer(shadowCandidates) != nil,
+                   mainPass.prepareMultisampling(multisampleTargets.forTarget(mainTarget)) {
+                    rootMultisample = .clear(localOutput: nil, resolvesBeforeUtility: nil)
+                }
+            } else if imagePipeline?.supportsMultisampleColorSeed == true, offscreenTexturePool != nil,
+                      !requiresLiveImageReflection(), let start = firstNativeModelLayer(shadowCandidates) {
+                let suffix = orderedLayers[start...]
+                let safeSuffix = suffix.allSatisfy { layer in
+                    resolvedMaterialFrameTargetPlans[layer.id] == nil
+                        && !dependencyRuntime.requiresDemandedGraphOutputCapture(for: layer.id)
+                        && !preparationSchedule.authoredRawProviderLayerIDs.contains(layer.id)
+                        && preparationSchedule.providersBeforeLayerID[layer.id] == nil
+                        && utilityExecution.plansByTriggerLayerID[layer.id]?.contains {
+                            Self.executesUtilityPlan($0, framePlans: resolvedMaterialFrameTargetPlans, layers: frameLayersByID)
+                        } != true
+                        && (!frameVisibleLayerIDs.contains(layer.id)
+                            || !layer.effects.contains { $0.visible != false })
+                }
+                if safeSuffix && mainLayersAllowMultisampling(suffix, visible: frameVisibleLayerIDs,
+                    allowsOrdinaryLayer: allowsOrdinaryLayer) {
+                    rootMultisample = .afterColor(layerID: orderedLayers[start].id, targets: multisampleTargets)
                 }
             }
         }
@@ -850,6 +881,7 @@ extension SceneMetalRenderer {
             volumeUse: &volumeUse,
             mainPass: mainPass,
             rootMultisample: rootMultisample,
+            ordinaryRasterProjection: ordinaryRasterProjection,
             compositionGroupRuntime: compositionGroupRuntime,
             commandBuffer: commandBuffer,
             effectExecutionTrace: effectExecutionTrace,

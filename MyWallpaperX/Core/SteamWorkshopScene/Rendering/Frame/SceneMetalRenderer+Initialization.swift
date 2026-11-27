@@ -24,6 +24,7 @@ extension SceneMetalRenderer {
         baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,
         stockNoiseTextures: SceneStockNoiseTextureStore = .empty,
         staticModelResources: ScenePreparedStaticModelResources = .empty,
+        ordinaryRasterSampleCount: Int = 1,
         allowsProjectedSpotVolume: Bool = true,
         allowsSceneReflection: Bool = true,
         hasDynamicBloom: Bool = false,
@@ -59,7 +60,8 @@ extension SceneMetalRenderer {
         self.stockNoiseTextures = stockNoiseTextures
         self.staticModelResources = staticModelResources
         self.allowsSceneReflection = allowsSceneReflection
-        let rasterSampleCount = staticModelResources.pipeline?.rasterSampleCount ?? 1
+        let rasterSampleCount = staticModelResources.isEmpty
+            ? ordinaryRasterSampleCount : (staticModelResources.pipeline?.rasterSampleCount ?? 1)
         self.multisampleTargets = rasterSampleCount > 1 ? MainMultisampleTargets(sampleCount: rasterSampleCount) : nil
         self.pipelineRepository = pipelineRepository
         if baseMaterialProviderBindings.hasLitImageConsumers {

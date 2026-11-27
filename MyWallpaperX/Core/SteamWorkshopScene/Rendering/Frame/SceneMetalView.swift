@@ -94,6 +94,7 @@ class SceneMetalView: NSView {
             baseMaterialProviderBindings: baseMaterialProviderBindings,
             stockNoiseTextures: stockNoiseTextures,
             staticModelResources: staticModelResources,
+            ordinaryRasterSampleCount: imageLayerPipeline.multisampleRasterSampleCount,
             allowsProjectedSpotVolume: allowsProjectedSpotVolume,
             allowsSceneReflection: allowsSceneReflection,
             hasDynamicBloom: hasDynamicBloom,

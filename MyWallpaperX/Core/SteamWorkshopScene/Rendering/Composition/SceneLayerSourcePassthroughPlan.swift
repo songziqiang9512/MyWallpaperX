@@ -61,6 +61,24 @@ struct SceneLayerSourcePassthroughPlan {
         let clippedNDCVertices: [SIMD2<Float>]
         let clippedArea: Float
 
+        func cutsPixelCoverage(width: Int, height: Int) -> Bool {
+            guard clippedArea < 4, let last = clippedNDCVertices.last else { return false }
+            let scale = SIMD2(Double(width), Double(height)) * 0.5
+            // Treat rounding in the existing Float clip as subpixel noise.
+            let tolerance = 1.0 / 16.0
+            var previous = (SIMD2(Double(last.x), Double(last.y)) + 1) * scale
+            for vertex in clippedNDCVertices {
+                let next = (SIMD2(Double(vertex.x), Double(vertex.y)) + 1) * scale
+                let variesX = abs(next.x - previous.x) > tolerance
+                let variesY = abs(next.y - previous.y) > tolerance
+                if variesX && variesY
+                    || variesX && abs(next.y - next.y.rounded()) > tolerance
+                    || variesY && abs(next.x - next.x.rounded()) > tolerance { return true }
+                previous = next
+            }
+            return false
+        }
+
         /// Float clipping intersections can lose extrema through cancellation
         /// for large finite coordinates, so they must not narrow this footprint.
         func pixelRegion(width: Int, height: Int) -> MTLRegion? {

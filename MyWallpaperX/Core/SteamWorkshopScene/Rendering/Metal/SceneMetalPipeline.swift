@@ -83,7 +83,8 @@ struct SceneImageLayerPipeline {
         preparesDepth: Bool = false,
         preparesAdditive: Bool = false,
         preparesNormalDepth: Bool = false,
-        rasterSampleCount: Int = 1
+        rasterSampleCount: Int = 1,
+        preparesMultisampleSeed: Bool = true
     ) {
         guard let library = injectedLibrary ?? device.makeDefaultLibrary(),
               let vertFn = library.makeFunction(name: "sceneImageLayerVert") else { return nil }
@@ -125,7 +126,7 @@ struct SceneImageLayerPipeline {
             descriptor.depthAttachmentPixelFormat = .depth32Float
             multisampleState = (try? device.makeRenderPipelineState(descriptor: descriptor))
                 .map { (rasterSampleCount, $0) }
-            if let seedFragment = library.makeFunction(name: "sceneMainColorSeed") {
+            if preparesMultisampleSeed, let seedFragment = library.makeFunction(name: "sceneMainColorSeed") {
                 descriptor.fragmentFunction = seedFragment
                 descriptor.colorAttachments[0].isBlendingEnabled = false
                 multisampleSeedState = try? device.makeRenderPipelineState(descriptor: descriptor)

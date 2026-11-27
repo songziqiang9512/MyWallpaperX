@@ -991,7 +991,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
             ["rows": rows, "attachmentRows": attachmentRows, "geometryRows": geometryRows,
              "transparentHDR": transparency,
              "terminalDepth": terminalDepth(device, queue, library),
-             "multisampleResolve": multisampleResolve(device, queue),
+             "multisampleResolve": multisampleResolve(device, queue), "ordinaryMultisample": ordinaryMultisample(device, queue, library),
              "seededMultisample": seededMultisample(device, queue, library),
              "unsupportedEight": unsupportedEight(device, queue, library),
              "repeatedAttachmentReads": repeatedAttachmentReads(device, queue),

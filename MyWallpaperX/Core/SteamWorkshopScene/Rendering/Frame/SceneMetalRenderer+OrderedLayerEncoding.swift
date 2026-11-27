@@ -198,6 +198,7 @@ extension SceneMetalRenderer {
         volumeUse: inout SceneVolumeUse.Rendered,
         mainPass: SceneMainPassEncoder,
         rootMultisample: RootMultisamplePlan?,
+        ordinaryRasterProjection: OrdinaryRasterProjection? = nil,
         compositionGroupRuntime: SceneCompositionGroupFrameRuntime?,
         commandBuffer: MTLCommandBuffer,
         effectExecutionTrace: SceneEffectExecutionFrameTrace?,
@@ -432,7 +433,8 @@ extension SceneMetalRenderer {
                     layer: layer, snapshot: frameContext.dynamicValues
                 )
                 let usesPerspective = cameraFrame.resolvesPerspective(for: layer)
-                let model = imageTextures.geometryProducts[layer.id].map {
+                let preparedProjection = ordinaryRasterProjection?.layerID == layer.id ? ordinaryRasterProjection : nil
+                let model = preparedProjection?.model ?? imageTextures.geometryProducts[layer.id].map {
                     geometryModelMatrix(
                         for: layer, worldFramesByLayerID: frameWorldFrames,
                         authoredSize: $0.authoredSize,
@@ -441,16 +443,10 @@ extension SceneMetalRenderer {
                         visibleHalfExtents: cameraFrame.coverHalfExtents,
                         usesPerspective: usesPerspective
                     )
-                } ?? imageModelMatrix(
-                    for: layer, worldFramesByLayerID: frameWorldFrames,
-                    renderSizeOverride: imageTextures.layerSourceRenderSize(for: layer.id),
-                    textPlacement: imageTextures.layerSourceTextPlacement(for: layer.id),
-                    parallaxMouseNormalized: parallaxMouseNormalized,
-                    configuration: parallaxConfiguration,
-                    visibleHalfExtents: cameraFrame.coverHalfExtents,
-                    usesPerspective: usesPerspective
-                )
-                let mvp = cameraFrame.viewProjection(for: layer) * model
+                } ?? ordinaryImageModelMatrix(for: layer, imageTextures: imageTextures,
+                    worldFrames: frameWorldFrames, parallax: parallaxMouseNormalized,
+                    configuration: parallaxConfiguration, camera: cameraFrame, usesPerspective: usesPerspective)
+                let mvp = preparedProjection?.mvp ?? (cameraFrame.viewProjection(for: layer) * model)
                 let isVisibleOrdinaryVideo = observesOrdinaryVideo && layerAlpha > 0
                     && sourceMaterialAlpha > 0
                     && SceneLayerSourcePassthroughPlan.projectedGeometry(for: mvp) != nil

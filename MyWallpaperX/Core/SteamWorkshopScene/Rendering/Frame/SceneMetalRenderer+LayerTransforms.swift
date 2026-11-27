@@ -1,6 +1,21 @@
 import simd
 
 extension SceneMetalRenderer {
+    typealias OrdinaryRasterProjection = (layerID: Int, model: simd_float4x4, mvp: simd_float4x4)
+
+    func ordinaryImageModelMatrix(
+        for layer: SceneRenderDescriptor.Layer, imageTextures: SceneBaseImageTextureSnapshot,
+        worldFrames: [Int: simd_float4x4], parallax: SIMD2<Float>,
+        configuration: SceneLayerParallax.Configuration, camera: SceneParticleCameraFrame,
+        usesPerspective: Bool
+    ) -> simd_float4x4 {
+        imageModelMatrix(for: layer, worldFramesByLayerID: worldFrames,
+            renderSizeOverride: imageTextures.layerSourceRenderSize(for: layer.id),
+            textPlacement: imageTextures.layerSourceTextPlacement(for: layer.id),
+            parallaxMouseNormalized: parallax, configuration: configuration,
+            visibleHalfExtents: camera.coverHalfExtents, usesPerspective: usesPerspective)
+    }
+
     func imageModelMatrix(
         for layer: SceneRenderDescriptor.Layer,
         worldFramesByLayerID: [Int: simd_float4x4],

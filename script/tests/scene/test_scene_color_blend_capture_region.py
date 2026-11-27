@@ -19,6 +19,7 @@ from script.tests.support.scene_color_blend_capture_test_support import PROJECTI
 REPO = Path(__file__).resolve().parents[3]
 SCENE = REPO / "MyWallpaperX/Core/SteamWorkshopScene"
 HARNESS = (Path(__file__).resolve().parents[1] / "fixtures") / "SceneColorBlendCaptureRegionHarness.swift"
+ORDINARY_RASTER = HARNESS.with_name("SceneColorBlendOrdinaryRasterChecks.swift")
 SOURCES = [SCENE / p for p in (
     "Runtime/Frame/SceneMaterialRenderState.swift",
     "Compilation/Material/SceneMaterialRenderState+Compilation.swift",
@@ -37,13 +38,13 @@ SHADER = SCENE / "Rendering/Composition/SceneImageLayer.metal"
 FOG = SHADER.with_name("SceneDistanceFog.metalh")
 
 
-def triangle_edge_coverages(clip_xy, width, height):
+def polygon_edge_coverages(clip_xy, width, height):
     # Exact pixel-square intersection area, independent of Metal's sample positions.
-    triangle = [((x + 1) * width / 2, (1 - y) * height / 2) for x, y in clip_xy]
+    clip_polygon = [((x + 1) * width / 2, (1 - y) * height / 2) for x, y in clip_xy]
     edges = []
     for y in range(height):
         for x in range(width):
-            polygon = triangle
+            polygon = clip_polygon
             for axis, bound, sign in ((0, x, 1), (0, x + 1, -1),
                                       (1, y, 1), (1, y + 1, -1)):
                 clipped = []
@@ -74,7 +75,7 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
             raise unittest.SkipTest("Swift/Metal toolchain unavailable")
         parent = Path(os.environ.get("MWX_BLEND_REGION_EVIDENCE", "/private/tmp/mwx-blend-region"))
         parent.mkdir(parents=True, exist_ok=True)
-        paths = [Path(__file__), HARNESS, PROJECTION_SOURCE, *SOURCES, SHADER, FOG,
+        paths = [Path(__file__), HARNESS, ORDINARY_RASTER, PROJECTION_SOURCE, *SOURCES, SHADER, FOG,
                  (Path(__file__).resolve().parents[1] / "support/scene_color_blend_capture_test_support.py")]
         identity = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
         with tempfile.TemporaryDirectory(prefix="blend-region-", dir=parent) as directory:
@@ -85,7 +86,7 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
             commands = [
                 ["xcrun", "--sdk", "macosx", "metal", "-c", str(SHADER), "-o", str(air)],
                 ["xcrun", "--sdk", "macosx", "metallib", str(air), "-o", str(library)],
-                ["swiftc", "-DDEBUG", *map(str, SOURCES), str(support), str(HARNESS),
+                ["swiftc", "-DDEBUG", *map(str, SOURCES), str(support), str(HARNESS), str(ORDINARY_RASTER),
                  "-module-cache-path", str(root / "cache"), "-o", str(binary)],
                 [str(binary), str(library), str(FOG)]]
             outputs = []
@@ -99,7 +100,7 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
             assert identity == {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}, "source identity drift"
         resolve = cls.result.get("multisampleResolve", {})
         if resolve.get("supported"):
-            edges = triangle_edge_coverages(resolve["triangleClipXY"], *resolve["size"])
+            edges = polygon_edge_coverages(resolve["triangleClipXY"], *resolve["size"])
             resolve["analyticEdgePixels"] = len(edges)
             for row in resolve["rows"]:
                 pixels = resolved_pixels(row)
@@ -218,6 +219,39 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
             with self.subTest(format=row["format"], samples=row["samples"]):
                 self.assertTrue(row["seedPipeline"], row)
                 self.assertEqual(row["cases"], {"seed": True, "prepare-failure": True, "attachment-failure": True, "existing-depth": True})
+
+    def test_plain_quad_msaa_resolves_shape_without_filtering_baked_alpha(self):
+        rows = self.result["ordinaryMultisample"]
+        quads = {row["samples"]: row for row in rows if row["kind"] == "quad"}
+        baked = {row["samples"]: row for row in rows if row["kind"] == "texture-alpha"}
+        if 2 not in quads:
+            self.skipTest("the device does not support Apple memoryless 2× attachments")
+        self.assertEqual(quads[1]["coverage"], {
+            "rotated": True, "fullViewport": False, "integerEdges": False,
+            "fractionalEdges": True, "clipped": True, "offscreen": False, "renamedMirroredQuad": True,
+        })
+        for row in rows:
+            self.assertTrue(row["completed"], row["kind"])
+            self.assertEqual(row["encoderSamples"], row["samples"])
+            self.assertEqual(row["opens"], 1)
+            self.assertFalse(row["preparesSeed"])
+            if row["samples"] > 1:
+                self.assertEqual(row["colorStore"], "2")
+        edges = polygon_edge_coverages(quads[1]["clipXY"], quads[1]["width"], quads[1]["height"])
+        self.assertGreater(len(edges), 50)
+        errors = {}
+        for samples, row in quads.items():
+            pixels = resolved_pixels(row)
+            errors[samples] = sum(abs(pixels[i][3] / 255 - area) for i, area in edges) / len(edges)
+        self.assertLess(errors[2], errors[1], errors)
+        if 4 in errors:
+            self.assertLess(errors[4], errors[2], errors)
+        reference = resolved_pixels(baked[1])
+        self.assertGreater(len({pixel[3] for pixel in reference}), 2)
+        for samples, row in baked.items():
+            max_delta = max(abs(a - b) for actual, original in zip(resolved_pixels(row), reference, strict=True)
+                            for a, b in zip(actual, original, strict=True))
+            self.assertLessEqual(max_delta, 1, samples)
 
     def test_single_clear_main_pass_resolves_multisample_color_and_preserves_reverse_depth(self):
         result = self.result["multisampleResolve"]
