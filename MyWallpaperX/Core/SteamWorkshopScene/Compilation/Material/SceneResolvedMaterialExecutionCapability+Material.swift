@@ -68,11 +68,23 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
         guard isVisibleExecutionRoot, !isGraphOutputProvider,
               sourceRoute == .capturedLayerTexture, dependencyOwnership == .none,
               sceneBackgroundRequirement == nil, !requiresSceneEnvironment,
-              supportsPlacementSpaceTerminalReplay, stages.count == 1,
-              case .resolved = stages[0].execution,
-              let node = Self.terminalColorNode(in: stages[0]),
-              let material = material(for: node) else { return false }
-        let input = SceneAuthoredEffectRenderPlan.TextureIdentity.layerSource(layerID: layerID)
+              supportsPlacementSpaceTerminalReplay, !stages.isEmpty else { return false }
+        var input = SceneAuthoredEffectRenderPlan.TextureIdentity.layerSource(layerID: layerID)
+        for stage in stages {
+            guard case .resolved = stage.execution,
+                  let node = Self.terminalColorNode(in: stage),
+                  let material = material(for: node),
+                  stage.product.graph.effects[0].input == input,
+                  Self.readsOrdinaryEffectColor(material, input: input) else { return false }
+            input = stage.product.graph.effects[0].output
+        }
+        return true
+    }
+
+    private static func readsOrdinaryEffectColor(
+        _ material: SceneResolvedMaterialExecutionCapabilityCatalog.MaterialCapability,
+        input: SceneAuthoredEffectRenderPlan.TextureIdentity
+    ) -> Bool {
         let envelope = material.variants.launchEnvelopeCapabilitySnapshot()
         guard envelope.inputIdentity == input, envelope.allEntriesReady, !envelope.variants.isEmpty else { return false }
         return envelope.variants.allSatisfy { variant in
@@ -94,7 +106,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
                 guard variant.activeSamplers[slot]?.mode == .regular,
                       selections.graphInputPurposes[slot]?.isDataPurpose == false,
                       SceneResolvedMaterialColorBlendEligibility.sourceSlotSelectsExactInput(
-                          slot, inputIdentity: input, inputRole: .layerSource, template: material.template,
+                          slot, inputIdentity: input, inputRole: material.template.graphRole.effectInput, template: material.template,
                           graphInputSourceSlotFacts: variant.graphInputSourceSlotFacts
                       ) else { return false }
                 readsGraphColor = true

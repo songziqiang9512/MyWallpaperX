@@ -299,7 +299,7 @@ nonisolated struct SceneRenderDescriptorBuilder {
                 if plainImage, facts?.scalableStaticColor == true, utilityLayer == nil,
                    puppetMeshPath == nil, object.staticModelPath == nil,
                    layer.parentID == nil, layer.childLayerIDs.isEmpty,
-                   layer.effects.count <= 1, layer.dependencyLayerIDs.isEmpty, layer.authoredDependencies.isEmpty,
+                   layer.dependencyLayerIDs.isEmpty, layer.authoredDependencies.isEmpty,
                    (object.colorBlendMode ?? 0) == 0, object.shape == nil || object.shape == "quad" {
                     layer.scalableStaticColorSource = true
                 }

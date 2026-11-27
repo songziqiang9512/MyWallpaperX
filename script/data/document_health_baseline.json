@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 68,
-      "bytes": 26371
+      "bytes": 26377
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 172,
-      "bytes": 34189
+      "bytes": 34225
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 599,
-      "bytes": 181140
+      "bytes": 181740
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 161665
+      "bytes": 162411
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 309,
-      "bytes": 67698
+      "bytes": 67715
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -687,15 +687,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "1506186d1fc2da4af9d2b2bb5a1af35807534d666718a88ebc9b7ade06ba66ed",
-      "after": "8a174c31890e2a32bb97d20f76aff53891b9cf831ba1fb07ba8f9d3fb4328e79",
-      "owner": "runtime quality contract",
-      "reason": "规定后处理实际输出回执与 raw 回退边界。",
-      "decision": "docs/architecture/wallpaper-quality-execution-contract.md#quality-option-semantics"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "8f77ec87a8a82d09d1814054f6aec34ebd8185d6d6e7ce1984e8610bd2c6e271",
       "after": "99c0e029f0000cb95c576b3a2a29d223263331798bf807f4d3d5823f610a176f",
@@ -715,37 +706,46 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "a7f85b90efb3727e4ba685519e5a9437b2cc2c1f43a8076be6299ad51b092181",
-      "after": "62cdb4d77008950eb26a18fdabd2320472d3e2ed330f34518003a5968af77928",
+      "before": "62cdb4d77008950eb26a18fdabd2320472d3e2ed330f34518003a5968af77928",
+      "after": "dd307e278ab8c4eb854f59d2115a6baab8fcb1044bbe95171002f5a17b45dd7f",
       "owner": "playback source map",
-      "reason": "定位独立局部捕获选级、纹理规格与终端回执。",
+      "reason": "定位多段局部颜色捕获与完成帧回执的实际 owner。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-effect-color-mip"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/wallpaper-quality-execution-contract.md",
+      "before": "4548c355154e84dbd38c1c83d3b3e187a643cd13cbb2cb66ef8c965525382ccf",
+      "after": "4e0170963f3055db1f546c1d2e2a895ea53f6aa1357b5bd49a9fbafd836563cb",
+      "owner": "runtime quality contract",
+      "reason": "规定多段局部颜色捕获与完成帧回执。",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-effect-color-mip"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "85c8d258d266d55db14064d888a8f5cb1d2df3a0f5c25c59989f60f6aadafa6d",
-      "after": "6ab9b2f056bbc057e927571f34fb5bdb156d30f60fe4dd25860c223bb716c69a",
+      "before": "6ab9b2f056bbc057e927571f34fb5bdb156d30f60fe4dd25860c223bb716c69a",
+      "after": "c3c584d8cd183f561d2dc068d07bada2732348efe8f272de27baf92e610779df",
       "owner": "wallpaper quality design",
-      "reason": "定义局部捕获选级批准边界、代价与真实正反例。",
+      "reason": "定义多段局部颜色捕获与完成帧回执的采用边界和验收。",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-effect-color-mip"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "da7706ab9708df8545afdb8414701df1c08976b399e46fa544692ede4a2aaaf4",
-      "after": "e46de41983a4e43822dd2fd092e9dec89a294e298f80a18deef788d4768b09b5",
+      "before": "e46de41983a4e43822dd2fd092e9dec89a294e298f80a18deef788d4768b09b5",
+      "after": "86db196c68a043fac443a276fccfff1a231b32c440649acb46394e3052ef9faf",
       "owner": "wallpaper quality execution",
-      "reason": "记录作者完成帧、AppKit 切档、逐像素与单纹理 Metal 分配结果。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-effect-texture-delivery"
+      "reason": "记录两个原作者作品与相邻反例的多段局部颜色捕获与完成帧回执证据。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-effect-multi-delivery"
     },
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "99969be2a78d04c3040e1420beec2ae12a2d12db33a732632c1f0109ac9a7fb6",
-      "after": "11e4638705d49c922940c3d78dca075ac5498e64011175431704f27d0c5019c0",
+      "before": "11e4638705d49c922940c3d78dca075ac5498e64011175431704f27d0c5019c0",
+      "after": "1826979d37a5202c60a4d399ad55679059de0930794c659dd7f4611be3d275b8",
       "owner": "Scene rendering",
-      "reason": "记录现有准备期、候选与终端票据的纹理规格交接。",
+      "reason": "同步准备、候选与终端的多段局部颜色捕获与完成帧回执。",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-effect-color-mip"
     }
   ]

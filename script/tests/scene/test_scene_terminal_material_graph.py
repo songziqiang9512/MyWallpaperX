@@ -604,7 +604,9 @@ HARNESS += DENSITY_FIXTURE.read_text() + r'''
     let data = try JSONSerialization.data(withJSONObject:
         ["metalAvailable": true, "rows": rows, "overflow": overflow, "named": named,
             "attachment": attachment, "density": density,
-            "effectColorMipEligibility": effectColorMipEligibility()], options: [.sortedKeys])
+            "effectColorMipEligibility": effectColorMipEligibility(),
+            "chainedEffectColorMipEligibility": chainedEffectColorMipEligibility(device: device, queue: queue)],
+        options: [.sortedKeys])
     FileHandle.standardOutput.write(data)
  }
 }
@@ -708,6 +710,11 @@ class TerminalMaterialGraphTests(unittest.TestCase):
     def test_effect_color_mip_rejects_an_asset_slot_with_a_graph_default(self):
         self.assertEqual(self.result['effectColorMipEligibility'],
                          {'only-graph-default': True, 'asset-with-graph-default': True})
+
+    def test_effect_color_mip_checks_the_prepared_tail_of_a_two_stage_chain(self):
+        expected = dict.fromkeys(('placement', 'tailReadsPriorOutput', 'eligible', 'bothStagesRendered'), True)
+        self.assertEqual(self.result['chainedEffectColorMipEligibility'],
+                         {'color-chain': expected, 'mixed-tail': expected})
 
     def test_terminal_additive_preserves_source_representation_and_background_alpha(self):
         for name in ('opaqueAdditive', 'straightAdditive', 'straightSourceOver'):

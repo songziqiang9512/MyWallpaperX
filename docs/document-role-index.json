@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1b904cb94457dbfb54d7a184147128d206edd021e031abc9430d79a5caa4c2b6",
+        "sourceSHA256": "bd0fda69f79d674d7be2229c9930309fa3d514068a49dfe161688c8402b3f6fa",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定位独立局部捕获选级、纹理规格与终端回执。",
-        "limitations": "M4 单内屏、工作卡所列真实完成帧与单纹理分配。未量整机性能或全库覆盖。"
+        "scope": "定位多段局部颜色捕获与完成帧回执的实际 owner。",
+        "limitations": "M4 单内屏、工作卡限定的原作者画面和 Metal 分配。未测整机峰值、长稳性能或功耗。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "30ea0af02f00e15d731a4f19965420c7d067d9eb56115b691bf094fedcbb81f5",
+        "sourceSHA256": "feb908095017d884ab58785eef5184bde7226b0caf67a8bded3a743c9febb763",
         "method": "document_registry --audit + document_health --check",
-        "scope": "规定局部效果色源的高性能降级及原捕获和独立用途。",
-        "limitations": "M4 单内屏、工作卡所列真实完成帧与单纹理分配。未量整机性能或全库覆盖。"
+        "scope": "规定多段局部颜色捕获与完成帧回执。",
+        "limitations": "M4 单内屏、工作卡限定的原作者画面和 Metal 分配。未测整机峰值、长稳性能或功耗。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "602a57815bf4eebddb080c9aea3d2534363c6d61fde391b0ec9cd2e57dec0b13",
+        "sourceSHA256": "2a6c0f49746dccb1cc1558a1d2b184b16e5e7417fe473f17bd7930529cc4166f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定义局部捕获选级批准边界、代价与真实正反例。",
-        "limitations": "M4 单内屏、工作卡所列真实完成帧与单纹理分配。未量整机性能或全库覆盖。"
+        "scope": "定义多段局部颜色捕获与完成帧回执的采用边界和验收。",
+        "limitations": "M4 单内屏、工作卡限定的原作者画面和 Metal 分配。未测整机峰值、长稳性能或功耗。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d3267a9c456c41b561285e2f99a7f3d997827fff16793503ed97ee892dfb80bc",
+        "sourceSHA256": "c23f9d2a3c4d378bebc5ee07fd5c37c8bd0599ed9f27ea188a8fe6d18657364b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "记录原作者完成帧、AppKit 切档、逐像素与单纹理 Metal 分配结果。",
-        "limitations": "M4 单内屏、工作卡所列真实完成帧与单纹理分配。未量整机性能或全库覆盖。"
+        "scope": "记录两个原作者作品与相邻反例的多段局部颜色捕获与完成帧回执证据。",
+        "limitations": "M4 单内屏、工作卡限定的原作者画面和 Metal 分配。未测整机峰值、长稳性能或功耗。"
       }
     },
     {
@@ -886,10 +886,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "333ef61d141839011c1bf154dc53fae67cae4a4b400140d3c8c0659e618c34a3",
+        "sourceSHA256": "0b11eb22ba92aa08dcd8e42d7b9a8b362114197ccfc0ba42c6c24b9bc2cd97fa",
         "method": "document_registry --audit + document_health --check",
-        "scope": "记录现有准备期、候选与终端票据的纹理规格交接。",
-        "limitations": "M4 单内屏、工作卡所列真实完成帧与单纹理分配。未量整机性能或全库覆盖。"
+        "scope": "同步准备、候选与终端的多段局部颜色捕获与完成帧回执。",
+        "limitations": "M4 单内屏、工作卡限定的原作者画面和 Metal 分配。未测整机峰值、长稳性能或功耗。"
       }
     },
     {

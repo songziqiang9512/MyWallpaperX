@@ -124,6 +124,92 @@ private func effectColorMipEligibility() -> [String: Bool] {
     return results
 }
 
+private func chainedEffectColorMipEligibility(device: MTLDevice, queue: MTLCommandQueue) -> [String: [String: Bool]] {
+    let chain = terminalChain(2)
+    let sourceGraph = Graph(layerID: chain.layerID, effects: chain.effects, renderTargets: [],
+        nodes: chain.effects.enumerated().map { index, stage in
+            dormantGraphInputMaterial(index, owner: stage.key, target: stage.output)
+        }, finalOutput: chain.finalOutput, blockers: [])
+    let admitted = orderedLayerGraph(sourceGraph)
+    let path = SceneVFSAssetPath("textures/absent-tail-color.tex")!
+    let identity = SceneAssetTextureIdentity(path: path, purpose: .straightAlbedo)
+    let pipeline = makeSourcePipeline(device)
+    let source = makeSource(device, width: 10, height: 10, bgra: [32, 64, 128, 255])
+    var results: [String: [String: Bool]] = [:]
+    for usesAbsentCandidate in [false, true] {
+        let arm = usesAbsentCandidate ? "mixed-tail" : "color-chain"
+        let entries = Dictionary(uniqueKeysWithValues: zip(sourceGraph.effects, sourceGraph.nodes).map { stage, node in
+            let isTail = stage.key == chain.effects.last?.key
+            let shader = shaderContract(nodeIndex: node.nodeIndex, pass: false, fragmentOverride: """
+                varying vec2 v_TexCoord;
+                uniform sampler2D g_Texture0;
+                \(isTail ? "uniform sampler2D g_Texture1; // {\"material\":\"albedo\",\"default\":\"_rt_imageLayerComposite_\(layerID)_a\"}" : "")
+                void main() {
+                    vec4 color = texSample2D(g_Texture0, v_TexCoord);
+                    \(isTail ? "color = mix(color, texSample2D(g_Texture1, v_TexCoord), 0.5);" : "")
+                    color.rgb = color.rgb.\(isTail ? "bgr" : "gbr");
+                    gl_FragColor = color;
+                }
+                """)
+            var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
+            if isTail && usesAbsentCandidate {
+                slots[1] = .init(index: 1, candidates: [.init(reference: .asset(path), provenance: .instance)])
+            }
+            let base = implicitFramebufferTemplate(for: node)
+            let value = Template.validated(textureSlots: slots, combos: [], uniformDeclarations: [],
+                renderState: base.renderState, graphRole: .init(effectInput: role(stage.input),
+                    effectOutput: role(stage.output), nodeTarget: role(stage.output), bindings: []),
+                effectContext: .init(key: stage.key, input: stage.input), shaderContract: shader,
+                diagnosticProvenance: .init(nodeIndex: node.nodeIndex, authoredShaderPath: shader.identity,
+                    contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
+                    textureSources: [], uniformSources: []))!
+            return (SceneResolvedMaterialRuntimeCatalog.Key(effect: stage.key, nodeIndex: node.nodeIndex),
+                SceneResolvedMaterialRuntimeCatalog.Entry.template(value,
+                    textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value)))
+        })
+        let caps = capabilities(admitted, catalog: .init(entries: entries, resourceDemandIssues: []),
+            assetStates: usesAbsentCandidate ? [identity: .absent] : [:])
+        guard let claim = caps.claim(admitted), let capability = caps.resolve(claim.token),
+              let tail = capability.material(for: sourceGraph.nodes[1]),
+              let executor = Executor(device: device, capabilities: caps),
+              let leases = makeChainedLeases(capability, device: device),
+              let command = queue.makeCommandBuffer() else {
+            results[arm] = ["admitted": false]
+            continue
+        }
+        let envelope = tail.variants.launchEnvelopeCapabilitySnapshot()
+        var facts = [
+            "placement": capability.supportsPlacementSpaceTerminalReplay,
+            "tailReadsPriorOutput": envelope.inputIdentity == chain.effects[0].output && envelope.allEntriesReady
+                && !envelope.variants.isEmpty && envelope.variants.allSatisfy { variant in
+                    guard Set(variant.frontendProgram.textureBindings.map(\.slot)) == [0, 1],
+                          case let .reference(source)? = variant.textureSelectionFacts.defaults[1] else { return false }
+                    return source.reference == .graph(chain.effects[0].output)
+                },
+            "eligible": capability.capturesOrdinaryLayerColor() != usesAbsentCandidate,
+        ]
+        let textureEntries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus] =
+            usesAbsentCandidate ? [.asset(identity): .absent] : [:]
+        let preparation = executor.prepare(token: claim.token, leases: leases,
+            historyRehydrateCopiesByEffect: [:], frame: frame(1, textureEntries: textureEntries),
+            sourceTexture: source, sourceUniforms: .neutral(), sourcePipeline: pipeline,
+            frameInputs: .init(), commandBuffer: command, previousStates: [:], previousGraphResources: [:],
+            effectGeneration: 1, resetGeneration: 1)
+        facts["bothStagesRendered"] = false
+        if case let .success(prepared) = preparation, prepared.stages.count == 2,
+           prepared.stages.allSatisfy({ $0.effectLocalFailureReasonCode == nil
+               && $0.effectLocalActivationBypassReasonCode == nil }),
+           executor.encode(prepared, commandBuffer: command),
+           let readback = appendReadback(prepared.finalTexture, commandBuffer: command) {
+            command.commit(); command.waitUntilCompleted()
+            facts["bothStagesRendered"] = command.status == .completed && command.error == nil
+                && matches(readback.firstPixel, [64, 32, 128, 255])
+        }
+        results[arm] = facts
+    }
+    return results
+}
+
 private func densityCase(
     device: MTLDevice, queue: MTLCommandQueue, renamed: Bool,
     blendMode: Int = 0, colorKind: String? = nil
