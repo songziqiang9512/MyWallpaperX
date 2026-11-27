@@ -102,7 +102,7 @@
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 181914
+      "bytes": 182821
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -742,11 +742,11 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "f4d22d75bb304d193b37b6a914f07b23ec132c8784ea31aeb798b5f167d7fa5c",
-      "after": "bd75215ddc251f642a90d5beb338969627985918825f32b869922ba934772efc",
+      "before": "bd75215ddc251f642a90d5beb338969627985918825f32b869922ba934772efc",
+      "after": "f4101515291eb0fd5acf590928e3eba8436949a700e4906c1c49b13d50594a69",
       "owner": "wallpaper-quality",
-      "reason": "核四档原生动作、Scene 接管及冷恢复、Web 实际投递和便携导入。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-quality-presets"
+      "reason": "核 992 个本地原包的点／聚光高档样本资格及现有候选保留门。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-local-shadow-author-scope"
     },
     {
       "section": "bodies",

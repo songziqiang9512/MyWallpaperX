@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0c839120402a6ad9f270ff9e0c1499ec3945e288d25a251149175ad1bb27d985",
+        "sourceSHA256": "6394ac9028b29bfc7eb2f8369b15a44efce57d6292e42f2a3343d4c94adcf477",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核四档原生动作、Scene 接管及冷恢复、Web 实际投递和便携导入。",
-        "limitations": "原生四档及单屏签名中档产品链。没有重复四档物理呈现或混合屏性能测量。"
+        "scope": "核 992 个本地原包的点／聚光高档样本资格及现有候选保留门。",
+        "limitations": "点／聚光声明静态筛查，真实原包收据复用。未取得第二独立正例和 60 FPS 候选长窗。"
       }
     },
     {
