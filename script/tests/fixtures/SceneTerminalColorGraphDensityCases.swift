@@ -210,6 +210,76 @@ private func chainedEffectColorMipEligibility(device: MTLDevice, queue: MTLComma
     return results
 }
 
+private func multipassEffectColorMipEligibility(device: MTLDevice, queue: MTLCommandQueue) -> [String: [String: Bool]] {
+    let scratch = Graph.TextureIdentity(kind: .framebuffer, layerID: layerID, effect: effect, name: "local-color")
+    let pipeline = makeSourcePipeline(device)
+    let source = makeSource(device, width: 10, height: 10, bgra: [32, 64, 128, 255])
+    var results: [String: [String: Bool]] = [:]
+    for arm in ["local-color", "overwritten-color", "resolution-only"] {
+        let overwritesColor = arm == "overwritten-color"
+        var nodes = [material(0, ordinal: 0, target: scratch, read: input)]
+        if overwritesColor {
+            nodes.append(material(1, ordinal: 1, target: scratch, read: input))
+        }
+        nodes.append(material(nodes.count, ordinal: nodes.count, target: output, read: scratch))
+        let admitted = admittedGraph(graph(targets: [rawTarget(scratch, width: 8, height: 4)], nodes: nodes))
+        let entries = Dictionary(uniqueKeysWithValues: nodes.map { node in
+            let base = template(for: node)
+            let fragment = if overwritesColor && node.nodeIndex == 1 {
+                """
+                    void main() { gl_FragColor = vec4(16.0 / 255.0, 96.0 / 255.0, 224.0 / 255.0, 1.0); }
+                    """
+            } else if arm == "resolution-only" && node.target == output {
+                """
+                    uniform sampler2D g_Texture0;
+                    uniform vec4 g_Texture0Resolution;
+                    void main() { gl_FragColor = vec4(g_Texture0Resolution.xy * 0.05, 0.25, 1.0); }
+                    """
+            } else {
+                fragmentSource(pass: false, pixelTransform: 1)
+            }
+            let shader = shaderContract(nodeIndex: node.nodeIndex, pass: false, fragmentOverride: fragment)
+            let value = Template.validated(textureSlots: base.textureSlots, combos: [], uniformDeclarations: [],
+                renderState: base.renderState, graphRole: base.graphRole, shaderContract: shader,
+                diagnosticProvenance: .init(nodeIndex: node.nodeIndex, authoredShaderPath: shader.identity,
+                    contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
+                    textureSources: [], uniformSources: []))!
+            return (SceneResolvedMaterialRuntimeCatalog.Key(effect: node.effect, nodeIndex: node.nodeIndex),
+                SceneResolvedMaterialRuntimeCatalog.Entry.template(value,
+                    textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value)))
+        })
+        let caps = capabilities(admitted, catalog: .init(entries: entries, resourceDemandIssues: []))
+        guard let claim = caps.claim(admitted), let capability = caps.resolve(claim.token),
+              let executor = Executor(device: device, capabilities: caps),
+              let leases = makeChainedLeases(capability, device: device),
+              let command = queue.makeCommandBuffer() else {
+            results[arm] = ["admitted": false]
+            continue
+        }
+        var facts = ["eligible": capability.capturesOrdinaryLayerColor(), "rendered": false]
+        let preparation = executor.prepare(token: claim.token, leases: leases,
+            historyRehydrateCopiesByEffect: [:], frame: frame(1), sourceTexture: source,
+            sourceUniforms: .neutral(), sourcePipeline: pipeline, frameInputs: .init(),
+            commandBuffer: command, previousStates: [:], previousGraphResources: [:],
+            effectGeneration: 1, resetGeneration: 1)
+        if case let .success(prepared) = preparation,
+           intentKinds(prepared) == Array(repeating: "material", count: nodes.count),
+           executor.encode(prepared, commandBuffer: command),
+           let readback = appendReadback(prepared.finalTexture, commandBuffer: command) {
+            command.commit(); command.waitUntilCompleted()
+            let expected: [UInt8] = switch arm {
+            case "overwritten-color": [16, 224, 96, 255]
+            case "resolution-only": [64, 51, 102, 255]
+            default: [64, 128, 32, 255]
+            }
+            facts["rendered"] = command.status == .completed && command.error == nil
+                && matches(readback.firstPixel, expected)
+        }
+        results[arm] = facts
+    }
+    return results
+}
+
 private func densityCase(
     device: MTLDevice, queue: MTLCommandQueue, renamed: Bool,
     blendMode: Int = 0, colorKind: String? = nil

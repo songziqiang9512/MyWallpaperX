@@ -605,7 +605,8 @@ HARNESS += DENSITY_FIXTURE.read_text() + r'''
         ["metalAvailable": true, "rows": rows, "overflow": overflow, "named": named,
             "attachment": attachment, "density": density,
             "effectColorMipEligibility": effectColorMipEligibility(),
-            "chainedEffectColorMipEligibility": chainedEffectColorMipEligibility(device: device, queue: queue)],
+            "chainedEffectColorMipEligibility": chainedEffectColorMipEligibility(device: device, queue: queue),
+            "multipassEffectColorMipEligibility": multipassEffectColorMipEligibility(device: device, queue: queue)],
         options: [.sortedKeys])
     FileHandle.standardOutput.write(data)
  }
@@ -715,6 +716,13 @@ class TerminalMaterialGraphTests(unittest.TestCase):
         expected = dict.fromkeys(('placement', 'tailReadsPriorOutput', 'eligible', 'bothStagesRendered'), True)
         self.assertEqual(self.result['chainedEffectColorMipEligibility'],
                          {'color-chain': expected, 'mixed-tail': expected})
+
+    def test_effect_color_mip_follows_the_latest_same_frame_attachment_write(self):
+        self.assertEqual(self.result['multipassEffectColorMipEligibility'], {
+            'local-color': {'eligible': True, 'rendered': True},
+            'overwritten-color': {'eligible': False, 'rendered': True},
+            'resolution-only': {'eligible': False, 'rendered': True},
+        })
 
     def test_terminal_additive_preserves_source_representation_and_background_alpha(self):
         for name in ('opaqueAdditive', 'straightAdditive', 'straightSourceOver'):

@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c6492ddbcceabfb32c03380edcc0eb9054573a1c2a63235f766b7f7e2fc6b964",
+        "sourceSHA256": "f0f49f9fc69b4e5ba037a43f4e46bd82d37d822e301e2ebd4c40bb9858d71617",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定位局部颜色捕获下限与同源 Auto 冷选、热升的实际 owner。",
-        "limitations": "M4 单内屏、工作卡限定的原作者画面和 Metal 分配。未测整机峰值、长稳性能或功耗。"
+        "scope": "定位同帧多 pass 局部色源的选级责任。",
+        "limitations": "签名 M4 单内屏真实画面及指定纹理 Metal 分配。未测整机峰值、长稳性能或功耗。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5ce3729ba77ff8de4dd717f638dcb8518054bdb8b4dd9ca027ee0dff6be44fc6",
+        "sourceSHA256": "eae91bc4ef59320303cd5794bf4ecb37e3eb0140f9cbd7531e1524630632500b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "规定局部颜色捕获下限与同源 Auto 冷选、热升。",
-        "limitations": "M4 单内屏、工作卡限定的原作者画面和 Metal 分配。未测整机峰值、长稳性能或功耗。"
+        "scope": "规定同帧多 pass 的颜色证明、物理档位和布局。",
+        "limitations": "签名 M4 单内屏真实画面及指定纹理 Metal 分配。未测整机峰值、长稳性能或功耗。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "38dba464a749e81df6b243e73d01fbf6f02579ee39b359347371da64100db303",
+        "sourceSHA256": "e56f4a2507401faa9755daef553e88e7151b0a2c7e2b5e8302b5eea92dcdb58d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定义局部颜色捕获下限与同源 Auto 冷选、热升的采用边界和验收。",
-        "limitations": "M4 单内屏、工作卡限定的原作者画面和 Metal 分配。未测整机峰值、长稳性能或功耗。"
+        "scope": "定义同帧多 pass 的采用边界和验收。",
+        "limitations": "签名 M4 单内屏真实画面及指定纹理 Metal 分配。未测整机峰值、长稳性能或功耗。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b9dc1f6971e849647ae58f1d9900a93f3e6489b4b87de5d4f9c62f6609ed32c9",
+        "sourceSHA256": "727ae53b6d128c47575230926cf1dab618f854f3dae207fec3c0569bda905e59",
         "method": "document_registry --audit + document_health --check",
-        "scope": "记录两个原作者作品与相邻反例的局部颜色捕获下限与同源 Auto 冷选、热升证据。",
-        "limitations": "M4 单内屏、工作卡限定的原作者画面和 Metal 分配。未测整机峰值、长稳性能或功耗。"
+        "scope": "记录两个独立原作、切档和局部多 pass 反例。",
+        "limitations": "签名 M4 单内屏真实画面及指定纹理 Metal 分配。未测整机峰值、长稳性能或功耗。"
       }
     },
     {
@@ -886,10 +886,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ae2d603e72e0d8f0d88a2768935c32bb53a3dc283daefbd70f53b674a6495f9b",
+        "sourceSHA256": "6bfc7c1c4a39d4298b0c7f3cc8f2fb4ce6a1f44ae74964fa78b04d1b3e8a6ff4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步准备、候选与终端的局部颜色捕获下限与同源 Auto 冷选、热升。",
-        "limitations": "M4 单内屏、工作卡限定的原作者画面和 Metal 分配。未测整机峰值、长稳性能或功耗。"
+        "scope": "同步临时目标、准备、帧实际消费和选级。",
+        "limitations": "签名 M4 单内屏真实画面及指定纹理 Metal 分配。未测整机峰值、长稳性能或功耗。"
       }
     },
     {

@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 68,
-      "bytes": 26395
+      "bytes": 26412
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 172,
-      "bytes": 34441
+      "bytes": 34540
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 599,
-      "bytes": 182090
+      "bytes": 182818
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 163279
+      "bytes": 164160
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 309,
-      "bytes": 67862
+      "bytes": 67964
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -706,46 +706,46 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "dd307e278ab8c4eb854f59d2115a6baab8fcb1044bbe95171002f5a17b45dd7f",
-      "after": "9e73051579c7f75e1de7d38d1044942aed5c9f96ef8ad5673a2eebf60ac08cc7",
+      "before": "9e73051579c7f75e1de7d38d1044942aed5c9f96ef8ad5673a2eebf60ac08cc7",
+      "after": "3fcf5b99a1212aafc99e23e370b5436f331014c659940920b54f14c8e6804ed4",
       "owner": "playback source map",
-      "reason": "定位局部颜色捕获下限与同源 Auto 冷选、热升的实际 owner。",
+      "reason": "定位同帧多 pass 局部色源的选级责任。",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-effect-color-mip"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "4e0170963f3055db1f546c1d2e2a895ea53f6aa1357b5bd49a9fbafd836563cb",
-      "after": "57725e9db057b8b7c4011db2b3d00bee3f88282fa6862cb1190587e42ad8e7ec",
+      "before": "57725e9db057b8b7c4011db2b3d00bee3f88282fa6862cb1190587e42ad8e7ec",
+      "after": "3e9485cc928417a99de9c2c3acdc8040f586e8e9ef141fc5690ac47e191961a7",
       "owner": "runtime quality contract",
-      "reason": "规定局部颜色捕获下限与同源 Auto 冷选、热升。",
+      "reason": "规定同帧多 pass 的颜色证明、物理档位和布局。",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-effect-color-mip"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "c3c584d8cd183f561d2dc068d07bada2732348efe8f272de27baf92e610779df",
-      "after": "25eee90cf48b7e03b6a13b7661eadcc3a9ae9969c6af22a1095ed2b6eb46b2ce",
+      "before": "25eee90cf48b7e03b6a13b7661eadcc3a9ae9969c6af22a1095ed2b6eb46b2ce",
+      "after": "8e45346c1fa39525e3f00b6835f37059bd8081c144916cc2164b75eb9154ed1f",
       "owner": "wallpaper quality design",
-      "reason": "定义局部颜色捕获下限与同源 Auto 冷选、热升的采用边界和验收。",
+      "reason": "定义同帧多 pass 的采用边界和验收。",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-effect-color-mip"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "86db196c68a043fac443a276fccfff1a231b32c440649acb46394e3052ef9faf",
-      "after": "d518c20b1f804c5ac625baf6a205065ca6ab9166d09263d51fe1472401dcd317",
+      "before": "d518c20b1f804c5ac625baf6a205065ca6ab9166d09263d51fe1472401dcd317",
+      "after": "1f629b05e2decb68bc1798f24d7e00c8c4ff9a79f92f48e0d475f35af37d56f6",
       "owner": "wallpaper quality execution",
-      "reason": "记录两个原作者作品与相邻反例的局部颜色捕获下限与同源 Auto 冷选、热升证据。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-effect-auto-delivery"
+      "reason": "记录两个独立原作、切档和局部多 pass 反例。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-effect-multipass-delivery"
     },
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "1826979d37a5202c60a4d399ad55679059de0930794c659dd7f4611be3d275b8",
-      "after": "3b266bae6595e9761fe1e77d66ff88f5c42a4bd99398e27dbf317719ea938605",
+      "before": "3b266bae6595e9761fe1e77d66ff88f5c42a4bd99398e27dbf317719ea938605",
+      "after": "9109dc6b7c53546e29c6e79d312ecee527875956236d12d2573fedb51bad22f1",
       "owner": "Scene rendering",
-      "reason": "同步准备、候选与终端的局部颜色捕获下限与同源 Auto 冷选、热升。",
+      "reason": "同步临时目标、准备、帧实际消费和选级。",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-effect-color-mip"
     }
   ]
