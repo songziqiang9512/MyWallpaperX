@@ -146,17 +146,58 @@ extension Notification.Name {
         checks["IncompleteRecoverySnapshotDoesNotBorrowTheCurrentCardClickField"] = incompleteClickSnapshot != .init(from: laterClickSettings)
         checks["CurrentPartialProfilePreservesLocalCardClickChoice"] = partialPreferences.applying(to: clickSettings).libraryCardClickAction == .openDetails
         var shortcutSettings = clickSettings
-        shortcutSettings.systemHotkeysEnabled = true
         shortcutSettings.previousWallpaperHotkey = .f2; shortcutSettings.nextWallpaperHotkey = .f4
         shortcutSettings.togglePlaybackHotkey = .f6; shortcutSettings.toggleMuteHotkey = .f8
         let shortcutProfile = try JSONDecoder().decode(PersonalSettingsPreferences.self,
             from: JSONEncoder().encode(PersonalSettingsPreferences(from: shortcutSettings)))
         let shortcutRestored = shortcutProfile.applying(to: WallpaperSettings())
-        checks["PortableShortcutEnableAndBindingsRoundTripThroughTheOriginalPreferences"] = shortcutRestored.systemHotkeysEnabled
+        checks["PortableShortcutBindingsRoundTripThroughTheOriginalPreferences"] = shortcutProfile.systemHotkeysEnabled == true
             && shortcutRestored.previousWallpaperHotkey == .f2 && shortcutRestored.nextWallpaperHotkey == .f4
             && shortcutRestored.togglePlaybackHotkey == .f6 && shortcutRestored.toggleMuteHotkey == .f8
         checks["CurrentPartialProfilesDoNotClaimExistingShortcutPreferences"] = partialPreferences.applying(to: shortcutSettings).previousWallpaperHotkey == .f2
-            && partialPreferences.applying(to: shortcutSettings).systemHotkeysEnabled
+            && partialPreferences.applying(to: shortcutSettings).toggleMuteHotkey == .f8
+        let importedEnginePrefs = try JSONDecoder().decode(PersonalSettingsPreferences.self, from: Data("""
+            {"keepDockIconVisible":true,"webWallpaperAudioListening":false,"sceneWallpaperAudioListening":false}
+            """.utf8))
+        let explicitEngineSettings = importedEnginePrefs.applying(to: WallpaperSettings())
+        checks["EngineControlsRoundTripWithDockPreference"] = try JSONDecoder().decode(WallpaperSettings.self,
+            from: JSONEncoder().encode(explicitEngineSettings)) == explicitEngineSettings
+            && explicitEngineSettings.keepDockIconVisible
+            && !explicitEngineSettings.webWallpaperAudioListening && !explicitEngineSettings.sceneWallpaperAudioListening
+        checks["OlderSettingsDefaultToBothEngineListenersAndActivityBasedDock"] = try JSONDecoder().decode(WallpaperSettings.self,
+            from: Data("{}".utf8)) == WallpaperSettings()
+            && partialPreferences.applying(to: explicitEngineSettings).keepDockIconVisible
+            && !partialPreferences.applying(to: explicitEngineSettings).webWallpaperAudioListening
+            && !partialPreferences.applying(to: explicitEngineSettings).sceneWallpaperAudioListening
+        let defaultSettings = WallpaperSettings()
+        let currentShortcutData = try JSONEncoder().encode(shortcutSettings)
+        checks["OneStoredBindingSettingPerAction"] = try JSONDecoder().decode(WallpaperSettings.self, from: currentShortcutData) == shortcutSettings
+            && (JSONSerialization.jsonObject(with: currentShortcutData) as? [String: Any])?["systemHotkeysEnabled"] == nil
+        var legacyShortcutData = try JSONSerialization.jsonObject(with: currentShortcutData) as! [String: Any]
+        legacyShortcutData["systemHotkeysEnabled"] = true
+        checks["LegacyEnabledShortcutsKeepTheirAssignments"] = try JSONDecoder().decode(
+            WallpaperSettings.self, from: JSONSerialization.data(withJSONObject: legacyShortcutData)
+        ) == shortcutSettings
+        legacyShortcutData["systemHotkeysEnabled"] = false
+        let legacyDisabledSettings = try JSONDecoder().decode(
+            WallpaperSettings.self, from: JSONSerialization.data(withJSONObject: legacyShortcutData)
+        )
+        checks["LegacyDisabledShortcutsStayInactiveAfterUpgrade"] = SystemHotkeyAction.allCases.allSatisfy {
+            legacyDisabledSettings[keyPath: $0.settingsKeyPath] == .none
+        }
+        var legacyDisabledProfile = shortcutProfile
+        legacyDisabledProfile.systemHotkeysEnabled = false
+        checks["LegacyDisabledProfilesKeepFKeysReleased"] = legacyDisabledProfile.applying(to: shortcutSettings) == legacyDisabledSettings
+        var legacyPartial = try JSONDecoder().decode(PersonalSettingsPreferences.self, from: Data("""
+            {"systemHotkeysEnabled":false,"volume":61}
+            """.utf8))
+        let legacyPartialApplied = legacyPartial.applying(to: shortcutSettings)
+        checks["LegacyExplicitDisableInPartialProfileClearsOnlyHotkeys"] = legacyPartialApplied.volume == 61
+            && legacyPartialApplied.libraryCardClickAction == shortcutSettings.libraryCardClickAction
+            && SystemHotkeyAction.allCases.allSatisfy { legacyPartialApplied[keyPath: $0.settingsKeyPath] == .none }
+        legacyPartial.normalizeLegacyShortcutSnapshot()
+        checks["LegacyNormalizationDoesNotFillInMissingRecoveryFields"] = legacyPartial.previousWallpaperHotkey == nil
+            && legacyPartial != .init(from: defaultSettings)
         var incompleteShortcutSnapshot = shortcutProfile; incompleteShortcutSnapshot.toggleMuteHotkey = nil
         checks["IncompleteRecoverySnapshotCannotMatchACompleteCurrentPreferenceSnapshot"] = incompleteShortcutSnapshot != .init(from: shortcutSettings)
         let unknownClickProfile = try JSONDecoder().decode(PersonalSettingsPreferences.self,
@@ -293,7 +334,7 @@ extension Notification.Name {
             _ = try LibraryPersonalSettings.decode(JSONSerialization.data(withJSONObject: credentialObject))
             checks["NextPersonalSettingsSchemaIsRejected"] = false
         } catch PersonalSettingsError.unsupportedSchema(9) { checks["NextPersonalSettingsSchemaIsRejected"] = true }
-        manager.settings.systemHotkeysEnabled = true; manager.settings.previousWallpaperHotkey = .f3
+        manager.settings.previousWallpaperHotkey = .f3
         manager.settings.restorePlaybackOnLaunch = false
         let partialPayload = PersonalSettingsPayload(exportedAt: originalDate,
             preferences: try JSONDecoder().decode(PersonalSettingsPreferences.self, from: Data("{\"volume\":17}".utf8)),
@@ -301,7 +342,7 @@ extension Notification.Name {
         let partialBytes = try LibraryPersonalSettings.encode(partialPayload)
         let partial = try LibraryPersonalSettings.decode(partialBytes).preferences.applying(to: manager.settings)
         checks["CurrentPartialPreferencesPreserveUnselectedValues"] = partial.volume == 17
-            && !partial.restorePlaybackOnLaunch && partial.systemHotkeysEnabled && partial.previousWallpaperHotkey == .f3
+            && !partial.restorePlaybackOnLaunch && partial.previousWallpaperHotkey == .f3
         for version in 1...7 {
             var old = try JSONSerialization.jsonObject(with: partialBytes) as! [String: Any]
             old["schemaVersion"] = version
@@ -330,7 +371,7 @@ extension Notification.Name {
         let exportedJSON = String(decoding: try Data(contentsOf: exportURL), as: UTF8.self)
         checks["SchemaEightExportExcludesRuntimeHistoryCredentialsAndWallpaperMedia"] = exported.schemaVersion == 8
             && object["recent"] == nil && object["currentWallpaper"] == nil && object["session"] == nil
-            && (exportedPreferences?["systemHotkeysEnabled"] as? Bool) == manager.settings.systemHotkeysEnabled
+            && (exportedPreferences?["systemHotkeysEnabled"] as? Bool) == true
             && object["pixivCookie"] == nil && object["wallhavenAPIKey"] == nil
             && !exportedJSON.contains("/derived/thumbnail")
         checks["ExportIncludesExplicitFalseForUnfavoritedReferences"] = exported.collections.favoriteStates.contains { $0.reference == ref("plain", .pixabay) && !$0.isFavorite } == true

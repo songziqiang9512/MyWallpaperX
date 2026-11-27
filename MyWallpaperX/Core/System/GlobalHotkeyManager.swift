@@ -30,17 +30,8 @@ final class GlobalHotkeyManager {
     func update(with settings: WallpaperSettings) {
         unregisterAll()
 
-        guard settings.systemHotkeysEnabled else { return }
-
-        let bindings: [(SystemHotkeyAction, FunctionKeyShortcut)] = [
-            (.previous, settings.previousWallpaperHotkey),
-            (.next, settings.nextWallpaperHotkey),
-            (.playPause, settings.togglePlaybackHotkey),
-            (.muteToggle, settings.toggleMuteHotkey)
-        ]
-
-        for (index, binding) in bindings.enumerated() {
-            registerHotkey(binding.1, action: binding.0, id: UInt32(index + 1))
+        for (index, action) in SystemHotkeyAction.allCases.enumerated() {
+            registerHotkey(settings[keyPath: action.settingsKeyPath], action: action, id: UInt32(index + 1))
         }
     }
 

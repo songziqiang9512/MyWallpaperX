@@ -23,6 +23,12 @@ struct AppSettingsActions {
     var updateLoginItemStatus: () -> Void = {}
     var openScreenSaverSettings: () -> Void = {}
     var updateVolume: (_ volume: Double) -> Void = { _ in }
+    var openProjectWebsite: () -> Void = {}
+    var checkForUpdates: (_ sender: Any?) -> Void = { _ in }
+    var automaticUpdateChecksEnabled: () -> Bool? = { nil }
+    var automaticUpdateDownloadsEnabled: () -> Bool = { false }
+    var setAutomaticUpdateDownloadsEnabled: (Bool) -> Void = { _ in }
+    var setAutomaticUpdateChecksEnabled: (_ enabled: Bool) -> Void = { _ in }
 }
 
 /// M0.3：设置面板可绑定依赖——settings 值 + 动作闭包集。

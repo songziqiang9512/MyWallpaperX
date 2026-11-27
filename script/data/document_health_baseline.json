@@ -5,8 +5,8 @@
   "maxReviewAgeDays": 60,
   "bodies": {
     "docs/architecture/appkit-migration.md": {
-      "lines": 216,
-      "bytes": 25201
+      "lines": 218,
+      "bytes": 27011
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
       "lines": 50,
@@ -21,8 +21,8 @@
       "bytes": 18243
     },
     "docs/architecture/system-audio-spectrum-design.md": {
-      "lines": 51,
-      "bytes": 8829
+      "lines": 53,
+      "bytes": 9334
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 200,
@@ -361,11 +361,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "8c8b1f7d01bd30b9a3b63c4e033381801c49f93aca56aa85ee09710bcf10efd1",
-      "after": "813d81425506a46e9a87619cb6d80fb420999b8a17da83ad09aff0ed1f1f28ba",
-      "owner": "Scene author audio history",
-      "reason": "登记实际归一化历史、双向频带换峰和分母隔离后的终帧证据。",
-      "decision": "docs/architecture/system-audio-spectrum-design.md#author-spectrum-normalized-history"
+      "before": "813d81425506a46e9a87619cb6d80fb420999b8a17da83ad09aff0ed1f1f28ba",
+      "after": "b11b599db8bb18ae11fef06a649fa794979b399e180ef65849689030c1ae4bf9",
+      "owner": "SystemAudioSpectrum",
+      "reason": "登记 Web 与 Scene 独立监听偏好在现有采集链的消费与清零行为。",
+      "decision": "docs/architecture/system-audio-spectrum-design.md"
     },
     {
       "section": "bodies",
@@ -681,6 +681,15 @@
       "owner": "Scene daemon IPC",
       "reason": "记录作品通用调节的加载与按请求热更新。",
       "decision": "docs/scene/architecture/scene-runtime-daemon-contract.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/appkit-migration.md",
+      "before": "e837183ea29c4e646a7e192b21b471648e03fdfc036b337511a216e9efcb6c7b",
+      "after": "96062044de569b7be943fd127a653e55cee21b5e161889454f4231e4cc43894f",
+      "owner": "AppKit Settings",
+      "reason": "登记设置面板中的 Dock、三引擎音频设置和 Sparkle 自动更新。",
+      "decision": "docs/architecture/appkit-migration.md#app-层"
     }
   ]
 }

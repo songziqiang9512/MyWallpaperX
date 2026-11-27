@@ -194,75 +194,76 @@ import QuartzCore
                     button.removeFromSuperview()
                 }
             }
-            let settings = SettingsGroupView(title: "测试设置")
-            settings.frame = NSRect(x: 0, y: 0, width: 320, height: 150)
-            root.addSubview(settings)
+            let settings = SettingsFormView()
+            let checkbox = NSButton(checkboxWithTitle: "条件选项", target: nil, action: nil)
+            let button = NSButton(title: "配置…", target: nil, action: nil)
+            let detail = SettingsFormView.detail("选项的说明", indent: 22)
+            settings.addGroup("启动时", controls: [checkbox, detail])
+            settings.addGroup("屏幕保护程序", controls: [button])
             let settingsWidth = settings.widthAnchor.constraint(equalToConstant: 320)
             settingsWidth.isActive = true
-            let rows = (0..<3).map { _ in NSView() }
-            for row in rows {
-                row.heightAnchor.constraint(equalToConstant: 32).isActive = true
-                settings.addRow(row)
-            }
+            root.addSubview(settings)
             settings.layoutSubtreeIfNeeded()
             pump()
-            let stack = rows[0].superview as! NSStackView
-            let separators = stack.arrangedSubviews.filter { view in !rows.contains(where: { $0 === view }) }
-            checks["settings-separator-geometry-\(dark)"] = separators.count == 2 && separators.allSatisfy {
-                $0.frame.height == 1 && $0.subviews.first!.frame.minX == 16
-                    && $0.subviews.first!.frame.width == $0.bounds.width - 32
+            let caption = settings.cell(atColumnIndex: 0, rowIndex: 0).contentView as! NSTextField
+            let secondCaption = settings.cell(atColumnIndex: 0, rowIndex: 1).contentView as! NSTextField
+            let captions = [caption, secondCaption]
+            let rows = [checkbox, button]
+            func baseline(_ view: NSView) -> NSPoint {
+                view.convert(NSPoint(x: 0, y: view.bounds.maxY - view.firstBaselineOffsetFromTop), to: settings)
             }
+            func rightEdge(_ view: NSView) -> CGFloat {
+                view.superview!.convert(view.alignmentRect(forFrame: view.frame), to: settings).maxX
+            }
+            checks["settings-group-caption-\(dark)"] = abs(rightEdge(caption) - rightEdge(secondCaption)) < 1
+                && settings.column(at: 0).width == secondCaption.intrinsicContentSize.width
+                && abs(baseline(checkbox).x - baseline(button).x) < 1
             image("\(dark ? "dark" : "light")-settings", settings)
-            let rowPoint = rows[0].convert(NSPoint(x: 10, y: 10), to: settings.superview)
-            checks["settings-row-hit-\(dark)"] = settings.hitTest(rowPoint) === rows[0]
+            let rowPoint = checkbox.convert(NSPoint(x: 8, y: 8), to: settings.superview)
+            checks["settings-row-hit-\(dark)"] = settings.hitTest(rowPoint) === checkbox
+            let fullHeight = settings.fittingSize.height
             for (step, appearance) in [NSAppearance.Name.darkAqua, .aqua, .darkAqua, .aqua].enumerated() {
                 root.appearance = NSAppearance(named: appearance)
                 settingsWidth.constant = step.isMultiple(of: 2) ? 420 : 320
                 settings.layoutSubtreeIfNeeded()
                 pump()
-                let background = settings.subviews.first { $0.layer?.cornerRadius == 12 }!
                 checks["settings-transition-\(dark)-\(step)"] = settings.bounds.width == settingsWidth.constant
-                    && background.frame.width == settings.bounds.width
-                    && background.layer?.masksToBounds == true && background.layer?.cornerCurve == .continuous
-                let bitmap = settings.bitmapImageRepForCachingDisplay(in: settings.bounds)!
-                settings.cacheDisplay(in: settings.bounds, to: bitmap)
-                let pixel = bitmap.colorAt(x: bitmap.pixelsWide / 2, y: bitmap.pixelsHigh / 2)!
-                    .usingColorSpace(.deviceRGB)!
-                let expectedAlpha: CGFloat = appearance == .darkAqua ? 0.02 : 1
-                checks["settings-transition-fill-\(dark)-\(step)"] = abs(pixel.alphaComponent - expectedAlpha) < 0.005
-                    && pixel.redComponent > 0.9 && abs(pixel.redComponent - pixel.greenComponent) < 0.01
-                facts["settings-transition-\(dark)-\(step)-frames"] = ([settings, background] + rows).map {
+                    && zip(captions, rows).allSatisfy { abs(baseline($0.0).y - baseline($0.1).y) < 1 }
+                checks["settings-flat-\(dark)-\(step)"] = settings.subviews.allSatisfy { !($0 is NSBox) }
+                    && settings.fittingSize.height == fullHeight
+                facts["settings-transition-\(dark)-\(step)-frames"] = ([settings] + captions + rows).map {
                     [$0.frame.minX, $0.frame.minY, $0.frame.width, $0.frame.height]
                 }
                 image("settings-transition-\(dark)-\(step)", settings)
             }
             root.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-            settingsWidth.constant = 320
+            let detailHeight = detail.frame.height
+            detail.isHidden = true
             settings.layoutSubtreeIfNeeded()
-            rows[1].isHidden = true
-            settings.refreshSeparators()
-            settings.layoutSubtreeIfNeeded()
-            checks["settings-hidden-separators-\(dark)"] = separators.allSatisfy(\.isHidden)
+            checks["settings-hidden-row-\(dark)"] = abs(settings.fittingSize.height - (fullHeight - detailHeight - 6)) < 1
+                && !checkbox.isHidden
             image("\(dark ? "dark" : "light")-settings-hidden", settings)
             settings.removeFromSuperview()
-            let untitled = SettingsGroupView(title: nil)
-            let maintenanceRow = NSView()
-            maintenanceRow.heightAnchor.constraint(equalToConstant: 32).isActive = true
-            untitled.addRow(maintenanceRow)
-            root.addSubview(untitled)
-            let maintenanceWidth = untitled.widthAnchor.constraint(equalToConstant: 320)
+
+            let maintenance = SettingsFormView()
+            maintenance.addGroup("个人设置", controls: [NSButton(title: "导入…", target: nil, action: nil)])
+            maintenance.addDivider()
+            maintenance.addGroup("重置", controls: [NSButton(title: "重置 App", target: nil, action: nil)])
+            let maintenanceWidth = maintenance.widthAnchor.constraint(equalToConstant: 320)
             maintenanceWidth.isActive = true
+            root.addSubview(maintenance)
             for width in [CGFloat(320), 420] {
                 maintenanceWidth.constant = width
-                untitled.layoutSubtreeIfNeeded()
+                maintenance.layoutSubtreeIfNeeded()
                 pump()
-                let background = untitled.subviews.first { $0.layer?.cornerRadius == 12 }!
-                checks["settings-untitled-\(dark)-\(width)"] = untitled.bounds.size == NSSize(width: width, height: 32)
-                    && background.frame == untitled.bounds && maintenanceRow.frame.size.width == width
-                checks["settings-background-accessibility-\(dark)"] = !background.isAccessibilityElement()
-                image("settings-untitled-\(dark)-\(width)", untitled)
+                let divider = maintenance.cell(atColumnIndex: 0, rowIndex: 1).contentView as! NSBox
+                let rule = divider.alignmentRect(forFrame: divider.frame)
+                checks["settings-section-divider-\(dark)-\(width)"] = rule.width == width && rule.height == 1
+                    && maintenance.rowSpacing == 18
+                checks["settings-divider-accessibility-\(dark)"] = !divider.isAccessibilityElement()
+                image("settings-untitled-\(dark)-\(width)", maintenance)
             }
-            untitled.removeFromSuperview()
+            maintenance.removeFromSuperview()
         }
         for ratio in [CGFloat(0), 0.035] {
             let scroll = InspectorFadingScrollView(fadeRatio: ratio)

@@ -22,6 +22,8 @@
 - `AppDelegate` 只负责应用生命周期、Help Book、状态栏、主菜单安装、启动阶段调度。
 - 主菜单用`NSMenu`/`NSMenuItem`与`NSMenuItemValidation`；浏览取来源选择，文本/sheet优先，普通action无check AX值。关闭从first responder沿`tryToPerform`派发`performClose:`，交NSPopover/无边框sheet。
 - 设置窗口使用 `NSWindowController + NSViewController + AppKitSettingsContainerView`；无关状态回填保留当前原生field editor草稿，模式禁用则撤销，失焦沿原提交；背景只消费主窗已投影色与动画决策，共用原0.75 s原生过渡；隐藏只记呈现值、可见消费点一次准入，首show/原生模式即时，不串层读取或重复采样。
+- 设置窗口采用 macOS 偏好设置工具栏，标题栏显示当前页。正文参照 [CotEditor 7.1.3 的原生表单](https://github.com/coteditor/CotEditor/blob/7.1.3/CotEditor/Sources/Settings%20Window/Panes/GeneralSettingsView.swift) 独立实现：620 pt 页宽、顶边及两侧 20 pt、列间 8 pt、组间 18 pt。末项到底边 62 pt 对应参照通用页末项下方的组间距、帮助按钮高度和底边距。类别内由短标签的自然宽度确定共同列线，标签和首个控件按文字基线对齐。相关选项纵向紧排，从属项缩进 20 pt，说明用系统次要字号及颜色，独立用途之间使用通栏分隔线。
+- 播放页依次呈现播放模式、自动切换、音量和速度；显示页区分资料库、Dock、壁纸画面及屏保，主窗口协调器按窗口与保留 Dock 的偏好投影激活策略；系统页按启动、桌面和壁纸功能排列，Video 频谱响应与灵敏度沿原引擎差分链热更新，Web 与 Scene 独立选择是否接收系统频谱；暂停条件及其从属时长位于性能预算之前。快捷键页常显各绑定，下拉选择「无」即取消该键注册。旧全局关闭配置在读取时映射为未分配，旧启用配置保留有效键；个人设置兼容与事务回放沿原格式入口归一。维护页区分设置转移、缓存及重置。各页按内容调整高度，宽高受可见屏幕约束，超长内容滚动。切换沿原失焦规则完成编辑，目标页从顶部显示；重开保留本次运行的分类。关于页承载项目简介、项目链接与手动检查更新；Release 额外显示自动检查及自动下载并安装，两项默认开启，直接读写 Sparkle 的持久偏好，由 Sparkle 重排检查计划。应用菜单调用 AppKit 标准关于面板。
 
 ### Shell 层
 

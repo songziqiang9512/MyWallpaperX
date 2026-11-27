@@ -146,16 +146,20 @@ extension WallpaperEngine {
         }
     }
 
+    func setWallpaperAudioListening(web: Bool, scene: Bool) {
+        guard web != webWallpaperAudioListening || scene != sceneWallpaperAudioListening else { return }
+        webWallpaperAudioListening = web
+        sceneWallpaperAudioListening = scene
+        refreshSystemAudioSpectrumCapture()
+    }
+
     func refreshSystemAudioSpectrumCapture() {
-        // The public spectrum switch gates only the video overlay. Web/Scene
-        // capture is demand-driven: the sample declares audio listeners and
-        // the shared pause gate stays the only global cut-off.
         let captureAllowed = !PlaybackCommandMultiplexer.shared.isPlaybackPaused
         let overlayCaptureRequested = captureAllowed && currentSystemAudioSpectrumEnabled
             && displaySessions.values.contains { $0.process.isRunning }
         // The Web adapter owns live request/surface demand, including a
         // prepared successor. UI adoption must not restart the shared tap.
-        let webCaptureRequested = captureAllowed && currentWebAudioSpectrumRequested
+        let webCaptureRequested = captureAllowed && webWallpaperAudioListening && currentWebAudioSpectrumRequested
 #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
         let debugScenePCMOwnsInbox = arguments.contains(
@@ -178,7 +182,7 @@ extension WallpaperEngine {
         // in the main App, so excluding the main process still naturally
         // includes sound emitted by the daemon process.
         let requestedRoute = SceneAudioSpectrumCaptureRoutingState.resolvedRoute(
-            captureAllowed: captureAllowed,
+            captureAllowed: captureAllowed && sceneWallpaperAudioListening,
             debugFixtureOwnsInbox: debugSceneFixtureOwnsInbox,
             localDemand: localSceneDemand,
             daemonDemand: remoteSceneDemand,
@@ -188,6 +192,7 @@ extension WallpaperEngine {
         let sceneCaptureRequested = requestedRoute != .none
         if !localSceneDemand.requiresSpectrum
             || !captureAllowed
+            || !sceneWallpaperAudioListening
             || debugSceneSilenceOwnsInbox {
             SceneAudioSpectrumInbox.shared.clearSnapshot()
         }

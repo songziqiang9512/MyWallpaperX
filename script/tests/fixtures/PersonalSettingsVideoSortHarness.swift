@@ -122,7 +122,7 @@ extension PersonalSettingsImportHarness {
         failViewSave = false
         let record = try JSONSerialization.jsonObject(with: Data(contentsOf: recovery)) as! [String: Any]
         let savedPatch = record["videoSortPatch"] as! [String: Any]
-        checks["RecoveryPersistsExactBeforeTargetAndPreferencesBoundary"] = record["schemaVersion"] as? Int == 3
+        checks["RecoveryPersistsExactBeforeTargetAndPreferencesBoundary"] = record["schemaVersion"] as? Int == 4
             && record["stage"] as? Int == 4 && (savedPatch["before"] as? [String: Any])?["mode"] as? String == "name"
             && (savedPatch["target"] as? [String: Any])?["mode"] as? String == "fileSize"
         let restartedView = WallpaperLibraryPresentation(collections: controller, defaults: manager.defaults)
@@ -141,14 +141,27 @@ extension PersonalSettingsImportHarness {
         rejectBeforeViewSave = true
         do { _ = try await importer.importPersonalSettings(from: profile) } catch {}
         rejectBeforeViewSave = false
+        var legacyRecord = try JSONSerialization.jsonObject(with: Data(contentsOf: recovery)) as! [String: Any]
+        legacyRecord["schemaVersion"] = 3
+        var legacyPlan = legacyRecord["plan"] as! [String: Any]
+        for key in ["beforePreferences", "targetPreferences"] {
+            var preferences = legacyPlan[key] as! [String: Any]
+            for field in ["keepDockIconVisible", "webWallpaperAudioListening", "sceneWallpaperAudioListening"] {
+                preferences.removeValue(forKey: field)
+            }
+            legacyPlan[key] = preferences
+        }
+        legacyRecord["plan"] = legacyPlan
+        try JSONSerialization.data(withJSONObject: legacyRecord).write(to: recovery)
         let beforeRestartView = WallpaperLibraryPresentation(collections: controller, defaults: manager.defaults)
         refresh(beforeRestartView)
         let beforeRestart = coordinator(beforeRestartView)
         let actualBefore = try beforeRestartView.videoSortPreference()
         _ = try await beforeRestart.resumeIfNeeded()
-        checks["RestartFromBeforeAppliesExactSavedTargetInTheSameEpoch"] = try actualBefore == .init(mode: .name, ascending: false)
+        checks["LegacyRecoveryUsesOriginalEngineDefaultsAndAppliesSavedViewTarget"] = try actualBefore == .init(mode: .name, ascending: false)
             && beforeRestartView.videoSortPreference() == .init(mode: .fileSize, ascending: true)
             && beforeRestart.allowsEditing && !FileManager.default.fileExists(atPath: recovery.path)
+            && manager.settings.webWallpaperAudioListening && manager.settings.sceneWallpaperAudioListening && !manager.settings.keepDockIconVisible
         importer = coordinator(presentation)
         try writeCurrentSort(.init(mode: .createdAt, ascending: true))
         failViewSave = true
@@ -239,7 +252,7 @@ extension PersonalSettingsImportHarness {
         do {
             let hotkeyRecovery = root.appendingPathComponent("current-hotkey-sort-recovery.json")
             var beforeHotkeys = manager.settings
-            beforeHotkeys.volume = 71; beforeHotkeys.systemHotkeysEnabled = true
+            beforeHotkeys.volume = 71
             beforeHotkeys.previousWallpaperHotkey = .f1; beforeHotkeys.nextWallpaperHotkey = .f3
             beforeHotkeys.togglePlaybackHotkey = .f5; beforeHotkeys.toggleMuteHotkey = .f7
             manager.settings = beforeHotkeys

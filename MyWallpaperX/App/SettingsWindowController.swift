@@ -10,7 +10,6 @@ import Combine
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     static let shared = SettingsWindowController()
 
-    private static let windowWidth: CGFloat = 500
     private let contentController = SettingsContentViewController()
     private var hasShownWindow = false
     private var mainWindowTint: NSColor?
@@ -18,12 +17,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private init() {
         let window = NSWindow(contentViewController: contentController)
         window.identifier = NSUserInterfaceItemIdentifier("SettingsWindow")
-        window.title = String(localized: "Settings")
-        window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
-        window.titleVisibility = .visible
-        window.titlebarAppearsTransparent = false
-        window.titlebarSeparatorStyle = .none
-        window.toolbarStyle = .unified
+        window.title = AppSettingsSection.playback.title
+        window.styleMask = [.titled, .closable]
         window.isOpaque = true
         window.backgroundColor = .windowBackgroundColor
         window.isReleasedWhenClosed = false
@@ -32,14 +27,13 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.collectionBehavior.remove(.moveToActiveSpace)
         window.level = .normal
 
-        let toolbar = NSToolbar(identifier: "SettingsWindowToolbar")
-        toolbar.displayMode = .iconOnly
-        toolbar.allowsUserCustomization = false
-        window.toolbar = toolbar
-
         super.init(window: window)
         shouldCascadeWindows = false
         self.window?.delegate = self
+        window.toolbar = contentController.categoryToolbar
+        window.toolbarStyle = .preference
+        window.titlebarSeparatorStyle = .line
+        contentController.onFormHeightChanged = { [weak self] in self?.updateWindowSize(animated: true) }
         updateWindowSize()
     }
 
@@ -54,25 +48,19 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         updateWindowSize()
         NSApp.activate(ignoringOtherApps: true)
         guard let window else { return }
-        if !hasShownWindow {
+        let isFirstShow = !hasShownWindow
+        if isFirstShow {
             window.center()
             hasShownWindow = true
         }
         window.makeKeyAndOrderFront(nil)
+        if isFirstShow { window.makeFirstResponder(nil) }
         contentController.updateMainWindowTint(mainWindowTint, animated: false)
     }
 
     func updateMainWindowTint(_ tint: NSColor?, animated: Bool) {
         mainWindowTint = tint
         contentController.updateMainWindowTint(tint, animated: animated)
-    }
-
-    func windowDidDeminiaturize(_ notification: Notification) {
-        contentController.updateMainWindowTint(mainWindowTint, animated: false)
-    }
-
-    func windowWillMiniaturize(_ notification: Notification) {
-        contentController.updateMainWindowTint(mainWindowTint, animated: false)
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -86,31 +74,71 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         contentController.resetAction = reset
     }
 
-    private func updateWindowSize() {
+    private func updateWindowSize(animated: Bool = false) {
         guard let window else { return }
         let mainWindow = MainWindowCoordinator.mainWindow()
-        // Detail height follows the main window's safe content area, rather than
-        // a fixed ratio. Scale that shape to Settings' existing 500-point width.
-        let hostHeight = mainWindow?.contentLayoutRect.height ?? MainWindowController.defaultContentSize.height
-        let detailHeight = hostHeight - InspectorHostViewController.cardVerticalInset
-        let preferredHeight = (Self.windowWidth * detailHeight / InspectorHostRequest.defaultPreferredWidth).rounded()
         let preferredScreen = hasShownWindow ? window.screen : mainWindow?.screen
         let screen = preferredScreen ?? mainWindow?.screen ?? window.screen ?? NSScreen.main
-        let fittedHeight = min(preferredHeight, screen.map { $0.visibleFrame.height - 32 } ?? preferredHeight)
-        let height = (fittedHeight * 0.92).rounded()
-        let size = NSSize(width: Self.windowWidth, height: height)
+        let visible = screen?.visibleFrame
+        let width = min(SettingsPanelLayout.pageWidth, visible.map { $0.width - 32 } ?? SettingsPanelLayout.pageWidth)
+        let contentSize = NSSize(width: width, height: contentController.preferredFormHeight(at: width))
+        let preferredHeight = window.frameRect(forContentRect: NSRect(origin: .zero, size: contentSize)).height
+        let height = min(preferredHeight, visible.map { $0.height - 32 } ?? preferredHeight)
+        let size = NSSize(width: width, height: height)
         var frame = NSRect(x: window.frame.minX, y: window.frame.maxY - height, width: size.width, height: size.height)
-        if let visibleFrame = screen?.visibleFrame {
+        if let visibleFrame = visible {
             frame.origin.x = max(visibleFrame.minX, min(frame.minX, visibleFrame.maxX - frame.width))
             frame.origin.y = max(visibleFrame.minY, min(frame.minY, visibleFrame.maxY - frame.height))
         }
-        window.minSize = size
-        window.maxSize = size
-        window.setFrame(frame, display: window.isVisible)
+        if frame != window.frame {
+            let animate = animated && window.isVisible && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            window.setFrame(frame, display: window.isVisible, animate: animate)
+        }
     }
 }
 
-private final class SettingsContentViewController: NSViewController {
+private extension AppSettingsSection {
+    var toolbarIdentifier: NSToolbarItem.Identifier { .init(rawValue) }
+
+    var title: String {
+        switch self {
+        case .playback: String(localized: "Playback")
+        case .display: String(localized: "Display")
+        case .system: String(localized: "System")
+        case .hotkeys: String(localized: "Shortcuts")
+        case .efficiency: String(localized: "Energy Saving")
+        case .maintenance: String(localized: "Maintenance")
+        case .about: String(localized: "About")
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .playback: "play.circle"
+        case .display: "display"
+        case .system: "gearshape"
+        case .hotkeys: "keyboard"
+        case .efficiency: "leaf"
+        case .maintenance: "wrench.and.screwdriver"
+        case .about: "info.circle"
+        }
+    }
+
+}
+
+private final class SettingsContentViewController: NSViewController, NSToolbarDelegate {
+    var onFormHeightChanged: (() -> Void)?
+    func preferredFormHeight(at width: CGFloat) -> CGFloat { settingsView.preferredFormHeight(at: width) }
+    lazy var categoryToolbar: NSToolbar = {
+        let toolbar = NSToolbar(identifier: "SettingsCategories")
+        toolbar.delegate = self
+        toolbar.displayMode = .iconAndLabel
+        toolbar.allowsUserCustomization = false
+        toolbar.allowsDisplayModeCustomization = false
+        toolbar.centeredItemIdentifiers = Set(AppSettingsSection.allCases.map(\.toolbarIdentifier))
+        toolbar.selectedItemIdentifier = settingsView.visibleSection.toolbarIdentifier
+        return toolbar
+    }()
     private var cancellables = Set<AnyCancellable>()
     private var isSyncingSettings = false
     weak var personalSettings: PersonalSettingsImportCoordinator?
@@ -163,7 +191,15 @@ private final class SettingsContentViewController: NSViewController {
             openScreenSaverSettings: { [weak self] in
                 ScreenSaverWindowController.shared.show(relativeTo: self?.view.window)
             },
-            updateVolume: { manager.updateVolume($0) }
+            updateVolume: { manager.updateVolume($0) },
+            openProjectWebsite: {
+                NSWorkspace.shared.open(URL(string: "https://github.com/songziqiang9512/MyWallpaperX")!)
+            },
+            checkForUpdates: { AppUpdateController.shared.checkForUpdates($0) },
+            automaticUpdateChecksEnabled: { AppUpdateController.shared.automaticUpdateChecksEnabled },
+            automaticUpdateDownloadsEnabled: { AppUpdateController.shared.automaticUpdateDownloadsEnabled },
+            setAutomaticUpdateDownloadsEnabled: { AppUpdateController.shared.setAutomaticUpdateDownloadsEnabled($0) },
+            setAutomaticUpdateChecksEnabled: { AppUpdateController.shared.setAutomaticUpdateChecksEnabled($0) }
         )
     }()
 
@@ -174,8 +210,7 @@ private final class SettingsContentViewController: NSViewController {
             settings: WallpaperManager.shared.settings,
             actions: settingsActions
         ),
-        visibleSections: Set(AppSettingsSection.allCases),
-        topContentInset: 24
+        visibleSection: .playback
     )
 
     override func loadView() {
@@ -192,11 +227,46 @@ private final class SettingsContentViewController: NSViewController {
         ])
 
         view = rootView
+        settingsView.onFormHeightChanged = { [weak self] in self?.onFormHeightChanged?() }
 
         bindSettingsAuthority()
         WallpaperManager.shared.$settings.map(\.libraryBackgroundStyle).removeDuplicates()
             .sink { [weak rootView] in rootView?.usesListTint = $0 == .listCoverTint }
             .store(in: &cancellables)
+    }
+
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        AppSettingsSection.allCases.map(\.toolbarIdentifier)
+    }
+
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        toolbarAllowedItemIdentifiers(toolbar)
+    }
+
+    func toolbarSelectableItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        toolbarAllowedItemIdentifiers(toolbar)
+    }
+
+    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier,
+                 willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        guard let category = AppSettingsSection(rawValue: identifier.rawValue) else { return nil }
+        let item = NSToolbarItem(itemIdentifier: identifier)
+        item.label = category.title
+        item.paletteLabel = category.title
+        item.image = NSImage(systemSymbolName: category.symbolName, accessibilityDescription: category.title)
+        item.target = self
+        item.action = #selector(selectCategory(_:))
+        return item
+    }
+
+    @objc private func selectCategory(_ sender: NSToolbarItem) {
+        guard let next = AppSettingsSection(rawValue: sender.itemIdentifier.rawValue),
+              next != settingsView.visibleSection else { return }
+        view.window?.makeFirstResponder(nil)
+        settingsView.showSection(next)
+        view.window?.title = next.title
+        categoryToolbar.selectedItemIdentifier = next.toolbarIdentifier
+        onFormHeightChanged?()
     }
 
     /// M0.3 回归修复：`WallpaperSettings` 是值类型，面板写 dependency 快照
@@ -233,8 +303,8 @@ private final class SettingsContentViewController: NSViewController {
     }
 
     func refresh() {
-        settingsView.updateVisibleSections(Set(AppSettingsSection.allCases))
         settingsView.refreshFromState()
+        settingsView.refreshUpdaterControls()
     }
 
     func updateMainWindowTint(_ tint: NSColor?, animated: Bool) {

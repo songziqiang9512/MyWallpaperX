@@ -294,6 +294,8 @@ extension WallpaperManager {
         WallpaperEngine.shared.setVolume(persistedVolume)
         applyPlaybackRateToEngine(settings: settings)
         applySystemAudioSpectrumToEngine(settings: settings)
+        WallpaperEngine.shared.setWallpaperAudioListening(web: settings.webWallpaperAudioListening,
+                                                         scene: settings.sceneWallpaperAudioListening)
         // Scene 显示集也从持久化设置起步，避免本会话首次 setDisplayConfiguration
         // 用全屏默认值覆盖用户的多屏选择。
         SceneDaemonClient.shared.setMultiDisplayEnabled(settings.multiDisplayEnabled)
@@ -310,6 +312,12 @@ extension WallpaperManager {
         if previous?.playbackRate != next.playbackRate
             || previous?.playbackRateEnabled != next.playbackRateEnabled {
             applyPlaybackRateToEngine(settings: next)
+        }
+
+        if previous?.webWallpaperAudioListening != next.webWallpaperAudioListening
+            || previous?.sceneWallpaperAudioListening != next.sceneWallpaperAudioListening {
+            WallpaperEngine.shared.setWallpaperAudioListening(web: next.webWallpaperAudioListening,
+                                                              scene: next.sceneWallpaperAudioListening)
         }
 
         if previous?.systemAudioSpectrumEnabled != next.systemAudioSpectrumEnabled

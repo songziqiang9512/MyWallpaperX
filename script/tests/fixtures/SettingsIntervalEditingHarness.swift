@@ -26,7 +26,8 @@ extension Notification.Name {
     let loopSwitch = NSSwitch(), randomSwitch = NSSwitch(), sequentialSwitch = NSSwitch(), autoSwitchSwitch = NSSwitch()
     let intervalField = NSTextField(frame: .init(x: 20, y: 70, width: 160, height: 28))
     let timeUnitPopup = NSPopUpButton()
-    var intervalRowView: NSView? = NSView(), autoSwitchRowView: NSView? = NSView()
+    var intervalRowView: NSView? = NSView()
+    var autoSwitchRow: NSGridRow?
     let nextField = NSTextField(frame: .init(x: 20, y: 20, width: 160, height: 28))
     init(_ dependency: AppSettingsPanelDependency) {
         self.dependency = dependency

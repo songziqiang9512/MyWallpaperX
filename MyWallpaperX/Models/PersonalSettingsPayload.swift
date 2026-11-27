@@ -66,6 +66,9 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
     var playbackRateEnabled: Bool?
     var libraryBackgroundStyle: String?
     var libraryCardClickAction: String?
+    var keepDockIconVisible: Bool?
+    var webWallpaperAudioListening: Bool?
+    var sceneWallpaperAudioListening: Bool?
     var screenSaver: ScreenSaverPreferences?
     var videoLibrarySort: WallpaperLibraryVideoSortPreference?
     var systemAudioSpectrumEnabled: Bool?
@@ -91,7 +94,8 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         pauseWhenOtherAppFocused = settings.pauseWhenOtherAppFocused
         pauseWhenUnplugged = settings.pauseWhenUnplugged
         pauseWhenIdle = settings.pauseWhenIdle
-        systemHotkeysEnabled = settings.systemHotkeysEnabled
+        // Older importers still expect this wire flag alongside the assignments.
+        systemHotkeysEnabled = true
         previousWallpaperHotkey = settings.previousWallpaperHotkey.rawValue
         nextWallpaperHotkey = settings.nextWallpaperHotkey.rawValue
         togglePlaybackHotkey = settings.togglePlaybackHotkey.rawValue
@@ -104,6 +108,9 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         playbackRateEnabled = settings.playbackRateEnabled
         libraryBackgroundStyle = settings.libraryBackgroundStyle.rawValue
         libraryCardClickAction = settings.libraryCardClickAction.rawValue
+        keepDockIconVisible = settings.keepDockIconVisible
+        webWallpaperAudioListening = settings.webWallpaperAudioListening
+        sceneWallpaperAudioListening = settings.sceneWallpaperAudioListening
         screenSaver = settings.screenSaver
         systemAudioSpectrumEnabled = settings.systemAudioSpectrumEnabled
         systemAudioSpectrumStyle = settings.systemAudioSpectrumStyle.rawValue
@@ -113,6 +120,22 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         systemAudioSpectrumOffsetY = settings.systemAudioSpectrumOffsetY
         systemAudioSpectrumBarCount = settings.systemAudioSpectrumBarCount
         systemAudioSpectrumPeakCapsEnabled = settings.systemAudioSpectrumPeakCapsEnabled
+    }
+
+    mutating func upgradeRecoverySettingsV3() {
+        keepDockIconVisible = keepDockIconVisible ?? false
+        webWallpaperAudioListening = webWallpaperAudioListening ?? true
+        sceneWallpaperAudioListening = sceneWallpaperAudioListening ?? true
+    }
+
+    mutating func normalizeLegacyShortcutSnapshot() {
+        guard systemHotkeysEnabled == false else { return }
+        systemHotkeysEnabled = true
+        // Preserve missing fields so an incomplete recovery snapshot still cannot match.
+        previousWallpaperHotkey? = FunctionKeyShortcut.none.rawValue
+        nextWallpaperHotkey? = FunctionKeyShortcut.none.rawValue
+        togglePlaybackHotkey? = FunctionKeyShortcut.none.rawValue
+        toggleMuteHotkey? = FunctionKeyShortcut.none.rawValue
     }
 
     @MainActor func applying(to current: WallpaperSettings) -> WallpaperSettings {
@@ -130,14 +153,15 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         if let pauseWhenOtherAppFocused { result.pauseWhenOtherAppFocused = pauseWhenOtherAppFocused }
         if let pauseWhenUnplugged { result.pauseWhenUnplugged = pauseWhenUnplugged }
         if let pauseWhenIdle { result.pauseWhenIdle = pauseWhenIdle }
-        if let systemHotkeysEnabled { result.systemHotkeysEnabled = systemHotkeysEnabled }
-        if let previousWallpaperHotkey, let key = FunctionKeyShortcut(rawValue: previousWallpaperHotkey) { result.previousWallpaperHotkey = key }
-        if let nextWallpaperHotkey, let key = FunctionKeyShortcut(rawValue: nextWallpaperHotkey) { result.nextWallpaperHotkey = key }
-        if let togglePlaybackHotkey, let key = FunctionKeyShortcut(rawValue: togglePlaybackHotkey) { result.togglePlaybackHotkey = key }
-        if let toggleMuteHotkey, let key = FunctionKeyShortcut(rawValue: toggleMuteHotkey) { result.toggleMuteHotkey = key }
+        func shortcut(_ rawValue: String?, keeping existing: FunctionKeyShortcut) -> FunctionKeyShortcut {
+            if systemHotkeysEnabled == false { return .none }
+            return rawValue.flatMap(FunctionKeyShortcut.init(rawValue:)) ?? existing
+        }
         let hotkeys = WallpaperSettings.normalizedHotkeyBindings(
-            previous: result.previousWallpaperHotkey, next: result.nextWallpaperHotkey,
-            playPause: result.togglePlaybackHotkey, muteToggle: result.toggleMuteHotkey)
+            previous: shortcut(previousWallpaperHotkey, keeping: current.previousWallpaperHotkey),
+            next: shortcut(nextWallpaperHotkey, keeping: current.nextWallpaperHotkey),
+            playPause: shortcut(togglePlaybackHotkey, keeping: current.togglePlaybackHotkey),
+            muteToggle: shortcut(toggleMuteHotkey, keeping: current.toggleMuteHotkey))
         (result.previousWallpaperHotkey, result.nextWallpaperHotkey,
          result.togglePlaybackHotkey, result.toggleMuteHotkey) = hotkeys
         if let idleTimeoutMinutes { result.idleTimeoutMinutes = Self.nearest([5, 10, 15, 20, 30, 60], to: idleTimeoutMinutes) }
@@ -152,6 +176,9 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         if let libraryCardClickAction, let value = LibraryCardClickAction(rawValue: libraryCardClickAction) {
             result.libraryCardClickAction = value
         }
+        if let keepDockIconVisible { result.keepDockIconVisible = keepDockIconVisible }
+        if let webWallpaperAudioListening { result.webWallpaperAudioListening = webWallpaperAudioListening }
+        if let sceneWallpaperAudioListening { result.sceneWallpaperAudioListening = sceneWallpaperAudioListening }
         if let screenSaver { result.screenSaver = screenSaver }
         if let systemAudioSpectrumEnabled { result.systemAudioSpectrumEnabled = systemAudioSpectrumEnabled }
         if let systemAudioSpectrumStyle, let value = SystemAudioSpectrumStyle(rawValue: systemAudioSpectrumStyle) { result.systemAudioSpectrumStyle = value }
