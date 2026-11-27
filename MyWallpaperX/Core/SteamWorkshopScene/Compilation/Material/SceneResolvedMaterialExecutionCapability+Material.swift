@@ -64,6 +64,45 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
         return node
     }
 
+    func capturesOrdinaryLayerColor() -> Bool {
+        guard isVisibleExecutionRoot, !isGraphOutputProvider,
+              sourceRoute == .capturedLayerTexture, dependencyOwnership == .none,
+              sceneBackgroundRequirement == nil, !requiresSceneEnvironment,
+              supportsPlacementSpaceTerminalReplay, stages.count == 1,
+              case .resolved = stages[0].execution,
+              let node = Self.terminalColorNode(in: stages[0]),
+              let material = material(for: node) else { return false }
+        let input = SceneAuthoredEffectRenderPlan.TextureIdentity.layerSource(layerID: layerID)
+        let envelope = material.variants.launchEnvelopeCapabilitySnapshot()
+        guard envelope.inputIdentity == input, envelope.allEntriesReady, !envelope.variants.isEmpty else { return false }
+        return envelope.variants.allSatisfy { variant in
+            let selections = variant.textureSelectionFacts
+            var readsGraphColor = false
+            for binding in variant.frontendProgram.textureBindings {
+                let slot = binding.slot
+                let hasGraphDefault: Bool
+                if case let .reference(source)? = selections.defaults[slot] {
+                    hasGraphDefault = source.graphInputSourceFact != nil
+                } else {
+                    hasGraphDefault = false
+                }
+                guard hasGraphDefault || selections.candidates[slot]?.contains(where: {
+                    $0.graphInputSourceFact != nil
+                }) == true || SceneResolvedMaterialColorBlendEligibility.slotMaySelectGraphTexture(
+                    slot, template: material.template, graphInputSourceSlotFacts: variant.graphInputSourceSlotFacts
+                ) else { continue }
+                guard variant.activeSamplers[slot]?.mode == .regular,
+                      selections.graphInputPurposes[slot]?.isDataPurpose == false,
+                      SceneResolvedMaterialColorBlendEligibility.sourceSlotSelectsExactInput(
+                          slot, inputIdentity: input, inputRole: .layerSource, template: material.template,
+                          graphInputSourceSlotFacts: variant.graphInputSourceSlotFacts
+                      ) else { return false }
+                readsGraphColor = true
+            }
+            return readsGraphColor
+        }
+    }
+
     func preservesPrivateLayerAlpha() -> Bool {
         guard isVisibleExecutionRoot, !isGraphOutputProvider,
               sourceRoute == .capturedLayerTexture, dependencyOwnership == .none,

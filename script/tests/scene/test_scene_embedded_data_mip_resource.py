@@ -78,6 +78,7 @@ private enum EmbeddedDataMipHarness {
     ) -> [String: Any] {
         var facts = pixels(candidate.texture, queue: queue, expected: expected, tolerance: tolerance)
         facts["mapped"] = [Int(candidate.mappedSize.width), Int(candidate.mappedSize.height)]
+        facts["originalMapped"] = candidate.originalMappedSize.map { [Int($0.width), Int($0.height)] }
         facts["identityUV"] = candidate.uvTransform == .identity
         facts["purposeMatches"] = candidate.purpose == purpose
         facts["embeddedBaseMip"] = candidate.embeddedBaseMip
@@ -619,6 +620,7 @@ class SceneEmbeddedDataMipResourceTests(unittest.TestCase):
                     self.assertEqual(result["mapped"], extent, result)
                     self.assertEqual(result["levels"], levels, result)
                     self.assertEqual(result["embeddedBaseMip"], base, result)
+                    self.assertEqual(result.get("originalMapped"), [4097, 4] if base > 0 else None, result)
                     self.assertEqual(result["levelPixelsMatch"], [True] * levels, result)
                     for key in ("identityUV", "purposeMatches", "gpuCompleted"):
                         self.assertTrue(result[key], result)

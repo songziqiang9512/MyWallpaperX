@@ -33,6 +33,7 @@ extension SceneMetalRenderer {
 
     func admitResolvedMaterialFrameTargets(
         imageTextures: SceneBaseImageTextureSnapshot,
+        observesTextureUse: Bool = false,
         frameVisibleLayerIDs: Set<Int>,
         sourcePlan: SceneDependencyRenderPlan.SourcePreparationPlan,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
@@ -63,6 +64,7 @@ extension SceneMetalRenderer {
         var baseMaterialSelections: [Int: SceneBaseMaterialTextureSelection] = [:]
         switch preflightResolvedMaterialFrameTargets(
             imageTextures: imageTextures,
+            observesTextureUse: observesTextureUse,
             performanceTelemetry: performanceTelemetry,
             specializedBaseTextureSamplings: specializedBaseTextureSamplings,
             imagePipeline: imagePipeline,
@@ -247,7 +249,8 @@ extension SceneMetalRenderer {
         } else {
             extent = SceneLayerEffectSourceExtent.resolve(
                 publishedRenderSizeWH: imageTextures.layerSourceRenderSize(for: layer.id),
-                authoredRenderSizeWH: layer.renderSizeWH, candidateMappedSize: source.candidate?.mappedSize)
+                authoredRenderSizeWH: layer.renderSizeWH,
+                candidateMappedSize: source.candidate?.originalMappedSize ?? source.candidate?.mappedSize)
         }
         guard let size = extent?.pixelSize,
               let resolved = SceneOffscreenResolutionPolicy.resolvedDimensions(

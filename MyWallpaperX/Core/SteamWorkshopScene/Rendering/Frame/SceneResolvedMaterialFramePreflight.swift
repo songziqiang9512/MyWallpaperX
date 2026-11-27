@@ -16,6 +16,7 @@ extension SceneMetalRenderer {
         let directDrawOutputModelViewProjection: simd_float4x4?
         let sceneBackgroundResource: SceneFrameTextureResource?
         let sourceTexture: MTLTexture?
+        let sourceTextureUse: SceneTextureUse.Binding?
         let sourceUniforms: SceneLayerFragmentUniforms?
         let sourcePipeline: SceneImageLayerPipeline
         let framebufferSourceMaterial: SceneResolvedMaterialRuntimeBridge.FramebufferSourceMaterial?
@@ -26,6 +27,7 @@ extension SceneMetalRenderer {
 
     func preflightResolvedMaterialFrameTargets(
         imageTextures: SceneBaseImageTextureSnapshot,
+        observesTextureUse: Bool = false,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:],
         imagePipeline: SceneImageLayerPipeline?,
@@ -239,7 +241,8 @@ extension SceneMetalRenderer {
                         publishedRenderSizeWH:
                             imageTextures.layerSourceEffectRenderSize(for: layer.id),
                         authoredRenderSizeWH: layer.renderSizeWH,
-                        candidateMappedSize: selectedSource.candidate?.mappedSize
+                        candidateMappedSize: selectedSource.candidate?.originalMappedSize
+                            ?? selectedSource.candidate?.mappedSize
                     ) else {
                         return .rejected(
                             reasonCode: "layer-effect-source-extent-unavailable"
@@ -754,9 +757,10 @@ SceneBaseMaterialLitCaptureMissLog.record(
                lightingProfile?.surfaceEnabled != true,
                !cameraFrame.resolvesPerspective(for: layer),
                !dependencyRuntime.requiresGraphOutputCapture(for: layerID),
-               let sourceCandidate, sourceCandidate.texture.mipmapLevelCount > 1,
+               let sourceCandidate,
+               sourceCandidate.texture.mipmapLevelCount > 1 || sourceCandidate.originalMappedSize != nil,
                let mappedExtent = SceneOffscreenResolutionPolicy.preferredImageCaptureExtent(
-                    sourceCandidate.mappedSize
+                    sourceCandidate.originalMappedSize ?? sourceCandidate.mappedSize
                ),
                let runtime = imageCompositor.resolvedMaterialRuntime,
                runtime.sourceMaterials.isEmpty
@@ -772,7 +776,9 @@ SceneBaseMaterialLitCaptureMissLog.record(
                 materialFunctionInvocations: invocations,
                 directDrawOutputModelViewProjection: directDrawOutputModelViewProjection,
                 sceneBackgroundResource: sceneBackgroundResource,
-                sourceTexture: sourceTexture, sourceUniforms: sourceUniforms,
+                sourceTexture: sourceTexture,
+                sourceTextureUse: observesTextureUse ? sourceCandidate?.ordinaryTextureUse : nil,
+                sourceUniforms: sourceUniforms,
                 sourcePipeline: imagePipeline, framebufferSourceMaterial: framebufferSourceMaterial,
                 sourceLighting: sourceLighting, terminalReplayTarget: terminalReplayTarget,
                 frameInputs: frameInputs
@@ -960,7 +966,8 @@ SceneBaseMaterialLitCaptureMissLog.record(
                 claim: claim, targetPlan: frameTargetPlan,
                 materialFunctionInvocations: source.materialFunctionInvocations,
                 sceneBackgroundResource: source.sceneBackgroundResource,
-                sourceTexture: source.sourceTexture, sourceUniforms: source.sourceUniforms,
+                sourceTexture: source.sourceTexture, sourceTextureUse: source.sourceTextureUse,
+                sourceUniforms: source.sourceUniforms,
                 sourcePipeline: source.sourcePipeline,
                 framebufferSourceMaterial: source.framebufferSourceMaterial,
                 sourceLighting: source.sourceLighting,

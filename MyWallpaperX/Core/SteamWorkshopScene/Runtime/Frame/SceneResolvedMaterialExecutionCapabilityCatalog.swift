@@ -263,6 +263,10 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         Set(capabilitiesByLayerID.keys)
     }
 
+    var scalableEffectColorLayerIDs: Set<Int> {
+        Set(capabilitiesByLayerID.values.lazy.filter { $0.capturesOrdinaryLayerColor() }.map(\.layerID))
+    }
+
     var preparedNamedInputBindingsByConsumerLayerID: [Int: [SceneDependencyRenderPlan.Binding]] {
         capabilitiesByLayerID.mapValues { capability in
             switch capability.dependencyOwnership {

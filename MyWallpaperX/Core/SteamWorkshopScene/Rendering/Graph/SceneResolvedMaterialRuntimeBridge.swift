@@ -89,6 +89,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let terminalReplayBlendMode: Int?
         let terminalReadsCurrentAttachment: Bool
         let placementTailEffect: SceneAuthoredEffectRenderPlan.EffectKey?
+        let sourceTextureUse: SceneTextureUse.Binding?
 
         init(identity: UInt64, epoch: UInt64,
              finalTextureIdentity: ObjectIdentifier,
@@ -98,7 +99,8 @@ final class SceneResolvedMaterialRuntimeBridge {
              hasTerminalMaterialReplay: Bool = false,
              terminalReplayBlendMode: Int = 0,
              terminalReadsCurrentAttachment: Bool = false,
-             placementTailEffect: SceneAuthoredEffectRenderPlan.EffectKey? = nil) {
+             placementTailEffect: SceneAuthoredEffectRenderPlan.EffectKey? = nil,
+             sourceTextureUse: SceneTextureUse.Binding? = nil) {
             self.identity = identity
             self.epoch = epoch
             self.finalTextureIdentity = finalTextureIdentity
@@ -109,6 +111,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.terminalReplayBlendMode = hasTerminalMaterialReplay ? terminalReplayBlendMode : nil
             self.terminalReadsCurrentAttachment = hasTerminalMaterialReplay && terminalReadsCurrentAttachment
             self.placementTailEffect = placementTailEffect
+            self.sourceTextureUse = sourceTextureUse
         }
     }
 
@@ -135,6 +138,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             [SceneGraphMaterialFunctionInvocationRequest]
         let sceneBackgroundResource: SceneFrameTextureResource?
         let sourceTexture: MTLTexture?
+        let sourceTextureUse: SceneTextureUse.Binding?
         let sourceUniforms: SceneLayerFragmentUniforms?
         let framebufferSourceMaterial: FramebufferSourceMaterial?
         let sourcePipeline: SceneImageLayerPipeline
@@ -155,6 +159,7 @@ final class SceneResolvedMaterialRuntimeBridge {
                 [SceneGraphMaterialFunctionInvocationRequest] = [],
             sceneBackgroundResource: SceneFrameTextureResource? = nil,
             sourceTexture: MTLTexture?,
+            sourceTextureUse: SceneTextureUse.Binding? = nil,
             sourceUniforms: SceneLayerFragmentUniforms?,
             sourcePipeline: SceneImageLayerPipeline,
             framebufferSourceMaterial: FramebufferSourceMaterial? = nil,
@@ -169,6 +174,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.materialFunctionInvocations = materialFunctionInvocations
             self.sceneBackgroundResource = sceneBackgroundResource
             self.sourceTexture = sourceTexture
+            self.sourceTextureUse = sourceTextureUse
             self.sourceUniforms = sourceUniforms
             self.framebufferSourceMaterial = framebufferSourceMaterial
             self.sourcePipeline = sourcePipeline

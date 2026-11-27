@@ -189,6 +189,9 @@ nonisolated extension SceneTextureLoader {
             checkCancellation: checkCancellation)
         guard case .loaded(var loaded) = candidate else { return candidate }
         loaded.ordinaryMipReason = mip.reason
+        if mip.index > 0, let container {
+            loaded.originalMappedSize = CGSize(width: container.imageWidth, height: container.imageHeight)
+        }
         if spriteFrame == nil, let container, container.rawMetalPixelFormat != nil {
             storeRawCandidateLayout(.init(mappedWidth: UInt32(container.imageWidth),
                 mappedHeight: UInt32(container.imageHeight), flags: container.flags, format: container.format),

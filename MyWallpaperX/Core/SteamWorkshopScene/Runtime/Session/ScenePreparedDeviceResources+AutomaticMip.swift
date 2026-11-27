@@ -6,6 +6,7 @@ extension ScenePreparedBaseImageResources {
         let models: Set<String>
         var retainsModelDefaultAliases = false
         var automaticMipConstraints: AutomaticMipConstraints?
+        var scalableEffectColorLayerIDs: Set<Int> = []
     }
 
     struct AutomaticMipConstraints {

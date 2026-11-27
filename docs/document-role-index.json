@@ -141,13 +141,13 @@
       "role": "current-state",
       "entrypoint": "docs/README.md",
       "purpose": "全仓任务到实际 owner 的导航与已知边界，不定义新的产品权威。",
-      "lastReviewed": "2026-11-27",
+      "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "dac61ccae59fb60bec5dec12613d2c3cfc62e8ca5c177ff48bb45268439c6b98",
+        "sourceSHA256": "1b904cb94457dbfb54d7a184147128d206edd021e031abc9430d79a5caa4c2b6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定位后处理实际编码、Surface 完成和设置回显。",
-        "limitations": "实测限单物理 XDR 和工作卡所述范围，混合屏待核。"
+        "scope": "定位独立局部捕获选级、纹理规格与终端回执。",
+        "limitations": "M4 单内屏、工作卡所列真实完成帧与单纹理分配。未量整机性能或全库覆盖。"
       }
     },
     {
@@ -189,13 +189,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/development/wallpaper-quality-work-card.md",
-      "lastReviewed": "2026-11-27",
+      "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "210649efecaee43b58b3739758f712d8520e2b49da5b2fc34b39d8b74a99c231",
+        "sourceSHA256": "30ea0af02f00e15d731a4f19965420c7d067d9eb56115b691bf094fedcbb81f5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "规定后处理实际输出回执与 raw 回退边界。",
-        "limitations": "实测限单物理 XDR 和工作卡所述范围，混合屏待核。"
+        "scope": "规定局部效果色源的高性能降级及原捕获和独立用途。",
+        "limitations": "M4 单内屏、工作卡所列真实完成帧与单纹理分配。未量整机性能或全库覆盖。"
       }
     },
     {
@@ -375,13 +375,13 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "各质量项完成验收或明确退役，稳定语义归对应引擎合同，专项顺序与设计登记一并退役。",
-      "lastReviewed": "2026-11-27",
+      "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b1154a6f6dfa43b62ac536b1f59f4bdab9306fc602ccd1eba8b6bc7f50f69803",
+        "sourceSHA256": "602a57815bf4eebddb080c9aea3d2534363c6d61fde391b0ec9cd2e57dec0b13",
         "method": "document_registry --audit + document_health --check",
-        "scope": "先定义后处理终端实际回执、暂停路径和失败范围。",
-        "limitations": "实测限单物理 XDR 和工作卡所述范围，混合屏待核。"
+        "scope": "定义局部捕获选级批准边界、代价与真实正反例。",
+        "limitations": "M4 单内屏、工作卡所列真实完成帧与单纹理分配。未量整机性能或全库覆盖。"
       }
     },
     {
@@ -389,13 +389,13 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "完成各引擎画质纵向链、实际退役与验收，稳定规则交现有合同后撤除工作卡。",
-      "lastReviewed": "2026-11-27",
+      "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5e944ab7ae4d2d75728547a27baec53290d51de2d26ab8eb8afc57f7ca21be3d",
+        "sourceSHA256": "d3267a9c456c41b561285e2f99a7f3d997827fff16793503ed97ee892dfb80bc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "真实差异与资源数据决定继续顺序，预登记两个局部效果真实样本。",
-        "limitations": "两个候选只核原包资产与现有执行阶段，降档终图和成本尚未实测。"
+        "scope": "记录原作者完成帧、AppKit 切档、逐像素与单纹理 Metal 分配结果。",
+        "limitations": "M4 单内屏、工作卡所列真实完成帧与单纹理分配。未量整机性能或全库覆盖。"
       }
     },
     {
@@ -883,13 +883,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene 当前架构与源码地图",
-      "lastReviewed": "2026-11-27",
+      "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e14aa4699140b98dd04d2bb93f837ae5bdabe7eaeed03919ae46697cfd586d67",
+        "sourceSHA256": "333ef61d141839011c1bf154dc53fae67cae4a4b400140d3c8c0659e618c34a3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步合成前 raw 和本次终端后处理回执的归属。",
-        "limitations": "实测限单物理 XDR 和工作卡所述范围，混合屏待核。"
+        "scope": "记录现有准备期、候选与终端票据的纹理规格交接。",
+        "limitations": "M4 单内屏、工作卡所列真实完成帧与单纹理分配。未量整机性能或全库覆盖。"
       }
     },
     {

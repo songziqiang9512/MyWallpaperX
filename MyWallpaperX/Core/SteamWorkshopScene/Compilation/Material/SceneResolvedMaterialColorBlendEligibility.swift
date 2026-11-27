@@ -76,7 +76,6 @@ nonisolated enum SceneResolvedMaterialColorBlendEligibility {
         return fact.auxiliaryRedSlots.allSatisfy {
             !slotMaySelectGraphTexture(
                 $0,
-                samplers: samplers,
                 template: template,
                 graphInputSourceSlotFacts: graphFacts
             )
@@ -124,9 +123,8 @@ nonisolated enum SceneResolvedMaterialColorBlendEligibility {
         return graphInputSourceSlotFacts[slot]?.inputIdentity == inputIdentity
     }
 
-    private static func slotMaySelectGraphTexture(
+    static func slotMaySelectGraphTexture(
         _ slot: Int,
-        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         template: Template,
         graphInputSourceSlotFacts: [
             Int: SceneResolvedMaterialGraphInputSourceSlotFact

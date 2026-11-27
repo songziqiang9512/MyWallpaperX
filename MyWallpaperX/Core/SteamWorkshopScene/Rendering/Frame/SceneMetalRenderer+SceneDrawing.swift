@@ -402,6 +402,7 @@ extension SceneMetalRenderer {
         }
         let resolvedMaterialFrameAdmission = admitResolvedMaterialFrameTargets(
             imageTextures: imageTextures,
+            observesTextureUse: mainPass.textureUse != nil,
             frameVisibleLayerIDs: frameVisibleLayerIDs,
             sourcePlan: sourcePlan,
             performanceTelemetry: performanceTelemetry,

@@ -200,6 +200,13 @@ nonisolated struct SceneTextureCandidate {
     let authoredFormat: SceneShaderTextureFormat?
     let embeddedBaseMip: Int
     var ordinaryMipReason: SceneTextureUse.Reason? = nil
+    var originalMappedSize: CGSize? = nil
+
+    var ordinaryTextureUse: SceneTextureUse.Binding? {
+        guard let ordinaryMipReason else { return nil }
+        return .init(width: texture.width, height: texture.height,
+            baseMip: embeddedBaseMip, mipCount: texture.mipmapLevelCount, reason: ordinaryMipReason)
+    }
 
     init(
         texture: MTLTexture,

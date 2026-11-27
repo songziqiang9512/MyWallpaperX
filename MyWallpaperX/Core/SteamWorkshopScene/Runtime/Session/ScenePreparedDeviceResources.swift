@@ -11,7 +11,6 @@ nonisolated struct ScenePreparedDynamicImageResource {
     let modelPath: String
     let product: Product
     /// Source image extent retained before texture normalization/downscaling.
-    /// The same decode owner supplies TEX and direct-image native metadata.
     var naturalSizeWH: [Float]? = nil
     var puppetMeshPath: String? = nil
     var puppetPose: ScenePuppetLayerLoad.PreparedPose? = nil
@@ -259,7 +258,6 @@ final class ScenePreparedBaseImageResources {
             }
             try cancellationCheck()
             geometryPrepared(geometry)
-            // GPU uploads continue after metadata publication on the same worker.
             uploadCommandQueue.beginMipmapBatch()
             for (source, atlas) in conditionalAtlases {
                 try cancellationCheck()
@@ -325,7 +323,7 @@ final class ScenePreparedBaseImageResources {
                         }
                         mipReason = .alreadyFits
                     }
-                    if let automaticCover, let world = Self.automaticMipWorldExtent(layer, size: geometry[layer.id]),
+                    if layer.effects.isEmpty, let automaticCover, let world = Self.automaticMipWorldExtent(layer, size: geometry[layer.id]),
                        let required = SceneAutomaticTextureProjection.minimumExtent(worldExtent: world, coverScale: automaticCover) {
                         if size[0] / 2 >= Float(required.x), size[1] / 2 >= Float(required.y) {
                             automaticSources[entry.source, default: .init(worldExtent: world, layerIDs: [])]
@@ -351,10 +349,12 @@ final class ScenePreparedBaseImageResources {
             let automaticPlans = Self.automaticMipPlans(automaticSources, cover: automaticCover,
                 exactSources: exactSources, constraints: hasDynamicModelLookup ? nil : planning.automaticMipConstraints)
             for layer in mipTailLayers {
+                let performance = layer.effects.isEmpty || planning.scalableEffectColorLayerIDs.contains(layer.id)
+                    ? performanceSelection : nil
                 if deferredLayerIDs.contains(layer.id) {
-                    entries[layer.id]?.deferredMip = (performanceSelection, .preservedPixels)
+                    entries[layer.id]?.deferredMip = (performance, .preservedPixels)
                 } else {
-                    let selection = imageRequests[layer.id].flatMap { automaticPlans[$0.source]?.selection } ?? performanceSelection
+                    let selection = imageRequests[layer.id].flatMap { automaticPlans[$0.source]?.selection } ?? performance
                     try loadInitialImage(layer, mipSelection: aliases[layer.id] == nil ? selection : nil,
                                          originalMipReason: .preservedPixels)
                 }

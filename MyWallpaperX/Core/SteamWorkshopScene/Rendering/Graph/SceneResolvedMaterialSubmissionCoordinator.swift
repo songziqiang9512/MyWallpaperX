@@ -51,6 +51,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         let capabilityToken:
             SceneResolvedMaterialExecutionCapabilityCatalog.Token
         var prepared: SceneResolvedMaterialGraphExecutor.PreparedGraph
+        let sourceTextureUse: SceneTextureUse.Binding?
         var preparedDependencyEffects: [SceneDependencyEffectInput]
         let preparedDependencyUnavailability:
             Bridge.FrameInputs.DependencyUnavailability?
@@ -616,6 +617,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 layerID: claim.layerID,
                 capabilityToken: claim.token,
                 prepared: prepared,
+                sourceTextureUse: request.sourceTextureUse,
                 preparedDependencyEffects: preparedDependencyEffects,
                 preparedDependencyUnavailability:
                     preparedDependencyUnavailability,
@@ -709,6 +711,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 layerID: candidate.layerID,
                 capabilityToken: candidate.capabilityToken,
                 prepared: candidate.prepared,
+                sourceTextureUse: candidate.sourceTextureUse,
                 preparedDependencyEffects: candidate.preparedDependencyEffects,
                 preparedDependencyUnavailability:
                     candidate.preparedDependencyUnavailability,

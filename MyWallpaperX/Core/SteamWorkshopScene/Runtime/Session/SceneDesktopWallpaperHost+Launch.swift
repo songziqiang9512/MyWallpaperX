@@ -205,12 +205,7 @@ extension SceneDesktopWallpaperHost {
     }
 
     static func isLaunchCancellation(_ error: Error) -> Bool {
-        guard let launchError = error as? SceneDesktopWallpaperHostLaunchError else {
-            return false
-        }
-        if case .cancelled = launchError {
-            return true
-        }
+        if case .cancelled? = error as? SceneDesktopWallpaperHostLaunchError { return true }
         return false
     }
 #if DEBUG
@@ -721,6 +716,8 @@ extension SceneDesktopWallpaperHost {
             dynamicImageModelPaths: committedPrograms.domain?.dynamicImageRequestedModelPaths ?? [],
             hasStatefulLayerMutationOwner: committedPrograms.domain?.hasStatefulLayerMutationOwner == true,
             automaticMipConstraints: automaticMipConstraints,
+            scalableEffectColorLayerIDs: sceneRenderQuality.textures == .performance
+                ? resolvedMaterialExecutionCapabilities.scalableEffectColorLayerIDs : [],
             modelMaterialPlan: modelMaterialPlan,
             modelAlbedoStates: modelMaterialPlan.assetDemands.reduce(into: [:]) {
                 $0[$1] = assetLaunchStates[$1]

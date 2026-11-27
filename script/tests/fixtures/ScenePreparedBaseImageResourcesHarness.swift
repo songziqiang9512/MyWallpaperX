@@ -143,7 +143,8 @@ final class SceneImageLayerPipeline {
     static var reject = false
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat,
           preparesDepth: Bool = false, preparesAdditive: Bool = false,
-          preparesNormalDepth: Bool = false, rasterSampleCount: Int = 1) {
+          preparesNormalDepth: Bool = false, rasterSampleCount: Int = 1,
+          preparesMultisampleSeed: Bool = true) {
         if Self.reject { return nil }
     }
 }

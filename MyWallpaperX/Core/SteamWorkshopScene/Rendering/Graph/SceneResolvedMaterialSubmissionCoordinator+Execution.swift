@@ -195,7 +195,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                     ledger.prepared.terminalMaterialReplay?.role.terminalReplayBlendMode ?? 0,
                 terminalReadsCurrentAttachment:
                     ledger.prepared.terminalMaterialReplay?.role.readsCurrentAttachment == true,
-                placementTailEffect: ledger.prepared.placementTailEffect
+                placementTailEffect: ledger.prepared.placementTailEffect,
+                sourceTextureUse: ledger.sourceTextureUse
             )
         )
     }
