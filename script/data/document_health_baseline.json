@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 70,
-      "bytes": 28352
+      "bytes": 28406
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 175,
-      "bytes": 37565
+      "bytes": 37712
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 205014
+      "bytes": 205788
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 188572
+      "bytes": 189441
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 337,
-      "bytes": 75721
+      "bytes": 75794
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -715,47 +715,47 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "c20b886d30d9f8876fe132ad3ac516ae3595106e95b5e0ff7d19644a11374cfb",
-      "after": "40715bdaeb961682c14dbcd1cf2796491b4c2d67b5748e5c9e04ad2a0ad3770c",
+      "before": "40715bdaeb961682c14dbcd1cf2796491b4c2d67b5748e5c9e04ad2a0ad3770c",
+      "after": "822a033754d30c53f56d6e1bc2e59937f23a9b28132f3e39224731b290be8e18",
       "owner": "wallpaper-quality",
-      "reason": "核原生 BC 作者选级、有效映射和既有块上传责任。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-exact-padding"
+      "reason": "核 Auto 有效映射阈值的现有准备和实际绑定入口。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-padding-auto"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "f7f26f42a61d0b2a80d34bb54215c7c350915c738347542309dcf5703ef4ff30",
-      "after": "f0fa475fa32fa4a6f00d7dcb848fe067271f035799cfc1d7ecea10d53a055dda",
+      "before": "f0fa475fa32fa4a6f00d7dcb848fe067271f035799cfc1d7ecea10d53a055dda",
+      "after": "48daeb41a4c5acc25efae583d2ef3b7b9af5d60b3c1522ee4f453e727e68fc1a",
       "owner": "wallpaper-quality",
-      "reason": "明确整比填充原生 BC 高性能档选级和 Auto／高质量的现役行为。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-exact-padding"
+      "reason": "核整比填充原生 BC Auto 的覆盖、门槛和热升规则。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-padding-auto"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "de296f50326b35c5b8f62efa932bb534c1a65b17927a3422b91c48f2057a632f",
-      "after": "4218e4bbd1813b1ecdd058c86a2f5ea66048032e6919281311111197fcf956d8",
+      "before": "4218e4bbd1813b1ecdd058c86a2f5ea66048032e6919281311111197fcf956d8",
+      "after": "293f0aa9f561567acb83d62c55cf50734a45c1d6b06e4d2dab48082665dc1675",
       "owner": "wallpaper-quality",
-      "reason": "复核原生 BC 整比映射、候选传递、失败与终图验收判定。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-exact-padding"
+      "reason": "核 Auto 有效映射、原单级边界及热升和退役设计。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-padding-auto"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "7caddfc8fe2606e93b4eff5431cb34cfe8925ebb68f98764f99c7de2c04a0b87",
-      "after": "32884be2d0003dabb13eff4634162aa8de8b0d99816dd2236a4aa57073529053",
+      "before": "32884be2d0003dabb13eff4634162aa8de8b0d99816dd2236a4aa57073529053",
+      "after": "2fc4559c33bb12530ea97b27ee46344d5ef7a82d3652629b01cb25688b32a256",
       "owner": "wallpaper-quality",
-      "reason": "核两部独立发布的原作、切档、Metal 实配和同档复拍。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-exact-padding"
+      "reason": "核两部独立原作的有效绑定、实配回收和同窗终图。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-padding-auto"
     },
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "2adff40097a7aa5e1898baa44e34ea0600ec955410b2f7737c4b7d0d654db4a6",
-      "after": "8492b61135830e7ac08c81e13269c47f0fb46a31778b93874a454d7bd4fb3a8e",
+      "before": "8492b61135830e7ac08c81e13269c47f0fb46a31778b93874a454d7bd4fb3a8e",
+      "after": "cbe6051f40604d6f6a2eece2c210baae58d9eb7700be89adc2bece084570c9e1",
       "owner": "wallpaper-quality",
-      "reason": "核 Scene 执行至作者物理级、布局映射与实际消费的单一链路。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-exact-padding"
+      "reason": "核 Auto 准备到同源、延迟与已发布纹理热升的有效覆盖。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-native-bc-padding-auto"
     }
   ]
 }

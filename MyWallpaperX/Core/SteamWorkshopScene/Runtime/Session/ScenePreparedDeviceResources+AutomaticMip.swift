@@ -68,7 +68,7 @@ extension ScenePreparedBaseImageResources {
         for layerID in source.layerIDs {
             guard case let .loaded(loaded)? = entries[layerID]?.outcome,
                   let candidate = loaded.candidate else { continue }
-            if candidate.authoredBaseMip == 0 || source.maximumCoverScale(for: candidate.physicalSize) >= cover {
+            if candidate.authoredBaseMip == 0 || source.maximumCoverScale(forMappedSize: candidate.mappedSize) >= cover {
                 return loaded
             }
         }
@@ -131,7 +131,7 @@ extension ScenePreparedBaseImageResources {
                       let candidate = loaded.candidate else { continue }
                 if candidate.authoredBaseMip > 0 {
                     tails[source] = .init(use: plan.source, input: entry.input,
-                        promotionThreshold: plan.source.maximumCoverScale(for: candidate.physicalSize))
+                        promotionThreshold: plan.source.maximumCoverScale(forMappedSize: candidate.mappedSize))
                     textures.append(loaded.texture)
                 } else { tails[source] = nil }
                 break

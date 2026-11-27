@@ -56,8 +56,8 @@ nonisolated enum SceneAutomaticTextureProjection {
             return SIMD2(max(projection.x, captureExtent.x), max(projection.y, captureExtent.y))
         }
 
-        func maximumCoverScale(for physical: CGSize) -> Double {
-            min(Double(physical.width) / worldExtent.x, Double(physical.height) / worldExtent.y)
+        func maximumCoverScale(forMappedSize mapped: CGSize) -> Double {
+            min(Double(mapped.width) / worldExtent.x, Double(mapped.height) / worldExtent.y)
         }
     }
 }

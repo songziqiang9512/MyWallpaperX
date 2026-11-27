@@ -29,7 +29,7 @@ enum Harness {
             .baseIndex(in: authored, maximumSingleLevelDimension: 4096) == 2)
 
         let source = SceneAutomaticTextureProjection.Source(worldExtent: world, layerIDs: [54])
-        let coverage = source.maximumCoverScale(for: CGSize(width: 3264, height: 2210))
+        let coverage = source.maximumCoverScale(forMappedSize: CGSize(width: 3264, height: 2210))
         precondition(cover < coverage)
         precondition(coverage == 0.5)
         let larger = 3265.0 / 6528

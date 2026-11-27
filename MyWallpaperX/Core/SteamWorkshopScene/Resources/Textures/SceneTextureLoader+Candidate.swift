@@ -495,19 +495,25 @@ nonisolated extension SceneTextureLoader {
             let mappedWidth = container.imageWidth
             let mappedHeight = container.imageHeight
             let firstTail = container.mips[1]
-            guard usesNativeBC, case .maximumLongEdge = selection,
+            guard usesNativeBC,
                   mappedWidth > 0, mappedWidth <= base.width, mappedHeight > 0, mappedHeight <= base.height,
                   mappedWidth.isMultiple(of: 2), mappedHeight.isMultiple(of: 2),
                   base.width == firstTail.width * 2, base.height == firstTail.height * 2
             else { return (0, .preservedPixels, nil) }
-            mappedMipSize = CGSize(width: mappedWidth / 2, height: mappedHeight / 2)
+            let mappedTail = SIMD2(mappedWidth / 2, mappedHeight / 2)
+            mappedMipSize = CGSize(width: mappedTail.x, height: mappedTail.y)
+            if case let .minimumExtent(minimum) = selection,
+               mappedTail.x < minimum.x || mappedTail.y < minimum.y {
+                return (0, .projection, nil)
+            }
         }
         let index = selection.baseIndex(in: container.mips.map { ($0.width, $0.height) },
             maximumSingleLevelDimension: Self.maxTextureDimension)
-        if index > 0, usesNativeBC, case .maximumLongEdge = selection {
-            return (1, .authoredMip, mappedMipSize)
+        if index > 0 {
+            if let mappedMipSize { return (1, .authoredMip, mappedMipSize) }
+            if usesNativeBC, case .maximumLongEdge = selection { return (1, .authoredMip, nil) }
+            return (index, .authoredMip, nil)
         }
-        if index > 0 { return (index, .authoredMip, nil) }
         switch selection {
         case let .minimumExtent(minimum):
             let firstTail = container.mips[1]

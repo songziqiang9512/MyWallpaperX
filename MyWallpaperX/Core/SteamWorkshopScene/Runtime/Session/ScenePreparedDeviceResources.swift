@@ -683,7 +683,7 @@ final class ScenePreparedBaseImageResources {
                             }
                         }
                         for layerID in active { updates[layerID] = selected }
-                        tail.promotionThreshold = max(cover, tail.use.maximumCoverScale(for: candidate.physicalSize))
+                        tail.promotionThreshold = max(cover, tail.use.maximumCoverScale(forMappedSize: candidate.mappedSize))
                         self.automaticMipTails[source] = candidate.authoredBaseMip > 0 ? tail : nil
                     }
 #if DEBUG
@@ -874,7 +874,7 @@ final class ScenePreparedBaseImageResources {
             var failedCover: Double?
             while !cancelled, cover < automaticMipDemand, let automaticSource,
                   case let .loaded(loaded) = outcome, let candidate = loaded.candidate, candidate.authoredBaseMip > 0,
-                  automaticSource.maximumCoverScale(for: candidate.physicalSize) < automaticMipDemand {
+                  automaticSource.maximumCoverScale(forMappedSize: candidate.mappedSize) < automaticMipDemand {
                 cover = automaticMipDemand
                 deferredLock.unlock()
                 let replacement = load(at: cover)
@@ -896,7 +896,7 @@ final class ScenePreparedBaseImageResources {
                 deferredStates[layerID] = .ready
                 if var tail = automaticMipTails[entry.source], tail.use.layerIDs.contains(layerID) {
                     if let candidate = loaded.candidate, candidate.authoredBaseMip > 0 {
-                        let coverage = tail.use.maximumCoverScale(for: candidate.physicalSize)
+                        let coverage = tail.use.maximumCoverScale(forMappedSize: candidate.mappedSize)
                         tail.promotionThreshold = max(failedCover ?? 0, min(tail.promotionThreshold ?? coverage, coverage))
                         automaticMipTails[entry.source] = tail
                         if loaded.texture !== warm?.texture { deferredTextureLoader.evictTextures(containedIn: [loaded.texture]) }

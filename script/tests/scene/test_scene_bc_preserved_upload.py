@@ -109,17 +109,18 @@ HARNESS = HARNESS_SUPPORT_SOURCE + r'''
         var results: [String: Any] = [:]
         for (format, native) in [(UInt32(7), MTLPixelFormat.bc1_rgba), (6, .bc2_rgba), (4, .bc3_rgba)] {
             func fixture(mappedWidth: UInt32 = 4098, mappedHeight: UInt32 = 14,
-                         corruptPrefix: Bool = false) -> Data {
+                         corruptPrefix: Bool = false, mipSizes: [(UInt32, UInt32)]? = nil) -> Data {
+                let levels = mipSizes ?? dimensions
                 var data = Data("TEXV0005\0TEXI0001\0".utf8)
                 func append(_ value: UInt32) {
                     var little = value.littleEndian
                     withUnsafeBytes(of: &little) { data.append(contentsOf: $0) }
                 }
-                for value in [format, 2, 4098, 14, mappedWidth, mappedHeight, 0] { append(value) }
+                for value in [format, 2, levels[0].0, levels[0].1, mappedWidth, mappedHeight, 0] { append(value) }
                 data.append(Data("TEXB0002\0".utf8))
                 append(1)
-                append(UInt32(dimensions.count))
-                for (index, size) in dimensions.enumerated() {
+                append(UInt32(levels.count))
+                for (index, size) in levels.enumerated() {
                     let (width, height) = size
                     let blocks = Int((width + 3) / 4 * ((height + 3) / 4))
                     let rgb = index % 2 == 0 ? UInt8(0xe0) : UInt8(0x1f)
@@ -171,7 +172,11 @@ HARNESS = HARNESS_SUPPORT_SOURCE + r'''
             let exactSource = try open("padded-exact", fixture(mappedWidth: 4094, mappedHeight: 12))
             let exactTail = try candidate(exactSource, performanceSelection)
             let exactFull = try candidate(exactSource, nil)
-            let exactAuto = try candidate(exactSource, autoSelection)
+            let exactAuto = try candidate(exactSource, .minimumExtent(SIMD2(2047, 6)))
+            let tooWideForMappedMip = try candidate(exactSource, .minimumExtent(SIMD2(2048, 6)))
+            let tooTallForMappedMip = try candidate(exactSource, .minimumExtent(SIMD2(2047, 7)))
+            let oversizedTail = try candidate(open("oversized-padded-tail", fixture(
+                mappedWidth: 8192, mappedHeight: 12, mipSizes: [(8194, 14), (4097, 7)])), autoSelection)
             let exactMask = try candidate(exactSource, performanceSelection, purpose: .mask)
             let exactWarmTail = try candidate(exactSource, performanceSelection)
             let exactRenamed = try candidate(open("padded-exact-renamed", fixture(mappedWidth: 4094, mappedHeight: 12)),
@@ -211,7 +216,8 @@ HARNESS = HARNESS_SUPPORT_SOURCE + r'''
                     && performance.texture.allocatedSize < full.texture.allocatedSize,
                 "cacheKeepsBase": try candidate(source, autoSelection).texture === auto.texture && auto.texture !== full.texture,
                 "invalidPrefixRejected": invalidPrefixRejected,
-                "paddedBases": [exactFull, exactTail, exactAuto, exactMask, oddWidth, oddHeight, exactRenamed].map(\.authoredBaseMip),
+                "paddedBases": [exactFull, exactTail, exactAuto, exactMask, oddWidth, oddHeight, exactRenamed,
+                    tooWideForMappedMip, tooTallForMappedMip].map(\.authoredBaseMip),
                 "paddedMappedSize": [Int(exactTail.mappedSize.width), Int(exactTail.mappedSize.height)],
                 "paddedKeepsMapping": exactTail.uvTransform == exactFull.uvTransform
                     && exactTail.originalMappedSize == exactFull.mappedSize
@@ -220,7 +226,13 @@ HARNESS = HARNESS_SUPPORT_SOURCE + r'''
                     && exactTail.texture.width == 2049 && exactTail.texture.height == 7
                     && exactTail.texture.allocatedSize < exactFull.texture.allocatedSize,
                 "paddedKeepsMappedEdge": sourceEdge == tailEdge && hiddenTail != tailEdge,
-                "paddedCacheKeepsBase": exactAuto.texture === exactFull.texture
+                "paddedCacheKeepsBase": exactAuto.texture === exactTail.texture
+                    && exactAuto.uvTransform == exactTail.uvTransform
+                    && tooWideForMappedMip.texture === exactFull.texture
+                    && tooTallForMappedMip.texture === exactFull.texture
+                    && tooWideForMappedMip.ordinaryMipReason == .projection
+                    && tooTallForMappedMip.ordinaryMipReason == .projection
+                    && oversizedTail.authoredBaseMip == 0 && oversizedTail.ordinaryMipReason == .noEligibleMip
                     && exactTail.texture !== exactFull.texture
                     && exactWarmTail.texture === exactTail.texture,
             ]
@@ -639,7 +651,7 @@ class SceneBCPreservedUploadTests(unittest.TestCase):
                 self.assertEqual(result["bases"], [0, 2, 1, 0, 0, 2])
                 self.assertEqual(result["sizes"], [[4098, 14], [1024, 3], [2049, 7]])
                 self.assertEqual(result["levels"], [4, 2, 3])
-                self.assertEqual(result["paddedBases"], [0, 1, 0, 0, 0, 0, 1])
+                self.assertEqual(result["paddedBases"], [0, 1, 1, 0, 0, 0, 1, 0, 0])
                 self.assertEqual(result["paddedMappedSize"], [2047, 6])
                 for key in ("nativeFormat", "straightAlpha", "sampledLevelsMatch", "baseRanges",
                             "memoryReduces", "cacheKeepsBase", "invalidPrefixRejected",
