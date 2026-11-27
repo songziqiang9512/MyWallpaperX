@@ -95,6 +95,11 @@ Program仍准备一个数值binding，主身份供原ABI/语义身份、直user�
 
 验收继续覆盖 Resolution-only、默认和真实资源尺寸及改名/等价变体。活动采样另核官版棋盘及槽位留空、显式缺失、存在资源，保 graph、无活动采样与旧作者局部失败反例。原3556263543须有五道作者效果实际编码并改变时钟字缘。另以独立作者的活动效果验证采样和尺寸。[运行证据](runtime-evidence-current.md#missing-ordinary-material-texture-evidence)
 
+<a id="media-gradient-sampler"></a>
+### 媒体封面作为数据纹理
+
+普通效果槽以已登记的保通道默认纹理声明用途，且已有作者指定的底纹时，媒体封面沿既有保通道发布替换底纹。官版同时显示基础材质的封面正控：效果槽只写系统引用、底纹留空时仍取声明默认，显式底纹则接受封面，给 sampler 增加 material 键也保持该替换。模板准备只对该无条件普通槽投影未赋值的覆盖，条件竞争、格式组合以及原作者诊断均保留；不新增每帧选项、供货或缓存。已有显式用途和其他系统来源沿原路。有效封面覆盖只有确实 absent 才继续原候选次序，pending 和错误状态仍在实际消费处处理。
+
 <a id="uniform-derived-global-scope"></a>
 ### uniform派生全局值的词法身份
 

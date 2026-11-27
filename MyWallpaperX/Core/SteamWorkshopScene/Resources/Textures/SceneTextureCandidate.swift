@@ -41,6 +41,14 @@ nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
         lifecycleEpoch: UInt64
     )
 
+    static func mediaThumbnail(forSystemName name: String) -> Self? {
+        switch name {
+        case "$mediaThumbnail": .mediaThumbnailCurrent
+        case "$mediaPreviousThumbnail": .mediaThumbnailPrevious
+        default: nil
+        }
+    }
+
     var reportToken: String {
         switch self {
         case let .materialSource(layerID, frameEpoch, generation):

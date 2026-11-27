@@ -161,12 +161,12 @@
       "bytes": 83656
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 495,
-      "bytes": 99269
+      "lines": 500,
+      "bytes": 100029
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 426464
+      "bytes": 427123
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -197,8 +197,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 56,
-      "bytes": 7797
+      "lines": 55,
+      "bytes": 7520
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -687,24 +687,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "6b22b6ed48e5e84ebd3491074942397dfb1d228d2ff547b6c32cb5389f6fb302",
-      "after": "8f77ec87a8a82d09d1814054f6aec34ebd8185d6d6e7ce1984e8610bd2c6e271",
-      "owner": "Scene shader preparation",
-      "reason": "在预处理原职责内记录未求值点路径和官版布尔分支规则。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#shader-directive-member-operand"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "aed9b03e98ceb668645ae3839cf6de97b5f74d8c9c1e411185783368d26007de",
-      "after": "97b9ffd83f32d1a3f32a02917a79535b75793e424b6d7f6cfbac8f652a6c473f",
-      "owner": "Scene runtime evidence",
-      "reason": "记录原材双向边缘差图、官方条件对照与两个真实样本合成回执。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#aa-member-conditions-304"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
       "before": "1506186d1fc2da4af9d2b2bb5a1af35807534d666718a88ebc9b7ade06ba66ed",
       "after": "8a174c31890e2a32bb97d20f76aff53891b9cf831ba1fb07ba8f9d3fb4328e79",
@@ -747,6 +729,24 @@
       "owner": "Scene rendering",
       "reason": "同步合成前 raw 和本次终端后处理回执的归属。",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-post-processing-feedback"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "8f77ec87a8a82d09d1814054f6aec34ebd8185d6d6e7ce1984e8610bd2c6e271",
+      "after": "99c0e029f0000cb95c576b3a2a29d223263331798bf807f4d3d5823f610a176f",
+      "owner": "Scene sampler preparation",
+      "reason": "记录媒体覆盖依赖已赋值效果槽及冷准备边界。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#media-gradient-sampler"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "97b9ffd83f32d1a3f32a02917a79535b75793e424b6d7f6cfbac8f652a6c473f",
+      "after": "f27d5e753e056691daf33c58a240c4247456a9774aa9338f8e5e91a3e881dcb1",
+      "owner": "Scene runtime evidence",
+      "reason": "记录 Shimmer 封面与默认渐变的官版本机同色板和原包 GPU 绑定。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#active-media-effect-gaps-20261127"
     }
   ]
 }

@@ -159,8 +159,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             throw Issue.sampler("source-graph-missing")
         }
         let sources = SceneShaderVariantSchemaSeed.unconditional(
-            contract: template.shaderContract,
-            graph: graph
+            contract: template.shaderContract, graph: graph
         )
         var result = try samplerSchemas(records(sources))
         if let bootstrap = try? bootstrapSamplers(template, seedSamplers: result) {
@@ -189,11 +188,11 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         })
     }
 
-    /// Fixed model draws can consume an explicitly declared ordinary color
-    /// asset without admitting the shader's executable material interface.
+    /// Proves an ordinary asset default before preparing an executable variant.
     /// Readiness-gated or conditionally competing declarations are not defaults.
-    static func unconditionalColorAssetDefault(
-        slot: Int, contract: SceneShaderContract, combos: [String: Int]
+    static func unconditionalAssetDefault(
+        slot: Int, contract: SceneShaderContract, combos: [String: Int],
+        purpose: SceneTextureLoadPurpose = .straightAlbedo
     ) -> SceneVFSAssetPath? {
         guard contract.sourceKind == .authoredSource, contract.diagnostics.isEmpty,
               contract.stages.count == 2, Set(contract.stages.map(\.kind)).count == 2,
@@ -220,8 +219,20 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
               sampler.formatKey == nil, sampler.readinessCombo == nil,
               !hasExplicitNonColorPurpose(sampler), !usesGraphInputMaterialAlias(sampler),
               case let .asset(path) = sampler.defaultTexture else { return nil }
-        if let purpose = SceneStockTextureSemanticRegistry.purpose(for: path),
-           purpose != .straightAlbedo { return nil }
+        switch purpose {
+        case .straightAlbedo:
+            if let registered = SceneStockTextureSemanticRegistry.purpose(for: path),
+               registered != purpose { return nil }
+        case .preservedChannels:
+            guard hasMediaGradientRole(sampler),
+                  !selected.contains(where: { record in
+                      record.annotations.contains { annotation in
+                          guard case let .object(object) = annotation.variantValue else { return false }
+                          return object["formatcombo"] != nil
+                      }
+                  }) else { return nil }
+        default: return nil
+        }
         let protected = Set(["uniform", "sampler2D", sampler.name])
             .union(declarations.filter { $0.declaration.name == sampler.name }
                 .flatMap { $0.declaration.type.split(whereSeparator: \.isWhitespace).map(String.init) })

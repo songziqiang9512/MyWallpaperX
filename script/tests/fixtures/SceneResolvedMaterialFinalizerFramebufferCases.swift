@@ -8,6 +8,7 @@ func samplerPurposeToken(
     vertexMetadata: String? = nil,
     assetReference: Bool = false,
     namedTargetReference: Bool = false,
+    systemProviderName: String? = nil,
     assetPath: String = "textures/fixture.tex"
 ) -> String {
     let shader = contract(
@@ -25,7 +26,9 @@ func samplerPurposeToken(
         guard let sampler = try SceneResolvedMaterialShaderSchema
             .activeSamplers(prepared)[0] else { return "missing" }
         let reference: Template.TextureReference
-        if namedTargetReference {
+        if let systemProviderName {
+            reference = .provider(.system(systemProviderName))
+        } else if namedTargetReference {
             reference = .provider(.namedLayerTarget(.init(
                 providerLayerID: 42,
                 variant: .primary
@@ -39,6 +42,40 @@ func samplerPurposeToken(
     } catch {
         return "schema-invalid"
     }
+}
+
+func mediaGradientDefaultProofs() -> [String: Bool] {
+    let fragment = """
+    uniform sampler2D g_Texture3; // {"default":"gradient/gradient_ferro_fluid"}
+    void main() { gl_FragColor = texSample2D(g_Texture3, vec2(0.5)); }
+    """
+    let ordinaryVertex = "void main() { gl_Position = vec4(0.0); }"
+    let competingVertex = """
+    #if USE_MASK
+    uniform sampler2D g_Texture3; // {"mode":"opacitymask"}
+    #endif
+    \(ordinaryVertex)
+    """
+    let formatDriven = fragment.replacingOccurrences(
+        of: #""default":"gradient/gradient_ferro_fluid""#,
+        with: #""default":"gradient/gradient_ferro_fluid","formatcombo":true"#
+    )
+    func proven(vertex: String, fragment: String) -> Bool {
+        SceneResolvedMaterialShaderSchema.unconditionalAssetDefault(
+            slot: 3,
+            contract: contract(
+                revision: "media-gradient-default",
+                vertexSourceOverride: vertex, fragmentSourceOverride: fragment
+            ),
+            combos: ["USE_MASK": 1],
+            purpose: .preservedChannels
+        ) != nil
+    }
+    return [
+        "plain": proven(vertex: ordinaryVertex, fragment: fragment),
+        "noCompetingMode": !proven(vertex: competingVertex, fragment: fragment),
+        "noFormatDrivenDefault": !proven(vertex: ordinaryVertex, fragment: formatDriven),
+    ]
 }
 
 func samplerReadinessSchemaToken(_ metadata: String) -> String {

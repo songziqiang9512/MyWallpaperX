@@ -316,6 +316,7 @@ final class SceneResolvedMaterialFinalizerFixture {
                 "scalarFramebufferDirectRedConsumer": fixture.framebuffer.scalarRedConsumerIdentity,
                 "rgbaFramebufferDataConsumer": fixture.framebuffer.rgbaDataConsumerIdentity,
             ],
+            "mediaGradientDefaultProofs": mediaGradientDefaultProofs(),
             "samplerSchema": [
                 "regularGraph": samplerPurposeToken(nil),
                 "regularAsset": samplerPurposeToken(nil, assetReference: true),
@@ -369,6 +370,30 @@ final class SceneResolvedMaterialFinalizerFixture {
                     nil,
                     assetReference: true,
                     assetPath: "gradient/gradient_ferro_fluid"
+                ),
+                "mediaCoverGradient": samplerPurposeToken(
+                    #"{"default":"gradient/gradient_ferro_fluid"}"#,
+                    systemProviderName: "$mediaThumbnail"
+                ),
+                "previousMediaCoverGradient": samplerPurposeToken(
+                    #"{"default":"gradient/gradient_iridescent"}"#,
+                    systemProviderName: "$mediaPreviousThumbnail"
+                ),
+                "unknownSystemGradient": samplerPurposeToken(
+                    #"{"default":"gradient/gradient_ferro_fluid"}"#,
+                    systemProviderName: "$unknown"
+                ),
+                "mediaCoverUntypedDefault": samplerPurposeToken(
+                    #"{"default":"gradient/unregistered"}"#,
+                    systemProviderName: "$mediaThumbnail"
+                ),
+                "mediaCoverNoiseDefault": samplerPurposeToken(
+                    #"{"default":"util/noise"}"#,
+                    systemProviderName: "$mediaThumbnail"
+                ),
+                "mediaCoverExplicitMask": samplerPurposeToken(
+                    #"{"mode":"opacitymask","default":"gradient/gradient_ferro_fluid"}"#,
+                    systemProviderName: "$mediaThumbnail"
                 ),
                 "registeredStockLightShaftsGradient": samplerPurposeToken(
                     nil,

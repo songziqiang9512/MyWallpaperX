@@ -39,16 +39,9 @@ nonisolated struct SceneTextureProviderPublication {
                 && candidate.purpose == property.purpose
         }
         guard case let .system(request) = requestIdentity else { return true }
-        let expectedProvider: SceneTextureProviderIdentity?
-        switch request.name {
-        case "$mediaThumbnail":
-            expectedProvider = .mediaThumbnailCurrent
-        case "$mediaPreviousThumbnail":
-            expectedProvider = .mediaThumbnailPrevious
-        default:
-            expectedProvider = nil
-        }
-        if let expectedProvider {
+        if let expectedProvider = SceneTextureProviderIdentity.mediaThumbnail(
+            forSystemName: request.name
+        ) {
             return candidate.identity == .provider(expectedProvider)
         }
         switch candidate.identity {

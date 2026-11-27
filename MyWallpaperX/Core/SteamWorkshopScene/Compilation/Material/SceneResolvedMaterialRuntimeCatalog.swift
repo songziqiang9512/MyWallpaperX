@@ -312,7 +312,13 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                         authoredEffectComboNames[key.effect, default: []]
                             .subtracting(material.combos.keys),
                     provenSceneScriptValueTargets: provenSceneScriptValueTargets,
-                    compatibilityTarget: .windowsDX11ShaderModel4
+                    compatibilityTarget: .windowsDX11ShaderModel4,
+                    omitUnassignedSystemTexture: { slot, name in
+                        SceneTextureProviderIdentity.mediaThumbnail(forSystemName: name) != nil
+                            && SceneResolvedMaterialShaderSchema.unconditionalAssetDefault(
+                                slot: slot, contract: contract, combos: material.combos, purpose: .preservedChannels
+                            ) != nil
+                    }
                 ) {
                 case let .failure(failure):
                     outcome = .init(

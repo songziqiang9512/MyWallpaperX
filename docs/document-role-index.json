@@ -392,7 +392,7 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6aa8d9900def514dd6e371bc246e8ac2d1d3230b7059f87cb48e528920a555da",
+        "sourceSHA256": "308b1db90eeeb4dca8dc0e8425cbb80f26de6da449bec98743960d914a0516f4",
         "method": "document_registry --audit + document_health --check",
         "scope": "登记真作者原生设置往返、画质回显和实窗对照。",
         "limitations": "实测限单物理 XDR 和工作卡所述范围，混合屏待核。"
