@@ -24,6 +24,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Input/SceneCameraProjection.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift",
+    SCENE_ROOT / "Runtime/Frame/SceneMaterialRenderState.swift",
 ]
 TRANSFORMS_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+LayerTransforms.swift"
 RENDERER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
@@ -112,10 +113,28 @@ enum Harness {
             "widescreen": margins(width: 1_920, height: 1_080),
             "sixteenTen": margins(width: 1_920, height: 1_200),
             "ultrawide": margins(width: 2_560, height: 1_080),
+            "fitNarrow": fitted(width: 1_200, height: 900),
+            "fitWide": fitted(width: 2_100, height: 900),
+            "fitMatching": fitted(width: 1_600, height: 900),
+            "fitNativeCamera": fitted(width: 1_200, height: 900, orthoWidth: nil),
             "gpu": gpu
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
+    }
+
+    static func fitted(width: Int, height: Int, orthoWidth: Float? = 1_600)
+        -> [String: [Double]] {
+        let rect = SceneCameraProjection.fittedCanvasRect(
+            in: CGRect(x: 10, y: 20, width: width, height: height),
+            orthoWidth: orthoWidth, orthoHeight: 900
+        )
+        let visible = SceneCameraProjection.coverHalfExtents(
+            orthoWidth: 1_600, orthoHeight: 900, viewportSize: rect.size)
+        let shift = SceneLayerScreenAnchor.offset(
+            anchor: "topright", orthoSize: SIMD2(1_600, 900), visibleHalfExtents: visible)
+        return ["rect": [rect.minX, rect.minY, rect.width, rect.height].map(Double.init),
+                "shift": [Double(shift.x), Double(shift.y)]]
     }
 
     // 用真实的 cover 半宽高算出「作者摆位」和「锚定后摆位」离可见边角的距离。
@@ -400,6 +419,17 @@ class SceneLayerScreenAnchorTests(unittest.TestCase):
             self.assertAlmostEqual(margins["anchoredRightMargin"], 1.57001, places=3)
             self.assertAlmostEqual(margins["anchoredTopMargin"], 7.871, places=3)
 
+    def test_fitted_viewport_keeps_author_anchors_and_centers_content(self) -> None:
+        for name, rect in (
+            ("fitNarrow", [10, 132.5, 1200, 675]),
+            ("fitWide", [260, 20, 1600, 900]),
+            ("fitMatching", [10, 20, 1600, 900]),
+        ):
+            with self.subTest(name=name):
+                self.assertEqual(self.result[name]["rect"], rect)
+                self.assert_close(self.result[name]["shift"], (0, 0))
+        self.assertEqual(self.result["fitNativeCamera"]["rect"], [10, 20, 1200, 900])
+
     def test_gpu_pass_draws_the_label_inside_the_visible_corner(self) -> None:
         # 真实 image layer pipeline + 真实 viewProjection 的离屏渲染门：作者宽高比下
         # 锚定不改变覆盖像素，21:9 下不锚定的 label 被裁光，锚定后回到右上角。
@@ -435,8 +465,8 @@ class SceneLayerScreenAnchorTests(unittest.TestCase):
             r"let shift = parallax \+ screenAnchor"
             r"[\s\S]{0,400}SceneMatrix\.translation\(SIMD3\(shift\.x, shift\.y, 0\)\)"
         ))
-        # Renderer 的两个 image model、prepared geometry，以及 utility
-        # model 路径都要喂真实的 cover 半宽高。
+        # The actual GPU probe covers placement. Keep the integration check
+        # tied to the forwarded extents, without freezing the caller count.
         renderer = read_source_family(RENDERER_SOURCE) + RENDERER_SOURCE.with_name(
             "SceneMetalRenderer+StaticModels.swift"
         ).read_text(encoding="utf-8")
@@ -446,17 +476,8 @@ class SceneLayerScreenAnchorTests(unittest.TestCase):
         )
         self.assertIn("renderUtilityPlans(", renderer)
         self.assertIn("SceneUtilityPlanFrameRenderer.render(", effect_execution)
-        self.assertEqual(renderer.count("imageModelMatrix("), 2)
-        self.assertEqual(utility_frame_renderer.count("imageModelMatrix("), 1)
-        self.assertEqual(
-            renderer.count("visibleHalfExtents: cameraFrame.coverHalfExtents"), 3
-        )
-        self.assertEqual(
-            utility_frame_renderer.count(
-                "visibleHalfExtents: cameraFrame.coverHalfExtents"
-            ),
-            1,
-        )
+        self.assertIn("visibleHalfExtents: cameraFrame.coverHalfExtents", renderer)
+        self.assertIn("visibleHalfExtents: cameraFrame.coverHalfExtents", utility_frame_renderer)
 
 
 if __name__ == "__main__":

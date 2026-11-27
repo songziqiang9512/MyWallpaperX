@@ -435,6 +435,8 @@ final class SceneDaemonRuntime {
             applyAnimationFrameRate(frameRate)
         case let .setSceneRenderQuality(quality):
             host.applySceneRenderQuality(quality)
+        case let .setCanvasFit(fits):
+            host.setCanvasFit(fits)
         case let .setVolume(volume):
             PlaybackVolumeState.shared.setNormalizedVolume(volume)
             host.setMasterVolume(Double(volume))

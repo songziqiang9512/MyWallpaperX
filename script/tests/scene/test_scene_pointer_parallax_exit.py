@@ -26,6 +26,11 @@ final class RecordingSmoother {
     func setTarget(_ target: SIMD2<Float>, timestamp: Double) { self.target = target }
 }
 final class SceneMetalView: NSView {
+    lazy var metalLayer: CALayer = {
+        let layer = CALayer()
+        layer.frame = bounds
+        return layer
+    }()
     var trackingArea: NSTrackingArea?
     var pointerState = SceneSurfacePointerState()
     var parallaxPointerSmoother = RecordingSmoother()
@@ -108,6 +113,11 @@ final class SceneDesktopWallpaperSession {
         let reentered = view.parallaxPointerSmoother.target
         view.handlePointerExit()
         let explicitExit = view.parallaxPointerSmoother.target
+        view.metalLayer.frame = CGRect(x: 25, y: 0, width: 50, height: 100)
+        move(37.5, 50)
+        let fittedInside = view.parallaxPointerSmoother.target
+        move(12.5, 50)
+        let fittedBar = view.pointerState
         func components(_ value: SIMD2<Float>) -> [Float] { [value.x, value.y] }
         let result: [String: Any] = [
             "inside": components(inside), "outside": components(outside),
@@ -115,6 +125,10 @@ final class SceneDesktopWallpaperSession {
             "outsideFlag": !outsideState.isInside,
             "capturePosition": components(outsideState.sceneScriptCurrent),
             "previous": components(outsideState.previous),
+            "fittedInside": components(fittedInside),
+            "fittedBarInside": fittedBar.isInside,
+            "fittedBarCapturePosition": components(fittedBar.sceneScriptCurrent),
+            "fittedBarParallax": components(view.parallaxPointerSmoother.target),
             "nativeSamples": SceneDesktopWallpaperSession.nativeSamples(),
         ]
         print(String(decoding: try JSONSerialization.data(withJSONObject: result), as: UTF8.self))
@@ -159,6 +173,13 @@ class ScenePointerParallaxExitTests(unittest.TestCase):
         self.assertTrue(payload["outsideFlag"])
         self.assertEqual(payload["capturePosition"], [2, 0])
         self.assertEqual(payload["previous"], [0, 0])
+
+    def test_canvas_fit_bars_are_outside_the_scene_viewport(self) -> None:
+        payload = self.payload
+        self.assertEqual(payload["fittedInside"], [-0.5, 0])
+        self.assertFalse(payload["fittedBarInside"])
+        self.assertEqual(payload["fittedBarCapturePosition"], [-1.5, 0])
+        self.assertEqual(payload["fittedBarParallax"], [0, 0])
 
     def test_native_events_preserve_event_position_in_the_surface_fifo(self) -> None:
         move, down, drag, up, second_down, outside_up, window_bound = self.payload["nativeSamples"]

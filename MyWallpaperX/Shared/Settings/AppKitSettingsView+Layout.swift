@@ -321,7 +321,7 @@ extension AppKitSettingsContainerView {
         fillModeControls.orientation = .horizontal
         fillModeControls.alignment = .centerY
         fillModeControls.spacing = 16
-        displaySection.addRow(makeSettingRow(title: String(localized: "Video Fill Mode"), iconSystemName: "aspectratio", trailing: fillModeControls))
+        displaySection.addRow(makeSettingRow(title: String(localized: "Wallpaper Fill Mode"), iconSystemName: "aspectratio", trailing: fillModeControls))
     }
 
     private func setupMaintenanceSection() {

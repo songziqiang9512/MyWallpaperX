@@ -10,6 +10,9 @@ class SceneMetalView: NSView {
     let metalLayer: CAMetalLayer
     let usesLinearDisplayOutput: Bool
     private(set) var hdrDisplayRequested: Bool
+    var fitsCanvas: Bool {
+        didSet { updateDrawableSize() }
+    }
     var displayOutput: SceneDisplayMappingPostProcess.Output = .sRGB
     private let solidLayerTexture: MTLTexture?
     private var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
@@ -85,7 +88,8 @@ class SceneMetalView: NSView {
         presentationStreamID: UInt64,
         firstFramePresentationRegistration:
             ((CAMetalDrawable) -> Bool)? = nil,
-        frame: NSRect
+        frame: NSRect,
+        fitsCanvas: Bool
     ) {
         guard let renderer = SceneMetalRenderer(
             renderDescriptor: renderDescriptor,
@@ -108,6 +112,7 @@ class SceneMetalView: NSView {
         self.firstFramePresentationRegistration =
             firstFramePresentationRegistration
         self.renderer = renderer
+        self.fitsCanvas = fitsCanvas
         solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
         self.userPropertyTextureLoad = userPropertyTextureLoad
         self.userPropertyVideoSources = userPropertyVideoSources
@@ -135,7 +140,7 @@ class SceneMetalView: NSView {
             debugFrameCapture.configure(layer)
         #endif
         layer.contentsGravity = .resizeAspect
-        layer.frame = frame
+        layer.frame = CGRect(origin: .zero, size: frame.size)
         // Prime drawableSize so the very first render has a non-zero target.
         let initialScale = NSScreen.main?.backingScaleFactor ?? 1
         layer.contentsScale = initialScale
@@ -146,7 +151,9 @@ class SceneMetalView: NSView {
         )
         parallaxPointerSmoother = SceneParallaxPointerSmoother()
         super.init(frame: frame)
-        self.layer = layer
+        let backingLayer = CALayer()
+        backingLayer.addSublayer(layer)
+        self.layer = backingLayer
         wantsLayer = true
         imagePipeline = imageLayerPipeline
         if usesLinearDisplayOutput {
@@ -157,6 +164,7 @@ class SceneMetalView: NSView {
             NotificationCenter.default.addObserver(self, selector: #selector(displayEnvironmentChanged(_:)),
                 name: NSWindow.didChangeScreenProfileNotification, object: nil)
         }
+        updateDrawableSize()
         refreshDisplayOutput()
     }
 

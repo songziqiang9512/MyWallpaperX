@@ -58,6 +58,7 @@ final class SceneDesktopWallpaperSession {
     var stopped = false
     var drains: [@MainActor (Bool)->Void] = []
     var drainResult:Bool?
+    var fitsCanvas = false
     let scenePostProcessing: ScenePostProcessingMode
     private(set) var animationFrameRate: AnimationFrameRate = .standard
     var displayCadenceLimit: Double?
@@ -68,7 +69,8 @@ final class SceneDesktopWallpaperSession {
     }
     func applyDisplayConfiguration(_ topology: [SceneScreenTopology]) { displayConfigurations += 1 }
     init(textureDecodeCacheBudget: SceneTextureDecodeCacheBudget, surfacePreparationQueue: DispatchQueue,
-         scenePostProcessing: ScenePostProcessingMode = .ultra, allowsProjectedSpotVolume _: Bool = true) {
+         scenePostProcessing: ScenePostProcessingMode = .ultra, shadowsDisabled _: Bool = false,
+         allowsProjectedSpotVolume _: Bool = true, allowsSceneReflection _: Bool = true) {
         self.scenePostProcessing = scenePostProcessing
     }
     func activate(_ context: SceneDesktopWallpaperLaunchContext,
@@ -92,6 +94,7 @@ final class SceneDesktopWallpaperSession {
     let textureDecodeCacheBudget: SceneTextureDecodeCacheBudget
     private(set) var animationFrameRate: AnimationFrameRate
     private var displayCadenceLimit = SceneScreenTopology.conservativeCadenceLimit
+    var fitsCanvas = false
     // HOST_FRAME_RATE
     var activeSession: SceneDesktopWallpaperSession?
     var candidateSession: SceneDesktopWallpaperSession?

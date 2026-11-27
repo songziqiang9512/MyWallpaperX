@@ -149,6 +149,14 @@ final class SceneDesktopWallpaperSession {
     let allowsProjectedSpotVolume: Bool
     let shadowsDisabled: Bool
     let allowsSceneReflection: Bool
+    var fitsCanvas = false {
+        didSet {
+            guard fitsCanvas != oldValue else { return }
+            for surface in surfaces.values {
+                surface.metalView.fitsCanvas = fitsCanvas
+            }
+        }
+    }
 
     var effectiveAnimationFPS: Double { min(Double(animationFrameRate.rawValue), displayCadenceLimit) }
 

@@ -82,6 +82,7 @@ final class SceneDesktopWallpaperHost {
     private var displayCadenceLimit = SceneScreenTopology.conservativeCadenceLimit
     private(set) var animationFrameRate: AnimationFrameRate
     private(set) var sceneRenderQuality = SceneRenderQuality()
+    private(set) var fitsCanvas = false
     private var playbackPaused = false
 #if DEBUG
     private var debugPointerOverride: SceneSurfacePointerInput?
@@ -109,6 +110,11 @@ final class SceneDesktopWallpaperHost {
         guard quality.postProcessing != previousPostProcessing else { return }
         activeSession?.applyScenePostProcessing(quality.postProcessing)
         candidateSession?.applyScenePostProcessing(quality.postProcessing)
+    }
+
+    func setCanvasFit(_ fits: Bool) {
+        fitsCanvas = fits
+        if unconfirmedPromotion == nil { activeSession?.fitsCanvas = fits }
     }
 
     func applyDisplayConfiguration(_ topology: [SceneScreenTopology]) {
@@ -228,6 +234,7 @@ final class SceneDesktopWallpaperHost {
     func configure(_ session: SceneDesktopWallpaperSession) {
         session.applyAnimationFrameRate(animationFrameRate, displayLimit: displayCadenceLimit)
         session.applyScenePostProcessing(sceneRenderQuality.postProcessing)
+        session.fitsCanvas = fitsCanvas
         session.screenTopology = screenTopology
         session.setPlaybackPaused(playbackPaused)
 #if DEBUG

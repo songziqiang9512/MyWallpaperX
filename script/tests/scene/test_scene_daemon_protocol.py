@@ -57,6 +57,16 @@ import Foundation
             let data = try! JSONSerialization.data(withJSONObject: object)
             return SceneDaemonProtocol.decodeCommand(data)
         }
+        let canvasFitValid = [true, false].allSatisfy { fits in
+            if case let .success(.setCanvasFit(decoded)) = decode([
+                "v": 2, "cmd": "setCanvasFit", "fits": fits
+            ]) { return decoded == fits }
+            return false
+        }
+        let canvasFitNumericRejected: Bool
+        if case .failure(.invalidPayload("setCanvasFit")) = decode([
+            "v": 2, "cmd": "setCanvasFit", "fits": 1
+        ]) { canvasFitNumericRejected = true } else { canvasFitNumericRejected = false }
         let load = decode([
             "v": 2, "cmd": "loadScene", "rootURL": "/private/tmp/scene",
             "profile": 30, "recordID": "fixture",
@@ -732,6 +742,8 @@ import Foundation
             "retirementDefaultPreserved": retirementDefaultPreserved,
             "malformedRetirementRejected": malformedRetirementRejected,
             "displayValid": displayValid,
+            "canvasFitValid": canvasFitValid,
+            "canvasFitNumericRejected": canvasFitNumericRejected,
             "displayCadenceValid": displayCadenceValid,
             "debugTopologyPreservesCadence": debugTopologyPreservesCadence(),
             "cadenceEventValid": cadenceEventValid,

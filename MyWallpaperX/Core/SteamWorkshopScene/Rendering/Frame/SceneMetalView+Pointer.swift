@@ -76,7 +76,7 @@ extension SceneMetalView {
         let buttonIsDown = primaryButtonIsDown ?? (NSEvent.pressedMouseButtons & 1 != 0)
         guard let sample = SceneSurfacePointerEvent.sample(
             localPosition: local,
-            bounds: bounds,
+            bounds: metalLayer.frame,
             primaryButtonIsDown: buttonIsDown
         ) else {
             setPointerOutside(primaryButtonIsDown: buttonIsDown)

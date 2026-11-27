@@ -169,6 +169,8 @@ extension SceneDesktopWallpaperHost {
         presentationDeadline?.cancel()
         presentationDeadline = nil
         unconfirmedPromotion = nil
+        // A drawable resize would invalidate the candidate's first-frame proof.
+        activeSession?.fitsCanvas = fitsCanvas
         promotion.previous?.launchContext?.sceneScriptStorageSession?.retirePersistence()
         activeSession?.launchContext?.sceneScriptStorageSession?.activatePersistence(
             replacing: promotion.previous?.launchContext?.sceneScriptStorageSession)

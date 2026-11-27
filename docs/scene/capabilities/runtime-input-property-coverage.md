@@ -148,6 +148,15 @@ Session 共享一个 DynamicTextTextureStore，按内容/样式签名和 generat
 
 验收核可重现的下越字形、合格在框字体、初始/更新同像素、资源改名、三种纵向锚点、原装饰及封顶情况，再核原作者的滚动和文字环、独立 named 文字及普通锚点文字。原作者和官方行为的已证范围归[运行证据](runtime-evidence-current.md#circular-text-edges)。
 
+<a id="text-fallback-line-metrics"></a>
+### 回退字形与主字体行框
+
+主字体定义行高、首行基线与末行下界，缺字回退只补充实际字形及水平 advance。固定官版色板使用同一份 Alcubierre，中文及混排行距与纯拉丁相同；嵌入同一全覆盖字体时，改用该字体自己的行距。CoreText 默认以回退字体的较高上升量代替该度量，会抬高行框并把后续行推出作者布局。
+
+在现有文字准备中复用原字体和 CoreText 断行。实际字形的行度量和主字体分离时，从主字体的等字号基线取得名义行框，把原行定位于该基线等距序列。原宽度、换行、行数与字形墨迹继续由 CoreText 给出。量测、填色、描边和真实墨迹扩展共用定位，初始和动态内容沿同一来源，普通帧无布局工作。不引入每作品缩放或字体替换。
+
+验收比较同字节主字体的纯汉字、混排与拉丁，覆盖全字符墨迹、实际多行换行、资源改名及独立原包。系统回退字形会因平台不同而有像素差，取证按基线与名义行距区分。
+
 ### 文字 HDR 亮度
 
 文字前景 `brightness` 是 HDR gain，[官方作者说明](https://docs.wallpaperengine.io/en/scene/effects/bloom.html)也将文字列为此选项的消费者。Document 准备 TextStyle 时按已解析的 `hdrEnabled` 采用：非 HDR 为1、HDR保留声明值；原始对象和 Layer 继续保真。初始/动态栅格共用有效样式，替代无条件烘入亮度的采用方式，不向 Store/loader 传 general，也不加普通帧分支。

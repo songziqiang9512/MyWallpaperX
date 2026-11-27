@@ -165,7 +165,7 @@ App 以 10–120 整数保存动画帧率，Scene 启动和热更新沿原数值
 <a id="scene-texture-quality-policy"></a>
 纹理「高质量」沿原物理规格。「高性能」在既有冷准备选择无 padding 的普通静态色图的作者 TEX 尾级。独立局部图在 Program 准备后复用同一选级。首段使用已有归一捕获，后段逐段使用前一段颜色发布。多 pass 可沿已写同帧临时目标传递可证采样的颜色，保原图分配和终端合成。原映射尺寸沿候选交给捕获，作者各段继续按原图内工作规格读取。同一源的布局尺寸、归一 UV、作者颜色／alpha 和采样保持。同一 loader 的原解码缓存按当前源复用已解码尾链，更高基级需求只补前缀，设备纹理按实际起始 mip 区分。整链 TEX 结构、各级标记和显示范围由原准备入口判定，像素只解码实际需要的级。坏像素级仅使包含它的请求失败。独立的作者材质数据、具名供货、粒子像素及动态模型加载全规格，冷准备只为有动态模型查找且能向原目录发布同源、同模型默认纹理的供体保全规格。初始隐藏图在其迟到的资源提交中使用已选高性能档。含 padding、单 mip、数据通道及非适用格式沿原 Loader。偏好与 v8 便携设置沿 Scene 质量快照交付，随原候选重载生效。 [代码入口](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift) · [已验范围](../../development/wallpaper-quality-work-card.md#scene-texture-rollout) · [尾链解码实测](../../development/wallpaper-quality-work-card.md#scene-embedded-selected-mip-decode)
 
-纹理「自动」在同一入口用所选目标 drawable 的最大 cover、固定作者正交尺寸和根层逻辑范围选择可完整覆盖的作者 mip。同源普通使用合并需求。已证独立局部颜色链还按原标准捕获和真实量化逐轴加下限。原优选捕获、动态几何及未知消费者保留原规格。初始隐藏的普通根图由原延迟 worker 在作者显现时消费同一选级计划。保实际同源和足够规格的已发布尾链，上传期间跨阈值先尝试补齐最新需求。成功时释放被替换的独立低级，资源失败沿原在手图像。已接纳的相机／图层动态修改、精确材质、具名、粒子及未证明的共享用途保原规格。实际尾链才进入增长计划。尺寸越界时沿既有基础资源队列用与冷启动相同的 `.minimumExtent` 选级，按实际上传规格决定下一覆盖阈值，到基级即退出。一个在途批次合并更大的 drawable 需求，成功共享更新当前 Surface，失败与缩小继续使用在手图像。原帧资源注册表用一个回滚快照比较旧身份，提交时释放已退休快照，在途 pin 沿 GPU terminal。普通帧没有尺寸策略计算。 原选级原因随纹理候选到普通根色绑定，或沿已有图执行票据在终端实际消费后确认。延迟选级保存在既有资源条目。Surface 以初始、延迟提交与换级后的真实完成帧确认受影响的代表规格，经原逐屏质量事件传到设置。准备纹理但没有确认绑定时继续等待已有绘制，原持久色重呈保最近完成的读数。 [实际回执合同](../../architecture/wallpaper-quality-execution-contract.md#quality-textures) · [Auto 取证和失败边界](../../development/wallpaper-quality-work-card.md#scene-texture-auto)
+纹理「自动」在同一入口用所选目标窗的像素上界、固定作者正交尺寸和根层逻辑范围选择可完整覆盖的作者 mip，安装后按实际 drawable 热升。保持原尺寸时，冷启动可能选用高于内接画幅需求的作者级。同源普通使用合并需求。已证独立局部颜色链还按原标准捕获和真实量化逐轴加下限。原优选捕获、动态几何及未知消费者保留原规格。初始隐藏的普通根图由原延迟 worker 在作者显现时消费同一选级计划。保实际同源和足够规格的已发布尾链，上传期间跨阈值先尝试补齐最新需求。成功时释放被替换的独立低级，资源失败沿原在手图像。已接纳的相机／图层动态修改、精确材质、具名、粒子及未证明的共享用途保原规格。实际尾链才进入增长计划。尺寸越界时沿既有基础资源队列用与冷启动相同的 `.minimumExtent` 选级，按实际上传规格决定下一覆盖阈值，到基级即退出。一个在途批次合并更大的 drawable 需求，成功共享更新当前 Surface，失败与缩小继续使用在手图像。原帧资源注册表用一个回滚快照比较旧身份，提交时释放已退休快照，在途 pin 沿 GPU terminal。普通帧没有尺寸策略计算。 原选级原因随纹理候选到普通根色绑定，或沿已有图执行票据在终端实际消费后确认。延迟选级保存在既有资源条目。Surface 以初始、延迟提交与换级后的真实完成帧确认受影响的代表规格，经原逐屏质量事件传到设置。准备纹理但没有确认绑定时继续等待已有绘制，原持久色重呈保最近完成的读数。 [实际回执合同](../../architecture/wallpaper-quality-execution-contract.md#quality-textures) · [Auto 取证和失败边界](../../development/wallpaper-quality-work-card.md#scene-texture-auto)
 
 增加新的性能档位前，先以可比CPU/GPU、内存、启动或能耗证据确定取舍，再在原prepare入口形成被真实Program/资源/后处理消费者使用的有效策略，质量只控制对应能力和采样/分辨率等实际成本。当前不先建空enum、仅透传对象、第二配置owner/cache或无消费者的uniform位；普通帧不重读UI、不重编或重复判档位。策略改变沿原受影响资源/Program准备与提交寿命更新，不分叉作者时钟、材质算法或最终输出。每项降档须说明具体画面代价，保作者控制、遮挡和健康peer，并退出被替代的旧决策；不能把缺功能、采集过载或未归因暗图称为性能优化。
 
@@ -290,6 +290,17 @@ disjoint 准备空窗不退休 Session 的用户贴图请求。原 Session 在�
 验收先在真实 Session 方法核同请求图片/视频 prime 的空窗提交、reset/坏资源保旧、新 revision 与 stop/context/registry/device/program/取消反例；控制边界不冒充解码或 GPU。App 复用原 A→B/准备队列和 DEBUG runner，以原协议解码一笔纹理输入交 Host，核更新提交及完成时 actual=0、同 Session/request、新 B 实际纹理采样→main/seal/GPU与固定像素；未命中空窗即停止资格，不调整结果阈值。自然预热与受控 queued gate 分别记录，不把 queued 称运行中 worker。direct Host 只授其实际纵向链，不代 Service/IPC 同次交付；终态回流、全部暂停属性/视频连续及真实多屏仍独立取证。
 
 验收复用按需DEBUG快照、原App及输入/退休门：按displayID核实例/真实几何、playing进展和paused VM/frame/sprite/root/active-child观测值，像素、allocation/GPU和capture终态继续归原门。DEBUG同集合事件先真缩窗再恢复live几何；移除事件只从原resolver结果取非空子集，交与normal debounce共用的实际协调步骤，不改env屏数冒充物理拓扑、不存override/cache。2→1/3→1须保survivors、精确退休差集、保健康输入重试、撤removed重试及物理按住反例；真实removed导出尾期间健康屏可提交，stop-before-drain仍等原尾。暂停/恢复诊断只比同次resume前后成员，不因dwell期间合法缩减误报恢复失败。新增 A→AB、混合 AB→BC、disjoint A→B 与空解析分别验真实 worker、当前输入/意图对齐、取消/失败及退出尾；长准备期间 retained 必须有真实输出，paused 不得增加 VM cadence。DEBUG accepted暂停截图仅标目标Surface需提交并唤醒原frozen driver，不借内容失效撤cohort、不重跑VM/清graph，也不因拒绝/playing请求重启cadence。初始新增屏的长starttime、准备期间size/rate/CP edit、stop/emit/destroy、晚取消仍独立验收；单物理屏的多个DEBUG View不授真实多屏、物理缩放/EDR、严格RNG轨迹同态、媒体连续或性能。
+
+<a id="scene-display-fit"></a>
+### 壁纸填充模式与 Scene 画幅
+
+显示设置的「壁纸填充模式」同时适用于 Video 与 Scene。沿用既有 `WallpaperSettings.videoFillMode` 持久化字段、导入值和默认「填充屏幕」，由它裁决启动、导入、重置和热更新。Video 继续原 `setFillMode` 镜像及 daemon 命令。选择「保持原尺寸」时，有有效正交画布的 Scene 按作者比例居中完整显示，余下区域以黑色填充。原生透视和未声明有效画幅的 Scene 沿原方式。此设置与作者属性独立，保留屏幕锚点。
+
+设置按原差分投影把当前模式送入 Scene daemon，并在提交每笔加载前重放。Host 供当前及新建 Session 和 Surface。准备中的候选在既有首次呈现交接后采用最新值，回滚由原会话配置同步。原 Scene 独立偏好和偏好广播退出。Surface View 在窗口尺寸、backing 或模式变动时求内接矩形，一块现有 CAMetalLayer 按此矩形配置 drawable。GPU、画布/屏幕锚点、SceneScript 的当前输出分辨率及视口相关特效共同消费实际 drawable，指针同用其显示矩形，留边不触发普通命中。变化沿原尺寸失效与冻结帧重绘，输出读回代表 drawable 内容，作者缩放/平移继续作用于该 drawable。
+
+Video 的画幅过渡由 AVPlayerLayer 对同一视频做缩放及裁切。Scene 的屏幕锚点、输入和尺寸相关渲染目标都取自实际画幅。Scene 切换在同一次尺寸更新采用新画幅。正常模拟帧按该画幅投影指针，冻结重绘继续消费已有输入样本。
+
+验收核旧 Video 偏好和导入值、同一选择热送两端、Scene daemon 重连与新启动的首次布局，以及等比、宽、窄和无正交尺寸。真实原包比较两种模式，核原贴边 HUD、热切、暂停与窗口像素。
 
 ## 线程与销毁
 

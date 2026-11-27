@@ -181,6 +181,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     private var screenParametersObserver: NSObjectProtocol?
     var shutdownCompletions: [(generations: Set<UInt64>, completion: () -> Void)] = []
     var displayConfiguration = SceneScreenTopology.capture()
+    var fitsCanvas = false
     var configuredAnimationCadenceLimit: Double { SceneScreenTopology.cadenceLimit(for: displayConfiguration) }
 
     func notifyAnimationCadenceChanged() {
@@ -739,6 +740,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             requestResourceLifetimes[requestID] = lifetime
         }
         sendDisplayConfiguration()
+        setCanvasFit(fitsCanvas)
         var textures: [String: [String: Any]] = [:]
         textures.reserveCapacity(request.userPropertyTextures.count)
         for (key, reference) in request.userPropertyTextures {

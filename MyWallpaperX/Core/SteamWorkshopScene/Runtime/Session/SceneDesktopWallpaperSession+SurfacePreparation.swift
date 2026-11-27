@@ -278,7 +278,8 @@ extension SceneDesktopWallpaperSession {
                     [weak firstFramePresentationRegistration] drawable in
                     firstFramePresentationRegistration?.arm(on: drawable) ?? false
                 },
-                frame: frame
+                frame: frame,
+                fitsCanvas: fitsCanvas
             ) else {
                 _ = prepared.playback.teardown(reason: "surfaceUnavailable")
                 continue

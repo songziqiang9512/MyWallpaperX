@@ -2,6 +2,19 @@ import CoreGraphics
 import simd
 
 nonisolated enum SceneCameraProjection {
+    static func fittedCanvasRect(
+        in bounds: CGRect, orthoWidth: Float?, orthoHeight: Float?
+    ) -> CGRect {
+        guard let orthoWidth, let orthoHeight,
+              orthoWidth.isFinite, orthoHeight.isFinite, orthoWidth > 0, orthoHeight > 0
+        else { return bounds }
+        let aspect = CGFloat(orthoWidth) / CGFloat(orthoHeight)
+        let width = min(bounds.width, bounds.height * aspect)
+        let height = min(bounds.height, bounds.width / aspect)
+        return CGRect(x: bounds.midX - width / 2, y: bounds.midY - height / 2,
+                      width: width, height: height)
+    }
+
     nonisolated static func imageCardYDirection(
         usesPerspective: Bool, sceneOrthoHeight: Float?
     ) -> Float {

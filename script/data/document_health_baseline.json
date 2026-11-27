@@ -102,7 +102,7 @@
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 164160
+      "bytes": 164608
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -117,8 +117,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 309,
-      "bytes": 67964
+      "lines": 320,
+      "bytes": 69951
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -134,7 +134,7 @@
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 73,
-      "bytes": 6248
+      "bytes": 6263
     },
     "docs/scene/capabilities/README.md": {
       "lines": 31,
@@ -166,11 +166,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 427123
+      "bytes": 429403
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 177,
-      "bytes": 30726
+      "lines": 186,
+      "bytes": 31858
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -643,11 +643,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "51ab0c44e7ee50643e905f9f62e62c2451dec75db0bc1757d8f8ca88f64c2c57",
-      "after": "01ab3b1eee3aadf18ef6654299f22c0bd42cbde422fe25052b0f14eab0a27404",
-      "owner": "Scene input and playback quality",
-      "reason": "Preserve the upstream author-world puppet behavior and existing quality evidence.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#cursor-puppet-surface"
+      "before": "01ab3b1eee3aadf18ef6654299f22c0bd42cbde422fe25052b0f14eab0a27404",
+      "after": "185a0f227ba013f6bd53cabff782d84d424a7ca531b0674a1b04b994ff83a4bc",
+      "owner": "Scene text",
+      "reason": "记录回退字形沿主字体基线定位。",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#text-fallback-line-metrics"
     },
     {
       "section": "bodies",
@@ -697,11 +697,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "97b9ffd83f32d1a3f32a02917a79535b75793e424b6d7f6cfbac8f652a6c473f",
-      "after": "f27d5e753e056691daf33c58a240c4247456a9774aa9338f8e5e91a3e881dcb1",
+      "before": "f27d5e753e056691daf33c58a240c4247456a9774aa9338f8e5e91a3e881dcb1",
+      "after": "f4bde376c528f47e820c8a99fbc7cb316baaa4f6e8ed8b9731ef3150735f9409",
       "owner": "Scene runtime evidence",
-      "reason": "记录 Shimmer 封面与默认渐变的官版本机同色板和原包 GPU 绑定。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#active-media-effect-gaps-20261127"
+      "reason": "记录原包画幅、文字行框和共用填充模式的真 daemon 热切。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#scene-text-layout-engine-20261128"
     },
     {
       "section": "bodies",
@@ -733,20 +733,29 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "d518c20b1f804c5ac625baf6a205065ca6ab9166d09263d51fe1472401dcd317",
-      "after": "1f629b05e2decb68bc1798f24d7e00c8c4ff9a79f92f48e0d475f35af37d56f6",
+      "before": "1f629b05e2decb68bc1798f24d7e00c8c4ff9a79f92f48e0d475f35af37d56f6",
+      "after": "64a04d440a2e683abbc30e0da9b7fb344eef7052e1e1042b28651fbfc4025e1b",
       "owner": "wallpaper quality execution",
-      "reason": "记录两个独立原作、切档和局部多 pass 反例。",
+      "reason": "记录同步主线后的两作原生切档和实际取景边界。",
       "decision": "docs/development/wallpaper-quality-work-card.md#scene-effect-multipass-delivery"
     },
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "3b266bae6595e9761fe1e77d66ff88f5c42a4bd99398e27dbf317719ea938605",
-      "after": "9109dc6b7c53546e29c6e79d312ecee527875956236d12d2573fedb51bad22f1",
-      "owner": "Scene rendering",
-      "reason": "同步临时目标、准备、帧实际消费和选级。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-effect-color-mip"
+      "before": "9109dc6b7c53546e29c6e79d312ecee527875956236d12d2573fedb51bad22f1",
+      "after": "3539cbf18cacab234bbcd636b1fcf7825b6858b10405ccc7b0a631fb8a05f17e",
+      "owner": "Scene Surface geometry",
+      "reason": "记录共享取景、冻结输入边界与 Auto 冷端窗口上界。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#scene-display-fit"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
+      "before": "64c2a894f55294e3ef857dfcfd832213caf042a1c81159341e26d2e548e32d02",
+      "after": "3239e0165870a1523058f25d08c71b2c42481b06a23bb2c9886563cc3112d0f3",
+      "owner": "Scene daemon IPC",
+      "reason": "登记窗口填充模式的控制入口。",
+      "decision": "docs/scene/architecture/scene-runtime-daemon-contract.md#protocol"
     }
   ]
 }
