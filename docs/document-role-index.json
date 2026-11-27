@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a3259385180d9359c9bd5e73bd79cd7318d8b8d118b42298b7d9268af1497336",
+        "sourceSHA256": "b7aee9a70521a542d4100eac548fec7d2bd6a10580b57edab7f67cb2fd8ae96d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核计算模型路径及全场 Auto 几何边界。",
-        "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
+        "scope": "核隐藏同源局部图参与现有 Auto 尺寸合并的语义。",
+        "limitations": "单内屏签名 Debug 的冷端纹理绑定、终图与分配。候选热切、持续实呈和功耗未测。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3337281f5677c3f2e0d4d5420fcd3fa60d8337c64e2ab275e51bfe76929a0209",
+        "sourceSHA256": "7a96335a2639c32a325f050c5e44fb194f6982e1ab06bb0231e9d09910f4233c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核原目录保护、正常 Auto 保留与隐藏同源试验的验收。",
-        "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
+        "scope": "核隐藏同源冷端试验的退出与重新进入条件。",
+        "limitations": "单内屏签名 Debug 的冷端纹理绑定、终图与分配。候选热切、持续实呈和功耗未测。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "69ae7f7ad76b7a974409d8dbfbef4313048791336ef089297f1a98a31bd3da6f",
+        "sourceSHA256": "c87222e68536a1ef3337dd0130b9084b02ff123bd4e39aeeae5248bf50124d8a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核真实旧版丢层、作者脚本修复与两部独立正控。",
-        "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
+        "scope": "核独立作者样本、终图、纹理分配和原型退出。",
+        "limitations": "单内屏签名 Debug 的冷端纹理绑定、终图与分配。候选热切、持续实呈和功耗未测。"
       }
     },
     {

@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 174,
-      "bytes": 36398
+      "bytes": 36674
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 198150
+      "bytes": 198799
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 178010
+      "bytes": 179966
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -724,29 +724,29 @@
     {
       "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "6dd80a778b520dfcd4245b727b47d5971b16737ae2672d4b977c8655fe2c0204",
-      "after": "5338bbe832f83f0edd2cc3ad51f4ef78a0daa016fe48895efe32f9581d403e67",
-      "owner": "Scene script owner construction",
-      "reason": "核计算模型路径及全场 Auto 几何边界。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-computed-model"
+      "before": "5338bbe832f83f0edd2cc3ad51f4ef78a0daa016fe48895efe32f9581d403e67",
+      "after": "52ef72faa8e272efee81be208c84bbd1f67b5f9f4c2b2d0150801102b1938f55",
+      "owner": "wallpaper-quality",
+      "reason": "明确隐藏局部图参与现有 Auto 同源需求。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-dormant-source"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "9c96c9787ecb941886496ac5bf377a75d9effcdd6724b3cb29653f249bc200a1",
-      "after": "d91c4d599a200b83d46a88e2fb2d0a31916803ad6f5d96d8297843aa9d66792f",
-      "owner": "Scene script owner construction",
-      "reason": "核原目录保护、正常 Auto 保留与隐藏同源试验的验收。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-computed-model"
+      "before": "d91c4d599a200b83d46a88e2fb2d0a31916803ad6f5d96d8297843aa9d66792f",
+      "after": "32cc618f405368f7aaae3e21a2607760d933c97dec3faca9d32d2bfb8cf12965",
+      "owner": "wallpaper-quality",
+      "reason": "登记隐藏同源原型退场与重新取证条件。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-dormant-source"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "1809100fc55c10d6846b06baa5e72627a12b6000a4153ad85df770fd66cdf88a",
-      "after": "8d0d4411d5951b4cc84c8e48ebdbac3d7328e5c449f0c58d408797936464bfc7",
-      "owner": "Scene script owner construction",
-      "reason": "核真实旧版丢层、作者脚本修复与两部独立正控。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-computed-model"
+      "before": "8d0d4411d5951b4cc84c8e48ebdbac3d7328e5c449f0c58d408797936464bfc7",
+      "after": "a9cbadc09778dceae69a1594ccd0200dfca97fb94bca809df33f6c6e90f66d32",
+      "owner": "wallpaper-quality",
+      "reason": "记录冷端纹理的真实分配、终图和样本边界，安排持续实呈测试。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-dormant-source"
     },
     {
       "section": "bodies",
