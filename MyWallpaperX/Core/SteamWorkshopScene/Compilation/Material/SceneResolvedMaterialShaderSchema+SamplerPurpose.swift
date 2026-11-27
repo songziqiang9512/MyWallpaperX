@@ -155,12 +155,6 @@ extension SceneResolvedMaterialShaderSchema {
               sampler.materialKey == nil,
               sampler.mode == .regular,
               sampler.defaultTexture == nil,
-              samplers.allSatisfy({ slot, auxiliary in
-                  slot == 0 || hasAuthoredAuxiliarySource(
-                      sampler: auxiliary,
-                      slot: template.textureSlots[slot]
-                  )
-              }),
               template.textureSlots.enumerated().allSatisfy({ index, slot in
                   guard index != 0, let slot else { return true }
                   return slot.candidates.allSatisfy { candidate in
@@ -169,24 +163,6 @@ extension SceneResolvedMaterialShaderSchema {
                   }
               }) else { return [] }
         return [0]
-    }
-
-    /// An explicit non-graph authored candidate proves only that this sampler
-    /// is an auxiliary rather than a competing implicit graph input. Its load
-    /// purpose remains a separate Program admission contract and may still
-    /// fail closed without erasing the valid slot-zero previous/current role.
-    private nonisolated static func hasAuthoredAuxiliarySource(
-        sampler: Sampler,
-        slot: Template.TextureSlot?
-    ) -> Bool {
-        if explicitPurpose(for: sampler.mode) != nil || hasTypedAuxiliaryDefault(sampler) {
-            return true
-        }
-        guard let slot, !slot.candidates.isEmpty else { return false }
-        return slot.candidates.allSatisfy { candidate in
-            if case .graph = candidate.reference { return false }
-            return true
-        }
     }
 }
 
@@ -296,11 +272,6 @@ extension SceneResolvedMaterialShaderSchema {
         }
     }
 
-    nonisolated static func hasTypedAuxiliaryDefault(_ sampler: Sampler) -> Bool {
-        guard case let .asset(path)? = sampler.defaultTexture else { return false }
-        return Self.purpose(for: .asset(path), sampler: sampler) != nil
-    }
-
     nonisolated static func hasExplicitNonColorPurpose(_ sampler: Sampler) -> Bool {
         if explicitPurpose(for: sampler.mode) != nil { return true }
         return switch sampler.materialKey?.lowercased() {
@@ -328,8 +299,11 @@ extension SceneResolvedMaterialShaderSchema {
         template: Template, sampler: Sampler, hasFormatCombo: Bool
     ) -> SceneSystemProviderTextureIdentity? {
         let slot = sampler.slot
-        guard template.effectContext != nil, slot > 0,
-              permitsOrdinarySourcePurpose(sampler),
+        let unassignedHiddenSampler = sampler.isHidden && sampler.mode == .regular
+            && sampler.materialKey == nil && template.textureSlots[slot] == nil
+            && (slot > 0 || !template.graphRole.bindings.isEmpty)
+        guard template.effectContext != nil,
+              (slot > 0 && permitsOrdinarySourcePurpose(sampler)) || unassignedHiddenSampler,
               sampler.defaultTexture == nil, sampler.formatKey == nil,
               sampler.readinessCombo == nil, !hasFormatCombo,
               !template.graphRole.bindings.contains(where: { $0.slot == slot }),

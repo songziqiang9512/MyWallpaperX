@@ -126,11 +126,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 493,
-      "bytes": 97866
+      "bytes": 98367
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 409618
+      "bytes": 410285
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 58,
-      "bytes": 8378
+      "lines": 57,
+      "bytes": 8076
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "feeca538834cdd9deeaee04d487efd1facde1e29c2cdc16fa312d27ff6d71aed",
-      "after": "e4b7149c25ea4dcbc2c3f923b7088f18b247863a3f827c9777515635efcbc5ad",
-      "owner": "Scene render graph",
-      "reason": "明确截取与首段共享编码器、其它槽别名和后继读取规则。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#childless-composition-local-effect-raster"
+      "before": "e4b7149c25ea4dcbc2c3f923b7088f18b247863a3f827c9777515635efcbc5ad",
+      "after": "2ad1ebdda1c48c9abf9c2d2eb8a023dea80048a97ac978bc7a2a4f87898fbfc9",
+      "owner": "Scene texture admission",
+      "reason": "以官版槽位实验修订普通活动槽的缺省采样与阶段入口的独立判定。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#missing-ordinary-material-texture"
     },
     {
       "section": "bodies",
@@ -658,11 +658,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f50b1c5377c5a3397d36aa667376cdfda7716e6a4e61615fc55a617897d5a522",
-      "after": "c6792f4b0faac22885a329be6ab3dfea30eeb907843ecff20d481f81db6af3ae",
+      "before": "c6792f4b0faac22885a329be6ab3dfea30eeb907843ecff20d481f81db6af3ae",
+      "after": "4c09ae78503c44cafa63050f337d3109011357810771dc4da5745aa2502bd26a",
       "owner": "Scene runtime evidence",
-      "reason": "记录同像素首段合并的作者输入、正反例与受控稳态成本。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#first-captured-material-367"
+      "reason": "记录实际媒体封面的双遍绘制、官版同尺寸差图和独立反例。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#precise-blur-hidden-samplers"
     },
     {
       "section": "bodies",
