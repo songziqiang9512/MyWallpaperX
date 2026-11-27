@@ -62,7 +62,8 @@ extension SceneMetalView {
             : bounds
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        metalLayer.frame = contentRect
+        metalLayer.bounds = CGRect(origin: .zero, size: contentRect.size)
+        metalLayer.position = CGPoint(x: contentRect.midX, y: contentRect.midY)
         layer?.backgroundColor = contentRect == bounds ? nil : CGColor(gray: 0, alpha: 1)
         metalLayer.contentsScale = scale
         let pixelSize = CGSize(
@@ -74,9 +75,16 @@ extension SceneMetalView {
             metalLayer.drawableSize = pixelSize
         }
         CATransaction.commit()
-        guard sizeChanged else { return }
-        if (renderer.renderDescriptor.persistsSceneColor && !camera.clearEnabled)
-            || renderer.hasPreparedReflectionConsumers {
+        if sizeChanged { invalidateFramingOutput() }
+    }
+
+    var keepsSceneColorHistory: Bool {
+        let descriptor = renderer.renderDescriptor
+        return descriptor.persistsSceneColor && !descriptor.camera.clearEnabled
+    }
+
+    func invalidateFramingOutput() {
+        if keepsSceneColorHistory || renderer.hasPreparedReflectionConsumers {
             invalidateResolvedMaterialRuntime(reason: .allocationReprepare)
         } else {
             onRenderInvalidated?()

@@ -277,8 +277,8 @@ extension Harness {
         print(String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self))
     }
 
-    static func videoObservation(_ source: SceneVideoTextureSource, sceneTime: Double = 0) -> [String: Any] {
-        guard let snapshot = source.playbackSnapshot(sceneTime: sceneTime) else { return ["available": false] }
+    static func videoObservation(_ source: SceneVideoTextureSource, hostTime: Double = 0) -> [String: Any] {
+        guard let snapshot = source.playbackSnapshot(hostTime: hostTime) else { return ["available": false] }
         return ["available": true, "duration": snapshot.duration, "currentTime": snapshot.currentTime]
     }
 
@@ -299,9 +299,9 @@ extension Harness {
             return false
         }
         let heldTiming = timing()
-        registry.pause(sceneTime: heldTiming.sceneTime, hostTime: heldTiming.hostTime)
+        registry.pause(hostTime: heldTiming.hostTime)
         let paused = player(source).rate == 0
-        let heldTime = source.playbackSnapshot(sceneTime: heldTiming.sceneTime)!.currentTime
+        let heldTime = source.playbackSnapshot(hostTime: heldTiming.hostTime)!.currentTime
         var returnedStaleFrame = false
         let refreshed = pump(0.8) {
             let time = timing()
@@ -318,7 +318,7 @@ extension Harness {
             returnedStaleFrame = returnedStaleFrame || !current
             return current
         }
-        registry.resume(sceneTime: timing().sceneTime, hostTime: CACurrentMediaTime())
+        registry.resume(hostTime: CACurrentMediaTime())
         return (paused, !dormantAcquired && refreshed && !returnedStaleFrame)
     }
 

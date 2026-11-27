@@ -34,6 +34,7 @@ struct ResolvedWebStaticContentSummary {
 @MainActor final class SceneDaemonClient {
     static let shared = SceneDaemonClient()
     func preparedCallbackPropertyKeys(for recordID: String, source: ScenePreparedCallbackPropertyReachability.Source?) -> Set<String> { [] }
+    func updatePresentation(_ value: ScenePlaybackPresentation, recordID: String) {}
 }
 struct NativeWebDescriptor {
     let propertyDefinitions: [SteamWorkshopWebPropertyDefinition]
@@ -91,6 +92,7 @@ struct NativeWebDescriptor {
 @MainActor final class SteamWorkshopService {
     static let shared = SteamWorkshopService()
     let objectWillChange = ObservableObjectPublisher()
+    let defaults = UserDefaults(suiteName: "com.songziqiang.MyWallpaperX.Debug.NativeProperties." + UUID().uuidString)!
     var overrides: [String: SceneUserPropertyValue] = [:]
     var events: [(String, SceneUserPropertyValue)] = []
     var textureURL: URL?
@@ -136,6 +138,7 @@ struct NativeWebDescriptor {
     }
     func resetScenePropertyValues(for record: SteamWorkshopDownloadRecord,
                                   defaultValues: [String: SceneUserPropertyValue], completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void) {
+        _ = updateScenePresentation(for: record) { $0 = .init() }
         resetDefaults = defaultValues
         resetReplies.append(completion)
     }
@@ -312,7 +315,7 @@ extension NSCollectionView {
         formatField.stringValue = "HH:mm:ss"
         delegate.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: formatField))
         precondition(service.events.count == before + 1 && service.events.last?.1 == .string("HH:mm:ss"))
-        let reset = descendants(editor, NSButton.self).first { $0.title == "恢复默认" }!
+        let reset = descendants(editor, NSButton.self).first { $0.title == String(localized: "Restore Defaults") }!
         let well = control("tint", NSColorWell.self)
         let beforeDrop = service.events.count
         let drop = ColorDropInfo(well: well, color: NSColor(deviceRed: 0.4, green: 0.5, blue: 0.6, alpha: 1))
@@ -344,7 +347,7 @@ extension NSCollectionView {
         service.objectWillChange.send()
         for _ in 0..<5 { RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.001)) }
         let textureCell = table.realizedCell(row("cover"))
-        let clear = descendants(textureCell, NSButton.self).first { $0.toolTip == "恢复作者提供的默认纹理" }!
+        let clear = descendants(textureCell, NSButton.self).first { $0.toolTip == String(localized: "Restore Author’s Default Textures") }!
         clear.performClick(nil)
         service.textureURL = URL(fileURLWithPath: "/own/restored.png")
         service.textureReplies.removeFirst()(.applied)
@@ -388,9 +391,9 @@ extension NSCollectionView {
             let list = descendants(view, NSCollectionView.self).first!
             precondition(list.itemCount == 7)
             for (row, expected) in [
-                (1, "作者动作\n不支持的类型：" + runtimeType.lowercased()),
-                (2, note + "\n缺少类型"), (3, "条件未知项\n不支持的类型：futuretype"),
-                (6, "未命名属性\n缺少类型")
+                (1, "作者动作\n" + String(localized: "Unsupported type: \(runtimeType.lowercased())")),
+                (2, note + "\n" + String(localized: "Missing Type")), (3, "条件未知项\n" + String(localized: "Unsupported type: \("futuretype")")),
+                (6, String(localized: "Unnamed Property") + "\n" + String(localized: "Missing Type"))
             ] {
                 let cell = list.realizedCell(row)
                 let labels = descendants(cell, NSTextField.self)
@@ -423,8 +426,8 @@ extension NSCollectionView {
                     styleMask: [.titled], backing: .buffered, defer: false)
                 onlyOwner.contentView = only; onlyOwner.makeKeyAndOrderFront(nil); only.layoutSubtreeIfNeeded()
                 let onlyList = descendants(only, NSCollectionView.self).first!
-                precondition(onlyList.itemCount == 3 && descendants(only, NSButton.self).allSatisfy(\.isHidden),
-                    "unknown-only presentations must show their rows without a reset action")
+                precondition(onlyList.itemCount == 3 && descendants(only, NSButton.self).first { $0.title == String(localized: "Restore Defaults") }?.isEnabled == false,
+                    "unknown-only presentations must show their rows with the reset action disabled")
                 precondition(descendants(only, NSTextField.self).allSatisfy { !$0.isEditable })
                 onlyOwner.contentView = nil; onlyOwner.close()
             }
@@ -446,8 +449,8 @@ extension NSCollectionView {
                 styleMask: [.titled], backing: .buffered, defer: false)
             dependentOwner.contentView = dependent; dependentOwner.makeKeyAndOrderFront(nil); dependent.layoutSubtreeIfNeeded()
             let dependentList = descendants(dependent, NSCollectionView.self).first!
-            precondition(dependentContext().actionableDefinitions.isEmpty && dependentContext().hasEditorControls
-                && dependentList.itemCount == 2, "condition-only controllers remain actual editor controls")
+            precondition(dependentContext().actionableDefinitions.isEmpty && dependentList.itemCount == 2,
+                "condition-only controllers remain actual editor controls")
             let dependentGate = descendants(dependentList.realizedCell(1), NSButton.self).first!
             dependentGate.state = .off; dependentGate.sendAction(dependentGate.action, to: dependentGate.target)
             precondition(dependentList.itemCount == 0 && service.overrides[gateKey] == .bool(false),
@@ -458,7 +461,7 @@ extension NSCollectionView {
                 styleMask: [.titled], backing: .buffered, defer: false)
             reopenedOwner.contentView = reopened; reopenedOwner.makeKeyAndOrderFront(nil); reopened.layoutSubtreeIfNeeded()
             let reopenedList = descendants(reopened, NSCollectionView.self).first!
-            let recover = descendants(reopened, NSButton.self).first { $0.title == "恢复默认" }!
+            let recover = descendants(reopened, NSButton.self).first { $0.title == String(localized: "Restore Defaults") }!
             precondition(reopenedList.itemCount == 0 && !recover.isHidden,
                 "reset must remain available after all condition-only rows hide and the panel reopens")
             recover.performClick(nil); service.finishReset(.applied)
@@ -513,7 +516,7 @@ extension NSCollectionView {
         let retired = descendants(mixedTable.realizedCell(0), NSColorWell.self).first!
         retired.activate(true)
         mixedTable.scrollToRow(100); mixedTable.layoutSubtreeIfNeeded(); mixedWindow.displayIfNeeded()
-        let resetMixed = descendants(mixedEditor, NSButton.self).first { $0.title == "恢复默认" }!
+        let resetMixed = descendants(mixedEditor, NSButton.self).first { $0.title == String(localized: "Restore Defaults") }!
         resetMixed.performClick(nil)
         service.finishReset(.applied)
         precondition(!retired.isActive, "offscreen well must retire or be reached by reset")
@@ -578,7 +581,7 @@ extension NSCollectionView {
         gate.state = .on; gate.sendAction(gate.action, to: gate.target)
         chooseImage()
         let resetReply = PickerProbe.opened.last!
-        descendants(pickerEditor, NSButton.self).first { $0.title == "恢复默认" }!.performClick(nil)
+        descendants(pickerEditor, NSButton.self).first { $0.title == String(localized: "Restore Defaults") }!.performClick(nil)
         service.finishReset(.applied)
         resetReply.finish(.OK)
         precondition(resetReply.cancellations == 1 && service.textureReplies.isEmpty,
@@ -630,15 +633,15 @@ extension NSCollectionView {
         service.textureReplies.removeFirst()(.failed("hidden editor"))
         pickerEditor.isHidden = false
         precondition(status.isHidden, "a hidden editor must ignore its late result")
-        descendants(pickerEditor, NSButton.self).first { $0.title == "恢复默认" }!.performClick(nil)
+        descendants(pickerEditor, NSButton.self).first { $0.title == String(localized: "Restore Defaults") }!.performClick(nil)
         precondition(service.resetReplies.count == 1 && status.isHidden, "reset must await its real outcome")
         service.finishReset(.failed("partial reset"))
-        precondition(!status.isHidden && status.stringValue.contains("部分"), "partial reset failure must be visible")
-        descendants(pickerEditor, NSButton.self).first { $0.title == "恢复默认" }!.performClick(nil)
+        precondition(!status.isHidden && status.stringValue == String(localized: "Some properties couldn’t be reset to defaults, so your original choices were kept."), "partial reset failure must be visible")
+        descendants(pickerEditor, NSButton.self).first { $0.title == String(localized: "Restore Defaults") }!.performClick(nil)
         service.finishReset(.superseded)
         precondition(status.isHidden, "superseded reset is silent")
         for staleReset in [ScenePlaybackTextureUpdateOutcome.failed("obsolete reset"), .applied] {
-            descendants(pickerEditor, NSButton.self).first { $0.title == "恢复默认" }!.performClick(nil)
+            descendants(pickerEditor, NSButton.self).first { $0.title == String(localized: "Restore Defaults") }!.performClick(nil)
             chooseImage(); PickerProbe.opened.last!.finish(.OK)
             service.textureReplies.removeFirst()(.failed("new image selection"))
             let newSelectionMessage = status.stringValue
@@ -777,8 +780,9 @@ enum InspectorHostActions {
             "last row must return ownership to the original window key loop")
         let firstAgain = control(0, NSButton.self)
         precondition(window.makeFirstResponder(firstAgain))
-        precondition(!editor.focusNextPropertyControl(from: window.firstResponder, reverse: true),
-            "first row must return ownership to the original window key loop")
+        precondition(editor.focusNextPropertyControl(from: window.firstResponder, reverse: true))
+        precondition((window.firstResponder as? NSButton)?.accessibilityLabel() == String(localized: "Show Common Adjustments"),
+            "the first author row must return to the common disclosure when it is collapsed")
         let chrome = descendants(window.contentView!, NSButton.self).filter { !$0.isDescendant(of: list) }
         precondition(chrome.count == 1, "reset belongs to the scrollable list, only close remains in chrome")
         // AppKit's native canBecomeKeyView still uses the real system preference,
@@ -811,7 +815,8 @@ enum InspectorHostActions {
                                  "all sparse rows must be visible")
                     return sparseList.collectionViewLayout!.layoutAttributesForItem(at: IndexPath(item: index, section: 0))!.frame
                 }
-                let expectedTop: CGFloat = sparseContext.hasEditorControls ? 40 + WorkshopPropertyPanelLayout.rowSpacing : 0
+                let expectedTop = (sparseList.collectionViewLayout as! NSCollectionViewFlowLayout).headerReferenceSize.height
+                precondition(expectedTop > 40, "the common controls also have a header above author notes")
                 precondition(abs(frames[0].minY - expectedTop) < 1 && zip(frames, frames.dropFirst()).allSatisfy { first, second in first.maxY <= second.minY + 0.5 },
                              "two/three authored rows must start at the top and follow their natural order")
                 let firstRect = window.contentView!.convert(frames[0], from: sparseList)
@@ -834,6 +839,67 @@ enum InspectorHostActions {
             }
         }
         print("native sparse top-aligned text/control panels PASS", sparseCases)
+
+        let transitionDefinitions = [definition("author text", .textInput)] + definitions
+        let transitionCatalog = SceneUserPropertyCatalog(definitions: transitionDefinitions)
+        let transitionContext = SteamWorkshopScenePropertyContext(catalog: transitionCatalog,
+            actionableKeys: Set(transitionDefinitions.map(\.key)), effectiveValues: transitionCatalog.defaultValues,
+            canvasAspect: 1, supportsAudioProcessing: true, hasSound: true, supportsMouseParallax: true)
+        let transition = SteamWorkshopScenePropertyEditorView(record: .init(id: "tab-boundary", title: "Tab boundary"),
+            context: transitionContext)
+        owner.show(title: "Scene properties", subtitle: "Tab boundary", content: transition)
+        let transitionList = descendants(transition, NSCollectionView.self).first!
+        window.contentView!.layoutSubtreeIfNeeded()
+        transitionList.layoutSubtreeIfNeeded()
+        window.displayIfNeeded()
+        let disclosure = descendants(transition, NSButton.self).first {
+            $0.accessibilityLabel() == String(localized: "Show Common Adjustments")
+        }!
+        disclosure.performClick(nil)
+        let compactSize = NSSize(width: window.frame.width, height: 356)
+        let card = window.contentView!
+        card.constraints.first {
+            $0.firstItem === card && $0.firstAttribute == .height && $0.secondItem == nil && $0.constant == 620
+        }!.constant = compactSize.height
+        window.minSize = compactSize
+        window.maxSize = compactSize
+        window.setContentSize(compactSize)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+        window.contentView!.layoutSubtreeIfNeeded()
+        transitionList.layoutSubtreeIfNeeded()
+        window.displayIfNeeded()
+        let volume = descendants(transition, NSSlider.self).first {
+            $0.accessibilityLabel() == String(localized: "Volume")
+        }!
+        func sendTab(reverse: Bool) {
+            let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: reverse ? [.shift] : [],
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
+                characters: reverse ? "\u{19}" : "\t", charactersIgnoringModifiers: "\t", isARepeat: false,
+                keyCode: 48)!
+            window.sendEvent(event)
+        }
+        let authorPath = IndexPath(item: 0, section: 0)
+        let authorFrame = transitionList.collectionViewLayout!.layoutAttributesForItem(at: authorPath)!.frame
+        precondition(!transitionList.visibleRect.intersects(authorFrame),
+            "the compact test must start with the author input outside the viewport: \(transitionList.visibleRect), \(authorFrame)")
+        volume.scrollToVisible(volume.bounds)
+        precondition(window.makeFirstResponder(volume))
+        sendTab(reverse: false)
+        guard let authorItem = transitionList.item(at: authorPath) else {
+            preconditionFailure("Tab did not scroll the author input into the viewport")
+        }
+        let authorInput = descendants(authorItem.view, NSTextField.self)
+            .first { $0.isEditable }!
+        precondition((window.firstResponder as? NSTextView)?.delegate === authorInput,
+            "Tab from the last common control must focus the first author input: \(String(describing: window.firstResponder))")
+        precondition(transitionList.visibleRect.contains(authorInput.convert(authorInput.bounds, to: transitionList)),
+            "the focused author input must enter the viewport")
+        sendTab(reverse: true)
+        precondition(window.firstResponder === volume,
+            "Shift-Tab from the first author input must focus the last common control: \(String(describing: window.firstResponder))")
+        precondition(transitionList.visibleRect.contains(volume.convert(volume.bounds, to: transitionList)),
+            "the focused common control must enter the viewport")
+        print("native Tab/Shift-Tab common-to-author boundary PASS")
         owner.close()
         precondition(owner.presentationID == nil)
         print("process-local full-access projection and first/last delegation PASS; system full-access chrome not verified")
@@ -916,6 +982,8 @@ class NativeScenePropertyListTests(unittest.TestCase):
     def test_native_owner_controls_and_events(self):
         self.run_probe(HARNESS)
 
+    def test_common_adjustments_preserve_independent_work_values(self):
+        self.run_probe("@main enum Probe { @MainActor static func main() { SceneCommonPropertyPresentationChecks.run() } }")
     def test_full_access_projection_in_property_window(self):
         panel = (ROOT / 'MyWallpaperX/App/ScenePropertyWindowController.swift').read_text()
         panel = panel[panel.index('@MainActor\nfinal class SteamWorkshopPropertyPanelController'):]
@@ -929,6 +997,8 @@ class NativeScenePropertyListTests(unittest.TestCase):
         normalization = NORMALIZATION.read_text()
         web = (MODULE / 'Web/Core/SteamWorkshopService+WebProperties.swift').read_text()
         methods = [
+            method_body(service, "    private enum ScenePropertyOverrideStore {"),
+            *[method_body(service, f"    func {name}(") for name in ("scenePresentation", "updateScenePresentation")],
             method_body(service, '    func shouldDisplaySceneProperty('),
             method_body(service, '    func visibleScenePropertyOptions('),
             method_body(service, '    func projectedScenePropertyContext('),
@@ -945,9 +1015,9 @@ class NativeScenePropertyListTests(unittest.TestCase):
             runtime_home.mkdir()
             runtime_environment = dict(os.environ, HOME=str(runtime_home), CFFIXED_USER_HOME=str(runtime_home))
             path = Path(folder) / 'Probe.swift'
-            outcome = method_body((ROOT / 'MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift').read_text(),
-                                  'nonisolated enum ScenePlaybackTextureUpdateOutcome:')
-            path.write_text(STUBS + outcome + '\n' + context + '\nextension SteamWorkshopService {\n' + '\n'.join(methods) + '\n}\n' + harness)
+            command = (ROOT / 'MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift').read_text()
+            types = '\n'.join(method_body(command, name) for name in ['nonisolated enum ScenePlaybackTextureUpdateOutcome:', 'nonisolated struct ScenePlaybackPresentation:'])
+            path.write_text(STUBS + types + '\n' + context + '\nextension SteamWorkshopService {\n' + '\n'.join(methods) + '\n}\n' + harness)
             editor = Path(folder) / 'Editor.swift'
             # Substitute only the system dialog leaf so its asynchronous reply
             # can be delivered after hidden/closed; nonce/window/row owner stays production.
@@ -969,7 +1039,8 @@ class NativeScenePropertyListTests(unittest.TestCase):
                        ROOT / 'MyWallpaperX/Shared/UI/InspectorFadingScrollView.swift',
                        ROOT / 'MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift',
                        ROOT / 'MyWallpaperX/Shared/UI/WorkshopPropertyPanelViews.swift',
-                       web_editor,
+                       web_editor, ROOT / 'script/tests/fixtures/SceneCommonPropertyPresentationChecks.swift',
+                       MODULE / 'Scene/SteamWorkshopSceneCommonPropertyRows.swift',
                        MODULE / 'UI/WorkshopPropertySlider.swift', editor, path]
             if active_app:
                 sources.append(ROOT / 'script/tests/fixtures/NativeAppHarness.swift')

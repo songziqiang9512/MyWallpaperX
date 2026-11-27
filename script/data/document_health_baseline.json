@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 68,
-      "bytes": 26760
+      "bytes": 26869
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 172,
-      "bytes": 35089
+      "bytes": 35169
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 189329
+      "bytes": 190654
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 169571
+      "bytes": 170855
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -117,8 +117,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 320,
-      "bytes": 70279
+      "lines": 337,
+      "bytes": 74457
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -133,8 +133,8 @@
       "bytes": 15579
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
-      "lines": 73,
-      "bytes": 6263
+      "lines": 74,
+      "bytes": 6601
     },
     "docs/scene/capabilities/README.md": {
       "lines": 31,
@@ -149,8 +149,8 @@
       "bytes": 16870
     },
     "docs/scene/capabilities/material-video-assets.md": {
-      "lines": 70,
-      "bytes": 7963
+      "lines": 71,
+      "bytes": 8282
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
       "lines": 598,
@@ -166,11 +166,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 429403
+      "bytes": 429528
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 186,
-      "bytes": 31858
+      "lines": 202,
+      "bytes": 34916
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -553,11 +553,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/material-video-assets.md",
-      "before": "0ef76e52d15f4f20c7fb565d7e3f208785a929b46f4a8bb9ba2fd93d52089094",
-      "after": "39571f9da1381399868fd44063a69cb0d568aad13e600334bc231d34b767ef9c",
-      "owner": "scene-media",
-      "reason": "明确几何前已确认的普通 MP4 来源与运行阶段的既有准入",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-video-tex-redundant-load"
+      "before": "39571f9da1381399868fd44063a69cb0d568aad13e600334bc231d34b767ef9c",
+      "after": "2519fbf3e9e39d903d588bd3b9cfc0bd31aa81baa223d94b044c8ae886295d59",
+      "owner": "Scene presentation and resource preparation",
+      "reason": "保留并行主线视频供货事实与现役分层消费说明。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-work-presentation"
     },
     {
       "section": "bodies",
@@ -643,11 +643,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "01ab3b1eee3aadf18ef6654299f22c0bd42cbde422fe25052b0f14eab0a27404",
-      "after": "185a0f227ba013f6bd53cabff782d84d424a7ca531b0674a1b04b994ff83a4bc",
-      "owner": "Scene text",
-      "reason": "记录回退字形沿主字体基线定位。",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#text-fallback-line-metrics"
+      "before": "185a0f227ba013f6bd53cabff782d84d424a7ca531b0674a1b04b994ff83a4bc",
+      "after": "fe6ed0780aedaff307f377a642e0027b575155dcc65061f5019174ddef8bbbff",
+      "owner": "Scene input and property evidence",
+      "reason": "记录官方视口、作品速率和本机媒体与画面回归。",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#scene-extra-presentation-20261128"
     },
     {
       "section": "bodies",
@@ -697,65 +697,65 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f27d5e753e056691daf33c58a240c4247456a9774aa9338f8e5e91a3e881dcb1",
-      "after": "f4bde376c528f47e820c8a99fbc7cb316baaa4f6e8ed8b9731ef3150735f9409",
-      "owner": "Scene runtime evidence",
-      "reason": "记录原包画幅、文字行框和共用填充模式的真 daemon 热切。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#scene-text-layout-engine-20261128"
+      "before": "f4bde376c528f47e820c8a99fbc7cb316baaa4f6e8ed8b9731ef3150735f9409",
+      "after": "3ec4fd9234540fe1563632c7498bbf6265adc4f2ca5c464006d16f32dee3c2d6",
+      "owner": "Scene presentation and resource preparation",
+      "reason": "保留并行主线作品控制证据与现役质量证据。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-work-presentation"
     },
     {
       "section": "bodies",
       "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
-      "before": "64c2a894f55294e3ef857dfcfd832213caf042a1c81159341e26d2e548e32d02",
-      "after": "3239e0165870a1523058f25d08c71b2c42481b06a23bb2c9886563cc3112d0f3",
-      "owner": "Scene daemon IPC",
-      "reason": "登记窗口填充模式的控制入口。",
-      "decision": "docs/scene/architecture/scene-runtime-daemon-contract.md#protocol"
+      "before": "3239e0165870a1523058f25d08c71b2c42481b06a23bb2c9886563cc3112d0f3",
+      "after": "5667574dda7f7bf6dbd8521ea577103c4667ce44250df691aa51fc8ab8bcd994",
+      "owner": "Scene presentation and resource preparation",
+      "reason": "同步同笔请求的质量和作品适配，以及现役热更新命令。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-work-presentation"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "7a7aa6a4cf428ab9819cd3792ff6fd65c27fdc6afa8c66b735225ce7545d6da8",
-      "after": "e37b308d3e14be1a4f7b342e69f2a03921fbf6ef838c4a2024238049d6d614e7",
-      "owner": "Scene resource preparation",
-      "reason": "定位基础色冷选与模型默认别名职责。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-multipass-retained-mip"
+      "before": "e37b308d3e14be1a4f7b342e69f2a03921fbf6ef838c4a2024238049d6d614e7",
+      "after": "69e40755bea9c293668adabef1eb637bf57fa39a89473792574ea7ef3f207efd",
+      "owner": "Scene presentation and resource preparation",
+      "reason": "定位共享作品取景和 Auto 密度的生产入口。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-work-presentation"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "35d6398ef15450c9e4108556869e56a3118c2914469dc65a18d69a4f00385767",
-      "after": "3f587db28ed69fc9cb779e9b48c0f4442f024122d1b73c182f9eb3b28e8db5f5",
-      "owner": "Scene resource preparation",
-      "reason": "明确计算路径的模型默认供货在缩窄纹理保原范围时仍有效。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-multipass-retained-mip"
+      "before": "3f587db28ed69fc9cb779e9b48c0f4442f024122d1b73c182f9eb3b28e8db5f5",
+      "after": "4f9ea930ca1b42748c0fc9a8e4f913ec5044e58a199f2c81e21128f28aa7c1e6",
+      "owner": "Scene presentation and resource preparation",
+      "reason": "规定有效作品适配、投影范围、缩放和 Auto 成组发布。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-work-presentation"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "b946d59f5f055d21426e02c22501b5a4202dda6e961d44bead0642a71f7861f0",
-      "after": "298ddec2747cbebc084b1c078b3791c2f12ff50610625f00546581aa3798d0aa",
-      "owner": "Scene resource preparation",
-      "reason": "记录绕过默认别名的试验、退出条件和后继设计边界。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-multipass-retained-mip"
+      "before": "298ddec2747cbebc084b1c078b3791c2f12ff50610625f00546581aa3798d0aa",
+      "after": "ac8377d5258dc507cc3b197479e88cd5ac0af922986442fbf721d6c6ba1acbdc",
+      "owner": "Scene presentation and resource preparation",
+      "reason": "设计作品适配与 Auto 冷选、同尺寸热升的相机密度契约。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-work-presentation"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "712a522a45bc82c389070487ea9a0b0424a6620a08154eb850333d12772e84de",
-      "after": "6adb4a366c9ee41724c287b03404829106aee0a0f1fef607dd3353b1a3d6976d",
-      "owner": "Scene resource preparation",
-      "reason": "核两部原作、逐屏切档、Metal 分配及计算路径可见反例。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-multipass-retained-mip"
+      "before": "6adb4a366c9ee41724c287b03404829106aee0a0f1fef607dd3353b1a3d6976d",
+      "after": "1f64e07cd908b00c85a9778d053f725752ef8dea7b8ec397b8b571a48c02ec7d",
+      "owner": "Scene presentation and resource preparation",
+      "reason": "核作品级适配和实际 Auto 冷选、热升、终图。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-work-presentation"
     },
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "8e8b6b8c65db6861efbff8c70a16c86dd5c02cc5602966993820272ebdbb4f24",
-      "after": "4d767024d8f99530082b32aaba0a3f8f238e5f969e570c5fc0ce200c1396ec0c",
-      "owner": "Scene resource preparation",
-      "reason": "说明 Auto 尾链与模型默认目录的发布边界。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-multipass-retained-mip"
+      "before": "4d767024d8f99530082b32aaba0a3f8f238e5f969e570c5fc0ce200c1396ec0c",
+      "after": "8626053707cab5d2e139f23fc6bd00509c21392428992b667d3571cfa74a8a33",
+      "owner": "Scene presentation and resource preparation",
+      "reason": "合入作品调节并保留现役质量、实际取景和重绘边界。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-work-presentation"
     }
   ]
 }

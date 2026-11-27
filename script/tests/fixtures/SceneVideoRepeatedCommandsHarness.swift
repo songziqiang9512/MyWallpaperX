@@ -13,7 +13,7 @@ enum SceneTextureContent: Equatable { case color(ColorResolution), data }
 enum ResourceProvider { case video(layerID: Int, lifecycleEpoch: UInt64), videoAsset(asset: SceneAssetTextureIdentity, sourceIncarnation: UUID, lifecycleEpoch: UInt64), videoUserProperty(property: SceneUserPropertyTextureIdentity, sourceIncarnation: UUID, lifecycleEpoch: UInt64) }
 enum ResourceIdentity { case provider(ResourceProvider) }
 enum ResourceGeneration { case provider(contentGeneration: UInt64) }
-enum SceneTextureLoadPurpose: Equatable { case premultipliedColor, preservedChannels }
+enum SceneTextureLoadPurpose: Equatable { case premultipliedColor, straightAlbedo, preservedChannels }
 typealias TexturePurpose = SceneTextureLoadPurpose
 struct SceneAssetTextureIdentity { let purpose: TexturePurpose }
 struct SceneUserPropertyTextureIdentity: Equatable { let propertyKey: String; let purpose: TexturePurpose }
@@ -63,7 +63,7 @@ struct SceneTextureProviderPublication {
   if CommandLine.arguments.contains("--loop-phase") { try loopPhase(source); return }
   let start=CACurrentMediaTime(); var frame:UInt64=0
   var decodedTimes:[Double]=[]; var requestedTimes:[Double]=[]
-  func timing()->SceneFrameTiming {let now=CACurrentMediaTime();frame+=1;return .init(frameIndex:frame,hostTime:now,sceneTime:now-start)}
+  func timing()->SceneFrameTiming {let now=CACurrentMediaTime();frame+=1;return .init(frameIndex:frame,hostTime:now,sceneTime:(now-start)*2)}
   func pump(_ duration:Double, repeatPlay:Bool=false)->[Double] {
    let end=CACurrentMediaTime()+duration; var times:[Double]=[];var generation:UInt64=0
    while CACurrentMediaTime()<end {
@@ -72,8 +72,16 @@ struct SceneTextureProviderPublication {
     RunLoop.current.run(until:Date(timeIntervalSinceNow:1.0/60.0))
    };return times
   }
-  source.apply(.play,timing:timing())
+  let started=timing()
+  source.apply(.play,timing:started)
   let initial=pump(1.5);guard initial.count>5,player.rate>0 else {fatalError("decoder failed startup \(initial.count)")}
+  let observed=timing()
+  let realElapsed=observed.hostTime-started.hostTime
+  let snapshot=source.playbackSnapshot(hostTime:observed.hostTime)!
+  guard abs(snapshot.currentTime-realElapsed)<0.001,
+        let plannedTime=initial.last, abs(plannedTime-realElapsed)<0.15 else {
+   fatalError("video playback followed the scaled animation clock")
+  }
   let sharedFrame=source.currentFrame(for:timing())!
   let authored=sharedFrame.layerPublication(for:7)!,dynamic=sharedFrame.layerPublication(for:-8)!
   let projectedIdentity:Bool
@@ -90,9 +98,9 @@ struct SceneTextureProviderPublication {
   let repeated=pump(1.5,repeatPlay:true)
   let repeatedDecodedTimes=Array(decodedTimes[repeatStart...])
   let repeatedRequestedTimes=Array(requestedTimes[repeatStart...])
-  source.apply(.pause,timing:timing());let pausedTime=source.playbackSnapshot(sceneTime:timing().sceneTime)!.currentTime
+  source.apply(.pause,timing:timing());let pausedTime=source.playbackSnapshot(hostTime:timing().hostTime)!.currentTime
   _=pump(0.1);source.apply(.pause,timing:timing());_=pump(0.1)
-  let held=source.playbackSnapshot(sceneTime:timing().sceneTime)!
+  let held=source.playbackSnapshot(hostTime:timing().hostTime)!
   source.apply(.play,timing:timing());let resumed=pump(0.5)
   source.apply(.setCurrentTime(0.5),timing:timing());let sought=pump(0.5)
   source.apply(.setRate(2),timing:timing());let faster=pump(0.4);let changedRate=player.rate
@@ -292,13 +300,13 @@ struct SceneTextureProviderPublication {
     row["heldTextureAfterDiscard"]=held(baseline)
     let idleStart=CACurrentMediaTime()
     row["backendBeforeIdle"]=CMTimeGetSeconds(player.currentTime())
-    row["typedBeforeIdle"]=source.playbackSnapshot(sceneTime:idleStart-start)!.currentTime
+    row["typedBeforeIdle"]=source.playbackSnapshot(hostTime:idleStart)!.currentTime
     // No prepare/currentFrame/command occurs during this run-loop interval.
     RunLoop.current.run(until:Date(timeIntervalSinceNow:0.2))
     let idleEnd=CACurrentMediaTime()
     row["idleElapsed"]=idleEnd-idleStart
     row["backendAfterIdle"]=CMTimeGetSeconds(player.currentTime())
-    row["typedAfterIdle"]=source.playbackSnapshot(sceneTime:idleEnd-start)!.currentTime
+    row["typedAfterIdle"]=source.playbackSnapshot(hostTime:idleEnd)!.currentTime
     row["publishedAfterIdle"]=published()!.contentGeneration
     row["heldTextureAfterIdle"]=held(baseline)
    } else if name=="same-inflight6" || name=="discard-before" {
@@ -322,15 +330,15 @@ struct SceneTextureProviderPublication {
     // This observes an actual prepared texture, not private seek-callback state.
     row["discardPhase"]="ready-candidate-not-callback"
     let firstTexture=candidate.texture
-    row["heldTimeBeforeDiscard"]=source.playbackSnapshot(sceneTime:CACurrentMediaTime()-start)!.currentTime
+    row["heldTimeBeforeDiscard"]=source.playbackSnapshot(hostTime:CACurrentMediaTime())!.currentTime
     source.discardPreparedFrame()
     row["publishedAfterDiscard"]=published()!.contentGeneration
     row["heldTextureAfterDiscard"]=held(baseline)
     candidate=try awaitCandidate(baseline,fixed,&attempts,phase:"after-discard",progress:row,firstCandidate:candidate)
     row["retrySameTexture"]=candidate.texture === firstTexture
     row["retryTexture"]=textureWitness(candidate.texture,device:device)
-    row["heldTimeAfterRetry"]=source.playbackSnapshot(sceneTime:CACurrentMediaTime()-start)!.currentTime
-    row["playingAfterRetry"]=source.playbackSnapshot(sceneTime:CACurrentMediaTime()-start)!.isPlaying
+    row["heldTimeAfterRetry"]=source.playbackSnapshot(hostTime:CACurrentMediaTime())!.currentTime
+    row["playingAfterRetry"]=source.playbackSnapshot(hostTime:CACurrentMediaTime())!.isPlaying
     row["rateAfterRetry"]=player.rate
    }
    row["candidateGeneration"]=candidate.contentGeneration
@@ -340,7 +348,7 @@ struct SceneTextureProviderPublication {
    row["requested"]=candidate.requestedItemTime
    row["itemTimeForDisplay"]=candidate.decodedItemTime.map{$0 as Any} ?? NSNull()
    row["actualPlayerTime"]=CMTimeGetSeconds(player.currentTime())
-   row["typedTime"]=source.playbackSnapshot(sceneTime:CACurrentMediaTime()-start)!.currentTime
+   row["typedTime"]=source.playbackSnapshot(hostTime:CACurrentMediaTime())!.currentTime
    row["retryFrameIndices"]=attempts;row["retryFrameIndex"]=fixed.map{$0.frameIndex as Any} ?? NSNull()
    row["repeatedSeekCommands"]=repeatedSeekCommands
    source.commitPreparedFrame()
@@ -412,22 +420,22 @@ struct SceneTextureProviderPublication {
   let initialItemPending=player.currentItem == nil
   command(.pause);command(.setRate(2));command(.setCurrentTime(0.7))
   let metadataPendingBeforeInstall=source.isPreparingItem && !source.hasPlaybackMetadata
-  let snapshotAbsentBeforeInstall=source.playbackSnapshot(sceneTime:timing().sceneTime) == nil
+  let snapshotAbsentBeforeInstall=source.playbackSnapshot(hostTime:timing().hostTime) == nil
   let initial=pump(4,untilFirst:true)
   guard let first=last else {fatalError("WebM did not publish a real frame")}
   let firstWitness=textureWitness(first.texture,device:device),preparedFilePresent = !payloadFiles(root).isEmpty
-  let prepared=source.playbackSnapshot(sceneTime:timing().sceneTime)!
+  let prepared=source.playbackSnapshot(hostTime:timing().hostTime)!
   let duration=prepared.duration
   let pendingCommandsHeld = !prepared.isPlaying && prepared.rate == 2 && abs(prepared.currentTime-0.7)<0.000001
   let metadataReadyAtFirstPublication=source.hasPlaybackMetadata && !source.isPreparingItem && duration > 0
   command(.play);let playing=pump(0.5)
   let playingWitness=textureWitness(last!.texture,device:device)
-  command(.pause);let pauseTime=source.playbackSnapshot(sceneTime:timing().sceneTime)!.currentTime
-  let pausedRefresh=pump(0.2),held=source.playbackSnapshot(sceneTime:timing().sceneTime)!
+  command(.pause);let pauseTime=source.playbackSnapshot(hostTime:timing().hostTime)!.currentTime
+  let pausedRefresh=pump(0.2),held=source.playbackSnapshot(hostTime:timing().hostTime)!
   let pauseHeld = !held.isPlaying && abs(held.currentTime-pauseTime)<0.000001
   command(.setCurrentTime(0.3));let seek=pump(0.4)
   command(.setCurrentTime(1.8));command(.setLoop(true));command(.play)
-  let loopRows=pump(2.4),ends=source.playbackSnapshot(sceneTime:timing().sceneTime)!.endedGeneration
+  let loopRows=pump(2.4),ends=source.playbackSnapshot(hostTime:timing().hostTime)!.endedGeneration
   let displayTimes=loopRows.compactMap{$0[1] as? Double}
   let displayWraps=zip(displayTimes,displayTimes.dropFirst()).filter{$0.1<$0.0}.count
   guard let asset=player.currentItem?.asset else {fatalError("prepared AV asset unavailable")}
@@ -473,14 +481,14 @@ struct SceneTextureProviderPublication {
    defer {NotificationCenter.default.removeObserver(observer)}
    let baseline=Mirror(reflecting:source).children.first{$0.label=="lastFrame"}!.value as? SceneVideoTextureSource.Frame
    let before=published(),timeAtDrop=CMTimeGetSeconds(player.currentTime())
-   let endsBefore=source.playbackSnapshot(sceneTime:CACurrentMediaTime()-start)!.endedGeneration
+   let endsBefore=source.playbackSnapshot(hostTime:CACurrentMediaTime())!.endedGeneration
    _=source.prepareFrame(for:timing());source.discardPreparedFrame()
    let immediateRate=player.rate,afterDiscard=published()
    // Deliver a real AVPlayer EOF without preparing another host frame.
    let deadline=CACurrentMediaTime()+2
    while rawEnds==0 && CACurrentMediaTime()<deadline {RunLoop.current.run(until:Date(timeIntervalSinceNow:1.0/120))}
    RunLoop.current.run(until:Date(timeIntervalSinceNow:0.15))
-   let snapshot=source.playbackSnapshot(sceneTime:CACurrentMediaTime()-start)!
+   let snapshot=source.playbackSnapshot(hostTime:CACurrentMediaTime())!
    let after=Mirror(reflecting:source).children.first{$0.label=="lastFrame"}!.value as? SceneVideoTextureSource.Frame
    let heldTexture:Bool
    if let baseline,let after {heldTexture=baseline.texture === after.texture} else {heldTexture=false}
@@ -495,17 +503,17 @@ struct SceneTextureProviderPublication {
   while CACurrentMediaTime()-start < 1.93 {_=source.currentFrame(for:timing());RunLoop.current.run(until:Date(timeIntervalSinceNow:1.0/120))}
   let before=published();let rejected=timing();_=source.prepareFrame(for:rejected)
   RunLoop.current.run(until:Date(timeIntervalSinceNow:0.35))
-  let endsBefore=source.playbackSnapshot(sceneTime:CACurrentMediaTime()-start)!.endedGeneration
+  let endsBefore=source.playbackSnapshot(hostTime:CACurrentMediaTime())!.endedGeneration
   source.discardPreparedFrame();let afterDiscard=published()
   let now=timing();source.apply(.setLoop(false),timing:now)
-  let snapshot=source.playbackSnapshot(sceneTime:now.sceneTime)!
+  let snapshot=source.playbackSnapshot(hostTime:now.hostTime)!
   _=source.currentFrame(for:rejected);let afterRetry=published()
   var rows:[[Double]]=[];var generation=afterRetry;let until=CACurrentMediaTime()+0.5
   while CACurrentMediaTime()<until {
    let t=timing();if let f=source.currentFrame(for:t),f.contentGeneration != generation {rows.append([t.sceneTime,f.requestedItemTime,f.decodedItemTime ?? -1,Double(f.contentGeneration)]);generation=f.contentGeneration}
    RunLoop.current.run(until:Date(timeIntervalSinceNow:1.0/120))
   }
-  let final=source.playbackSnapshot(sceneTime:timing().sceneTime)!
+  let final=source.playbackSnapshot(hostTime:timing().hostTime)!
   print(String(decoding:try JSONSerialization.data(withJSONObject:["looping":looping,"before":before,"afterDiscard":afterDiscard,"afterRetry":afterRetry,"endsBefore":endsBefore,"endsAfter":snapshot.endedGeneration,"scene":now.sceneTime,"time":snapshot.currentTime,"playing":snapshot.isPlaying,"finalEnds":final.endedGeneration,"finalPlaying":final.isPlaying,"finalTime":final.currentTime,"rows":rows]),as:UTF8.self))
  }
  static func pausedSeek(_ source:SceneVideoTextureSource) throws {
@@ -532,7 +540,7 @@ struct SceneTextureProviderPublication {
   let replaced=pump(0.5)
   source.apply(.stop,timing:timing())
   let stopped=pump(0.5)
-  let duration=source.playbackSnapshot(sceneTime:timing().sceneTime)!.duration
+  let duration=source.playbackSnapshot(hostTime:timing().hostTime)!.duration
   source.apply(.setCurrentTime(duration),timing:timing())
   _=source.currentFrame(for:timing())
   source.apply(.setLoop(false),timing:timing())
@@ -555,7 +563,7 @@ struct SceneTextureProviderPublication {
    }
    RunLoop.current.run(until:Date(timeIntervalSinceNow:1.0/60.0))
   }
-  let snapshot=source.playbackSnapshot(sceneTime:CACurrentMediaTime()-start)!
+  let snapshot=source.playbackSnapshot(hostTime:CACurrentMediaTime())!
   let player=Mirror(reflecting:source).children.compactMap{$0.value as? AVPlayer}.first!
   let timescale=player.currentItem!.duration.timescale
   print(String(decoding:try JSONSerialization.data(withJSONObject:["rows":rows,"ends":snapshot.endedGeneration,"duration":snapshot.duration,"requestTimescale":timescale]),as:UTF8.self))

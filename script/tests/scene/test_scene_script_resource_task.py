@@ -35,7 +35,7 @@ struct SceneRenderDescriptor {
 }
 enum SceneDesktopWallpaperHostLaunchError: Error { case requiredImagePipelineUnavailable }
 struct SceneImageLayerPipeline {
-    init?(device: MTLDevice, pixelFormat: Int, preparesDepth: Bool, preparesAdditive: Bool, preparesNormalDepth: Bool, rasterSampleCount: Int) {
+    init?(device: MTLDevice, pixelFormat: Int, preparesDepth: Bool, preparesAdditive: Bool, preparesNormalDepth: Bool, rasterSampleCount: Int, preparesMultisampleSeed: Bool) {
         if Backend.rejectPipeline { return nil }
     }
 }
@@ -55,6 +55,7 @@ struct ScenePreparedBaseImageResources {
         let models: Set<String>
         let retainsModelDefaultAliases: Bool
         let automaticMipConstraints: AutomaticMipConstraints?
+        let scalableEffectColorLayerIDs: Set<Int>
     }
     let textureLoader = Loader()
     let models: Set<String>
@@ -66,7 +67,7 @@ struct ScenePreparedBaseImageResources {
         sceneGeneration: UInt64, cacheDirectory: URL, effectivePropertyValues: [String: SceneUserPropertyValue],
         dynamicImageRequestsProvider: (() throws -> ImagePlanning)?,
         deferredBaseImageLayerIDs: Set<Int>, imageGeometryModels: [SceneAssetCatalog.ModelAsset],
-        ordinaryColorMipLongEdge: Int?, automaticDrawableExtent: CGSize?,
+        ordinaryColorMipLongEdge: Int?, automaticMipDensity: Double?,
         geometryPrepared: ([Int: [Float]]) -> Void, uploadCommandQueue: SceneTextureUploadCommandQueue,
         decodeCacheBudget: SceneTextureDecodeCacheBudget, cancellationCheck: () throws -> Void) throws -> Self {
         geometryPrepared([17:[200,100]])

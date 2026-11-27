@@ -21,24 +21,7 @@ nonisolated enum SceneOrdinaryImageMipSelection {
     }
 }
 
-nonisolated struct SceneAutomaticTextureProjection {
-    let canvas: SIMD2<Double>
-    let zoom: Double
-
-    init?(canvasWidth: Float?, canvasHeight: Float?, zoom: Float?) {
-        guard let canvasWidth, let canvasHeight,
-              canvasWidth.isFinite, canvasHeight.isFinite,
-              canvasWidth > 0, canvasHeight > 0 else { return nil }
-        let zoom = zoom ?? 1
-        guard zoom.isFinite, zoom > 0 else { return nil }
-        canvas = SIMD2(Double(max(canvasWidth, 2)), Double(max(canvasHeight, 2)))
-        self.zoom = Double(zoom)
-    }
-
-    func coverScale(for drawable: CGSize) -> Double {
-        max(Double(drawable.width) / canvas.x, Double(drawable.height) / canvas.y) * zoom
-    }
-
+nonisolated enum SceneAutomaticTextureProjection {
     static func worldExtent(size: [Float]?, scale: [Float]?) -> SIMD2<Double>? {
         guard let size, size.count >= 2 else { return nil }
         let scale = scale ?? [1, 1]

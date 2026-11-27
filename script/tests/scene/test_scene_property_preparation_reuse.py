@@ -140,7 +140,7 @@ struct SteamWorkshopScenePropertyContext {
                      effectiveValues: catalog.effectiveValues(overrides: scenePropertyOverrides(for: record))), for: record)
     }
     func projectedScenePropertyContext(_ context: SteamWorkshopScenePropertyContext,
-        for record: SteamWorkshopDownloadRecord) -> SteamWorkshopScenePropertyContext? {
+        for record: SteamWorkshopDownloadRecord) -> SteamWorkshopScenePropertyContext {
         let keys = SceneDaemonClient.shared.activeCallbackPropertyFacts?.reachability.propertyKeys ?? []
         return .init(catalog: context.catalog, actionableKeys: context.staticActionableKeys.union(keys),
             effectiveValues: context.catalog.effectiveValues(overrides: scenePropertyOverrides(for: record)))

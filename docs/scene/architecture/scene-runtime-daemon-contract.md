@@ -28,7 +28,8 @@ stdin/stdout 使用 newline JSON。字段、版本、合法域及命令解码的
 | 候选 | commitCandidate、finalizeCandidate、cancelCandidate |
 | 输出活动与退役 | setOutputActive、retireOutput |
 | 属性 / 用户资源 / 快捷方式 | setProperty、setUserTextures、setUserShortcuts |
-| 宿主策略 | setDisplayConfiguration、setCanvasFit、setPerformanceProfile、pause、resume、setVolume、setMuted |
+| 宿主策略 | setDisplayConfiguration、setCanvasFit（系统回退）、setAnimationFrameRate、setSceneRenderQuality、pause、resume、setVolume、setMuted |
+| 作品通用调节 | loadScene 携带 presentation，setPresentation 以 requestID 更新同请求的完整快照。候选安装后延至交接完成再应用。 [取景与监听职责](runtime-architecture.md#scene-work-presentation) |
 | 系统输入 | publishAudioSpectrum、publishSystemMedia、publishSystemMediaArtwork、controlSystemMedia |
 | 截图 / 退出 | captureFrame（ScreenCaptureKit → JPEG → frameCaptured）、shutdown |
 
@@ -52,7 +53,7 @@ request、record、revision 与 endpoint generation 保持原身份。普通控�
 
 client 沿公共有界退避重启端点并重放当前意图；恢复请求真正 first-present 后才重置连续故障。持续失败停止重试并反馈，旧端点或 request 的晚事件不得进入新会话。
 
-App 的原 PlaybackPolicyController / command multiplexer 汇总用户与系统策略，daemon 执行性能配置和暂停状态，不另注册电源/前台窗口 observer。当前协议提供 profile 与 pause/resume，尚无独立 run/throttle/pause revision 协议。降低 FPS 不应按比例放慢 scene 时间，pause 冻结模拟并允许已有 GPU 完成。
+App 的原 PlaybackPolicyController / command multiplexer 汇总用户与系统策略，daemon 执行性能配置和暂停状态，不另注册电源/前台窗口 observer。loadScene 同时携带质量和作品通用快照。活动档和暂停使用原请求与会话边界，尚无独立 run/throttle/pause revision 协议。降低 FPS 不应按比例放慢 scene 时间，pause 冻结模拟并允许已有 GPU 完成。
 
 <a id="shutdown"></a>
 ## 有序退出与强退役

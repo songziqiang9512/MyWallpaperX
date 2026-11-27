@@ -22,14 +22,7 @@ extension ScenePreparedBaseImageResources {
         var promotionThreshold: Double?
     }
 
-    static func mipPreparationInputs(
-        descriptor: SceneRenderDescriptor, drawable: CGSize?, ordinaryColorMipLongEdge: Int?
-    ) -> (SceneAutomaticTextureProjection?, Set<Int>) {
-        let camera = descriptor.camera
-        let automaticProjection = drawable != nil && camera.authoredOrthographicProjectionActive == true
-            && camera.default2DInputLayerID == nil ? SceneAutomaticTextureProjection(
-                canvasWidth: camera.orthoWidth, canvasHeight: camera.orthoHeight, zoom: camera.generalZoom) : nil
-        guard ordinaryColorMipLongEdge != nil || automaticProjection != nil else { return (nil, []) }
+    static func fullResolutionMipLayerIDs(in descriptor: SceneRenderDescriptor) -> Set<Int> {
         var fullResolutionLayerIDs = SceneNamedTextureDependencyReferenceAnalysis.participatingLayerIDs(
             in: descriptor.layers, includingPotential: true)
         fullResolutionLayerIDs.formUnion(descriptor.materialPasses.lazy.flatMap(\.textureSlots)
@@ -38,7 +31,7 @@ extension ScenePreparedBaseImageResources {
             fullResolutionLayerIDs.formUnion(layer.dependencyLayerIDs)
             for dependency in layer.authoredDependencies { fullResolutionLayerIDs.insert(dependency.layerID) }
         }
-        return (automaticProjection, fullResolutionLayerIDs)
+        return fullResolutionLayerIDs
     }
 
     static func automaticMipUse(

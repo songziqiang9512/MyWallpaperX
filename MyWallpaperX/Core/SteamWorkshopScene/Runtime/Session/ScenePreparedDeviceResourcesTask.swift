@@ -27,7 +27,7 @@ final class ScenePreparedDeviceResourcesTask {
     private let modelReflectionsEnabled: Bool
     private let rasterSampleCount: Int
     private let ordinaryColorMipLongEdge: Int?
-    private let automaticDrawableExtent: CGSize?
+    private let automaticMipDensity: Double?
     private let resourceView: SceneResourceView
     private let device: MTLDevice
     private let cacheDirectory: URL
@@ -51,7 +51,7 @@ final class ScenePreparedDeviceResourcesTask {
         modelReflectionsEnabled: Bool,
         rasterSampleCount: Int = 1,
         ordinaryColorMipLongEdge: Int? = nil,
-        automaticDrawableExtent: CGSize? = nil,
+        automaticMipDensity: Double? = nil,
         resourceView: SceneResourceView,
         device: MTLDevice,
         sceneGeneration: UInt64,
@@ -72,7 +72,7 @@ final class ScenePreparedDeviceResourcesTask {
         self.modelReflectionsEnabled = modelReflectionsEnabled
         self.rasterSampleCount = rasterSampleCount
         self.ordinaryColorMipLongEdge = ordinaryColorMipLongEdge
-        self.automaticDrawableExtent = automaticDrawableExtent
+        self.automaticMipDensity = automaticMipDensity
         self.resourceView = resourceView
         self.device = device
         self.cacheDirectory = cacheDirectory
@@ -143,7 +143,7 @@ final class ScenePreparedDeviceResourcesTask {
                     deferredBaseImageLayerIDs: deferredBaseImageLayerIDs,
                     imageGeometryModels: imageGeometryModels,
                     ordinaryColorMipLongEdge: ordinaryColorMipLongEdge,
-                    automaticDrawableExtent: automaticDrawableExtent,
+                    automaticMipDensity: automaticMipDensity,
                     geometryPrepared: { geometry in
                         condition.lock()
                         geometryResult = .success(geometry)

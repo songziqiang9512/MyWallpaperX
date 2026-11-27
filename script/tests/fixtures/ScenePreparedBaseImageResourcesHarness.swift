@@ -872,7 +872,7 @@ enum Checks {
                     .init(models: models, retainsModelDefaultAliases: retainsAliases,
                         automaticMipConstraints: .init(preservedLayerIDs: [], exactSources: []))
                 }, deferredBaseImageLayerIDs: deferred, ordinaryColorMipLongEdge: auto ? nil : 2048,
-                automaticDrawableExtent: auto ? CGSize(width: 1024, height: 512) : nil, cancellationCheck: {})
+                automaticMipDensity: auto ? 0.25 : nil, cancellationCheck: {})
         }
         func texture(_ prepared: ScenePreparedBaseImageResources, _ layerID: Int) -> MTLTexture? {
             guard case let .loaded(loaded)? = prepared.outcome(for: layerID, url: input, device: device) else { return nil }
@@ -901,14 +901,14 @@ enum Checks {
         let autoRevealsSameMip = reveal(automatic, hidden.id) && width(automatic, hidden.id) == 1024
         let autoRevealReusesTexture = autoRevealsSameMip && texture(automatic, eager.id) === texture(automatic, hidden.id)
         var promoted: [Int: Int] = [:]
-        automatic.promoteAutomaticMips(for: CGSize(width: 2048, height: 1024)) {
+        automatic.promoteAutomaticMips(to: 0.5) {
             promoted = $0.mapValues { $0.texture.width }
         }
         let promotedPeers = wait { promoted == [eager.id: 2048, hidden.id: 2048] }
             && width(automatic, eager.id) == 2048 && width(automatic, hidden.id) == 2048
 
         let dormant = try prepare([hidden], deferred: [hidden.id], auto: true)
-        dormant.promoteAutomaticMips(for: CGSize(width: 2048, height: 1024)) { _ in }
+        dormant.promoteAutomaticMips(to: 0.5) { _ in }
         let noResizeUpload = noColdUpload && dormant.deferredStatus(for: hidden.id) == .pending
             && width(dormant, hidden.id) == nil
         let resizedBeforeReveal = noResizeUpload && reveal(dormant, hidden.id) && width(dormant, hidden.id) == 2048
@@ -944,11 +944,11 @@ enum Checks {
             resume.wait()
         }
         var firstPublication: [Int: Int]?
-        concurrent.promoteAutomaticMips(for: CGSize(width: 2048, height: 1024)) { updates in
+        concurrent.promoteAutomaticMips(to: 0.5) { updates in
             if firstPublication == nil { firstPublication = updates.mapValues { $0.texture.width } }
         }
         let midPromotion = started.wait(timeout: .now() + 3) == .success
-        concurrent.promoteAutomaticMips(for: CGSize(width: 4096, height: 2048)) { _ in }
+        concurrent.promoteAutomaticMips(to: 1) { _ in }
         _ = concurrent.requestDeferredBaseImage(layerID: hidden.id, requestGeneration: 1)
         resume.signal()
         let revealDeadline = Date().addingTimeInterval(3)
@@ -976,7 +976,7 @@ enum Checks {
         }
         _ = resizingReveal.requestDeferredBaseImage(layerID: hidden.id, requestGeneration: 1)
         let resizeDuringReveal = revealStarted.wait(timeout: .now() + 3) == .success
-        resizingReveal.promoteAutomaticMips(for: CGSize(width: 2048, height: 1024)) { _ in }
+        resizingReveal.promoteAutomaticMips(to: 0.5) { _ in }
         resumeReveal.signal()
         let firstReadyAtLatestSize = resizeDuringReveal
             && wait { resizingReveal.deferredStatus(for: hidden.id) == .ready }

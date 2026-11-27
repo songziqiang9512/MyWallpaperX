@@ -84,6 +84,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     func handleLaunchState(_ payload: [String: Any]) { launchFailures.append(payload) }
     func send(_ command: [String: Any]) { commands.append(command) }
     func sendDisplayConfiguration() {}
+    var fitsCanvas = false
     func requestLaunch(_ request: ScenePlaybackLoadRequest) { pendingIntent = request }
     func applyPropertyValues(_ values: [String: SceneUserPropertyValue], revision: UInt64, recordID: String) -> Bool { false }
     func cancelPendingLaunch(recordID: String) -> Bool { false }
@@ -110,9 +111,11 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         // test_playback_switch_endpoints; this harness keeps multiplexer and
         // Scene pre-handshake/restart delivery at their real production owners.
         // Scene handshake / restart replay must retain a pause received before ready.
+        scene.fitsCanvas = true
         scene.pendingIntent = ScenePlaybackLoadRequest(rootURL: URL(fileURLWithPath: "/fixture"),
-            propertyOverrides: [:], userPropertyTextures: [:], recordID: "fixture")
-        precondition(mux.dispatch(.setSceneRenderQuality(.init(postProcessing: .ultraDisplayHDR, shadows: .medium, volumeLighting: .ultra, reflections: .disabled, antiAliasing: .msaa2)), to: .scene))
+            propertyOverrides: [:], userPropertyTextures: [:], recordID: "fixture",
+            presentation: .init(alignment: .cover, zoom: 150))
+        precondition(mux.dispatch(.setSceneRenderQuality(.init(postProcessing: .ultraDisplayHDR, shadows: .medium, volumeLighting: .ultra, reflections: .disabled, textures: .automatic, antiAliasing: .msaa2)), to: .scene))
         precondition(mux.dispatch(.setAnimationFrameRate(AnimationFrameRate(rawValue: 25)!), to: .scene))
         precondition(scene.commands.isEmpty)
         scene.endpointReady = true
@@ -129,13 +132,19 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         precondition(scene.commands.isEmpty, "App shutdown must not replay a load")
         DaemonPlaybackProcessRegistry.shared.acceptsNewProcesses = true
         scene.replayPendingIntent()
-        precondition(scene.commands.first?["cmd"] as? String == "loadScene")
-        precondition(scene.commands.first?["profile"] as? Int == 25)
-        precondition(scene.commands.first?["scenePostProcessing"] as? String == "displayHDR")
-        precondition(scene.commands.first?["shadowQuality"] as? String == "medium")
-        precondition(scene.commands.first?["pointVolumeQuality"] as? String == "ultra")
-        precondition(scene.commands.first?["reflectionQuality"] as? String == "disabled")
-        precondition(scene.commands.first?["antiAliasingMode"] as? String == "msaa2")
+        precondition(scene.commands.first?["cmd"] as? String == "setCanvasFit")
+        precondition(scene.commands.first?["fits"] as? Bool == true)
+        let load = scene.commands.dropFirst().first
+        precondition(load?["cmd"] as? String == "loadScene")
+        precondition(load?["profile"] as? Int == 25)
+        precondition(load?["scenePostProcessing"] as? String == "displayHDR")
+        precondition(load?["shadowQuality"] as? String == "medium")
+        precondition(load?["pointVolumeQuality"] as? String == "ultra")
+        precondition(load?["reflectionQuality"] as? String == "disabled")
+        precondition(load?["textureQuality"] as? String == "auto")
+        precondition(load?["antiAliasingMode"] as? String == "msaa2")
+        let presentation = load?["presentation"] as? [String: Any]
+        precondition(presentation?["alignment"] as? String == "cover" && presentation?["zoom"] as? Int == 150)
         precondition(scene.commands.last?["cmd"] as? String == "pause")
         precondition(mux.dispatch(.setSceneRenderQuality(.init(shadows: .disabled)), to: .scene))
         precondition(scene.commands.last?["cmd"] as? String == "setSceneRenderQuality")
@@ -284,8 +293,8 @@ struct Clock {
 }
 final class Providers {
     var paused = false
-    func pause(sceneTime: Double, hostTime: Double) { paused = true }
-    func resume(sceneTime: Double, hostTime: Double) { paused = false }
+    func pause(hostTime: Double) { paused = true }
+    func resume(hostTime: Double) { paused = false }
 }
 final class Sounds {
     var paused = false
@@ -373,13 +382,16 @@ final class Host {
         video = (CORE / "Playback/WallpaperEngine+PlaybackControl.swift").read_text()
         scene = (CORE / "SteamWorkshopScene/Runtime/IPC/SceneDaemonClient.swift").read_text()
         protocol = (CORE / "SteamWorkshopScene/Runtime/IPC/SceneDaemonProtocol.swift").read_text()
+        display = (CORE / "SteamWorkshopScene/Runtime/IPC/SceneDaemonClient+DisplayConfiguration.swift").read_text()
         harness = HARNESS.replace("// VIDEO_METHODS", "\n".join([
             method(video, "func applyPlaybackPaused("), method(video, "func sendPlaybackPaused("),
         ])).replace("// SCENE_METHODS", "\n".join([
             method(scene, "func handle("), method(scene, "func replayPendingIntent("),
             method(scene, "private func sendSimpleCommand("),
+            method(display, "func setCanvasFit("),
         ])).replace("// SOURCE_ENCODER", "\n".join([
             method(protocol, "static func sourceObject("), method(protocol, "static func writeRenderQuality("),
+            method(protocol, "static func presentationObject("),
         ]))
         with tempfile.TemporaryDirectory(prefix="mwx-pause-delivery-") as directory:
             path = Path(directory)

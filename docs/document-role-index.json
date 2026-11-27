@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bac925a5c93506581f6f0f1903e71c5a13b3d558f8e3a90ef485e8e06aeda0a8",
+        "sourceSHA256": "282be38fbcc4ec10cb7c04cf6f9500f919df5c26528cc7bd920e881ebc02261c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定位基础色冷选与模型默认别名职责。",
-        "limitations": "签名 M4 单内屏。分配为单纹理，未量长窗、全场峰值或功耗。试验已退出。"
+        "scope": "定位共享作品取景和 Auto 密度的生产入口。",
+        "limitations": "沿合入后的真实链路与最近验收。多屏组合以受控计算为证，运行证据限所测目标。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "525364b7348318250eff5291d28c5282aed2d5c21a0d278bbcb670916f00f732",
+        "sourceSHA256": "88a29aa9562dd0fa4a27d42b5daa57c4427015f87a788ffdcc798d46b9d530aa",
         "method": "document_registry --audit + document_health --check",
-        "scope": "明确计算路径的模型默认供货在缩窄纹理保原范围时仍有效。",
-        "limitations": "签名 M4 单内屏。分配为单纹理，未量长窗、全场峰值或功耗。试验已退出。"
+        "scope": "规定有效作品适配、投影范围、缩放和 Auto 成组发布。",
+        "limitations": "沿合入后的真实链路与最近验收。多屏组合以受控计算为证，运行证据限所测目标。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7b92d481f73b0f26ba3b55d73303592c42613596da44fa66a9832853d510b859",
+        "sourceSHA256": "c7a3aecacc257556371e2b34c6defc2df2f0934308cd526d084c14177d2557c4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "记录绕过默认别名的试验、退出条件和后继设计边界。",
-        "limitations": "签名 M4 单内屏。分配为单纹理，未量长窗、全场峰值或功耗。试验已退出。"
+        "scope": "设计作品适配与 Auto 冷选、同尺寸热升的相机密度契约。",
+        "limitations": "沿合入后的真实链路与最近验收。多屏组合以受控计算为证，运行证据限所测目标。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fa03f449b7c51ad252bb31d4021da80933eba6fb1bb1aeec26e5f0bf7414a06a",
+        "sourceSHA256": "b4a789eb995e591d6a1d34ae3bb2d0c4d79c6936b791d3df50fd3c7a2e93e388",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核两部原作、逐屏切档、Metal 分配及计算路径可见反例。",
-        "limitations": "签名 M4 单内屏。分配为单纹理，未量长窗、全场峰值或功耗。试验已退出。"
+        "scope": "核作品级适配和实际 Auto 冷选、热升、终图。",
+        "limitations": "沿合入后的真实链路与最近验收。多屏组合以受控计算为证，运行证据限所测目标。"
       }
     },
     {
@@ -886,10 +886,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f301e887281823c3a41aba1e47821f7cdd22a58f0fff94cd707cdd1c9d59dc63",
+        "sourceSHA256": "6c8221692b38dad9848181cfc5a12c5aad266078943b9f5c5a5230c136d6e899",
         "method": "document_registry --audit + document_health --check",
-        "scope": "说明 Auto 尾链与模型默认目录的发布边界。",
-        "limitations": "签名 M4 单内屏。分配为单纹理，未量长窗、全场峰值或功耗。试验已退出。"
+        "scope": "合入作品调节并保留现役质量、实际取景和重绘边界。",
+        "limitations": "沿合入后的真实链路与最近验收。多屏组合以受控计算为证，运行证据限所测目标。"
       }
     },
     {
@@ -946,10 +946,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "766b3ea7ca656709d28314956b6085a9c7d7fcce636f41c426308692c3489fbd",
+        "sourceSHA256": "266a8d3e84dd8c35ffa6e0c7cb8c0cf93a579668c1b2076178b9c1b4751092f4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前源码职责、工具入口与文档引用核对。",
-        "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"
+        "scope": "同步同笔请求的质量和作品适配，以及现役热更新命令。",
+        "limitations": "沿合入后的真实链路与最近验收。多屏组合以受控计算为证，运行证据限所测目标。"
       }
     },
     {
@@ -986,10 +986,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9a5b808df1cb4bc1e8ddcaacdddd765fcd0f655eb5440ccc7a1bc81784af9549",
+        "sourceSHA256": "4e438b98ad5c47eb0f805e655cdfd6a6b9ce557b1b869dde1508362838a4ef8b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对普通 MP4 TEX 退出静态上传的职责与验收入口",
-        "limitations": "既有材质槽、格式和生命周期限制仍在各自合同。"
+        "scope": "保留并行主线视频供货事实与现役分层消费说明。",
+        "limitations": "沿合入后的真实链路与最近验收。多屏组合以受控计算为证，运行证据限所测目标。"
       }
     },
     {
@@ -1018,10 +1018,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "30a5b9b9e3568d68c664d2c763d792fa305f6b918a88e550e86a83708dbd9f20",
+        "sourceSHA256": "b1b4b3b03a482be483d833699b0d3c9950a05c642a81318832c7e69588cf57a8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对主线与画质合并后的导航、现行职责入口及其链接。",
-        "limitations": "导航复核，实际渲染证据仍绑定其原构建。"
+        "scope": "保留并行主线作品控制证据与现役质量证据。",
+        "limitations": "沿合入后的真实链路与最近验收。多屏组合以受控计算为证，运行证据限所测目标。"
       }
     },
     {

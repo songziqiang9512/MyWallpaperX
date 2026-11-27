@@ -71,17 +71,20 @@ final class SceneVideoTextureSourceRegistry {
     private var pendingUserPropertyCandidates: [SceneUserPropertyTextureIdentity: PendingCandidate] = [:]
     private var nextUserPropertyEpoch: UInt64
     private var isStopped = false
+    private var pausedHostTime: TimeInterval?
     /// One layer index serves command lookup and the first-device script
     /// observation. Membership and device order change only with sources.
     private var sourceIdentitiesByLayer: [Int: [SourceIdentity]] = [:]
 
     init(
         epoch: UInt64,
-        capturesLifecycleObservations: Bool = false
+        capturesLifecycleObservations: Bool = false,
+        pausedHostTime: TimeInterval? = nil
     ) {
         self.epoch = epoch
         nextUserPropertyEpoch = epoch
         self.capturesLifecycleObservations = capturesLifecycleObservations
+        self.pausedHostTime = pausedHostTime
     }
 
     func makeUserPropertyCandidate(
@@ -127,12 +130,12 @@ final class SceneVideoTextureSourceRegistry {
 
     func adoptUserPropertyCandidate(
         _ candidate: UserPropertyCandidate,
-        sceneTime: TimeInterval, hostTime: TimeInterval, isPaused: Bool
+        hostTime: TimeInterval, isPaused: Bool
     ) -> Bool {
-        guard sceneTime.isFinite, hostTime.isFinite,
+        guard hostTime.isFinite,
               canAdoptUserPropertyCandidate(candidate),
               candidate.source.activatePrimed(
-                sceneTime: sceneTime, hostTime: hostTime, isPaused: isPaused
+                hostTime: hostTime, isPaused: isPaused
               ) else {
             if candidate.registry === self { candidate.cancel() }
             return false
@@ -314,6 +317,7 @@ final class SceneVideoTextureSourceRegistry {
         guard let source = try makeSource() else { return nil }
         try Task.checkCancellation()
         source.adoptLifecycleEpoch(epoch)
+        if let pausedHostTime { source.pause(hostTime: pausedHostTime) }
         let index = owner == .ordinary ? ordinarySources.firstIndex(where: { $0 == nil }) ?? ordinarySources.count : nil
         if let index {
             if index == ordinarySources.count { ordinarySources.append(source) }
@@ -417,9 +421,11 @@ final class SceneVideoTextureSourceRegistry {
         return incarnations
     }
 
-    func pause(sceneTime: TimeInterval, hostTime: TimeInterval) {
+    func pause(hostTime: TimeInterval) {
+        guard pausedHostTime == nil else { return }
+        pausedHostTime = hostTime
         sources.values.forEach {
-            $0.source.pause(sceneTime: sceneTime, hostTime: hostTime)
+            $0.source.pause(hostTime: hostTime)
         }
     }
 
@@ -439,9 +445,9 @@ final class SceneVideoTextureSourceRegistry {
     }
 
     func sceneScriptSnapshots(
-        sceneTime: TimeInterval
+        hostTime: TimeInterval
     ) -> SceneScriptVideoFrameSnapshot {
-        .init(sources: ordinarySources.map { $0?.playbackSnapshot(sceneTime: sceneTime) },
+        .init(sources: ordinarySources.map { $0?.playbackSnapshot(hostTime: hostTime) },
             layerBindings: sourceIdentitiesByLayer.compactMapValues {
                 $0.first.flatMap { sources[$0]?.observationIndex }
             })
@@ -478,9 +484,10 @@ final class SceneVideoTextureSourceRegistry {
         return .success(())
     }
 
-    func resume(sceneTime: TimeInterval, hostTime: TimeInterval) {
+    func resume(hostTime: TimeInterval) {
+        pausedHostTime = nil
         sources.values.forEach {
-            $0.source.resume(sceneTime: sceneTime, hostTime: hostTime)
+            $0.source.resume(hostTime: hostTime)
         }
     }
 

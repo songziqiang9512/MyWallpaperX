@@ -24,7 +24,7 @@ final class SceneSoundPlaybackRegistry {
         private var currentResource: SceneSoundPlaybackProgram.Resource
         private var remainingGap: Double?
         private var gapNeedsAnchor = false
-        private var lastSceneTime: Double?
+        private var lastHostTime: Double?
         private var randomFailed = false
         private var stopped = false
         private var wantsPlayback: Bool
@@ -95,6 +95,7 @@ final class SceneSoundPlaybackRegistry {
 
         func resume() {
             guard !stopped else { return }
+            if hostPaused { lastHostTime = nil }
             hostPaused = false
             reconcilePlayback()
         }
@@ -154,23 +155,20 @@ final class SceneSoundPlaybackRegistry {
             }
         }
 
-        /// SceneClock is advanced once by the session. No media timer or
-        /// per-surface clock runs here, and a delayed frame never catches up
-        /// by decoding several missed sounds.
-        func advance(sceneTime: Double) {
+        /// Sound gaps follow the same unscaled time as the audio item.
+        func advance(hostTime: Double) {
             guard !stopped, case .random = binding.playbackMode,
-                  sceneTime.isFinite else { return }
-            let previous = lastSceneTime
-            lastSceneTime = sceneTime
-            guard case .random = binding.playbackMode,
-                  wantsPlayback, !hostPaused, !randomFailed,
+                  hostTime.isFinite else { return }
+            let previous = lastHostTime
+            lastHostTime = hostTime
+            guard wantsPlayback, !hostPaused, !randomFailed,
                   let remaining = remainingGap else { return }
-            guard !gapNeedsAnchor, let previous, sceneTime >= previous else {
+            guard !gapNeedsAnchor, let previous, hostTime >= previous else {
                 gapNeedsAnchor = false
                 return
             }
-            guard sceneTime > previous else { return }
-            let next = remaining - (sceneTime - previous)
+            guard hostTime > previous else { return }
+            let next = remaining - (hostTime - previous)
             if next > 0 {
                 remainingGap = next
             } else {
@@ -458,8 +456,8 @@ final class SceneSoundPlaybackRegistry {
     }
 
     /// The session calls this once before publishing all surfaces' VM input.
-    func advance(sceneTime: Double) {
-        sources.values.forEach { $0.advance(sceneTime: sceneTime) }
+    func advance(hostTime: Double) {
+        sources.values.forEach { $0.advance(hostTime: hostTime) }
     }
 
     func sceneScriptSnapshots() -> [Int: Bool] {

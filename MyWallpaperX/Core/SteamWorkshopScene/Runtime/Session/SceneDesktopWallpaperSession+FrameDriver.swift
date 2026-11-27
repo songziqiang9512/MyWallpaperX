@@ -173,9 +173,6 @@ extension SceneDesktopWallpaperSession {
         return (timing, particleInterval)
     }
     private func renderFrame() -> SceneFrameDriverAttempt {
-        // Preparing the paused first frame can admit new media providers. They
-        // must inherit the pause even when the scene clock was already frozen.
-        defer { if sceneClock.isPaused { setPlaybackPaused(true) } }
         // Always-on counters: bypass-only recording, no control flow change.
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.frameAttempts)
@@ -235,10 +232,10 @@ extension SceneDesktopWallpaperSession {
 #if DEBUG
         performanceTelemetry?.recordFrameDelta(raw: timing.rawFrameTime, dropped: timing.droppedFrameTime)
 #endif
-        soundPlaybackRegistry?.advance(sceneTime: timing.sceneTime)
+        soundPlaybackRegistry?.advance(hostTime: timing.hostTime)
         let definitionIndex = launchContext.dynamicDefinitionIndex
-        let audioSpectrumFrame = SceneAudioSpectrumInbox.shared.prepareFrame()
-        let audioSpectrum = audioSpectrumFrame.snapshot
+        let audioSpectrumFrame = presentation.listensToAudio ? SceneAudioSpectrumInbox.shared.prepareFrame() : nil
+        let audioSpectrum = audioSpectrumFrame?.snapshot ?? .silent
         let timelineSample = launchContext.timelinePlaybackRuntime.sample(
             sceneTime: timing.sceneTime
         )
@@ -330,7 +327,7 @@ extension SceneDesktopWallpaperSession {
         // Unavailable storage rejects its own callbacks; unrelated owners still advance.
         _ = launchContext.sceneScriptStorageSession?.beginFrameTransaction()
         let sceneScriptVideoSnapshots = videoTextureSourceRegistry?
-            .sceneScriptSnapshots(sceneTime: timing.sceneTime) ?? .empty
+            .sceneScriptSnapshots(hostTime: timing.hostTime) ?? .empty
         let sceneScriptTextureAnimationSnapshots = launchContext.textureAnimationPlaybackRuntime.snapshots(
             sceneTime: timing.sceneTime)
         let sceneScriptTopology = surfaces.values.first!.metalView.renderer
@@ -963,7 +960,7 @@ extension SceneDesktopWallpaperSession {
                 admittedEffects: admittedOwnerEffects, excluding: rejectedOwnerTargets),
             rejectedOwnerTargets: rejectedOwnerTargets
         )
-        SceneAudioSpectrumInbox.shared.commitFrame(audioSpectrumFrame)
+        if let audioSpectrumFrame { SceneAudioSpectrumInbox.shared.commitFrame(audioSpectrumFrame) }
         // This cadence consumed its inputs regardless of GPU availability.
         // A later cadence samples fresh state; it never replays this VM frame.
         return attempt

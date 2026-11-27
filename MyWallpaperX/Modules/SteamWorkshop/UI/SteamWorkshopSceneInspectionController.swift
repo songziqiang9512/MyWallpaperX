@@ -280,16 +280,11 @@ final class SteamWorkshopSceneInspectionController {
             }
         case let .preparedProperties(context, version):
             let projected = service.projectedScenePropertyContext(context, for: currentRecord)
-            let retained = projected ?? context
             if let source = request.admission?.source, requestEpoch == cacheEpoch,
-               Self.retentionCost(context: retained, version: version, identity: identity) <= 4 * 1024 * 1024 {
-                snapshot = Snapshot(identity: identity, source: source, content: .preparedProperties(retained, version))
+               Self.retentionCost(context: projected, version: version, identity: identity) <= 4 * 1024 * 1024 {
+                snapshot = Snapshot(identity: identity, source: source, content: .preparedProperties(projected, version))
             } else { snapshot = nil }
-            if let projected {
-                presentPropertyEditor(record: currentRecord, context: projected)
-            } else {
-                presentPropertyUnavailable(record: currentRecord)
-            }
+            presentPropertyEditor(record: currentRecord, context: projected)
         }
     }
 

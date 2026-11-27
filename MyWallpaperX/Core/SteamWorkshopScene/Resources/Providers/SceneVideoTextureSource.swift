@@ -408,19 +408,19 @@ final class SceneVideoTextureSource {
     }
 
     /// Registry calls this once in its synchronous adoption transaction.
-    /// Only the SceneClock anchor and pause policy change; the seed stays
+    /// Only the media time anchor and pause policy change; the seed stays
     /// uncommitted until the first ordinary prepare/commit pair.
     func activatePrimed(
-        sceneTime: TimeInterval, hostTime: TimeInterval, isPaused: Bool
+        hostTime: TimeInterval, isPaused: Bool
     ) -> Bool {
         guard !hasStarted, primeOperationID == nil,
               case let .userProperty(property) = owner,
               hasCompletePrimedPublication(for: property) else { return false }
-        lifecycle.start(sceneTime: sceneTime, hostTime: hostTime)
+        lifecycle.start(hostTime: hostTime)
         if isPaused {
-            lifecycle.suspend(sceneTime: sceneTime, hostTime: hostTime)
+            lifecycle.suspend(hostTime: hostTime)
         } else {
-            lifecycle.resumeSuspension(sceneTime: sceneTime, hostTime: hostTime)
+            lifecycle.resumeSuspension(hostTime: hostTime)
         }
         hasStarted = true
         markPlayerAnchorRequired()
@@ -458,7 +458,7 @@ final class SceneVideoTextureSource {
         // texture acquired before its effect was disabled.
         let pausedRefresh = effectVisibility == true
             && !lifecycle.isAdvancingPlayback && lifecycle.needsFrameRefresh
-            && lifecycle.currentTime(at: timing.sceneTime) >= 0
+            && lifecycle.currentTime(at: timing.hostTime) >= 0
         let fallback = pausedRefresh ? nil : lastFrame
         if pendingFrameIndex == timing.frameIndex,
            lifecycle.hasPlannedFrame(frameIndex: timing.frameIndex) {
@@ -470,11 +470,8 @@ final class SceneVideoTextureSource {
         if !hasStarted {
             pendingInitialPreparation = .init(lifecycle: lifecycle,
                 endedGeneration: endedGeneration,
-                itemTime: lifecycle.currentTime(at: timing.sceneTime))
-            lifecycle.start(
-                sceneTime: timing.sceneTime,
-                hostTime: timing.hostTime
-            )
+                itemTime: lifecycle.currentTime(at: timing.hostTime))
+            lifecycle.start(hostTime: timing.hostTime)
             hasStarted = true
             markPlayerAnchorRequired()
         }
@@ -483,7 +480,6 @@ final class SceneVideoTextureSource {
         }
         let plan = lifecycle.planFrame(
             frameIndex: timing.frameIndex,
-            sceneTime: timing.sceneTime,
             hostTime: timing.hostTime
         )
         // Keep even a last-ready fallback behind the host's submission
@@ -501,7 +497,7 @@ final class SceneVideoTextureSource {
             return frame
         }
         // An EOF may arrive after preparation but before a rejected frame is
-        // retried. Its old Scene time can precede the new loop's zero point.
+        // retried. Its earlier host time can precede the new loop's zero point.
         // Keep the previous texture until that point instead of scheduling
         // item zero against an earlier host time and shifting playback ahead.
         guard plan.itemTime >= 0 else { return fallback }
@@ -617,7 +613,7 @@ final class SceneVideoTextureSource {
         pendingFrameIndex = nil
         pendingInitialPreparation = nil
         lifecycle.discardPlannedFrame(frameIndex: frameIndex)
-        // Ordinary presentation failure does not rewind SceneClock or undo
+        // Ordinary presentation failure does not rewind host time or undo
         // a real backend anchor/EOF. Only the first, unsubmitted start has an
         // origin to restore; a confirmed EOF already superseded that origin.
         if let initial, endedGeneration == initial.endedGeneration {
@@ -629,11 +625,11 @@ final class SceneVideoTextureSource {
     }
 
     func playbackSnapshot(
-        sceneTime: TimeInterval
+        hostTime: TimeInterval
     ) -> SceneScriptVideoPlaybackSnapshot? {
         guard let duration = preparedDuration?.seconds else { return nil }
         let current = boundedCurrentTime(
-            lifecycle.currentTime(at: sceneTime),
+            lifecycle.currentTime(at: hostTime),
             duration: duration
         )
         return .init(
@@ -660,43 +656,29 @@ final class SceneVideoTextureSource {
         timing: SceneFrameTiming
     ) {
         if !hasStarted {
-            lifecycle.start(
-                sceneTime: timing.sceneTime,
-                hostTime: timing.hostTime
-            )
+            lifecycle.start(hostTime: timing.hostTime)
             hasStarted = true
         }
         switch action {
         case .play:
             guard !lifecycle.isPlaying else { return }
-            lifecycle.resume(
-                sceneTime: timing.sceneTime,
-                hostTime: timing.hostTime
-            )
+            lifecycle.resume(hostTime: timing.hostTime)
             markPlayerAnchorRequired()
         case .pause:
             guard lifecycle.isPlaying else { return }
-            lifecycle.pause(
-                sceneTime: timing.sceneTime,
-                hostTime: timing.hostTime
-            )
+            lifecycle.pause(hostTime: timing.hostTime)
             markPlayerAnchorRequired()
         case .stop:
             lifecycle.seek(
                 to: 0,
-                sceneTime: timing.sceneTime,
                 hostTime: timing.hostTime
             )
-            lifecycle.pause(
-                sceneTime: timing.sceneTime,
-                hostTime: timing.hostTime
-            )
+            lifecycle.pause(hostTime: timing.hostTime)
             requestPlayerPosition(to: 0)
             markPlayerAnchorRequired()
         case let .setCurrentTime(value):
             lifecycle.seek(
                 to: value,
-                sceneTime: timing.sceneTime,
                 hostTime: timing.hostTime
             )
             requestPlayerPosition(to: value)
@@ -705,13 +687,12 @@ final class SceneVideoTextureSource {
             guard value != lifecycle.rate else { return }
             lifecycle.setRate(
                 value,
-                sceneTime: timing.sceneTime,
                 hostTime: timing.hostTime
             )
             markPlayerAnchorRequired()
         case let .setLoop(value):
             guard value != lifecycle.loop else { return }
-            let currentTime = lifecycle.currentTime(at: timing.sceneTime)
+            let currentTime = lifecycle.currentTime(at: timing.hostTime)
             let previousPosition = boundedItemTime(currentTime)
             lifecycle.setLoop(value)
             if CMTimeCompare(previousPosition, boundedItemTime(currentTime)) != 0 {
@@ -747,19 +728,19 @@ final class SceneVideoTextureSource {
         return .color(.unresolved)
     }
 
-    func pause(sceneTime: TimeInterval, hostTime: TimeInterval) {
+    func pause(hostTime: TimeInterval) {
         player.pause()
-        lifecycle.suspend(sceneTime: sceneTime, hostTime: hostTime)
+        lifecycle.suspend(hostTime: hostTime)
         if hasStarted { markPlayerAnchorRequired() }
     }
 
-    func resume(sceneTime: TimeInterval, hostTime: TimeInterval) {
-        lifecycle.resumeSuspension(sceneTime: sceneTime, hostTime: hostTime)
+    func resume(hostTime: TimeInterval) {
+        lifecycle.resumeSuspension(hostTime: hostTime)
         if hasStarted { markPlayerAnchorRequired() }
     }
 
     /// Losing the final consumer suspends decoder work, not author playback.
-    /// A returning consumer positions from the existing Scene clock; the last
+    /// A returning consumer positions from the existing host time; the last
     /// ready publication remains usable while that positioning completes.
     func suspendUnusedBackend() {
         guard hasStarted else { return }

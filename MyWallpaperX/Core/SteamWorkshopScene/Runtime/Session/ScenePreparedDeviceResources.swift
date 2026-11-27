@@ -39,7 +39,6 @@ nonisolated enum SceneDeferredBaseImageStatus: Equatable {
 /// prepares visible entries before activation and publishes dormant alternatives on demand.
 /// Puppet models and atlases are shared; poses and GPU geometry remain surface-scoped.
 final class ScenePreparedBaseImageResources {
-    private let automaticMipProjection: SceneAutomaticTextureProjection?
     private var automaticMipTails: [SceneTextureLoader.SourceKey: AutomaticMipTail]
     private var automaticMipDemand: Double
     private var preparingAutomaticMips = false
@@ -119,7 +118,6 @@ final class ScenePreparedBaseImageResources {
         conditionalProducts: [SceneTextureLoader.SourceKey: ConditionalProduct],
         dynamicImageResources: [String: ScenePreparedDynamicImageResource],
         deferredLayerIDs: Set<Int>,
-        automaticMipProjection: SceneAutomaticTextureProjection?,
         automaticMipTails: [SceneTextureLoader.SourceKey: AutomaticMipTail],
         automaticMipDemand: Double,
         loadedCount: Int,
@@ -136,7 +134,6 @@ final class ScenePreparedBaseImageResources {
         self.device = device
         self.deviceRegistryID = deviceRegistryID
         self.entries = entries
-        self.automaticMipProjection = automaticMipProjection
         self.automaticMipTails = automaticMipTails
         self.automaticMipDemand = automaticMipDemand
         self.conditionalAtlases = conditionalAtlases
@@ -166,7 +163,7 @@ final class ScenePreparedBaseImageResources {
         deferredBaseImageLayerIDs: Set<Int> = [],
         imageGeometryModels: [SceneAssetCatalog.ModelAsset] = [],
         ordinaryColorMipLongEdge: Int? = nil,
-        automaticDrawableExtent: CGSize? = nil,
+        automaticMipDensity: Double? = nil,
         geometryPrepared: ([Int: [Float]]) -> Void = { _ in },
         uploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
         decodeCacheBudget: SceneTextureDecodeCacheBudget = .init(
@@ -271,12 +268,11 @@ final class ScenePreparedBaseImageResources {
                     failedCount += atlas.layerIDs.count
                 }
             }
-            let (automaticProjection, fullResolutionLayerIDs) = Self.mipPreparationInputs(
-                descriptor: descriptor, drawable: automaticDrawableExtent,
-                ordinaryColorMipLongEdge: ordinaryColorMipLongEdge)
-            let automaticCover = automaticDrawableExtent.flatMap { automaticProjection?.coverScale(for: $0) }
+            let automaticCover = automaticMipDensity.flatMap { $0 > 0 ? $0 : nil }
+            let fullResolutionLayerIDs = ordinaryColorMipLongEdge != nil || automaticCover != nil
+                ? Self.fullResolutionMipLayerIDs(in: descriptor) : []
             let defaultMipReason: SceneTextureUse.Reason =
-                ordinaryColorMipLongEdge == nil && automaticDrawableExtent == nil ? .highQuality : .preservedPixels
+                ordinaryColorMipLongEdge == nil && automaticMipDensity == nil ? .highQuality : .preservedPixels
             func loadInitialImage(_ layer: SceneRenderDescriptor.Layer, mipSelection: SceneOrdinaryImageMipSelection? = nil,
                                   originalMipReason: SceneTextureUse.Reason) throws {
                 guard let request = imageRequests.removeValue(forKey: layer.id) else { return }
@@ -334,7 +330,7 @@ final class ScenePreparedBaseImageResources {
                         mipReason = .projection
                     }
                 }
-                if automaticProjection != nil, let source = entries[layer.id]?.source { exactSources.insert(source) }
+                if automaticCover != nil, let source = entries[layer.id]?.source { exactSources.insert(source) }
                 if deferredLayerIDs.contains(layer.id) { entries[layer.id]?.deferredMip = (nil, mipReason) }
                 try loadInitialImage(layer, originalMipReason: mipReason)
             }
@@ -531,7 +527,6 @@ final class ScenePreparedBaseImageResources {
                 conditionalProducts: conditionalProducts,
                 dynamicImageResources: dynamicImageResources,
                 deferredLayerIDs: deferredLayerIDs,
-                automaticMipProjection: automaticMipTails.isEmpty ? nil : automaticProjection,
                 automaticMipTails: automaticMipTails,
                 automaticMipDemand: automaticCover ?? 0,
                 loadedCount: loadedCount,
@@ -639,13 +634,11 @@ final class ScenePreparedBaseImageResources {
     }
 
     @MainActor
-    func promoteAutomaticMips(for drawable: CGSize?, publish: @escaping @MainActor ([Int: SceneBaseImageTextureLoad.Loaded]) -> Void) {
-        guard let automaticMipProjection else { return }
-        if let drawable {
-            let cover = automaticMipProjection.coverScale(for: drawable)
-            guard cover.isFinite, deferredLock.withLock({
-                guard cover > automaticMipDemand else { return false }
-                automaticMipDemand = cover
+    func promoteAutomaticMips(to density: Double?, publish: @escaping @MainActor ([Int: SceneBaseImageTextureLoad.Loaded]) -> Void) {
+        if let density {
+            guard density.isFinite, deferredLock.withLock({
+                guard !automaticMipTails.isEmpty, density > automaticMipDemand else { return false }
+                automaticMipDemand = density
                 return true
             }) else { return }
         }

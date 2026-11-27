@@ -21,6 +21,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 DEMAND_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+AudioDemand.swift"
 HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
+HOST_ACTIVATION_SOURCE = HOST_SOURCE.with_name("SceneDesktopWallpaperHost+Activation.swift")
 AUDIO_SPECTRUM_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift"
 FRAME_DRIVER_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift"
@@ -167,6 +168,9 @@ final class SceneAudioSpectrumInbox {
 
 final class SceneDesktopWallpaperSession {
     var audioDemand = (spectrum: false, currentProcess: false)
+    var presentation = Presentation()
+    var isOutputActive = true
+    struct Presentation { var listensToAudio = true }
     var surfaces: [Int: StubSurface] = [:]
     var soundPlaybackRegistry: StubSoundRegistry?
     var mediaReconciliations = 0
@@ -180,6 +184,12 @@ final class SceneDesktopWallpaperSession {
         }
     }
 
+}
+
+final class SceneDesktopWallpaperHost {
+    var activeSession: SceneDesktopWallpaperSession?
+    var candidateSession: SceneDesktopWallpaperSession?
+    HOST_AUDIO_DEMAND
 }
 
 @main
@@ -265,6 +275,22 @@ enum AudioDemandTransitionHarness {
         aliasHost.reconcileSystemInputConsumers(aliasContext, topologyChanged: true)
         precondition(!aliasHost.audioDemand.spectrum)
 
+        let playbackHost = SceneDesktopWallpaperHost()
+        playbackHost.activeSession = initialParticleHost
+        playbackHost.candidateSession = knownConsumerHost
+        knownConsumerHost.audioDemand = (true, true)
+        knownConsumerHost.presentation.listensToAudio = false
+        inbox.reset(demanded: true)
+        playbackHost.reconcileAudioDemand()
+        precondition(inbox.current.demanded && !inbox.current.includesCurrentProcess && inbox.updates.isEmpty,
+            "a listening-disabled candidate must not restart the active Scene's frequency capture")
+        knownConsumerHost.presentation.listensToAudio = true
+        playbackHost.reconcileAudioDemand()
+        precondition(inbox.current.demanded && inbox.current.includesCurrentProcess)
+        knownConsumerHost.isOutputActive = false
+        playbackHost.reconcileAudioDemand()
+        precondition(inbox.current.demanded && !inbox.current.includesCurrentProcess)
+
         print("audio-demand-transition-ok")
     }
 }
@@ -273,6 +299,9 @@ enum AudioDemandTransitionHarness {
         signature = "    func sourceMaterialConsumer(layerID: Int, modelPath: String?) -> SourceMaterialConsumer?"
         body = swift_body(bridge, signature)
         harness = harness.replace("    SOURCE_MATERIAL_CONSUMER", signature + " {" + body + "}")
+        signature = "    func reconcileAudioDemand()"
+        body = swift_body(HOST_ACTIVATION_SOURCE.read_text(), signature)
+        harness = harness.replace("    HOST_AUDIO_DEMAND", signature + " {" + body + "}")
         with tempfile.TemporaryDirectory(
             prefix="scene-audio-demand-transition-"
         ) as temp:
@@ -395,14 +424,14 @@ enum AudioCaptureDemandHarness {
             + FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         )
         self.assertIn(
-            "let audioSpectrumFrame = SceneAudioSpectrumInbox.shared.prepareFrame()",
+            "presentation.listensToAudio ? SceneAudioSpectrumInbox.shared.prepareFrame() : nil",
             source,
         )
-        self.assertIn("let audioSpectrum = audioSpectrumFrame.snapshot", source)
+        self.assertIn("let audioSpectrum = audioSpectrumFrame?.snapshot ?? .silent", source)
         # 采样必须在 surface 循环之外：频谱是 host-shared 输入，
         # 同一帧内所有屏幕必须看到同一份数据。
         sample_index = source.index(
-            "let audioSpectrumFrame = SceneAudioSpectrumInbox"
+            "let audioSpectrumFrame = presentation.listensToAudio"
         )
         loop_index = source.index("for (displayID, surface) in surfaces", sample_index)
         self.assertLess(

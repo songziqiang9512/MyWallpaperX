@@ -143,7 +143,7 @@ enum PlaybackHarness {
     static func advance(_ registry: SceneSoundPlaybackRegistry, clock: inout SceneClock,
                         hostTime: Double) -> SceneFrameTiming {
         let timing = clock.advance(hostTime: hostTime, wallDate: Date(timeIntervalSince1970: 0))
-        registry.advance(sceneTime: timing.sceneTime)
+        registry.advance(hostTime: timing.hostTime)
         return timing
     }
 
@@ -176,8 +176,9 @@ enum PlaybackHarness {
         // Construction precedes the new clock epoch's first cadence. Neither
         // stale host time nor wall time spent decoding may consume this gap.
         var clock = SceneClock(hostTime: 700)
+        clock.setPlaybackRate(2, hostTime: 700)
         let anchor = advance(registry, clock: &clock, hostTime: 700)
-        for _ in 0..<4 { registry.advance(sceneTime: anchor.sceneTime) }
+        for _ in 0..<4 { registry.advance(hostTime: anchor.hostTime) }
         hold(0.06)
         precondition(actual.items().isEmpty)
         advance(registry, clock: &clock, hostTime: 701.49)
@@ -187,7 +188,7 @@ enum PlaybackHarness {
         let due = advance(registry, clock: &clock, hostTime: 701.51)
         let next = currentItem(actual, allowed: allowed)
         precondition(next !== first && player(registry, layer: 71) === actual)
-        for _ in 0..<4 { registry.advance(sceneTime: due.sceneTime) }
+        for _ in 0..<4 { registry.advance(hostTime: due.hostTime) }
         precondition(actual.currentItem === next && actual.items().count == 1,
                      "same cadence enqueued another random item")
         let nextEnd = ItemEndProbe(next)
@@ -324,13 +325,13 @@ enum PlaybackHarness {
         let freshPlayer = player(fresh, layer: 75)
         let freshItem = currentItem(freshPlayer, allowed: [firstURL])
         NotificationCenter.default.post(name: AVPlayerItem.didPlayToEndTimeNotification, object: replay)
-        registry.resume(); registry.advance(sceneTime: 1_000); hold(0.03)
+        registry.resume(); registry.advance(hostTime: 1_000); hold(0.03)
         precondition(actual.items().isEmpty && actual.rate == 0
                      && registry.sceneScriptSnapshots().isEmpty && freshPlayer !== actual)
         precondition(freshPlayer.currentItem === freshItem)
         fresh.retire(layerIDs: [75])
         NotificationCenter.default.post(name: AVPlayerItem.didPlayToEndTimeNotification, object: freshItem)
-        fresh.advance(sceneTime: 10_000); fresh.resume(); hold(0.03)
+        fresh.advance(hostTime: 10_000); fresh.resume(); hold(0.03)
         precondition(freshPlayer.items().isEmpty && freshPlayer.rate == 0
                      && fresh.sceneScriptSnapshots()[75] == nil)
         guard case .failure(.unavailableLayer(75)) = fresh.apply([
@@ -361,7 +362,7 @@ enum PlaybackHarness {
                      && registry.sceneScriptSnapshots()[77] == true)
         let healthyBefore = CMTimeGetSeconds(healthy.currentTime())
         let healthyItem = healthy.currentItem
-        for time in [0.0, 1.0, 10.0, 100.0] { registry.advance(sceneTime: time) }
+        for time in [0.0, 1.0, 10.0, 100.0] { registry.advance(hostTime: time) }
         NotificationCenter.default.post(name: AVPlayerItem.didPlayToEndTimeNotification, object: badItem)
         registry.pause(); registry.resume()
         hold(0.08)

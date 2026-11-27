@@ -107,6 +107,10 @@ extension SteamWorkshopService {
     ) {
         let previous = pendingSceneShortcutProperties[record.id]
         let stored = storedSceneShortcutConfiguration(for: record)
+        if previous == nil, references == stored.references {
+            completion(.applied)
+            return
+        }
         let revision = max(scenePropertyCommandRevision, stored.revision,
             previous?.configuration.revision ?? 0).addingReportingOverflow(1)
         guard !revision.overflow else { completion(.failed(String(localized: "Shortcut configuration revision limit reached"))); return }

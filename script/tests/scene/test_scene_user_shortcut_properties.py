@@ -60,6 +60,13 @@ enum ScenePlaybackTextureUpdateOutcome: Equatable {
     init(_ defaults: UserDefaults) { self.defaults = defaults }
     func scenePropertyOverrides(for record: SteamWorkshopDownloadRecord) -> [String: SceneUserPropertyValue] { scalarValues }
     func saveScenePropertyOverrides(_ values: [String: SceneUserPropertyValue], for record: SteamWorkshopDownloadRecord) { scalarValues = values }
+    @discardableResult
+    func updateScenePresentation(for record: SteamWorkshopDownloadRecord,
+                                 edit: (inout ScenePlaybackPresentation) -> Void) -> ScenePlaybackPresentation {
+        var value = ScenePlaybackPresentation()
+        edit(&value)
+        return value
+    }
     func resetSceneTextureProperties(for record: SteamWorkshopDownloadRecord,
         defaultValues: [String: SceneUserPropertyValue],
         completion: @escaping @MainActor (Set<String>, ScenePlaybackTextureUpdateOutcome) -> Void) { textureResets.append(completion) }
@@ -146,6 +153,13 @@ STORE_HARNESS = r'''
         service.textureResets.removeFirst()([], .applied)
         facts["allResetIncludesShortcut"] = resetOutcomes == [.applied]
             && service.storedSceneShortcutConfiguration(for: record).references.isEmpty && service.scalarValues.isEmpty
+        let noOpRequestCount = mux.requests.count
+        mux.available = false
+        service.resetScenePropertyValues(for: record, defaultValues: [:]) { resetOutcomes.append($0) }
+        service.textureResets.removeFirst()([], .applied)
+        facts["emptyShortcutResetSucceedsWithoutTransport"] = mux.requests.count == noOpRequestCount
+            && resetOutcomes == [.applied, .applied]
+        mux.available = true
         // Superseding completion re-enters before the displaced send: only
         // the final request may be sent and its configuration retains both keys.
         var reentered = false
@@ -182,13 +196,13 @@ UI_HARNESS = r'''
             "renamedShortcut": ["type": "usershortcut", "value": "", "condition": "gate.value", "order": 1]])
         let context = SteamWorkshopScenePropertyContext(catalog: catalog,
             actionableKeys: ["gate"], effectiveValues: catalog.defaultValues)
-        precondition(context.hasEditorControls && context.definitions.count == 2,
+        precondition(context.definitions.count == 2,
             "a declared shortcut must be configurable without a texture/value consumer")
         let onlyShortcut = SceneUserPropertyDefinitionParser().parse(properties: [
             "ownOnlyShortcut": ["type": "usershortcut", "value": ""]])
         let onlyContext = SteamWorkshopScenePropertyContext(catalog: onlyShortcut,
             actionableKeys: [], effectiveValues: onlyShortcut.defaultValues)
-        precondition(service.projectedScenePropertyContext(onlyContext, for: record) != nil,
+        precondition(service.projectedScenePropertyContext(onlyContext, for: record).definitions.map(\.key) == ["ownOnlyShortcut"],
             "the ordinary service must preserve a shortcut-only editor without scalar demands")
         let editor = SteamWorkshopScenePropertyEditorView(record: record, context: context)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 550, height: 400), styleMask: [.titled], backing: .buffered, defer: false)
@@ -208,7 +222,7 @@ UI_HARNESS = r'''
         }
         choose(); let resetPicker = PickerProbe.opened.last!
         precondition(resetPicker.canChooseFiles && resetPicker.canChooseDirectories && !resetPicker.allowsMultipleSelection)
-        descendants(editor, NSButton.self).first { $0.title == "恢复默认" }!.performClick(nil)
+        descendants(editor, NSButton.self).first { $0.title == String(localized: "Restore Defaults") }!.performClick(nil)
         resetPicker.finish(.OK)
         precondition(resetPicker.cancellations == 1 && service.shortcutEvents.isEmpty)
         service.finishReset(.applied)
@@ -244,18 +258,18 @@ UI_HARNESS = r'''
         service.shortcutReplies.removeFirst()(.applied)
         descendants(cell(1), NSButton.self).first { $0.action == NSSelectorFromString("chooseShortcutWeb:") }!.performClick(nil)
         let web = ShortcutAlertProbe.opened.last!
-        (web.accessoryView as! NSTextField).stringValue = "https://example.invalid/own"
+        descendants(web.accessoryView!, NSTextField.self).first!.stringValue = "https://example.invalid/own"
         web.finish(.alertFirstButtonReturn)
         precondition(service.shortcutEvents.count == 3 && service.shortcutEvents.last!.1?.scheme == "https")
         service.shortcutReplies.removeFirst()(.failed("own failure"))
         descendants(cell(1), NSButton.self).first { $0.action == NSSelectorFromString("chooseShortcutWeb:") }!.performClick(nil)
         let invalid = ShortcutAlertProbe.opened.last!
-        (invalid.accessoryView as! NSTextField).stringValue = "https://user:pass@example.invalid"
+        descendants(invalid.accessoryView!, NSTextField.self).first!.stringValue = "https://user:pass@example.invalid"
         invalid.finish(.alertFirstButtonReturn)
         precondition(service.shortcutEvents.count == 3)
         descendants(cell(1), NSButton.self).first { $0.action == NSSelectorFromString("chooseShortcutWeb:") }!.performClick(nil)
         let staleWeb = ShortcutAlertProbe.opened.last!
-        (staleWeb.accessoryView as! NSTextField).stringValue = "javascript:stale"
+        descendants(staleWeb.accessoryView!, NSTextField.self).first!.stringValue = "javascript:stale"
         editor.isHidden = true; staleWeb.finish(.alertFirstButtonReturn); editor.isHidden = false
         precondition(service.shortcutEvents.count == 3 && descendants(editor, NSTextField.self).first {
             $0.accessibilityIdentifier() == "scene-texture-update-status" }!.isHidden,
@@ -278,7 +292,9 @@ class SceneUserShortcutPropertyTests(unittest.TestCase):
             target.mkdir()
             probe = work / "Probe.swift"
             reset = method_body(SERVICE.read_text(), "    func resetScenePropertyValues(")
-            probe.write_text(STORE_CARRIERS + "\nextension SteamWorkshopService {\n" + reset + "\n}\n" + STORE_HARNESS)
+            presentation = method_body((ROOT / "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift").read_text(),
+                                       "nonisolated struct ScenePlaybackPresentation:")
+            probe.write_text(STORE_CARRIERS + presentation + "\nextension SteamWorkshopService {\n" + reset + "\n}\n" + STORE_HARNESS)
             binary = work / "probe"
             result = subprocess.run(["swiftc", "-parse-as-library", str(TYPES),
                 str(SCENE / "Systems/Properties/SceneUserProperty.swift"),

@@ -760,6 +760,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             ),
             "userPropertyTextures": textures,
             "userShortcuts": SceneDaemonProtocol.shortcutObject(request.userShortcuts),
+            "presentation": SceneDaemonProtocol.presentationObject(request.presentation),
             "requiredUserTextureKeys": request.requiredUserTextureKeys.sorted(),
             "profile": animationFrameRate.rawValue
         ]

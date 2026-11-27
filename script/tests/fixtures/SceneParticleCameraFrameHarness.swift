@@ -4,6 +4,7 @@ import simd
 
 struct SceneRenderDescriptor {
     struct Layer {
+        struct TextStyle { let screenAnchor: String? }
         var id: Int = 0
         var cameraPath: CameraPath? = nil
         var visible = true
@@ -22,6 +23,7 @@ struct SceneRenderDescriptor {
         let usesPerspective: Bool?
         var hasPerspectiveGeometryConsumer = false
         var hasFramebufferMaterialSource = false
+        var textStyle: TextStyle? = nil
     }
 
     let camera: CameraDescriptor
@@ -495,6 +497,7 @@ enum Harness {
             return [worldEye.x / worldEye.w, worldEye.y / worldEye.w, worldEye.z / worldEye.w]
         }
         let result: [String: Any] = [
+            "presentationAdjustment": presentationAdjustmentChecks(camera: camera, nativeCamera: nativeCamera),
             "canvasTrailWidthEyes": [frame, authoredFOVFrame, dynamicFrame].map(trailWidthEye),
             "fallbackTrailWidthEyes": [nativePolicy, missingNativeFOV, partialCanvas].map {
                 ["width": trailWidthEye($0), "projection": vector3($0.perspectiveEyePosition)]
@@ -847,6 +850,89 @@ enum Harness {
             "selectedMissingFOVDoesNotPickOlderCamera": select(layers: missingFOV) == nil,
             "selectedDynamicFOVIsConsumed": select(snapshot: snapshot(
                 .layer(layerID: 9, field: .fov), .scalar(80)))?.fovDegrees == 80,
+        ]
+    }
+
+    private static func presentationAdjustmentChecks(
+        camera: SceneRenderDescriptor.CameraDescriptor,
+        nativeCamera: SceneRenderDescriptor.CameraDescriptor
+    ) -> [String: Any] {
+        let narrow = CGSize(width: 1080, height: 1080)
+        let wide = CGSize(width: 2160, height: 1080)
+        let center = SIMD4<Float>(960, 540, 0, 1)
+        let left = SIMD4<Float>(0, 540, 0, 1)
+        let right = SIMD4<Float>(1920, 540, 0, 1)
+        let top = SIMD4<Float>(960, 0, 0, 1)
+        let bottom = SIMD4<Float>(960, 1080, 0, 1)
+        let narrowCenter = SceneParticleCameraFrame(camera: camera, viewportSize: narrow)
+        let leftFrame = SceneParticleCameraFrame(camera: camera, viewportSize: narrow, adjustment: .init(position: 0))
+        let rightFrame = SceneParticleCameraFrame(camera: camera, viewportSize: narrow, adjustment: .init(position: 100))
+        let topFrame = SceneParticleCameraFrame(camera: camera, viewportSize: wide, adjustment: .init(position: 0))
+        let bottomFrame = SceneParticleCameraFrame(camera: camera, viewportSize: wide, adjustment: .init(position: 100))
+        let fit = SceneCameraProjection.fittedCanvasRect(in: CGRect(origin: .zero, size: narrow),
+            orthoWidth: camera.orthoWidth, orthoHeight: camera.orthoHeight).size
+        let fitEnds = [0, 100].map { position in
+            SceneParticleCameraFrame(camera: camera, viewportSize: fit, adjustment: .init(position: position, layout: .fit))
+        }
+        let upperLeft = SIMD4<Float>(0, 0, 0, 1)
+        let lowerRight = SIMD4<Float>(1920, 1080, 0, 1)
+        let stretched = SceneParticleCameraFrame(camera: camera, viewportSize: narrow,
+            adjustment: .init(position: 100, layout: .stretch))
+        let centered = SceneParticleCameraFrame(camera: camera, viewportSize: narrow,
+            adjustment: .init(position: 100, layout: .center))
+        let freeViewport = CGSize(width: 2000, height: 1000)
+        let freeUpperLeft = SceneParticleCameraFrame(camera: camera, viewportSize: freeViewport,
+            adjustment: .init(layout: .free, horizontalPosition: 0, verticalPosition: 0))
+        let freeLowerRight = SceneParticleCameraFrame(camera: camera, viewportSize: freeViewport,
+            adjustment: .init(zoom: 150, layout: .free, horizontalPosition: 100, verticalPosition: 100))
+        let officialCanvas = SceneRenderDescriptor.CameraDescriptor(
+            eye: camera.eye, center: camera.center, up: camera.up, orthoWidth: 1280, orthoHeight: 720,
+            fovDegrees: camera.fovDegrees, perspectiveOverrideFOVDegrees: camera.perspectiveOverrideFOVDegrees,
+            nearZ: camera.nearZ, farZ: camera.farZ)
+        let officialFree = [(40, 50), (50, 40)].map { horizontal, vertical in
+            SceneParticleCameraFrame(camera: officialCanvas, viewportSize: CGSize(width: 960, height: 540),
+                adjustment: .init(layout: .free, horizontalPosition: horizontal, verticalPosition: vertical))
+        }
+        let magnified = SceneParticleCameraFrame(camera: camera, viewportSize: narrow, cameraZoom: 1.5,
+            adjustment: .init(zoom: 150))
+        let reduced = SceneParticleCameraFrame(camera: camera, viewportSize: narrow, adjustment: .init(zoom: 50))
+        let point = SIMD4<Float>(1680, 420, 0, 1)
+        let nativeDefault = SceneParticleCameraFrame(camera: nativeCamera, viewportSize: narrow)
+        let nativeMoved = SceneParticleCameraFrame(camera: nativeCamera, viewportSize: narrow,
+            adjustment: .init(position: 0, layout: .free, horizontalPosition: 0, verticalPosition: 100))
+        let nativeZoomed = SceneParticleCameraFrame(camera: nativeCamera, viewportSize: narrow, adjustment: .init(zoom: 200))
+        let cursor = SIMD2<Float>(0.5, 0.25)
+        let anchored = SceneRenderDescriptor.Layer(utilityLayer: nil, usesPerspective: false,
+            textStyle: .init(screenAnchor: "TopRight"))
+        let unanchored = SceneRenderDescriptor.Layer(utilityLayer: nil, usesPerspective: false,
+            textStyle: .init(screenAnchor: "none"))
+        let perspectiveAnchor = SceneRenderDescriptor.Layer(utilityLayer: nil, usesPerspective: true,
+            textStyle: .init(screenAnchor: "center"))
+        let movedPoint = ndc(rightFrame.viewProjection(for: unanchored), point)
+        let inversePoint = SceneLayerCursorGeometry.layerPoint(mouseNormalized: SIMD2(movedPoint[0], movedPoint[1]),
+            modelViewProjection: rightFrame.viewProjection(for: unanchored))!
+        return [
+            "horizontal": [ndc(leftFrame.orthographicViewProjection, left), ndc(rightFrame.orthographicViewProjection, right)],
+            "vertical": [ndc(topFrame.orthographicViewProjection, top), ndc(bottomFrame.orthographicViewProjection, bottom)],
+            "mixedPerspective": [ndc(leftFrame.perspectiveViewProjection, left), ndc(rightFrame.perspectiveViewProjection, right)],
+            "fitEnds": fitEnds.map { ndc($0.orthographicViewProjection, center) },
+            "stretchedCorners": [ndc(stretched.orthographicViewProjection, upperLeft),
+                                 ndc(stretched.perspectiveViewProjection, lowerRight)],
+            "centeredPixel": ndc(centered.orthographicViewProjection, center + SIMD4(1, 1, 0, 0)),
+            "freeCorners": [ndc(freeUpperLeft.orthographicViewProjection, lowerRight),
+                            ndc(freeLowerRight.perspectiveViewProjection, upperLeft)],
+            "measuredFreeAxes": officialFree.map { ndc($0.orthographicViewProjection, SIMD4(640, 360, 0, 1)) },
+            "zoomExtents": [vector2(magnified.coverHalfExtents), vector2(reduced.coverHalfExtents)],
+            "zoomCenter": ndc(magnified.orthographicViewProjection, center),
+            "nativePanIgnored": nativeMoved.perspectiveViewProjection == nativeDefault.perspectiveViewProjection,
+            "nativeCursor": [vector3(nativeDefault.nativeCursorWorldPosition(.zero)!),
+                             vector3(nativeDefault.nativeCursorWorldPosition(cursor)!),
+                             vector3(nativeZoomed.nativeCursorWorldPosition(cursor)!)],
+            "anchor": [ndc(narrowCenter.viewProjection(for: anchored), point), ndc(rightFrame.viewProjection(for: anchored), point)],
+            "perspectiveAnchor": [ndc(narrowCenter.viewProjection(for: perspectiveAnchor), point),
+                                  ndc(rightFrame.viewProjection(for: perspectiveAnchor), point)],
+            "unanchored": [ndc(narrowCenter.viewProjection(for: unanchored), point), movedPoint],
+            "inversePoint": vector3(inversePoint),
         ]
     }
 

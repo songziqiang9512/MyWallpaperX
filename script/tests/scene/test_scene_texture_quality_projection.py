@@ -18,11 +18,9 @@ import Foundation
 @main
 enum Harness {
     static func main() {
-        let canvas = SceneAutomaticTextureProjection(canvasWidth: 6528, canvasHeight: 4420, zoom: 1)!
         let world = SceneAutomaticTextureProjection.worldExtent(size: [6528, 4420], scale: nil)!
         let authored = [(6528, 4420), (3264, 2210), (1632, 1105), (816, 552), (408, 276)]
-        let drawable = CGSize(width: 3024, height: 1964)
-        let cover = canvas.coverScale(for: drawable)
+        let cover = 3024.0 / 6528
         let minimum = SceneAutomaticTextureProjection.minimumExtent(worldExtent: world, coverScale: cover)!
         precondition(minimum == SIMD2(3024, 2048))
         precondition(SceneOrdinaryImageMipSelection.minimumExtent(minimum)
@@ -33,8 +31,8 @@ enum Harness {
         let source = SceneAutomaticTextureProjection.Source(worldExtent: world, layerIDs: [54])
         let coverage = source.maximumCoverScale(for: CGSize(width: 3264, height: 2210))
         precondition(cover < coverage)
-        precondition(canvas.coverScale(for: CGSize(width: 3264, height: 2210)) == coverage)
-        let larger = canvas.coverScale(for: CGSize(width: 3265, height: 2210))
+        precondition(coverage == 0.5)
+        let larger = 3265.0 / 6528
         precondition(larger > coverage)
         let grown = SceneAutomaticTextureProjection.minimumExtent(worldExtent: world, coverScale: larger)!
         precondition(SceneOrdinaryImageMipSelection.minimumExtent(grown)
@@ -76,9 +74,6 @@ enum Harness {
             CGSize(width: maximumHeaderDimension, height: maximumHeaderDimension)) == nil)
         precondition(SceneOffscreenResolutionPolicy.preferredImageCaptureExtent(
             CGSize(width: 2560, height: 1465)) == SIMD2(2560, 1465))
-        let zoomed = SceneAutomaticTextureProjection(canvasWidth: 3000, canvasHeight: 2000, zoom: 2)!
-        precondition(zoomed.coverScale(for: CGSize(width: 1500, height: 900)) == 1)
-        precondition(SceneAutomaticTextureProjection(canvasWidth: nil, canvasHeight: 2000, zoom: nil) == nil)
         precondition(SceneAutomaticTextureProjection.worldExtent(size: [100, 0], scale: nil) == nil)
         precondition(SceneAutomaticTextureProjection.minimumExtent(worldExtent: world, coverScale: .infinity) == nil)
     }

@@ -126,7 +126,7 @@ final class ScenePerformanceCounterHub {
                       cacheDirectory: cache, device: device, loader: loader),
                   let layerSource = try registry.source(from: declaration.input, layerID: videoLayerID,
                       cacheDirectory: cache, device: device, loader: loader) else { fatalError("registry source missing") }
-            let initialVideoFrame = registry.sceneScriptSnapshots(sceneTime: 0)
+            let initialVideoFrame = registry.sceneScriptSnapshots(hostTime: 0)
             var checks: [String: Bool] = [
                 "declarationIsNotReady": catalog.launchStates[asset] == .preparedVideo(.color(.resolved(.premultipliedAlpha)))
                     && catalog.launchStates[dataAsset] == .preparedVideo(.data),
@@ -141,6 +141,24 @@ final class ScenePerformanceCounterHub {
                 "unsupportedPurposeUnavailable": catalog.launchStates[unsupported] == .unavailable,
                 "badTexUnavailable": catalog.launchStates[invalid] == .unavailable,
             ]
+            let paused = SceneVideoTextureSourceRegistry(epoch: 41, pausedHostTime: CACurrentMediaTime())
+            defer { paused.stop() }
+            guard let coldAsset = try paused.source(declaration: declaration, owner: .asset,
+                      cacheDirectory: cache, device: device, loader: loader),
+                  let coldLayer = try paused.source(from: declaration.input, layerID: videoLayerID,
+                      cacheDirectory: cache, device: device, loader: loader),
+                  firstFrame(coldAsset) != nil, firstFrame(coldLayer) != nil else {
+                fatalError("new video sources must publish the first paused frame")
+            }
+            let resumeTime = CACurrentMediaTime() + 0.5
+            checks["pausedAdmissionHoldsBothVideoKindsAtStart"] = [coldAsset, coldLayer].allSatisfy {
+                $0.playbackSnapshot(hostTime: resumeTime)?.currentTime == 0
+            }
+            paused.resume(hostTime: resumeTime)
+            checks["pausedAdmissionResumesWithoutSkipping"] = [coldAsset, coldLayer].allSatisfy {
+                $0.playbackSnapshot(hostTime: resumeTime)?.currentTime == 0
+                    && $0.playbackSnapshot(hostTime: resumeTime + 0.125)?.currentTime == 0.125
+            }
             let pipeline = try imagePipeline(device), channels = try channelPipeline(device)
             let frameRegistry = SceneFrameTextureRegistry()
             let peerRegistry = SceneFrameTextureRegistry()
@@ -190,7 +208,7 @@ final class ScenePerformanceCounterHub {
                     generations.append(frame.contentGeneration)
                     if firstPublication == nil {
                         firstPublication = publication
-                        durationSnapshots["firstPublication"] = videoObservation(source, sceneTime: time.sceneTime)
+                        durationSnapshots["firstPublication"] = videoObservation(source, hostTime: time.hostTime)
                     }
                     latestPublication = publication
                     peerRegistry.commitFramePublication()
@@ -291,7 +309,7 @@ final class ScenePerformanceCounterHub {
             let pauseCommand = SceneScriptMediaPlaybackCommand(layerID: videoLayerID, action: .pause, videoSourceIncarnation: layerSource.sourceIncarnation), pauseTiming = timing()
             try registry.validate([pauseCommand], timing: pauseTiming).get()
             registry.applyAdmitted(pauseCommand, timing: pauseTiming)
-            let pausedVideoFrame = registry.sceneScriptSnapshots(sceneTime: 3.2)
+            let pausedVideoFrame = registry.sceneScriptSnapshots(hostTime: 3.2)
             checks["layerCommandsDoNotControlAsset"] = beforePause > 0
                 && player(source).rate > 0
                 && pausedVideoFrame.layerBindings[videoLayerID].flatMap { pausedVideoFrame.sources[$0] }?.isPlaying == false
@@ -303,7 +321,7 @@ final class ScenePerformanceCounterHub {
             let addedLayer = try registry.source(from: declaration.input, layerID: videoLayerID,
                 cacheDirectory: cache, device: device, loader: loader)
             checks["addedViewReusesAssetAndLayerBinding"] = reacquired === source && addedLayer === layerSource
-                && registry.sceneScriptSnapshots(sceneTime: 3.2).layerBindings == pausedVideoFrame.layerBindings
+                && registry.sceneScriptSnapshots(hostTime: 3.2).layerBindings == pausedVideoFrame.layerBindings
             let oldDeclaration = declaration
             try Data([0x11]).appendTo(root.appendingPathComponent(assetName + ".tex"))
             do {
@@ -467,7 +485,7 @@ final class ScenePerformanceCounterHub {
             Task { primed = await candidate.source.primeInitialFrame() }
             checks["externalCandidatePrimesActualDecoder"] = pump(12) { primed != nil } && primed == true
             checks["externalCandidateAdopts"] = registry.adoptUserPropertyCandidate(candidate,
-                sceneTime: 0, hostTime: CACurrentMediaTime(), isPaused: true)
+                hostTime: CACurrentMediaTime(), isPaused: true)
             let source = candidate.source
             borrowedItem = player(source).currentItem
             borrowedAsset = borrowedItem?.asset
@@ -505,8 +523,7 @@ final class ScenePerformanceCounterHub {
                 Task { ready = await next.source.primeInitialFrame() }
                 let complete = pump(12) { ready != nil } && ready == true
                 checks["liveReplacementUsesNewActualPrivateSource"] = complete
-                    && registry.adoptUserPropertyCandidate(next, sceneTime: 0.3,
-                        hostTime: CACurrentMediaTime(), isPaused: true)
+                    && registry.adoptUserPropertyCandidate(next, hostTime: CACurrentMediaTime(), isPaused: true)
                     && next.source !== source && nextDeclaration.file.url != declaration.file.url
                     && registry.userPropertySources(declarations: replacement.videoDeclarations, device: device)[identity] === next.source
                 checks["liveReplacementPrivateOutsideAuthor"] = !nextDeclaration.file.url.path.hasPrefix(root.path + "/")
@@ -875,13 +892,13 @@ final class ScenePerformanceCounterHub {
             let replacementKey = try revisionView.resolvedResource(relativePath: "textures/first.tex")!.currentIdentity()
             let replacementLayer = try preparedRegistry.source(sourceKey: replacementKey, preparedFile: preparedFile,
                 owner: .ordinary, layerID: 811, device: device)!
-            checks["layerIndexExcludesAssetAndKeepsBothLayers"] = Set(preparedRegistry.sceneScriptSnapshots(sceneTime: 0).layerBindings.keys) == [811, 812]
+            checks["layerIndexExcludesAssetAndKeepsBothLayers"] = Set(preparedRegistry.sceneScriptSnapshots(hostTime: 0).layerBindings.keys) == [811, 812]
             guard firstFrame(layerSource) != nil, firstFrame(replacementLayer) != nil else { fatalError("ordinary sources did not obtain actual Native duration") }
             let commands: [SceneScriptMediaPlaybackCommand] = [.init(layerID: 811, action: .setRate(2), videoSourceIncarnation: replacementLayer.sourceIncarnation), .init(layerID: 812, action: .setRate(3), videoSourceIncarnation: layerSource.sourceIncarnation)]
             try preparedRegistry.validate(commands, timing: timing).get()
             for command in commands { preparedRegistry.applyAdmitted(command, timing: timing) }
             checks["layerIndexSharesResourceAndTargetsDistinctRevision"] = layerSource === obsoleteLayer
-                && layerSource.playbackSnapshot(sceneTime: 0)?.rate == 3 && replacementLayer.playbackSnapshot(sceneTime: 0)?.rate == 2
+                && layerSource.playbackSnapshot(hostTime: 0)?.rate == 3 && replacementLayer.playbackSnapshot(hostTime: 0)?.rate == 2
             let nativeDuration = CMTimeGetSeconds(player(replacementLayer).currentItem!.duration)
             let rejectedCases: [(String, [SceneScriptMediaPlaybackCommand], SceneVideoCommandApplicationFailure)] = [
                 ("wrongLayerRejectedAtomically", [.init(layerID: 811, action: .setRate(4), videoSourceIncarnation: replacementLayer.sourceIncarnation), .init(layerID: 999, action: .pause)], .unavailableLayer(999)),
@@ -890,17 +907,17 @@ final class ScenePerformanceCounterHub {
                 ("missingSourceCommandRejected", [.init(layerID: 811, action: .pause)], .unavailableLayer(811))]
             for (name, rejectedCommands, expected) in rejectedCases {
                 if case let .failure(actual) = preparedRegistry.validate(rejectedCommands, timing: timing) {
-                    checks[name] = nativeDuration.isFinite && nativeDuration > 0 && actual == expected && replacementLayer.playbackSnapshot(sceneTime: 0)?.rate == 2
+                    checks[name] = nativeDuration.isFinite && nativeDuration > 0 && actual == expected && replacementLayer.playbackSnapshot(hostTime: 0)?.rate == 2
                 } else { checks[name] = false }
             }
-            let catalogModel = "models/catalog-video.json", catalogState = replacementLayer.playbackSnapshot(sceneTime: 0)
+            let catalogModel = "models/catalog-video.json", catalogState = replacementLayer.playbackSnapshot(hostTime: 0)
             try preparedRegistry.prepareDynamicVideoSources(resources: [catalogModel: .init(product: .video(
                 source: replacementKey, file: preparedFile, sizeWH: [32, 24]))], modelPaths: [catalogModel], device: device)
             preparedRegistry.retire(layerIDs: [811, 812])
             _ = try watch(handle)
             let addedAsset = try preparedRegistry.source(sourceKey: sourceKey, preparedFile: preparedFile,
                 owner: .asset, device: device)
-            let carrierlessState = replacementLayer.playbackSnapshot(sceneTime: 0)
+            let carrierlessState = replacementLayer.playbackSnapshot(hostTime: 0)
             checks["catalogZeroCarrierReusesSourceAndFile"] = preparedRegistry.layerSources(deviceRegistryID: device.registryID).isEmpty
                 && catalogState != nil && carrierlessState?.sourceIncarnation == catalogState?.sourceIncarnation && carrierlessState?.currentTime == catalogState?.currentTime
                 && carrierlessState?.rate == catalogState?.rate && carrierlessState?.isPlaying == catalogState?.isPlaying
@@ -912,7 +929,7 @@ final class ScenePerformanceCounterHub {
             checks["addedViewReusesSourceWithoutPayload"] = addedAsset === preparedSource && addedLayer === replacementLayer
                 && player(preparedSource).currentItem != nil && reads["preparedAddedView"] == 0
                 && SceneVideoOwnedFile.DiskBudget.shared.reservedBytes == preparedReservation
-            checks["retireAndAddedViewKeepOnlyCurrentBinding"] = Set(preparedRegistry.sceneScriptSnapshots(sceneTime: 0).layerBindings.keys) == [811]
+            checks["retireAndAddedViewKeepOnlyCurrentBinding"] = Set(preparedRegistry.sceneScriptSnapshots(hostTime: 0).layerBindings.keys) == [811]
                 && player(layerSource).currentItem != nil && player(obsoleteLayer).currentItem != nil
                 && preparedRegistry.layerSources(deviceRegistryID: device.registryID)[811] === replacementLayer
             if case .failure(.unavailableLayer(812)) = preparedRegistry.validate([.init(layerID: 812, action: .play)], timing: timing) {
@@ -935,7 +952,7 @@ final class ScenePerformanceCounterHub {
             preparedRegistry.stop()
             checks["preparedStopRetiresActualPlayer"] = player(preparedSource).currentItem == nil
             if case .failure(.unavailableLayer(811)) = preparedRegistry.validate([.init(layerID: 811, action: .play)], timing: timing) {
-                checks["layerIndexStopClearsBindings"] = preparedRegistry.sceneScriptSnapshots(sceneTime: 0).layerBindings.isEmpty
+                checks["layerIndexStopClearsBindings"] = preparedRegistry.sceneScriptSnapshots(hostTime: 0).layerBindings.isEmpty
             } else { checks["layerIndexStopClearsBindings"] = false }
             lastRegistry.stop()
         }

@@ -69,7 +69,7 @@ extension SceneDesktopWallpaperSession {
         guard pendingSurfacePreparation == nil, !screens.isEmpty,
               let values = evaluationTransaction.committedSnapshot else { return }
         let topology = context.sceneScriptDynamicLayerRuntime.snapshot()
-        let audio = SceneAudioSpectrumInbox.shared.prepareFrame().snapshot
+        let audio = presentation.listensToAudio ? SceneAudioSpectrumInbox.shared.prepareFrame().snapshot : .silent
         let input = context.makeSurfacePreparationInput(dynamicValues: values, topology: topology,
             audioInput: .init(left: audio.left, right: audio.right, generation: audio.generation),
             sceneTime: sceneClock.currentSceneTime(hostTime: CACurrentMediaTime()))
@@ -242,6 +242,7 @@ extension SceneDesktopWallpaperSession {
 #if DEBUG
             if frame != screen.frame { debugSurfaceReferenceFrames[screenID] = screen.frame }
 #endif
+            let framing = effectiveFraming
             let materialRuntime = prepared.materialRuntime
             materialRuntime.installAssetVideoSources(assetVideoSources,
                 declaredIdentities: Set(launchContext.materialAssetCatalog.videoDeclarations.keys),
@@ -279,7 +280,9 @@ extension SceneDesktopWallpaperSession {
                     firstFramePresentationRegistration?.arm(on: drawable) ?? false
                 },
                 frame: frame,
-                fitsCanvas: fitsCanvas
+                cameraAdjustment: framing,
+                flippedHorizontally: presentation.flippedHorizontally,
+                allowsMouseParallax: presentation.allowsMouseParallax
             ) else {
                 _ = prepared.playback.teardown(reason: "surfaceUnavailable")
                 continue
@@ -462,10 +465,20 @@ extension SceneDesktopWallpaperSession {
 
     func promoteAutomaticTextures(for surface: Surface? = nil) {
         guard let images = launchContext?.preparedDeviceResources.baseImages else { return }
-        images.promoteAutomaticMips(for: surface?.metalView.metalLayer.drawableSize) { [weak self, weak images] updates in
+        let density = surface.map { surface in
+            let view = surface.metalView
+            return view.cameraAdjustment.automaticMipDensity(
+                camera: view.renderer.renderDescriptor.camera, drawable: view.metalLayer.drawableSize)
+        }
+        images.promoteAutomaticMips(to: density) { [weak self, weak images] updates in
             guard let self, let images, self.launchContext?.preparedDeviceResources.baseImages === images else { return }
+            let redrawFrozenColor = self.sceneClock.isPaused
             for surface in self.surfaces.values {
-                surface.metalView.replacePreparedBaseImages(updates)
+                let view = surface.metalView
+                guard view.replacePreparedBaseImages(updates) else { continue }
+                if redrawFrozenColor, view.keepsSceneColorHistory {
+                    view.invalidateResolvedMaterialRuntime(reason: .allocationReprepare, notifyRender: false)
+                }
                 surface.didSubmitSimulationFrame = false
             }
             if self.sceneClock.isPaused || self.awaitsInitialPresentation { self.startFrameDriver() }
@@ -506,7 +519,7 @@ extension SceneDesktopWallpaperSession {
                 layerIDs: surface.metalView.spriteAnimationLayerIDs, sceneTime: timing.sceneTime),
             layerTopology: topology, mediaThumbnail: mediaThumbnailTextures!.snapshot(),
             mediaInputGeneration: media.generation,
-            audioSpectrum: SceneAudioSpectrumInbox.shared.prepareFrame().snapshot)
+            audioSpectrum: presentation.listensToAudio ? SceneAudioSpectrumInbox.shared.prepareFrame().snapshot : .silent)
     }
 
     func updatePreparedSurfaceMembership(_ launchContext: SceneDesktopWallpaperLaunchContext) {

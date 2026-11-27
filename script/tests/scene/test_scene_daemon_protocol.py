@@ -76,7 +76,7 @@ import Foundation
             ]
         ])
         let loadValid: Bool
-        if case let .success(.loadScene(root, values, textures, _, profile, recordID, requiredKeys, requestID, source, quality)) = load {
+        if case let .success(.loadScene(root, values, textures, _, profile, recordID, requiredKeys, requestID, source, quality, presentation)) = load {
             loadValid = root.path == "/private/tmp/scene"
                 && profile.rawValue == 30 && recordID == "fixture" && requiredKeys.isEmpty && requestID == nil && source == nil
                 && quality == .init()
@@ -85,13 +85,14 @@ import Foundation
                 && values["label"] == .string("ok")
                 && textures["cover"]?.url.path == "/private/tmp/cover.png"
                 && textures["cover"]?.bookmarkData == Data([1, 2, 3])
+                && presentation == ScenePlaybackPresentation()
         } else { loadValid = false }
         let hdrLoadPayload: [String: Any] = [
             "v": 2, "cmd": "loadScene", "rootURL": "/private/tmp/scene", "profile": 60,
             "scenePostProcessing": "displayHDR"
         ]
         let hdrLoadValid: Bool
-        if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(hdrLoadPayload) {
+        if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality, _)) = decode(hdrLoadPayload) {
             hdrLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, shadows: .adaptive)
                 && quality.volumeLighting == .enabled && quality.reflections == .enabled
         } else { hdrLoadValid = false }
@@ -111,7 +112,7 @@ import Foundation
         shadowLoadPayload.removeValue(forKey: "scenePostProcessing")
         shadowLoadPayload["shadowQuality"] = "disabled"
         let shadowLoadValid: Bool
-        if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(shadowLoadPayload) {
+        if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality, _)) = decode(shadowLoadPayload) {
             shadowLoadValid = quality == .init(postProcessing: .ultra, shadows: .disabled)
         } else { shadowLoadValid = false }
         let volumeTiers: [(String, SceneVolumeLightingQuality)] = [
@@ -120,7 +121,7 @@ import Foundation
         let pointVolumeTiersValid = volumeTiers.allSatisfy { rawValue, tier in
             var loadPayload = hdrLoadPayload
             loadPayload["pointVolumeQuality"] = rawValue
-            guard case let .success(.loadScene(_, _, _, _, _, _, _, _, _, loaded)) = decode(loadPayload),
+            guard case let .success(.loadScene(_, _, _, _, _, _, _, _, _, loaded, _)) = decode(loadPayload),
                   loaded == .init(postProcessing: .ultraDisplayHDR, volumeLighting: tier) else { return false }
             var quality = requestedQuality
             quality.volumeLighting = tier
@@ -132,7 +133,7 @@ import Foundation
         var reflectionLoadPayload = hdrLoadPayload
         reflectionLoadPayload["reflectionQuality"] = "disabled"
         let reflectionLoadValid: Bool
-        if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(reflectionLoadPayload) {
+        if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality, _)) = decode(reflectionLoadPayload) {
             reflectionLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, reflections: .disabled)
         } else { reflectionLoadValid = false }
         var legacyQualityChange = qualityChangePayload
@@ -143,13 +144,13 @@ import Foundation
         var textureLoadPayload = hdrLoadPayload
         textureLoadPayload["textureQuality"] = "auto"
         let textureLoadValid: Bool
-        if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(textureLoadPayload) {
+        if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality, _)) = decode(textureLoadPayload) {
             textureLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, textures: .automatic)
         } else { textureLoadValid = false }
         var antiAliasLoad = hdrLoadPayload
         antiAliasLoad["antiAliasingMode"] = "msaa4"
         let antiAliasLoadValid: Bool
-        if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(antiAliasLoad) {
+        if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality, _)) = decode(antiAliasLoad) {
             antiAliasLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, antiAliasing: .msaa4)
         } else { antiAliasLoadValid = false }
         var antiAliasQuality = requestedQuality
@@ -192,6 +193,42 @@ import Foundation
                 return SceneDaemonProtocol.preparedRenderQuality(invalid) == nil
             }
         }
+        let presentation = ScenePlaybackPresentation(alignment: .free, position: 0, zoom: 150, listensToAudio: false,
+            horizontalPosition: 10, verticalPosition: 90, flippedHorizontally: true, allowsMouseParallax: false,
+            volume: 25, rate: 200)
+        let presentationID = UUID()
+        let presentationFields = SceneDaemonProtocol.presentationObject(presentation)
+        var presentationLoadPayload = hdrLoadPayload
+        presentationLoadPayload["presentation"] = presentationFields
+        SceneDaemonProtocol.writeRenderQuality(requestedQuality, to: &presentationLoadPayload)
+        let presentationLoad: Bool
+        if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality, loaded)) = decode(presentationLoadPayload) {
+            presentationLoad = loaded == presentation && quality == requestedQuality
+        } else { presentationLoad = false }
+        func decodePresentation(_ fields: [String: Any], requestID: String = presentationID.uuidString) -> Result<SceneDaemonCommand, SceneDaemonProtocolFailure> {
+            decode(["v": 2, "cmd": "setPresentation", "requestID": requestID, "presentation": fields])
+        }
+        let presentationUpdate: Bool
+        if case let .success(.setPresentation(updated, requestID)) = decodePresentation(presentationFields) {
+            presentationUpdate = updated == presentation && requestID == presentationID
+                && !updated.fitsCanvas(systemFit: true)
+                && ScenePlaybackPresentation(alignment: .fit).fitsCanvas(systemFit: false)
+                && ScenePlaybackPresentation().fitsCanvas(systemFit: true)
+        } else { presentationUpdate = false }
+        let legacyFields: [String: Any] = ["alignment": "fit", "position": 80, "zoom": 125, "listensToAudio": false]
+        let legacyPresentation: Bool
+        if case let .success(.setPresentation(legacy, _)) = decodePresentation(legacyFields) {
+            legacyPresentation = legacy == .init(alignment: .fit, position: 80, zoom: 125, listensToAudio: false)
+        } else { legacyPresentation = false }
+        let invalidPresentation: [String: Any] = ["alignment": "unknown", "position": 101, "zoom": 0,
+            "listensToAudio": 0, "volume": -1, "rate": 201, "horizontalPosition": 120,
+            "verticalPosition": -1, "flippedHorizontally": 1, "allowsMouseParallax": 1]
+        let presentationRejectsInvalid = invalidPresentation.allSatisfy { key, value in
+            var fields = presentationFields
+            fields[key] = value
+            if case .failure(.invalidPayload("scene-presentation")) = decodePresentation(fields) { return true }
+            return false
+        }
         let generation = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
         let storageIdentity = "v2:scene:123-" + generation
         let source = ScenePlaybackSource(rootURL: URL(fileURLWithPath: "/private/tmp/scene"),
@@ -202,7 +239,7 @@ import Foundation
                 "profile": 30, "source": object])
         }
         let managedSourcePreserved: Bool
-        if case let .success(.loadScene(_, _, _, _, _, _, _, _, decoded, _)) = loadSource(sourceObject) {
+        if case let .success(.loadScene(_, _, _, _, _, _, _, _, decoded, _, _)) = loadSource(sourceObject) {
             managedSourcePreserved = decoded == source
         } else { managedSourcePreserved = false }
         let wireContainsOnlyCurrentLeaseIdentity = Set((sourceObject["managed"] as! [String: Any]).keys)
@@ -214,7 +251,7 @@ import Foundation
             var managed = object["managed"] as! [String: Any]
             managed["contentDigest"] = "not-a-playback-permit"
             managed["receipt"] = receipt; object["managed"] = managed
-            if case let .success(.loadScene(_, _, _, _, _, _, _, _, decoded, _)) = loadSource(object) {
+            if case let .success(.loadScene(_, _, _, _, _, _, _, _, decoded, _, _)) = loadSource(object) {
                 return decoded == source
             }
             return false
@@ -248,7 +285,7 @@ import Foundation
         let shortcutObject = SceneDaemonProtocol.shortcutObject(shortcuts)
         let shortcutRequestID = UUID()
         let shortcutLoadValid: Bool
-        if case let .success(.loadScene(_, _, _, decoded, _, recordID, _, requestID, _, _)) = decode([
+        if case let .success(.loadScene(_, _, _, decoded, _, recordID, _, requestID, _, _, _)) = decode([
             "v": 2, "cmd": "loadScene", "rootURL": "/private/tmp/scene", "profile": 60,
             "recordID": "fixture", "requestID": shortcutRequestID.uuidString,
             "userShortcuts": shortcutObject,
@@ -302,7 +339,7 @@ import Foundation
         } else { legacyShortcutVersionRejected = false }
         let explicitID = UUID()
         let explicitRequestValid: Bool
-        if case let .success(.loadScene(_, _, _, _, _, _, _, requestID, _, _)) = decode([
+        if case let .success(.loadScene(_, _, _, _, _, _, _, requestID, _, _, _)) = decode([
             "v": 2, "cmd": "loadScene", "rootURL": "/private/tmp/scene", "profile": 30,
             "requestID": explicitID.uuidString
         ]) { explicitRequestValid = requestID == explicitID } else { explicitRequestValid = false }
@@ -637,7 +674,7 @@ import Foundation
             && !retiringAdmission.accepts(generation: 7)
         let frameRatePayload: [String: Any] = ["v": 2, "cmd": "loadScene", "rootURL": "/private/tmp/scene"]
         func decodedLoadFPS(_ payload: [String: Any]) -> Int? {
-            if case let .success(.loadScene(_, _, _, _, value, _, _, _, _, _)) = decode(payload) {
+            if case let .success(.loadScene(_, _, _, _, value, _, _, _, _, _, _)) = decode(payload) {
                 return value.rawValue
             }
             return nil
@@ -755,6 +792,10 @@ import Foundation
             "badPostKeepsRaster": badPostKeepsRaster,
             "malformedTexturePreservesOtherQuality": malformedTexturePreservesOtherQuality,
             "malformedVolumePreservesOtherQuality": malformedVolumePreservesOtherQuality,
+            "presentationLoad": presentationLoad,
+            "presentationUpdate": presentationUpdate,
+            "legacyPresentation": legacyPresentation,
+            "presentationRejectsInvalid": presentationRejectsInvalid,
             "duplicateDisplayRejected": duplicateDisplayRejected,
             "badBookmarkRejected": badBookmarkRejected,
             "audioValid": audioValid,

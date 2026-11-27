@@ -40,15 +40,19 @@ struct Backoff {mutating func reset(){}}
 enum SceneDaemonProtocol {static let version=2
 // PROTOCOL_METHODS
 }
-@MainActor enum NSScreen {static let screens=[1,2];static var modeRefreshRate: Double = 120}
+@MainActor struct NSScreen {
+    let displayID: Int
+    static let screens = [Self(displayID: 1), Self(displayID: 2)]
+    static var modeRefreshRate: Double = 120
+}
 struct SceneScreenTopology:Equatable {
     let displayID:Int
     let modeRefreshRate:Double?
     let frame=0
     let backingScaleFactor:Double=1
     let unknownModeRefreshLimit:Double?=nil
-    @MainActor static func capture(screens:[Int])->[Self] {
-        screens.map{.init(displayID:$0,modeRefreshRate:NSScreen.modeRefreshRate)}
+    @MainActor static func capture(screens:[NSScreen])->[Self] {
+        screens.map{.init(displayID:$0.displayID,modeRefreshRate:NSScreen.modeRefreshRate)}
     }
     // DISPLAY_CADENCE_METHODS
 }
@@ -507,6 +511,7 @@ class SceneSwitchEndpointTests(unittest.TestCase):
         )))
         topology = (IPC / "SceneDaemonClient+DisplayConfiguration.swift").read_text()
         source += "\nextension SceneDaemonClient {\n" + "\n".join(method(topology, signature) for signature in (
+            "var configuredWallpaperScreens: [NSScreen]",
             "func updateDisplayConfiguration(multiDisplayEnabled: Bool)",
             "func flushDeferredDisplayConfigurationUpdate()",
             "private func installDisplayConfiguration(_ configuration: [SceneScreenTopology])",
@@ -553,7 +558,7 @@ final class Sound {var muted=false;var paused=false;func setMuted(_ value:Bool){
     func pause(){paused=true};func resume(){paused=false}}
 final class Clock {var isPaused=false;func pause(hostTime:Double){isPaused=true}
     func resume(hostTime:Double){isPaused=false};func currentSceneTime(hostTime:Double)->Double{0}}
-final class Video {func pause(sceneTime:Double,hostTime:Double){};func resume(sceneTime:Double,hostTime:Double){}}
+final class Video {func pause(hostTime:Double){};func resume(hostTime:Double){}}
 struct LayerTopology {var destroyedAuthoredLayerIDs:Set<Int>=[];func snapshot()->Self{self}}
 struct Context {
     var usesSystemMedia=true

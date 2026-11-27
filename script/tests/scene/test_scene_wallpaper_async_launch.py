@@ -181,7 +181,7 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
             self.spot_light_runtime,
         )
         self.assertIn(
-            "self.pipeline = plansByLayerID.isEmpty ? nil : pipeline()",
+            "plans.isEmpty ? nil : pipeline()",
             self.spot_light_runtime,
         )
 
@@ -391,11 +391,15 @@ def property_launch_harness(host_source: str) -> str:
     ]])
     commands = (ROOT / "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift").read_text()
     control_types = "\n".join([method(commands, signature) for signature in [
+        "nonisolated struct ScenePlaybackPresentation:",
         "nonisolated struct ScenePlaybackTextureReference:",
         "nonisolated struct ScenePlaybackTextureUpdate:",
         "nonisolated enum ScenePlaybackTextureUpdateOutcome:",
         "nonisolated struct ScenePlaybackLoadRequest:",
     ]])
+    adjustment = method(LAUNCH.with_name("SceneDesktopWallpaperSession.swift").read_text(),
+                        "func cameraAdjustment(systemFit: Bool)")
+    control_types += "\nextension ScenePlaybackPresentation {\n" + adjustment + "\n}"
     return (PROPERTY_LAUNCH_SUPPORT.replace("__HOST_METHODS__", host_methods)
             .replace("__CLIENT_METHODS__", client_methods)
             .replace("__CONTROL_TYPES__", control_types)
@@ -408,6 +412,16 @@ import CoreGraphics
 import Foundation
 
 __CONTROL_TYPES__
+enum SceneCameraProjection {
+    enum Layout: Sendable { case cover, fit, stretch, center, free }
+    struct Adjustment: Sendable {
+        let position: Int
+        let zoom: Int
+        let layout: Layout
+        let horizontalPosition: Int
+        let verticalPosition: Int
+    }
+}
 struct SceneRuntimeModel {
     struct Project {
         let rootURL = URL(fileURLWithPath: "/own")
@@ -448,6 +462,7 @@ struct SceneScreenTopology {
 }
 @MainActor final class SceneDesktopWallpaperSession {
     var values: [String: SceneUserPropertyValue]
+    var presentation = ScenePlaybackPresentation()
     var calls = 0
     struct PreparedParticleSurface {}
     struct PreparedSurface {}
@@ -494,6 +509,7 @@ struct SceneUserPropertyTextureLoadResult {}
     var screenTopology: [SceneScreenTopology] = []
     var fitsCanvas = false
     var pendingLaunchCompletion: (@MainActor (Result<SceneRuntimeModel, Error>) -> Void)?
+    var pendingPresentation = ScenePlaybackPresentation()
     var launchCancellation: SceneWallpaperLaunchCancellation?
     var launchState: SceneWallpaperLaunchState?
     var activeSession: SceneDesktopWallpaperSession?
@@ -507,7 +523,7 @@ struct SceneUserPropertyTextureLoadResult {}
         propertyOverrides: [String: SceneUserPropertyValue], userPropertyTextureURLs: [String: URL],
         requiredUserTextureKeys: Set<String>, logURL: URL?, recordID: String?,
         sceneScriptGeneration: UInt64, textureDecodeCacheBudget: SceneTextureDecodeCacheBudget,
-        surfaceDisplayIDs: [UInt32], automaticWindows: [(size: CGSize, scale: CGFloat)]?, fitsCanvas: Bool,
+        surfaceDisplayIDs: [UInt32], automaticWindows: [(size: CGSize, scale: CGFloat)]?, framing: SceneCameraProjection.Adjustment,
         cancellation: SceneWallpaperLaunchCancellation?,
         progress: ((SceneWallpaperLaunchState.Phase, String) -> Void)?) throws -> PreparedLaunch {
         textureDecodeCacheBudget.control.prepare()
@@ -538,6 +554,7 @@ struct SceneUserPropertyTextureLoadResult {}
         began.append(context.generation)
         adoptedRenderQualities.append(sceneRenderQuality)
         activeSession = .init(context.values)
+        activeSession?.presentation = pendingPresentation
         completion(.success(()))
     }
     func finishLaunchFailure(_ error: Error, requestID: UUID, recordID: String?,
@@ -659,7 +676,7 @@ struct SceneUserPropertyTextureLoadResult {}
         pendingRequestID = requestID
         replayed.append(request)
         host.requestLaunch(rootURL: request.rootURL, propertyOverrides: request.propertyOverrides,
-            recordID: request.recordID, requestID: requestID) { [weak self] outcome in
+            presentation: request.presentation, recordID: request.recordID, requestID: requestID) { [weak self] outcome in
             if case .success = outcome { self?.completions.append(true) }
             else { self?.completions.append(false) }
         }
@@ -840,8 +857,9 @@ struct SceneUserPropertyTextureLoadResult {}
             let session = SceneDesktopWallpaperSession(initial, acceptsJ: kind != "structural")
             runtime.activeSession = session
             let client = SceneDaemonClient(runtime)
+            let presentation = ScenePlaybackPresentation(alignment: .fit, zoom: 125, listensToAudio: false)
             client.activeIntent = .init(rootURL: URL(fileURLWithPath: "/self-authored"),
-                propertyOverrides: initial, userPropertyTextures: [:], recordID: "record")
+                propertyOverrides: initial, userPropertyTextures: [:], recordID: "record", presentation: presentation)
             runtime.onState = { [weak client] in client?.receive($0) }
             facts[kind + "-initialDispatched"] = client.edit(["K": .number(1)], revision: 1)
             guard await entered(control) else { fatalError("preparation leaf not entered") }
@@ -868,6 +886,7 @@ struct SceneUserPropertyTextureLoadResult {}
             facts[kind + "-preparationKeepsAdmittedRenderQuality"] = runtime.adoptedRenderQualities == [admittedQuality]
             facts[kind + "-latestActivated"] = runtime.activeSession?.values == ["K": .number(1), "J": next]
                 && client.activeIntent?.propertyOverrides == runtime.activeSession?.values
+                && runtime.activeSession?.presentation == presentation
                 && client.pendingIntent == nil && runtime.launchState?.phase == .launched
             traces[kind] = runtime.trace
         }

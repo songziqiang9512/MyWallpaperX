@@ -105,8 +105,8 @@ final class VideoProviders {
         Set(layerIDs.compactMap { identities[$0] })
     }
     func discardPreparedFrame() { discards += 1 }
-    func pause(sceneTime: Double, hostTime: Double) {}
-    func resume(sceneTime: Double, hostTime: Double) {}
+    func pause(hostTime: Double) {}
+    func resume(hostTime: Double) {}
     func commitPreparedFrame() { commits += 1 }
 }
 final class SoundProviders { func pause() {}; func resume() {} }

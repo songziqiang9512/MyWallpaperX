@@ -138,6 +138,17 @@ final class SteamWorkshopPropertyPanelController: NSWindowController, NSWindowDe
         weak var keyTraversal: WorkshopPropertyKeyTraversal?
         override var canBecomeKey: Bool { true }
         override func cancelOperation(_ sender: Any?) { close() }
+        override func sendEvent(_ event: NSEvent) {
+            // Native controls can consume Tab without calling selectNextKeyView.
+            if event.type == .keyDown,
+               event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+               event.charactersIgnoringModifiers == "\t" || event.charactersIgnoringModifiers == "\u{19}",
+               (firstResponder as? NSTextView)?.hasMarkedText() != true,
+               keyTraversal?.focusNextPropertyControl(from: firstResponder, reverse: event.modifierFlags.contains(.shift)) == true {
+                return
+            }
+            super.sendEvent(event)
+        }
         override func selectNextKeyView(_ sender: Any?) {
             if keyTraversal?.focusNextPropertyControl(from: firstResponder, reverse: false) != true {
                 super.selectNextKeyView(sender)

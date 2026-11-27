@@ -31,6 +31,7 @@ extension SceneDesktopWallpaperHost {
         userPropertyTextureURLs: [String: URL] = [:],
         userShortcuts: ScenePlaybackShortcutConfiguration = .empty,
         requiredUserTextureKeys: Set<String> = [],
+        presentation: ScenePlaybackPresentation = .init(),
         logURL: URL? = nil,
         recordID: String? = nil,
         requestID: UUID = UUID(),
@@ -44,6 +45,7 @@ extension SceneDesktopWallpaperHost {
         nextLaunchRequestGeneration &+= 1
         nextSceneScriptGeneration &+= 1
         let requestGeneration = nextLaunchRequestGeneration
+        pendingPresentation = presentation
         pendingLaunchCompletion = completion
         let complete: @MainActor (Result<SceneRuntimeModel, Error>) -> Void = { [weak self] result in
             guard let self, self.nextLaunchRequestGeneration == requestGeneration else { return }
@@ -71,7 +73,8 @@ extension SceneDesktopWallpaperHost {
             ? surfaceScreens.map { screen, _ in
                 (SceneDesktopWallpaperSession.initialSurfaceFrame(for: screen).size, screen.backingScaleFactor)
             } : nil
-        launchPreparationQueue.async { [weak self, fitsCanvas] in
+        let framing = presentation.cameraAdjustment(systemFit: fitsCanvas)
+        launchPreparationQueue.async { [weak self] in
             guard let self else { return }
             do {
                 var prepared = try Self.prepareLaunch(
@@ -86,7 +89,7 @@ extension SceneDesktopWallpaperHost {
                     sceneScriptGeneration: scriptGeneration,
                     textureDecodeCacheBudget: self.textureDecodeCacheBudget,
                     surfaceDisplayIDs: surfaceDisplayIDs,
-                    automaticWindows: automaticWindows, fitsCanvas: fitsCanvas,
+                    automaticWindows: automaticWindows, framing: framing,
                     cancellation: cancellation
                 ) { [weak self] phase, message in
                     DispatchQueue.main.async {
@@ -205,26 +208,6 @@ extension SceneDesktopWallpaperHost {
         if case .cancelled? = error as? SceneDesktopWallpaperHostLaunchError { return true }
         return false
     }
-#if DEBUG
-    /// The evidence runner awaits the same request/first-frame transaction as
-    /// the daemon. There is no synchronous activation bypass.
-    func launch(
-        rootURL: URL,
-        source: ScenePlaybackSource? = nil,
-        propertyOverrides: [String: SceneUserPropertyValue] = [:],
-        userPropertyTextureURLs: [String: URL] = [:],
-        requiredUserTextureKeys: Set<String> = [],
-        logURL: URL? = nil,
-        recordID: String? = nil
-    ) async throws -> SceneRuntimeModel {
-        try await withCheckedThrowingContinuation { continuation in
-            requestLaunch(rootURL: rootURL, source: source, propertyOverrides: propertyOverrides,
-                userPropertyTextureURLs: userPropertyTextureURLs,
-                requiredUserTextureKeys: requiredUserTextureKeys, logURL: logURL,
-                recordID: recordID) { continuation.resume(with: $0) }
-        }
-    }
-#endif
     private static func prepareLaunch(
         rootURL: URL,
         source: ScenePlaybackSource?,
@@ -237,7 +220,7 @@ extension SceneDesktopWallpaperHost {
         sceneScriptGeneration: UInt64,
         textureDecodeCacheBudget: SceneTextureDecodeCacheBudget,
         surfaceDisplayIDs: [CGDirectDisplayID],
-        automaticWindows: [(size: CGSize, scale: CGFloat)]?, fitsCanvas: Bool,
+        automaticWindows: [(size: CGSize, scale: CGFloat)]?, framing: SceneCameraProjection.Adjustment,
         cancellation: SceneWallpaperLaunchCancellation?,
         progress: ((SceneWallpaperLaunchState.Phase, String) -> Void)?
     ) throws -> PreparedLaunch {
@@ -273,8 +256,10 @@ extension SceneDesktopWallpaperHost {
         let privateMediaCacheDirectory = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Caches/MyWallpaperX/SteamWorkshopScene", isDirectory: true)
         var runtimeInput = model.runtimeInput
-        let automaticDrawableExtent = automaticWindows.map {
-            SceneCameraProjection.maximumDrawableExtent($0, fitting: fitsCanvas ? runtimeInput.renderDescriptor.camera : nil)
+        let camera = runtimeInput.renderDescriptor.camera
+        let automaticMipDensity = automaticWindows.map {
+            let drawable = SceneCameraProjection.maximumDrawableExtent($0, fitting: framing.layout == .fit ? camera : nil)
+            return framing.automaticMipDensity(camera: camera, drawable: drawable)
         }
         var authoredRenderDescriptor = model.authoredRenderDescriptor
         guard let device = MTLCreateSystemDefaultDevice()
@@ -295,7 +280,7 @@ extension SceneDesktopWallpaperHost {
             modelReflectionsEnabled: sceneRenderQuality.reflections == .enabled,
             rasterSampleCount: deviceSampleCount,
             ordinaryColorMipLongEdge: sceneRenderQuality.textures.ordinaryColorMipLongEdge,
-            automaticDrawableExtent: automaticDrawableExtent,
+            automaticMipDensity: automaticMipDensity,
             resourceView: model.resourceView,
             device: device,
             sceneGeneration: sceneScriptGeneration,
@@ -546,7 +531,7 @@ extension SceneDesktopWallpaperHost {
             matchesCondition: { $0.matches(runtimeInput.effectivePropertyValues) },
             textureUploadCommandQueue: textureUploadCommandQueue,
             textureDecodeCacheBudget: textureDecodeCacheBudget,
-            device: device, collectsSourceIdentities: automaticDrawableExtent != nil,
+            device: device, collectsSourceIdentities: automaticMipDensity != nil,
             checkCancellation: { try cancellation?.check() }
         )
 #if DEBUG
@@ -698,7 +683,7 @@ extension SceneDesktopWallpaperHost {
         }
         let scalableEffectColors: Set<Int> = sceneRenderQuality.textures == .full
             ? [] : resolvedMaterialExecutionCapabilities.scalableEffectColorLayerIDs
-        let automaticMipConstraints: ScenePreparedBaseImageResources.AutomaticMipConstraints? = automaticDrawableExtent.flatMap { _ in
+        let automaticMipConstraints: ScenePreparedBaseImageResources.AutomaticMipConstraints? = automaticMipDensity.flatMap { _ in
             let targets = timelineTargets.union(propertyBindingTargets)
                 .union(committedPrograms.vectorProgram.definitions.map(\.target))
                 .union(committedPrograms.scalarProgram.definitions.map(\.target))
@@ -960,10 +945,9 @@ extension SceneDesktopWallpaperHost {
             timelineValues: context.timelinePlaybackRuntime.values(sceneTime: 0),
             sceneScriptValues: [:]).snapshot
         let topology = context.sceneScriptDynamicLayerRuntime.snapshot()
-        let audio = SceneAudioSpectrumInbox.shared.prepareFrame().snapshot
+        // Before the Session starts, the shared spectrum can belong to the outgoing work.
         let preparedSurfaces = try context.makeSurfacePreparationInput(
-            dynamicValues: initialValues, topology: topology,
-            audioInput: .init(left: audio.left, right: audio.right, generation: audio.generation)
+            dynamicValues: initialValues, topology: topology, audioInput: .silent
         ).prepare(displayIDs: surfaceDisplayIDs, cancellation: cancellation)
 #if DEBUG
         let preparedFrameCount = (ScenePerformanceCounterHub.shared.snapshot()[.framesRendered] ?? 0)

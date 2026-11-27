@@ -60,6 +60,8 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
     let cameraUp: SIMD3<Float>
     let cameraForward: SIMD3<Float>
     let cameraOrigin: SIMD3<Float>
+    let adjustment: SceneCameraProjection.Adjustment
+    private let clipOffset: SIMD2<Float>
     private let orthographicViewBasis: SceneParticleOrientationBasis
     let perspectiveEyePosition: SIMD3<Float>
     let canvasShaderEyePosition: SIMD3<Float>
@@ -77,14 +79,21 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         camera: SceneRenderDescriptor.CameraDescriptor,
         viewportSize: CGSize,
         cameraOrigin: SIMD3<Float> = .zero,
-        cameraZoom: Float = 1,
+        cameraZoom authoredZoom: Float = 1,
         staticEye: SIMD3<Float>? = nil,
         staticCenter: SIMD3<Float>? = nil,
         staticUp: SIMD3<Float>? = nil,
         nativePerspectiveOverride: NativePerspectiveOverride? = nil,
         dynamicValues: SceneDynamicSnapshot? = nil,
-        perspectiveReplayRootIDs: Set<Int> = []
+        perspectiveReplayRootIDs: Set<Int> = [],
+        adjustment: SceneCameraProjection.Adjustment = .init()
     ) {
+        self.adjustment = adjustment
+        let cameraZoom = adjustment.zoomScale(authored: authoredZoom)
+        let (fittedHalfExtents, clipOffset) = adjustment.framing(
+            camera: camera, viewportSize: viewportSize, zoomScale: cameraZoom)
+        self.clipOffset = clipOffset
+        let clipTranslation = SceneMatrix.translation(SIMD3(clipOffset.x, clipOffset.y, 0))
         self.dynamicValues = dynamicValues
         self.perspectiveReplayRootIDs = perspectiveReplayRootIDs
         // The canvas shader eye is fixed while the clip projection fits the viewport.
@@ -119,13 +128,14 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
             orthographicViewBasis = SceneParticleOrientationBasis(
                 right: SIMD3(1, 0, 0), up: SIMD3(0, -1, 0))
         }
-        orthographicViewProjection = SceneCameraProjection.viewProjection(
+        let orthographicProjection = SceneCameraProjection.viewProjection(
             camera: camera,
             viewportSize: viewportSize,
             cameraOrigin: safeOrigin,
-            cameraZoom: cameraZoom,
-            staticView: staticView
+            staticView: staticView,
+            visibleHalfExtents: fittedHalfExtents
         )
+        orthographicViewProjection = clipOffset == .zero ? orthographicProjection : clipTranslation * orthographicProjection
         reverseDepthOrthographicViewProjection = SceneMatrix.reversingDepth(
             orthographicViewProjection
         )
@@ -140,9 +150,7 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
             let origin = safeOrigin
             let eye = native.eye + origin
             let center = native.center + origin
-            let safeZoom = cameraZoom.isFinite && cameraZoom > 0
-                ? cameraZoom : 1
-            let fovY = 2 * atan(tan(native.fovY * 0.5) / safeZoom)
+            let fovY = 2 * atan(tan(native.fovY * 0.5) / cameraZoom)
             let aspect = Float(viewportSize.width / viewportSize.height)
             let farHalfHeight = camera.farZ * tan(fovY * 0.5)
             nativeFarPlane = camera.nearZ.isFinite && camera.nearZ > 0
@@ -183,10 +191,7 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         nativeFarPlane = nil
         let orthoWidth = camera.orthoWidth ?? Float(viewportSize.width)
         let orthoHeight = camera.orthoHeight ?? Float(viewportSize.height)
-        let hasValidScene = orthoWidth.isFinite && orthoHeight.isFinite
-            && orthoWidth > 0 && orthoHeight > 0
-
-        guard hasValidViewport, hasValidScene else {
+        guard fittedHalfExtents != .zero else {
             perspectiveViewProjection = SceneMatrix.identity()
             reverseDepthPerspectiveViewProjection = SceneMatrix.identity()
             coverHalfExtents = .zero
@@ -199,12 +204,6 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
             return
         }
 
-        let fittedHalfExtents = SceneCameraProjection.coverHalfExtents(
-            orthoWidth: orthoWidth,
-            orthoHeight: orthoHeight,
-            viewportSize: viewportSize,
-            zoom: cameraZoom
-        )
         coverHalfExtents = fittedHalfExtents
 
         let sceneCenter = SIMD3<Float>(
@@ -237,7 +236,9 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         let fovY = usesFittedAuthoredFOV
             ? authoredFOV!
             : 2 * atan(visibleHeight / (2 * eyeDistance))
-        let aspect = Float(viewportSize.width / viewportSize.height)
+        let aspect = adjustment.layout == .stretch
+            ? fittedHalfExtents.x / fittedHalfExtents.y
+            : Float(viewportSize.width / viewportSize.height)
         let nearZ = max(camera.nearZ, 0.001)
         // With an orthographic canvas and an authored perspective override,
         // the eye is fitted away from the z=0 canvas plane. Preserve the
@@ -260,8 +261,8 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         )
         // Scene particle coordinates use the same top-left screen convention as
         // the orthographic renderer, while SceneMatrix.perspectiveRHMetal is Y-up.
-        perspectiveViewProjection = SceneMatrix.scale(SIMD3(1, -1, 1))
-            * projection * view
+        let canvasProjection = SceneMatrix.scale(SIMD3(1, -1, 1)) * projection * view
+        perspectiveViewProjection = clipOffset == .zero ? canvasProjection : clipTranslation * canvasProjection
         reverseDepthPerspectiveViewProjection = SceneMatrix.reversingDepth(
             perspectiveViewProjection
         )
@@ -335,7 +336,9 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
     }
 
     func viewProjection(for layer: SceneRenderDescriptor.Layer) -> simd_float4x4 {
-        viewProjection(usesPerspective: resolvesPerspective(for: layer))
+        let projection = viewProjection(usesPerspective: resolvesPerspective(for: layer))
+        guard clipOffset != .zero, SceneLayerScreenAnchor.factors(layer.textStyle?.screenAnchor) != nil else { return projection }
+        return SceneMatrix.translation(SIMD3(-clipOffset.x, -clipOffset.y, 0)) * projection
     }
 
     /// Capture the same flat local background before replaying its texture

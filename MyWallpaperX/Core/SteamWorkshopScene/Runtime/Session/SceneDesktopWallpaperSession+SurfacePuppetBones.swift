@@ -64,7 +64,8 @@ extension SceneDesktopWallpaperSession.Surface {
         let frame = metalView.makeFrameContext(timing: timing, dynamicValues: dynamicValues,
             parallax: .zero, audioSpectrum: .silent)
         let camera = metalView.renderer.makeCameraFrame(frameContext: frame,
-            descriptor: descriptor, layersByID: layersByID, worldFrames: staticWorldFrames)
+            descriptor: descriptor, layersByID: layersByID, worldFrames: staticWorldFrames,
+            adjustment: metalView.cameraAdjustment)
         let prepareAttachments: (SceneRenderDescriptor.Layer, [Int: simd_float4x4]) -> [String: simd_float4x4]? = { layer, worlds in
             let layerID = layer.id
             guard let playback = self.puppetPlaybackStates[layerID],
@@ -132,7 +133,8 @@ extension SceneDesktopWallpaperSession.Surface {
         let frame = metalView.makeFrameContext(timing: timing, dynamicValues: dynamicValues,
             parallax: .zero, audioSpectrum: .silent)
         let camera = metalView.renderer.makeCameraFrame(frameContext: frame,
-            descriptor: descriptor, layersByID: layersByID, worldFrames: worldFrames)
+            descriptor: descriptor, layersByID: layersByID, worldFrames: worldFrames,
+            adjustment: metalView.cameraAdjustment)
 #endif
         for (layerID, pose) in poseFrame.posesByLayerID {
             guard let layer = layersByID[layerID] else { continue }

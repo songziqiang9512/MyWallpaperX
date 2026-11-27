@@ -33,7 +33,7 @@ nonisolated enum SceneLayerScreenAnchor {
     }
 
     // x: -1 左 / 0 中 / +1 右；y: -1 上 / 0 中 / +1 下（世界 y 向下）。
-    private nonisolated static func factors(_ anchor: String?) -> SIMD2<Float>? {
+    nonisolated static func factors(_ anchor: String?) -> SIMD2<Float>? {
         switch anchor?.lowercased() {
         case "center": return SIMD2(0, 0)
         case "top": return SIMD2(0, -1)

@@ -10,6 +10,10 @@ struct SteamWorkshopScenePropertyContext {
     let effectiveValues: [String: SceneUserPropertyValue]
     let definitions: [SceneUserPropertyDefinition]
     let conditionPrograms: [String: SteamWorkshopService.WebDisplayConditionProgram]
+    let canvasAspect: CGFloat?
+    let supportsAudioProcessing: Bool
+    let hasSound: Bool
+    let supportsMouseParallax: Bool
     private let conditionDefinitions: [SteamWorkshopWebPropertyDefinition]
 
     init(
@@ -18,13 +22,21 @@ struct SteamWorkshopScenePropertyContext {
         effectiveValues: [String: SceneUserPropertyValue],
         callbackPropertyKeys: Set<String> = [],
         sourceIdentity: ScenePreparedCallbackPropertyReachability.Source? = nil,
-        propertyDisplayLocalization: WorkshopPropertyLocalization = .empty
+        propertyDisplayLocalization: WorkshopPropertyLocalization = .empty,
+        canvasAspect: CGFloat? = nil,
+        supportsAudioProcessing: Bool = false,
+        hasSound: Bool = false,
+        supportsMouseParallax: Bool = false
     ) {
         self.catalog = catalog
         self.staticActionableKeys = actionableKeys
         self.actionableKeys = actionableKeys.union(callbackPropertyKeys)
         self.sourceIdentity = sourceIdentity
         self.propertyDisplayLocalization = propertyDisplayLocalization
+        self.canvasAspect = canvasAspect
+        self.supportsAudioProcessing = supportsAudioProcessing
+        self.hasSound = hasSound
+        self.supportsMouseParallax = supportsMouseParallax
         self.effectiveValues = effectiveValues
         let prepared = Self.editorDefinitions(
             in: catalog.definitions,
@@ -194,6 +206,29 @@ struct SteamWorkshopScenePropertyContext {
 extension SteamWorkshopService {
     private enum ScenePropertyOverrideStore {
         static let defaultsPrefix = "SteamWorkshop.scenePropertyOverrides."
+        static let presentationPrefix = "SteamWorkshop.scenePresentation."
+    }
+
+    func scenePresentation(for record: SteamWorkshopDownloadRecord) -> ScenePlaybackPresentation {
+        let key = ScenePropertyOverrideStore.presentationPrefix + record.id
+        guard let data = defaults.data(forKey: key),
+              let value = try? JSONDecoder().decode(ScenePlaybackPresentation.self, from: data),
+              value.isValid else { return .init() }
+        return value
+    }
+
+    @discardableResult
+    func updateScenePresentation(for record: SteamWorkshopDownloadRecord,
+                                 edit: (inout ScenePlaybackPresentation) -> Void) -> ScenePlaybackPresentation {
+        let previous = scenePresentation(for: record)
+        var presentation = previous
+        edit(&presentation)
+        guard presentation != previous else { return previous }
+        let key = ScenePropertyOverrideStore.presentationPrefix + record.id
+        if presentation == ScenePlaybackPresentation() { defaults.removeObject(forKey: key) }
+        else { defaults.set(try? JSONEncoder().encode(presentation), forKey: key) }
+        SceneDaemonClient.shared.updatePresentation(presentation, recordID: record.id)
+        return presentation
     }
 
     func scenePropertyOverrides(
@@ -334,33 +369,39 @@ extension SteamWorkshopService {
             sourceIdentity = .init(rootPath: project.rootURL.resolvingSymlinksInPath().standardizedFileURL.path,
                 projectWitness: projectWitness, sceneWitness: sceneWitness)
         } else { sourceIdentity = nil }
+        let canvasAspect: CGFloat?
+        if let width = renderDescriptor.camera.orthoWidth, let height = renderDescriptor.camera.orthoHeight,
+           width.isFinite, height.isFinite, width > 0, height > 0 {
+            canvasAspect = CGFloat(width) / CGFloat(height)
+        } else { canvasAspect = nil }
         return projectedScenePropertyContext(SteamWorkshopScenePropertyContext(
             catalog: catalog,
             actionableKeys: actionableKeys,
             effectiveValues: catalog.effectiveValues(overrides: scenePropertyOverrides(for: record)),
             sourceIdentity: sourceIdentity,
-            propertyDisplayLocalization: project.propertyDisplayLocalization
+            propertyDisplayLocalization: project.propertyDisplayLocalization,
+            canvasAspect: canvasAspect,
+            supportsAudioProcessing: project.supportsAudioProcessing,
+            hasSound: document.objects.contains { $0.sound.map { !$0.paths.isEmpty } ?? false },
+            supportsMouseParallax: renderDescriptor.camera.parallaxEnabled || propertyProgram.instructions.contains {
+                $0.target == .camera(.parallaxEnabled)
+            }
         ), for: record)
     }
 
     func projectedScenePropertyContext(
         _ prepared: SteamWorkshopScenePropertyContext,
         for record: SteamWorkshopDownloadRecord
-    ) -> SteamWorkshopScenePropertyContext? {
+    ) -> SteamWorkshopScenePropertyContext {
         let callbackKeys = SceneDaemonClient.shared.preparedCallbackPropertyKeys(
             for: record.id, source: prepared.sourceIdentity)
-        let context = SteamWorkshopScenePropertyContext(catalog: prepared.catalog,
+        return SteamWorkshopScenePropertyContext(catalog: prepared.catalog,
             actionableKeys: prepared.staticActionableKeys,
             effectiveValues: prepared.catalog.effectiveValues(overrides: scenePropertyOverrides(for: record)),
             callbackPropertyKeys: callbackKeys, sourceIdentity: prepared.sourceIdentity,
-            propertyDisplayLocalization: prepared.propertyDisplayLocalization)
-        let catalog = context.catalog
-        let displayResolver = WorkshopPropertyDisplayResolver(localization: context.propertyDisplayLocalization)
-        let hasAuthoredContent = context.definitions.contains {
-            ($0.kind == .text || $0.kind == .group)
-                && !WorkshopPropertyTextContent(markup: displayResolver.string($0.title)).isEmpty
-        }
-        return context.actionableDefinitions.isEmpty && catalog.unsupportedDefinitions.isEmpty && !hasAuthoredContent ? nil : context
+            propertyDisplayLocalization: prepared.propertyDisplayLocalization,
+            canvasAspect: prepared.canvasAspect, supportsAudioProcessing: prepared.supportsAudioProcessing,
+            hasSound: prepared.hasSound, supportsMouseParallax: prepared.supportsMouseParallax)
     }
 
     func shouldDisplaySceneProperty(
@@ -424,6 +465,7 @@ extension SteamWorkshopService {
         defaultValues: [String: SceneUserPropertyValue],
         completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void
     ) {
+        updateScenePresentation(for: record) { $0 = .init() }
         let changedKeys = Set(scenePropertyOverrides(for: record).keys)
         scenePropertyCommandRevision &+= 1
         let resetRevision = scenePropertyCommandRevision

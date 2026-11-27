@@ -55,7 +55,7 @@ nonisolated struct SceneVideoProviderLifecycleState {
     private(set) var rate: Double = 1
     private(set) var loop = true
 
-    private var anchorSceneTime: TimeInterval = 0
+    private var anchorHostTime: TimeInterval = 0
     private var anchorItemTime: TimeInterval = 0
     private var heldItemTime: TimeInterval = 0
     private var lastPlan: FramePlan?
@@ -63,7 +63,7 @@ nonisolated struct SceneVideoProviderLifecycleState {
     private var isStopped = false
     private var isSuspended = false
     private(set) var needsFrameRefresh = false
-    private var lastObservedSceneTime: TimeInterval = 0
+    private var lastObservedHostTime: TimeInterval = 0
 
     /// User playback intent survives a global Scene pause. Backend playback
     /// may advance only while that intent is not globally suspended.
@@ -76,25 +76,22 @@ nonisolated struct SceneVideoProviderLifecycleState {
     }
 
     nonisolated mutating func start(
-        sceneTime: TimeInterval,
         hostTime: TimeInterval
     ) {
         guard !isStopped, !isPlaying else { return }
-        anchorSceneTime = sceneTime
+        anchorHostTime = hostTime
         anchorItemTime = heldItemTime
-        lastObservedSceneTime = sceneTime
+        lastObservedHostTime = hostTime
         isPlaying = true
         lastPlan = nil
         needsFrameRefresh = true
-        _ = hostTime
     }
 
     nonisolated mutating func planFrame(
         frameIndex: UInt64,
-        sceneTime: TimeInterval,
         hostTime: TimeInterval
     ) -> FramePlan {
-        lastObservedSceneTime = sceneTime
+        lastObservedHostTime = hostTime
         if let lastPlan, lastPlan.frameIndex == frameIndex {
             return FramePlan(
                 frameIndex: frameIndex,
@@ -107,7 +104,7 @@ nonisolated struct SceneVideoProviderLifecycleState {
         }
 
         let itemTime = isAdvancingPlayback
-            ? itemTime(at: sceneTime)
+            ? itemTime(at: hostTime)
             : heldItemTime
         let plan = FramePlan(
             frameIndex: frameIndex,
@@ -150,58 +147,50 @@ nonisolated struct SceneVideoProviderLifecycleState {
     }
 
     nonisolated mutating func pause(
-        sceneTime: TimeInterval,
         hostTime: TimeInterval
     ) {
         guard isPlaying, !isStopped else { return }
-        heldItemTime = currentTime(at: sceneTime)
-        lastObservedSceneTime = sceneTime
+        heldItemTime = currentTime(at: hostTime)
+        lastObservedHostTime = hostTime
         isPlaying = false
         lastPlan = nil
-        _ = hostTime
     }
 
     nonisolated mutating func resume(
-        sceneTime: TimeInterval,
         hostTime: TimeInterval
     ) {
         guard !isPlaying, !isStopped else { return }
-        anchorSceneTime = sceneTime
+        anchorHostTime = hostTime
         anchorItemTime = heldItemTime
-        lastObservedSceneTime = sceneTime
+        lastObservedHostTime = hostTime
         isPlaying = true
         lastPlan = nil
-        _ = hostTime
     }
 
     nonisolated mutating func seek(
         to itemTime: TimeInterval,
-        sceneTime: TimeInterval,
         hostTime: TimeInterval
     ) {
         guard !isStopped, itemTime.isFinite, itemTime >= 0 else { return }
         heldItemTime = itemTime
         anchorItemTime = itemTime
-        anchorSceneTime = sceneTime
-        lastObservedSceneTime = sceneTime
+        anchorHostTime = hostTime
+        lastObservedHostTime = hostTime
         lastPlan = nil
         needsFrameRefresh = true
-        _ = hostTime
     }
 
     nonisolated mutating func setRate(
         _ value: Double,
-        sceneTime: TimeInterval,
         hostTime: TimeInterval
     ) {
         guard !isStopped, value.isFinite, value > 0, value <= 16 else { return }
-        heldItemTime = currentTime(at: sceneTime)
+        heldItemTime = currentTime(at: hostTime)
         anchorItemTime = heldItemTime
-        anchorSceneTime = sceneTime
-        lastObservedSceneTime = sceneTime
+        anchorHostTime = hostTime
+        lastObservedHostTime = hostTime
         rate = value
         lastPlan = nil
-        _ = hostTime
     }
 
     nonisolated mutating func setLoop(_ value: Bool) {
@@ -216,28 +205,24 @@ nonisolated struct SceneVideoProviderLifecycleState {
     }
 
     nonisolated mutating func suspend(
-        sceneTime: TimeInterval,
         hostTime: TimeInterval
     ) {
         guard !isStopped, !isSuspended else { return }
-        if isPlaying { heldItemTime = itemTime(at: sceneTime) }
-        lastObservedSceneTime = sceneTime
+        if isPlaying { heldItemTime = itemTime(at: hostTime) }
+        lastObservedHostTime = hostTime
         isSuspended = true
         lastPlan = nil
-        _ = hostTime
     }
 
     nonisolated mutating func resumeSuspension(
-        sceneTime: TimeInterval,
         hostTime: TimeInterval
     ) {
         guard !isStopped, isSuspended else { return }
         isSuspended = false
         anchorItemTime = heldItemTime
-        anchorSceneTime = sceneTime
-        lastObservedSceneTime = sceneTime
+        anchorHostTime = hostTime
+        lastObservedHostTime = hostTime
         lastPlan = nil
-        _ = hostTime
     }
 
     nonisolated mutating func didReachEnd(duration: TimeInterval) {
@@ -246,10 +231,10 @@ nonisolated struct SceneVideoProviderLifecycleState {
             // EOF is an asynchronous backend observation, not a new clock
             // origin. Carry the elapsed phase across the duration boundary.
             // A last observation just before EOF can produce a small negative
-            // anchor; the next scene tick then crosses zero at the right time.
-            heldItemTime = currentTime(at: lastObservedSceneTime) - duration
+            // anchor; the next frame then crosses zero at the right time.
+            heldItemTime = currentTime(at: lastObservedHostTime) - duration
             anchorItemTime = heldItemTime
-            anchorSceneTime = lastObservedSceneTime
+            anchorHostTime = lastObservedHostTime
         } else {
             heldItemTime = duration
             anchorItemTime = duration
@@ -259,8 +244,8 @@ nonisolated struct SceneVideoProviderLifecycleState {
         needsFrameRefresh = true
     }
 
-    nonisolated func currentTime(at sceneTime: TimeInterval) -> TimeInterval {
-        isAdvancingPlayback ? itemTime(at: sceneTime) : heldItemTime
+    nonisolated func currentTime(at hostTime: TimeInterval) -> TimeInterval {
+        isAdvancingPlayback ? itemTime(at: hostTime) : heldItemTime
     }
 
     @discardableResult
@@ -273,7 +258,7 @@ nonisolated struct SceneVideoProviderLifecycleState {
         return true
     }
 
-    private nonisolated func itemTime(at sceneTime: TimeInterval) -> TimeInterval {
-        anchorItemTime + max(0, sceneTime - anchorSceneTime) * rate
+    private nonisolated func itemTime(at hostTime: TimeInterval) -> TimeInterval {
+        anchorItemTime + max(0, hostTime - anchorHostTime) * rate
     }
 }

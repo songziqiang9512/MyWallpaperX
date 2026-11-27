@@ -10,6 +10,7 @@ struct SteamWorkshopScenePlaybackRequest {
     var intentEpoch: UInt64? = nil
     var libraryPending: WallpaperPlaybackSequence.Pending? = nil
     var userShortcuts: ScenePlaybackShortcutConfiguration = .empty
+    var presentation = ScenePlaybackPresentation()
 }
 
 extension SteamWorkshopService {
@@ -44,6 +45,7 @@ extension SteamWorkshopService {
                 intentEpoch: intent.intentEpoch, libraryPending: libraryPending
             )
             request.userShortcuts = self.sceneShortcutConfiguration(for: record)
+            request.presentation = self.scenePresentation(for: record)
             NotificationCenter.default.post(name: .steamWorkshopSceneReadyToRender,
                 object: nil, userInfo: ["request": request])
         }

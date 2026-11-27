@@ -32,6 +32,53 @@ nonisolated enum ScenePlaybackTextureUpdateOutcome: Equatable, Sendable {
     case unavailable
 }
 
+nonisolated struct ScenePlaybackPresentation: Codable, Equatable, Sendable {
+    enum Alignment: String, Codable, CaseIterable, Sendable {
+        case system, cover, fit, stretch, center, free
+    }
+
+    var alignment: Alignment = .system
+    var position = 50
+    var zoom = 100
+    var listensToAudio = true
+    var horizontalPosition = 50
+    var verticalPosition = 50
+    var flippedHorizontally = false
+    var allowsMouseParallax = true
+    var volume = 100
+    var rate = 100
+
+    var isValid: Bool {
+        (0...100).contains(position) && (50...200).contains(zoom) && (0...100).contains(volume)
+            && (0...100).contains(horizontalPosition) && (0...100).contains(verticalPosition)
+            && (10...200).contains(rate)
+    }
+
+    func resolvedAlignment(systemFit: Bool) -> Alignment {
+        alignment == .system ? (systemFit ? .fit : .cover) : alignment
+    }
+
+    func fitsCanvas(systemFit: Bool) -> Bool {
+        resolvedAlignment(systemFit: systemFit) == .fit
+    }
+}
+
+extension ScenePlaybackPresentation {
+    nonisolated init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        alignment = try values.decode(Alignment.self, forKey: .alignment)
+        position = try values.decode(Int.self, forKey: .position)
+        zoom = try values.decode(Int.self, forKey: .zoom)
+        listensToAudio = try values.decode(Bool.self, forKey: .listensToAudio)
+        horizontalPosition = try values.decodeIfPresent(Int.self, forKey: .horizontalPosition) ?? 50
+        verticalPosition = try values.decodeIfPresent(Int.self, forKey: .verticalPosition) ?? 50
+        flippedHorizontally = try values.decodeIfPresent(Bool.self, forKey: .flippedHorizontally) ?? false
+        allowsMouseParallax = try values.decodeIfPresent(Bool.self, forKey: .allowsMouseParallax) ?? true
+        volume = try values.decodeIfPresent(Int.self, forKey: .volume) ?? 100
+        rate = try values.decodeIfPresent(Int.self, forKey: .rate) ?? 100
+    }
+}
+
 nonisolated struct ScenePlaybackLoadRequest: Equatable, Sendable {
     let rootURL: URL
     var propertyOverrides: [String: SceneUserPropertyValue]
@@ -40,6 +87,7 @@ nonisolated struct ScenePlaybackLoadRequest: Equatable, Sendable {
     var source: ScenePlaybackSource? = nil
     var requiredUserTextureKeys: Set<String> = []
     var userShortcuts: ScenePlaybackShortcutConfiguration = .empty
+    var presentation = ScenePlaybackPresentation()
 }
 
 /// 粗粒度壁纸引擎命令：UI 与控制面只发命令，不直触引擎内部。

@@ -7,11 +7,11 @@ extension SceneMetalView {
     }
 
     func invalidateResolvedMaterialRuntime(
-        reason: SceneGraphExecutionResetReason
+        reason: SceneGraphExecutionResetReason, notifyRender: Bool = true
     ) {
         renderer.imageCompositor.invalidateResolvedMaterialRuntime(reason: reason)
         offscreenTexturePool.reset()
-        onRenderInvalidated?()
+        if notifyRender { onRenderInvalidated?() }
     }
 
     func makeFrameContext(
@@ -37,6 +37,7 @@ extension SceneMetalView {
             cameraParallaxPosition: parallaxEnabled ? parallax : .zero,
             cameraParallaxMouseInfluence:
                 property.parallaxMouseInfluence ?? camera.parallaxMouseInfluence,
+            allowsMouseParallax: allowsMouseParallax,
             materialFunctionMutations: materialFunctionMutations,
             audioSpectrum: audioSpectrum
         )

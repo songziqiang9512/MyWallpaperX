@@ -33,6 +33,7 @@ extension MainWindowCoordinator {
                 recordID: request.recordID)
             load.source = request.source
             load.userShortcuts = request.userShortcuts
+            load.presentation = request.presentation
             manager.setSceneWallpaper(load, resourceLifetime: request.resourceLifetime, intentEpoch: request.intentEpoch,
                                       libraryPending: request.libraryPending)
         }

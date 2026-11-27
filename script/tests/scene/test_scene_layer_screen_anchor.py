@@ -96,7 +96,25 @@ enum Harness {
             eye: [0, 0, 0], center: [0, 0, -1], up: [0, 1, 0],
             orthoWidth: nil, orthoHeight: nil, nearZ: 0.01, farZ: 10_000
         )
+        let mipCanvas = SIMD2<Float>(3840, 2160)
+        let fittedDrawable = CGSize(width: 3024, height: 1701)
+        let fullDrawable = CGSize(width: 3024, height: 1964)
+        let results = [
+            SceneCameraProjection.Adjustment(layout: .fit).automaticMipDensity(
+                canvas: mipCanvas, drawable: fittedDrawable, authoredZoom: 1),
+            SceneCameraProjection.Adjustment(zoom: 125, layout: .fit).automaticMipDensity(
+                canvas: mipCanvas, drawable: fittedDrawable, authoredZoom: 1),
+            SceneCameraProjection.Adjustment(position: 0, layout: .cover).automaticMipDensity(
+                canvas: mipCanvas, drawable: fullDrawable, authoredZoom: 1),
+            SceneCameraProjection.Adjustment(layout: .stretch).automaticMipDensity(
+                canvas: mipCanvas, drawable: fullDrawable, authoredZoom: 1),
+            SceneCameraProjection.Adjustment(layout: .center).automaticMipDensity(
+                canvas: mipCanvas, drawable: fullDrawable, authoredZoom: 1),
+            SceneCameraProjection.Adjustment(zoom: 50, layout: .free).automaticMipDensity(
+                canvas: mipCanvas, drawable: fullDrawable, authoredZoom: 1.5),
+        ]
         let result: [String: Any] = [
+            "mipDensities": results,
             "mixedFit": coldExtent(mixedWindows, camera: camera),
             "mixedFill": coldExtent(mixedWindows, camera: nil),
             "mixedWithoutCanvas": coldExtent(mixedWindows, camera: nativeCamera),
@@ -447,6 +465,13 @@ class SceneLayerScreenAnchorTests(unittest.TestCase):
                 self.assertEqual(self.result[name]["rect"], rect)
                 self.assert_close(self.result[name]["shift"], (0, 0))
         self.assertEqual(self.result["fitNativeCamera"]["rect"], [10, 20, 1200, 900])
+
+    def test_mip_density_tracks_effective_alignment_and_zoom(self) -> None:
+        actual = self.result["mipDensities"]
+        expected = (0.7875, 0.984375, 1964 / 2160, 1964 / 2160, 1, 0.75)
+        self.assertEqual(len(actual), len(expected))
+        for result, density in zip(actual, expected, strict=True):
+            self.assertAlmostEqual(result, density, places=10)
 
     def test_cold_extent_fits_each_screen_before_combining_pixel_dimensions(self) -> None:
         self.assertEqual(self.result["mixedFit"], [1920, 1080])

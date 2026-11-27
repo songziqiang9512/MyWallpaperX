@@ -151,10 +151,8 @@ final class SceneDesktopWallpaperSession {
     let allowsSceneReflection: Bool
     var fitsCanvas = false {
         didSet {
-            guard fitsCanvas != oldValue else { return }
-            for surface in surfaces.values {
-                surface.metalView.fitsCanvas = fitsCanvas
-            }
+            guard presentation.fitsCanvas(systemFit: oldValue) != presentation.fitsCanvas(systemFit: fitsCanvas) else { return }
+            updateSurfaceFraming()
         }
     }
 
@@ -191,6 +189,34 @@ final class SceneDesktopWallpaperSession {
         guard isVisible, sceneClock.isPaused else { return false }
         surface.didSubmitSimulationFrame = false
         return true
+    }
+
+    var presentation = ScenePlaybackPresentation() {
+        didSet {
+            guard presentation != oldValue else { return }
+            updateSurfaceFraming()
+            if presentation.volume != oldValue.volume { setMasterVolume(Double(PlaybackVolumeState.shared.normalizedVolume)) }
+            if presentation.rate != oldValue.rate {
+                sceneClock.setPlaybackRate(Double(presentation.rate) / 100, hostTime: CACurrentMediaTime())
+            }
+            if presentation.listensToAudio != oldValue.listensToAudio { onAudioDemandChanged?() }
+        }
+    }
+
+    var effectiveFraming: SceneCameraProjection.Adjustment {
+        presentation.cameraAdjustment(systemFit: fitsCanvas)
+    }
+
+    private func updateSurfaceFraming() {
+        let framing = effectiveFraming
+        for surface in surfaces.values {
+            surface.metalView.applyPresentation(adjustment: framing,
+                flipped: presentation.flippedHorizontally, allowsMouseParallax: presentation.allowsMouseParallax)
+        }
+    }
+
+    func setMasterVolume(_ volume: Double) {
+        soundPlaybackRegistry?.setMasterVolume(volume * (Double(presentation.volume) / 100))
     }
 
     /// A host is process-local runtime state. SceneDaemonRuntime owns the
@@ -233,7 +259,8 @@ final class SceneDesktopWallpaperSession {
         nextVideoProviderEpoch &+= 1
         videoTextureSourceRegistry = SceneVideoTextureSourceRegistry(
             epoch: nextVideoProviderEpoch,
-            capturesLifecycleObservations: context.capturesExecutionObservations
+            capturesLifecycleObservations: context.capturesExecutionObservations,
+            pausedHostTime: sceneClock.isPaused ? CACurrentMediaTime() : nil
         )
         sceneScriptPuppetPoseSurface = nil
         launchContext = context
@@ -261,9 +288,7 @@ final class SceneDesktopWallpaperSession {
         if !isVisible || PlaybackMuteState.shared.isMuted {
             soundPlaybackRegistry.setMuted(true)
         }
-        soundPlaybackRegistry.setMasterVolume(
-            Double(PlaybackVolumeState.shared.normalizedVolume)
-        )
+        setMasterVolume(Double(PlaybackVolumeState.shared.normalizedVolume))
         soundPlaybackRegistry.start(
             paused: !isVisible || sceneClock.isPaused,
             userValues: context.liveState.userValues
@@ -612,4 +637,29 @@ final class SceneDesktopWallpaperSession {
     }
 
 
+}
+
+
+extension ScenePlaybackPresentation {
+    func cameraAdjustment(systemFit: Bool) -> SceneCameraProjection.Adjustment {
+        let layout: SceneCameraProjection.Layout = switch resolvedAlignment(systemFit: systemFit) {
+        case .system, .cover: .cover
+        case .fit: .fit
+        case .center: .center
+        case .stretch: .stretch
+        case .free: .free
+        }
+        return .init(position: position, zoom: zoom, layout: layout,
+                     horizontalPosition: horizontalPosition, verticalPosition: verticalPosition)
+    }
+}
+
+extension SceneCameraProjection.Adjustment {
+    func automaticMipDensity(camera: SceneRenderDescriptor.CameraDescriptor, drawable: CGSize) -> Double {
+        guard camera.authoredOrthographicProjectionActive == true, camera.default2DInputLayerID == nil,
+              let width = camera.orthoWidth, let height = camera.orthoHeight,
+              width.isFinite, height.isFinite, width > 0, height > 0,
+              drawable.width > 0, drawable.height > 0 else { return 0 }
+        return automaticMipDensity(canvas: SIMD2(width, height), drawable: drawable, authoredZoom: camera.generalZoom ?? 1)
+    }
 }

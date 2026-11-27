@@ -2,6 +2,69 @@ import CoreGraphics
 import simd
 
 nonisolated enum SceneCameraProjection {
+    enum Layout: Equatable, Sendable {
+        case cover, fit, stretch, center, free
+    }
+
+    struct Adjustment: Equatable, Sendable {
+        var position = 50
+        var zoom = 100
+        var layout: Layout = .cover
+        var horizontalPosition = 50
+        var verticalPosition = 50
+
+        func zoomScale(authored: Float) -> Float {
+            let scale = authored * (Float(zoom) / 100)
+            return scale.isFinite && scale > 0 ? scale : 1
+        }
+
+        func automaticMipDensity(canvas: SIMD2<Float>, drawable: CGSize, authoredZoom: Float) -> Double {
+            let magnification = Double(zoomScale(authored: authoredZoom))
+            switch layout {
+            case .center, .free: return magnification
+            case .cover, .fit, .stretch:
+                // Stretch can mix the drawable axes when the image is rotated.
+                return magnification * max(Double(drawable.width) / Double(max(canvas.x, 2)),
+                                           Double(drawable.height) / Double(max(canvas.y, 2)))
+            }
+        }
+
+        func framing(camera: SceneRenderDescriptor.CameraDescriptor,
+                     viewportSize: CGSize, zoomScale: Float)
+            -> (halfExtents: SIMD2<Float>, clipOffset: SIMD2<Float>) {
+            let viewport = SIMD2(Float(viewportSize.width), Float(viewportSize.height))
+            let width = camera.orthoWidth ?? viewport.x
+            let height = camera.orthoHeight ?? viewport.y
+            guard width.isFinite, height.isFinite, width > 0, height > 0,
+                  viewport.x.isFinite, viewport.y.isFinite,
+                  viewport.x > 0, viewport.y > 0 else { return (.zero, .zero) }
+
+            let authoredCanvas = camera.orthoWidth != nil && camera.orthoHeight != nil
+            let effectiveLayout = authoredCanvas ? layout : .cover
+            let canvas = SIMD2(max(1, width * 0.5), max(1, height * 0.5))
+            switch effectiveLayout {
+            case .cover, .fit:
+                let cover = SceneCameraProjection.coverHalfExtents(
+                    orthoWidth: width, orthoHeight: height, viewportSize: viewportSize)
+                let halfExtents = cover / zoomScale
+                guard effectiveLayout == .cover, authoredCanvas, position != 50 else {
+                    return (halfExtents, .zero)
+                }
+                let travel = (canvas - cover) / halfExtents
+                return (halfExtents, SIMD2(-travel.x, travel.y) * (Float(position) / 50 - 1))
+            case .stretch:
+                return (canvas / zoomScale, .zero)
+            case .center:
+                return (viewport * (0.5 / zoomScale), .zero)
+            case .free:
+                let halfExtents = viewport * (0.5 / zoomScale)
+                let travel = canvas / halfExtents + 1
+                let position = SIMD2(Float(horizontalPosition) / 50 - 1, 1 - Float(verticalPosition) / 50)
+                return (halfExtents, travel * position)
+            }
+        }
+    }
+
     static func fittedCanvasRect(
         in bounds: CGRect, orthoWidth: Float?, orthoHeight: Float?
     ) -> CGRect {
@@ -41,7 +104,8 @@ nonisolated enum SceneCameraProjection {
         viewportSize: CGSize,
         cameraOrigin: SIMD3<Float> = .zero,
         cameraZoom: Float = 1,
-        staticView: simd_float4x4? = nil
+        staticView: simd_float4x4? = nil,
+        visibleHalfExtents: SIMD2<Float>? = nil
     ) -> simd_float4x4 {
         let orthoWidth = camera.orthoWidth ?? Float(viewportSize.width)
         let orthoHeight = camera.orthoHeight ?? Float(viewportSize.height)
@@ -69,12 +133,13 @@ nonisolated enum SceneCameraProjection {
             -authoredDepth
         ))
         let view = staticView.map { canvasView * $0 } ?? canvasView
-        let halfExtents = coverHalfExtents(
+        let halfExtents = visibleHalfExtents ?? coverHalfExtents(
             orthoWidth: orthoWidth,
             orthoHeight: orthoHeight,
             viewportSize: viewportSize,
             zoom: cameraZoom
         )
+        guard halfExtents.x > 0, halfExtents.y > 0 else { return SceneMatrix.identity() }
         let projection = SceneMatrix.ortho(
             left: -halfExtents.x,
             right: halfExtents.x,
