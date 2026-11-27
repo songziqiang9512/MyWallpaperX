@@ -380,7 +380,8 @@ extension SceneDesktopWallpaperSession {
             } else if let pipeline = SceneParticleMetalPipeline(
                 device: metalView.metalDevice,
                 pixelFormat: metalView.renderer.renderDescriptor.colorTargetFormat.metalPixelFormat,
-                requiredVariants: particleVariants.required, sceneDepthVariants: particleVariants.sceneDepth
+                requiredVariants: particleVariants.required, sceneDepthVariants: particleVariants.sceneDepth,
+                rasterSampleCount: launchContext.rasterSamples.device
             ) {
                 metalView.particlePipeline = pipeline
                 surface.particlePlayback = candidateParticles

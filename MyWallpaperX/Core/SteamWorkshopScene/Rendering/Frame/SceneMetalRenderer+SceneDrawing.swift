@@ -249,6 +249,10 @@ extension SceneMetalRenderer {
             && activeStaticModelNamedAlbedoLayerIDs.isEmpty
             ? multisampleTargets : nil
         func allowsNativeOrdinaryLayer(_ layer: SceneRenderDescriptor.Layer, samples: Int) -> Bool {
+            if layer.contentKind == "particle" {
+                guard let batches = particleBatchesByID[layer.id] else { return true }
+                return particlePipeline?.supportsMultisampleRoot(batches, samples: samples) == true
+            }
             guard imagePipeline?.multisampleRasterSampleCount == samples,
                   layer.utilityLayer == nil, (layer.colorBlendMode ?? 0) == 0,
                   imageTextures.geometryProducts[layer.id] == nil,
@@ -286,7 +290,9 @@ extension SceneMetalRenderer {
             return first
         }
         var rootMultisample: RootMultisamplePlan?
-        if let targets = nativeRootTargets, !ordinaryDepthLayerIDs.isEmpty,
+        if let targets = nativeRootTargets, !staticModelResources.isEmpty,
+           !ordinaryDepthLayerIDs.isEmpty
+               || (!particleBatchesByID.isEmpty && !utilityExecution.plansByTriggerLayerID.isEmpty),
            requestedFramebufferSources.isEmpty,
            dependencyRuntime.nonStaticModelProviderLayerIDs.isEmpty,
            dependencyRuntime.previousProviderLayerIDs.isEmpty,
@@ -538,6 +544,10 @@ extension SceneMetalRenderer {
                 && resolvedMaterialFrameTargetPlans.isEmpty
                 && preparationSchedule.prepassProviderLayerIDs.isEmpty
                 && preparationSchedule.providersBeforeLayerID.isEmpty
+                && !utilityExecution.plansByTriggerLayerID.values.contains(where: { plans in
+                    plans.contains { Self.executesUtilityPlan($0,
+                        framePlans: resolvedMaterialFrameTargetPlans, layers: frameLayersByID) }
+                })
             if staticModelResources.isEmpty {
                 var witness: OrdinaryRasterProjection?
                 func allowsClearOrdinaryLayer(_ layer: SceneRenderDescriptor.Layer) -> Bool {
@@ -560,10 +570,6 @@ extension SceneMetalRenderer {
                     return true
                 }
                 if startsAtClear, !requiresLiveImageReflection(),
-                   !utilityExecution.plansByTriggerLayerID.values.contains(where: { plans in
-                       plans.contains { Self.executesUtilityPlan($0,
-                           framePlans: resolvedMaterialFrameTargetPlans, layers: frameLayersByID) }
-                   }),
                    mainLayersAllowMultisampling(orderedLayers, visible: frameVisibleLayerIDs,
                        allowsOrdinaryLayer: allowsClearOrdinaryLayer),
                    let witness, mainPass.prepareMultisampling(multisampleTargets.forTarget(mainTarget)) {

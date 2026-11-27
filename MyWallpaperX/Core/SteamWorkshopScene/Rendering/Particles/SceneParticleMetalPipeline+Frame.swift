@@ -47,6 +47,7 @@ extension SceneParticleMetalPipeline {
         }
         var clearsDepth = usesDepth
         let raster = mainPass.rasterClipRows
+        let rasterSamples = mainPass.rasterSampleCount
 #if DEBUG
         var observationBatchOrdinal = 0
 #endif
@@ -60,9 +61,7 @@ extension SceneParticleMetalPipeline {
             let observeBindings: ((MTLTexture, SceneParticleRefractionBinding.NormalArguments?, MTLTexture?, Int) -> Void)?
             if let trace = mainPass.compositionTrace, trace.isCompositionSelected {
                 let target = mainPass.compositionTarget
-                let depth = depthTexture.map {
-                    SceneCompositionTextureObservation($0, role: sharedDepth == nil ? "particle-depth" : "scene-depth")
-                }
+                let attachment = depthTexture ?? mainPass.multisampleAttachments?.depth
                 let ordinal = observationBatchOrdinal
                 let layerID = batch.layerID
                 let colorUV = [batch.colorUVScale.x, batch.colorUVScale.y]
@@ -77,10 +76,14 @@ extension SceneParticleMetalPipeline {
                         "cullMode": batch.renderState.cullMode.rawValue,
                         "depthTestEnabled": String(batch.renderState.depthTestEnabled),
                         "depthWriteEnabled": String(batch.renderState.depthWriteEnabled),
+                        "sampleCount": String(rasterSamples),
                         "usesSceneCamera": String(batch.usesSceneCamera),
-                        "usesDepthAttachment": String(depth != nil),
+                        "usesDepthAttachment": String(attachment != nil),
                         "readsSceneDepth": String(sharedDepth != nil)]
-                if let depth { batchDetails["depthTextureToken"] = depth.textureToken }
+                if let attachment {
+                    batchDetails["depthTextureToken"] = SceneCompositionTextureObservation(
+                        attachment, role: depthLease == nil ? "scene-depth" : "particle-depth").textureToken
+                }
                 observeBindings = { color, normal, background, count in
                     var details = batchDetails
                     details["instanceCount"] = String(count)
@@ -172,6 +175,7 @@ extension SceneParticleMetalPipeline {
                     colorSampling: batch.colorSampling,
                     usesDepthAttachment: depthTexture != nil,
                     readsReverseDepth: sharedDepth != nil,
+                    rasterSampleCount: rasterSamples,
                     encoder: encoder, observeBindings: observeBindings
                 )
             } else {

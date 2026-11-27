@@ -36,14 +36,13 @@ extension SceneMetalRenderer {
                 return nil
             }
         }
-        private final class SceneDepthDomain {
-            enum ModelProjection { case unwritten, perspective, incompatible }
+        private enum RootModelProjection { case unwritten, perspective, incompatible }
 
+        private final class SceneDepthDomain {
             // Keep the pass alive while its ObjectIdentifier is a domain key.
             let pass: SceneMainPassEncoder
             let depth: Depth
             var wasCleared = false
-            var modelProjection: ModelProjection = .unwritten
 
             init(pass: SceneMainPassEncoder, depth: Depth) {
                 self.pass = pass
@@ -59,6 +58,7 @@ extension SceneMetalRenderer {
         private var directMeshes: [Int: SceneStaticModelMesh?] = [:]
         private var sceneDepthByPass: [ObjectIdentifier: SceneDepthDomain] = [:]
         private var acceptsDepthBindings = true
+        private var rootModelProjection: RootModelProjection = .unwritten
         private(set) var depthDeferralReason: String?
         // Late publication refreshes draw payloads, never a domain's resource
         // decision (including a failed acquisition) or first-clear ownership.
@@ -147,18 +147,15 @@ extension SceneMetalRenderer {
             return encoder
         }
 
-        func recordModelDepthWrite(pass: SceneMainPassEncoder, usesPerspective: Bool) {
-            guard let domain = sceneDepthByPass[ObjectIdentifier(pass)],
-                  domain.modelProjection != .incompatible else { return }
-            domain.modelProjection = usesPerspective ? .perspective : .incompatible
+        func recordRootModelDepthWrite(usesPerspective: Bool) {
+            guard rootModelProjection != .incompatible else { return }
+            rootModelProjection = usesPerspective ? .perspective : .incompatible
         }
 
         func particleReadOnlyDepth(pass: SceneMainPassEncoder,
                                    commandBuffer: MTLCommandBuffer) -> MTLTexture? {
-            guard acceptsDepth(pass, on: commandBuffer),
-                  let domain = sceneDepthByPass[ObjectIdentifier(pass)],
-                  domain.modelProjection == .perspective else { return nil }
-            return domain.depth.lease?.texture
+            guard acceptsDepth(pass, on: commandBuffer), rootModelProjection == .perspective else { return nil }
+            return pass.multisampleAttachments?.depth ?? sceneDepthByPass[ObjectIdentifier(pass)]?.depth.lease?.texture
         }
 
         func terminalDepthBinding(pass: SceneMainPassEncoder,
@@ -429,7 +426,7 @@ extension SceneMetalRenderer {
                 for: layer.id, encoded: encoded, on: commandBuffer)
         }
         if encodedDepthWriter && pass.isSceneRoot {
-            state.recordModelDepthWrite(pass: pass, usesPerspective: usesPerspective)
+            state.recordRootModelDepthWrite(usesPerspective: usesPerspective)
         }
         return encodedLit
     }

@@ -125,10 +125,12 @@ class SceneParticleMainDepthTests(unittest.TestCase):
         print(f"Native particle depth evidence: {cls.evidence_root}", flush=True)
 
     def test_read_only_world_sprite_obeys_earlier_model_depth(self):
-        for arm in ("enabled", "disabled", "renamed", "mixed-ortho"):
-            with self.subTest(arm=arm):
+        for arm, samples in (("enabled", 1), ("disabled", 1), ("renamed", 1), ("mixed-ortho", 1),
+                             ("enabled", 2), ("renamed", 4)):
+            with self.subTest(arm=arm, samples=samples):
                 entries, material, shifted = fixture(arm)
-                for path, event in self.captures(arm, entries, material):
+                name = arm if samples == 1 else f"{arm}-{samples}x"
+                for path, event in self.captures(name, entries, material, samples=samples):
                     rows = event["rows"]
                     draws = [row for row in rows if row["kind"] in ("model", "particle") and row.get("slot") == 0]
                     expected_order = [10, 20, 21, 30, 31, 32] if arm == "mixed-ortho" else [10, 20, 30, 31, 32]
@@ -138,13 +140,26 @@ class SceneParticleMainDepthTests(unittest.TestCase):
                     reads = arm in ("enabled", "renamed")
                     self.assertEqual([row["readsSceneDepth"] for row in particles], ["false"] + [str(reads).lower()] * 3)
                     self.assertTrue(all(row["depthWriteEnabled"] == "false" for row in particles))
-                    self.assertEqual(len({row["depthTextureToken"] for row in particles if "depthTextureToken" in row}), int(reads))
+                    depth_tokens = {row["depthTextureToken"] for row in particles if "depthTextureToken" in row}
+                    self.assertEqual(len(depth_tokens), int(reads))
+                    if samples > 1:
+                        self.assertTrue(all(row["usesDepthAttachment"] == "true" for row in particles))
+                    self.assertEqual({row["sampleCount"] for row in particles}, {str(samples)})
+                    if samples > 1:
+                        root, = [row["details"] for row in rows if row["kind"] == "main-raster-open"]
+                        self.assertEqual(root["depthSamples"], str(samples))
+                        self.assertEqual({root["depthToken"]}, depth_tokens)
                     width, height, rgb = png_rgb_pixels(path)
                     far = BODY_COLOR if reads else (96, 0, 255)
                     colors = ((0, 255, 255), far, (96, 255, 0), (0, 0, 255))
                     for (_, name, origin, _), color in zip(READERS, colors, strict=True):
                         x, y = map(round, screen(origin, width, height))
                         self.assertEqual(tuple(rgb[y][3*x:3*x+3]), color, (path, name))
+                    if samples == 4:
+                        reader_y = int(screen((0, .48, 1), width, height)[1])
+                        left = round(screen((-.75, 0, 1), width, height)[0])
+                        self.assertTrue(any(0 < rgb[reader_y][3*x] < BODY_COLOR[0]
+                                            for x in range(left-1, left+2)), path)
                     if arm == "mixed-ortho":
                         edge = min(width, height) // 10
                         yellow = bytes(ORTHO_MODEL_COLOR)
@@ -227,7 +242,11 @@ class SceneParticleMainDepthTests(unittest.TestCase):
                 ortho.update(visible=True, alpha=alpha)
                 entries["scene.json"] = encoded(scene)
                 name = f"translucent-mixed-ortho-{alpha}" + ("-auto" if auto_canvas else "")
-                for path, event in self.captures(name, entries, material):
+                # An actual private writer still prevents admission of the complete root.
+                samples = 4 if alpha and not auto_canvas else 1
+                for path, event in self.captures(name, entries, material, samples=samples):
+                    particle_rows = [row for row in event["rows"] if row["kind"] == "particle"]
+                    self.assertEqual({row["details"]["sampleCount"] for row in particle_rows}, {"1"})
                     self.assert_translucent_capture(path, event, shifted, tested=True,
                                                      orthographic_writer=bool(alpha))
 
@@ -340,11 +359,40 @@ class SceneParticleMainDepthTests(unittest.TestCase):
                         x, y = map(round, screen(position, width, height))
                         self.assertEqual(tuple(rgb[y][3*x:3*x+3]), color, (path, position))
 
-    def captures(self, name, entries, material):
+    def test_project_color_read_cannot_discard_later_particle_depth(self):
+        entries, material, _ = fixture("enabled")
+        scene = json.loads(entries["scene.json"])
+        scene["general"]["orthogonalprojection"] = {"auto": True}
+        project = "models/util/projectlayer.json"
+        entries[project] = encoded({"width": 1280, "height": 832, "autosize": False})
+        scene["objects"].insert(2, {
+            "id": 41, "image": project, "copybackground": True,
+            "origin": "640 416 0", "size": "1280 832", "perspective": False,
+            "colorBlendMode": 18, "color": "0 1 0",
+        })
+        entries["scene.json"] = encoded(scene)
+        for path, event in self.captures("project-read-before-particles", entries, material, samples=4):
+            rows = event["rows"]
+            capture = next(i for i, row in enumerate(rows)
+                           if row["kind"] == "sourceCapture" and row["layerID"] == 41
+                           and row["outcome"] == "draw-encoded")
+            far = next(i for i, row in enumerate(rows)
+                       if row["kind"] == "particle" and row["layerID"] == 30 and row["slot"] == 0)
+            self.assertLess(capture, far)
+            self.assertEqual(rows[far]["details"]["readsSceneDepth"], "true")
+            self.assertEqual({row["details"]["sampleCount"] for row in rows
+                              if row["kind"] == "main-raster-open"}, {"1"})
+            width, height, rgb = png_rgb_pixels(path)
+            far_x, far_y = map(round, screen(READERS[1][2], width, height))
+            open_x, open_y = map(round, screen(READERS[3][2], width, height))
+            self.assertEqual((rgb[far_y][3*far_x+2], rgb[open_y][3*open_x+2]), (0, 255), path)
+
+    def captures(self, name, entries, material, *, samples=1):
+        quality = f"{{ sceneAntiAliasingMode = {('none' if samples == 1 else f'msaa{samples}')}; }}"
         app_runner.SceneReflectionHistoryIntegrationTests.run_case(
             self, 0, capture=True, entries=entries, material_input_path=material, rois={}, name=name,
             extra_arguments=("--mwx-debug-scene-after-snapshot-delay", "2",
-                             "--mwx-debug-scene-audio-silence-fixture"),
+                             "--mwx-debug-scene-audio-silence-fixture", "-mwx.playback.quality", quality),
         )
         work = self.evidence_root / name
         return native_world.SceneNativeWorldCompositionTests.composition_captures(

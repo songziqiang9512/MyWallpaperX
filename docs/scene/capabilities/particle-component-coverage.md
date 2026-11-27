@@ -411,7 +411,7 @@ Rope 整图路径不构造 SpriteAnimation，只传整图消费选择和原纹�
 <a id="native-particle-main-depth"></a>
 ### 原生透视粒子读取主画布深度
 
-原生透视 Sprite 已沿 SceneCamera 投影。普通颜色批次按材质开启测试且关闭写入时，在最终主画布绘制位置借用同一 pass、同 command buffer 已由透视模型写入的 reverse-Z 深度。沿原层变换、实例缓冲、透明混合和唯一颜色输出，用已有反向 VP 与只读 `.greaterEqual`。当前深度域保留写入的投影事实，若已混入正交模型写入、没有同域写入或附件不可用，沿原无深度批次。借用只 load，不分配、清空、复制或延后帧。
+原生透视 Sprite 已沿 SceneCamera 投影。普通颜色批次按材质开启测试且关闭写入时，在最终主画布绘制位置借用同一 pass、同 command buffer 已由透视模型写入的 reverse-Z 深度。沿原层变换、实例缓冲、透明混合和唯一颜色输出，用已有反向 VP 与只读 `.greaterEqual`。当前深度域保留写入的投影事实，若已混入正交模型写入、没有同域写入或附件不可用，沿原无深度批次。单采样借用原深度租约。合格的普通半透明及加色批次可沿[同一原生主域](../architecture/runtime-architecture.md#raster-sample-domain)测试片上反向 D32，保原色与混合。未借到共享深度的批次恒过并关闭写入。该借用不另分配、清空、复制或延后帧。
 
 原生透视根层的普通 translucent Sprite 以作者 `depthtest` 决定读取，`depthwrite` 不产生写入。冷准备只给无附着、无 child 系统且全部有效 renderer 为普通 Sprite 的根层带出此意图。原上传步骤按当前相机与实际目标把写入投影为关闭，后续排序、预约与编码消费同一批次状态。能测试时借既有只读深度，测试关闭或还没有可共用的深度时直接画颜色。原私有正向路径继续用于其他投影、同根有正交实体写入的场景、组、混合 renderer、child、折射、加色和 coverage 的实际写入。
 

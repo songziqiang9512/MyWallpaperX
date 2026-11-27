@@ -13,15 +13,18 @@ nonisolated struct SceneParticlePipelineVariant: Hashable, Sendable {
     let isRefraction: Bool
     let blendMode: SceneParticlePipelineBlendMode
     let usesDepthAttachment: Bool
+    let rasterSampleCount: Int
 
     init(
         isRefraction: Bool = false,
         blendMode: SceneParticlePipelineBlendMode,
-        usesDepthAttachment: Bool = false
+        usesDepthAttachment: Bool = false,
+        rasterSampleCount: Int = 1
     ) {
         self.isRefraction = isRefraction
         self.blendMode = blendMode
         self.usesDepthAttachment = usesDepthAttachment
+        self.rasterSampleCount = rasterSampleCount
     }
 
     static let standaloneDefaults: Set<Self> = [

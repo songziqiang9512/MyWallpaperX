@@ -82,7 +82,7 @@ extension SceneMetalRenderer {
             switch layer.contentKind {
             case "model", "container", "sound", "pointLight", "directionalLight", "tubeLight", "project", "fullscreen":
                 continue
-            case "image", "solid", "text":
+            case "image", "solid", "text", "particle":
                 guard allowsOrdinaryLayer(layer) else { return false }
             case "spotLight" where spotLightRuntime?.plansByLayerID[layer.id] == nil:
                 continue

@@ -88,7 +88,8 @@ final class SceneParticleMetalPipeline {
     init?(
         device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm,
         requiredVariants: Set<SceneParticlePipelineVariant> = SceneParticlePipelineVariant.standaloneDefaults,
-        sceneDepthVariants: Set<SceneParticlePipelineVariant> = []
+        sceneDepthVariants: Set<SceneParticlePipelineVariant> = [],
+        rasterSampleCount: Int = 1
     ) {
         let library: MTLLibrary?
         let coverageLibrary: MTLLibrary?
@@ -151,6 +152,16 @@ final class SceneParticleMetalPipeline {
                 states[variant] = state
             } else if !usesCoverage && requiredVariants.contains(variant) {
                 return nil
+            }
+        }
+        if rasterSampleCount > 1, let vertex, let fragment {
+            for blend in [SceneParticlePipelineBlendMode.translucent, .additive]
+                where variants.contains(where: { !$0.isRefraction && !$0.usesDepthAttachment && $0.blendMode == blend }) {
+                let key = SceneParticlePipelineVariant(blendMode: blend, usesDepthAttachment: true,
+                    rasterSampleCount: rasterSampleCount)
+                states[key] = Self.makeState(device: device, vertex: vertex, fragment: fragment,
+                    pixelFormat: pixelFormat, blendMode: blend, depthPixelFormat: .depth32Float,
+                    rasterSampleCount: rasterSampleCount)
             }
         }
         self.device = device
@@ -234,11 +245,13 @@ final class SceneParticleMetalPipeline {
         colorSampling: SceneParticleTextureSampling,
         usesDepthAttachment: Bool = false,
         readsReverseDepth: Bool = false,
+        rasterSampleCount: Int = 1,
         encoder: MTLRenderCommandEncoder,
         observeBindings: ((MTLTexture, SceneParticleRefractionBinding.NormalArguments?, MTLTexture?, Int) -> Void)? = nil
     ) -> Bool {
         let variant = SceneParticlePipelineVariant(
-            blendMode: renderState.blendMode, usesDepthAttachment: usesDepthAttachment
+            blendMode: renderState.blendMode, usesDepthAttachment: usesDepthAttachment || rasterSampleCount > 1,
+            rasterSampleCount: rasterSampleCount
         )
         guard let state = pipelineStates[variant],
               let drawState = instances.currentDrawState() else { return false }
@@ -246,10 +259,12 @@ final class SceneParticleMetalPipeline {
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
 #endif
         encoder.setRenderPipelineState(state)
-        if usesDepthAttachment {
-            encoder.setDepthStencilState(
-                readsReverseDepth ? depthStates[Self.reverseReadDepthKey] : depthState(for: renderState)
-            )
+        if readsReverseDepth {
+            encoder.setDepthStencilState(depthStates[Self.reverseReadDepthKey])
+        } else if rasterSampleCount > 1 {
+            encoder.setDepthStencilState(depthStates[0])
+        } else if usesDepthAttachment {
+            encoder.setDepthStencilState(depthState(for: renderState))
         }
         configureCull(renderState.cullMode, encoder: encoder)
         defer { encoder.setCullMode(.none) }
@@ -431,19 +446,29 @@ final class SceneParticleMetalPipeline {
             && pipelineStates[.init(blendMode: blend, usesDepthAttachment: true)] != nil
     }
 
+    func supportsMultisampleRoot(_ batches: [PreparedBatch], samples: Int) -> Bool {
+        batches.allSatisfy { prepared in
+            let draw = prepared.draw
+            return draw.refraction == nil && !draw.renderState.depthWriteEnabled
+                && pipelineStates[.init(blendMode: draw.renderState.blendMode,
+                    usesDepthAttachment: true, rasterSampleCount: samples)] != nil
+        }
+    }
+
     private static func makeState(
         device: MTLDevice,
         vertex: MTLFunction,
         fragment: MTLFunction,
         pixelFormat: MTLPixelFormat,
         blendMode: SceneParticlePipelineBlendMode,
-        depthPixelFormat: MTLPixelFormat = .invalid
+        depthPixelFormat: MTLPixelFormat = .invalid,
+        rasterSampleCount: Int = 1
     ) -> MTLRenderPipelineState? {
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.vertexFunction = vertex
         descriptor.fragmentFunction = fragment
         descriptor.depthAttachmentPixelFormat = depthPixelFormat
-        descriptor.rasterSampleCount = 1
+        descriptor.rasterSampleCount = rasterSampleCount
         let attachment = descriptor.colorAttachments[0]!
         attachment.pixelFormat = pixelFormat
         switch blendMode {

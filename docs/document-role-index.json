@@ -144,7 +144,7 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7f86e76aa8457dfd42a76e334ae835ef1d7d57afa310435693dbbabe7bf91267",
+        "sourceSHA256": "9ca3275103251560c8e369eddef469257ce28ef13a0c213bf5cb7e4fc6681d6d",
         "method": "document_registry --audit + document_health --check",
         "scope": "明确播放偏好与预设投影为同一源码入口。",
         "limitations": "原生四档及单屏签名中档产品链。没有重复四档物理呈现或混合屏性能测量。"
@@ -192,7 +192,7 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6ac58551121d56e2a2a7fb24697e6afc52e01d3fde077067afe27e4f1ec22f51",
+        "sourceSHA256": "7de9611a7db327bc4abe433202af8a3b627f8a44b98aef9cf36cd5c8df8a35e2",
         "method": "document_registry --audit + document_health --check",
         "scope": "记录用户指定预设向量、原记录和相同帧率的分派。",
         "limitations": "原生四档及单屏签名中档产品链。没有重复四档物理呈现或混合屏性能测量。"
@@ -378,7 +378,7 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ac369d97ca0f9b28a1da37e36d2bc2ec1e26673266151326b5c1530b606e4500",
+        "sourceSHA256": "91b11381b737bf5ebe1c0c1a7ec451035dd76b8a32febc0c3cf104efe9056e46",
         "method": "document_registry --audit + document_health --check",
         "scope": "核原通用图像 Program 实时环境候选的原作者混合与取样合同。",
         "limitations": "隔离原包 Metal 完成终图及准备拒绝。原区实际反射与官版对照、候选和实呈成本待验。"
@@ -392,7 +392,7 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "dc3908d896d2bb8fc8e2f269f01611d37332e234f61f21cabc57869b8bba912a",
+        "sourceSHA256": "3a149eba39aa6424f049cc5a38bf175a3066ca1115cbe18ef48af9d5e113469a",
         "method": "document_registry --audit + document_health --check",
         "scope": "核原作普通图像反射首断点、真实回退终图及同档波动。",
         "limitations": "隔离原包 Metal 完成终图及准备拒绝。原区实际反射与官版对照、候选和实呈成本待验。"
@@ -886,7 +886,7 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3cdc1f83e4650e2fd2700d52f3fcdad039d27deb1e518d4aba75da36b9376045",
+        "sourceSHA256": "4167fd8aa479ed24a5bc8ede2680eca10aa34cad31a1d747075a4fe53cd6c0df",
         "method": "document_registry --audit + document_health --check",
         "scope": "核场景脚本权限到原目录及 Auto 准备的职责。",
         "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"

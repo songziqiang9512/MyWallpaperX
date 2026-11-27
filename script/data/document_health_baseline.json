@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 70,
-      "bytes": 28047
+      "bytes": 28270
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 174,
-      "bytes": 36975
+      "bytes": 37185
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 202901
+      "bytes": 204039
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 186009
+      "bytes": 187371
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 337,
-      "bytes": 75276
+      "bytes": 75498
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -158,7 +158,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 434,
-      "bytes": 83656
+      "bytes": 83911
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 500,
@@ -670,11 +670,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "2deee7a646013b9011eeff1197a2de5e79b8c61b0608a20dffbe49ff6f6116bc",
-      "after": "97a4793099679cbaa2e9db1c2299425107e314ed9746e6a55c78d7088be6cf04",
-      "owner": "Scene particle simulation",
-      "reason": "同步步进寿命数组的就地填充合同、实际交错首帧收益和剩余启动边界。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#particle-normalized-life-step"
+      "before": "97a4793099679cbaa2e9db1c2299425107e314ed9746e6a55c78d7088be6cf04",
+      "after": "d209a812289d23bef5fb12aafac8274ecdc5a60c1cd1d35e7b69ac39bdd542e2",
+      "owner": "wallpaper-quality",
+      "reason": "登记普通粒子共用原生主色和相机深度的设计及实际画面、运行范围。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-ordinary-particle"
     },
     {
       "section": "bodies",
@@ -715,47 +715,47 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "6ce38d0a72617221e6bda8ec6d75dae54cf91cbb87ba98c7e3c8ce35a5faefa7",
-      "after": "29507a0cfd164597ad312f76143854ad1ece9b661c1500342fc56170174928b1",
+      "before": "29507a0cfd164597ad312f76143854ad1ece9b661c1500342fc56170174928b1",
+      "after": "c20b886d30d9f8876fe132ad3ac516ae3595106e95b5e0ff7d19644a11374cfb",
       "owner": "wallpaper-quality",
-      "reason": "明确播放偏好与预设投影为同一源码入口。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-quality-presets"
+      "reason": "登记普通粒子共用原生主色和相机深度的设计及实际画面、运行范围。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-ordinary-particle"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "715d6ab562639c506ccb2f6781914ca76fdadd4d734c85402a8f7bd9c1f29154",
-      "after": "af182e11b6c9ddf37ab7b813f107bc607329538e101e3ff4037f28d50ee0fcc0",
+      "before": "af182e11b6c9ddf37ab7b813f107bc607329538e101e3ff4037f28d50ee0fcc0",
+      "after": "f7f26f42a61d0b2a80d34bb54215c7c350915c738347542309dcf5703ef4ff30",
       "owner": "wallpaper-quality",
-      "reason": "记录用户指定预设向量、原记录和相同帧率的分派。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-quality-presets"
+      "reason": "登记普通粒子共用原生主色和相机深度的设计及实际画面、运行范围。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-ordinary-particle"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "b1027fdcd59c2c30b734675f2c532dbfbc8e293791f32d77a12e6d1e1a316623",
-      "after": "70ad14232de0f91b6bd0e24719859f380bc9d34252533c965bdf1839ed01a7bd",
+      "before": "70ad14232de0f91b6bd0e24719859f380bc9d34252533c965bdf1839ed01a7bd",
+      "after": "de296f50326b35c5b8f62efa932bb534c1a65b17927a3422b91c48f2057a632f",
       "owner": "wallpaper-quality",
-      "reason": "记录两部独立原作的低迭代 HDR 泛光缺口及同相位官版鉴别条件。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-hdr-low-iterations"
+      "reason": "登记普通粒子共用原生主色和相机深度的设计及实际画面、运行范围。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-ordinary-particle"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "13a58399c6e3ad45abe85295773cedd4243cc19e7807fc3ea059e26cb0b628f9",
-      "after": "1368654f119c2ce507192577ecebeb299778667641243a3c90266a6cf875024c",
+      "before": "1368654f119c2ce507192577ecebeb299778667641243a3c90266a6cf875024c",
+      "after": "7caddfc8fe2606e93b4eff5431cb34cfe8925ebb68f98764f99c7de2c04a0b87",
       "owner": "wallpaper-quality",
-      "reason": "记录两部独立原作的低迭代 HDR 泛光缺口及同相位官版鉴别条件。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-hdr-low-iterations"
+      "reason": "登记普通粒子共用原生主色和相机深度的设计及实际画面、运行范围。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-ordinary-particle"
     },
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "f3003fd1a4ebc7133cff8b80b37a44cfc62f723d503b08623ac34783dfbc39b2",
-      "after": "bbd1e6f3de265f70c41dc609a87582419439e15b2b6564fe791f2bb7a3669e08",
-      "owner": "Scene script owner construction",
-      "reason": "核场景脚本权限到原目录及 Auto 准备的职责。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-computed-model"
+      "before": "bbd1e6f3de265f70c41dc609a87582419439e15b2b6564fe791f2bb7a3669e08",
+      "after": "2adff40097a7aa5e1898baa44e34ea0600ec955410b2f7737c4b7d0d654db4a6",
+      "owner": "wallpaper-quality",
+      "reason": "登记普通粒子共用原生主色和相机深度的设计及实际画面、运行范围。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-aa-ordinary-particle"
     }
   ]
 }
