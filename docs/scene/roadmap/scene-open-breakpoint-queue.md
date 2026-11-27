@@ -28,7 +28,6 @@
 |---|---|
 | 3463406101 · 前景回亮 | [归一后历史](../capabilities/runtime-evidence-current.md#forefront-normalized-history-346)已接入。[原低多音](../capabilities/runtime-evidence-current.md#forefront-recovery-346)的早期回亮仍有残差。沿同源分析代次核分母与实际供值。 |
 | 2927205881 · 高倍率剩余覆盖 | [同包晚帧](../capabilities/runtime-evidence-current.md#particle-live-continuous-frame-292)仍有亮列及左缘残差。对齐实际更新时长与同源音频，核精确阻尼和控制点组合。 |
-| 3042492564 · 媒体封面抗锯齿 | [播放时两臂](../capabilities/runtime-evidence-current.md#active-media-effect-gaps-20261127)的339/e3均因生成的MSL引用未声明varying而透传。追踪生成前后的varying活性，单独验证当前官版输入和像素。 |
 | 3662390671 · 封面用于 Shimmer | [样式2原包实绘](../capabilities/runtime-evidence-current.md#active-media-effect-gaps-20261127)的419/432拒绝将系统封面供给slot3，两处仅透传。核官版系统槽及渐变读取语义，普通静态渐变作反例。 |
 | Sphere 全零方向 | [隔离对照](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)中官版无像素，本机出现静点。原作者盘点未发现活动声明；用实际子事件或占槽对照区分出生和可见性。 |
 | 粒子高阻尼和侧转 | [同龄大阻尼](../capabilities/runtime-evidence-current.md#particle-movement-half-life)的 drag40 官/本相差约 15 px，drag20 在容差内。[正交 Sprite](../capabilities/runtime-evidence-current.md#particle-around-phase-frame)的精确 90° 另有投影差。[分相位板](../capabilities/runtime-evidence-current.md#particle-live-update-phases-292)证实首步重力与后继阻尼的差异，继续核阻尼时长、组合输入与正交 quad。 |

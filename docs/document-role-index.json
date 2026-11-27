@@ -392,7 +392,7 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3860f0426eca779d7d32a19260408e64ccad24b5dd198da7e9a730c8d34a32f2",
+        "sourceSHA256": "d353386c120d988424892a7a7c437ec83d0b79feb1b2e8df4c4149de7aa44bc3",
         "method": "document_registry --audit + document_health --check",
         "scope": "以手动设置的真实采用为完成条件，按原终端、反射、灯种和纹理用途安排后续批次。",
         "limitations": "实际运行范围按卡中既有取证。"

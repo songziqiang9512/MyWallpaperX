@@ -161,12 +161,12 @@
       "bytes": 83656
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 493,
-      "bytes": 98650
+      "lines": 495,
+      "bytes": 99269
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 425919
+      "bytes": 426464
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -197,8 +197,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 57,
-      "bytes": 8076
+      "lines": 56,
+      "bytes": 7797
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -669,15 +669,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "71eff5f4666846fd5b538ee60b69389e9ae6bfca982c281cf2ca96b3564bd5dd",
-      "after": "6b22b6ed48e5e84ebd3491074942397dfb1d228d2ff547b6c32cb5389f6fb302",
-      "owner": "Scene texture admission",
-      "reason": "以官版槽位实验修订普通活动槽的缺省采样与阶段入口的独立判定。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#missing-ordinary-material-texture"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "2deee7a646013b9011eeff1197a2de5e79b8c61b0608a20dffbe49ff6f6116bc",
       "after": "97a4793099679cbaa2e9db1c2299425107e314ed9746e6a55c78d7088be6cf04",
@@ -714,15 +705,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "3da1c2f75de047e4d8b87471e264fa35b2a51a3522e80f960ea58c2eb1348c49",
-      "after": "aed9b03e98ceb668645ae3839cf6de97b5f74d8c9c1e411185783368d26007de",
-      "owner": "Scene runtime evidence",
-      "reason": "记录实际媒体封面的双遍绘制、官版同尺寸差图和独立反例。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#precise-blur-hidden-samplers"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
       "before": "530294af1dd70a92a106f884ac6027fc83e04bc67fcbe0653f04b5847927d683",
       "after": "832fe53d1c7d5de6de2d7c7ddd149efefa2ec12f645397ccb10b0fdd1dd7aefa",
@@ -747,6 +729,24 @@
       "owner": "wallpaper quality execution",
       "reason": "以手动设置的真实采用为完成条件，按原终端、反射、灯种和纹理用途安排后续批次。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "6b22b6ed48e5e84ebd3491074942397dfb1d228d2ff547b6c32cb5389f6fb302",
+      "after": "8f77ec87a8a82d09d1814054f6aec34ebd8185d6d6e7ce1984e8610bd2c6e271",
+      "owner": "Scene shader preparation",
+      "reason": "在预处理原职责内记录未求值点路径和官版布尔分支规则。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#shader-directive-member-operand"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "aed9b03e98ceb668645ae3839cf6de97b5f74d8c9c1e411185783368d26007de",
+      "after": "97b9ffd83f32d1a3f32a02917a79535b75793e424b6d7f6cfbac8f652a6c473f",
+      "owner": "Scene runtime evidence",
+      "reason": "记录原材双向边缘差图、官方条件对照与两个真实样本合成回执。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#aa-member-conditions-304"
     }
   ]
 }
