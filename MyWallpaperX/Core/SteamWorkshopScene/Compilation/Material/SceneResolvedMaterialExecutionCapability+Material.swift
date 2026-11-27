@@ -64,6 +64,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
         return node
     }
 
+    private enum OrdinaryColorRoute {
+        case independent, possible, sampled
+    }
+
     func capturesOrdinaryLayerColor() -> Bool {
         guard isVisibleExecutionRoot, !isGraphOutputProvider,
               sourceRoute == .capturedLayerTexture, dependencyOwnership == .none,
@@ -79,35 +83,37 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
                   let effect = graph.effects.first, effect.input == input,
                   graph.nodes.last?.target == effect.output else { return false }
 
-            // Track whether a same-frame publication retains a route from the color capture.
-            var localColors: [Identity: Bool] = [input: true]
+            // A possible read blocks data independence without proving terminal color.
+            var localColors: [Identity: OrdinaryColorRoute] = [input: .sampled]
             for node in graph.nodes {
                 guard node.kind == .material, node.compose == nil || node.compose == .bool(false),
                       let target = node.target, let material = material(for: node),
-                      material.attachmentStorage == .color,
                       node.bindings.allSatisfy({ localColors[$0.texture] != nil }),
-                      let usesColor = Self.ordinaryEffectColorContribution(
+                      let colorRoute = Self.ordinaryEffectColorRoute(
                         material, node: node, input: input, localColors: localColors,
                         requiresSampledColor: hasIntermediatePasses
                       ) else { return false }
-                localColors[target] = usesColor
+                localColors[target] = colorRoute
             }
-            guard localColors[effect.output] == true else { return false }
+            guard localColors[effect.output] == .sampled else { return false }
             input = effect.output
         }
         return true
     }
 
-    private static func ordinaryEffectColorContribution(
+    private static func ordinaryEffectColorRoute(
         _ material: SceneResolvedMaterialExecutionCapabilityCatalog.MaterialCapability,
         node: SceneAuthoredEffectRenderPlan.Node,
         input: SceneAuthoredEffectRenderPlan.TextureIdentity,
-        localColors: [SceneAuthoredEffectRenderPlan.TextureIdentity: Bool],
+        localColors: [SceneAuthoredEffectRenderPlan.TextureIdentity: OrdinaryColorRoute],
         requiresSampledColor: Bool
-    ) -> Bool? {
+    ) -> OrdinaryColorRoute? {
+        let writesData = material.attachmentStorage != .color
+        if writesData, node.target?.kind != .framebuffer || node.conditions != nil { return nil }
         let envelope = material.variants.launchEnvelopeCapabilitySnapshot()
         guard envelope.inputIdentity == input, envelope.allEntriesReady, !envelope.variants.isEmpty else { return nil }
-        var variantsUseColor = true
+        var allVariantsSampleColor = true
+        var anyVariantMayReadColor = false
         for variant in envelope.variants {
             let selections = variant.textureSelectionFacts
             var readsGraphColor = false
@@ -117,7 +123,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
                 let hasGraphDefault: Bool
                 switch selections.defaults[slot] {
                 case let .reference(source)?: hasGraphDefault = source.graphInputSourceFact != nil
-                case .internalTarget? where requiresSampledColor && explicitInput?.kind != .framebuffer: return nil
+                case .internalTarget? where (writesData || requiresSampledColor) && explicitInput?.kind != .framebuffer:
+                    return nil
                 case .internalTarget?, nil: hasGraphDefault = false
                 }
                 guard hasGraphDefault || selections.candidates[slot]?.contains(where: {
@@ -126,7 +133,11 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
                     slot, template: material.template, graphInputSourceSlotFacts: variant.graphInputSourceSlotFacts
                 ) else { continue }
                 let identity = explicitInput ?? input
-                guard let derived = localColors[identity] else { return nil }
+                guard let route = localColors[identity] else { return nil }
+                if route != .independent {
+                    if writesData { return nil }
+                    anyVariantMayReadColor = true
+                }
                 if identity == input {
                     guard SceneResolvedMaterialColorBlendEligibility.sourceSlotSelectsExactInput(
                             slot, inputIdentity: input, inputRole: material.template.graphRole.effectInput,
@@ -137,11 +148,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
                     else { return nil }
                 }
                 readsGraphColor = readsGraphColor ||
-                    (derived && (!requiresSampledColor || binding.channelUse != .unproven))
+                    (route == .sampled && (!requiresSampledColor || binding.channelUse != .unproven))
             }
-            variantsUseColor = variantsUseColor && readsGraphColor
+            allVariantsSampleColor = allVariantsSampleColor && readsGraphColor
         }
-        return variantsUseColor
+        if allVariantsSampleColor { return .sampled }
+        return anyVariantMayReadColor ? .possible : .independent
     }
 
     func preservesPrivateLayerAlpha() -> Bool {

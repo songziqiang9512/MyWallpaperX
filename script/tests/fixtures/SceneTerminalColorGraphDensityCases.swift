@@ -280,6 +280,126 @@ private func multipassEffectColorMipEligibility(device: MTLDevice, queue: MTLCom
     return results
 }
 
+private func independentDataEffectColorMipEligibility(
+    device: MTLDevice, queue: MTLCommandQueue
+) -> [String: [String: Bool]] {
+    let scratch = Graph.TextureIdentity(kind: .framebuffer, layerID: layerID, effect: effect, name: "local-color")
+    let pipeline = makeSourcePipeline(device)
+    let source = makeSource(device, width: extent.width, height: extent.height, bgra: [32, 64, 128, 255])
+    var results: [String: [String: Bool]] = [:]
+    for arm in ["independent", "renamed", "reads-color", "reads-derived", "data-only-output"] {
+        let data = Graph.TextureIdentity(kind: .framebuffer, layerID: layerID, effect: effect,
+            name: arm == "renamed" ? "aux-field" : "local-data")
+        let readsDerived = arm == "reads-derived"
+        let readsColor = arm == "reads-color" || readsDerived
+        let dataOnlyOutput = arm == "data-only-output"
+        let nodes = [
+            material(0, ordinal: 0, target: scratch, read: input),
+            material(1, ordinal: 1, target: data, read: scratch),
+            material(2, ordinal: 2, target: output, read: readsColor ? input : scratch,
+                additionalBindings: [binding(data, slot: 1)]),
+        ]
+        let layerGraph = graph(targets: [rawTarget(scratch), rawTarget(data, format: "rg88")], nodes: nodes)
+        let admitted = admittedGraph(layerGraph)
+        let entries = Dictionary(uniqueKeysWithValues: nodes.map { node in
+            let base = template(for: node)
+            let fragment = switch node.nodeIndex {
+            case 0 where readsDerived:
+                """
+                uniform sampler2D g_Texture0;
+                uniform vec4 g_Texture0Resolution;
+                void main() { gl_FragColor = vec4(g_Texture0Resolution.xy * 0.05, 0.25, 1.0); }
+                """
+            case 0 where readsColor:
+                """
+                varying vec2 v_TexCoord;
+                uniform sampler2D g_Texture0;
+                void main() {
+                    vec4 sampled = texSample2D(g_Texture0, v_TexCoord);
+                    gl_FragColor = vec4(sampled.rgb, 1.0);
+                }
+                """
+            case 0:
+                """
+                varying vec2 v_TexCoord;
+                uniform sampler2D g_Texture0;
+                void main() { gl_FragColor = texSample2D(g_Texture0, v_TexCoord); }
+                """
+            case 1:
+                """
+                varying vec2 v_TexCoord;
+                uniform sampler2D g_Texture0;
+                void main() {
+                    vec2 signal = \(readsColor ? "texSample2D(g_Texture0, v_TexCoord).rg" :
+                                       arm == "renamed" ? "vec2(0.125 + 0.125, 0.5)" : "vec2(0.25, 0.5)");
+                    gl_FragColor = vec4(signal, 0.0, 1.0);
+                }
+                """
+            default:
+                """
+                varying vec2 v_TexCoord;
+                uniform sampler2D g_Texture0;
+                uniform sampler2D g_Texture1;
+                void main() {
+                    vec2 field = texSample2D(g_Texture1, v_TexCoord).rg;
+                    float color = \(dataOnlyOutput ? "0.75" : "texSample2D(g_Texture0, v_TexCoord).r");
+                    gl_FragColor = vec4(color, field, 1.0);
+                }
+                """
+            }
+            let shader = shaderContract(nodeIndex: node.nodeIndex, pass: false, fragmentOverride: fragment)
+            let value = Template.validated(textureSlots: base.textureSlots, combos: [], uniformDeclarations: [],
+                renderState: base.renderState, graphRole: base.graphRole, shaderContract: shader,
+                diagnosticProvenance: .init(nodeIndex: node.nodeIndex, authoredShaderPath: shader.identity,
+                    contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
+                    textureSources: [], uniformSources: []))!
+            return (SceneResolvedMaterialRuntimeCatalog.Key(effect: node.effect, nodeIndex: node.nodeIndex),
+                SceneResolvedMaterialRuntimeCatalog.Entry.template(value,
+                    textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value)))
+        })
+        let caps = capabilities(admitted, catalog: .init(entries: entries, resourceDemandIssues: []))
+        guard let claim = caps.claim(admitted), let capability = caps.resolve(claim.token),
+              let executor = Executor(device: device, capabilities: caps),
+              let command = queue.makeCommandBuffer() else {
+            results[arm] = ["admitted": false]
+            continue
+        }
+        let lease = makeLease(requirePlan(layerGraph), device: device)
+        var facts = ["eligible": capability.capturesOrdinaryLayerColor(), "rendered": false]
+        let preparation = executor.prepare(token: claim.token, leases: [lease],
+            historyRehydrateCopiesByEffect: [:], frame: frame(1), sourceTexture: source,
+            sourceUniforms: .neutral(), sourcePipeline: pipeline, frameInputs: .init(),
+            commandBuffer: command, previousStates: [:], previousGraphResources: [:],
+            effectGeneration: 1, resetGeneration: 1)
+        if case let .success(prepared) = preparation,
+           let target = lease.texture(for: data), executor.encode(prepared, commandBuffer: command),
+           let dataReadback = appendRedGreenReadback(target, commandBuffer: command),
+           let readback = appendReadback(prepared.finalTexture, commandBuffer: command) {
+            command.commit(); command.waitUntilCompleted()
+            let expectedData: [UInt8] = switch arm {
+            case "reads-derived": [128, 128]
+            case "reads-color": [128, 64]
+            default: [64, 128]
+            }
+            let expected: [UInt8] = [expectedData[1], expectedData[0], dataOnlyOutput ? 191 : 128, 255]
+            facts["rendered"] = command.status == .completed && command.error == nil
+                && matches(readback.firstPixel, expected)
+                && zip(dataReadback.first, expectedData).allSatisfy { abs(Int($0) - Int($1)) <= 1 }
+            if facts["rendered"] != true {
+                FileHandle.standardError.write(Data(
+                    "Independent data fixture \(arm): status=\(command.status), data=\(dataReadback.first), output=\(readback.firstPixel)\n".utf8
+                ))
+            }
+        } else {
+            FileHandle.standardError.write(Data(
+                "Independent data fixture \(arm): prepare=\(failureCode(preparation))\n".utf8
+            ))
+        }
+        results[arm] = facts
+    }
+    return results
+}
+
 private func densityCase(
     device: MTLDevice, queue: MTLCommandQueue, renamed: Bool,
     blendMode: Int = 0, colorKind: String? = nil

@@ -606,7 +606,8 @@ HARNESS += DENSITY_FIXTURE.read_text() + r'''
             "attachment": attachment, "density": density,
             "effectColorMipEligibility": effectColorMipEligibility(),
             "chainedEffectColorMipEligibility": chainedEffectColorMipEligibility(device: device, queue: queue),
-            "multipassEffectColorMipEligibility": multipassEffectColorMipEligibility(device: device, queue: queue)],
+            "multipassEffectColorMipEligibility": multipassEffectColorMipEligibility(device: device, queue: queue),
+            "independentDataEffectColorMipEligibility": independentDataEffectColorMipEligibility(device: device, queue: queue)],
         options: [.sortedKeys])
     FileHandle.standardOutput.write(data)
  }
@@ -722,6 +723,15 @@ class TerminalMaterialGraphTests(unittest.TestCase):
             'local-color': {'eligible': True, 'rendered': True},
             'overwritten-color': {'eligible': False, 'rendered': True},
             'resolution-only': {'eligible': False, 'rendered': True},
+        })
+
+    def test_effect_color_mip_keeps_independent_same_frame_data(self):
+        self.assertEqual(self.result['independentDataEffectColorMipEligibility'], {
+            'independent': {'eligible': True, 'rendered': True},
+            'renamed': {'eligible': True, 'rendered': True},
+            'reads-color': {'eligible': False, 'rendered': True},
+            'reads-derived': {'eligible': False, 'rendered': True},
+            'data-only-output': {'eligible': False, 'rendered': True},
         })
 
     def test_terminal_additive_preserves_source_representation_and_background_alpha(self):

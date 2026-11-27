@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 68,
-      "bytes": 26652
+      "bytes": 26673
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 172,
-      "bytes": 34741
+      "bytes": 34951
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 185513
+      "bytes": 187223
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 166823
+      "bytes": 168093
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 320,
-      "bytes": 70023
+      "bytes": 70146
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -715,47 +715,47 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "3fcf5b99a1212aafc99e23e370b5436f331014c659940920b54f14c8e6804ed4",
-      "after": "1d63160ec3f9a3332ce95f53c278bb4610b180aea69648a6b0a43a7121e0cc6f",
+      "before": "1d63160ec3f9a3332ce95f53c278bb4610b180aea69648a6b0a43a7121e0cc6f",
+      "after": "7a7aa6a4cf428ab9819cd3792ff6fd65c27fdc6afa8c66b735225ce7545d6da8",
       "owner": "playback source map",
-      "reason": "定位 Auto 冷启取景与实际 drawable 热升的源码入口。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-fitted-drawable"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "3539cbf18cacab234bbcd636b1fcf7825b6858b10405ccc7b0a631fb8a05f17e",
-      "after": "49bae5e22dfe385bb79a30f89ec81b2dfa73e2a62918d26b1fd319afd2f5175d",
-      "owner": "Scene Surface geometry",
-      "reason": "注明冷准备复用逐屏相机取景和保留现役尺寸事件。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-fitted-drawable"
+      "reason": "定位混合颜色与独立附件的选级证明。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-effect-independent-data-mip"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "b12a00ad092f8858c2ddfaa6005f2c9cc23d954dd2ef0dfabe357c109d0fae17",
-      "after": "04ce1e3ab35266a5f34401472531f011f9ee43da72e8666454891ddb8dd7ee9a",
+      "before": "04ce1e3ab35266a5f34401472531f011f9ee43da72e8666454891ddb8dd7ee9a",
+      "after": "35d6398ef15450c9e4108556869e56a3118c2914469dc65a18d69a4f00385767",
       "owner": "runtime quality contract",
-      "reason": "明确单级 PNG TEX 保原上传和回执。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-single-png-color"
+      "reason": "规定局部数据附件独立以及终端实际颜色采样。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-effect-independent-data-mip"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "4ffbc0ececab90dc584457de79d6a6da5321d6104555bbb12c22323474819d62",
-      "after": "383d4436e2d808a375a8f70f62bb952c8af88789720188be5a3e8574da8cc915",
+      "before": "383d4436e2d808a375a8f70f62bb952c8af88789720188be5a3e8574da8cc915",
+      "after": "b946d59f5f055d21426e02c22501b5a4202dda6e961d44bead0642a71f7861f0",
       "owner": "wallpaper quality design",
-      "reason": "明确单级 PNG 试验算法、画面及成本门和退出。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-single-png-color"
+      "reason": "定义独立数据的证明条件和真实作者验收。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-effect-independent-data-mip"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "b5ea39a4e24bd89ba8be818da46014d983421822afa3b01ed85b5a5e51a25a39",
-      "after": "09709156f71de74691a2c3eb7ab944ec145e9b609be2b91694bb9d963405b31e",
+      "before": "09709156f71de74691a2c3eb7ab944ec145e9b609be2b91694bb9d963405b31e",
+      "after": "712a522a45bc82c389070487ea9a0b0424a6620a08154eb850333d12772e84de",
       "owner": "wallpaper quality execution",
-      "reason": "记录两部 RGB 原作和三份 RGBA 资源的验收结果。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-single-png-result"
+      "reason": "记录两部高性能原作、Auto 热升和保原边界。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-effect-independent-data-result"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "49bae5e22dfe385bb79a30f89ec81b2dfa73e2a62918d26b1fd319afd2f5175d",
+      "after": "8e8b6b8c65db6861efbff8c70a16c86dd5c02cc5602966993820272ebdbb4f24",
+      "owner": "Scene resource preparation",
+      "reason": "定位已准备 Program 证明、Auto 需求和数据规格所有权。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-effect-independent-data-mip"
     }
   ]
 }
