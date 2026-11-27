@@ -81,7 +81,7 @@ private enum EmbeddedDataMipHarness {
         facts["originalMapped"] = candidate.originalMappedSize.map { [Int($0.width), Int($0.height)] }
         facts["identityUV"] = candidate.uvTransform == .identity
         facts["purposeMatches"] = candidate.purpose == purpose
-        facts["embeddedBaseMip"] = candidate.embeddedBaseMip
+        facts["authoredBaseMip"] = candidate.authoredBaseMip
         return facts
     }
 
@@ -131,6 +131,35 @@ private enum EmbeddedDataMipHarness {
                 "data": observe(data, purpose: .mask, queue: queue, expected: raw),
             ]
         }
+        let rawLoader = SceneTextureLoader()
+        let rawURL = root.appendingPathComponent("authored-raw-rgba.tex")
+        let rawSource = try rawLoader.prepareTexSource(from: rawURL)!
+        let rawTail = try candidate(rawLoader, rawSource, limit)
+        let rawFull = try candidate(rawLoader, rawSource, nil)
+        let renamed = try candidate(rawLoader,
+            rawLoader.prepareTexSource(from: root.appendingPathComponent("renamed-raw-rgba.tex"))!, limit)
+        let rawAuto = try candidate(rawLoader, rawSource, .minimumExtent(SIMD2(1024, 1)))
+        let rawMask = try candidate(rawLoader, rawSource, limit, purpose: .mask)
+        let rawPadded = try candidate(rawLoader,
+            rawLoader.prepareTexSource(from: root.appendingPathComponent("padded-raw-rgba.tex"))!, limit)
+        let rawSingle = try candidate(rawLoader,
+            rawLoader.prepareTexSource(from: root.appendingPathComponent("single-raw-rgba.tex"))!, limit)
+        let malformed = try rawLoader.prepareTexSource(from: root.appendingPathComponent("malformed-raw-rgba.tex"))!
+        let malformedTail = try rawLoader.loadCandidate(from: malformed, purpose: .straightAlbedo,
+            device: device, mipSelection: limit)
+        let invalidPrefixRejected: Bool
+        if case .failed = malformedTail { invalidPrefixRejected = true } else { invalidPrefixRejected = false }
+        observations["rawRGBA"] = [
+            "tail": observe(rawTail, purpose: .straightAlbedo, queue: queue, expected: Array(raw.dropFirst())),
+            "renamed": observe(renamed, purpose: .straightAlbedo, queue: queue, expected: Array(raw.dropFirst())),
+            "full": observe(rawFull, purpose: .straightAlbedo, queue: queue, expected: raw),
+            "auto": observe(rawAuto, purpose: .straightAlbedo, queue: queue, expected: Array(raw.suffix(1))),
+            "mask": observe(rawMask, purpose: .mask, queue: queue, expected: raw),
+            "smallerAllocation": rawTail.texture.allocatedSize < rawFull.texture.allocatedSize,
+            "cacheReusesTail": try candidate(rawLoader, rawSource, .minimumExtent(SIMD2(2048, 2))).texture === rawTail.texture,
+            "paddedBase": rawPadded.authoredBaseMip, "singleBase": rawSingle.authoredBaseMip,
+            "invalidPrefixRejected": invalidPrefixRejected
+        ]
         let validURL = root.appendingPathComponent("authored-data-mips.tex")
         let validTEX = try SceneTexContainerReader().read(data: Data(contentsOf: validURL))
         let encodedBytes = validTEX.mips.reduce(0) { $0 + $1.data.count }
@@ -217,7 +246,7 @@ private enum EmbeddedDataMipHarness {
             observations[name] = [
                 "physical": [requested.texture.width, requested.texture.height],
                 "levels": requested.texture.mipmapLevelCount,
-                "embeddedBaseMip": requested.embeddedBaseMip,
+                "authoredBaseMip": requested.authoredBaseMip,
                 "cacheReusesOriginal": requested.texture === full.texture,
             ]
         }
@@ -239,8 +268,8 @@ private enum EmbeddedDataMipHarness {
         observations["allocationFallback"] = [
             "rejections": after.rejectionCount - before.rejectionCount,
             "reusedFull": fallback.texture === full.texture,
-            "fallbackMip": fallback.embeddedBaseMip,
-            "retriedMip": retried.embeddedBaseMip,
+            "fallbackMip": fallback.authoredBaseMip,
+            "retriedMip": retried.authoredBaseMip,
             "retried": observe(retried, purpose: .straightAlbedo, queue: queue, expected: Array(raw.dropFirst())),
         ]
         return observations
@@ -518,6 +547,18 @@ def prepare_inputs(root: Path) -> None:
         corrupt[level] = (width, height, _png(width, height, raw[level], invalid_filter=True))
         (root / f"corrupt-codec-{level}.tex").write_bytes(_tex(corrupt))
     (root / "authored-data-mips.tex").write_bytes(authored)
+    def raw_tex(payloads, mapped):
+        return (b"TEXV0005\0TEXI0001\0" + struct.pack("<7I", 0, 2, *sizes[0], *mapped, 0)
+                + b"TEXB0004\0" + struct.pack("<4I", 1, 0xffffffff, 0, len(payloads))
+                + b"".join(struct.pack("<5I", width, height, 0, 0, len(payload)) + payload
+                           for (width, height), payload in zip(sizes, payloads)))
+    raw_authored = raw_tex(raw, sizes[0])
+    for name in ("authored-raw-rgba.tex", "renamed-raw-rgba.tex"):
+        (root / name).write_bytes(raw_authored)
+    (root / "padded-raw-rgba.tex").write_bytes(raw_tex(raw, (4096, 4)))
+    (root / "single-raw-rgba.tex").write_bytes(raw_tex(raw[:1], sizes[0]))
+    (root / "malformed-raw-rgba.tex").write_bytes(raw_tex([raw[0][:-1], *raw[1:]], sizes[0]))
+
     (root / "renamed-signal.tex").write_bytes(authored)
     (root / "padded-authored.tex").write_bytes(_tex(mips, mapped=(4096, 4), physical=(4097, 4)))
     (root / "single-oversized.tex").write_bytes(_tex(mips[:1]))
@@ -619,11 +660,29 @@ class SceneEmbeddedDataMipResourceTests(unittest.TestCase):
                     self.assertEqual(result["physical"], extent, result)
                     self.assertEqual(result["mapped"], extent, result)
                     self.assertEqual(result["levels"], levels, result)
-                    self.assertEqual(result["embeddedBaseMip"], base, result)
+                    self.assertEqual(result["authoredBaseMip"], base, result)
                     self.assertEqual(result.get("originalMapped"), [4097, 4] if base > 0 else None, result)
                     self.assertEqual(result["levelPixelsMatch"], [True] * levels, result)
                     for key in ("identityUV", "purposeMatches", "gpuCompleted"):
                         self.assertTrue(result[key], result)
+
+    def test_raw_rgba_selects_the_same_author_levels_without_resampling(self) -> None:
+        facts = self.result["mipTail"]["rawRGBA"]
+        for role, base, count, extent in (("full", 0, 3, [4097, 4]), ("tail", 1, 2, [2048, 2]),
+                                         ("renamed", 1, 2, [2048, 2]), ("auto", 2, 1, [1024, 1]),
+                                         ("mask", 0, 3, [4097, 4])):
+            with self.subTest(role=role):
+                result = facts[role]
+                self.assertEqual(result["status"], "loaded", result)
+                self.assertEqual(result["authoredBaseMip"], base, result)
+                self.assertEqual(result["physical"], extent, result)
+                self.assertEqual(result["mapped"], extent, result)
+                self.assertEqual(result.get("originalMapped"), [4097, 4] if base else None, result)
+                self.assertEqual(result["levelPixelsMatch"], [True] * count, result)
+                self.assertTrue(result["identityUV"] and result["gpuCompleted"], result)
+        for key in ("smallerAllocation", "cacheReusesTail", "invalidPrefixRejected"):
+            self.assertTrue(facts[key], facts)
+        self.assertEqual((facts["paddedBase"], facts["singleBase"]), (0, 0), facts)
 
     def test_incremental_decode_cache_charges_only_the_new_prefix(self) -> None:
         for admitted, facts in self.result["mipTail"]["cacheAdmissions"].items():
@@ -642,7 +701,7 @@ class SceneEmbeddedDataMipResourceTests(unittest.TestCase):
                 self.assertTrue(facts["containingRequestsReject"], facts)
                 self.assertTrue(facts["preservedTail"], facts)
                 self.assertEqual(facts["attempts"], 3 - broken_mip, facts)
-                self.assertEqual(facts["tail"]["embeddedBaseMip"], broken_mip + 1, facts)
+                self.assertEqual(facts["tail"]["authoredBaseMip"], broken_mip + 1, facts)
                 self.assertEqual(facts["tail"]["levelPixelsMatch"], [True] * (2 - broken_mip), facts)
 
     def test_mip_tail_request_preserves_padded_and_single_mip_sources(self) -> None:
@@ -655,7 +714,7 @@ class SceneEmbeddedDataMipResourceTests(unittest.TestCase):
                 self.assertEqual(facts["physical"], extent, facts)
                 self.assertEqual(facts["mapped"], mapped, facts)
                 self.assertEqual(facts["levels"], levels, facts)
-                self.assertEqual(facts["embeddedBaseMip"], 0, facts)
+                self.assertEqual(facts["authoredBaseMip"], 0, facts)
                 self.assertEqual(facts["levelPixelsMatch"], [True] * levels, facts)
                 self.assertEqual(facts["identityUV"], extent == mapped, facts)
 
@@ -665,7 +724,7 @@ class SceneEmbeddedDataMipResourceTests(unittest.TestCase):
                                      ("single-oversized.tex", [4096, 3], 1)):
             with self.subTest(source=name):
                 self.assertEqual(observations[name], {
-                    "physical": extent, "levels": levels, "embeddedBaseMip": 0, "cacheReusesOriginal": True,
+                    "physical": extent, "levels": levels, "authoredBaseMip": 0, "cacheReusesOriginal": True,
                 })
 
     def test_rejected_tail_allocation_falls_back_once_to_original_cache(self) -> None:

@@ -469,7 +469,7 @@ class SceneMetalView: NSView {
         }
         imageTextures = loaded
         hasPreparedOrdinaryTexture = loaded.candidates.values.contains { $0.ordinaryMipReason != nil }
-        hasPreparedSmallerTexture = loaded.candidates.values.contains { $0.embeddedBaseMip > 0 }
+        hasPreparedSmallerTexture = loaded.candidates.values.contains { $0.authoredBaseMip > 0 }
         spriteAnimations = loadedSpriteAnimations
         specializedBaseTextureSamplings = loadedSpecializedBaseTextureSamplings
 #if DEBUG
@@ -572,7 +572,7 @@ class SceneMetalView: NSView {
             guard adoptedDeferredBaseImageURLs.removeValue(forKey: layerID) != nil,
                   let candidate = imageTextures.candidates[layerID], candidate.ordinaryMipReason != nil else { continue }
             installed = true
-            if candidate.embeddedBaseMip > 0 { hasPreparedSmallerTexture = true }
+            if candidate.authoredBaseMip > 0 { hasPreparedSmallerTexture = true }
         }
         if installed {
             hasPreparedOrdinaryTexture = true
@@ -595,7 +595,7 @@ class SceneMetalView: NSView {
             specializedBaseTextureSamplings[layerID] = loaded.baseTextureSampling
         }
         if changed {
-            hasPreparedSmallerTexture = imageTextures.candidates.values.contains { $0.embeddedBaseMip > 0 }
+            hasPreparedSmallerTexture = imageTextures.candidates.values.contains { $0.authoredBaseMip > 0 }
             ordinaryTextureRevision &+= 1
         }
         return changed

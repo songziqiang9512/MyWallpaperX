@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f0f1315b41d556d7644ad854ac93fda035aff827733da3f9a1c8ccd08a5008b8",
+        "sourceSHA256": "25d3170ad09cbf74d97e5d70918493b9a6a0349e29887204731074e114fca01e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核设置回显、完成帧、Surface 和 daemon 的原职责链。",
-        "limitations": "文档导航和签名 Debug 单内屏取证，未验证物理多屏及整机功耗。"
+        "scope": "核普通颜色选级、原始上传和现有自动发布的源码入口。",
+        "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4f0cac5276650a16a12117cf2b8a80c857708ea065ae34620366e51257d4bf63",
+        "sourceSHA256": "bc66f585524d2f52bfd3a3fd06eb834fbaafa3dfc4cb865812aa29750bd46e21",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核真实反射环境和逐屏完成回显，保已有纹理与合成合同。 保留已验纹理试验结论。",
-        "limitations": "文档导航和签名 Debug 单内屏取证，未验证物理多屏及整机功耗。"
+        "scope": "核原始 RGBA 的用途、作者级和保原边界。",
+        "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7d6bd9bda5daf772120800f6429bb20a54e26d43f5c497734ecb9a8db2a1428d",
+        "sourceSHA256": "4c5fa1472b50ab6a409cfaf682ecc1325a128d0a14bd4b231bc7f9b0cce37086",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核反射实际绑定、逐屏回执及相位对照要求。 保留已验纹理试验结论。",
-        "limitations": "文档导航和签名 Debug 单内屏取证，未验证物理多屏及整机功耗。"
+        "scope": "核原始 RGBA 在现有纹理选级和上传 owner 的设计。",
+        "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8105d4092dfc8ae97257b80cb9db82d34df05a2869eae7ac418b434513e6a070",
+        "sourceSHA256": "4cb92945d1a1f2ea807ae718524a3d61aafd681ea4c3598a5061ec017991bf72",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核签名原作的开关、回显、GPU 绑定与终图证据。 保留已验纹理试验结论。",
-        "limitations": "文档导航和签名 Debug 单内屏取证，未验证物理多屏及整机功耗。"
+        "scope": "核四部原作的真实绑定、切档、终图与纹理分配。",
+        "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
       }
     },
     {
@@ -886,10 +886,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c7a4f7c7f8b137ad33be72875b0c380d0b09a289dd33f69e8da9c025351ab39a",
+        "sourceSHA256": "5560aaf919740accad4b47a4d97459f74e7a798cd8fa12433d0a7d152750d953",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核实时与清黑环境消费及完成帧的归属。",
-        "limitations": "文档导航和签名 Debug 单内屏取证，未验证物理多屏及整机功耗。"
+        "scope": "核选级与上传职责及原始和内嵌图解包边界。",
+        "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
       }
     },
     {

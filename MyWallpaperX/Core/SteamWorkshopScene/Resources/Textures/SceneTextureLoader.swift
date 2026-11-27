@@ -323,7 +323,7 @@ nonisolated final class SceneTextureLoader {
         from input: Input, source expectedSource: SourceKey?, purpose: SceneTextureLoadPurpose,
         device: MTLDevice, preparedTexSource: PreparedTexSource? = nil,
         preparedDirectImageSource: PreparedDirectImageSource? = nil,
-        embeddedBaseMip: Int = 0,
+        authoredBaseMip: Int = 0,
         checkCancellation: (() throws -> Void)? = nil
     ) throws -> SceneTextureLoadOutcome {
         try checkCancellation?()
@@ -343,7 +343,7 @@ nonisolated final class SceneTextureLoader {
         if let expectedSource, expectedSource != source { throw SceneResourceView.ReadError.sourceChanged }
         let deviceRegistryID = device.registryID
         let key = TextureKey(source: source, deviceRegistryID: deviceRegistryID,
-            representation: .purpose(purpose, baseMip: embeddedBaseMip))
+            representation: .purpose(purpose, baseMip: authoredBaseMip))
         if let cached = textures[key] { return .loaded(cached.texture) }
         let ext = input.pathExtension.lowercased()
         let outcome: SceneTextureLoadOutcome
@@ -352,12 +352,12 @@ nonisolated final class SceneTextureLoader {
             outcome = try loadDirectImage(input: input, source: source, purpose: purpose,
                 device: device, prepared: preparedDirectImageSource, checkCancellation: checkCancellation)
         } else if ext == Self.texExtension {
-            let rawKey = embeddedBaseMip == 0 ? TextureKey(source: source, deviceRegistryID: deviceRegistryID,
+            let rawKey = authoredBaseMip == 0 ? TextureKey(source: source, deviceRegistryID: deviceRegistryID,
                 representation: .rawChannels2D) : nil
             if let rawKey, let cached = textures[rawKey] { return .loaded(cached.texture) }
             let loaded = try loadWallpaperEngineTex(input: input, source: source, purpose: purpose,
                 device: device, preparedResource: preparedTexSource?.resource,
-                embeddedBaseMip: embeddedBaseMip,
+                authoredBaseMip: authoredBaseMip,
                 checkCancellation: checkCancellation)
             outcome = loaded.outcome
             if loaded.isRawChannels2D, let rawKey { storageKey = rawKey }
@@ -628,7 +628,7 @@ nonisolated final class SceneTextureLoader {
         purpose: SceneTextureLoadPurpose,
         device: MTLDevice,
         preparedResource: TexResource? = nil,
-        embeddedBaseMip: Int,
+        authoredBaseMip: Int,
         checkCancellation: (() throws -> Void)?
     ) throws -> (outcome: SceneTextureLoadOutcome, isRawChannels2D: Bool) {
         guard let resource = try preparedResource ?? texResource(from: input, source: source,
@@ -641,7 +641,7 @@ nonisolated final class SceneTextureLoader {
         if container.format == 0 {
             return (loadFormatZeroContainer(
                 container, embeddedMipChainIsValid: resource.hasValidTexb3EmbeddedMipChain,
-                source: source, purpose: purpose, device: device, embeddedBaseMip: embeddedBaseMip
+                source: source, purpose: purpose, device: device, authoredBaseMip: authoredBaseMip
             ), false)
         }
         if let pixelFormat = container.metalPixelFormat {
@@ -716,7 +716,7 @@ nonisolated final class SceneTextureLoader {
         source: SourceKey,
         purpose: SceneTextureLoadPurpose,
         device: MTLDevice,
-        embeddedBaseMip: Int = 0
+        authoredBaseMip: Int = 0
     ) -> SceneTextureLoadOutcome {
         guard let firstMip = container.mips.first else {
             return .decodeFailed("TEX container has no mip data")
@@ -745,7 +745,7 @@ nonisolated final class SceneTextureLoader {
             guard let images = cachedTexEmbeddedImages(
                 source: source,
                 mips: container.mips,
-                baseMip: embeddedBaseMip
+                baseMip: authoredBaseMip
             ) else {
                 return .decodeFailed("compiled TEX embedded mip chain could not be decoded")
             }
@@ -789,6 +789,7 @@ nonisolated final class SceneTextureLoader {
                     container: container,
                     pixelFormat: .rgba8Unorm,
                     bytesPerPixel: 4,
+                    baseMip: authoredBaseMip,
                     device: device
                 )
             }

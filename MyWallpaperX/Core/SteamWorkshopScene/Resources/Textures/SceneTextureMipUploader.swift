@@ -234,12 +234,14 @@ nonisolated enum SceneTextureMipUploader {
         container: SceneTexContainer,
         pixelFormat: MTLPixelFormat,
         bytesPerPixel: Int,
+        baseMip: Int = 0,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
         uploadRaw(
             container: container,
             pixelFormat: pixelFormat,
             bytesPerPixel: bytesPerPixel,
+            baseMip: baseMip,
             premultiply: false,
             device: device
         )
@@ -269,15 +271,17 @@ nonisolated enum SceneTextureMipUploader {
         mips: [SceneTexContainer.Mip]? = nil,
         pixelFormat: MTLPixelFormat,
         bytesPerPixel: Int,
+        baseMip: Int = 0,
         premultiply: Bool,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
-        let uploadMips = mips ?? container.mips
+        let mips = mips ?? container.mips
+        let uploadMips = mips.dropFirst(baseMip)
         guard let first = uploadMips.first,
-              SceneTexContainer.valid2DMipDimensions(uploadMips.map { ($0.width, $0.height) }) else {
+              SceneTexContainer.valid2DMipDimensions(mips.map { ($0.width, $0.height) }) else {
             return .decodeFailed("TEX container has an invalid mip chain")
         }
-        for mip in uploadMips {
+        for mip in mips {
             guard let expected = SceneTexContainer.byteCount2D(
                 width: mip.width, height: mip.height, bytesPerElement: bytesPerPixel
             ), mip.data.count == expected else {

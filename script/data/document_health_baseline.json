@@ -13,8 +13,8 @@
       "bytes": 9730
     },
     "docs/architecture/repository-map.md": {
-      "lines": 68,
-      "bytes": 27128
+      "lines": 70,
+      "bytes": 27603
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -29,8 +29,8 @@
       "bytes": 22304
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
-      "lines": 172,
-      "bytes": 35541
+      "lines": 173,
+      "bytes": 35828
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 192662
+      "bytes": 194065
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 173814
+      "bytes": 175434
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 337,
-      "bytes": 74755
+      "bytes": 74789
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -705,24 +705,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "69e40755bea9c293668adabef1eb637bf57fa39a89473792574ea7ef3f207efd",
-      "after": "171023396101f95dda4039b4c137eb7a42f3f6a96335cfba51d9226e7a6ff82b",
-      "owner": "Scene quality feedback",
-      "reason": "更新反射的已完成采样回执，保原帧与逐屏请求边界。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-feedback"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "8626053707cab5d2e139f23fc6bd00509c21392428992b667d3571cfa74a8a33",
-      "after": "f9624cfc8b43bae67f3c4f19e6f7a3bd13bdf7d00ff0eb86a1b6ffcbce8af7e0",
-      "owner": "Scene quality feedback",
-      "reason": "更新反射的已完成采样回执，保原帧与逐屏请求边界。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-feedback"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
       "before": "5667574dda7f7bf6dbd8521ea577103c4667ce44250df691aa51fc8ab8bcd994",
       "after": "bdc6b924eb3f81ec8f9c1738def66354b29970852f1cfcef4ea9d25400c0452b",
@@ -732,30 +714,48 @@
     },
     {
       "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "171023396101f95dda4039b4c137eb7a42f3f6a96335cfba51d9226e7a6ff82b",
+      "after": "e010015c898547a48a057e7cecc83c04fd713a3efc5388ff5239c85fdbc0b6f4",
+      "owner": "Scene resource preparation",
+      "reason": "核普通颜色选级、原始上传和现有自动发布的源码入口。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-raw-rgba-author-mips"
+    },
+    {
+      "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "d3e86d49c57194b3ee0b8c77b3beaabe5e0af442024aff6135237a2f55f7fc42",
-      "after": "50836e0abd6bab2fff0dac84316495e0028743edb2bf61451ab79eae1ca2c017",
-      "owner": "Scene quality feedback",
-      "reason": "合流已完成的反射回显与多 pass 纹理试验证据。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-multipass-standard-capture"
+      "before": "50836e0abd6bab2fff0dac84316495e0028743edb2bf61451ab79eae1ca2c017",
+      "after": "0eea1e1e98712b41796f8ada88066280c93ef85493da1ee70f12a3762188da42",
+      "owner": "Scene resource preparation",
+      "reason": "核原始 RGBA 的用途、作者级和保原边界。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-raw-rgba-author-mips"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "d12e59073d365b75006f848ab669bb1e7af8881192f4d22d34bdceb28a855d0d",
-      "after": "dc08c47b10a721b6d77c9d53a162a68005688dc137e33acc6217d64b49dec091",
-      "owner": "Scene quality feedback",
-      "reason": "合流已完成的反射回显与多 pass 纹理试验证据。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-multipass-standard-capture"
+      "before": "dc08c47b10a721b6d77c9d53a162a68005688dc137e33acc6217d64b49dec091",
+      "after": "c356812556e476198294e39061c1e32fb1f9085e05d1276d9ee835d0820840af",
+      "owner": "Scene resource preparation",
+      "reason": "核原始 RGBA 在现有纹理选级和上传 owner 的设计。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-raw-rgba-author-mips"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "852aa4ad35f225841c91e9db1d8de80b64e86c2564e12228f6af1eea51be649e",
-      "after": "d2de7c373de799c22412a4223a903d2cbe0256ce5dd0742c3120303e575dd446",
-      "owner": "Scene quality feedback",
-      "reason": "合流已完成的反射回显与多 pass 纹理试验证据。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-multipass-standard-capture"
+      "before": "d2de7c373de799c22412a4223a903d2cbe0256ce5dd0742c3120303e575dd446",
+      "after": "0dfc443c8e06426ab5feca283c24ad2eacb72e61c41256db7616937aa0de62af",
+      "owner": "Scene resource preparation",
+      "reason": "核四部原作的真实绑定、切档、终图与纹理分配。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-raw-rgba-author-mips"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "f9624cfc8b43bae67f3c4f19e6f7a3bd13bdf7d00ff0eb86a1b6ffcbce8af7e0",
+      "after": "3a945a374bab02bd102f284c78eb2c7a1197cc0d57c3d69b4f273454cc7c9473",
+      "owner": "Scene resource preparation",
+      "reason": "核选级与上传职责及原始和内嵌图解包边界。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-raw-rgba-author-mips"
     }
   ]
 }

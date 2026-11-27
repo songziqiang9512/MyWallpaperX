@@ -26,7 +26,7 @@ struct SceneTextureCandidate {
     }
     let texture: MTLTexture
     let loadOrdinal: Int
-    var embeddedBaseMip = 0
+    var authoredBaseMip = 0
     let content = Content.color(.resolved(.straightAlpha))
     var physicalSize: CGSize { CGSize(width: texture.width, height: texture.height) }
     let samplingMarker = "authored-sampling"
@@ -258,7 +258,7 @@ final class SceneTextureLoader {
             ? device.makeTexture(descriptor: MTLTextureDescriptor.texture2DDescriptor(
                 pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false))! : texture
         let candidate: SceneTextureCandidate? = name == "no-candidate.png" ? nil
-            : .init(texture: candidateTexture, loadOrdinal: loadCount, embeddedBaseMip: base)
+            : .init(texture: candidateTexture, loadOrdinal: loadCount, authoredBaseMip: base)
         Self.loadedTextureHook?(texture)
         return .loaded(.init(texture: texture, candidate: candidate,
             animation: ["loaded-animation.png", "animated.tex"].contains(name) ? "animation" : nil, loadOrdinal: loadCount))

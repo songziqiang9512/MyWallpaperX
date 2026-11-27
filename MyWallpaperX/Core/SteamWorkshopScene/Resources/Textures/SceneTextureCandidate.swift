@@ -198,14 +198,14 @@ nonisolated struct SceneTextureCandidate {
     let isSpriteSheet: Bool
     let sampling: SceneTextureSampling
     let authoredFormat: SceneShaderTextureFormat?
-    let embeddedBaseMip: Int
+    let authoredBaseMip: Int
     var ordinaryMipReason: SceneTextureUse.Reason? = nil
     var originalMappedSize: CGSize? = nil
 
     var ordinaryTextureUse: SceneTextureUse.Binding? {
         guard let ordinaryMipReason else { return nil }
         return .init(width: texture.width, height: texture.height,
-            baseMip: embeddedBaseMip, mipCount: texture.mipmapLevelCount, reason: ordinaryMipReason)
+            baseMip: authoredBaseMip, mipCount: texture.mipmapLevelCount, reason: ordinaryMipReason)
     }
 
     init(
@@ -220,7 +220,7 @@ nonisolated struct SceneTextureCandidate {
         isSpriteSheet: Bool = false,
         sampling: SceneTextureSampling,
         authoredFormat: SceneShaderTextureFormat? = nil,
-        embeddedBaseMip: Int = 0
+        authoredBaseMip: Int = 0
     ) {
         self.texture = texture
         self.identity = identity
@@ -233,7 +233,7 @@ nonisolated struct SceneTextureCandidate {
         self.isSpriteSheet = isSpriteSheet
         self.sampling = sampling
         self.authoredFormat = authoredFormat
-        self.embeddedBaseMip = embeddedBaseMip
+        self.authoredBaseMip = authoredBaseMip
     }
 
     var pixelFormat: MTLPixelFormat { texture.pixelFormat }

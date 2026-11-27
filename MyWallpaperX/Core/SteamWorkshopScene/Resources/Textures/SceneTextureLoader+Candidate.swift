@@ -161,7 +161,7 @@ nonisolated extension SceneTextureLoader {
         var mip: (index: Int, reason: SceneTextureUse.Reason?) = (0, nil)
         if let mipSelection, let prepared, purpose == .straightAlbedo,
            spriteFrame == nil, conditionalVariantIDs == nil {
-            mip = embeddedUploadMip(prepared.resource, selection: mipSelection)
+            mip = ordinaryUploadMip(prepared.resource, selection: mipSelection)
         }
         var outcome: SceneTextureLoadOutcome
         if let prepared, let conditionalVariantIDs {
@@ -171,7 +171,7 @@ nonisolated extension SceneTextureLoader {
         } else {
             outcome = try load(from: input, source: source, purpose: purpose, device: device,
                 preparedTexSource: prepared, preparedDirectImageSource: preparedDirect,
-                embeddedBaseMip: mip.index,
+                authoredBaseMip: mip.index,
                 checkCancellation: checkCancellation)
         }
         if mip.index > 0 {
@@ -185,7 +185,7 @@ nonisolated extension SceneTextureLoader {
         }
         guard case .loaded(let texture) = outcome else { return .failed(outcome) }
         let candidate = try makeCandidate(texture: texture, resource: prepared?.resource, source: source,
-            purpose: purpose, spriteFrame: spriteFrame, embeddedBaseMip: mip.index,
+            purpose: purpose, spriteFrame: spriteFrame, authoredBaseMip: mip.index,
             checkCancellation: checkCancellation)
         guard case .loaded(var loaded) = candidate else { return candidate }
         loaded.ordinaryMipReason = mip.reason
@@ -252,7 +252,7 @@ nonisolated extension SceneTextureLoader {
         rawLayout: RawCandidateLayout? = nil,
         decodedSourceImage: CGImage? = nil,
         spriteFrame: SceneTexContainer.SpriteFrame? = nil,
-        embeddedBaseMip: Int = 0,
+        authoredBaseMip: Int = 0,
         checkCancellation: (() throws -> Void)?
     ) throws -> SceneTextureCandidateLoadOutcome {
         guard texture.textureType == .type2D else {
@@ -283,7 +283,7 @@ nonisolated extension SceneTextureLoader {
                       texture: texture,
                       container: container, resource: resource,
                       sourcePhysicalSize: sourcePhysicalSize,
-                      purpose: purpose, embeddedBaseMip: embeddedBaseMip
+                      purpose: purpose, authoredBaseMip: authoredBaseMip
                   ) else {
                 return .failed(.decodeFailed(
                     "typed slot candidate has inconsistent physical/mapped dimensions"
@@ -351,7 +351,7 @@ nonisolated extension SceneTextureLoader {
             sampling: (rawLayout?.flags ?? container?.flags).map { SceneTextureSampling(texFlags: $0) }
                 ?? .directImageFallback,
             authoredFormat: (rawLayout?.format ?? container?.format).flatMap(SceneShaderTextureFormat.init(rawValue:)),
-            embeddedBaseMip: embeddedBaseMip
+            authoredBaseMip: authoredBaseMip
         ))
     }
 
@@ -470,15 +470,19 @@ nonisolated extension SceneTextureLoader {
         return mapped
     }
 
-    private func embeddedUploadMip(_ resource: TexResource, selection: SceneOrdinaryImageMipSelection)
+    private func ordinaryUploadMip(_ resource: TexResource, selection: SceneOrdinaryImageMipSelection)
         -> (index: Int, reason: SceneTextureUse.Reason?) {
-        guard let container = resource.container, container.containerVersion == .texb0003,
-              resource.hasValidTexb3EmbeddedMipChain, container.conditionalVariants.isEmpty,
+        guard let container = resource.container, container.conditionalVariants.isEmpty,
               !container.isVolume, let base = container.mips.first, container.mips.count > 1
         else { return (0, .noEligibleMip) }
-        guard base.width == container.imageWidth, base.height == container.imageHeight else {
-            return (0, .preservedPixels)
-        }
+        let usesEmbeddedImage = container.containerVersion == .texb0003 && resource.hasValidTexb3EmbeddedMipChain
+        let usesRawRGBA = container.format == 0 && container.freeImageFormat == -1
+            && !SceneTexContainer.isEmbeddedImagePayload(base.data)
+            && !SceneTexContainer.isVideoPayload(base.data)
+        guard usesEmbeddedImage || usesRawRGBA else { return (0, .noEligibleMip) }
+        guard base.width == container.imageWidth, base.height == container.imageHeight,
+              !usesRawRGBA || (base.width == container.textureWidth && base.height == container.textureHeight)
+        else { return (0, .preservedPixels) }
         let index = selection.baseIndex(in: container.mips.map { ($0.width, $0.height) },
             maximumSingleLevelDimension: Self.maxTextureDimension)
         if index > 0 { return (index, .authoredMip) }
@@ -496,15 +500,15 @@ nonisolated extension SceneTextureLoader {
         texture: MTLTexture,
         container: SceneTexContainer, resource: TexResource,
         sourcePhysicalSize: CGSize,
-        purpose: SceneTextureLoadPurpose, embeddedBaseMip: Int
+        purpose: SceneTextureLoadPurpose, authoredBaseMip: Int
     ) -> (physical: CGSize, mapped: CGSize)? {
         let output = CGSize(width: texture.width, height: texture.height)
         let sourceMapped = CGSize(
             width: container.imageWidth,
             height: container.imageHeight
         )
-        if embeddedBaseMip > 0 {
-            let base = container.mips[embeddedBaseMip]
+        if authoredBaseMip > 0 {
+            let base = container.mips[authoredBaseMip]
             return output == CGSize(width: base.width, height: base.height) ? (output, output) : nil
         }
         if output == sourcePhysicalSize {

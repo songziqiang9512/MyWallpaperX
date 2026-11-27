@@ -675,14 +675,14 @@ final class ScenePreparedBaseImageResources {
                             guard case let .loaded(current)? = self.entries[layerID]?.outcome else { continue }
                             active.append(layerID)
                             // A deferred load can complete at a newer size before this callback runs.
-                            if let ready = current.candidate, ready.embeddedBaseMip < candidate.embeddedBaseMip {
+                            if let ready = current.candidate, ready.authoredBaseMip < candidate.authoredBaseMip {
                                 selected = current
                                 candidate = ready
                             }
                         }
                         for layerID in active { updates[layerID] = selected }
                         tail.promotionThreshold = max(cover, tail.use.maximumCoverScale(for: candidate.physicalSize))
-                        self.automaticMipTails[source] = candidate.embeddedBaseMip > 0 ? tail : nil
+                        self.automaticMipTails[source] = candidate.authoredBaseMip > 0 ? tail : nil
                     }
 #if DEBUG
                     Self.reportAutomaticMipRetirement(entries: self.entries, layerIDs: updates.keys)
@@ -871,7 +871,7 @@ final class ScenePreparedBaseImageResources {
             deferredLock.lock()
             var failedCover: Double?
             while !cancelled, cover < automaticMipDemand, let automaticSource,
-                  case let .loaded(loaded) = outcome, let candidate = loaded.candidate, candidate.embeddedBaseMip > 0,
+                  case let .loaded(loaded) = outcome, let candidate = loaded.candidate, candidate.authoredBaseMip > 0,
                   automaticSource.maximumCoverScale(for: candidate.physicalSize) < automaticMipDemand {
                 cover = automaticMipDemand
                 deferredLock.unlock()
@@ -893,7 +893,7 @@ final class ScenePreparedBaseImageResources {
                 entries[layerID]?.outcome = outcome
                 deferredStates[layerID] = .ready
                 if var tail = automaticMipTails[entry.source], tail.use.layerIDs.contains(layerID) {
-                    if let candidate = loaded.candidate, candidate.embeddedBaseMip > 0 {
+                    if let candidate = loaded.candidate, candidate.authoredBaseMip > 0 {
                         let coverage = tail.use.maximumCoverScale(for: candidate.physicalSize)
                         tail.promotionThreshold = max(failedCover ?? 0, min(tail.promotionThreshold ?? coverage, coverage))
                         automaticMipTails[entry.source] = tail
