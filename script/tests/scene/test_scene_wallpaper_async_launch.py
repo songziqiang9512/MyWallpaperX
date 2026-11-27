@@ -492,6 +492,7 @@ struct SceneUserPropertyTextureLoadResult {}
     var nextLaunchRequestGeneration: UInt64 = 0, nextSceneScriptGeneration: UInt64 = 0
     var sceneRenderQuality = SceneRenderQuality()
     var screenTopology: [SceneScreenTopology] = []
+    var fitsCanvas = false
     var pendingLaunchCompletion: (@MainActor (Result<SceneRuntimeModel, Error>) -> Void)?
     var launchCancellation: SceneWallpaperLaunchCancellation?
     var launchState: SceneWallpaperLaunchState?
@@ -506,7 +507,7 @@ struct SceneUserPropertyTextureLoadResult {}
         propertyOverrides: [String: SceneUserPropertyValue], userPropertyTextureURLs: [String: URL],
         requiredUserTextureKeys: Set<String>, logURL: URL?, recordID: String?,
         sceneScriptGeneration: UInt64, textureDecodeCacheBudget: SceneTextureDecodeCacheBudget,
-        surfaceDisplayIDs: [UInt32], automaticDrawableExtent: CGSize?,
+        surfaceDisplayIDs: [UInt32], automaticWindows: [(size: CGSize, scale: CGFloat)]?, fitsCanvas: Bool,
         cancellation: SceneWallpaperLaunchCancellation?,
         progress: ((SceneWallpaperLaunchState.Phase, String) -> Void)?) throws -> PreparedLaunch {
         textureDecodeCacheBudget.control.prepare()

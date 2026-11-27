@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 68,
-      "bytes": 26412
+      "bytes": 26652
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 172,
-      "bytes": 34540
+      "bytes": 34700
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -97,12 +97,12 @@
       "bytes": 38884
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
-      "lines": 599,
-      "bytes": 182818
+      "lines": 600,
+      "bytes": 184189
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 164608
+      "bytes": 165620
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 320,
-      "bytes": 69951
+      "bytes": 70023
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -705,57 +705,57 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "9e73051579c7f75e1de7d38d1044942aed5c9f96ef8ad5673a2eebf60ac08cc7",
-      "after": "3fcf5b99a1212aafc99e23e370b5436f331014c659940920b54f14c8e6804ed4",
-      "owner": "playback source map",
-      "reason": "定位同帧多 pass 局部色源的选级责任。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-effect-color-mip"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "57725e9db057b8b7c4011db2b3d00bee3f88282fa6862cb1190587e42ad8e7ec",
-      "after": "3e9485cc928417a99de9c2c3acdc8040f586e8e9ef141fc5690ac47e191961a7",
-      "owner": "runtime quality contract",
-      "reason": "规定同帧多 pass 的颜色证明、物理档位和布局。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-effect-color-mip"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "25eee90cf48b7e03b6a13b7661eadcc3a9ae9969c6af22a1095ed2b6eb46b2ce",
-      "after": "8e45346c1fa39525e3f00b6835f37059bd8081c144916cc2164b75eb9154ed1f",
-      "owner": "wallpaper quality design",
-      "reason": "定义同帧多 pass 的采用边界和验收。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-effect-color-mip"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "1f629b05e2decb68bc1798f24d7e00c8c4ff9a79f92f48e0d475f35af37d56f6",
-      "after": "64a04d440a2e683abbc30e0da9b7fb344eef7052e1e1042b28651fbfc4025e1b",
-      "owner": "wallpaper quality execution",
-      "reason": "记录同步主线后的两作原生切档和实际取景边界。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-effect-multipass-delivery"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "9109dc6b7c53546e29c6e79d312ecee527875956236d12d2573fedb51bad22f1",
-      "after": "3539cbf18cacab234bbcd636b1fcf7825b6858b10405ccc7b0a631fb8a05f17e",
-      "owner": "Scene Surface geometry",
-      "reason": "记录共享取景、冻结输入边界与 Auto 冷端窗口上界。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#scene-display-fit"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
       "before": "64c2a894f55294e3ef857dfcfd832213caf042a1c81159341e26d2e548e32d02",
       "after": "3239e0165870a1523058f25d08c71b2c42481b06a23bb2c9886563cc3112d0f3",
       "owner": "Scene daemon IPC",
       "reason": "登记窗口填充模式的控制入口。",
       "decision": "docs/scene/architecture/scene-runtime-daemon-contract.md#protocol"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "3fcf5b99a1212aafc99e23e370b5436f331014c659940920b54f14c8e6804ed4",
+      "after": "1d63160ec3f9a3332ce95f53c278bb4610b180aea69648a6b0a43a7121e0cc6f",
+      "owner": "playback source map",
+      "reason": "定位 Auto 冷启取景与实际 drawable 热升的源码入口。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-fitted-drawable"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/wallpaper-quality-execution-contract.md",
+      "before": "3e9485cc928417a99de9c2c3acdc8040f586e8e9ef141fc5690ac47e191961a7",
+      "after": "b12a00ad092f8858c2ddfaa6005f2c9cc23d954dd2ef0dfabe357c109d0fae17",
+      "owner": "runtime quality contract",
+      "reason": "约定 Auto 根据当前取景后的实际画幅计算需求。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-fitted-drawable"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-settings-plan.md",
+      "before": "8e45346c1fa39525e3f00b6835f37059bd8081c144916cc2164b75eb9154ed1f",
+      "after": "4ffbc0ececab90dc584457de79d6a6da5321d6104555bbb12c22323474819d62",
+      "owner": "wallpaper quality design",
+      "reason": "比较冷端选级与安装后缩级，记录二屏几何和原作验收条件。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-fitted-drawable"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "64a04d440a2e683abbc30e0da9b7fb344eef7052e1e1042b28651fbfc4025e1b",
+      "after": "b5ea39a4e24bd89ba8be818da46014d983421822afa3b01ed85b5a5e51a25a39",
+      "owner": "wallpaper quality execution",
+      "reason": "记录两部局部多 pass 原作的终图、分配与取景热切。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-auto-fit-delivery"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "3539cbf18cacab234bbcd636b1fcf7825b6858b10405ccc7b0a631fb8a05f17e",
+      "after": "49bae5e22dfe385bb79a30f89ec81b2dfa73e2a62918d26b1fd319afd2f5175d",
+      "owner": "Scene Surface geometry",
+      "reason": "注明冷准备复用逐屏相机取景和保留现役尺寸事件。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-fitted-drawable"
     }
   ]
 }

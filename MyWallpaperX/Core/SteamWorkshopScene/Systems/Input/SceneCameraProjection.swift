@@ -15,6 +15,19 @@ nonisolated enum SceneCameraProjection {
                       width: width, height: height)
     }
 
+    static func maximumDrawableExtent(
+        _ windows: [(size: CGSize, scale: CGFloat)], fitting camera: SceneRenderDescriptor.CameraDescriptor?
+    ) -> CGSize {
+        windows.reduce(into: CGSize.zero) { extent, window in
+            let contentSize = camera.map {
+                fittedCanvasRect(in: CGRect(origin: .zero, size: window.size),
+                                 orthoWidth: $0.orthoWidth, orthoHeight: $0.orthoHeight).size
+            } ?? window.size
+            extent.width = max(extent.width, ceil(max(contentSize.width, 1) * window.scale))
+            extent.height = max(extent.height, ceil(max(contentSize.height, 1) * window.scale))
+        }
+    }
+
     nonisolated static func imageCardYDirection(
         usesPerspective: Bool, sceneOrthoHeight: Float?
     ) -> Float {

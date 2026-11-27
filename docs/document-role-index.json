@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f0f49f9fc69b4e5ba037a43f4e46bd82d37d822e301e2ebd4c40bb9858d71617",
+        "sourceSHA256": "7122a9399c1b149b0f7de2cd80693444eb91f189b83b9cbe552ca879dffac0ff",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定位同帧多 pass 局部色源的选级责任。",
-        "limitations": "签名 M4 单内屏真实画面及指定纹理 Metal 分配。未测整机峰值、长稳性能或功耗。"
+        "scope": "定位 Auto 冷启取景与实际 drawable 热升的源码入口。",
+        "limitations": "真实收据限 M4 单内屏、锁定输入和指定纹理。异向多屏由几何门覆盖，未量物理多屏和整机功耗。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "eae91bc4ef59320303cd5794bf4ecb37e3eb0140f9cbd7531e1524630632500b",
+        "sourceSHA256": "4480f9b132a28c15b591bcba029d6985a40908013697d1cbf0babc2b8d6558fa",
         "method": "document_registry --audit + document_health --check",
-        "scope": "规定同帧多 pass 的颜色证明、物理档位和布局。",
-        "limitations": "签名 M4 单内屏真实画面及指定纹理 Metal 分配。未测整机峰值、长稳性能或功耗。"
+        "scope": "约定 Auto 根据当前取景后的实际画幅计算需求。",
+        "limitations": "真实收据限 M4 单内屏、锁定输入和指定纹理。异向多屏由几何门覆盖，未量物理多屏和整机功耗。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e56f4a2507401faa9755daef553e88e7151b0a2c7e2b5e8302b5eea92dcdb58d",
+        "sourceSHA256": "cff1c602dcef0d0f5b9764ee597b25ce9d1bc58fb00d173c84f0a4757986f1e9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定义同帧多 pass 的采用边界和验收。",
-        "limitations": "签名 M4 单内屏真实画面及指定纹理 Metal 分配。未测整机峰值、长稳性能或功耗。"
+        "scope": "比较冷端选级与安装后缩级，记录二屏几何和原作验收条件。",
+        "limitations": "真实收据限 M4 单内屏、锁定输入和指定纹理。异向多屏由几何门覆盖，未量物理多屏和整机功耗。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4a119c3b38d88fc9b148e068da4135fc4b70330dcc08149deb944018356c9c49",
+        "sourceSHA256": "b288d411aa222f3537796917ed4267b2705242b98ea59722962fd30d5424a386",
         "method": "document_registry --audit + document_health --check",
-        "scope": "记录两个独立原作、切档和局部多 pass 反例。",
-        "limitations": "签名 M4 单内屏真实画面及指定纹理 Metal 分配。未测整机峰值、长稳性能或功耗。"
+        "scope": "记录两部局部多 pass 原作的终图、分配与取景热切。",
+        "limitations": "真实收据限 M4 单内屏、锁定输入和指定纹理。异向多屏由几何门覆盖，未量物理多屏和整机功耗。"
       }
     },
     {
@@ -886,10 +886,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "52ee006318634c64428f428e4684eb280821981deca370593462a23aafed52ce",
+        "sourceSHA256": "3096bca8645f4aeb1301bd2085f72770e8c66ffaa7a8be8c1c69154dd294f515",
         "method": "document_registry --audit + document_health --check",
-        "scope": "取景模式及画面热更新，局部多 pass 纹理准备、引用与实际终端。",
-        "limitations": "取景与字体来自主线原包证据。多 pass 证据限定 M4 单内屏。"
+        "scope": "注明冷准备复用逐屏相机取景和保留现役尺寸事件。",
+        "limitations": "真实收据限 M4 单内屏、锁定输入和指定纹理。异向多屏由几何门覆盖，未量物理多屏和整机功耗。"
       }
     },
     {

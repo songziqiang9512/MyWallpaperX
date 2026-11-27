@@ -67,14 +67,11 @@ extension SceneDesktopWallpaperHost {
 #endif
         let surfaceScreens = SceneDesktopWallpaperSession.surfaceScreens(topology: screenTopology)
         let surfaceDisplayIDs = surfaceScreens.map(\.1)
-        let automaticDrawableExtent = sceneRenderQuality.textures == .automatic
-            ? surfaceScreens.reduce(CGSize.zero) { extent, surface in
-                let screen = surface.0
-                let frame = SceneDesktopWallpaperSession.initialSurfaceFrame(for: screen)
-                return CGSize(width: max(extent.width, ceil(frame.width * screen.backingScaleFactor)),
-                    height: max(extent.height, ceil(frame.height * screen.backingScaleFactor)))
+        let automaticWindows = sceneRenderQuality.textures == .automatic
+            ? surfaceScreens.map { screen, _ in
+                (SceneDesktopWallpaperSession.initialSurfaceFrame(for: screen).size, screen.backingScaleFactor)
             } : nil
-        launchPreparationQueue.async { [weak self] in
+        launchPreparationQueue.async { [weak self, fitsCanvas] in
             guard let self else { return }
             do {
                 var prepared = try Self.prepareLaunch(
@@ -89,7 +86,7 @@ extension SceneDesktopWallpaperHost {
                     sceneScriptGeneration: scriptGeneration,
                     textureDecodeCacheBudget: self.textureDecodeCacheBudget,
                     surfaceDisplayIDs: surfaceDisplayIDs,
-                    automaticDrawableExtent: automaticDrawableExtent,
+                    automaticWindows: automaticWindows, fitsCanvas: fitsCanvas,
                     cancellation: cancellation
                 ) { [weak self] phase, message in
                     DispatchQueue.main.async {
@@ -240,7 +237,7 @@ extension SceneDesktopWallpaperHost {
         sceneScriptGeneration: UInt64,
         textureDecodeCacheBudget: SceneTextureDecodeCacheBudget,
         surfaceDisplayIDs: [CGDirectDisplayID],
-        automaticDrawableExtent: CGSize?,
+        automaticWindows: [(size: CGSize, scale: CGFloat)]?, fitsCanvas: Bool,
         cancellation: SceneWallpaperLaunchCancellation?,
         progress: ((SceneWallpaperLaunchState.Phase, String) -> Void)?
     ) throws -> PreparedLaunch {
@@ -276,6 +273,9 @@ extension SceneDesktopWallpaperHost {
         let privateMediaCacheDirectory = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Caches/MyWallpaperX/SteamWorkshopScene", isDirectory: true)
         var runtimeInput = model.runtimeInput
+        let automaticDrawableExtent = automaticWindows.map {
+            SceneCameraProjection.maximumDrawableExtent($0, fitting: fitsCanvas ? runtimeInput.renderDescriptor.camera : nil)
+        }
         var authoredRenderDescriptor = model.authoredRenderDescriptor
         guard let device = MTLCreateSystemDefaultDevice()
         else { throw SceneDesktopWallpaperHostLaunchError.noSurface }

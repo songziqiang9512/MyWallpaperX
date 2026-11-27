@@ -88,7 +88,18 @@ enum Harness {
             gpu = coverage
         }
 
+        let mixedWindows: [(size: CGSize, scale: CGFloat)] = [
+            (CGSize(width: 1920, height: 540), 2),
+            (CGSize(width: 1080, height: 3840), 1)
+        ]
+        let nativeCamera = SceneRenderDescriptor.CameraDescriptor(
+            eye: [0, 0, 0], center: [0, 0, -1], up: [0, 1, 0],
+            orthoWidth: nil, orthoHeight: nil, nearZ: 0.01, farZ: 10_000
+        )
         let result: [String: Any] = [
+            "mixedFit": coldExtent(mixedWindows, camera: camera),
+            "mixedFill": coldExtent(mixedWindows, camera: nil),
+            "mixedWithoutCanvas": coldExtent(mixedWindows, camera: nativeCamera),
             "table": table,
             "uppercase": vector(SceneLayerScreenAnchor.offset(
                 anchor: "TopRight", orthoSize: ortho,
@@ -121,6 +132,13 @@ enum Harness {
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
+    }
+
+    static func coldExtent(
+        _ windows: [(size: CGSize, scale: CGFloat)], camera: SceneRenderDescriptor.CameraDescriptor?
+    ) -> [CGFloat] {
+        let extent = SceneCameraProjection.maximumDrawableExtent(windows, fitting: camera)
+        return [extent.width, extent.height]
     }
 
     static func fitted(width: Int, height: Int, orthoWidth: Float? = 1_600)
@@ -429,6 +447,11 @@ class SceneLayerScreenAnchorTests(unittest.TestCase):
                 self.assertEqual(self.result[name]["rect"], rect)
                 self.assert_close(self.result[name]["shift"], (0, 0))
         self.assertEqual(self.result["fitNativeCamera"]["rect"], [10, 20, 1200, 900])
+
+    def test_cold_extent_fits_each_screen_before_combining_pixel_dimensions(self) -> None:
+        self.assertEqual(self.result["mixedFit"], [1920, 1080])
+        self.assertEqual(self.result["mixedFill"], [3840, 3840])
+        self.assertEqual(self.result["mixedWithoutCanvas"], [3840, 3840])
 
     def test_gpu_pass_draws_the_label_inside_the_visible_corner(self) -> None:
         # 真实 image layer pipeline + 真实 viewProjection 的离屏渲染门：作者宽高比下
