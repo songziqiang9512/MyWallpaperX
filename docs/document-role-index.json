@@ -175,13 +175,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/architecture/runtime-architecture.md",
-      "lastReviewed": "2026-11-25",
+      "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cd8691db8d6a355b099d1bcc3068016e7b2db719f6152fa1d271214976118a62",
+        "sourceSHA256": "7ead9afd2403cb28d9141ea55bc6e11a805cb3708cddd4dc4fe9e0330dfeee43",
         "method": "document_registry --audit + document_health --check",
-        "scope": "播放质量 App/各执行端分工及相关源码和文档导航。",
-        "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"
+        "scope": "统一质量请求与实际消费者的单一职责及导航。",
+        "limitations": "核对文档与运行入口；本提交不改变执行端。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0d3258c8f3b1b7e270b89e2dc58213d1a0d3ca98347e9b8649e25531accae6fe",
+        "sourceSHA256": "3887cb46f5b33033b7737f3c5f4a6de512d275eeb7ad1290ee2a98c1525686ca",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定义普通纹理首次实绑、每类代表规格和回显范围。",
-        "limitations": "实际运行范围见现役工作卡。"
+        "scope": "定义每项质量有效规格、实际执行和未覆盖的结果，按效果用途为组合建立可观测验收。",
+        "limitations": "状态按原始消费者取证；实测与缺口见现役工作卡。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c21418d5154ada9a03ff0885f7a33d8657c9aab4c3df5974ed220e4982fa820e",
+        "sourceSHA256": "3860f0426eca779d7d32a19260408e64ccad24b5dd198da7e9a730c8d34a32f2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "登记两部真实作者的原生纹理菜单、逐屏回执与同请求完成输出。",
-        "limitations": "实际运行范围见现役工作卡。"
+        "scope": "以手动设置的真实采用为完成条件，按原终端、反射、灯种和纹理用途安排后续批次。",
+        "limitations": "实际运行范围按卡中既有取证。"
       }
     },
     {

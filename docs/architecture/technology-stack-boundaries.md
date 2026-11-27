@@ -56,7 +56,7 @@ Scene执行链为 `authored data → prepared Program/graph/resources → typed 
 
 ### 3.1 Swift 拥有产品状态，语言运行时拥有语言语义
 
-壁纸质量由 App 拥有用户意愿，各执行端只接收实际消费字段。Scene 负责帧节奏及准备期硬件／资源决策，Web 由 WK 宿主按内容合同发送帧率建议，Video 画质随实际素材。新启动和拓扑重建取当前设置种子，播放时差分沿现役命令交付。渲染附件和终端输出能力归 [Scene 合同](../scene/architecture/runtime-architecture.md#effective-quality-policy)，代码定位见 [源码地图](repository-map.md#wallpaper-quality)。
+壁纸质量由 App 保存用户请求，各执行端只接实际消费字段。Scene 的原调度、资源、材质和终端生产者给出实际执行事实，Web 由 WK 宿主按内容合同投递帧率建议，Video 画质跟随实际轨道。新启动和拓扑重建取当前设置种子，播放差分沿现役命令交付。设置回显和逐档交付见[画质执行合同](wallpaper-quality-execution-contract.md#quality-feedback)，渲染职责见 [Scene 合同](../scene/architecture/runtime-architecture.md#effective-quality-policy)，代码定位见 [源码地图](repository-map.md#wallpaper-quality)。
 
 以下事实必须由 Swift typed contract 统一表达，不能藏入 sample dispatch、VM 全局状态、C++ backend 或 IPC 文本协议：
 

@@ -26,11 +26,11 @@
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 202,
-      "bytes": 22193
+      "bytes": 22304
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
-      "lines": 150,
-      "bytes": 28198
+      "lines": 171,
+      "bytes": 33491
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -102,7 +102,7 @@
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 158892
+      "bytes": 159574
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -408,15 +408,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/technology-stack-boundaries.md",
-      "before": "2f18fe7dfce095161a4a737db37d4cc4ec0bb991296fc8e01b2240b19e7fd807",
-      "after": "4fd92b65402ed26636527b70650e3f3c57a10ff06d217520e3b0be3e4db8bb1b",
-      "owner": "播放偏好和对应执行端",
-      "reason": "规定 App 偏好与三个执行端质量字段的长期边界。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/immersive-ui-design.md",
       "before": "dc82c296fa06f08ccfe64b7facf57e674f7fe10ea1551ae46fad70906baa205f",
       "after": "29dee8e41edd8cf1ddbd96efc02727d79057224d6d6f4515f423a3030a7f0efb",
@@ -678,15 +669,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "82908b56b9070b7bf3ecb3cb86c659361d9969d4c89f405a2f442794416b5570",
-      "after": "530294af1dd70a92a106f884ac6027fc83e04bc67fcbe0653f04b5847927d683",
-      "owner": "runtime quality contract",
-      "reason": "定义普通纹理首次实绑、每类代表规格和回显范围。",
-      "decision": "docs/architecture/wallpaper-quality-execution-contract.md#quality-textures"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "71eff5f4666846fd5b538ee60b69389e9ae6bfca982c281cf2ca96b3564bd5dd",
       "after": "6b22b6ed48e5e84ebd3491074942397dfb1d228d2ff547b6c32cb5389f6fb302",
@@ -732,21 +714,39 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "1e4a514a8265c37b1c00f103a97c24658419d6253fd4424de8a43f5903815308",
-      "after": "4f9ed69e68f00a0ddbdb3f041098e4b824294857722d84683d2fb571ac9986db",
-      "owner": "Scene quality rendering",
-      "reason": "登记两部真实作者的原生纹理菜单、逐屏回执与同请求完成输出。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#scene-texture-rollout"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
       "before": "3da1c2f75de047e4d8b87471e264fa35b2a51a3522e80f960ea58c2eb1348c49",
       "after": "aed9b03e98ceb668645ae3839cf6de97b5f74d8c9c1e411185783368d26007de",
       "owner": "Scene runtime evidence",
       "reason": "记录实际媒体封面的双遍绘制、官版同尺寸差图和独立反例。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#precise-blur-hidden-samplers"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/wallpaper-quality-execution-contract.md",
+      "before": "530294af1dd70a92a106f884ac6027fc83e04bc67fcbe0653f04b5847927d683",
+      "after": "832fe53d1c7d5de6de2d7c7ddd149efefa2ec12f645397ccb10b0fdd1dd7aefa",
+      "owner": "runtime quality contract",
+      "reason": "定义每项质量有效规格、实际执行和未覆盖的结果，按效果用途为组合建立可观测验收。",
+      "decision": "docs/architecture/wallpaper-quality-execution-contract.md#quality-combination-checks"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/technology-stack-boundaries.md",
+      "before": "4fd92b65402ed26636527b70650e3f3c57a10ff06d217520e3b0be3e4db8bb1b",
+      "after": "5e48e8654d4f4f377c9d15b7bdc81572048fdbec63a4f7c562368c04b40f22fb",
+      "owner": "playback architecture",
+      "reason": "统一质量请求与实际消费者的单一职责及导航。",
+      "decision": "docs/architecture/wallpaper-quality-execution-contract.md#quality-feedback"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-quality-work-card.md",
+      "before": "4f9ed69e68f00a0ddbdb3f041098e4b824294857722d84683d2fb571ac9986db",
+      "after": "070a00a487106e55098f9a7f5e94df31fb706df04f5d082606f604c05eb0b33a",
+      "owner": "wallpaper quality execution",
+      "reason": "以手动设置的真实采用为完成条件，按原终端、反射、灯种和纹理用途安排后续批次。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     }
   ]
 }
