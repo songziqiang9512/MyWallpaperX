@@ -43,7 +43,7 @@
 | 3337494481 | [最新同包预热对照](../capabilities/runtime-evidence-current.md#particle-life-buffer-evidence)一对首帧20.86→18.23秒，候选预热13.48秒。只跟进可复验的新热点，保持历史及 RNG。 |
 | 3749463715 | [可比 60fps 运行](../capabilities/runtime-evidence-current.md#gpu-admission-wake-374)实呈从 29.96 提升到 34.80fps，尚低于目标。仅跟进当前路径的新显著成本。 |
 | 3420215721 | [同包实测](../capabilities/runtime-evidence-current.md#scene-playback-triage-342)仍有 GPU 超预算。固定 scene-time 和实际历史源做消融。 |
-| 3673609113 | [实呈与 GPU 回执](../capabilities/runtime-evidence-current.md#inactive-terminal-copy-367)仍显示 GPU 超预算。沿实际帧成本定位，保两级作者历史。人偶及音条残影独立按用户反馈核对。 |
+| 3673609113 | [首段截取合并](../capabilities/runtime-evidence-current.md#first-captured-material-367)已去 4 次离屏编码/帧，60fps 仍超 GPU 预算。沿剩余实际帧成本定位，保两级作者历史。人偶及音条残影独立按用户反馈核对。 |
 | 3808922316 | [同包交错实测](../capabilities/runtime-evidence-current.md#particle-life-buffer-evidence)预热中位降至41.67秒，首帧49.09秒。沿现役短栈找保随机、存量和首帧的单根工作删减。 |
 
 测量与退出条件归[性能方法](performance-convergence-card.md)。

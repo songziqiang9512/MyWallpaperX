@@ -155,10 +155,11 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             materials[.init(effect: node.effect, nodeIndex: node.nodeIndex)]
         }
 
-        var supportsSingleCapturedMaterial: Bool {
+        var firstCapturedMaterial: MaterialKey? {
             guard sourceRoute == .capturedMainTargetTexture, !isGraphOutputProvider,
-                  stages.count == 1, let graph = stages.first?.product.graph else { return false }
-            return graph.renderTargets.isEmpty && graph.nodes.count == 1
+                  let graph = stages.first?.product.graph, graph.renderTargets.isEmpty,
+                  graph.nodes.count == 1, let node = graph.nodes.first else { return nil }
+            return material(for: node)?.key
         }
 
         func material(effect: Graph.EffectKey, nodeIndex: Int) -> MaterialCapability? {

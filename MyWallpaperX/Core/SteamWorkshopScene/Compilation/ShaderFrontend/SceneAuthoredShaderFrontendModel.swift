@@ -536,12 +536,11 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
 
     var supportsTerminalMaterialReplay: Bool { vertexPositionInput == .targetPixels }
 
-    var supportsLocalAttachmentOverwrite: Bool {
+    var localAttachmentOverwrite: AttachmentReadVariant? {
         guard vertexPositionInput == .targetPixels, fragmentOutputChannelUse == .redDefined,
-              let attachmentReadVariant else { return false }
-        return attachmentReadVariant.usesSceneProjection != true
-            && attachmentReadVariant.isFragmentLocal == true
-            && attachmentReadVariant.physicalTextureSlots.isEmpty
+              let attachmentReadVariant, attachmentReadVariant.usesSceneProjection != true,
+              attachmentReadVariant.isFragmentLocal == true else { return nil }
+        return attachmentReadVariant
     }
 
     /// Older, fixed-unit artifacts remain valid ordinary cards but cannot

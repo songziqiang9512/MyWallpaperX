@@ -444,7 +444,8 @@ final class SceneResolvedMaterialGraphExecutor {
                 pair: pair, publications: publications, commandCount: stageCommands.count
             )
             let captureForMaterial: SceneGraphResourcePassEncoder.PreparedCommand?
-            if terminalReplayTarget == nil, stageCommands.isEmpty, capability.supportsSingleCapturedMaterial,
+            if index == 0, terminalReplayTarget == nil, stageCommands.isEmpty,
+               capability.firstCapturedMaterial != nil,
                case let .resource(capture) = sourceCommand {
                 captureForMaterial = capture
             } else {

@@ -5,7 +5,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         device: MTLDevice
     ) -> [SceneResolvedMaterialPassEncoder.WarmupPlan] {
         launchPipelineWarmupCapabilities.flatMap { capability in
-            Array(capability.materials.values).sorted {
+            let firstCapturedMaterial = capability.firstCapturedMaterial
+            return Array(capability.materials.values).sorted {
                 identity($0.key) < identity($1.key)
             }.flatMap { material -> [SceneResolvedMaterialPassEncoder.WarmupPlan] in
                 let snapshot = material.variants.launchEnvelopeCapabilitySnapshot()
@@ -29,9 +30,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     }
                     var plans = [plan(material.targetFormat.metalPixelFormat,
                                       .offscreenOverwrite)].compactMap { $0 }
-                    if capability.supportsSingleCapturedMaterial,
+                    if firstCapturedMaterial == material.key,
                        material.attachmentStorage == .color,
-                       variant.frontendProgram.supportsLocalAttachmentOverwrite,
+                       variant.frontendProgram.localAttachmentOverwrite != nil,
                        let captureTail = plan(material.targetFormat.metalPixelFormat,
                            .offscreenAttachmentOverwrite) {
                         plans.append(captureTail)

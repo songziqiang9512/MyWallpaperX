@@ -126,11 +126,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 493,
-      "bytes": 97674
+      "bytes": 97866
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 408350
+      "bytes": 409618
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 177,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 58,
-      "bytes": 8342
+      "bytes": 8378
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "c7f971b149770d676a9076edffe016a733b5acd4b0c80e433241b2633d6c7991",
-      "after": "feeca538834cdd9deeaee04d487efd1facde1e29c2cdc16fa312d27ff6d71aed",
-      "owner": "Scene shader compatibility evidence",
-      "reason": "登记官版拒绝声明宏别名、本机局部旁路和队列退出依据。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#stage-scoped-varying-symbols"
+      "before": "feeca538834cdd9deeaee04d487efd1facde1e29c2cdc16fa312d27ff6d71aed",
+      "after": "e4b7149c25ea4dcbc2c3f923b7088f18b247863a3f827c9777515635efcbc5ad",
+      "owner": "Scene render graph",
+      "reason": "明确截取与首段共享编码器、其它槽别名和后继读取规则。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#childless-composition-local-effect-raster"
     },
     {
       "section": "bodies",
@@ -658,20 +658,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "639ead2a564d8375ea2e53dde446f8915c2b65719b5958bf50a4f4ab1fd371e5",
-      "after": "f50b1c5377c5a3397d36aa667376cdfda7716e6a4e61615fc55a617897d5a522",
+      "before": "f50b1c5377c5a3397d36aa667376cdfda7716e6a4e61615fc55a617897d5a522",
+      "after": "c6792f4b0faac22885a329be6ab3dfea30eeb907843ecff20d481f81db6af3ae",
       "owner": "Scene runtime evidence",
-      "reason": "记录复杂样本筛查、同构建复验和已核实的媒体效果执行缺口。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#complex-scene-screen-20261127"
+      "reason": "记录同像素首段合并的作者输入、正反例与受控稳态成本。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#first-captured-material-367"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c79c637c97d149b6ed8b71088276e51a06139bc4ba0110f2dc402a9f421956fe",
-      "after": "930f2b13c542f3e7ea161ada9f3c355e6ab615ca3edb9abcdcaf183bff75db31",
+      "before": "930f2b13c542f3e7ea161ada9f3c355e6ab615ca3edb9abcdcaf183bff75db31",
+      "after": "1d8487223feb17813ebde0ab5dc1edf83bdda2c849f2331dcc97fa6d4b29e27a",
       "owner": "Scene open breakpoints",
-      "reason": "将确认的活动合成断点及工具活动范围误报列入开放队列。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#diagnostic-active-demand"
+      "reason": "用当前原包实测定位仍超预算的剩余 GPU 工作。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
     }
   ]
 }
