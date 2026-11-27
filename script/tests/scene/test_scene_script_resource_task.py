@@ -125,7 +125,7 @@ HARNESS = r'''
         let states: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [
             .init(token: 1): .ready, .init(token: 2): .preparedVideo, .init(token: 3): .absent]
         t.completeResourcePlanning(.init(dynamicImageModelPaths: ["models/a.json", "models/b.json"],
-            hasStatefulLayerMutationOwner: true, automaticMipConstraints: .init(exactSourceCount: 4),
+            retainsModelDefaultAliases: true, automaticMipConstraints: .init(exactSourceCount: 4),
             modelMaterialPlan: .init(token: 73), modelAlbedoStates: states))
         let prepared = try t.value()
         out["plannedModels"] = prepared.baseImages.models.sorted()

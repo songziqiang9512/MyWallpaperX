@@ -703,7 +703,7 @@ extension SceneDesktopWallpaperHost {
         let assetLaunchStates = materialAssetCatalog.launchStates
         deviceResourcesPreparation.completeResourcePlanning(.init(
             dynamicImageModelPaths: committedPrograms.domain?.dynamicImageRequestedModelPaths ?? [],
-            hasStatefulLayerMutationOwner: committedPrograms.domain?.hasStatefulLayerMutationOwner == true,
+            retainsModelDefaultAliases: committedPrograms.domain?.retainsModelDefaultAliases == true,
             automaticMipConstraints: automaticMipConstraints,
             scalableEffectColorLayerIDs: scalableEffectColors,
             modelMaterialPlan: modelMaterialPlan,

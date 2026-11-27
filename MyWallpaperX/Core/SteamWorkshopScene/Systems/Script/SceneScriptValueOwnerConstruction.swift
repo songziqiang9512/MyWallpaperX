@@ -98,16 +98,17 @@ nonisolated extension SceneScriptValueOwner {
         try domain.checkConstructionBoundary()
         var diagnostic = [CChar](repeating: 0, count: 512)
         var creationResult = MWX_SCENE_QUICKJS_INVALID_ARGUMENT
+        let readOnly = valueType == .bool && !allowsStatefulLayerSideEffects
+            && dynamicImagePathsByAuthoredIdentity.isEmpty
         let created = source.withCString {
-            if valueType == .bool && (allowsStatefulLayerSideEffects
-                || !dynamicImagePathsByAuthoredIdentity.isEmpty) {
-                mwx_scene_quickjs_owner_create_effectful_bool_with_budget(
+            if readOnly {
+                mwx_scene_quickjs_owner_create_value_only_with_budget(
                     domain.handle, $0, source.utf8.count, generation,
                     budget.interruptBudget, &creationResult,
                     &diagnostic, diagnostic.count
                 )
             } else if valueType == .bool {
-                mwx_scene_quickjs_owner_create_value_only_with_budget(
+                mwx_scene_quickjs_owner_create_effectful_bool_with_budget(
                     domain.handle, $0, source.utf8.count, generation,
                     budget.interruptBudget, &creationResult,
                     &diagnostic, diagnostic.count
@@ -243,7 +244,7 @@ nonisolated extension SceneScriptValueOwner {
             exports: exports
         )
         domain.dynamicImageRequestedModelPaths.formUnion(imagePaths.values)
-        if allowsStatefulLayerSideEffects { domain.hasStatefulLayerMutationOwner = true }
+        if !readOnly { domain.retainsModelDefaultAliases = true }
     }
 
 }

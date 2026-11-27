@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 70,
-      "bytes": 27892
+      "bytes": 28026
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 174,
-      "bytes": 36280
+      "bytes": 36398
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 196610
+      "bytes": 198150
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 176832
+      "bytes": 178010
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 337,
-      "bytes": 75099
+      "bytes": 75276
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -715,47 +715,47 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "b3bf12674b41fffac731364fc0866b655dfb019214c431064b3f57a5d2773cbb",
-      "after": "02333f4efc3a47c8b7fdbae3cfd4c452773410f0f6747de9e75a33d387906054",
-      "owner": "Scene base image preparation",
-      "reason": "核终端混合的冷准备档位资格与实际消费者。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-multipass-standard-capture"
+      "before": "02333f4efc3a47c8b7fdbae3cfd4c452773410f0f6747de9e75a33d387906054",
+      "after": "6ce38d0a72617221e6bda8ec6d75dae54cf91cbb87ba98c7e3c8ce35a5faefa7",
+      "owner": "Scene script owner construction",
+      "reason": "核场景脚本构造权限到基础图准备的源码入口。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-computed-model"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/wallpaper-quality-execution-contract.md",
-      "before": "ceb28f1f6789fabad70db5cb38ea3e907e3894d90019df06dc0a483cc583e63c",
-      "after": "6dd80a778b520dfcd4245b727b47d5971b16737ae2672d4b977c8655fe2c0204",
-      "owner": "Scene base image preparation",
-      "reason": "核内置加色仅高性能改变已证局部色源。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-multipass-standard-capture"
+      "before": "6dd80a778b520dfcd4245b727b47d5971b16737ae2672d4b977c8655fe2c0204",
+      "after": "5338bbe832f83f0edd2cc3ad51f4ef78a0daa016fe48895efe32f9581d403e67",
+      "owner": "Scene script owner construction",
+      "reason": "核计算模型路径及全场 Auto 几何边界。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-computed-model"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "c6da6f50dc3b43dea6b9968f15da718e176847ad0e9ab398753f724321ce30a9",
-      "after": "9c96c9787ecb941886496ac5bf377a75d9effcdd6724b3cb29653f249bc200a1",
-      "owner": "Scene base image preparation",
-      "reason": "核内置加色的原图、终端背景、样本收益及 Auto 边界。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-multipass-standard-capture"
+      "before": "9c96c9787ecb941886496ac5bf377a75d9effcdd6724b3cb29653f249bc200a1",
+      "after": "d91c4d599a200b83d46a88e2fb2d0a31916803ad6f5d96d8297843aa9d66792f",
+      "owner": "Scene script owner construction",
+      "reason": "核原目录保护、正常 Auto 保留与隐藏同源试验的验收。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-computed-model"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "f9c90611077f780bfa55f23b60796339c62429cadf2c8298545e0bede05efaa7",
-      "after": "1809100fc55c10d6846b06baa5e72627a12b6000a4153ad85df770fd66cdf88a",
-      "owner": "Scene base image preparation",
-      "reason": "核两位作者的加色终图、切档及实际纹理分配。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-multipass-standard-capture"
+      "before": "1809100fc55c10d6846b06baa5e72627a12b6000a4153ad85df770fd66cdf88a",
+      "after": "8d0d4411d5951b4cc84c8e48ebdbac3d7328e5c449f0c58d408797936464bfc7",
+      "owner": "Scene script owner construction",
+      "reason": "核真实旧版丢层、作者脚本修复与两部独立正控。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-computed-model"
     },
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "741fa6a11d134ec6a37888f1c664f1269fdba5b8e739de95a05d8fb348c836ba",
-      "after": "f3003fd1a4ebc7133cff8b80b37a44cfc62f723d503b08623ac34783dfbc39b2",
-      "owner": "Scene base image preparation",
-      "reason": "核内置加色局部 Program、原捕获及终端的职责。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-multipass-standard-capture"
+      "before": "f3003fd1a4ebc7133cff8b80b37a44cfc62f723d503b08623ac34783dfbc39b2",
+      "after": "bbd1e6f3de265f70c41dc609a87582419439e15b2b6564fe791f2bb7a3669e08",
+      "owner": "Scene script owner construction",
+      "reason": "核场景脚本权限到原目录及 Auto 准备的职责。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-auto-computed-model"
     }
   ]
 }

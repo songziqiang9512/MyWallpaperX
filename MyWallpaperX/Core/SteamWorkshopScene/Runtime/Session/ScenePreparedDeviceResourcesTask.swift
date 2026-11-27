@@ -8,7 +8,7 @@ import Metal
 final class ScenePreparedDeviceResourcesTask {
     struct Planning {
         let dynamicImageModelPaths: Set<String>
-        var hasStatefulLayerMutationOwner = false
+        var retainsModelDefaultAliases = false
         var automaticMipConstraints: ScenePreparedBaseImageResources.AutomaticMipConstraints?
         var scalableEffectColorLayerIDs: Set<Int> = []
         let modelMaterialPlan: ScenePreparedStaticModelResources.MaterialPlan
@@ -208,7 +208,7 @@ final class ScenePreparedDeviceResourcesTask {
         condition.unlock()
         try checkCancellation()
         return .init(models: planning!.dynamicImageModelPaths,
-            retainsModelDefaultAliases: planning!.hasStatefulLayerMutationOwner,
+            retainsModelDefaultAliases: planning!.retainsModelDefaultAliases,
             automaticMipConstraints: planning!.automaticMipConstraints,
             scalableEffectColorLayerIDs: planning!.scalableEffectColorLayerIDs)
     }

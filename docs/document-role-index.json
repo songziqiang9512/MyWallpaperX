@@ -144,9 +144,9 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f02d5417c5599d9b999dd45b4ed5a25e15f7b1dca6db8effc3669f319b5843f0",
+        "sourceSHA256": "42d13fa5798e671e28dc21b51efd006af950585c8ed08daf0a2700aae589b702",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核终端混合的冷准备档位资格与实际消费者。",
+        "scope": "核场景脚本构造权限到基础图准备的源码入口。",
         "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
       }
     },
@@ -192,9 +192,9 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "991024389ababcd8512b0b609a21554ab6a259ac73e691963f9fbee11bc32172",
+        "sourceSHA256": "a3259385180d9359c9bd5e73bd79cd7318d8b8d118b42298b7d9268af1497336",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核内置加色仅高性能改变已证局部色源。",
+        "scope": "核计算模型路径及全场 Auto 几何边界。",
         "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
       }
     },
@@ -378,9 +378,9 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fa0743e4a731c16105511533cc8406e07f112b997be5ce383c9ff540a0a56277",
+        "sourceSHA256": "3337281f5677c3f2e0d4d5420fcd3fa60d8337c64e2ab275e51bfe76929a0209",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核内置加色的原图、终端背景、样本收益及 Auto 边界。",
+        "scope": "核原目录保护、正常 Auto 保留与隐藏同源试验的验收。",
         "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
       }
     },
@@ -392,9 +392,9 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c3f1d6813f1460786f0e0ff885b39722bc944836d672f32cac122dde2fe7d286",
+        "sourceSHA256": "69ae7f7ad76b7a974409d8dbfbef4313048791336ef089297f1a98a31bd3da6f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核两位作者的加色终图、切档及实际纹理分配。",
+        "scope": "核真实旧版丢层、作者脚本修复与两部独立正控。",
         "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
       }
     },
@@ -886,9 +886,9 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "70ce6f6287a5bb0e45173a1a89b276bf2578b8de0fb298a66cf1ec2e61ed46df",
+        "sourceSHA256": "3cdc1f83e4650e2fd2700d52f3fcdad039d27deb1e518d4aba75da36b9376045",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核内置加色局部 Program、原捕获及终端的职责。",
+        "scope": "核场景脚本权限到原目录及 Auto 准备的职责。",
         "limitations": "文档导航与单内屏真实绑定、输出及单纹理分配。整场驻留、功耗和多屏未测。"
       }
     },

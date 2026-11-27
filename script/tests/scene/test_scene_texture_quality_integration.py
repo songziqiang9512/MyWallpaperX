@@ -221,22 +221,28 @@ void main() { gl_FragColor = texSample2D(g_Texture0, v_UV); }
             "objects": [{"id": 11, "image": shared, "origin": "25 195 0", "size": "18 18"},
                 {"id": 12, "image": seed, "origin": "220 200 0", "size": "18 18",
                     "visible": {"value": True, "script": script}}]}
-        entries["scene.json"] = json.dumps(scene).encode()
-        for mode in ("auto", "performance"):
-            with self.subTest(mode=mode):
-                rows, picture, _ = self.run_sample(project, entries, mode=mode)
-                draws = {(row["layerID"], row["source"]["textureToken"]) for row in rows
-                    if row["kind"] == "ordinary" and row["outcome"] == "draw-encoded"
-                    and row["access"] == "texture-bind" and row.get("source")
-                    and (row["source"]["width"], row["source"]["height"]) == sizes[0]}
-                bound_shared_model_layers = {row["layerID"] for row in rows
-                    if row["kind"] == "source-selection" and row.get("source")
-                    and row["source"].get("logical") == shared
-                    and (row["layerID"], row["source"]["textureToken"]) in draws}
-                self.assertIn(11, bound_shared_model_layers)
-                self.assertTrue(any(layer_id < 0 for layer_id in bound_shared_model_layers))
-                with Image.open(picture) as opened:
-                    image = opened.convert("RGB")
-                    red, green, blue = image.getpixel((image.width // 2, image.height // 2))
-                self.assertGreater(red, 170, (red, green, blue))
-                self.assertLess(max(green, blue), 70, (red, green, blue))
+        for owner in ("visible", "origin"):
+            if owner == "origin":
+                script_layer = scene["objects"][1]
+                script_layer.pop("visible")
+                script_layer["origin"] = {"value": "220 200 0", "script": script}
+            entries["scene.json"] = json.dumps(scene).encode()
+            for mode in ("auto", "performance"):
+                with self.subTest(owner=owner, mode=mode):
+                    rows, picture, _ = self.run_sample(project, entries, mode=mode)
+                    draws = {(row["layerID"], row["source"]["textureToken"]) for row in rows
+                        if row["kind"] == "ordinary" and row["outcome"] == "draw-encoded"
+                        and row["access"] == "texture-bind" and row.get("source")
+                        and (row["source"]["width"], row["source"]["height"]) == sizes[0]}
+                    bindings = {(row["layerID"], row["source"]["textureToken"]) for row in rows
+                        if row["kind"] == "source-selection" and row.get("source")
+                        and row["source"].get("logical") == shared
+                        and (row["layerID"], row["source"]["textureToken"]) in draws}
+                    donors = {token for layer, token in bindings if layer == 11}
+                    self.assertTrue(donors)
+                    self.assertEqual({token for layer, token in bindings if layer < 0}, donors)
+                    with Image.open(picture) as opened:
+                        image = opened.convert("RGB")
+                        red, green, blue = image.getpixel((image.width // 2, image.height // 2))
+                    self.assertGreater(red, 170, (red, green, blue))
+                    self.assertLess(max(green, blue), 70, (red, green, blue))
