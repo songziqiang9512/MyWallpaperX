@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 201685
+      "bytes": 202901
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 184590
+      "bytes": 186009
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -733,20 +733,20 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "d8563fd7226a7ad0644df3ce9be251a502e2ff45bec58c43e3d4a16b6ccdeaa1",
-      "after": "b1027fdcd59c2c30b734675f2c532dbfbc8e293791f32d77a12e6d1e1a316623",
+      "before": "b1027fdcd59c2c30b734675f2c532dbfbc8e293791f32d77a12e6d1e1a316623",
+      "after": "70ad14232de0f91b6bd0e24719859f380bc9d34252533c965bdf1839ed01a7bd",
       "owner": "wallpaper-quality",
-      "reason": "记录原作官版开关对照和通用图像接入前置。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-genericimage3-reflection"
+      "reason": "记录两部独立原作的低迭代 HDR 泛光缺口及同相位官版鉴别条件。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-hdr-low-iterations"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "c074688e75265f7e18a908aa659303460bead91169b033be3cba275c912671c4",
-      "after": "13a58399c6e3ad45abe85295773cedd4243cc19e7807fc3ea059e26cb0b628f9",
+      "before": "13a58399c6e3ad45abe85295773cedd4243cc19e7807fc3ea059e26cb0b628f9",
+      "after": "1368654f119c2ce507192577ecebeb299778667641243a3c90266a6cf875024c",
       "owner": "wallpaper-quality",
-      "reason": "记录原作官版开关对照和通用图像接入前置。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-genericimage3-reflection"
+      "reason": "记录两部独立原作的低迭代 HDR 泛光缺口及同相位官版鉴别条件。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-hdr-low-iterations"
     },
     {
       "section": "bodies",

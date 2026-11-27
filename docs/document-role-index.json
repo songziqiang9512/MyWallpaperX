@@ -378,7 +378,7 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5a5a1a212c4a6779a1edc4a5e9040370f7927ef0d681308d457757eef333a7e6",
+        "sourceSHA256": "ac369d97ca0f9b28a1da37e36d2bc2ec1e26673266151326b5c1530b606e4500",
         "method": "document_registry --audit + document_health --check",
         "scope": "核原通用图像 Program 实时环境候选的原作者混合与取样合同。",
         "limitations": "隔离原包 Metal 完成终图及准备拒绝。原区实际反射与官版对照、候选和实呈成本待验。"
@@ -392,7 +392,7 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a17034dd336322b6b86fc1b8c6c9dfeff24790b89cf68b06f8517582b028dcda",
+        "sourceSHA256": "dc3908d896d2bb8fc8e2f269f01611d37332e234f61f21cabc57869b8bba912a",
         "method": "document_registry --audit + document_health --check",
         "scope": "核原作普通图像反射首断点、真实回退终图及同档波动。",
         "limitations": "隔离原包 Metal 完成终图及准备拒绝。原区实际反射与官版对照、候选和实呈成本待验。"
