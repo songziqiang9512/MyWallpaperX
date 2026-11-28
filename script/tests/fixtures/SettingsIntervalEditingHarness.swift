@@ -607,12 +607,27 @@ extension Notification.Name {
         view.refreshSceneRenderReadouts()
         checks["native-post-clears-on-stop"] = postLabel.isHidden && postLabel.toolTip == nil
 
-        daemon.activePreparedRenderQuality = .init(volumeLighting: .ultra)
         let volumeLabel = view.sceneVolumeUseLabel
+        let sameSpotCone = "Spotlight cone (same at High and Ultra)"
+        daemon.activePreparedRenderQuality = .init(volumeLighting: .enabled)
+        daemon.activeRasterDisplayStatuses = [
+            .init(displayID: testDisplays[0], samples: 4, volume: .rendered(.init(spot: true)))
+        ]
+        view.refreshSceneRenderReadouts(.init(volumeLighting: .enabled))
+        checks["native-high-pure-spot-explains-equivalent-ultra"] =
+            !volumeLabel.isHidden && volumeLabel.stringValue == sameSpotCone
+        view.refreshSceneRenderReadouts(.init(volumeLighting: .ultra))
+        checks["native-spot-pending-reports-the-previous-cone"] =
+            volumeLabel.stringValue == "Previous setting in use: \(sameSpotCone)"
+
+        daemon.activePreparedRenderQuality = .init(volumeLighting: .ultra)
+        daemon.activeRasterDisplayStatuses = []
+        view.refreshSceneRenderReadouts(.init(volumeLighting: .ultra))
+        checks["native-spot-same-path-requires-completed-frame"] = volumeLabel.stringValue == "Awaiting render result"
         let volumes: [(SceneVolumeUse, String)] = [
             (.disabled, "Disabled"),
             (.rendered(.init()), "No volumetric lighting drawn"),
-            (.rendered(.init(spot: true)), "Spotlight cone"),
+            (.rendered(.init(spot: true)), sameSpotCone),
             (.rendered(.init(point: .analytic)), "Analytic point volume"),
             (.rendered(.init(point: .fourPoint)), "Four-point volume (reduced order)"),
             (.rendered(.init(point: .sixPoint, spot: true)), "Six-point volume / Spotlight cone"),

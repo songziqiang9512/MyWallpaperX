@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cf5da68704ea7e69ab9ac1d487042cd8396a2405ed70a05d182f82d1f52ba2a7",
+        "sourceSHA256": "98e6be5b6a3ffffcd56cde3c179951c4a20c1f6c21fa0b3752ae71220094bcef",
         "method": "document_registry --audit + document_health --check",
-        "scope": "明确有需求但可选附件预约不足时的反射回显。",
-        "limitations": "签名 M4 完成帧和受控资源拒绝。未新增整场功耗、物理多屏或 Windows 官版对照。"
+        "scope": "明确逐屏光锥独用高／超高的回显与混合点光结果。",
+        "limitations": "原生设置门与既有签名原作终图。未重测 GPU、物理多屏或官版。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6792765ce023026a27d5b6856b18ad010b454efd2412638325f0e9e736c9403b",
+        "sourceSHA256": "59dd8c24e473ca31249d98e473e7b5965930df2a2b1ecef3f577fd0f5b965155",
         "method": "document_registry --audit + document_health --check",
-        "scope": "审计两类未发布纹理试验及独立玻璃、模型原作的反射失败与恢复。",
-        "limitations": "签名 M4 完成帧和受控资源拒绝。未新增整场功耗、物理多屏或 Windows 官版对照。"
+        "scope": "核对聚光回显和两部原作现存图像收据。",
+        "limitations": "原生设置门与既有签名原作终图。未重测 GPU、物理多屏或官版。"
       }
     },
     {

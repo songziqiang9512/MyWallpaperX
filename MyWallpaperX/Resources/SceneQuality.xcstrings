@@ -1123,6 +1123,40 @@
         }
       }
     },
+    "Spotlight cone (same at High and Ultra)": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scheinwerferkegel (gleich bei Hoch und Ultra)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cône du projecteur (identique en Élevé et Ultra)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Конус прожектора (одинаковый для режимов «Высокое» и «Ультра»)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "聚光锥（高与超高效果相同）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spotlight cone (same at High and Ultra)"
+          }
+        }
+      }
+    },
     "No volumetric lighting drawn": {
       "localizations": {
         "de": {

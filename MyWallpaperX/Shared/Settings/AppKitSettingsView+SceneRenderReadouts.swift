@@ -188,6 +188,9 @@ extension AppKitSettingsContainerView {
 
     private func volumeUseDescription(_ use: SceneVolumeUse, prepared: SceneVolumeLightingQuality?) -> String {
         guard case .rendered(let rendered) = use else { return String(localized: "Disabled") }
+        if rendered.spot, rendered.point == nil {
+            return String(localized: "Spotlight cone (same at High and Ultra)", table: "SceneQuality")
+        }
         let point: String? = switch rendered.point {
         case .analytic: String(localized: "Analytic point volume", table: "SceneQuality")
         case .fourPoint:
