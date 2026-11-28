@@ -120,6 +120,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 uniformDeclarations: template.uniformDeclarations,
                 compatibilityTarget: template.compatibilityTarget,
                 implicitFramebufferIdentity: implicitFramebufferIdentity,
+                bindsImageLayerColor: template.bindsImageLayerColor,
                 readinessMask: readinessMask,
                 resolvedTextureFormats: variantKey.resolvedTextureFormats,
                 outputIsRGBA8Unorm: outputIsRGBA8Unorm
@@ -210,7 +211,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                         activeNames: Set(activeSamplerNames),
                         normalBlendModeIdentifiers: normalBlendIdentifiers(
                             resolvedIntegerCombos
-                        )
+                        ),
+                        bindsImageLayerColor: template.bindsImageLayerColor
                     )
             } catch {
                 throw failure(.authoredSamplerSchemaInvalid)

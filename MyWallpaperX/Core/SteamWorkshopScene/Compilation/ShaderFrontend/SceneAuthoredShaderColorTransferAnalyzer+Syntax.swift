@@ -55,6 +55,48 @@ nonisolated extension SceneAuthoredShaderColorTransferAnalyzer {
         fragment: SceneAuthoredShaderSyntaxUnit,
         main: SceneAuthoredShaderSyntaxUnit.Function
     ) -> Bool {
+        rgbOutputCarrierInitializer(outputUses: outputUses, fragment: fragment, main: main)
+            .map(isOpaqueCarrierInitializer) ?? false
+    }
+
+    /// An image source can read straight RGBA when its host tint is applied
+    /// component-wise and subsequent shading only accesses the carrier's RGB.
+    static func tintedImageColorInputSlot(
+        vertex: SceneAuthoredShaderSyntaxUnit,
+        fragment: SceneAuthoredShaderSyntaxUnit
+    ) -> Int? {
+        typealias Syntax = SceneAuthoredShaderConditionalStraightUnionAnalyzer
+        typealias References = SceneAuthoredShaderGlobalReferenceAnalyzer
+        let tint = "g_Color4"
+        guard fragment.declarations.contains(where: {
+            $0.name == tint && $0.storage == .uniform && $0.arraySize == nil
+                && SceneAuthoredShaderValueType(authoredName: $0.typeName) == .float4
+        }), let main = fragment.functions.first(where: { $0.name == "main" }),
+           let initializer = rgbOutputCarrierInitializer(
+                outputUses: fragment.tokens.indices.filter { fragment.tokens[$0].text == "gl_FragColor" },
+                fragment: fragment, main: main
+           ) else { return nil }
+        let factors = SceneAuthoredShaderAssociatedOverBlendAnalyzer.productFactors(initializer)
+            .map(Syntax.strippingParentheses)
+        guard factors.count == 2,
+              let tintFactor = factors.firstIndex(where: {
+                  Syntax.identifier($0) == tint
+                      && References.exactReferenceIndices(tint, in: fragment)?.contains($0.startIndex) == true
+              }) else { return nil }
+        let sample = factors[1 - tintFactor]
+        guard let slot = directTextureSampleSlot(sample),
+              !fragment.functions.contains(where: { $0.name == sample.first?.text }),
+              let sampler = sample.dropFirst(2).first?.text,
+              References.exactReferenceIndices(sampler, in: fragment) == [sample.startIndex + 2],
+              References.exactReferenceIndices(sampler, in: vertex) == [] else { return nil }
+        return slot
+    }
+
+    private static func rgbOutputCarrierInitializer(
+        outputUses: [Int],
+        fragment: SceneAuthoredShaderSyntaxUnit,
+        main: SceneAuthoredShaderSyntaxUnit.Function
+    ) -> ArraySlice<SceneAuthoredShaderToken>? {
         let tokens = fragment.tokens
         guard outputUses.count == 1,
               let output = outputUses.first,
@@ -69,7 +111,7 @@ nonisolated extension SceneAuthoredShaderColorTransferAnalyzer {
               ), expression.count == 1,
               let carrierToken = expression.first,
               carrierToken.kind == .identifier else {
-            return false
+            return nil
         }
         let carrier = carrierToken.text
         let definitions = main.bodyRange.filter { index in
@@ -90,17 +132,17 @@ nonisolated extension SceneAuthoredShaderColorTransferAnalyzer {
                   after: definition,
                   in: tokens,
                   body: main.bodyRange
-              ), isOpaqueCarrierInitializer(initializer) else {
-            return false
+              ) else {
+            return nil
         }
         for use in (definition + 1)..<output where tokens[use].text == carrier {
             guard use + 2 < output,
                   tokens[use + 1].text == ".",
                   ["rgb", "xyz"].contains(tokens[use + 2].text) else {
-                return false
+                return nil
             }
         }
-        return true
+        return initializer
     }
 
     private static func isOpaqueCarrierInitializer(

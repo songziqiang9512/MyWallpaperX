@@ -227,6 +227,11 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
                 candidate.mappedSize.width,
                 candidate.mappedSize.height,
             ].map(Double.init), as: type)
+        case let .textureMipLevelCount(slot):
+            guard slots.indices.contains(slot), let texture = slots[slot]?.resource.publication.candidate.texture else {
+                return nil
+            }
+            return encodeScalar(Float(texture.mipmapLevelCount), type: type)
         case let .textureRotation(slot):
             guard type == .float4,
                   slots.indices.contains(slot),

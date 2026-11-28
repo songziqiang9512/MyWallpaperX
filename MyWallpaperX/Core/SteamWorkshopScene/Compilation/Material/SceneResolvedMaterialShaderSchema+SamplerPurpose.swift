@@ -55,7 +55,8 @@ extension SceneResolvedMaterialShaderSchema {
     nonisolated static func sourceTypedColorSamplers(
         _ samplers: [Int: Sampler],
         vertex: SceneAuthoredShaderSyntaxUnit,
-        fragment: SceneAuthoredShaderSyntaxUnit
+        fragment: SceneAuthoredShaderSyntaxUnit,
+        bindsImageLayerColor: Bool = false
     ) -> [Int: Sampler] {
         let auxiliary = sourceTypedAuxiliarySamplers(
             samplers,
@@ -72,6 +73,10 @@ extension SceneResolvedMaterialShaderSchema {
         let tintSlot = SceneAuthoredShaderNeutralTextureTintAnalyzer.analyze(
             vertex: vertex, fragment: fragment
         )?.textureSlot
+        let tintedImageSource = bindsImageLayerColor && auxiliary[0]?.channelUse == .wholeVector
+            && SceneAuthoredShaderColorTransferAnalyzer.tintedImageColorInputSlot(
+                vertex: vertex, fragment: fragment
+            ) == 0
         for (slot, sampler) in auxiliary {
             if sampler.channelUse == .redAlphaOnly,
                permitsSourceChannelProjection(sampler) {
@@ -86,6 +91,7 @@ extension SceneResolvedMaterialShaderSchema {
                   (sampler.channelUse == .wholeVector && colorGraphSlots.contains(slot))
                     || rgbGraphSlots.contains(slot)
                     || slot == tintSlot
+                    || (slot == 0 && tintedImageSource)
                     || SceneAuthoredShaderTextureChannelAnalyzer
                       .provesStraightColorUse(
                           samplerName: sampler.name,

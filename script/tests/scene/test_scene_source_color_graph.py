@@ -583,13 +583,16 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
         let lease = makeLease(requirePlan(plan), device: device)
         let shader = shaderContract(nodeIndex: 1, pass: false, fragmentOverride: """
             varying vec2 v_TexCoord;
-            uniform sampler2D g_Texture0; // {"material":"albedo"}
+            uniform sampler2D g_Texture0;
             uniform sampler2D g_Texture3; // {"default":"_rt_MipMappedFrameBuffer","hidden":true}
+            uniform float g_Texture0MipMapInfo;
+            uniform float g_Texture3MipMapInfo;
             uniform mat4 g_LayerModelMatrix;
             uniform vec4 g_Color4;
             void main() {
                 vec4 surface = texSample2D(g_Texture0, v_TexCoord) * g_Color4;
-                float mip = g_LayerModelMatrix[3].x;
+                float mip = g_Texture3MipMapInfo * g_LayerModelMatrix[3].x;
+                if (g_Texture0MipMapInfo != 1.0) { surface.rgb = vec3(0.0); }
                 surface.rgb += texSample2DLod(g_Texture3, v_TexCoord, mip).rgb;
                 gl_FragColor = surface;
             }
@@ -640,8 +643,8 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
         }
         let live = makeHistory(reflected: true), black = makeHistory(reflected: false)
         let arms: [(String, MTLTexture, Float)] = [
-            ("black", black, 0), ("base-mip", live, 0), ("mix-mip", live, 0.5), ("small-mip", live, 1),
-            ("black-restored", black, 1), ("base-mip-recolored", live, 0)
+            ("black", black, 0), ("base-mip", live, 0), ("mix-mip", live, 0.25), ("small-mip", live, 0.5),
+            ("black-restored", black, 0.5), ("base-mip-recolored", live, 0)
         ]
         var rows: [[String: Any]] = []
         for (offset, (setting, previous, mip)) in arms.enumerated() {

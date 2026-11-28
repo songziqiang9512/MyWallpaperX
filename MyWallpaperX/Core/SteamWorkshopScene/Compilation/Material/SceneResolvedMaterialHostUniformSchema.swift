@@ -83,6 +83,8 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
         switch (name, field.type) {
         case ("g_Texture\(slot)Resolution", .float4):
             return .textureResolution(slot: slot)
+        case ("g_Texture\(slot)MipMapInfo", .float):
+            return .textureMipLevelCount(slot: slot)
         case ("g_Texture\(slot)Rotation", .float4):
             return .textureRotation(slot: slot)
         case ("g_Texture\(slot)Translation", .float2):
@@ -99,6 +101,7 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
         guard let slot = textureSlotPrefix(name) else { return false }
         return name == "g_Texture\(slot)Rotation"
             || name == "g_Texture\(slot)Translation"
+            || name == "g_Texture\(slot)MipMapInfo"
     }
 
     static func requiresEffectHost(

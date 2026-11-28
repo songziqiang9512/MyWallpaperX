@@ -19,7 +19,10 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 BASE = runpy.run_path(
     str(REPOSITORY_ROOT / "script/tests/scene/test_scene_sampler_default_purpose.py")
 )
-SWIFT_SOURCES = BASE["SWIFT_SOURCES"]
+SWIFT_SOURCES = list(dict.fromkeys(path.resolve() for path in [
+    *BASE["SWIFT_SOURCES"],
+    *BASE["scene_swift_sources"]("shader_contract_resource_resolution"),
+]))
 SUPPORT = BASE["SUPPORT"]
 
 
@@ -108,7 +111,8 @@ private func fragment(
 private func preparedSampler(
     _ source: String,
     vertex: String = vertexSource,
-    samplerName: String = "g_Texture3"
+    samplerName: String = "g_Texture3",
+    bindsImageLayerColor: Bool = false
 ) -> Schema.Sampler? {
     let shader = contract(source, vertex: vertex)
     guard case let .accepted(prepared) =
@@ -120,7 +124,7 @@ private func preparedSampler(
             )
         ) else { return nil }
     let slot = Int(samplerName.dropFirst("g_Texture".count))!
-    return try? Schema.activeSamplers(prepared)[slot]
+    return try? Schema.activeSamplers(prepared, bindsImageLayerColor: bindsImageLayerColor)[slot]
 }
 
 private func token(
@@ -311,6 +315,71 @@ private func syntaxReuseResults() throws -> [String: Any] {
             "multiple": (0..<8).map { token(manySamplers[$0]) }, "emptyCount": empty.count]
 }
 
+private func tintedImagePurposeResults() throws -> [String: String] {
+    let source = """
+        uniform sampler2D g_Texture0;
+        uniform sampler2D g_Texture1; // {"mode":"normal"}
+        uniform sampler2D g_Texture2; // {"mode":"opacitymask"}
+        uniform sampler2D g_Texture3; // {"hidden":true,"default":"_rt_MipMappedFrameBuffer"}
+        uniform vec4 g_Color4;
+        uniform float g_Gain;
+        void main() {
+            vec4 color = texSample2D(g_Texture0, vec2(0.25)) * g_Color4;
+            vec2 normal = texSample2D(g_Texture1, vec2(0.75)).xy;
+            vec4 packed = texSample2D(g_Texture2, vec2(0.125));
+            if (packed.b < g_Gain) {
+                color.rgb += texSample2DLod(g_Texture3, normal, 1.0).rgb;
+            }
+            gl_FragColor = color;
+        }
+        """
+    func slotZero(_ source: String, bindsTint: Bool = true,
+                  path: SceneVFSAssetPath = customPath) -> String {
+        token(preparedSampler(source, samplerName: "g_Texture0", bindsImageLayerColor: bindsTint), path: path)
+    }
+    let renamed = source
+        .replacingOccurrences(of: "color", with: "surface")
+        .replacingOccurrences(of: "texSample2D(g_Texture0, vec2(0.25)) * g_Color4",
+            with: "(g_Color4 * (texture2D(g_Texture0, vec2(0.25))))")
+    let rejected = [
+        "alphaMutation": "color.a *= g_Gain; gl_FragColor = color;",
+        "packedChannelRead": "float packedAlpha = color.a; gl_FragColor = color;",
+        "wholeVectorWrite": "color *= g_Gain; gl_FragColor = color;",
+        "samplerAlias": "vec4 other = texSample2D(g_Texture0, vec2(0.7)); gl_FragColor = color;",
+    ]
+    var result = rejected.mapValues {
+        slotZero(source.replacingOccurrences(of: "gl_FragColor = color;", with: $0))
+    }
+    result["source"] = slotZero(source)
+    result["renamed"] = slotZero(renamed, path: SceneVFSAssetPath("other/renamed-source")!)
+    result["effect"] = slotZero(source, bindsTint: false)
+    result["registeredNormal"] = slotZero(source, path: registeredNormalPath)
+    for slot in 1...3 {
+        result["auxiliary\(slot)"] = token(
+            preparedSampler(source, samplerName: "g_Texture\(slot)", bindsImageLayerColor: true))
+    }
+
+    let stockRoot = URL(fileURLWithPath: "MyWallpaperX/Resources/SceneStockAssets.bundle/assets")
+    let stock = try SceneShaderContractLoader().load(shaderReferences: ["genericimage3"], rootURL: stockRoot)[0]
+    for lighting in [0, 1] {
+        for packed in [false, true] {
+            let key = "stock-\(lighting)-\(packed)"
+            let preparation = SceneAuthoredShaderPreparation.prepareShaderStages(
+                contract: stock, compatibilityTarget: .windowsDX11ShaderModel4,
+                combos: ["REFLECTION": 1, "LIGHTING": lighting, "SCENE_ORTHO": 1],
+                textureReadiness: [0: true, 1: true, 2: packed, 3: true],
+                textureFormats: [1: .rg88])
+            guard case let .accepted(prepared) = preparation else {
+                result[key] = String(describing: preparation)
+                continue
+            }
+            let samplers = try Schema.activeSamplers(prepared, bindsImageLayerColor: true)
+            result[key] = token(samplers[0])
+        }
+    }
+    return result
+}
+
 private func alphaRGBSource(three: Bool = false, helper: Bool = false) -> String {
     let join = helper ? "JoinRGB(0, canvas.rgb, picture.rgb, amount)"
         : "mix(canvas.rgb, picture.rgb, amount)"
@@ -446,6 +515,7 @@ private enum Main {
             """
         )
         let results: [String: Any] = [
+            "tintedImagePurpose": try tintedImagePurposeResults(),
             "alphaRGBPurpose": alphaRGBPurposeResults(),
             "syntaxReuse": try syntaxReuseResults(),
             "graphPurpose": graphPurposeResults(),
@@ -699,6 +769,17 @@ class SceneSourceProvenStraightColorPurposeTests(unittest.TestCase):
             ("alias", "direct"), "wholeVector/straight-albedo/straight-albedo"))
         self.assertEqual(graph["copyTransfersPreserved"], dict.fromkeys(("alias", "direct"), True))
         self.assertTrue(graph["multipleMutationTransferUnchanged"])
+
+    def test_tinted_image_source_projects_only_the_rgba_carrier_into_straight_color(self) -> None:
+        result = self.result["tintedImagePurpose"]
+        for name in ("source", "renamed", "stock-0-false", "stock-0-true", "stock-1-false", "stock-1-true"):
+            self.assertEqual(result[name], "wholeVector/straight-albedo/straight-albedo", name)
+        for name in ("alphaMutation", "packedChannelRead", "wholeVectorWrite", "samplerAlias", "effect"):
+            self.assertEqual(result[name], "wholeVector/nil/nil", name)
+        self.assertEqual(result["registeredNormal"], "wholeVector/straight-albedo/nil")
+        self.assertEqual(result["auxiliary1"], "redGreenOnly/nil/normal")
+        self.assertEqual(result["auxiliary2"], "wholeVector/nil/mask")
+        self.assertEqual(result["auxiliary3"], "unproven/nil/nil")
 
     def test_color_graph_rejects_data_alpha_control_flow_and_escaped_uses(self) -> None:
         graph = self.result["colorGraph"]

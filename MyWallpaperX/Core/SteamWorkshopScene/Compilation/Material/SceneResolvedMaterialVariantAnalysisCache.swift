@@ -215,6 +215,7 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
         compatibilityTarget: SceneShaderCompatibilityTarget,
         implicitFramebufferIdentity:
             SceneAuthoredEffectRenderPlan.TextureIdentity?,
+        bindsImageLayerColor: Bool = false,
         readinessMask: UInt8,
         resolvedTextureFormats: [Int: SceneShaderTextureFormat],
         outputIsRGBA8Unorm: Bool
@@ -244,6 +245,7 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
         } else {
             digest.append("identity:-")
         }
+        digest.append(bindsImageLayerColor ? "image-color:1" : "image-color:0")
         digest.append("readiness:\(readinessMask)")
         digest.append(
             "formats:"

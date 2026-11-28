@@ -155,7 +155,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                     resolvedCombos.compactMap { name, value in
                         value == 0 ? name : nil
                     }
-                )
+                ),
+                bindsImageLayerColor: template.bindsImageLayerColor
             )
         case .rejected, .notApplicable:
             throw Issue.sampler("bootstrap-variant")
@@ -315,7 +316,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
     static func activeSamplers(
         _ prepared: SceneShaderPreparedProgram,
         runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none,
-        boundTextureSlots: Set<Int> = []
+        boundTextureSlots: Set<Int> = [],
+        bindsImageLayerColor: Bool = false
     ) throws -> [Int: Sampler] {
         // Schema construction may retain a conservative lexical sampler set
         // when only a dynamic loop blocks the bounded frontend.  Executable
@@ -327,7 +329,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                 runtimeLoopBounds: runtimeLoopBounds,
                 boundTextureSlots: boundTextureSlots
             ) else { throw Issue.sampler("prepared-frontend") }
-        return try activeSamplers(prepared, activeNames: activeNames)
+        return try activeSamplers(prepared, activeNames: activeNames,
+                                  bindsImageLayerColor: bindsImageLayerColor)
     }
 
     /// A validated compiler artifact already publishes its active reflection.
@@ -338,7 +341,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         activeNames: Set<String>,
         analysisVertexSource: String? = nil,
         analysisFragmentSource: String? = nil,
-        normalBlendModeIdentifiers: Set<String> = []
+        normalBlendModeIdentifiers: Set<String> = [],
+        bindsImageLayerColor: Bool = false
     ) throws -> [Int: Sampler] {
         guard activeNames.allSatisfy({ name in
             name.hasPrefix("g_Texture") && Int(name.dropFirst(9)) != nil
@@ -363,7 +367,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             )
         }
         let sourceTyped = sourceTypedColorSamplers(
-            projected, vertex: syntax.vertex, fragment: syntax.fragment
+            projected, vertex: syntax.vertex, fragment: syntax.fragment,
+            bindsImageLayerColor: bindsImageLayerColor
         )
         return sourceTypedSpatialWeightedColorBlendSamplers(
             sourceTyped,

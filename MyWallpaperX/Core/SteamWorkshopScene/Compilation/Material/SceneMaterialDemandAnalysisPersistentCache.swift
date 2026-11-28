@@ -38,6 +38,7 @@ struct ResourceDemandAnalysisKey: Hashable {
     let uniformDeclarations: [Template.UniformDeclaration]
     let compatibilityTarget: SceneShaderCompatibilityTarget
     let hasImplicitFramebuffer: Bool
+    let bindsImageLayerColor: Bool
     let sourceFormats: [Int: SceneResolvedMaterialShaderSchema.SourceFormatFact]
 
     init(
@@ -69,6 +70,7 @@ struct ResourceDemandAnalysisKey: Hashable {
         uniformDeclarations = template.uniformDeclarations
         compatibilityTarget = template.compatibilityTarget
         hasImplicitFramebuffer = implicitFramebufferIdentity != nil
+        bindsImageLayerColor = template.bindsImageLayerColor
         self.sourceFormats = sourceFormats
     }
 }
@@ -136,6 +138,7 @@ struct ResourceDemandAnalysisKey: Hashable {
         )
         append(key.compatibilityTarget.rawValue)
         append(key.hasImplicitFramebuffer ? "1" : "0")
+        append(key.bindsImageLayerColor ? "1" : "0")
         for (slot, fact) in key.sourceFormats.sorted(by: { $0.key < $1.key }) {
             switch fact {
             case let .texture(format): append("format:\(slot):\(format.macroValue)")

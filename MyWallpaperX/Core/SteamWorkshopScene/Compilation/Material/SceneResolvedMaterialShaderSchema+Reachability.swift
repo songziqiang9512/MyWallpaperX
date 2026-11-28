@@ -61,7 +61,8 @@ extension SceneResolvedMaterialShaderSchema {
                 ),
                 boundTextureSlots: Set(template.textureSlots.indices.filter {
                     template.textureSlots[$0] != nil
-                })
+                }),
+                bindsImageLayerColor: template.bindsImageLayerColor
             )
             cache[key] = result
             return result
