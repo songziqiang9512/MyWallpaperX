@@ -57,6 +57,9 @@ import Darwin
             "diagnosticDoesNotChangeSelectedBytes": input.pathExtension == "bin" && input.lastPathComponent == "selected.bin",
             "snapshotClosesOwnedDescriptor": !opened(file),
         ]
+        let prefix = try handle.readPrefixSnapshot(upToCount: 22)
+        checks["prefixUsesOpenedRevisionAndReturnsOnlyRequestedBytes"] =
+            prefix.identity == key && prefix.data == Data(first.prefix(22))
         var chunks = Data(), chunkSizes: [Int] = []
         let streamedIdentity = try handle.readChunks { chunk in
             chunks.append(chunk); chunkSizes.append(chunk.count)
@@ -115,6 +118,9 @@ import Darwin
         let snapshotBeforeEdit = refreshed
         try put(file, Data("shorter".utf8))
         checks["returnedSnapshotOwnsItsBytesAcrossLaterEdit"] = snapshotBeforeEdit.data == next
+        let shortPrefix = try handle.readPrefixSnapshot(upToCount: 22)
+        checks["shortPrefixKeepsActualCurrentFileRevision"] = try shortPrefix.data == Data("shorter".utf8)
+            && shortPrefix.identity == input.currentIdentity() && shortPrefix.identity != prefix.identity
         do {
             _ = try input.readSnapshot(maximumBytes: 6)
             checks["explicitReadBudgetRejectsOversize"] = false
@@ -130,14 +136,14 @@ import Darwin
         checks["cancelDoesNotPoisonNextRequest"] = try input.readSnapshot().data == Data("shorter".utf8)
         var changedOnFD = false
         do {
-            _ = try input.readSnapshot(checkCancellation: {
+            _ = try handle.readPrefixSnapshot(upToCount: 22, checkCancellation: {
                 if !changedOnFD && opened(file) {
                     try put(file, Data("new selected path".utf8)); changedOnFD = true
                 }
             })
-            checks["openedPathReplacementCannotPublishSnapshot"] = false
+            checks["openedPathReplacementCannotPublishPrefix"] = false
         } catch SceneResourceView.ReadError.sourceChanged {
-            checks["openedPathReplacementCannotPublishSnapshot"] = changedOnFD
+            checks["openedPathReplacementCannotPublishPrefix"] = changedOnFD
         }
         checks["sourceChangeClosesOwnedDescriptor"] = !opened(file)
         let siblingFile = author.appendingPathComponent("images/selected.bin-json")

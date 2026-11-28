@@ -82,6 +82,9 @@ func observeEntry(_ descriptor: Int32, _ begin: UInt64, _ length: UInt64) -> Int
             let view = SceneResourceView(projectRoot: .init(source: .loose, url: loose), packageRoot: root, stockRoot: nil)
             let handle = view.resolvedResource(relativePath: "MATERIALS/ODD.TEX")!
             let snapshot = try handle.readSnapshot()
+            let prefix = try handle.readPrefixSnapshot(upToCount: 22)
+            result["shortPrefixUsesSelectedPackageEntryAndFullRevision"] = prefix.data == snapshot.data
+                && prefix.identity == snapshot.identity
             result["packageHasNoPhysicalResourceOrRootURL"] = root.directoryURL == nil
                 && root.index.directoryURL == nil && root.index.resources.allSatisfy { $0.directoryURL == nil }
             result["ordinaryNamespaceIncludesNonExtractorKinds"] = ["unlisted/unusual.bin", "fonts/custom.ttf"]
@@ -119,6 +122,10 @@ func observeEntry(_ descriptor: Int32, _ begin: UInt64, _ length: UInt64) -> Int
             var handle: SceneResourceView.Handle? = root!.handle(relativePath: "unlisted/large.bin")
             weak var reader = root!.packageBacking!.opened
             let expected = try handle!.readBytes()
+            try observePayload(reader!)
+            let prefix = try handle!.readPrefixSnapshot(upToCount: 22)
+            result["prefixReadsOnlyRequestedPayloadBytesFromSameFD"] = try prefix.data == Data(expected.prefix(22))
+                && prefix.identity == handle!.currentIdentity() && observedBytes() == 22 && observedCalls() == 1
             var chunks: [Int] = [], bytes = Data(), preparedIdentity: SceneResourceView.ContentIdentity?
             var preparedBeforeConsume = true
             let identity = try handle!.readChunks(prepare: { preparedIdentity = $0 }) { chunk in
@@ -231,6 +238,7 @@ func observeEntry(_ descriptor: Int32, _ begin: UInt64, _ length: UInt64) -> Int
             let changed = Data(repeating: 88, count: Int(entry.size))
             try writer.write(contentsOf: changed); try writer.close()
             result["staleOpenRejectsReadAndCacheIdentity"] = rejects({ _ = try selected.readBytes() }, matching: hard)
+                && rejects({ _ = try selected.readPrefixSnapshot(upToCount: 22) }, matching: hard)
                 && rejects({ _ = try selected.currentIdentity() }, matching: hard)
             let current = try mount(packageURL).handle(relativePath: "materials/bad.tex")!.readSnapshot()
             result["freshRevisionReadsCurrentPlayableBytes"] = current.data == changed && current.identity != before.identity

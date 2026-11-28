@@ -10,7 +10,7 @@
 冷准备接口、变体与PSO，帧内只取变体及当前值。uniform与静态循环取 `material` 注解键，实例同键覆盖，缺键用默认；无注解沿GLSL名。动态校验和脚本沿绑定。
 
 - shader 注解保留源行、原声明和诊断。仅被现入口分类为纯注释 COMBO 损坏记录的情形可跳过该条 metadata；不伪造 annotation/default，也不吞代码、inline 声明或来源完整性错误。
-- `VERSION`/`SHADERVERSION` 没有可信客户端版本 provider。未消费记录不阻止无关源码，但不能注入宏或授权实际版本分支；活跃读取仍拒绝。
+- Win DX11/SM4 条件按官版 2.8.0.42，`PLATFORM_ANDROID` 缺席、`SHADERVERSION=69`。普通读、`VERSION` 与作者覆盖保原边界。
 - sampler 的 editor `require` 不代替运行 readiness。实际声明、候选绑定与编译后的接口决定资源需求。
 - backend 已删除的纹理参数只有在实际 MSL 接口缺席且没有 Resolution 活读时才退出绑定。fragment-dead varying 的纯顶点计算按既有数据流证明投影；live `gl_Position`、副作用、歧义和实际 inverse 消费不能被删或补 identity。
 - uniform 派生只读常量由原 frontend/normalizer 沿[词法身份合同](#uniform-derived-global-scope)降低。实际资源、类型、反射及 ABI 仍在原入口验证，不能用 metadata 推出整段 shader 已可执行。

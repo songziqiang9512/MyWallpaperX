@@ -21,7 +21,7 @@ nonisolated struct ScenePersistentSamplerRecord: Codable, Equatable {
     init(sampler: SceneResolvedMaterialShaderSchema.Sampler) {
         name = sampler.name
         slot = sampler.slot
-        mode = ScenePersistentSamplerRecord.modeName(sampler.mode)
+        mode = sampler.mode.rawValue
         materialKey = sampler.materialKey
         labelKey = sampler.labelKey
         formatKey = sampler.formatKey
@@ -59,15 +59,8 @@ nonisolated struct ScenePersistentSamplerRecord: Codable, Equatable {
 
     func rebuild()
     -> SceneResolvedMaterialShaderSchema.Sampler? {
-        let rebuiltMode: SceneResolvedMaterialShaderSchema.TextureMode
-        switch mode {
-        case "regular": rebuiltMode = .regular
-        case "opacity-mask": rebuiltMode = .opacityMask
-        case "rgb-mask": rebuiltMode = .rgbMask
-        case "flow-mask": rebuiltMode = .flowMask
-        case "depth": rebuiltMode = .depth
-        default: return nil
-        }
+        guard let rebuiltMode = SceneResolvedMaterialShaderSchema.TextureMode(rawValue: mode)
+        else { return nil }
         let defaultTexture: SceneResolvedMaterialShaderSchema.DefaultTexture?
         switch defaultTextureKind {
         case nil: defaultTexture = nil
@@ -104,17 +97,5 @@ nonisolated struct ScenePersistentSamplerRecord: Codable, Equatable {
             channelUse: channelUse,
             sourceProvenPurpose: purpose
         )
-    }
-
-    private static func modeName(
-        _ mode: SceneResolvedMaterialShaderSchema.TextureMode
-    ) -> String {
-        switch mode {
-        case .regular: return "regular"
-        case .opacityMask: return "opacity-mask"
-        case .rgbMask: return "rgb-mask"
-        case .flowMask: return "flow-mask"
-        case .depth: return "depth"
-        }
     }
 }

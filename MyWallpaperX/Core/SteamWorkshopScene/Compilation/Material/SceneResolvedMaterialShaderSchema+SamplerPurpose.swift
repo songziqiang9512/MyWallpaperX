@@ -7,6 +7,7 @@ extension SceneResolvedMaterialShaderSchema {
         case .opacityMask: .mask
         case .rgbMask: .preservedChannels
         case .flowMask: .flow
+        case .normal: .normal
         case .depth: .depth
         }
     }
@@ -195,8 +196,8 @@ extension SceneResolvedMaterialShaderSchema {
         if case let .provider(provider) = reference {
             switch provider {
             case .namedLayerTarget:
-                // The actual named publication may later select its data ABI.
-                return .premultipliedColor
+                // The named publication can select its data ABI at runtime.
+                return sampler.mode == .normal ? nil : .premultipliedColor
             case .sceneBackground:
                 return explicitPurpose(for: sampler.mode) ?? .premultipliedColor
             case .sceneEnvironment:

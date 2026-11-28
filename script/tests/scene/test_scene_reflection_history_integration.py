@@ -901,14 +901,25 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
         material = json.loads(authored["materials/environment.json"])
         material["passes"][0].update(blending="translucent", alphawriting="default")
         material["passes"][0]["textures"][0] = "materials/albedo.png"
+        material["passes"][0]["textures"][1] = "materials/orientation"
+        normal_pixels = b"\xff\x30" * 16
+        entries["materials/orientation.tex"] = (
+            b"TEXV0005\0TEXI0001\0" + struct.pack("<7I", 8, 0, 4, 4, 4, 4, 0)
+            + b"TEXB0001\0" + struct.pack("<5I", 1, 1, 4, 4, len(normal_pixels)) + normal_pixels
+        )
         entries["materials/environment-source.json"] = json.dumps(material).encode()
         entries["models/environment-source.json"] = b'{"material":"materials/environment-source.json"}'
         for path in ("materials/albedo.png", "shaders/own_environment.vert"):
             entries[path] = authored[path]
         entries["shaders/own_environment.frag"] = (
             'uniform sampler2D g_Texture3; // {"hidden":true,"default":"_rt_MipMappedFrameBuffer"}\n'
+            'uniform sampler2D g_Texture1; // {"mode":"normal","format":"rg88","combo":"HAS_ORIENTATION","formatcombo":true}\n'
             "uniform vec4 g_Color4;\n"
-            "void main(){gl_FragColor=texSample2D(g_Texture3,vec2(0.875,0.5))*g_Color4;}\n"
+            "void main(){float gain=0.25;\n"
+            "#if !defined(PLATFORM_ANDROID) && SHADERVERSION == 69 && HAS_ORIENTATION && TEX1FORMAT == 8\n"
+            "gain=texSample2D(g_Texture1,vec2(0.5)).r;\n"
+            "#endif\n"
+            "gl_FragColor=texSample2D(g_Texture3,vec2(0.875,0.5))*g_Color4*vec4(gain,gain,gain,1); }\n"
         ).encode()
         entries["effects/transparent-tail/effect.json"] = b'{"passes":[{"material":"materials/transparent-tail.json"}]}'
         entries["materials/transparent-tail.json"] = (

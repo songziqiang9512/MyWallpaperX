@@ -5,6 +5,7 @@ nonisolated extension SceneShaderVariantResolver {
         _ schemas: [Schema],
         explicit: [String: Int64],
         textureFormats: [Int: SceneShaderTextureFormat],
+        textureReadiness: [Int: Bool],
         schemaProviders: Set<String>,
         compatibilityTarget: SceneShaderCompatibilityTarget,
         requirementDefinitions: [String: SceneShaderMacroDefinition],
@@ -23,7 +24,22 @@ nonisolated extension SceneShaderVariantResolver {
         let groupedSchemas = Dictionary(grouping: active, by: \.combo)
         for combo in groupedSchemas.keys.sorted() {
             guard let comboSchemas = groupedSchemas[combo] else { continue }
-            let slots = Set(comboSchemas.compactMap(\.textureFormatSlot))
+            if explicit[combo] != nil {
+                throw Failure(
+                    code: .explicitTextureFormatConflict,
+                    combo: combo,
+                    message: "Texture format macros are host-owned and cannot come from material combos."
+                )
+            }
+            let slots = Set(comboSchemas.compactMap { schema -> Int? in
+                guard case let .textureFormat(slot, followsPresence) = schema.origin,
+                      !followsPresence || textureReadiness[slot] != false else { return nil }
+                return slot
+            })
+            if slots.isEmpty {
+                provenance[combo] = .requirementInactive
+                continue
+            }
             let missingSlots = slots.filter { textureFormats[$0] == nil }.sorted()
             guard missingSlots.isEmpty else {
                 throw Failure(
@@ -43,13 +59,6 @@ nonisolated extension SceneShaderVariantResolver {
             let expected = SceneShaderMacroDefinition.defined(
                 .integer(Int64(value))
             )
-            if explicit[combo] != nil {
-                throw Failure(
-                    code: .explicitTextureFormatConflict,
-                    combo: combo,
-                    message: "Texture format macros are host-owned and cannot come from material combos."
-                )
-            }
             if definitions[combo] != .undefined,
                definitions[combo] != expected {
                 throw Failure(

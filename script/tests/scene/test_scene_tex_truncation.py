@@ -50,6 +50,13 @@ class SceneTexTruncationTests(unittest.TestCase):
 import Foundation
 @main enum Harness {
     static func main() throws {
+        var formatHeader = Data("TEXV0005\\0TEXI0001\\0".utf8)
+        formatHeader.append(contentsOf: [0x78, 0x56, 0x34, 0x12])
+        precondition(SceneTexContainerReader.formatHeaderByteCount == formatHeader.count)
+        precondition(SceneTexContainerReader.rawFormat(inHeader: formatHeader) == 0x12345678)
+        precondition(SceneTexContainerReader.rawFormat(inHeader: formatHeader.dropLast()) == nil)
+        formatHeader[9] = 0
+        precondition(SceneTexContainerReader.rawFormat(inHeader: formatHeader) == nil)
         var checked = 0
         var acceptedPrefixes: [String] = []
         for path in CommandLine.arguments.dropFirst() {

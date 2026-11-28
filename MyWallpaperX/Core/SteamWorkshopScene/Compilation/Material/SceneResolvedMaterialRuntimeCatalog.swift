@@ -40,6 +40,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         let entry: Entry
         var sharedModelPath: String? = nil
         var capturesMainTarget: Bool = false
+        var formatSeedSamplers: [Int: SceneResolvedMaterialShaderSchema.Sampler] = [:]
     }
 
     enum Entry {
@@ -147,6 +148,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
     let entries: [Key: Entry]
     let sourceMaterialEntries: [Int: SourceMaterialEntry]
     let sourceMaterialTargetFormat: SceneGraphRenderTargetPlan.TextureFormat
+    let capturedSourceFormats: [SceneVFSAssetPath: SceneTexturePathResolver.CapturedFormat]
     enum AssetDemandOwner: Equatable {
         case effect(Graph.EffectKey)
         case independent
@@ -190,6 +192,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance] = [:],
         loweredSourceMaterialModelPaths: Set<String> = [],
         provenSourceMaterialBindings: [SceneBaseMaterialColorModulationCompiler.Binding] = [],
+        captureSourceFormat: ((SceneVFSAssetPath) -> SceneTexturePathResolver.CapturedFormat?)? = nil,
         cancellationCheck: (() throws -> Void)? = nil
     ) throws {
         try cancellationCheck?()
@@ -344,7 +347,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                         systemDemands: &localSystemDemands,
                         issues: &localIssues,
                         analyses: resourceDemandAnalyses
-                    )
+                    ).formats
                     outcome = .init(
                         key: key,
                         entry: .template(template, textureFormatSlots: textureFormatSlots),
@@ -385,8 +388,11 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
 #endif
         sourceMaterialTargetFormat = descriptor.colorTargetFormat
         var sourceAssetDemands: Set<SceneAssetTextureIdentity> = []
+        var captures: [SceneVFSAssetPath: SceneTexturePathResolver.CapturedFormat] = [:]
         sourceMaterialEntries = try Self.compileSourceMaterials(
             descriptor: descriptor, shaderContracts: shaderContracts,
+            captureSourceFormat: captureSourceFormat,
+            formatCaptures: &captures,
             instances: materialInstancesByLayerID,
             loweredModelPaths: loweredSourceMaterialModelPaths,
             provenBindings: provenSourceMaterialBindings,
@@ -398,6 +404,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             cancellationCheck: cancellationCheck
         )
         try cancellationCheck?()
+        capturedSourceFormats = captures
         entries = compiled
         for identity in sourceAssetDemands { assetOwners[identity] = .independent }
         assetDemandOwners = assetOwners
@@ -414,6 +421,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
     private static func compileSourceMaterials(
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract],
+        captureSourceFormat: ((SceneVFSAssetPath) -> SceneTexturePathResolver.CapturedFormat?)?,
+        formatCaptures: inout [SceneVFSAssetPath: SceneTexturePathResolver.CapturedFormat],
         instances: [Int: SceneDocument.SceneLayerMaterialInstance],
         loweredModelPaths: Set<String>,
         provenBindings: [SceneBaseMaterialColorModulationCompiler.Binding],
@@ -430,6 +439,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         let passes = Dictionary(grouping: descriptor.materialPasses) { normalized($0.materialPath) }
         let fullBindings = provenBindings.filter { !$0.canLowerToCompositor }
         var result: [Int: SourceMaterialEntry] = [:]
+        var probedFormatAssets = Set<SceneVFSAssetPath>()
+        var formatRequirementsByGraph: [String: Result<SceneResolvedMaterialShaderSchema.TextureFormatRequirements, Failure>] = [:]
         for layer in descriptor.layers where layer.contentKind == "image"
             || layer.utilityLayer?.framebufferSource != nil {
             try cancellationCheck?()
@@ -539,18 +550,42 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                     result[layer.id] = reject("provider-unsupported"); continue
                 }
                 try cancellationCheck?()
-                let textureFormatSlots = collectResourceDemands(template, owner: .sourceMaterial(key),
+                let formatRequirements: Result<SceneResolvedMaterialShaderSchema.TextureFormatRequirements, Failure>?
+                if template.bindsImageLayerColor {
+                    let graph = template.shaderContract.sourceGraphCacheSHA256
+                    let requirements = formatRequirementsByGraph[graph]
+                        ?? SceneResolvedMaterialShaderSchema.textureFormatRequirements(in: template)
+                    formatRequirementsByGraph[graph] = requirements
+                    formatRequirements = requirements
+                } else {
+                    formatRequirements = nil
+                }
+                var sourceFormats: [Int: SceneResolvedMaterialShaderSchema.SourceFormatFact] = [:]
+                if let requirements = try? formatRequirements?.get() {
+                    sourceFormats = SceneResolvedMaterialShaderSchema.sourceFormatFacts(
+                        template, requirements: requirements) { path in
+                            if let captureSourceFormat, probedFormatAssets.insert(path).inserted {
+                                formatCaptures[path] = captureSourceFormat(path)
+                            }
+                            return formatCaptures[path].flatMap {
+                                SceneShaderTextureFormat(rawValue: $0.rawFormat)
+                            }
+                        }
+                }
+                try cancellationCheck?()
+                let demand = collectResourceDemands(template, owner: .sourceMaterial(key),
                     implicitFramebufferIdentity: nil, demands: &demands,
                     userDemands: &userDemands, systemDemands: &systemDemands,
-                    issues: &issues, analyses: analyses)
-                let entry: Entry = if template.bindsImageLayerColor, case let .failure(failure) = textureFormatSlots {
+                    issues: &issues, analyses: analyses, formatSlots: formatRequirements?.map(\.slots),
+                    sourceFormats: sourceFormats)
+                let entry: Entry = if template.bindsImageLayerColor, case let .failure(failure) = demand.formats {
                     .failure(failure)
                 } else {
-                    .template(template, textureFormatSlots: textureFormatSlots)
+                    .template(template, textureFormatSlots: demand.formats)
                 }
                 result[layer.id] = .init(key: key, entry: entry,
                     sharedModelPath: proof.map { normalized($0.modelPath) },
-                    capturesMainTarget: capturesMainTarget)
+                    capturesMainTarget: capturesMainTarget, formatSeedSamplers: demand.formatSeedSamplers)
             }
         }
         return result
@@ -644,12 +679,15 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         userDemands: inout Set<SceneUserPropertyTextureIdentity>,
         systemDemands: inout Set<SystemProviderDemand>,
         issues: inout Set<ResourceDemandIssue>,
-        analyses: ResourceDemandAnalysisCache
-    ) -> Result<Set<Int>, Failure> {
+        analyses: ResourceDemandAnalysisCache,
+        formatSlots knownFormatSlots: Result<Set<Int>, Failure>? = nil,
+        sourceFormats: [Int: SceneResolvedMaterialShaderSchema.SourceFormatFact] = [:]
+    ) -> (formats: Result<Set<Int>, Failure>, formatSeedSamplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]) {
         let analysisKey = SceneMaterialDemandAnalysisPersistentCache
             .ResourceDemandAnalysisKey(
             template: template,
-            implicitFramebufferIdentity: implicitFramebufferIdentity
+            implicitFramebufferIdentity: implicitFramebufferIdentity,
+            sourceFormats: sourceFormats
         )
         let analysis = analyses.result(for: analysisKey) {
             if let persisted = SceneMaterialDemandAnalysisPersistentCache
@@ -660,13 +698,14 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                     reachableSamplerSlots: persisted.reachableSamplerSlots
                 )
             }
-            let formatSlots = SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template)
+            let formatSlots = knownFormatSlots ?? SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template)
             do {
                 let textureFormatSlots = try formatSlots.get()
                 var samplers = try SceneResolvedMaterialShaderSchema.reachableSamplers(
                     template,
                     textureFormatSlots: textureFormatSlots,
-                    implicitFramebufferIdentity: implicitFramebufferIdentity
+                    implicitFramebufferIdentity: implicitFramebufferIdentity,
+                    sourceFormats: sourceFormats
                 )
                 let reachableSamplerSlots = Set(samplers.keys)
                 // Non-presence declarations participate before the fixed point. A
@@ -702,9 +741,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             reachableSamplerSlots = activeSlots
         case let .failed(errorDescription, formatSlots):
             if template.bindsImageLayerColor {
-                return formatSlots.flatMap { _ in
-                    .failure(.init(phase: .preparation, code: .shaderPreparationFailed, details: [errorDescription]))
-                }
+                let failure = Failure(phase: .preparation, code: .shaderPreparationFailed, details: [errorDescription])
+                return (formatSlots.flatMap { _ in .failure(failure) }, [:])
             }
 #if DEBUG
             print(
@@ -725,7 +763,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                     )
                 }
             }
-            return formatSlots
+            return (formatSlots, [:])
         }
         if template.bindsImageLayerColor, !reachableSamplerSlots.contains(where: { slot in
             slot != 0 && samplers[slot]?.contains {
@@ -733,7 +771,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                     template: template, sampler: $0, slot: slot) != nil
             } == true
         }) {
-            return .failure(.init(phase: .graph, code: .graphNodeInvalid, details: ["source-material-no-active-environment"]))
+            return (.failure(.init(phase: .graph, code: .graphNodeInvalid, details: ["source-material-no-active-environment"])), [:])
         }
         for slotIndex in 0 ..< 8 {
             let projection = demandProjection(
@@ -820,7 +858,12 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 demands.insert(.init(path: path, purpose: purpose))
             }
         }
-        return .success(textureFormatSlots)
+        var formatSeeds: [Int: SceneResolvedMaterialShaderSchema.Sampler] = [:]
+        for (slot, fact) in sourceFormats {
+            guard case .texture = fact, let candidates = samplers[slot], candidates.count == 1 else { continue }
+            formatSeeds[slot] = candidates.first
+        }
+        return (.success(textureFormatSlots), formatSeeds)
     }
 
     private static func demandProjection(

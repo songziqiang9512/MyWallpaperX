@@ -253,6 +253,45 @@ private func explicitZeroFacts(combo: String, material: String) throws -> [Strin
     return result
 }
 
+private func formatConditionalPurposeLaunch() throws -> [String] {
+    let source = contract("format-conditional-purpose", """
+    varying vec2 uv;
+    uniform sampler2D g_Texture0; // {"mode":"rgbmask"}
+    uniform sampler2D g_Texture1; // {"combo":"HAS_CONTROL","formatcombo":true}
+    void main() {
+    #if HAS_CONTROL && TEX1FORMAT == 9
+        float selector = texSample2D(g_Texture1, uv * 2.0).r;
+        vec4 base = texSample2D(g_Texture0, uv);
+        vec4 shifted = texSample2D(g_Texture0, uv + vec2(0.1));
+        gl_FragColor = mix(base, shifted, smoothstep(0.2, 0.8, selector));
+    #else
+        gl_FragColor = texSample2D(g_Texture0, uv);
+    #endif
+    }
+    """)
+    let base = SceneAssetTextureIdentity(path: SceneVFSAssetPath("self-authored/ground")!, purpose: .preservedChannels)
+    let control = SceneAssetTextureIdentity(path: SceneVFSAssetPath("self-authored/control")!, purpose: .phase)
+    let value = template(source, references: [0: .asset(base.path), 1: .asset(control.path)])
+    let formats = SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value)
+    let active = try SceneResolvedMaterialShaderSchema.reachableSamplers(value,
+        textureFormatSlots: formats.get(), implicitFramebufferIdentity: nil, sourceFormats: [1: .texture(.r8)])
+    guard let candidates = active[1], candidates.count == 1,
+          let seed = candidates.first, seed.sourceProvenPurpose == .phase else { return ["missing-purpose"] }
+    let initial = try SceneResolvedMaterialShaderSchema.unconditionalSamplers(value)
+    guard initial[1]?.sourceProvenPurpose == nil, initial[1] != nil else { return ["unexpected-bootstrap"] }
+    let cache = try SceneResolvedMaterialVariantCache.launchValidated(template: value,
+        textureFormatSlots: formats, maximumVariantCount: 16, assetFormatFacts: [control.reportToken: 9],
+        formatSeedSamplers: [1: seed]).get()
+    switch cache.precompileLaunchEnvelope(implicitFramebufferIdentity: nil,
+        assetStates: [base: .ready(.data), control: .ready(.data)]) {
+    case .success: return cache.launchEnvelopeCapabilitySnapshot().variants.map {
+        $0.frontendProgram.textureBindings.map { String($0.slot) }.sorted().joined(separator: ",")
+    }.sorted()
+    case .failure(.capacity): return ["capacity"]
+    case let .failure(.material(failure)): return [failure.code.rawValue]
+    }
+}
+
 @main private struct Harness {
     static func main() throws {
         let paths = [1: SceneVFSAssetPath("self-authored/amber")!,
@@ -326,6 +365,7 @@ private func explicitZeroFacts(combo: String, material: String) throws -> [Strin
         results["malformedPreparation"] = preparation(malformed, readiness: [1: true, 2: true])
         results["explicitZero"] = try explicitZeroFacts(combo: "MASK", material: "paint")
         results["renamedExplicitZero"] = try explicitZeroFacts(combo: "READY_PAINT", material: "other")
+        results["formatConditionalPurposeLaunch"] = try formatConditionalPurposeLaunch()
         let definedRead = contract("explicit-zero-defined-read", fragment(
             combo: "MASK", material: "paint", expression: "defined(MASK)"))
         results["explicitZeroDefinedRead"] = facts(template(
@@ -452,6 +492,9 @@ class SceneSharedPresenceReachabilityTests(unittest.TestCase):
                 self.assertEqual(facts["seededMasks"], facts["masks"], facts)
         self.assertTrue(self.result["emptySeed"]["seedIsEmpty"])
         self.assertEqual(self.result["emptySeed"]["seededMasks"], [0])
+
+    def test_known_format_preserves_source_proven_bootstrap_purpose(self) -> None:
+        self.assertEqual(self.result["formatConditionalPurposeLaunch"], ["0", "0,1"])
 
     def test_independent_inactive_and_unproven_source_slots_are_not_constrained(self) -> None:
         for name in ("independentMasks", "conditionalMasks", "providerMasks",

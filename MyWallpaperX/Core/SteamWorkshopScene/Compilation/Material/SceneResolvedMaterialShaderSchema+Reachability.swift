@@ -15,10 +15,11 @@ extension SceneResolvedMaterialShaderSchema {
         _ template: Template,
         textureFormatSlots: Set<Int>,
         implicitFramebufferIdentity: Graph.TextureIdentity?,
-        textureFormatProfiles: [[Int: SceneShaderTextureFormat]]? = nil
+        textureFormatProfiles: [[Int: SceneShaderTextureFormat]]? = nil,
+        sourceFormats: [Int: SourceFormatFact] = [:]
     ) throws -> [Int: Set<Sampler>] {
         let profiles = try textureFormatProfiles
-            ?? exhaustiveTextureFormatProfiles(textureFormatSlots: textureFormatSlots)
+            ?? exhaustiveTextureFormatProfiles(textureFormatSlots: textureFormatSlots, sourceFormats: sourceFormats)
         guard !profiles.isEmpty else { throw Issue.sampler("texture-format-envelope") }
         var cache: [ReachabilityVariantKey: [Int: Sampler]] = [:]
         func samplers(
@@ -112,14 +113,46 @@ extension SceneResolvedMaterialShaderSchema {
         return reachable
     }
 
+    enum SourceFormatFact: Hashable {
+        case texture(SceneShaderTextureFormat)
+        case unbound
+    }
+
+    static func sourceFormatFacts(
+        _ template: Template,
+        requirements: TextureFormatRequirements,
+        format: (SceneVFSAssetPath) -> SceneShaderTextureFormat?
+    ) -> [Int: SourceFormatFact] {
+        var facts: [Int: SourceFormatFact] = [:]
+        for slot in requirements.slots {
+            if let textureSlot = template.textureSlots[slot] {
+                guard textureSlot.candidates.count == 1,
+                      case let .asset(path) = textureSlot.candidates[0].reference,
+                      let value = format(path) else { continue }
+                facts[slot] = .texture(value)
+            } else if !requirements.defaults.contains(slot), !requirements.withoutPresence.contains(slot) {
+                facts[slot] = .unbound
+            }
+        }
+        return facts
+    }
+
     private static func exhaustiveTextureFormatProfiles(
-        textureFormatSlots: Set<Int>
+        textureFormatSlots: Set<Int>,
+        sourceFormats: [Int: SourceFormatFact]
     ) throws -> [[Int: SceneShaderTextureFormat]] {
         var profiles: [[Int: SceneShaderTextureFormat]] = [[:]]
         for slot in textureFormatSlots.sorted() {
+            if sourceFormats[slot] == .unbound { continue }
+            let choices: [SceneShaderTextureFormat]
+            if case let .texture(format)? = sourceFormats[slot] {
+                choices = [format]
+            } else {
+                choices = SceneShaderTextureFormat.allCases
+            }
             var expanded: [[Int: SceneShaderTextureFormat]] = []
             for profile in profiles {
-                for format in SceneShaderTextureFormat.allCases {
+                for format in choices {
                     var next = profile
                     next[slot] = format
                     expanded.append(next)

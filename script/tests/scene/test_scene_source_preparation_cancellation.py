@@ -46,6 +46,7 @@ def catalog_preparation_inputs():
     ])
     sources = [*cache.SWIFT_SOURCES, *[SCENE / name for name in (
         "Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift",
+        "Resources/Textures/SceneTexturePathResolver.swift",
         "Compilation/Material/SceneAuthoredMaterialResolver.swift",
         "Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift",
         "Compilation/Material/SceneResolvedMaterialScriptBindingClassifier.swift",

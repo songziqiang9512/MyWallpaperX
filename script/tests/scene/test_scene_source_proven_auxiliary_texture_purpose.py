@@ -262,6 +262,9 @@ private enum Main {
         let phase = activeSamplers(phaseFragment())
         let renamedPhase = activeSamplers(phaseFragment(slot: 5))
         let normal = activeSamplers(normalFragment())
+        let declaredNormal = activeSamplers(normalFragment(
+            slot: 5, metadata: #"// {"mode":"normal","format":"rg88"}"#
+        ))[5].flatMap { ScenePersistentSamplerRecord(sampler: $0).rebuild() }
         let renamedNormal = activeSamplers(normalFragment(slot: 6))
 
         let results: [String: Any] = [
@@ -316,6 +319,12 @@ private enum Main {
                 ))[4]),
                 "normal": token(normal[3]),
                 "renamedNormal": token(renamedNormal[6]),
+                "explicitRGNormal": token(declaredNormal),
+                "normalCannotReadNamedColor": declaredNormal.map { sampler in
+                    Schema.purpose(for: .provider(.namedLayerTarget(
+                        .init(providerLayerID: 99, variant: .primary)
+                    )), sampler: sampler) == nil
+                } == true,
                 "dataChannel": token(activeSamplers(dataChannelFragment())[2]),
                 "renamedDataChannel": token(activeSamplers(
                     dataChannelFragment(slot: 7)
@@ -360,6 +369,9 @@ private enum Main {
                 "phaseHidden": token(activeSamplers(phaseFragment(
                     metadata: #"// {"hidden":true}"#
                 ))[2]),
+                "normalModeUnknown": token(activeSamplers(normalFragment(
+                    metadata: #"// {"mode":"unknown","format":"rg88"}"#
+                ))[3]),
                 "normalProjection": token(activeSamplers(normalFragment(
                     projection: "xy"
                 ))[3]),
@@ -498,6 +510,8 @@ class SceneSourceProvenAuxiliaryTexturePurposeTests(unittest.TestCase):
                 "namedPhase": "redOnly/phase/phase",
                 "normal": "unproven/normal/normal",
                 "renamedNormal": "unproven/normal/normal",
+                "explicitRGNormal": "unproven/nil/normal",
+                "normalCannotReadNamedColor": True,
                 # The juguangdeng dataflow: `.ra` channels become scalar
                 # weights and only weight the terminal mix.
                 "dataChannel": "redAlphaOnly/preserved-channels/preserved-channels",
@@ -527,6 +541,7 @@ class SceneSourceProvenAuxiliaryTexturePurposeTests(unittest.TestCase):
                 "phaseMode": "redOnly/nil/mask",
                 "phaseMaterial": "redOnly/nil/straight-albedo",
                 "phaseHidden": "redOnly/nil/nil",
+                "normalModeUnknown": "missing",
                 "normalProjection": "redGreenOnly/nil/nil",
                 "normalDecode": "unproven/nil/nil",
                 "normalThirdSample": "unproven/nil/nil",

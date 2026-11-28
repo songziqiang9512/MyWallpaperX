@@ -143,6 +143,7 @@ nonisolated enum SceneShaderVariantResolver {
                     schemas,
                     explicit: explicit,
                     textureFormats: textureFormats,
+                    textureReadiness: textureReadiness,
                     schemaProviders: providerNames,
                     compatibilityTarget: compatibilityTarget,
                     requirementDefinitions: state.definitions,

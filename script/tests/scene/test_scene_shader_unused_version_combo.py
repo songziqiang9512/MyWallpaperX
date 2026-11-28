@@ -21,6 +21,7 @@ from script.scene.scene_swift_source_sets import scene_swift_sources  # noqa: E4
 SWIFT_SOURCES = [
     SCENE / "Format/SceneJSONValue.swift",
     SCENE / "Compilation/ShaderContract/SceneShaderSourceGraph.swift",
+    SCENE / "Compilation/ShaderContract/SceneShaderCacheIdentity.swift",
     SCENE / "Compilation/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
     SCENE / "Compilation/ShaderContract/SceneShaderContract.swift",
     SCENE / "Resources/Textures/SceneTextureSampling.swift",
@@ -195,7 +196,7 @@ private func program(_ contract: SceneShaderContract, _ combos: [String: Int]) t
                 try denied("#ifdef \(host)\nREAD\n#endif", undefined)
             }
             check(host + "/runtime-require") {
-                let source = "uniform sampler2D g_Texture1; // {\"combo\":\"OWN_MASK\",\"require\":{\"\(host)\":1}}"
+                let source = "uniform sampler2D g_Texture1; // {\"combo\":\"OWN_MASK\",\"formatcombo\":true,\"require\":{\"\(host)\":1}}"
                 let stage = contract(source).stages[1]
                 switch SceneShaderVariantResolver.resolve(stage: .fragment, stages: [stage],
                     explicitCombos: [host: 3], textureReadiness: [1: true]) {

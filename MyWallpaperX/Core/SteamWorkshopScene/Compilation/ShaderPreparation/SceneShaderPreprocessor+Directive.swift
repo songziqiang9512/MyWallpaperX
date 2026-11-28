@@ -157,19 +157,24 @@ extension SceneShaderPreprocessor.State {
             ))
         case let .ifdef(name, inverted):
             let parent = currentActive
-            if parent,
-               environment.compatibilityTarget
-                   .languageMacroDefinition(for: name) != nil {
+            let conditionalDefinition = parent ? conditionalDefinitions[name] : nil
+            if parent, conditionalDefinition != nil
+                || environment.compatibilityTarget.languageMacroDefinition(for: name) != nil {
                 compatibilityMacroDependencies.insert(name)
             }
-            if parent,
-               macros[name] == nil, functionMacros[name] == nil,
-               selectedDefinitions[name] == nil,
+            let hasConditionValue: Bool
+            if case .defined? = conditionalDefinition {
+                hasConditionValue = true
+            } else {
+                hasConditionValue = false
+            }
+            let isDefined = hasConditionValue || macros[name] != nil || functionMacros[name] != nil
+            if parent, !isDefined, conditionalDefinition == nil, selectedDefinitions[name] == nil,
                let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name),
                !SceneShaderVariantEnvironment.permitsUndefinedZeroInCondition(name) {
                 throw unresolvedEnvironment(name, requirement, node.virtualPath, line)
             }
-            let result = parent && (macros[name] != nil || functionMacros[name] != nil)
+            let result = parent && isDefined
             let selected = inverted ? !result : result
             conditions.append(.init(
                 parentActive: parent,

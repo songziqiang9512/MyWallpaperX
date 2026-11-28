@@ -215,6 +215,7 @@ struct SceneResolvedMaterialRuntimeCatalog {
         let entry: Value
         let sharedModelPath: String?
         var capturesMainTarget = false
+        var formatSeedSamplers: [Int: TestSampler] = [:]
     }
     let sourceMaterialTargetFormat = TestColorFormat()
     let userPropertyDemands: Set<Never> = []
@@ -234,13 +235,7 @@ struct SceneMaterialAssetTextureCatalog {
 struct SceneResolvedMaterialVariantCache {
     struct Frontend { let planAvailable: Bool }
     struct Variant {
-        struct Shader {
-            struct Vertex { let frontendSchemaVersion: Int }
-            let cacheKey: String
-            let vertex: Vertex
-        }
         struct PreparedAssembly {
-            let preparedShader: Shader
             let frontendProgram: Frontend
         }
         struct TextureSelectionFacts { let candidatePurposes: [Int: Set<SceneTextureLoadPurpose>] }
@@ -260,7 +255,7 @@ struct SceneResolvedMaterialVariantCache {
     var hasSceneEnvironmentConsumer: Bool { fixture.hasSceneEnvironmentConsumer }
     static func launchValidated(template: TestTemplate,
                                 textureFormatSlots: Result<Set<Int>, TestError>, maximumVariantCount: Int,
-                                assetFormatFacts: Int) -> Result<Self, TestError> {
+                                assetFormatFacts: Int, formatSeedSamplers: [Int: TestSampler]) -> Result<Self, TestError> {
         if case let .failure(failure) = textureFormatSlots { return .failure(failure) }
         return template.fixture.schemaAccepted ? .success(.init(fixture: template.fixture))
             : .failure(.controlledSchemaFailure)
@@ -700,22 +695,21 @@ enum Checks {
         // owner. No copied admission predicate or shader/GPU surrogate is run.
         let colorReference = TestReference.asset("materials/renamed-color.png")
         let colorSlot = TestTemplate.Slot(candidates: [.init(reference: colorReference)])
-        func variant(_ key: String, samplerZero: TestSampler? = nil,
+        func variant(samplerZero: TestSampler? = nil,
                      otherSampler: Bool = false, planAvailable: Bool = true)
             -> SceneResolvedMaterialVariantCache.Variant {
             var samplers: [Int: TestSampler] = [:]
             if let samplerZero { samplers[0] = samplerZero }
             if otherSampler { samplers[2] = .init(purposes: [colorReference: .normal]) }
             return .init(activeSamplers: samplers, preparedAssembly: .init(
-                preparedShader: .init(cacheKey: key, vertex: .init(frontendSchemaVersion: 1)),
                 frontendProgram: .init(planAvailable: planAvailable)))
         }
         let colorSampler = TestSampler(purposes: [colorReference: .straightAlbedo])
         let unknownSampler = TestSampler(purposes: [:])
         let normalSampler = TestSampler(purposes: [colorReference: .normal])
-        let inactiveVariants = [variant("inactive-a"), variant("inactive-b")]
-        let activeVariants = [variant("active-a", samplerZero: colorSampler),
-                              variant("active-b", samplerZero: colorSampler)]
+        let inactiveVariants = [variant(), variant()]
+        let activeVariants = [variant(samplerZero: colorSampler),
+                              variant(samplerZero: colorSampler)]
         func sourceCase(_ name: String,
                         variants: [SceneResolvedMaterialVariantCache.Variant],
                         slots: [TestTemplate.Slot?]? = nil,
@@ -771,19 +765,19 @@ enum Checks {
             .init(value: .staticExact),
         ], preparedDynamicUniforms: [.init(target: .declaredLive)], hasSceneEnvironmentConsumer: true, bindsImageLayerColor: true)
         sourceCase("sourceInactiveNoCandidate", variants: inactiveVariants, slots: [])
-        sourceCase("sourceOtherSamplerOnly", variants: [variant("other-a", otherSampler: true),
-                                                         variant("other-b", otherSampler: true)])
+        sourceCase("sourceOtherSamplerOnly", variants: [variant(otherSampler: true),
+                                                         variant(otherSampler: true)])
         sourceCase("sourceActiveSamePurpose", variants: activeVariants)
-        sourceCase("sourceActiveUnknownPurpose", variants: [variant("unknown", samplerZero: unknownSampler)])
+        sourceCase("sourceActiveUnknownPurpose", variants: [variant(samplerZero: unknownSampler)])
         sourceCase("sourceActiveConflictingPurposes", variants: [activeVariants[0],
-            variant("conflict", samplerZero: normalSampler)])
+            variant(samplerZero: normalSampler)])
         sourceCase("sourceMixedActiveInactive", variants: [activeVariants[0], inactiveVariants[0]])
         sourceCase("sourceIncompleteEnvelope", variants: inactiveVariants, allEntriesReady: false)
         sourceCase("sourceEmptyEnvelope", variants: [])
         sourceCase("sourceSchemaFailure", variants: inactiveVariants, schemaAccepted: false)
         sourceCase("sourcePrecompileFailure", variants: inactiveVariants, precompileAccepted: false)
         sourceCase("sourceActiveMissingCandidate", variants: activeVariants, slots: [])
-        sourceCase("sourcePlanFailure", variants: [variant("no-plan", planAvailable: false), inactiveVariants[0]])
+        sourceCase("sourcePlanFailure", variants: [variant(planAvailable: false), inactiveVariants[0]])
         sourceCase("sourceWarmupFailure", variants: inactiveVariants,
                    warmupReport: .init(failedKeyCount: 1, readyKeyCount: 1))
         sourceCase("sourceWarmupNoReady", variants: inactiveVariants,
@@ -792,14 +786,14 @@ enum Checks {
         let mainSampler = TestSampler(purposes: [mainReference: .premultipliedColor])
         let mainSlot = TestTemplate.Slot(candidates: [.init(reference: mainReference)])
         let mainSlots: [TestTemplate.Slot?] = [mainSlot] + Array(repeating: nil, count: 7)
-        let mainVariants = [variant("main-a", samplerZero: mainSampler),
-                            variant("main-b", samplerZero: mainSampler)]
+        let mainVariants = [variant(samplerZero: mainSampler),
+                            variant(samplerZero: mainSampler)]
         sourceCase("sourceCapturedMain", variants: mainVariants, slots: mainSlots, capturesMainTarget: true)
         sourceCase("sourceCapturedInactive", variants: [mainVariants[0], inactiveVariants[0]],
                    slots: mainSlots, capturesMainTarget: true)
         sourceCase("sourceCapturedWrongPurpose", variants: activeVariants,
                    slots: mainSlots, capturesMainTarget: true)
-        sourceCase("sourceCapturedOtherSampler", variants: [variant("main-other", samplerZero: mainSampler,
+        sourceCase("sourceCapturedOtherSampler", variants: [variant(samplerZero: mainSampler,
                    otherSampler: true)], slots: mainSlots, capturesMainTarget: true)
         let wrongMain = TestTemplate.Slot(candidates: [.init(reference: .provider(.sceneBackground(consumerLayerID: 99)))])
         sourceCase("sourceCapturedWrongConsumer", variants: mainVariants,

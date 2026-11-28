@@ -33,7 +33,7 @@ nonisolated struct SceneShaderPreparedSource: Codable, Equatable, Sendable {
     let sourceMap: [SceneShaderSourceMapEntry]
     let activeAnnotations: [SceneShaderActiveAnnotation]
     let activeDeclarations: [SceneShaderActiveDeclaration]
-    /// Host-owned author-language macros that were actually evaluated or
+    /// Host-owned compatibility macros that were actually evaluated or
     /// expanded while preparing this source. Merely carrying an explicit
     /// target is not evidence that the target changed authored source.
     let compatibilityMacroDependencies: [String]
@@ -154,6 +154,23 @@ nonisolated enum SceneShaderCompatibilityTarget: String, Codable, Equatable,
             ]
         }
     }
+
+    var conditionalMacroDefinitions: [String: SceneShaderMacroDefinition] {
+        self == .windowsDX11ShaderModel4 ? Self.windowsConditionalMacros : [:]
+    }
+
+    var conditionalMacroBindings: [SceneShaderMacroBinding] {
+        self == .windowsDX11ShaderModel4 ? Self.windowsConditionalBindings : []
+    }
+
+    // Measured in Wallpaper Engine 2.8.0.42's DX11 preprocessor.
+    private static let windowsConditionalBindings: [SceneShaderMacroBinding] = [
+        .init(name: "PLATFORM_ANDROID", definition: .undefined),
+        .init(name: "SHADERVERSION", definition: .defined(.integer(69))),
+    ]
+    private static let windowsConditionalMacros = Dictionary(
+        uniqueKeysWithValues: windowsConditionalBindings.map { ($0.name, $0.definition) }
+    )
 
     func languageMacroDefinition(
         for identifier: String
@@ -335,7 +352,7 @@ nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
             backend: .mwxMetal,
             compatibilityTarget: compatibilityTarget,
             stage: stage,
-            environmentDefines: compatibilityTarget.languageMacroBindings,
+            environmentDefines: environmentDefines + compatibilityTarget.conditionalMacroBindings,
             combos: bindings
         ))
     }
@@ -350,10 +367,8 @@ nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
     }
 
     func selectedMacroDefinitions() -> [String: SceneShaderMacroDefinition] {
-        // Keep authored version records in the variant identity, but never
-        // mistake their values (including explicit undefined) for host facts.
-        // The preprocessor rejects actual reads through its existing unresolved
-        // environment checks; unused records do not affect prepared source.
+        // Authored version records affect identity only. Verified target
+        // conditions are supplied independently of the source expansion table.
         Dictionary(uniqueKeysWithValues: (environmentDefines + combos).filter {
             Self.unresolvedRequirement(for: $0.name) != .clientVersion
         }.map {

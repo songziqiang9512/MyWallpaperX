@@ -173,11 +173,26 @@ final class SceneMaterialAssetTextureCatalog {
         SceneAssetTextureIdentity: SceneAssetTextureLaunchState
     ]
 
+    static func captureTEXFormat(
+        named path: SceneVFSAssetPath, resolver: SceneTexturePathResolver,
+        checkCancellation: (() throws -> Void)?
+    ) -> SceneTexturePathResolver.CapturedFormat? {
+        guard let input = resolver.resolveTextureFile(named: path.value),
+              input.pathExtension.lowercased() == "tex",
+              case let .resource(handle) = input,
+              let prefix = try? handle.readPrefixSnapshot(
+                upToCount: SceneTexContainerReader.formatHeaderByteCount, checkCancellation: checkCancellation),
+              let raw = SceneTexContainerReader.rawFormat(inHeader: prefix.data),
+              SceneShaderTextureFormat(rawValue: raw) != nil else { return nil }
+        return .init(input: input, identity: prefix.identity, rawFormat: raw)
+    }
+
     init(
         demands: Set<SceneAssetTextureIdentity>,
         resourceView: SceneResourceView,
         descriptor: SceneRenderDescriptor,
         conditionalDemands: Set<SceneAssetTextureIdentity> = [],
+        capturedSourceFormats: [SceneVFSAssetPath: SceneTexturePathResolver.CapturedFormat] = [:],
         matchesCondition: (SceneTexContainer.Condition) -> Bool = { _ in false },
         textureUploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
         textureDecodeCacheBudget: SceneTextureDecodeCacheBudget = .init(
@@ -204,19 +219,31 @@ final class SceneMaterialAssetTextureCatalog {
         var launchStates: [
             SceneAssetTextureIdentity: SceneAssetTextureLaunchState
         ] = [:]
-        var sourceCohort: (input: SceneResourceView.FileInput,
+        var sourceCohort: (input: SceneResourceView.FileInput, source: SceneTextureLoader.SourceKey?,
             tex: SceneTextureLoader.PreparedTexSource?, direct: SceneTextureLoader.PreparedDirectImageSource?)?
         for identity in demands.sorted(by: Self.less) {
             try checkCancellation?()
-            guard let url = resolver.resolveTextureFile(named: identity.path.value) else {
+            let captured = capturedSourceFormats[identity.path]
+            guard let url = captured?.input ?? resolver.resolveTextureFile(named: identity.path.value) else {
                 loaded[identity] = .absent
                 launchStates[identity] = .absent
                 continue
             }
-            if sourceCohort?.input != url {
-                sourceCohort = (url,
-                    try loader.prepareTexSource(from: url, checkCancellation: checkCancellation),
-                    try loader.prepareDirectImageSource(from: url, checkCancellation: checkCancellation))
+            if sourceCohort?.input != url || (captured != nil && sourceCohort?.source != captured?.identity) {
+                if let captured {
+                    do {
+                        sourceCohort = (url, captured.identity, try loader.prepareTexSource(
+                            from: url, capturedSource: captured.identity, checkCancellation: checkCancellation), nil)
+                    } catch SceneResourceView.ReadError.sourceChanged {
+                        loaded[identity] = .unavailable
+                        launchStates[identity] = .unavailable
+                        continue
+                    }
+                } else {
+                    let tex = try loader.prepareTexSource(from: url, checkCancellation: checkCancellation)
+                    let direct = try loader.prepareDirectImageSource(from: url, checkCancellation: checkCancellation)
+                    sourceCohort = (url, tex?.source ?? direct?.source, tex, direct)
+                }
             }
             let prepared = sourceCohort?.tex
             if collectsSourceIdentities, let source = prepared?.source ?? sourceCohort?.direct?.source {

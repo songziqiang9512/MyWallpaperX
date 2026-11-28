@@ -33,6 +33,7 @@ extension SceneShaderPreprocessor {
         let environment: SceneShaderVariantEnvironment
         let limits: Limits
         let selectedDefinitions: [String: SceneShaderMacroDefinition]
+        let conditionalDefinitions: [String: SceneShaderMacroDefinition]
         var macros: [String: SceneShaderMacroValue]
         var functionMacros: [String: SceneShaderFunctionMacro] = [:]
         var conditions: [ConditionalFrame] = []
@@ -56,6 +57,7 @@ extension SceneShaderPreprocessor {
             self.environment = environment
             self.limits = limits
             selectedDefinitions = environment.selectedMacroDefinitions()
+            conditionalDefinitions = environment.compatibilityTarget.conditionalMacroDefinitions
             macros = environment.initialMacroTable()
         }
 
@@ -348,27 +350,29 @@ extension SceneShaderPreprocessor {
         ) throws -> Bool {
             do {
                 let tokens = try ExpressionLexer.tokenize(expression, limit: limits.maximumExpressionTokens)
-                for case let .identifier(name) in tokens
-                    where environment.compatibilityTarget
-                        .languageMacroDefinition(for: name) != nil {
-                    compatibilityMacroDependencies.insert(name)
-                }
-                for case let .identifier(name) in tokens
-                    where name != "defined" && macros[name] == nil
-                        && functionMacros[name] == nil
-                        && selectedDefinitions[name] == nil {
-                    if let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) {
-                        if SceneShaderVariantEnvironment
-                            .permitsUndefinedZeroInCondition(name) {
-                            continue
+                var conditionMacros = macros
+                for case let .identifier(name) in tokens where name != "defined" {
+                    if let definition = conditionalDefinitions[name] {
+                        compatibilityMacroDependencies.insert(name)
+                        if case let .defined(value) = definition {
+                            conditionMacros[name] = value
                         }
+                        continue
+                    }
+                    if environment.compatibilityTarget.languageMacroDefinition(for: name) != nil {
+                        compatibilityMacroDependencies.insert(name)
+                    }
+                    if macros[name] == nil, functionMacros[name] == nil,
+                       selectedDefinitions[name] == nil,
+                       let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name),
+                       !SceneShaderVariantEnvironment.permitsUndefinedZeroInCondition(name) {
                         throw unresolvedEnvironment(name, requirement, path, line)
                     }
                 }
                 var parser = ExpressionParser(
                     tokens: tokens,
-                    macros: macros,
-                    definedNames: Set(macros.keys).union(functionMacros.keys)
+                    macros: conditionMacros,
+                    definedNames: Set(conditionMacros.keys).union(functionMacros.keys)
                 )
                 return try parser.parse() != 0
             } catch let failure as Failure {

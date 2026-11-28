@@ -57,7 +57,8 @@ extension ScenePreparedDeviceResources {
             }
             guard case let .success(variants) = SceneResolvedMaterialVariantCache.launchValidated(
                 template: template, textureFormatSlots: textureFormatSlots,
-                maximumVariantCount: 32, assetFormatFacts: assets.launchFormatFacts
+                maximumVariantCount: 32, assetFormatFacts: assets.launchFormatFacts,
+                formatSeedSamplers: entry.formatSeedSamplers
             ) else { reject("variant-schema"); continue }
             switch variants.precompileLaunchEnvelope(
                 implicitFramebufferIdentity: nil,

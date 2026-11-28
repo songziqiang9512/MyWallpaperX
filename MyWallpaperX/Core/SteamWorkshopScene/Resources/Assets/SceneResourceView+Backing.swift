@@ -135,7 +135,8 @@ nonisolated extension SceneResourceView.Root {
         }
 
         func readFile(_ path: String, expectedIdentity: SceneResourceView.ContentIdentity?,
-                      maximumBytes: Int?, within directory: String?, checkCancellation: (() throws -> Void)?,
+                      maximumBytes: Int?, prefixByteCount: Int?, within directory: String?,
+                      checkCancellation: (() throws -> Void)?,
                       prepare: (SceneResourceView.ContentIdentity) throws -> Void,
                       consume: (Data) throws -> Void) throws -> SceneResourceView.ContentIdentity {
             try checkCancellation?()
@@ -155,9 +156,10 @@ nonisolated extension SceneResourceView.Root {
                 { do { try callback() } catch { throw CallbackFailure(underlying: error) } }
             }
             do {
-                try opened.readEntryChunks(entry, checkCancellation: cancellation) { chunk in
-                        do { try consume(chunk) } catch { throw CallbackFailure(underlying: error) }
-                    }
+                try opened.readEntryChunks(entry, prefixByteCount: prefixByteCount,
+                    checkCancellation: cancellation) { chunk in
+                    do { try consume(chunk) } catch { throw CallbackFailure(underlying: error) }
+                }
             } catch let error as CallbackFailure {
                 throw error.underlying
             } catch {

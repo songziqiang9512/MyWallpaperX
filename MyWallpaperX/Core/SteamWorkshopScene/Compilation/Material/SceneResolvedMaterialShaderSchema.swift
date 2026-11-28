@@ -49,16 +49,28 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         case uniform(String)
     }
 
+    struct TextureFormatRequirements {
+        var slots: Set<Int> = []
+        var defaults: Set<Int> = []
+        var withoutPresence: Set<Int> = []
+    }
+
     static func textureFormatSlots(
         in template: Template
     ) -> Result<Set<Int>, SceneResolvedMaterialFailure> {
-        let invalid: Result<Set<Int>, SceneResolvedMaterialFailure> = .failure(.init(
+        textureFormatRequirements(in: template).map(\.slots)
+    }
+
+    static func textureFormatRequirements(
+        in template: Template
+    ) -> Result<TextureFormatRequirements, SceneResolvedMaterialFailure> {
+        let invalid: Result<TextureFormatRequirements, SceneResolvedMaterialFailure> = .failure(.init(
             phase: .preparation,
             code: .authoredSamplerSchemaInvalid,
             details: ["texture-format-schema"]
         ))
         guard let graph = template.shaderContract.sourceGraph else { return invalid }
-        var result = Set<Int>()
+        var result = TextureFormatRequirements()
         for node in graph.nodes {
             let parsed = SceneShaderContractSourceParser().parse(
                 node.source, stageRelativePath: node.virtualPath
@@ -66,20 +78,18 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             let declarations = Dictionary(grouping: parsed.declarations, by: \.line)
             for annotation in parsed.annotations {
                 guard case let .object(object) = annotation.variantValue,
-                      let raw = object["formatcombo"] else { continue }
+                      object["formatcombo"] != nil || object["default"] != nil else { continue }
+                let slots = declarations[annotation.line, default: []].compactMap { declaration -> Int? in
+                    guard declaration.kind == .uniform, isSampler2D(declaration.type) else { return nil }
+                    return SceneShaderSourceTextFacts.textureSlot(declaration.name)
+                }
+                if object["default"] != nil { result.defaults.formUnion(slots) }
+                guard let raw = object["formatcombo"] else { continue }
                 guard let enabled = raw.boolValue else { return invalid }
                 guard enabled else { continue }
-                let slots = declarations[annotation.line, default: []].compactMap {
-                    declaration -> Int? in
-                    guard declaration.kind == .uniform,
-                          declaration.type.caseInsensitiveCompare("sampler2D") == .orderedSame,
-                          declaration.name.hasPrefix("g_Texture"),
-                          let slot = Int(declaration.name.dropFirst("g_Texture".count)),
-                          (0 ..< 8).contains(slot) else { return nil }
-                    return slot
-                }
                 guard slots.count == 1, let slot = slots.first else { return invalid }
-                result.insert(slot)
+                result.slots.insert(slot)
+                if object["combo"]?.stringValue?.isEmpty != false { result.withoutPresence.insert(slot) }
             }
         }
         return .success(result)
@@ -745,6 +755,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         case "opacitymask": .opacityMask
         case "rgbmask": .rgbMask
         case "flowmask": .flowMask
+        case "normal": .normal
         case "depth": .depth
         default: throw Issue.sampler(name)
         }

@@ -38,11 +38,13 @@ struct ResourceDemandAnalysisKey: Hashable {
     let uniformDeclarations: [Template.UniformDeclaration]
     let compatibilityTarget: SceneShaderCompatibilityTarget
     let hasImplicitFramebuffer: Bool
+    let sourceFormats: [Int: SceneResolvedMaterialShaderSchema.SourceFormatFact]
 
     init(
         template: Template,
         implicitFramebufferIdentity:
-            SceneAuthoredEffectRenderPlan.TextureIdentity?
+            SceneAuthoredEffectRenderPlan.TextureIdentity?,
+        sourceFormats: [Int: SceneResolvedMaterialShaderSchema.SourceFormatFact] = [:]
     ) {
         shaderIdentity = template.shaderContract.identity
         shaderCanonicalSHA256 = template.shaderContract.canonicalSHA256
@@ -67,6 +69,7 @@ struct ResourceDemandAnalysisKey: Hashable {
         uniformDeclarations = template.uniformDeclarations
         compatibilityTarget = template.compatibilityTarget
         hasImplicitFramebuffer = implicitFramebufferIdentity != nil
+        self.sourceFormats = sourceFormats
     }
 }
 
@@ -133,6 +136,12 @@ struct ResourceDemandAnalysisKey: Hashable {
         )
         append(key.compatibilityTarget.rawValue)
         append(key.hasImplicitFramebuffer ? "1" : "0")
+        for (slot, fact) in key.sourceFormats.sorted(by: { $0.key < $1.key }) {
+            switch fact {
+            case let .texture(format): append("format:\(slot):\(format.macroValue)")
+            case .unbound: append("format:\(slot):unbound")
+            }
+        }
         return digest.sha256Hex()
     }
 

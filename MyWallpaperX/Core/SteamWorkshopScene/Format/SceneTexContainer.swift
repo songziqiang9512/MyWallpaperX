@@ -226,6 +226,8 @@ nonisolated struct SceneTexContainerReader {
         }
     }
 
+    private static let headerMagic = Data("TEXV0005\0TEXI0001\0".utf8)
+    static let formatHeaderByteCount = headerMagic.count + MemoryLayout<UInt32>.size
     private static let maximumImageCount = 512
     static let maximumMipCount = 32
     static let maximumMipMetadataEntryCount = 32
@@ -234,12 +236,17 @@ nonisolated struct SceneTexContainerReader {
     static let maximumVolumeDimension = 256
     static let maximumVolumeVoxelCount = 16_777_216
 
+    static func rawFormat(inHeader data: Data) -> UInt32? {
+        guard data.count >= formatHeaderByteCount, data.starts(with: headerMagic) else { return nil }
+        return data.uint32LE(at: headerMagic.count)
+    }
+
     func read(
         data: Data,
         maximumDecodedByteCount: Int = 1_024 * 1_024 * 1_024
     ) throws -> SceneTexContainer {
         guard data.count >= 55,
-              data.starts(with: Data("TEXV0005\0TEXI0001\0".utf8)) else {
+              let format = Self.rawFormat(inHeader: data) else {
             throw ReadError.invalidHeader
         }
         let volumeHeader = data.count >= 59
@@ -257,7 +264,6 @@ nonisolated struct SceneTexContainerReader {
             throw ReadError.invalidHeader
         }
 
-        let format = data.uint32LE(at: 18)
         let flags = data.uint32LE(at: 22)
         let textureWidth = Int(data.uint32LE(at: 26))
         let textureHeight = Int(data.uint32LE(at: 30))

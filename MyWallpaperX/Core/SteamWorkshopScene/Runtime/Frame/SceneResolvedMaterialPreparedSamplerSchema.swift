@@ -4,11 +4,12 @@ import Foundation
 nonisolated struct SceneResolvedMaterialPreparedSamplerSchema: Hashable {
     typealias ChannelUse = SceneAuthoredShaderProgram.TextureBinding.ChannelUse
 
-    enum TextureMode: Hashable {
+    enum TextureMode: String, Hashable {
         case regular
-        case opacityMask
-        case rgbMask
-        case flowMask
+        case opacityMask = "opacity-mask"
+        case rgbMask = "rgb-mask"
+        case flowMask = "flow-mask"
+        case normal
         case depth
     }
 

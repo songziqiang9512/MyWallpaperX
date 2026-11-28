@@ -79,7 +79,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         template: Template,
         textureFormatSlots: Result<Set<Int>, Failure>,
         maximumVariantCount: Int,
-        assetFormatFacts: [String: Int] = [:]
+        assetFormatFacts: [String: Int] = [:],
+        formatSeedSamplers: [Int: SceneResolvedMaterialShaderSchema.Sampler] = [:]
     ) -> Result<SceneResolvedMaterialVariantCache, Failure> {
         guard (1 ... 256).contains(maximumVariantCount) else {
             return .failure(Self.failure(.identityInvariant, phase: .invariant))
@@ -102,7 +103,9 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             template: template,
             maximumVariantCount: maximumVariantCount,
             assetFormatFacts: assetFormatFacts,
-            seedSamplers: seed,
+            seedSamplers: seed.merging(formatSeedSamplers) { unconditional, active in
+                SceneResolvedMaterialShaderSchema.mergingVariantFacts(unconditional, from: active) ?? unconditional
+            },
             textureFormatSlots: formatSlots
         ))
     }

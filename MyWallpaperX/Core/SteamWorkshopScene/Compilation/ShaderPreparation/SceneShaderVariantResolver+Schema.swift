@@ -32,7 +32,7 @@ extension SceneShaderVariantResolver {
             case authoredCombo
             case disabledCombo
             case textureReadiness(slot: Int)
-            case textureFormat(slot: Int)
+            case textureFormat(slot: Int, followsPresence: Bool)
         }
 
         let combo: String
@@ -48,7 +48,7 @@ extension SceneShaderVariantResolver {
         }
 
         var textureFormatSlot: Int? {
-            guard case let .textureFormat(slot) = origin else { return nil }
+            guard case let .textureFormat(slot, _) = origin else { return nil }
             return slot
         }
 
@@ -197,7 +197,7 @@ extension SceneShaderVariantResolver {
                     options: nil,
                     requirements: requirements,
                     requireAny: requireAny,
-                    origin: .textureFormat(slot: slot)
+                    origin: .textureFormat(slot: slot, followsPresence: combo != nil)
                 ))
             }
             return result

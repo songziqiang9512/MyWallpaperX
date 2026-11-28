@@ -737,6 +737,93 @@ private func runCompatibilityTargetFixtures() throws -> [String] {
     ]
 }
 
+private func runDesktopConditionalFixtures() throws -> [String] {
+    let windows = SceneShaderCompatibilityTarget.windowsDX11ShaderModel4
+    let desktop = try environment([
+        .init(name: "SHADERVERSION", definition: .defined(.integer(1))),
+        .init(name: "VERSION", definition: .defined(.integer(69))),
+    ], compatibilityTarget: windows)
+    let source = """
+        #ifdef PLATFORM_ANDROID
+        MOBILE
+        #elif defined(SHADERVERSION) && PLATFORM_ANDROID == 0 && SHADERVERSION >= 69
+        DESKTOP
+        #else
+        WRONG
+        #endif
+        #ifndef PLATFORM_ANDROID
+        NON_MOBILE
+        #endif
+        #ifdef SHADERVERSION
+        VERSION_PRESENT
+        #endif
+        #if SHADERVERSION == 69
+        VERSION_EXACT
+        #endif
+        """
+    let prepared = try preprocess(source, environment: desktop).get()
+    try expect(
+        prepared.source.split(separator: "\n") == ["DESKTOP", "NON_MOBILE", "VERSION_PRESENT", "VERSION_EXACT"]
+            && prepared.compatibilityMacroDependencies == ["PLATFORM_ANDROID", "SHADERVERSION"],
+        "Desktop host facts did not select the measured condition branches."
+    )
+    let inactive = try preprocess("""
+        #if 1
+        INDEPENDENT
+        #elif PLATFORM_ANDROID || SHADERVERSION >= 69
+        WRONG
+        #endif
+        #if 0
+        #ifdef SHADERVERSION
+        WRONG
+        #endif
+        #endif
+        """, environment: desktop).get()
+    try expect(
+        inactive.source == "INDEPENDENT" && inactive.compatibilityMacroDependencies.isEmpty,
+        "Inactive desktop conditions acquired host dependency provenance."
+    )
+
+    let noTarget = try environment()
+    for name in ["PLATFORM_ANDROID", "SHADERVERSION"] {
+        try expectFailure("#if \(name)\nWRONG\n#endif", environment: noTarget, code: .unresolvedEnvironmentDefine)
+        for line in [
+            "float status = \(name);",
+            "#define INDIRECT (\(name))\nfloat status = INDIRECT;",
+            "#define \(name) 0",
+            "#define \(name)(x) x",
+            "#undef \(name)",
+        ] {
+            try expectFailure(line, environment: desktop, code: .unresolvedEnvironmentDefine)
+        }
+    }
+    for name in ["PLATFORM_OTHER", "VERSION"] {
+        try expectFailure("#if \(name)\nWRONG\n#endif", environment: desktop, code: .unresolvedEnvironmentDefine)
+    }
+
+    let contract = makeContract(identity: "desktop-host-conditions",
+        vertexSource: "VERTEX",
+        fragmentSource: """
+            // [COMBO] {"combo":"AUTHOR_OPTION","default":2}
+            #if SHADERVERSION < 62
+            LEGACY
+            #else
+            MODERN
+            #endif
+            """)
+    let program = try acceptedProgram(SceneAuthoredShaderPreparation.prepareShaderStages(
+        contract: contract, compatibilityTarget: windows, combos: ["SHADERVERSION": 61]
+    ))
+    try expect(
+        program.fragment.source.contains("MODERN") && !program.fragment.source.contains("LEGACY")
+            && SceneAuthoredShaderPreparation.resolvedIntegerCombos(
+                contract: contract, prepared: program, combos: ["SHADERVERSION": 61]
+            ) == ["AUTHOR_OPTION": 2],
+        "An authored version changed the host branch or leaked into integer combo consumers."
+    )
+    return ["desktop_platform_version_condition_scope"]
+}
+
 private func runReadinessFixtures() throws -> [String] {
     let stage = makeStage(
         "uniform sampler2D g_Texture2; // {\"combo\":\"HAS_TEXTURE\",\"default\":\"textures/mask\",\"options\":{\"ignored\":7}}"
@@ -1198,6 +1285,33 @@ private func runRequirementProviderFixtures() throws -> [String] {
         },
         "Sampler readiness and formatcombo metadata did not remain independent."
     )
+    let absentNormal = try resolved(variant(combinedFormat, readiness: [1: false]))
+    let absentFormat = try resolution(absentNormal, "TEX1FORMAT")
+    let staleFormat = try resolved(variant(combinedFormat, readiness: [1: false], formats: [1: .rg88]))
+    let staleFormatResolution = try resolution(staleFormat, "TEX1FORMAT")
+    try expect(
+        absentFormat.binding.definition == .undefined
+            && absentFormat.provenance == .requirementInactive
+            && absentFormat.validatedTextureSlots.isEmpty
+            && staleFormatResolution == absentFormat,
+        "The inactive texture demanded or projected a format."
+    )
+    let readyWithoutFormat = try failure(variant(combinedFormat, readiness: [1: true]))
+    let unknownReadiness = try failure(variant(combinedFormat))
+    try expect(
+        readyWithoutFormat.code == .textureFormatUnavailable
+            && unknownReadiness.code == .textureReadinessUnavailable,
+        "An unknown sampler readiness or active format was invented."
+    )
+    let formatSpoof = try failure(variant(
+        combinedFormat, explicit: ["TEX1FORMAT": 8], readiness: [1: false]
+    ))
+    let mandatory = try failure(variant(formatStage, readiness: [2: false]))
+    try expect(
+        formatSpoof.code == .explicitTextureFormatConflict
+            && mandatory.code == .textureFormatUnavailable,
+        "An absent optional texture relaxed host ownership or mandatory format requirements."
+    )
     let conditionalFormat = makeStage(
         """
         // [COMBO] {"combo":"SELECT_FORMAT","default":0}
@@ -1589,6 +1703,7 @@ private struct SceneShaderVariantEnvironmentHarness {
             let checks = try runIdentityAndEnvironmentFixtures()
                 + runEnvironmentRequirementFixtures()
                 + runCompatibilityTargetFixtures()
+                + runDesktopConditionalFixtures()
                 + runReadinessFixtures()
                 + runExactIntegerFixtures()
                 + runRequirementProviderFixtures()
@@ -1719,6 +1834,7 @@ class SceneShaderVariantEnvironmentTests(unittest.TestCase):
                 "direct_target_expansion_provenance",
                 "branch_insensitive_target_not_pending",
                 "oscilloscope_like_cross_stage",
+                "desktop_platform_version_condition_scope",
                 "readiness_provenance",
                 "deterministic_readiness_failure",
                 "explicit_conflicts",

@@ -6,6 +6,12 @@ import Foundation
 //     -> materialPasses: material -> first texture name (no extension/path prefix)
 //     -> probes common Wallpaper Engine path/extension patterns
 struct SceneTexturePathResolver {
+    struct CapturedFormat: Sendable {
+        let input: SceneResourceView.FileInput
+        let identity: SceneResourceView.ContentIdentity
+        let rawFormat: UInt32
+    }
+
     let resourceView: SceneResourceView
     let descriptor: SceneRenderDescriptor
 

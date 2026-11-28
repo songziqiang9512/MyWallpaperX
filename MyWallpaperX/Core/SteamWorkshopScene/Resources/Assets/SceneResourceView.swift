@@ -211,6 +211,15 @@ nonisolated struct SceneResourceView: Sendable {
                 maximumBytes: maximumBytes, within: directory, checkCancellation: checkCancellation)
         }
 
+        /// Reads at most the requested bytes and returns the full selected source identity.
+        nonisolated func readPrefixSnapshot(
+            upToCount: Int,
+            checkCancellation: (() throws -> Void)? = nil
+        ) throws -> ReadSnapshot {
+            try owner.readSnapshot(self, prefixByteCount: max(0, upToCount),
+                checkCancellation: checkCancellation)
+        }
+
         nonisolated func readBytes(
             maximumBytes: Int? = nil,
             within directory: String? = nil,
@@ -510,18 +519,22 @@ nonisolated struct SceneResourceView: Sendable {
 
         /// The identity and bytes describe the same opened file. Callers may
         /// compare it to a cache key without reopening payloads on a cache hit.
-        nonisolated func readSnapshot(
+        fileprivate nonisolated func readSnapshot(
             _ handle: Handle,
             expectedIdentity: ContentIdentity? = nil,
             maximumBytes: Int? = nil,
+            prefixByteCount: Int? = nil,
             within directory: String? = nil,
             checkCancellation: (() throws -> Void)? = nil
         ) throws -> ReadSnapshot {
             var data = Data()
             let identity = try readFile(handle, expectedIdentity: expectedIdentity,
-                maximumBytes: maximumBytes, within: directory,
+                maximumBytes: maximumBytes, prefixByteCount: prefixByteCount, within: directory,
                 checkCancellation: checkCancellation,
-                prepare: { data.reserveCapacity(Int($0.size)) },
+                prepare: {
+                    let byteCount = Int($0.size)
+                    data.reserveCapacity(min(prefixByteCount ?? byteCount, byteCount))
+                },
                 consume: { data.append($0) })
             return ReadSnapshot(data: data, identity: identity)
         }
@@ -532,6 +545,7 @@ nonisolated struct SceneResourceView: Sendable {
             _ handle: Handle,
             expectedIdentity: ContentIdentity? = nil,
             maximumBytes: Int? = nil,
+            prefixByteCount: Int? = nil,
             within directory: String? = nil,
             checkCancellation: (() throws -> Void)? = nil,
             prepare: (ContentIdentity) throws -> Void,
@@ -541,8 +555,8 @@ nonisolated struct SceneResourceView: Sendable {
             guard handle.owner === self else { throw ReadError.invalidHandle }
             if let packageBacking {
                 return try packageBacking.readFile(handle.relativePath, expectedIdentity: expectedIdentity,
-                    maximumBytes: maximumBytes, within: directory, checkCancellation: checkCancellation,
-                    prepare: prepare, consume: consume)
+                    maximumBytes: maximumBytes, prefixByteCount: prefixByteCount, within: directory,
+                    checkCancellation: checkCancellation, prepare: prepare, consume: consume)
             }
             guard let url = directoryURL else { throw ReadError.invalidHandle }
             try validatePath(handle.relativePath, within: directory, literal: handle.isLiteralEntry)
@@ -565,11 +579,12 @@ nonisolated struct SceneResourceView: Sendable {
                 throw ReadError.fileTooLarge
             }
             try prepare(.file(identity))
+            let byteCount = min(prefixByteCount ?? before.size, before.size)
             var consumed = 0
-            while consumed < before.size {
+            while consumed < byteCount {
                 try checkCancellation?()
                 let chunk: Data
-                do { chunk = try file.read(upToCount: min(64 * 1_024, before.size - consumed)) ?? Data() }
+                do { chunk = try file.read(upToCount: min(64 * 1_024, byteCount - consumed)) ?? Data() }
                 catch { throw ReadError.unreadable }
                 guard !chunk.isEmpty else { throw ReadError.sourceChanged }
                 try consume(chunk)

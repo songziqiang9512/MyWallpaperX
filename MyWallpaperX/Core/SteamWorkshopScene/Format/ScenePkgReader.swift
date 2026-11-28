@@ -123,16 +123,18 @@ nonisolated struct ScenePkgReader {
         /// entry from its range-bounded projection and owns the byte budget.
         /// The sink stages bytes until this same-FD read succeeds.
         func readEntryChunks(_ entry: ScenePkgIndex.Entry,
+                             prefixByteCount: Int? = nil,
                              checkCancellation: (() throws -> Void)? = nil,
                              consume: (Data) throws -> Void) throws {
             try checkCancellation?()
             try checkStable()
+            let byteCount = min(prefixByteCount ?? Int(entry.size), Int(entry.size))
             var consumed = 0
-            while consumed < Int(entry.size) {
+            while consumed < byteCount {
                 try checkCancellation?()
                 let chunk = try ScenePkgReader.readRange(descriptor: descriptor,
                     offset: index.dataStartOffset + Int(entry.offset) + consumed,
-                    count: min(64 * 1_024, Int(entry.size) - consumed), checkCancellation: checkCancellation)
+                    count: min(64 * 1_024, byteCount - consumed), checkCancellation: checkCancellation)
                 try consume(chunk)
                 consumed += chunk.count
             }
