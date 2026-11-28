@@ -61,6 +61,7 @@ extension SceneResolvedMaterialRuntimeBridge {
         let outputDomain: OutputDomain
         var sharedModelPath: String? = nil
         var bindsImageLayerColor = false
+        var directLightSlots: (point: Int, spot: Int) = (0, 0)
     }
 
     /// A prepared material and the exact ordered main attachment it reads.

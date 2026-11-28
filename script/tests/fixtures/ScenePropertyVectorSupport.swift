@@ -132,6 +132,8 @@ struct SceneParticleInstanceOverride: Equatable, Sendable {
     let normalizedColor: SceneParticleBoundValue?
     let controlPoints: [Int: SceneParticleBoundValue]
     let controlPointAngles: [Int: SceneParticleBoundValue]
+    var brightness: SceneParticleBoundValue? = nil
+    var usesLegacyColorTransfer: Bool? = nil
 }
 
 struct SceneUtilityLayer {

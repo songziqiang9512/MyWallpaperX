@@ -19,7 +19,9 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
 
     static func evaluate(sources: [String]) -> Result<Int, Failure> {
         let floatLiteral = #"(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?[fF]?"#
-        let zeroBasedPattern = #"\bfor\s*\(\s*int\s+([A-Za-z_]\w*)\s*=\s*0\s*;\s*([A-Za-z_]\w*)\s*<\s*(\d+|[A-Za-z_]\w*)\s*;\s*(?:(?:\+\+\s*([A-Za-z_]\w*))|(?:([A-Za-z_]\w*)\s*\+\+))\s*\)"#
+        let zeroBasedPattern = #"\bfor\s*\(\s*(int|uint)\s+([A-Za-z_]\w*)\s*=\s*0([uU]?)\s*;\s*"#
+            + #"([A-Za-z_]\w*)\s*<\s*((?:CASTU|uint)\s*\(\s*[0-9]+[uU]?\s*\)|\d+[uU]?|[A-Za-z_]\w*)\s*;\s*"#
+            + #"(?:(?:\+\+\s*([A-Za-z_]\w*))|(?:([A-Za-z_]\w*)\s*\+\+))\s*\)"#
         let signedInclusivePattern = #"\bfor\s*\(\s*int\s+([A-Za-z_]\w*)\s*=\s*(-?(?:\d+|[A-Za-z_]\w*))\s*;\s*([A-Za-z_]\w*)\s*<=\s*(-?(?:\d+|[A-Za-z_]\w*))\s*;\s*(?:(?:\+\+\s*([A-Za-z_]\w*))|(?:([A-Za-z_]\w*)\s*\+\+))\s*\)"#
         var total = 0
         for source in sources {
@@ -55,15 +57,23 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
                 total += work
             }
             for match in SceneShaderSourceTextFacts.matches(zeroBasedPattern, in: body).reversed() {
-                guard let declared = SceneShaderSourceTextFacts.capture(match, 1, in: body),
-                      let compared = SceneShaderSourceTextFacts.capture(match, 2, in: body),
-                      let limitText = SceneShaderSourceTextFacts.capture(match, 3, in: body),
-                      let limit = Int(limitText) ?? rootInvariantInteger(
-                          named: limitText,
-                          source: body,
-                          before: match.range.location
-                      ), (1 ... 64).contains(limit),
-                      [SceneShaderSourceTextFacts.capture(match, 4, in: body), SceneShaderSourceTextFacts.capture(match, 5, in: body)]
+                guard let type = SceneShaderSourceTextFacts.capture(match, 1, in: body),
+                      let declared = SceneShaderSourceTextFacts.capture(match, 2, in: body),
+                      let compared = SceneShaderSourceTextFacts.capture(match, 4, in: body),
+                      let limitText = SceneShaderSourceTextFacts.capture(match, 5, in: body) else {
+                    return .failure(.unbounded)
+                }
+                let limit: Int? = if type == "uint" {
+                    unsignedLiteralLimit(limitText, source: body)
+                } else if SceneShaderSourceTextFacts.capture(match, 3, in: body) == "" {
+                    Int(limitText) ?? rootInvariantInteger(
+                        named: limitText, source: body, before: match.range.location
+                    )
+                } else {
+                    nil
+                }
+                guard let limit, limit <= 64, limit >= (type == "uint" ? 0 : 1),
+                      [SceneShaderSourceTextFacts.capture(match, 6, in: body), SceneShaderSourceTextFacts.capture(match, 7, in: body)]
                         .compactMap({ $0 }).contains(declared),
                       declared == compared,
                       let loopBody = loopBodyRange(
@@ -123,6 +133,26 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
             }
         }
         return total <= 256 ? .success(total) : .failure(.budget)
+    }
+
+    private static func unsignedLiteralLimit(_ bound: String, source: String) -> Int? {
+        let parts = bound.split { $0 == "(" || $0 == ")" || $0.isWhitespace }
+        guard let last = parts.last else { return nil }
+        let digits = last.hasSuffix("u") || last.hasSuffix("U") ? last.dropLast() : last
+        guard digits == "0" || !digits.hasPrefix("0") else { return nil }
+        if parts.count == 2 {
+            let names = parts.first == "CASTU" ? "(?:CASTU|uint)" : "uint"
+            let declarations = SceneShaderSourceTextFacts.matches(
+                #"(?m)^[ \t]*#[ \t]*(?:define|undef)[ \t]+"# + names + #"\b[^\r\n]*"#,
+                in: source
+            )
+            let expected = parts.first == "CASTU"
+                ? [SceneGenericShaderSourceNormalizer.unsignedCastDeclaration] : []
+            guard declarations.compactMap({
+                SceneShaderSourceTextFacts.capture($0, 0, in: source)
+            }) == expected else { return nil }
+        }
+        return Int(digits)
     }
 
     /// GLSL also permits a loop counter declared immediately before `for`.

@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 206741
+      "bytes": 206943
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 190643
+      "bytes": 192630
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 337,
-      "bytes": 75523
+      "bytes": 75799
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -141,8 +141,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 552,
-      "bytes": 126017
+      "lines": 553,
+      "bytes": 126702
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 110,
@@ -185,8 +185,8 @@
       "bytes": 44919
     },
     "docs/scene/development/development-workflow.md": {
-      "lines": 120,
-      "bytes": 17138
+      "lines": 121,
+      "bytes": 17694
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 70,
@@ -579,15 +579,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "3d06b07015ac6d6d1edc3486908fa7372b1fcf0fe15eb6b97a05cd6e311ab545",
-      "after": "1ef5200da31d5985fece01ffe41b838e454aa548ac4f09c1ee9188f0ee742917",
-      "owner": "repository-governance",
-      "reason": "Move remaining script files into collections and update paths.",
-      "decision": "docs/scene/development/development-workflow.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/official-client-behavior-research-workflow.md",
       "before": "2a24fcd4d8da1c03c0eba0af945d45baf77e2fbfc5841c276032c7028a8adf59",
       "after": "78dc7c325049f97c488f0163f7be944d9f69ebab9e8d7a71188941428662f5e4",
@@ -648,15 +639,6 @@
       "owner": "Scene input and property evidence",
       "reason": "记录官方视口、作品速率和本机媒体与画面回归。",
       "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#scene-extra-presentation-20261128"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "89808e4a35623a95e11e6fadad50433bb795444b80288ecdbdf075e32df4373e",
-      "after": "8052fdeb7551fff2c722c00c09f40eefa6c4d43616496107c85c580a3896c0a8",
-      "owner": "Scene composition and playback quality",
-      "reason": "Preserve the upstream offscreen terminal depth behavior and existing quality evidence.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
     },
     {
       "section": "bodies",
@@ -733,29 +715,47 @@
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-settings-plan.md",
-      "before": "2b3f9ad80d8de2ec4097c5f632f4dc0ada3dcbfb1abc07e12cc5149f5d08ba67",
-      "after": "8fb5ffa6899f6e5eab5e0a64e1a1c67bf55e8b2b6a38f7503e2bab8902da6521",
-      "owner": "wallpaper-quality",
-      "reason": "记录终端纹理试验退出与反射资源拒绝时的局部回执设计。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-reservation-failure"
+      "before": "740e2b0fed35c43be2f5883dd9288aaf65ccbea9276afb6adbfabaa4d3271723",
+      "after": "b46548064e2b892a6b23fe7595b71bd33dc98f3fe3d11a56057549b62ca88a37",
+      "owner": "scene-quality",
+      "reason": "补作者点／聚光设计的 label-only 槽 0 直色准入、CASTU 与灯类范围。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-source-reflection-direct-lights"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "af59e327b19bc85c778b2734259a4713026ffa695c1f8edfe1278ba2834b3199",
-      "after": "55728b1fe0404df11194a3829956b035040e6891482e92cc864e23ad728ac50c",
-      "owner": "wallpaper-quality",
-      "reason": "审计两类未发布纹理试验及独立玻璃、模型原作的反射失败与恢复。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-reservation-failure"
+      "before": "ffe84be80516d5ce63532e38f5c37869907a3b3523c94a36a6dbd51a6a740223",
+      "after": "e75b82d1b077e97d19d7affcf20a23448fc0322bdf7f94940e5eb1c69d2302ea",
+      "owner": "scene-quality",
+      "reason": "登记作者直照两原作固定相位实绘、空槽、显隐与切档反例。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-source-direct-lighting-result"
     },
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "cbe6051f40604d6f6a2eece2c210baae58d9eb7700be89adc2bece084570c9e1",
-      "after": "c6f65d4efe6f00c7d7cb6c2491fa8ebb0d2cf4ff9da305fd9723a711fce29e52",
-      "owner": "wallpaper-quality",
-      "reason": "核对早期反射需求、已有资源门及提交事实的边界。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-reflection-reservation-failure"
+      "before": "c8db3ea00cc4c30e2920cb9bb20439423076281251e5a523cbc7fcf023906747",
+      "after": "a2f6ed058c056f210e80c03ea0e66155e322552c78d48a8df60a15cc812b7f80",
+      "owner": "scene-quality",
+      "reason": "补源材质直照与槽 0 颜色角色合同。",
+      "decision": "docs/development/wallpaper-quality-settings-plan.md#scene-source-reflection-direct-lights"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "8052fdeb7551fff2c722c00c09f40eefa6c4d43616496107c85c580a3896c0a8",
+      "after": "ce7fdab78d9d3c5c50f20ba44200f2e885880047eb42a3ed00fd57a92d1e845a",
+      "owner": "scene-quality",
+      "reason": "补作者 shader 点／聚光直照能力及实测入口。",
+      "decision": "docs/development/wallpaper-quality-work-card.md#scene-source-direct-lighting-result"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "1ef5200da31d5985fece01ffe41b838e454aa548ac4f09c1ee9188f0ee742917",
+      "after": "a248eccbea40dabe105e3a7e312f31f5d686740b58ebc2628907a1cc45941c85",
+      "owner": "repository governance",
+      "reason": "登记 label-only 槽 0 albedo 的有界兼容例外。",
+      "decision": "docs/scene/development/development-workflow.md#compatibility-exceptions"
     }
   ]
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exact effect-light arrays through both frontends and real compiler artifacts."""
+"""Host light arrays through both frontends and real compiler artifacts."""
 from __future__ import annotations
 
 import copy
@@ -206,6 +206,79 @@ class SceneLightHostArrayFrontendTests(unittest.TestCase):
                     self.root / name)
                 self.assertFalse(result["bounded"])
                 self.assertFalse(result["generic"])
+
+    def test_modern_point_and_spot_arrays_through_both_frontends_and_artifact(self) -> None:
+        vertex = """
+        attribute vec3 a_Position;
+        attribute vec2 a_TexCoord;
+        void main() {
+            gl_Position = vec4(a_Position, 1.0);
+        }
+        """
+        fragment = """
+        uniform vec4 g_LPoint_Color[15];
+        uniform vec4 g_LPoint_Origin[15];
+        uniform vec4 g_LSpot_Color[1];
+        uniform vec4 g_LSpot_Origin[1];
+        uniform vec4 g_LSpot_Direction[1];
+        void main() {
+            vec4 direct = g_LPoint_Color[14] + g_LPoint_Origin[14];
+            gl_FragColor = direct + g_LSpot_Color[0] + g_LSpot_Origin[0] + g_LSpot_Direction[0];
+        }
+        """
+        expected = {("g_LPoint_Color", "float4", 15), ("g_LPoint_Origin", "float4", 15),
+            ("g_LSpot_Color", "float4", 1), ("g_LSpot_Origin", "float4", 1),
+            ("g_LSpot_Direction", "float4", 1)}
+        directory = self.root / "modern-lights"
+        result = self.frontends(vertex, fragment, directory)
+        self.assertTrue(result["bounded"], result["boundedDiagnostics"])
+        self.assertEqual({(f["authoredName"], f["type"], f["count"])
+            for f in result["boundedFields"] if f["count"]}, expected)
+        self.compile_metal(result["boundedMetal"], directory, "bounded")
+        artifact = self.compile_artifact((vertex, fragment), result, directory)
+        self.compile_metal(artifact["program"]["metalSource"], directory, "generic")
+        fields = artifact["program"]["uniformLayout"]["fields"]
+        self.assertEqual({(f["authoredName"], f["type"], f["arrayCount"])
+            for f in fields if "arrayCount" in f}, expected)
+        for name, find, replacement in [
+                ("unknown-field", "g_LSpot_Direction", "authoredDirection"),
+                ("wrong-type", "vec4 g_LPoint_Color", "vec3 g_LPoint_Color"),
+                ("missing-array", "g_LSpot_Origin[1];", "g_LSpot_Origin;"),
+                ("oversized-array", "g_LPoint_Origin[15];", "g_LPoint_Origin[16];")]:
+            with self.subTest(name=name):
+                invalid = self.frontends(vertex, fragment.replace(find, replacement), directory / name)
+                self.assertFalse(invalid["bounded"])
+                self.assertFalse(invalid["generic"])
+        field = next(f for f in fields if f["authoredName"] == "g_LSpot_Direction")
+        path = directory / "wrong-artifact-count.json"
+        field["arrayCount"] = 16
+        path.write_text(json.dumps(artifact))
+        self.assertFalse(self.run_gate("decode", path)["decoded"])
+
+    def test_stock_unsigned_cast_loop_in_actual_generic_artifact(self) -> None:
+        vertex = """
+        attribute vec3 a_Position;
+        attribute vec2 a_TexCoord;
+        void main() { gl_Position = vec4(a_Position, 1.0); }
+        """
+        fragment = """
+        uniform vec4 g_LPoint_Color[4];
+        vec4 lightValues() {
+            vec4 direct = vec4(0.0);
+            for (uint index = 0u; index < CASTU(4); ++index) {
+                direct += g_LPoint_Color[index];
+            }
+            return direct;
+        }
+        void main() { gl_FragColor = lightValues(); }
+        """
+        directory = self.root / "stock-unsigned-loop"
+        artifact = self.compile_artifact(
+            (vertex, fragment), self.frontends(vertex, fragment, directory), directory,
+        )
+        self.assertEqual(artifact["program"]["staticLoopWork"], 4)
+        self.assertNotIn("loopGuardCap", artifact["program"])
+        self.compile_metal(artifact["program"]["metalSource"], directory, "generic")
 
     def test_actual_artifact_tampered_reserved_shape_and_count_fail_without_trap(self) -> None:
         source = self.sources("distance")

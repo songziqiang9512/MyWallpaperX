@@ -161,7 +161,8 @@ struct SceneMetalRenderer {
             dynamicSnapshot: frameContext.dynamicValues,
             candidateLayerIDs: frameProjection.lightLayerIDs,
             layersByID: frameProjection.layersByID,
-            visibleLayerIDs: frameVisibleLayerIDs
+            visibleLayerIDs: frameVisibleLayerIDs,
+            directLightSlots: imageCompositor.resolvedMaterialRuntime?.sourceDirectLightSlots ?? (0, 0)
         )
         let modelFrame = StaticModelFrame(
             commandBuffer: commandBuffer,

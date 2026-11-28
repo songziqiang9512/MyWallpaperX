@@ -438,6 +438,10 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         let links = Dictionary(grouping: descriptor.modelMaterialLinks) { normalized($0.modelPath) }
         let passes = Dictionary(grouping: descriptor.materialPasses) { normalized($0.materialPath) }
         let fullBindings = provenBindings.filter { !$0.canLowerToCompositor }
+        let lightClasses = descriptor.lighting?.lightClasses ?? .init()
+        let orthographicLightCounts = descriptor.camera.authoredOrthographicProjectionActive == true
+            ? (point: lightClasses.pointCount, spot: lightClasses.spotCount)
+            : nil
         var result: [Int: SourceMaterialEntry] = [:]
         var probedFormatAssets = Set<SceneVFSAssetPath>()
         var formatRequirementsByGraph: [String: Result<SceneResolvedMaterialShaderSchema.TextureFormatRequirements, Failure>] = [:]
@@ -529,6 +533,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 passIndex: pass.passIndex, shaderContract: contract, renderState: state,
                 authoredOnlyUniforms: proof?.authoredOnlyUniforms ?? [],
                 bindsImageLayerColor: bindsImageLayerColor,
+                orthographicLightCounts: capturesMainTarget ? nil : orthographicLightCounts,
                 provenSceneScriptValueTargets: sceneScriptTargets
             ) {
             case let .failure(failure):
@@ -701,18 +706,19 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             let formatSlots = knownFormatSlots ?? SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template)
             do {
                 let textureFormatSlots = try formatSlots.get()
+                let seedSamplers = try SceneResolvedMaterialShaderSchema.unconditionalSamplers(template)
                 var samplers = try SceneResolvedMaterialShaderSchema.reachableSamplers(
                     template,
                     textureFormatSlots: textureFormatSlots,
                     implicitFramebufferIdentity: implicitFramebufferIdentity,
-                    sourceFormats: sourceFormats
+                    sourceFormats: sourceFormats,
+                    seedSamplers: seedSamplers
                 )
                 let reachableSamplerSlots = Set(samplers.keys)
                 // Non-presence declarations participate before the fixed point. A
                 // combo-bearing default is demanded only when a stable prepared
                 // variant actually retains that sampler.
-                for (slot, sampler) in try SceneResolvedMaterialShaderSchema
-                    .unconditionalSamplers(template)
+                for (slot, sampler) in seedSamplers
                     where sampler.readinessCombo == nil && samplers[slot] == nil {
                     samplers[slot, default: []].insert(sampler)
                 }
@@ -765,7 +771,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             }
             return (formatSlots, [:])
         }
-        if template.bindsImageLayerColor, !reachableSamplerSlots.contains(where: { slot in
+        if template.bindsImageLayerColor, template.sourceLighting == nil,
+           !reachableSamplerSlots.contains(where: { slot in
             slot != 0 && samplers[slot]?.contains {
                 SceneResolvedMaterialShaderSchema.sceneEnvironmentReference(
                     template: template, sampler: $0, slot: slot) != nil

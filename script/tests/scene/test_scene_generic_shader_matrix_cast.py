@@ -37,7 +37,12 @@ private struct MatrixCastHarness {
         let fragment = """
         uniform sampler2D g_Texture0;
         varying vec2 v_TexCoord;
-        void main() { gl_FragColor = texSample2D(g_Texture0, v_TexCoord); }
+        void main() {
+            gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
+            for (uint light = 0u; light < CASTU(4); ++light) {
+                gl_FragColor.x += float(light) * 0.1;
+            }
+        }
         """
         switch SceneGenericShaderSourceNormalizer.normalize(
             vertexSource: vertex,
@@ -100,6 +105,12 @@ private struct MatrixCastHarness {
                 }
                 """]
             )
+            let castLoop = SceneGenericShaderBoundedLoopWork.evaluate(sources: [
+                pair.fragment,
+                "void main() { for (uint probe = 0U; probe < uint(15u); probe++) { consume(probe); } }",
+                "void main() { for (uint idle = 0u; idle < 0u; ++idle) { consume(idle); } }",
+            ])
+            let castLoopPassed = if case .success(19) = castLoop { true } else { false }
             let rejected = [
                 "uniform float count; void main() { float remaining = 1.0;\n"
                     + "for (float i = 0.0; remaining > 0.0 && i < count; i++) { remaining -= 0.1; }}",
@@ -167,6 +178,22 @@ private struct MatrixCastHarness {
                     + "for (i = 0; i < 32; i += dynamicStep) { consume(i); } }",
                 "void main() { int i;\n"
                     + "for (i = 0; i < 32; i -= 1) { consume(i); } }",
+                "#define CASTU(x) uint(x)\nuniform uint count;\n"
+                    + "void main() { for (uint i = 0u; i < CASTU(count); ++i) { consume(i); } }",
+                "#define CASTU(x) uint(x)\n"
+                    + "void main() { for (uint i = 0u; i < CASTU(-1); ++i) { consume(i); } }",
+                "#define CASTU(x) uint(x)\n"
+                    + "void main() { for (uint i = 0u; i < CASTU(65); ++i) { consume(i); } }",
+                "#define CASTU(x) uint(x)\n"
+                    + "void main() { for (uint i = 0u; i < CASTU(4); ++i) { i = 0u; } }",
+                "void reset(inout uint value) { value = 0u; }\n"
+                    + "void main() { for (uint i = 0u; i < uint(4); ++i) { reset(i); } }",
+                "void helper() { for (uint i = 0u; i < 4u; ++i) { consume(i); } }\n"
+                    + "void main() { helper(); helper(); }",
+                "#define CASTU(x) uint(x)\n#undef CASTU\n#define CASTU(x) uint(65)\n"
+                    + "void main() { for (uint i = 0u; i < CASTU(4); ++i) { consume(i); } }",
+                "#define uint(x) uint(65)\n"
+                    + "void main() { for (uint i = 0u; i < uint(4); ++i) { consume(i); } }",
             ].allSatisfy { source in
                 if case .failure(.unbounded) =
                     SceneGenericShaderBoundedLoopWork.evaluate(sources: [source]) {
@@ -200,6 +227,7 @@ private struct MatrixCastHarness {
                 passed && positivePassed && unseenPassed && rejected
                     && constantIntegerPassed && immutableIntegerPassed
                     && predeclaredIntegerPassed
+                    && castLoopPassed
                     && helperMutationRejected
                     ? "PASS" : "FAIL"
             )

@@ -16,7 +16,8 @@ extension SceneResolvedMaterialShaderSchema {
         textureFormatSlots: Set<Int>,
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         textureFormatProfiles: [[Int: SceneShaderTextureFormat]]? = nil,
-        sourceFormats: [Int: SourceFormatFact] = [:]
+        sourceFormats: [Int: SourceFormatFact] = [:],
+        seedSamplers: [Int: Sampler]? = nil
     ) throws -> [Int: Set<Sampler>] {
         let profiles = try textureFormatProfiles
             ?? exhaustiveTextureFormatProfiles(textureFormatSlots: textureFormatSlots, sourceFormats: sourceFormats)
@@ -68,7 +69,7 @@ extension SceneResolvedMaterialShaderSchema {
             return result
         }
 
-        let bootstrap = try unconditionalSamplers(template)
+        let bootstrap = try seedSamplers ?? unconditionalSamplers(template)
         var reachable: [Int: Set<Sampler>] = [:]
         for availability in launchAvailabilityMasks(template, seedSamplers: bootstrap) {
             var active = bootstrap

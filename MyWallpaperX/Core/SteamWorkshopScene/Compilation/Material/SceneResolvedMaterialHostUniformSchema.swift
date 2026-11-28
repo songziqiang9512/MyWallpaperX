@@ -8,7 +8,8 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
         _ field: SceneAuthoredShaderUniformLayout.Field,
         activeTextureSlots: Set<Int>,
         hasEffectContext: Bool = false,
-        usesSourceRasterProjection: Bool = false
+        usesSourceRasterProjection: Bool = false,
+        sourceLighting: SceneResolvedMaterialTemplate.SourceLighting? = nil
     ) -> Program.HostUniform? {
         if hasEffectContext,
            SceneAuthoredShaderHostArrayShape.isEffectLighting(
@@ -16,6 +17,12 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
            ) {
             return field.authoredName == "g_LightsPosition"
                 ? .lightsPosition : .lightsColorPremultiplied
+        }
+        if let sourceLighting,
+           let fieldName = SceneAuthoredShaderHostArrayShape.ModernLightField(rawValue: field.authoredName),
+           field.type == .float4,
+           field.arrayCount == (fieldName.isPoint ? sourceLighting.pointCount : sourceLighting.spotCount) {
+            return .sourceDirectLight(fieldName)
         }
         return switch (field.authoredName, field.type) {
         case ("g_ModelMatrix", .float4x4) where field.arrayCount == nil && usesSourceRasterProjection: .sourceModel
@@ -33,7 +40,8 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
             .effectDrawColor4
         case ("g_TextureReductionScale", .float) where field.arrayCount == nil && hasEffectContext:
             .textureReductionScale
-        case ("g_LightAmbientColor", .float3) where field.arrayCount == nil && hasEffectContext:
+        case ("g_LightAmbientColor", .float3)
+                where field.arrayCount == nil && (hasEffectContext || sourceLighting != nil):
             .lightAmbientColor
         case ("g_EffectModelMatrix", .float4x4) where field.arrayCount == nil && hasEffectContext:
             .effectModelMatrix
@@ -108,7 +116,7 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
         _ name: String,
         hasEffectContext: Bool
     ) -> Bool {
-        if [
+        if SceneAuthoredShaderHostArrayShape.ModernLightField(rawValue: name) != nil || [
             "g_LightsPosition", "g_LightsColorPremultiplied",
             "g_LightAmbientColor", "g_EffectModelMatrix",
         ].contains(name) { return true }

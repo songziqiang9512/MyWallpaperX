@@ -135,6 +135,7 @@ enum SceneSubmissionTerminalReplayChecks {
                 identity: 1, epoch: coordinator.executionEpoch,
                 frameIndex: 13, layerID: 7, capabilityToken: .init(value: 7),
                 prepared: prepared,
+                sourceTextureUse: nil,
                 preparedDependencyEffects: dependencyEffects,
                 preparedDependencyUnavailability: unavailable,
                 commandBuffer: buffer,

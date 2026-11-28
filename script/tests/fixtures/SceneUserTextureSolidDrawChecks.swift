@@ -134,6 +134,7 @@ enum SceneNamedTextureReference {
 }
 struct SceneEffectPassSlot { let slotIndex: Int }
 struct SceneFrameTextureResource {
+    var recordEnvironmentSample: (() -> Void)? = nil
     static func reservedNamedLayerTarget(
         reference: SceneNamedTextureReference, frameEpoch: UInt64,
         texture: MTLTexture, content: SceneTextureContent, consumerLayerID: Int

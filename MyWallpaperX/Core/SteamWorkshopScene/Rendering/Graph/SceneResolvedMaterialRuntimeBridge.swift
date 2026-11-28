@@ -308,10 +308,15 @@ final class SceneResolvedMaterialRuntimeBridge {
                 $0.count == 1 ? $0.first?.id : nil
             }
             hasSourceMaterialSceneEnvironmentConsumer = sourceMaterials.values.contains(where: \.requiresSceneEnvironment)
+            sourceDirectLightSlots = sourceMaterials.values.reduce(into: (point: 0, spot: 0)) { slots, material in
+                slots.point = max(slots.point, material.directLightSlots.point)
+                slots.spot = max(slots.spot, material.directLightSlots.spot)
+            }
         }
     }
     private(set) var sourceMaterialPrototypeByModel: [String: Int] = [:]
     private(set) var hasSourceMaterialSceneEnvironmentConsumer = false
+    private(set) var sourceDirectLightSlots: (point: Int, spot: Int) = (0, 0)
     let visibleExecutionRootLayerIDs: Set<Int>
 #if DEBUG
     private let executionEvidenceLock = NSLock()

@@ -75,6 +75,7 @@ struct SceneEffectPassSlot: Hashable {
 }
 
 struct SceneFrameTextureResource {
+    var recordEnvironmentSample: (() -> Void)? = nil
     static func reservedNamedLayerTarget(
         reference: SceneNamedTextureReference,
         frameEpoch: UInt64,

@@ -274,6 +274,7 @@ struct SceneTextureProviderPublication {
     }
 }
 struct SceneFrameTextureResource {
+    var recordEnvironmentSample: (() -> Void)? = nil
     let publication: SceneTextureProviderPublication
     let resourceGeneration: UInt64
     var isCompleteGraphResource: Bool {

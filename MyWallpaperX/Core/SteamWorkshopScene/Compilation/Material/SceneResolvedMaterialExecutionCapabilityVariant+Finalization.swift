@@ -92,7 +92,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 $0,
                 activeTextureSlots: activeSlots,
                 hasEffectContext: template.effectContext != nil,
-                usesSourceRasterProjection: usesSourceRasterProjection
+                usesSourceRasterProjection: usesSourceRasterProjection,
+                sourceLighting: template.sourceLighting
             ) == nil
         }
         let uniforms: [String: SceneResolvedMaterialShaderSchema.Uniform]

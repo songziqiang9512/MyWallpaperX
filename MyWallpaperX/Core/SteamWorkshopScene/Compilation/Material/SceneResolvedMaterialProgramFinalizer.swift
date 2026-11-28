@@ -213,7 +213,8 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 field,
                 activeTextureSlots: activeTextureSlots,
                 hasEffectContext: template.effectContext != nil,
-                usesSourceRasterProjection: usesSourceRasterProjection
+                usesSourceRasterProjection: usesSourceRasterProjection,
+                sourceLighting: template.sourceLighting
             ) {
                 let reservedKeys = schema?.materialKeys ?? [field.name]
                 guard !reservedKeys.contains(where: { declarations[$0] != nil }) else {

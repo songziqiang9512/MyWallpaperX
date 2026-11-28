@@ -5,6 +5,7 @@ import simd
 enum LightSnapshotHarness {
     static func main() {
         checkSpotFalloff()
+        checkAuthoredDirectLights()
         let spot = SceneSpotLightDefinition(
             kind: "lspot", colorRGB: [1, 1, 1], intensity: 3,
             radius: 6000, innerConeDegrees: 60, outerConeDegrees: 90,
@@ -551,6 +552,57 @@ enum LightSnapshotHarness {
 
         checkPointVolume(layerID: 101, parentID: 90, name: "Beacon")
         checkPointVolume(layerID: 13, parentID: 27, name: "Renamed emitter")
+    }
+
+    static func checkAuthoredDirectLights() {
+        let point = ScenePointLightDefinition.parse([
+            "light": "lpoint", "color": "0.25 0.5 0.75", "intensity": 4,
+            "radius": 80, "exponent": 3,
+        ])!
+        let spot = SceneSpotLightDefinition.parse([
+            "light": "lspot", "color": "0.75 0.5 0.25", "intensity": 2,
+            "radius": 90, "innercone": 30, "outercone": 60,
+        ])!
+        let layers: [SceneRenderDescriptor.Layer] = [
+            .init(id: 51, visible: true, pointLight: point, spotLight: nil,
+                  directionalLight: nil, originXYZ: [120, 160, 80]),
+            .init(id: 52, visible: true, pointLight: point, spotLight: nil,
+                  directionalLight: nil, originXYZ: [90, 162, 81]),
+            .init(id: 70, visible: true, anglesXYZ: [0, 0, 30], pointLight: nil,
+                  spotLight: spot, directionalLight: nil, originXYZ: [400, 240, 100]),
+        ]
+        let descriptor = SceneRenderDescriptor(lighting: .init(
+            ambientColorRGB: [0.125, 0.25, 0.5], skylightColorRGB: [0.625, 0.75, 1],
+            lightClasses: .init(directional: false, point: true, spot: true)
+        ), layers: layers, sceneOrthoHeight: 360)
+        let layerMap = Dictionary(uniqueKeysWithValues: layers.map { ($0.id, $0) })
+        let frames = SceneLayerWorldFrameResolver.compute(descriptor: descriptor, byID: layerMap)
+        func snapshot(visible: Set<Int>) -> SceneAuthoredShaderLightingInputs {
+            SceneLightSnapshot.make(descriptor: descriptor, worldFramesByLayerID: frames,
+                visibleLayerIDs: visible, directLightSlots: (2, 1)).authoredShaderLighting
+        }
+        func vector(_ data: Data, slot: Int = 0) -> SIMD4<Float> {
+            data.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: slot * 16, as: SIMD4<Float>.self) }
+        }
+        let original = snapshot(visible: [51, 70])
+        let direct = original.directLights
+        precondition(original.ambient == SIMD3(0.125, 0.25, 0.5))
+        precondition(direct.pointOrigin.count == 32 && direct.spotColor.count == 16)
+        precondition(vector(direct.pointColor) == SIMD4(1, 2, 3, 80))
+        precondition(vector(direct.pointOrigin) == SIMD4(120, 160, 80, 3))
+        precondition(vector(direct.pointColor, slot: 1) == .zero && vector(direct.pointOrigin, slot: 1) == .zero)
+        precondition(vector(direct.spotColor) == SIMD4(1.5, 1, 0.5, 90))
+        precondition(simd_length(vector(direct.spotOrigin) - SIMD4(400, 240, 100, 0.8660254)) < 0.0001)
+        precondition(simd_length(vector(direct.spotDirection) - SIMD4(0.15425145, -0.9880316, 0, 0.5)) < 0.0001)
+        let moved = snapshot(visible: [52, 70]).directLights
+        precondition(vector(moved.pointOrigin) == SIMD4(90, 162, 81, 3))
+        precondition(vector(moved.pointOrigin, slot: 1) == .zero)
+        let both = snapshot(visible: [51, 52, 70]).directLights
+        precondition(vector(both.pointOrigin) == vector(direct.pointOrigin))
+        precondition(vector(both.pointOrigin, slot: 1) == vector(moved.pointOrigin))
+        let noConsumer = SceneLightSnapshot.make(descriptor: descriptor, worldFramesByLayerID: frames)
+        precondition(noConsumer.authoredShaderLighting.directLights.pointOrigin.isEmpty)
+        precondition(noConsumer.authoredShaderLighting.directLights.spotColor.isEmpty)
     }
 
     static func checkSpotFalloff() {

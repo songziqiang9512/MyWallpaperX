@@ -33,18 +33,55 @@ extension SceneDocument {
             let speed: Float?
         }
 
-        /// `general.lightconfig` gates the STATIC-MODEL light classes per
-        /// scene: an absent field leaves directional/lpoint/spot inert for
-        /// models in the official client (own-fixture black-box, 2026-10-06;
-        /// spot key confirmed by the SP1/SP2 pair), so the parsed form
-        /// defaults those classes to disabled. The 2D lit-image consumer is
-        /// not config-gated — `point` lights illuminate images with no
-        /// lightconfig at all (corpus 2815826216, IMG6 pair).
+        /// Source shader arrays use the authored four-bit capacities. The
+        /// native light consumers still use the historical nonzero gates.
         nonisolated struct LightClassesDescriptor: Codable {
-            var directional: Bool = false
-            var point: Bool = false
-            var spot: Bool = false
-            var tube: Bool = false
+            private let directionalValue: Double
+            private let pointValue: Double
+            private let spotValue: Double
+            private let tubeValue: Double
+
+            private enum CodingKeys: String, CodingKey {
+                case directionalValue = "directional"
+                case pointValue = "point"
+                case spotValue = "spot"
+                case tubeValue = "tube"
+            }
+
+            var directional: Bool { directionalValue != 0 }
+            var point: Bool { pointValue != 0 }
+            var spot: Bool { spotValue != 0 }
+            var tube: Bool { tubeValue != 0 }
+
+            var pointCount: Int { Self.slotCount(pointValue) }
+            var spotCount: Int { Self.slotCount(spotValue) }
+
+            init(directional: Bool = false, point: Bool = false, spot: Bool = false, tube: Bool = false) {
+                self.init(directional: directional ? 1 : 0, point: point ? 1 : 0,
+                          spot: spot ? 1 : 0, tube: tube ? 1 : 0)
+            }
+
+            init(directional: Double, point: Double, spot: Double, tube: Double) {
+                directionalValue = directional
+                pointValue = point
+                spotValue = spot
+                tubeValue = tube
+            }
+
+            init(from decoder: Decoder) throws {
+                let values = try decoder.container(keyedBy: CodingKeys.self)
+                func numeric(_ key: CodingKeys) throws -> Double {
+                    if let number = try? values.decode(Double.self, forKey: key) { return number }
+                    return try values.decode(Bool.self, forKey: key) ? 1 : 0
+                }
+                self.init(directional: try numeric(.directionalValue), point: try numeric(.pointValue),
+                          spot: try numeric(.spotValue), tube: try numeric(.tubeValue))
+            }
+
+            private static func slotCount(_ value: Double) -> Int {
+                guard let number = Int(exactly: value), (0 ... 15).contains(number) else { return 0 }
+                return number
+            }
         }
 
         let orthoWidth: Float?     // general.orthogonalprojection.width
@@ -110,16 +147,15 @@ extension SceneDocumentLoader {
         guard let config = value as? [String: Any] else {
             return .init()
         }
-        func enabled(_ key: String) -> Bool {
-            guard let number = config[key] as? NSNumber else { return false }
-            let value = number.doubleValue
-            return value.isFinite && value != 0
+        func numeric(_ key: String) -> Double {
+            guard let number = config[key] as? NSNumber, number.doubleValue.isFinite else { return 0 }
+            return number.doubleValue
         }
         return .init(
-            directional: enabled("directional"),
-            point: enabled("point"),
-            spot: enabled("spot"),
-            tube: enabled("tube")
+            directional: numeric("directional"),
+            point: numeric("point"),
+            spot: numeric("spot"),
+            tube: numeric("tube")
         )
     }
 

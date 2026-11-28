@@ -157,10 +157,9 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
                     || SceneShaderContract.StageKind(rawValue: field.stage!) != nil else {
                 return nil
             }
-            if SceneAuthoredShaderHostArrayShape.effectLighting(name: field.authoredName) != nil,
-               !SceneAuthoredShaderHostArrayShape.isEffectLighting(
-                   name: field.authoredName, type: type, count: field.arrayCount
-               ) { return nil }
+            if let shape = SceneAuthoredShaderHostArrayShape.modernLight(name: field.authoredName)
+                ?? SceneAuthoredShaderHostArrayShape.effectLighting(name: field.authoredName),
+               !shape.accepts(type: type, count: field.arrayCount) { return nil }
             if let count = field.arrayCount {
                 // Validate before storageByteSize can multiply untrusted wire
                 // metadata. Preserve existing array ABI within the layout cap.

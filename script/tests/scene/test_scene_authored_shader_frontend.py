@@ -402,11 +402,13 @@ class SceneAuthoredShaderFrontendTests(AuthoredShaderFrontendHarness, unittest.T
             red_green_only["textureChannelUses"], ["redGreenOnly"]
         )
 
-        for name, statement in {
-            "whole": "vec4 value = texSample2D(g_Texture1, v_TexCoord);",
+        for name, (statement, result) in {
+            "whole": ("vec4 value = texSample2D(g_Texture1, v_TexCoord);",
+                      "gl_FragColor = value;"),
             "alias": (
                 "vec4 sampled = texSample2D(g_Texture1, v_TexCoord); "
-                "float value = sampled.r;"
+                "float value = sampled.r;",
+                "gl_FragColor = vec4(value, 0.0, 0.0, 1.0);",
             ),
         }.items():
             with self.subTest(name=name):
@@ -417,7 +419,7 @@ class SceneAuthoredShaderFrontendTests(AuthoredShaderFrontendHarness, unittest.T
                     varying vec2 v_TexCoord;
                     void main() {{
                         {statement}
-                        gl_FragColor = vec4(1.0);
+                        {result}
                     }}
                     """,
                 )
@@ -427,15 +429,19 @@ class SceneAuthoredShaderFrontendTests(AuthoredShaderFrontendHarness, unittest.T
                 )
 
         unproven_fragments = {
-            "blue": "float value = texSample2D(g_Texture1, v_TexCoord).b;",
-            "rgb": "vec3 value = texSample2D(g_Texture1, v_TexCoord).rgb;",
-            "permuted": "vec2 value = texSample2D(g_Texture1, v_TexCoord).yx;",
+            "blue": ("float value = texSample2D(g_Texture1, v_TexCoord).b;",
+                     "gl_FragColor = vec4(value, 0.0, 0.0, 1.0);"),
+            "rgb": ("vec3 value = texSample2D(g_Texture1, v_TexCoord).rgb;",
+                    "gl_FragColor = vec4(value, 1.0);"),
+            "permuted": ("vec2 value = texSample2D(g_Texture1, v_TexCoord).yx;",
+                         "gl_FragColor = vec4(value, 0.0, 1.0);"),
             "mixed-safe-unsafe": (
                 "float red = texSample2D(g_Texture1, v_TexCoord).x; "
-                "float blue = texSample2D(g_Texture1, v_TexCoord).z;"
+                "float blue = texSample2D(g_Texture1, v_TexCoord).z;",
+                "gl_FragColor = vec4(red, 0.0, blue, 1.0);",
             ),
         }
-        for name, statement in unproven_fragments.items():
+        for name, (statement, result) in unproven_fragments.items():
             with self.subTest(name=name):
                 output = self.compile(
                     VERTEX_SOURCE,
@@ -444,7 +450,7 @@ class SceneAuthoredShaderFrontendTests(AuthoredShaderFrontendHarness, unittest.T
                     varying vec2 v_TexCoord;
                     void main() {{
                         {statement}
-                        gl_FragColor = vec4(1.0);
+                        {result}
                     }}
                     """,
                 )

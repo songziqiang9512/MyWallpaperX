@@ -22,6 +22,9 @@ nonisolated enum SceneShaderContract {
     enum StageKind: String, Codable, Sendable { case vertex, fragment }
 }
 nonisolated enum SceneShaderColorBoundary { static let uniformName = "mwxColorInputMask" }
+nonisolated enum SceneAuthoredShaderProgram {
+    static let sourceRasterProjectionUniformName = "mwxSourceRasterProjection"
+}
 nonisolated enum SceneDynamicValue {
     case scalar(Double), vector2(Double, Double), vector3(Double, Double, Double)
     case vector4(Double, Double, Double, Double), bool(Bool), string(String)
@@ -38,11 +41,8 @@ nonisolated struct SceneDynamicSnapshot {
     var values: [SceneDynamicTarget: Resolved] = [:]
     subscript(_ target: SceneDynamicTarget) -> Resolved? { values[target] }
 }
-nonisolated struct ScenePuppetAttachmentFrameSnapshot {
-    static let empty = Self()
-    func frame(parentLayerID: Int, attachmentName: String) -> simd_float4x4? { nil }
-}
 nonisolated struct SceneResolvedMaterialTemplate {
+    struct SourceLighting { let pointCount: Int; let spotCount: Int }
     struct StaticUniformValue { let componentBitPatterns: [UInt64] }
 }
 nonisolated struct SceneResolvedMaterialProgram {
@@ -55,12 +55,14 @@ nonisolated struct SceneResolvedMaterialProgram {
         var yAxis = SIMD2<Float>(0, 1)
         var origin = SIMD2<Float>.zero
     }
+    struct Texture { let mipmapLevelCount: Int }
     struct Candidate {
         let content: Content
         var physicalSize = CGSize(width: 1, height: 1)
         var mappedSize = CGSize(width: 1, height: 1)
         var uvTransform = Transform()
         var isSpriteSheet = false
+        var texture = Texture(mipmapLevelCount: 1)
     }
     struct Publication { let candidate: Candidate }
     struct Resource { let publication: Publication }
@@ -459,6 +461,7 @@ class OrdinaryEffectLightingTests(unittest.TestCase):
             "Rendering/Geometry/SceneLayerWorldFrameResolver.swift",
             "Rendering/Geometry/SceneLayerVisibility.swift",
             "Systems/Properties/SceneDynamicLayerValues.swift",
+            "Systems/Puppet/ScenePuppetAttachmentFrameSnapshot.swift",
         ]]
         with tempfile.TemporaryDirectory(prefix="mwx-ordinary-light-") as tmp:
             work = Path(tmp)

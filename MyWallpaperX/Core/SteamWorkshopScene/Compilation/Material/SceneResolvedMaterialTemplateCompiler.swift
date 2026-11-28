@@ -91,6 +91,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         renderState: SceneMaterialRenderState,
         authoredOnlyUniforms: Set<String> = [],
         bindsImageLayerColor: Bool = false,
+        orthographicLightCounts: (point: Int, spot: Int)? = nil,
         inheritedInactiveCombos: Set<String> = [],
         provenSceneScriptValueTargets: Set<SceneDynamicTarget> = [],
         compatibilityTarget: SceneShaderCompatibilityTarget = .windowsDX11ShaderModel4
@@ -112,8 +113,29 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                 provenSceneScriptValueTargets: provenSceneScriptValueTargets,
                 authoredOnlyUniforms: authoredOnlyUniforms
             )
+            var combos = material.combos
+            var sourceLighting: Template.SourceLighting?
+            if let counts = orthographicLightCounts {
+                let lightingActive = shaderContract.stages.lazy.flatMap(\.annotations).contains { annotation in
+                    guard annotation.marker == "[COMBO]",
+                          case let .object(value) = annotation.variantValue,
+                          value["combo"]?.stringValue == "LIGHTING" else { return false }
+                    return (combos["LIGHTING"] ?? value["default"]?.integerValue.flatMap(Int.init(exactly:)) ?? 0) != 0
+                }
+                if lightingActive || shaderContract.sourceGraph?.nodes.contains(where: {
+                    $0.source.contains("SCENE_ORTHO")
+                }) == true {
+                    combos["SCENE_ORTHO"] = 1
+                }
+                if lightingActive {
+                    combos["LIGHTS_POINT"] = counts.point
+                    combos["LIGHTS_SPOT"] = counts.spot
+                    sourceLighting = .init(pointCount: counts.point, spotCount: counts.spot)
+                }
+            }
             return .success(try makeTemplate(
                 material: material,
+                effectiveCombos: combos,
                 shaderContract: shaderContract,
                 textures: textures,
                 uniforms: uniforms,
@@ -124,6 +146,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                 ),
                 effectContext: nil,
                 bindsImageLayerColor: bindsImageLayerColor,
+                sourceLighting: sourceLighting,
                 inheritedInactiveCombos: inheritedInactiveCombos,
                 compatibilityTarget: compatibilityTarget
             ))
@@ -135,6 +158,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
 
     private static func makeTemplate(
         material: SceneResolvedMaterialNode,
+        effectiveCombos: [String: Int]? = nil,
         shaderContract: SceneShaderContract,
         textures: TextureProjection,
         uniforms: UniformProjection,
@@ -142,10 +166,11 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         graphRole: Template.GraphRole,
         effectContext: Template.EffectContext?,
         bindsImageLayerColor: Bool = false,
+        sourceLighting: Template.SourceLighting? = nil,
         inheritedInactiveCombos: Set<String>,
         compatibilityTarget: SceneShaderCompatibilityTarget
     ) throws -> Template {
-        let combos = material.combos.sorted { $0.key < $1.key }.map {
+        let combos = (effectiveCombos ?? material.combos).map {
             Template.Combo(name: $0.key, value: $0.value)
         }
         guard let template = Template.validated(
@@ -157,6 +182,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
             graphRole: graphRole,
             effectContext: effectContext,
             bindsImageLayerColor: bindsImageLayerColor,
+            sourceLighting: sourceLighting,
             compatibilityTarget: compatibilityTarget,
             shaderContract: shaderContract,
             diagnosticProvenance: .init(

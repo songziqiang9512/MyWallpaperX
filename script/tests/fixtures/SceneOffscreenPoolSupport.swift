@@ -31,6 +31,7 @@ struct SceneTextureProviderPublication {
 struct SceneFrameTextureResource {
     let publication: SceneTextureProviderPublication
     let resourceGeneration: UInt64
+    var recordEnvironmentSample: (() -> Void)? = nil
 
     var isCompleteGraphResource: Bool {
         resourceGeneration > 0

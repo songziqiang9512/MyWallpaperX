@@ -28,9 +28,15 @@ struct SceneAssetTextureIdentity: Equatable, Sendable {
 enum SceneFrameTextureIdentity { case asset(SceneAssetTextureIdentity) }
 struct Registry { func lookup(_ identity:SceneFrameTextureIdentity)->Bool { true } }
 struct SceneGeometryProduct {}
-struct SceneFrameTextureResource {}
+struct SceneFrameTextureResource { var recordEnvironmentSample: (() -> Void)? = nil }
+struct SceneTextureCandidate {
+    enum Provider { case materialSource }
+    enum Identity { case provider(Provider) }
+    let identity: Identity
+}
 struct SceneImageLayerDrawRequest {
     let layer:SceneRenderDescriptor.Layer
+    var baseTextureCandidate:SceneTextureCandidate?=nil
     let resolvedMaterialFrameTargetPlan:Int?=nil
     let dynamicValues:SceneDynamicSnapshot
     let geometryProduct:SceneGeometryProduct?=nil

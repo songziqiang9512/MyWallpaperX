@@ -253,13 +253,31 @@ extension SceneResolvedMaterialShaderSchema {
         let candidatePurpose = registeredPurpose ?? declared
         // A typed asset default can supply the slot role, but never override
         // the selected asset's own conflicting registered purpose.
-        guard sampler.mode == .regular,
-              declared == nil,
-              case let .asset(defaultPath)? = sampler.defaultTexture,
-              let defaultPurpose = SceneStockTextureSemanticRegistry.purpose(for: defaultPath)
-        else { return candidatePurpose }
-        guard candidatePurpose == nil || candidatePurpose == defaultPurpose else { return nil }
-        return candidatePurpose ?? defaultPurpose
+        if sampler.mode == .regular, declared == nil,
+           case let .asset(defaultPath)? = sampler.defaultTexture {
+            guard let defaultPurpose = SceneStockTextureSemanticRegistry.purpose(for: defaultPath)
+            else { return candidatePurpose ?? labelAlbedoPurpose(for: sampler) }
+            guard candidatePurpose == nil || candidatePurpose == defaultPurpose else { return nil }
+            return candidatePurpose ?? defaultPurpose
+        }
+        return candidatePurpose ?? labelAlbedoPurpose(for: sampler)
+    }
+
+    /// Stock shaders can declare their only albedo slot through the editor
+    /// label without a material key (genericimage3). The slot then has no
+    /// declared, registered, or source-proven role, so the source-material
+    /// admission would reject a plain color asset that the label already
+    /// types. Only the otherwise unresolved slot-zero regular asset adopts
+    /// the straight-color role; every explicit or registered role above wins.
+    private nonisolated static func labelAlbedoPurpose(
+        for sampler: Sampler
+    ) -> SceneTextureLoadPurpose? {
+        guard sampler.sourceProvenPurpose == nil, sampler.materialKey == nil,
+              sampler.formatKey == nil, sampler.slot == 0, sampler.mode == .regular,
+              !sampler.isHidden,
+              sampler.labelKey?.caseInsensitiveCompare("ui_editor_properties_albedo")
+                == .orderedSame else { return nil }
+        return .straightAlbedo
     }
 
     nonisolated static func hasMediaGradientRole(_ sampler: Sampler) -> Bool {

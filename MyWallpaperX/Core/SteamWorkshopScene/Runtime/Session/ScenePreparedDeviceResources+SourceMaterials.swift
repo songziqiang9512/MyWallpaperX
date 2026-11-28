@@ -72,6 +72,26 @@ extension ScenePreparedDeviceResources {
             guard envelope.allEntriesReady, !envelope.variants.isEmpty else {
                 reject("variant-envelope-incomplete"); continue
             }
+            var directLightSlots = (point: 0, spot: 0)
+            var usesAmbientLight = false
+            if template.sourceLighting != nil {
+                for variant in envelope.variants {
+                    for binding in variant.preparedUniformBindings {
+                        switch binding.source {
+                        case .host(.lightAmbientColor): usesAmbientLight = true
+                        case let .host(.sourceDirectLight(field)):
+                            let count = binding.field.arrayCount ?? 0
+                            if field.isPoint { directLightSlots.point = max(directLightSlots.point, count) }
+                            else { directLightSlots.spot = max(directLightSlots.spot, count) }
+                        default: break
+                        }
+                    }
+                }
+            }
+            if template.bindsImageLayerColor, !variants.hasSceneEnvironmentConsumer, !usesAmbientLight,
+               directLightSlots.point == 0, directLightSlots.spot == 0 {
+                reject("source-material-no-active-lighting-or-environment"); continue
+            }
             let outputDomain: SceneResolvedMaterialRuntimeBridge.PreparedSourceMaterial.OutputDomain
             if entry.capturesMainTarget {
                 guard let sourceSlot = template.textureSlots.first ?? nil,
@@ -126,7 +146,8 @@ extension ScenePreparedDeviceResources {
                 requiresSceneEnvironment: variants.hasSceneEnvironmentConsumer, bindFrame: { input in
                 SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: variants)
             }, pixelFormat: format, outputDomain: outputDomain,
-                sharedModelPath: entry.sharedModelPath, bindsImageLayerColor: template.bindsImageLayerColor)
+                sharedModelPath: entry.sharedModelPath, bindsImageLayerColor: template.bindsImageLayerColor,
+                directLightSlots: directLightSlots)
             logSink("source material prepared: owner=\(entry.key.reportToken) variants=\(envelope.variants.count)")
         }
         return prepared

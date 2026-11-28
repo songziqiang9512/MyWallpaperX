@@ -236,6 +236,30 @@ private func colorGraphResults() -> [String: Any] {
     ]
 }
 
+private func labelAlbedoPurposeResults() -> [String: String] {
+    func sampler(_ label: String?, material: String? = nil, slot: Int = 0,
+                 hidden: Bool = false, format: String? = nil,
+                 source: SceneTextureLoadPurpose? = nil) -> Schema.Sampler {
+        .init(name: "g_Texture\(slot)", slot: slot, mode: .regular,
+            materialKey: material, labelKey: label, formatKey: format,
+            isHidden: hidden, defaultTexture: nil, readinessCombo: nil,
+            channelUse: .unproven, sourceProvenPurpose: source)
+    }
+    let path = SceneVFSAssetPath("fixtures/unseen/label-albedo")!
+    func purpose(_ value: Schema.Sampler) -> String {
+        Schema.purpose(for: .asset(path), sampler: value)?.reportToken ?? "nil"
+    }
+    return [
+        "stockLabel": purpose(sampler("ui_editor_properties_albedo")),
+        "otherLabel": purpose(sampler("ui_editor_properties_normal")),
+        "materialKeyWins": purpose(sampler("ui_editor_properties_albedo", material: "noise")),
+        "auxiliarySlot": purpose(sampler("ui_editor_properties_albedo", slot: 2)),
+        "hidden": purpose(sampler("ui_editor_properties_albedo", hidden: true)),
+        "sourceProvenWins": purpose(sampler("ui_editor_properties_albedo",
+            source: .premultipliedColor)),
+    ]
+}
+
 private func graphPurposeResults() -> [String: String] {
     let identity = SceneAuthoredEffectRenderPlan.TextureIdentity(
         kind: .effectOutput, layerID: 167, effect: nil, name: "own-color-ingress")
@@ -519,6 +543,7 @@ private enum Main {
             "alphaRGBPurpose": alphaRGBPurposeResults(),
             "syntaxReuse": try syntaxReuseResults(),
             "graphPurpose": graphPurposeResults(),
+            "labelAlbedo": labelAlbedoPurposeResults(),
             "colorGraph": colorGraphResults(),
             "positive": [
                 "typoKey": token(preparedSampler(direct)),
@@ -780,6 +805,13 @@ class SceneSourceProvenStraightColorPurposeTests(unittest.TestCase):
         self.assertEqual(result["auxiliary1"], "redGreenOnly/nil/normal")
         self.assertEqual(result["auxiliary2"], "wholeVector/nil/mask")
         self.assertEqual(result["auxiliary3"], "unproven/nil/nil")
+
+    def test_stock_albedo_label_types_only_the_unresolved_slot_zero_color_asset(self) -> None:
+        self.assertEqual(self.result["labelAlbedo"], {
+            "stockLabel": "straight-albedo", "otherLabel": "nil",
+            "materialKeyWins": "noise", "auxiliarySlot": "nil",
+            "hidden": "nil", "sourceProvenWins": "premultiplied-color",
+        })
 
     def test_color_graph_rejects_data_alpha_control_flow_and_escaped_uses(self) -> None:
         graph = self.result["colorGraph"]

@@ -243,6 +243,7 @@ func jsonNumberIsSaturated() -> Bool {
 
         let payload: [String: Any] = [
             "lightClasses": lightClassCases(),
+            "lightSlots": try lightSlotCases(),
             "objects": objects,
             "referenced": document.referencedResourcePaths,
             "fov": document.general.fovDegrees as Any? ?? NSNull(),
@@ -303,6 +304,24 @@ func jsonNumberIsSaturated() -> Bool {
             let classes = SceneDocumentLoader.parseGeneral(["lightconfig": value]).lightClasses
             return [classes.directional, classes.point, classes.spot]
         }
+    }
+
+    static func lightSlotCases() throws -> [String: [Int]] {
+        typealias Classes = SceneDocument.GeneralDescriptor.LightClassesDescriptor
+        func counts(_ value: Classes) -> [Int] {
+            [value.pointCount, value.spotCount]
+        }
+        let authored = SceneDocumentLoader.parseGeneral(
+            ["lightconfig": ["directional": 3, "point": 15, "spot": 2]]
+        ).lightClasses
+        let invalid = SceneDocumentLoader.parseGeneral(
+            ["lightconfig": ["directional": 0.5, "point": 16, "spot": -1, "tube": "1"]]
+        ).lightClasses
+        let legacy = try JSONDecoder().decode(Classes.self, from:
+            Data(#"{"directional":false,"point":true,"spot":true,"tube":false}"#.utf8))
+        let roundTrip = try JSONDecoder().decode(Classes.self, from: JSONEncoder().encode(authored))
+        return ["authored": counts(authored), "invalid": counts(invalid),
+                "legacy": counts(legacy), "roundTrip": counts(roundTrip)]
     }
 }
 '''
@@ -381,6 +400,12 @@ class SceneStaticModelDocumentTests(unittest.TestCase):
             "pointOnly": [False, True, False], "spotOnly": [False, False, True],
             "nonzero": [True, True, True], "zero": [False, False, False],
             "malformed": [False, False, False], "nonfinite": [False, False, False],
+        })
+
+    def test_source_light_slots_preserve_numeric_capacity_and_decode_legacy_flags(self) -> None:
+        self.assertEqual(self.result["lightSlots"], {
+            "authored": [15, 2], "invalid": [0, 0],
+            "legacy": [1, 1], "roundTrip": [15, 2],
         })
 
     def test_authored_numbers_beyond_the_float_range_saturate(self) -> None:

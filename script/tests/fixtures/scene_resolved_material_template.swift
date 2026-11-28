@@ -151,13 +151,14 @@ private func material(
     slots: [SceneResolvedMaterialNode.TextureSlot?] = .emptySlots,
     constants: [String: SceneDocument.ShaderValue] = [:],
     userShaderValues: [String: String] = [:],
-    blending: String = "normal"
+    blending: String = "normal",
+    combos: [String: Int] = ["Z_COMBO": 2, "A_COMBO": 1]
 ) -> SceneResolvedMaterialNode {
     .init(
         nodeIndex: 7,
         shaderPath: shaderPath,
         textureSlots: slots,
-        combos: ["Z_COMBO": 2, "A_COMBO": 1],
+        combos: combos,
         constants: constants,
         userShaderValues: userShaderValues,
         renderState: .init(
@@ -233,11 +234,13 @@ private func sourceContracts() -> [String: Bool] {
     )
     func sourceCompile(_ node: SceneResolvedMaterialNode, path: String = "Materials/Source.JSON", passIndex: Int = 5,
                        shader: SceneShaderContract? = nil, provenTargets: Set<SceneDynamicTarget> = [],
-                       authoredOnlyUniforms: Set<String> = []) -> Result<Template, SceneResolvedMaterialFailure> {
+                       authoredOnlyUniforms: Set<String> = [],
+                       orthoLights: (Int, Int)? = nil) -> Result<Template, SceneResolvedMaterialFailure> {
         SceneResolvedMaterialTemplateCompiler.compileSourceMaterial(
             material: node, layerID: 123, materialPath: path, passIndex: passIndex,
             shaderContract: shader ?? contract(node.shaderPath), renderState: state,
             authoredOnlyUniforms: authoredOnlyUniforms,
+            orthographicLightCounts: orthoLights,
             provenSceneScriptValueTargets: provenTargets
         )
     }
@@ -278,7 +281,30 @@ private func sourceContracts() -> [String: Bool] {
         combos: [:], constantShaderValues: [:], userShaderValues: [:],
         blending: nil, depthTest: nil, depthWrite: nil, cullMode: nil, alphaWriting: nil
     )
+    let lightingShader = contract(source.shaderPath, fragmentSourceOverride: """
+        // [COMBO] {"combo":"LIGHTING","default":1}
+        #if SCENE_ORTHO && LIGHTING
+        uniform vec3 g_LightAmbientColor;
+        #endif
+        void main() { gl_FragColor = vec4(1.0); }
+        """)
+    let direct = template(sourceCompile(source, shader: lightingShader, orthoLights: (2, 3)))
+    let ambient = template(sourceCompile(source, shader: lightingShader, orthoLights: (0, 0)))
+    let disabled = material(shaderPath: source.shaderPath, combos: ["LIGHTING": 0, "REFLECTION": 1])
+    let unlit = template(sourceCompile(disabled, shader: lightingShader, orthoLights: (2, 3)))
+    let legacy = template(sourceCompile(
+        material(shaderPath: source.shaderPath, combos: ["LIGHTING": 1]), orthoLights: (2, 3)))
     return [
+        "sourceLightCombosUseSceneSlotCounts": direct?.comboValues == [
+            "FLOW": 1, "SCENE_ORTHO": 1, "LIGHTS_POINT": 2, "LIGHTS_SPOT": 3
+        ] && direct?.sourceLighting?.pointCount == 2 && direct?.sourceLighting?.spotCount == 3,
+        "sourceLightZeroCountsKeepAmbientRoute": ambient?.sourceLighting?.pointCount == 0
+            && ambient?.sourceLighting?.spotCount == 0 && ambient?.comboValues["LIGHTS_POINT"] == 0,
+        "sourceLightDisabledKeepsOrthographicReflection": unlit?.sourceLighting == nil
+            && unlit?.comboValues == ["LIGHTING": 0, "REFLECTION": 1, "SCENE_ORTHO": 1],
+        "sourceLightScopeRequiresAuthoredComboAndOrtho": legacy?.sourceLighting == nil
+            && legacy?.comboValues == ["LIGHTING": 1]
+            && template(sourceCompile(source, shader: lightingShader))?.comboValues == ["FLOW": 1],
         "sourceResolved": resolution.isResolved && source.combos == pass.combos && source.renderState.blending == nil && source.renderState.cullMode == nil,
         "sourceNoEffectIdentity": value?.effectContext == nil && value?.graphRole == .init(effectInput: .layerSource, effectOutput: .layerSource, nodeTarget: .layerSource, bindings: []) && value?.compatibilityTarget == .windowsDX11ShaderModel4,
         "sourceSharedTextureProjection": value?.textureSlots.count == 8 && value?.textureSlots[7] == nil

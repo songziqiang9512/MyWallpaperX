@@ -386,6 +386,7 @@ private func makeLedger(
         layerID: 7,
         capabilityToken: .init(value: 7),
         prepared: prepared,
+        sourceTextureUse: nil,
         preparedDependencyEffects: preparedDependencyEffects,
         preparedDependencyUnavailability: nil,
         commandBuffer: commandBuffer,

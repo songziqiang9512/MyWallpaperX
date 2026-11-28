@@ -301,15 +301,18 @@ final class SceneResolvedMaterialRuntimeBridge {
         let requiresSceneEnvironment: Bool
         let outputDomain: OutputDomain
         let sharedModelPath: String?
+        let directLightSlots: (point: Int, spot: Int)
         init(declaredDynamicTargets: Set<SceneDynamicTarget>,
              hasAudioSpectrumConsumer _: Bool, requiresSceneEnvironment: Bool,
              bindFrame: @escaping (Int) -> Int, pixelFormat: MTLPixelFormat,
-             outputDomain: OutputDomain, sharedModelPath: String?, bindsImageLayerColor: Bool) {
+             outputDomain: OutputDomain, sharedModelPath: String?, bindsImageLayerColor: Bool,
+             directLightSlots: (point: Int, spot: Int) = (0, 0)) {
             self.declaredDynamicTargets = declaredDynamicTargets
             self.bindsImageLayerColor = bindsImageLayerColor
             self.requiresSceneEnvironment = requiresSceneEnvironment
             self.outputDomain = outputDomain
             self.sharedModelPath = sharedModelPath
+            self.directLightSlots = directLightSlots
         }
     }
     struct Submissions {

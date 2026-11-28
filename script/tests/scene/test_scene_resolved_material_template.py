@@ -378,6 +378,12 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             "sourceResolverSlotOverflowRejected",
         ])
 
+    def test_source_lighting_slots_follow_the_scene_and_the_authored_variant(self) -> None:
+        self.assert_contracts([
+            "sourceLightCombosUseSceneSlotCounts", "sourceLightZeroCountsKeepAmbientRoute",
+            "sourceLightDisabledKeepsOrthographicReflection", "sourceLightScopeRequiresAuthoredComboAndOrtho",
+        ])
+
     def test_declared_texture_keys_reach_the_real_template_without_path_aliases(self) -> None:
         self.assert_contracts([
             "declaredUnderscoreReachesTemplate", "declaredRenamedKeyReachesTemplate",

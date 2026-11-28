@@ -97,6 +97,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     struct PreparedSourceMaterial {
         var sharedModelPath: String?
         var requiresSceneEnvironment = false
+        var directLightSlots: (point: Int, spot: Int) = (0, 0)
     }
     struct SourceMaterialConsumer { var layerID: Int; var prototypeLayerID: Int }
     __SOURCE_MATERIAL_STORAGE__

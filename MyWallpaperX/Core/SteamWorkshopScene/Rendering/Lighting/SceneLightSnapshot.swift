@@ -100,7 +100,8 @@ struct SceneLightSnapshot {
         dynamicSnapshot: SceneDynamicSnapshot? = nil,
         candidateLayerIDs: [Int]? = nil,
         layersByID: [Int: SceneRenderDescriptor.Layer]? = nil,
-        visibleLayerIDs: Set<Int>? = nil
+        visibleLayerIDs: Set<Int>? = nil,
+        directLightSlots: (point: Int, spot: Int) = (0, 0)
     ) -> SceneLightSnapshot {
         let resolvedLayersByID = layersByID ?? Dictionary(
             uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) }
@@ -123,7 +124,8 @@ struct SceneLightSnapshot {
         var overflowCount = 0
         var authoredLighting = SceneAuthoredShaderLightingInputs.Builder(
             orthographicHeight: descriptor.camera.orthoHeight,
-            ambient: descriptor.lighting?.ambientColorRGB
+            ambient: descriptor.lighting?.ambientColorRGB,
+            directLightSlots: directLightSlots
         )
         for layer in lightLayers {
             // The same current visibility authority gates direct light,
@@ -227,6 +229,8 @@ struct SceneLightSnapshot {
                 layer: layer, frame: frame, dynamicColor: dynamicColor,
                 intensity: intensity, radius: radius
             ) {
+                authoredLighting.appendDirectPoint(position: light.position, color: light.color,
+                    intensity: light.intensity, radius: light.radius, exponent: light.falloffExponent)
                 if acceptedCount < maximumLightCount {
                     pointLights.append(light)
                     acceptedCount += 1
@@ -237,6 +241,9 @@ struct SceneLightSnapshot {
                 layer: layer, frame: frame, dynamicColor: dynamicColor,
                 intensity: intensity
             ) {
+                authoredLighting.appendDirectSpot(position: light.position, direction: light.directionFromLight,
+                    color: light.color, intensity: light.intensity, radius: light.radius,
+                    innerConeCosine: light.innerConeCosine, outerConeCosine: light.outerConeCosine)
                 if acceptedCount < maximumLightCount {
                     spotLights.append(light)
                     acceptedCount += 1

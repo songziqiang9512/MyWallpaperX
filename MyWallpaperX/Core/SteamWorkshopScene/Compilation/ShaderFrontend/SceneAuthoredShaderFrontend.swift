@@ -606,14 +606,17 @@ nonisolated enum SceneAuthoredShaderFrontend {
                     continue
                 }
                 let arrayCount = declaration.arraySize
-                guard arrayCount == nil || isAudioSpectrumArray(
-                    name: declaration.name,
-                    type: type,
-                    count: arrayCount
-                ) || SceneAuthoredShaderHostArrayShape.isEffectLighting(
-                    name: declaration.name, type: type, count: arrayCount
-                ) || (type == .float
-                    && unit.exactRuntimeLoopUniformArrays.contains(declaration.name)) else {
+                let modernLightShape = SceneAuthoredShaderHostArrayShape.modernLight(
+                    name: declaration.name
+                )
+                guard modernLightShape?.accepts(type: type, count: arrayCount) ?? (
+                    arrayCount == nil || isAudioSpectrumArray(
+                        name: declaration.name, type: type, count: arrayCount
+                    ) || SceneAuthoredShaderHostArrayShape.isEffectLighting(
+                        name: declaration.name, type: type, count: arrayCount
+                    ) || (type == .float
+                        && unit.exactRuntimeLoopUniformArrays.contains(declaration.name))
+                ) else {
                     diagnostics.append(.init(
                         code: .unsupportedType,
                         message: "Uniform '\(declaration.name)' has an unsupported array shape.",

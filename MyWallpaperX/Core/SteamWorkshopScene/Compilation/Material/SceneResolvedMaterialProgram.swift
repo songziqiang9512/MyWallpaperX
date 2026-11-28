@@ -192,6 +192,11 @@ nonisolated struct SceneResolvedMaterialTemplate {
 
     struct Combo: Hashable { let name: String; let value: Int }
 
+    struct SourceLighting {
+        let pointCount: Int
+        let spotCount: Int
+    }
+
     struct StaticUniformValue: Hashable {
         let valueKind: String
         let componentBitPatterns: [UInt64]
@@ -303,6 +308,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
     /// layer, a named target, or a non-contiguous effect output.
     let effectContext: EffectContext?
     let bindsImageLayerColor: Bool
+    let sourceLighting: SourceLighting?
     /// Host-selected author-language compatibility for this one immutable
     /// Program candidate. Resource reachability and final compilation must
     /// consume this exact value rather than choosing a target independently.
@@ -323,6 +329,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
         graphRole: GraphRole,
         effectContext: EffectContext? = nil,
         bindsImageLayerColor: Bool = false,
+        sourceLighting: SourceLighting? = nil,
         compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal,
         shaderContract: SceneShaderContract,
         diagnosticProvenance: DiagnosticProvenance
@@ -349,6 +356,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
             graphRole: graphRole,
             effectContext: effectContext,
             bindsImageLayerColor: bindsImageLayerColor,
+            sourceLighting: sourceLighting,
             compatibilityTarget: compatibilityTarget,
             shaderContract: shaderContract,
             diagnosticProvenance: diagnosticProvenance
@@ -362,6 +370,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
         graphRole: GraphRole,
         effectContext: EffectContext?,
         bindsImageLayerColor: Bool,
+        sourceLighting: SourceLighting?,
         compatibilityTarget: SceneShaderCompatibilityTarget,
         shaderContract: SceneShaderContract,
         diagnosticProvenance: DiagnosticProvenance
@@ -374,6 +383,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
         self.graphRole = graphRole
         self.effectContext = effectContext
         self.bindsImageLayerColor = bindsImageLayerColor
+        self.sourceLighting = sourceLighting
         self.compatibilityTarget = compatibilityTarget
         self.shaderContract = shaderContract
         self.diagnosticProvenance = diagnosticProvenance
@@ -436,6 +446,7 @@ nonisolated struct SceneResolvedMaterialProgram {
         case layerModelMatrix
         case effectModelMatrix
         case lightsPosition, lightsColorPremultiplied, lightAmbientColor
+        case sourceDirectLight(SceneAuthoredShaderHostArrayShape.ModernLightField)
         case effectModelViewProjection
         case effectTextureProjectionMatrix
         case effectTextureProjectionMatrixInverse

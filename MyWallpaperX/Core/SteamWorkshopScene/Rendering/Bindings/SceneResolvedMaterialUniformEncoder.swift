@@ -95,6 +95,16 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
             value = encodeComponents(
                 [Double(ambient.x), Double(ambient.y), Double(ambient.z)], as: type
             )
+        case let .sourceDirectLight(field):
+            let lighting = inputs.lighting.directLights
+            let bytes = switch field {
+            case .pointColor: lighting.pointColor
+            case .pointOrigin: lighting.pointOrigin
+            case .spotColor: lighting.spotColor
+            case .spotOrigin: lighting.spotOrigin
+            case .spotDirection: lighting.spotDirection
+            }
+            return bytes.isEmpty ? .inputUnavailable : .encoded(bytes)
         default:
             value = encodeRequiredHost(host, type: type, inputs: inputs, slots: slots)
         }
@@ -150,7 +160,7 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
         case .layerModelMatrix:
             return encodeMatrix(inputs.layerModelMatrix, type: type)
         case .effectModelMatrix, .lightsPosition,
-             .lightsColorPremultiplied, .lightAmbientColor, .sourceDrawColor4,
+             .lightsColorPremultiplied, .lightAmbientColor, .sourceDirectLight, .sourceDrawColor4,
              .sourceModel, .sourceNormalModel, .sourceViewProjection, .sourceEyePosition,
              .sourceModelViewProjection, .sourceModelViewProjectionInverse, .sourceRasterProjection:
             // Optional ordinary inputs are resolved by the typed entry point.

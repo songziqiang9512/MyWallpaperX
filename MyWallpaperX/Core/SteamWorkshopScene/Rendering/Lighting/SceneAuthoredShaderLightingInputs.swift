@@ -1,6 +1,7 @@
+import Foundation
 import simd
 
-/// One frame's ordinary-effect host ABI, separate from native lighting payloads.
+/// One frame's authored shader lighting, separate from native lighting payloads.
 /// Each field keeps its own availability; an invalid lamp cannot invent a
 /// default value or remove an otherwise valid ambient/geometry input.
 nonisolated struct SceneAuthoredShaderLightingInputs: Sendable {
@@ -8,6 +9,31 @@ nonisolated struct SceneAuthoredShaderLightingInputs: Sendable {
     let colorsPremultiplied: [SIMD4<Float>]?
     let ambient: SIMD3<Float>?
     let worldFromRenderWorld: simd_float4x4?
+    var directLights: DirectLights = .empty
+
+    struct DirectLights: Sendable {
+        fileprivate static let stride = MemoryLayout<SIMD4<Float>>.stride
+        static let empty = Self(pointCount: 0, spotCount: 0)
+
+        fileprivate(set) var pointColor: Data
+        fileprivate(set) var pointOrigin: Data
+        fileprivate(set) var spotColor: Data
+        fileprivate(set) var spotOrigin: Data
+        fileprivate(set) var spotDirection: Data
+
+        fileprivate init(pointCount: Int, spotCount: Int) {
+            pointColor = Data(count: pointCount * Self.stride)
+            pointOrigin = Data(count: pointCount * Self.stride)
+            spotColor = Data(count: spotCount * Self.stride)
+            spotOrigin = Data(count: spotCount * Self.stride)
+            spotDirection = Data(count: spotCount * Self.stride)
+        }
+
+        fileprivate static func store(_ value: SIMD4<Float>, at slot: Int, in bytes: inout Data) {
+            let start = slot * stride
+            withUnsafeBytes(of: value) { bytes.replaceSubrange(start ..< start + stride, with: $0) }
+        }
+    }
 
     static let unavailable = Self(
         positions: nil, colorsPremultiplied: nil,
@@ -27,8 +53,11 @@ nonisolated struct SceneAuthoredShaderLightingInputs: Sendable {
         private var count = 0
         private var positionsAvailable = true
         private var colorsAvailable = true
+        private var directLights = DirectLights.empty
+        private var directPointSlot = 0
+        private var directSpotSlot = 0
 
-        init(orthographicHeight: Float?, ambient: [Float]?) {
+        init(orthographicHeight: Float?, ambient: [Float]?, directLightSlots: (point: Int, spot: Int) = (0, 0)) {
             if let height = orthographicHeight, height.isFinite, height > 0 {
                 worldFromRenderWorld = simd_float4x4(columns: (
                     SIMD4(1, 0, 0, 0), SIMD4(0, -1, 0, 0),
@@ -41,12 +70,45 @@ nonisolated struct SceneAuthoredShaderLightingInputs: Sendable {
                 } else {
                     self.ambient = .zero
                 }
+                if directLightSlots.point > 0 || directLightSlots.spot > 0 {
+                    directLights = DirectLights(pointCount: directLightSlots.point, spotCount: directLightSlots.spot)
+                }
             } else {
                 worldFromRenderWorld = nil
                 self.ambient = nil
                 positionsAvailable = false
                 colorsAvailable = false
             }
+        }
+
+        mutating func appendDirectPoint(
+            position: SIMD3<Float>, color: SIMD3<Float>, intensity: Float, radius: Float, exponent: Float
+        ) {
+            guard let worldFromRenderWorld,
+                  directPointSlot * DirectLights.stride < directLights.pointOrigin.count else { return }
+            let authoredPosition = worldFromRenderWorld * SIMD4(position, 1)
+            let slot = directPointSlot
+            directPointSlot += 1
+            DirectLights.store(SIMD4(color * intensity, radius), at: slot, in: &directLights.pointColor)
+            DirectLights.store(SIMD4(authoredPosition.x, authoredPosition.y, authoredPosition.z, exponent),
+                at: slot, in: &directLights.pointOrigin)
+        }
+
+        mutating func appendDirectSpot(
+            position: SIMD3<Float>, direction: SIMD3<Float>, color: SIMD3<Float>, intensity: Float,
+            radius: Float, innerConeCosine: Float, outerConeCosine: Float
+        ) {
+            guard let worldFromRenderWorld,
+                  directSpotSlot * DirectLights.stride < directLights.spotOrigin.count else { return }
+            let authoredPosition = worldFromRenderWorld * SIMD4(position, 1)
+            let authoredDirection = worldFromRenderWorld * SIMD4(direction, 0)
+            let slot = directSpotSlot
+            directSpotSlot += 1
+            DirectLights.store(SIMD4(color * intensity, radius), at: slot, in: &directLights.spotColor)
+            DirectLights.store(SIMD4(authoredPosition.x, authoredPosition.y, authoredPosition.z, innerConeCosine),
+                at: slot, in: &directLights.spotOrigin)
+            DirectLights.store(SIMD4(authoredDirection.x, authoredDirection.y, authoredDirection.z, outerConeCosine),
+                at: slot, in: &directLights.spotDirection)
         }
 
         mutating func rejectUnsupportedLight() {
@@ -119,7 +181,8 @@ nonisolated struct SceneAuthoredShaderLightingInputs: Sendable {
             return .init(
                 positions: positionsAvailable ? positions : nil,
                 colorsPremultiplied: packed,
-                ambient: ambient, worldFromRenderWorld: worldFromRenderWorld
+                ambient: ambient, worldFromRenderWorld: worldFromRenderWorld,
+                directLights: directLights
             )
         }
     }

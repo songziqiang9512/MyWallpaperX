@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "327ad9d373de6be9a2760e3f1dd6275b9bbf831ca1295a0f53ee233a6bb8ca4a",
+        "sourceSHA256": "03ba159f71cf290b57b86f018e389117ba7bfca523773a827b59ca8477a07586",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核官版环境短链设计、实际分配和 Metal 反例入口。",
-        "limitations": "核对合同与导航。终图和性能范围见现役工作卡。"
+        "scope": "核作者受光、CASTU 与槽 0 直色准入设计。",
+        "limitations": "官版探针覆盖字段与槽数。Mac 实绘及性能须在产品验收记录。"
       }
     },
     {
@@ -392,9 +392,9 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2d6cd1ccf2a9dcecd8ae95c2d7c0edd385848dc592776fbb1ed0807250608389",
+        "sourceSHA256": "59faf2d8c6b3bf78d87f788ca75b3f467fbe5a9b9fd1e364c0b082710eda3d74",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核两原作短链签名验收、独立审查及继续受光材质的路线。",
+        "scope": "核作者直照两原作实绘、空槽／显隐／切档反例与收据。",
         "limitations": "本收据核导航和记录出处。稳态性能及全库画面未复验。"
       }
     },
@@ -886,9 +886,9 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "134d93ab4754280e0cd7f0841b5fcd59aec3b22b50ae59b8d978e7445d6ff0c3",
+        "sourceSHA256": "c00bd1293df77f0ff85bf22252912f765b8747c1bef5cc33ad4c0c272a9eda4a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核快照、持久色环境派生及黑源的共同级数。",
+        "scope": "核源材质直照与槽 0 颜色角色合同。",
         "limitations": "核对合同与导航。终图和性能范围见现役工作卡。"
       }
     },
@@ -963,12 +963,12 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "模型、Puppet 与光照",
-      "lastReviewed": "2026-11-26",
+      "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5a43355ae199b9836dad4590e897bc315785107e866b00a12f6e1599134ae2b8",
+        "sourceSHA256": "ceacfa29d56da3cbceed48976991fc8aec9ccfc4d35d50447402ee1ca082b6c6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对聚光计划供给、透明排序和工作卡取证入口。",
+        "scope": "核作者 shader 点／聚光直照能力与实测入口。",
         "limitations": "仅覆盖本批导航和对应的签名运行证据。"
       }
     },
@@ -1071,12 +1071,12 @@
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene 开发与验证",
       "currentStateAuthority": "docs/scene/architecture/runtime-architecture.md",
-      "lastReviewed": "2026-11-23",
+      "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "663c9f8a44f6cb7854780b38e5008bc69695b9cdbab626b15cfadd97443a1719",
+        "sourceSHA256": "811db021618f2594d1210f630d81cc57e9587ac2a6a41dfba027f2c207cd6d1a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对原Metal探针身份复用、截图与时序，并登记现有benchmark的后台证据窗口选项和原生前台交互的独立资格。",
+        "scope": "核新增有界兼容例外及标签语义。",
         "limitations": "仅本文与其协议/源码入口的有界审查，不授全仓App、GPU或官方一致；未登记架构文档的既有registry失败保持。"
       }
     },

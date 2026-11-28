@@ -398,17 +398,9 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 colorTransfer: color.transfer,
                 fragmentOutputChannelUse: outputChannelUse.rawValue,
                 vertexPositionInput: vertexPositionInput?.rawValue,
-                fragmentReadsRasterPosition: {
-                    let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyze(
-                        lexerOutput: SceneAuthoredShaderLexer.lex(
-                            source: fragmentStage.authoredSource, stage: .fragment),
-                        stage: .fragment
-                    )
-                    guard analysis.diagnostics.isEmpty, let unit = analysis.unit else { return nil }
-                    return ["gl_Position", "gl_FragCoord"].contains {
-                        SceneAuthoredShaderGlobalReferenceAnalyzer.isReferenced($0, in: unit)
-                    }
-                }(),
+                fragmentReadsRasterPosition: SceneGenericShaderSourceNormalizer.maskedContainsWord(
+                    "gl_FragCoord", in: fragmentStage.source
+                ),
                 attachmentReadVariant: attachmentRead
             )
             return .success(.init(
@@ -459,15 +451,19 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         name: String,
         type: SceneAuthoredShaderValueType
     ) throws -> Int? {
-        guard let dimensions else { return nil }
-        guard dimensions.count == 1, let count = dimensions.first else {
+        if let dimensions, dimensions.count != 1 {
             throw Failure.uniformMember
         }
+        let count = dimensions?.first
+        if let shape = SceneAuthoredShaderHostArrayShape.modernLight(name: name)
+            ?? SceneAuthoredShaderHostArrayShape.effectLighting(name: name) {
+            guard shape.accepts(type: type, count: count) else { throw Failure.uniformMember }
+            return count
+        }
+        guard let count else { return nil }
         let audio = type == .float && [16, 32, 64].contains(count)
             && (name == "g_AudioSpectrum\(count)Left" || name == "g_AudioSpectrum\(count)Right")
-        guard audio || SceneAuthoredShaderHostArrayShape.isEffectLighting(
-            name: name, type: type, count: count
-        ) else { throw Failure.uniformMember }
+        guard audio else { throw Failure.uniformMember }
         return count
     }
 

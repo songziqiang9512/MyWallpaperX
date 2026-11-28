@@ -108,6 +108,7 @@ benchmark 清除继承的 Scene DEBUG 配置；样本的 `timeline_frame_evidenc
 | 当前限制 | 负责代码 | 扩展时应验证 |
 |---|---|---|
 | 动态图片依赖在准备期从 `thisScene.createLayer` 的直接路径或平面配置 literal 发现，不求值任意 JavaScript 表达式 | [ReferenceAnalysis](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicImageReferenceAnalysis.swift) | typed 间接依赖、模块/嵌套表达式及健康邻例；不能改成帧内 IO 或整目录预加载 |
+| 源材质槽 0 仅以编辑器 label `ui_editor_properties_albedo` 声明颜色角色（stock `genericimage3` 无 material key），否则没有可用的直色角色 | [SamplerPurpose](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift) | 仅未解析的 slot 0 regular 资产按直色准入；显式 material/format、注册与来源证明角色优先。用 stock genericimage3 正例和 mask／normal／辅助槽／隐藏槽反例；官方若给出声明角色则删除本例外 |
 | 无typed边界的颜色兼容与未表达通道角色仍依赖有界source/MSL分析 | [SourceAnalyzer](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.swift)、[颜色编译](../capabilities/render-graph-shader-coverage.md#typed-color-compilation) | 普通typed边界直接编译；剩余真实通道/操作缺口沿原compiler/ABI补齐，保data/signal、PMA/straight、alpha/HDR及实际像素反例，不增加算法族或固定源码名单 |
 
 路径、hash 或固定源码形状若承担兼容选择，须在本节说明实际必要性、影响范围、正反例和替换条件。资源查找 identity、缓存键和标准 API 名称不因此成为视觉特判许可；样本身份不得选择产品算法。

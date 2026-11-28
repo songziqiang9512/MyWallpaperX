@@ -59,6 +59,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
     static let sourceTypeAliases = SceneAuthoredShaderValueType.allCases.filter {
         $0.glslName != $0.rawValue && SceneAuthoredShaderValueType(authoredName: $0.rawValue) == $0
     }.map(\.rawValue)
+    static let unsignedCastDeclaration = "#define CASTU(x) uint(x)"
     private static let declaration = try! NSRegularExpression(pattern:
         // Trailing whitespace after the terminator is insignificant authored
         // noise, not an unsupported declaration: a real workshop shader
@@ -159,9 +160,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                             }
                             samplers[item.name] = slot
                         } else {
-                            guard valueTypes.contains(item.type),
-                                  item.count == nil || isAudioSpectrumArray(item)
-                                    || isEffectLightingArray(item) else {
+                            guard isSupportedUniform(item) else {
                                 throw Failure.uniformUnsupported
                             }
                             if let previous = uniforms[item.name], previous != shape {
@@ -456,6 +455,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 return ([
                     "#version 450",
                     "#define mul(x, y) ((y) * (x))",
+                    unsignedCastDeclaration,
                     "#define CAST2(x) vec2(x)",
                     "#define CAST3(x) vec3(x)",
                     "#define CAST4(x) vec4(x)",
@@ -658,11 +658,17 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             || declaration.name == "g_AudioSpectrum\(count)Right"
     }
 
-    private static func isEffectLightingArray(_ declaration: Declaration) -> Bool {
-        guard let type = SceneAuthoredShaderValueType(authoredName: declaration.type) else { return false }
-        return SceneAuthoredShaderHostArrayShape.isEffectLighting(
-            name: declaration.name, type: type, count: declaration.count
-        )
+    private static func isSupportedUniform(_ declaration: Declaration) -> Bool {
+        guard let type = SceneAuthoredShaderValueType(authoredName: declaration.type) else {
+            return false
+        }
+        let name = declaration.name
+        let count = declaration.count
+        if let shape = SceneAuthoredShaderHostArrayShape.modernLight(name: name) {
+            return shape.accepts(type: type, count: count)
+        }
+        return count == nil || isAudioSpectrumArray(declaration)
+            || SceneAuthoredShaderHostArrayShape.isEffectLighting(name: name, type: type, count: count)
     }
 
     /// Adapt the source's packed four-lane view to the unchanged N-float host

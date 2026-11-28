@@ -233,18 +233,39 @@ nonisolated enum SceneAuthoredShaderValueType: String, CaseIterable, Codable, Ha
     }
 }
 
-/// Declaration shape only. The material host schema separately proves an
-/// effect-context producer; recognizing this ABI never invents a fallback.
+/// Declaration shape only. The material host schema proves producer availability.
 nonisolated enum SceneAuthoredShaderHostArrayShape {
+    enum ModernLightField: String, Codable, Equatable, Hashable, Sendable {
+        case pointColor = "g_LPoint_Color"
+        case pointOrigin = "g_LPoint_Origin"
+        case spotColor = "g_LSpot_Color"
+        case spotOrigin = "g_LSpot_Origin"
+        case spotDirection = "g_LSpot_Direction"
+
+        var isPoint: Bool {
+            self == .pointColor || self == .pointOrigin
+        }
+    }
+
     struct Shape {
         let type: SceneAuthoredShaderValueType
-        let count: Int
+        let counts: ClosedRange<Int>
+
+        func accepts(type: SceneAuthoredShaderValueType, count: Int?) -> Bool {
+            guard let count else { return false }
+            return type == self.type && counts.contains(count)
+        }
+    }
+
+    static func modernLight(name: String) -> Shape? {
+        guard ModernLightField(rawValue: name) != nil else { return nil }
+        return .init(type: .float4, counts: 1 ... 15)
     }
 
     static func effectLighting(name: String) -> Shape? {
         switch name {
-        case "g_LightsPosition": .init(type: .float3, count: 4)
-        case "g_LightsColorPremultiplied": .init(type: .float4, count: 3)
+        case "g_LightsPosition": .init(type: .float3, counts: 4 ... 4)
+        case "g_LightsColorPremultiplied": .init(type: .float4, counts: 3 ... 3)
         default: nil
         }
     }
@@ -252,8 +273,7 @@ nonisolated enum SceneAuthoredShaderHostArrayShape {
     static func isEffectLighting(
         name: String, type: SceneAuthoredShaderValueType, count: Int?
     ) -> Bool {
-        guard let shape = effectLighting(name: name) else { return false }
-        return type == shape.type && count == shape.count
+        effectLighting(name: name)?.accepts(type: type, count: count) == true
     }
 }
 

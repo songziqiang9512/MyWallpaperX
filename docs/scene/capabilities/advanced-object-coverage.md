@@ -474,6 +474,7 @@ main/named consumer 分别按实际 extent/MVP、target bounds 和采样密度�
 - 2D image 与变形后 mesh 的 receiver mapping 不同；不能从 source atlas unit quad 推出 Puppet/模型的世界位置。未支持 receiver 局部保 unlit，并保原 alpha/geometry。
 - 模型 directional/spot/point 阴影沿现 typed light、真实 geometry、target 与 submission；可见光束、受光和投影是三种消费者，不能互作证明。
 - 现代点光 `lpoint` 的径向项由作者 `exponent` 决定。Format 保留有限非负的显式值，共享 light snapshot 将缺省解析为 2，StaticModel 和 LightingV1 图像消费同一世界距离衰减。平方保乘法；0 无径向衰减，正指数才在半径边界及外截止。各自现有 GPU 参数末尾追加一个四灯指数向量，保持颜色和强度分立以保浮点动态范围。退出两条现代点光的固定平方，保 legacy `point` 平面距离与阴影投影；与spot的共同规则及有限官方资格见[径向合同](#spot-radial-falloff)和[运行证据](model-runtime-evidence.md#spot-radial-falloff)。
+- 作者 shader 的直照由 `SceneAuthoredShaderLightingInputs` 单独供货：场景 `lightconfig` 的 `point`／`spot` 槽数投影为 `LIGHTS_POINT`／`LIGHTS_SPOT` host 数组，颜色×强度、半径、位置指数和锥角余弦沿槽写入；可见灯按类前移，未占槽为零，显隐不重编。方向光／管灯不进入该投影。stock 直绘材质以编辑器 albedo label 证明槽 0 直色；旧 effect 数组仍走 `g_LightsPosition`／`g_LightsColorPremultiplied`。 [设计](../development/wallpaper-quality-settings-plan.md#scene-source-reflection-direct-lights) · [实测](../development/wallpaper-quality-work-card.md#scene-source-direct-lighting-result)
 - reflection 只在已有 profile 中取得合适的 scene/environment 输入；模型镜面、所有光源/遮挡与图依赖组合仍不完整。
 - HDR scene color/Bloom 与终端 SDR/EDR 映射分开；像素 PNG 不能证明显示器实际 EDR 高光。
 
