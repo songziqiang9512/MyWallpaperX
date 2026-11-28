@@ -45,7 +45,6 @@ final class AppKitListTintSurface: NSView {
     private var workspaceObservers: [NSObjectProtocol] = []
     private var isActive = false
     private var usesThumbnailTint = true
-    var onProjectionChange: ((NSColor, Bool) -> Void)?
 
     init(sample: Sampler? = nil, displayOptions: (() -> DisplayOptions)? = nil) {
         self.sample = sample ?? Self.sampleThumbnail
@@ -172,7 +171,6 @@ final class AppKitListTintSurface: NSView {
             tint = NSColor(srgbRed: 0, green: 0, blue: 0, alpha: 0)
         }
         let animate = animated && isActive && !options.reduceMotion
-        onProjectionChange?(tint, animate)
         let hosts: [NSView?] = [sidebar, main]
         for view in hosts.compactMap({ $0 }) {
             guard let layer = view.layer else { continue }

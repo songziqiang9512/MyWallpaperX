@@ -188,15 +188,28 @@ enum DebugPlaybackCoexistenceRunner {
 
     private static func selectQualitySettings(in window: NSWindow) throws -> (root: NSView, settings: AppKitSettingsContainerView) {
         guard let root = window.contentView,
-              let settings = root.subviews.compactMap({ $0 as? AppKitSettingsContainerView }).first,
-              let toolbar = window.toolbar,
-              let item = toolbar.items.first(where: { $0.itemIdentifier.rawValue == AppSettingsSection.quality.rawValue }),
-              let target = item.target, let action = item.action,
-              NSApp.sendAction(action, to: target, from: item),
-              settings.visibleSection == .quality, toolbar.selectedItemIdentifier == item.itemIdentifier else {
+              let settings = findView(in: root, matching: { $0 as? AppKitSettingsContainerView }),
+              let sidebar = findView(in: root, matching: { view -> NSTableView? in
+                  guard let table = view as? NSTableView, table.column(withIdentifier: .init("SettingsCategory")) >= 0
+                  else { return nil }
+                  return table
+              }),
+              let row = AppSettingsSection.allCases.firstIndex(of: .quality), row < sidebar.numberOfRows else {
+            throw Failure("native Scene quality category unavailable")
+        }
+        sidebar.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+        guard sidebar.selectedRow == row, settings.visibleSection == .quality else {
             throw Failure("native Scene quality category unavailable")
         }
         return (root, settings)
+    }
+
+    private static func findView<View: NSView>(in view: NSView, matching: (NSView) -> View?) -> View? {
+        if let match = matching(view) { return match }
+        for child in view.subviews {
+            if let match = findView(in: child, matching: matching) { return match }
+        }
+        return nil
     }
 
     private static func editQualityDuringSceneSelection(_ scene: WallpaperReference, web: WallpaperReference,

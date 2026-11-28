@@ -47,9 +47,6 @@ class SettingsCacheActionsTests(unittest.TestCase):
         actual = actual.replace("// ACTUAL_CONFIGURED_WALLPAPER_SCREENS", declaration(
             display_configuration.read_text(), "    var configuredWallpaperScreens:"))
         actual += "\n" + declaration(source, "enum AppSettingsSection:") + "\n"
-        components = settings_components.read_text()
-        for signature in ("enum SettingsPanelLayout", "final class SettingsFormView:"):
-            actual += "\n" + declaration(components, signature) + "\n"
         actual += "\n" + declaration(daemon_protocol.read_text(), "nonisolated struct SceneRasterDisplayStatus:") + "\n"
         layout_source = layout.read_text() + "\n" + readout_source
         for marker, signature in (
@@ -92,7 +89,8 @@ class SettingsCacheActionsTests(unittest.TestCase):
             copied = work / "Checks.swift"; copied.write_text(actual)
             binary = work / "checks"
             build = subprocess.run(["xcrun", "swiftc", "-parse-as-library", *SWIFT_ISOLATION_FLAGS,
-                "-warnings-as-errors", str(dependency), str(quality), str(copied), "-module-cache-path", str(work / "modules"), "-o", str(binary)],
+                "-warnings-as-errors", *map(str, (dependency, quality, settings_components, copied)),
+                "-module-cache-path", str(work / "modules"), "-o", str(binary)],
                 capture_output=True, text=True, timeout=100)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             for region in ("en_US", "de_DE"):

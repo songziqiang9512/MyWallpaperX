@@ -132,16 +132,16 @@ import Foundation
         checks["missingDependencyTaskCompletionInvalidates"] = changes { service.queuedIDs = [] }
         checks["missingDependencyQueuedTaskInvalidates"] = changes { service.queuedIDs.insert("dependency-probe") }
         checks["refreshStateInvalidates"] = changes { service.isRefreshingSelectedDownloadDetailItem = true }
-            && labels(detail).contains { $0.contains("正在补全") }
+            && labels(detail).contains { $0.contains(String(localized: "Completing details for this item…")) }
         checks["detailErrorInvalidates"] = changes { service.selectedDownloadDetailError = "Fixture detail error" }
             && labels(detail).contains("Fixture detail error")
         checks["previewReloadTokenInvalidates"] = changes { service.previewReloadToken += 1 }
         checks["localAuthorRouteInvalidates"] = changes { service.selectedDownloadInspectorItem = nil; service.selectedBrowserItem = service.selectedDownloadDetailItem }
         checks["onlineStateInvalidates"] = changes { service.steamAuth.isOnline = true }
         checks["subscriptionStateInvalidates"] = changes { service.steamSubscriptions.value = .known(true) }
-            && labels(detail).contains("已订阅")
+            && labels(detail).contains(String(localized: "Subscribed"))
         checks["unconfirmedSubscriptionStateInvalidates"] = changes { service.steamSubscriptions.value = .unconfirmed("fixture confirmation") }
-            && labels(detail).contains("待确认")
+            && labels(detail).contains(String(localized: "Unconfirmed"))
         checks["subscriptionHintInvalidates"] = changes { detail.subscriptionHint = "Fixture hint" } && labels(detail).contains("Fixture hint")
         checks["pendingLaunchMemoryStateInvalidates"] = changes { service.pendingLaunch = true }
         checks["mainItemTaskInvalidates"] = changes { service.downloadingIDs.insert(item.id) }
@@ -214,7 +214,7 @@ import Foundation
         _ = drainUntil(detail) { service.steamSubscriptions.refreshCalls > 0 }
         let initialUnknownRefreshes = service.steamSubscriptions.refreshCalls
         checks["actualUnknownSubscriptionButtonStartsRefreshTask"] = initialUnknownRefreshes > 0
-            && labels(detail).contains("查询中…")
+            && labels(detail).contains(String(localized: "Checking…"))
         let beforeAccountChange = roots(detail)
         // The loading pulse from account A need not render before account B
         // returns to online/unknown. The real auth/subscription observers must
@@ -273,24 +273,30 @@ import Foundation
         FixturePreview.failLocal = true
         FixturePreview.animateRemote = true
         let badLocalDetail = AppKitSteamWorkshopItemDetailView(item: item)
+        window.contentView = badLocalDetail
         settle(badLocalDetail)
         let fallbackPreview = views(badLocalDetail).first { $0 is SteamWorkshopPreviewImageContainerView } as! SteamWorkshopPreviewImageContainerView
         checks["actualDetailBadLocalUsesRemoteWithoutVideo"] = fallbackPreview.previewState.image === FixturePreview.remoteAnimation
             && fallbackPreview.previewState.placeholder == .hidden
             && FixturePreview.remoteKeys.last == item.previewImageURL?.absoluteString
             && FixturePreview.animationURLs.last == item.previewImageURL
-        fallbackPreview.previewState.setAnimationActive(false)
+        WallpaperInterfaceSettings.shared.update { $0.workshopPreview = .staticCover }
         checks["actualDetailRemoteFallbackKeepsStatic"] = fallbackPreview.previewState.image === FixturePreview.remoteImage
+        WallpaperInterfaceSettings.shared.update { $0.workshopPreview = .detailsOnly }
+        checks["actualDetailResumesAnimationAfterStaticPreference"] = fallbackPreview.previewState.image === FixturePreview.remoteAnimation
+        WallpaperInterfaceSettings.shared.reset()
         service.record = makeRecord(browserItem: item)
         let projected = service.record!.displayItemForToolbar
         service.selectedDownloadDetailItem = projected
         service.selectedDownloadInspectorItem = projected
         let projectedDetail = AppKitSteamWorkshopItemDetailView(item: projected)
+        window.contentView = projectedDetail
         settle(projectedDetail)
         let projectedPreview = views(projectedDetail).first { $0 is SteamWorkshopPreviewImageContainerView } as! SteamWorkshopPreviewImageContainerView
         checks["downloadProjectionRetainsRecordsRemoteFallback"] = projected.previewImageURL?.isFileURL == true
             && projectedPreview.previewState.image === FixturePreview.remoteAnimation
             && FixturePreview.animationURLs.last == item.previewImageURL
+        window.contentView = detail
         FixturePreview.failRemote = true
         let bothBadDetail = AppKitSteamWorkshopItemDetailView(item: item)
         settle(bothBadDetail)
@@ -326,13 +332,13 @@ import Foundation
         let offlineIcon = views(offlineSubscribe).compactMap { $0 as? NSImageView }.first!.image
         let bookmark = NSImage(systemSymbolName: "bookmark", accessibilityDescription: nil)!.withSymbolConfiguration(.init(pointSize: 14, weight: .semibold))!
         checks["sourceInspectorSubscriptionUsesNativeBookmarkWithoutOrganizationFactory"] = offlineIcon?.size == bookmark.size
-            && offlineSubscribe.accessibilityLabel() == "订阅"
+            && offlineSubscribe.accessibilityLabel() == String(localized: "Subscribe")
         service.steamAuth.isOnline = true; service.steamSubscriptions.value = .known(true)
         let subscribedDetail = AppKitSteamWorkshopItemDetailView(item: item, service: service)
         let subscribedButton = views(subscribedDetail).compactMap { $0 as? InspectorFooterButton }.first { $0.action == NSSelectorFromString("toggleSubscriptionClicked:") }!
         let subscribedIcon = views(subscribedButton).compactMap { $0 as? NSImageView }.first!.image
         let filledBookmark = NSImage(systemSymbolName: "bookmark.fill", accessibilityDescription: nil)!.withSymbolConfiguration(.init(pointSize: 14, weight: .semibold))!
-        checks["subscribedSourceInspectorUsesFilledBookmarkAndRetainsAccountLabel"] = subscribedIcon?.size == filledBookmark.size && subscribedButton.accessibilityLabel() == "已订阅"
+        checks["subscribedSourceInspectorUsesFilledBookmarkAndRetainsAccountLabel"] = subscribedIcon?.size == filledBookmark.size && subscribedButton.accessibilityLabel() == String(localized: "Subscribed")
         precondition(SteamWorkshopSceneInspectionController.propertyRequests.isEmpty, "ordinary detail updates must not open an editor")
         do {
             let pendingService = SteamWorkshopService()
@@ -344,13 +350,13 @@ import Foundation
             let pendingDetail = AppKitSteamWorkshopItemDetailView(item: item, service: pendingService)
             pendingDetail.frame = detail.frame; settle(pendingDetail)
             let pendingProperties = views(pendingDetail).compactMap { $0 as? InspectorFooterButton }.first { $0.action == NSSelectorFromString("openProperties") }!
-            checks["startupWarmPropertiesRemainDisabledUntilFreshScan"] = !pendingProperties.isEnabled && pendingProperties.toolTip == "正在载入本地壁纸"
+            checks["startupWarmPropertiesRemainDisabledUntilFreshScan"] = !pendingProperties.isEnabled && pendingProperties.toolTip == String(localized: "Loading local wallpaper")
             pendingDetail.openProperties()
             checks["startupWarmDirectPropertiesActionCannotOpenEditor"] = SteamWorkshopSceneInspectionController.propertyRequests.isEmpty
             pendingService.hasCompletedInstalledLibraryLoad = true
             pendingService.objectWillChange.send(); settle(pendingDetail)
             let currentProperties = views(pendingDetail).compactMap { $0 as? InspectorFooterButton }.first { $0.action == NSSelectorFromString("openProperties") }!
-            checks["unchangedReadyRecordFreshnessPublicationRestoresProperties"] = currentProperties.isEnabled && currentProperties.toolTip != "正在载入本地壁纸"
+            checks["unchangedReadyRecordFreshnessPublicationRestoresProperties"] = currentProperties.isEnabled && currentProperties.toolTip != String(localized: "Loading local wallpaper")
             pendingDetail.openProperties()
             checks["freshDirectPropertiesActionKeepsOriginalEditorRoute"] = SteamWorkshopSceneInspectionController.propertyRequests == [item.id]
         }

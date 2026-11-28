@@ -6,7 +6,7 @@
 
 ## 修改怎样生效
 
-`PlaybackQualityPreference` 唯一保存请求，`SceneQualityPreset.projection` 唯一定义预设组合。原生工具栏的「壁纸质量」页、便携 v8 导入、复位和恢复使用同一请求类型。旧偏好恢复沿同一导入协调器，便携文档版本与恢复日志版本分别兼容。引擎执行投影由各自原消费者从准备事实和目标屏能力求出。设置页读取请求和运行结果，运行时无需读取控件或重新解释预设。 [值和预设](../../MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift) · [Scene 原执行架构](../scene/architecture/runtime-architecture.md#effective-quality-policy)
+`PlaybackQualityPreference` 唯一保存请求，`SceneQualityPreset.projection` 唯一定义预设组合。原生侧栏的「壁纸质量」页、便携 v8 导入、复位和恢复使用同一请求类型。旧偏好恢复沿同一导入协调器，便携文档版本与恢复日志版本分别兼容。引擎执行投影由各自原消费者从准备事实和目标屏能力求出。设置页读取请求和运行结果，运行时无需读取控件或重新解释预设。 [值和预设](../../MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift) · [Scene 原执行架构](../scene/architecture/runtime-architecture.md#effective-quality-policy)
 
 | 操作 | 生效边界 |
 |---|---|

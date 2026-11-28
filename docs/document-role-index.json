@@ -116,10 +116,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bb5ea45df1965984b102fae75ee7409ec0f3a0f546242ec250ae19c5e28a7b74",
+        "sourceSHA256": "7a6017473e7180c17b02f1c89886034cb7384f0d2ec7f3eb1220c35586a3b22e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "新原生设置工具栏及壁纸质量单一分类，保持主线页面与从属行为。",
-        "limitations": "M4 本机原生表单与隔离 App 验证。未重测混合物理显示器及 Windows 官版。"
+        "scope": "核主线设置窗口、界面偏好和独立质量卡片的接管。",
+        "limitations": "侧栏与质量页装配核对。未扩大既有画面、官版与物理多屏证据。"
       }
     },
     {
@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a4b138bbf67ed480405c1c3022081e2cc6eca77f3a944addb6b0856d4e29ce34",
+        "sourceSHA256": "f4d30fbdbb550e1730cb4dfe95a1ccecd899b5d29d33b167f1c5bcf7aaf6c26e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对聚光预编译源码入口与原按需管线槽。",
-        "limitations": "绑定 M4 局部准备、签名终图与首呈。整段启动、能耗和多屏收益未证。"
+        "scope": "核独立侧栏的质量页入口及原执行合同。",
+        "limitations": "侧栏与质量页装配核对。未扩大既有画面、官版与物理多屏证据。"
       }
     },
     {
@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "98e6be5b6a3ffffcd56cde3c179951c4a20c1f6c21fa0b3752ae71220094bcef",
+        "sourceSHA256": "ebf128728c8d9c8b10df9531bce742c0014cb55ac77bb88412d75dd365490029",
         "method": "document_registry --audit + document_health --check",
-        "scope": "明确逐屏光锥独用高／超高的回显与混合点光结果。",
-        "limitations": "原生设置门与既有签名原作终图。未重测 GPU、物理多屏或官版。"
+        "scope": "核原侧栏、导入和复位继续共用同一质量请求。",
+        "limitations": "侧栏与质量页装配核对。未扩大既有画面、官版与物理多屏证据。"
       }
     },
     {
@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ead05fa0cc42d7fcdbc4eb4fee0339d77fe5bd0c74b3de891f9fea7276bec321",
+        "sourceSHA256": "9e31ee9047a79603b6eee5517a9fd89cbe6f919a1dbb5b4e5003833671d73db9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核普通图像 ABI 与显著反射、原包遮挡的接入门。",
-        "limitations": "证据限冻结作者派生和两平台的对应阶段。原包遮挡共存与高反射能量待证。"
+        "scope": "按新原生侧栏与滚动卡片核对质量入口、旧控件退役。",
+        "limitations": "侧栏与质量页装配核对。未扩大既有画面、官版与物理多屏证据。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "77985ebf2a2f7a6076403641ec0d9bd9c151af9f55b55ba1f5867d74cf186ad7",
+        "sourceSHA256": "f3a37a091722a4a77c0a3596c2ba9af86c22af7d32eb96328c3f7ee216b1a13d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核两部冻结派生的签名基线、官版开关归因及同档复拍。",
-        "limitations": "证据限冻结作者派生和两平台的对应阶段。原包遮挡共存与高反射能量待证。"
+        "scope": "记录主线界面偏好与独立质量页合并，并保留早期签名证据边界。",
+        "limitations": "侧栏与质量页装配核对。未扩大既有画面、官版与物理多屏证据。"
       }
     },
     {

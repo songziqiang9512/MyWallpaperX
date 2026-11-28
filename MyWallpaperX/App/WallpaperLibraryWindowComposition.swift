@@ -119,8 +119,7 @@ import Combine
         let chrome = self.chrome
         let controller = AppKitMainSplitViewController(sidebar: sidebar, content: chrome, sidebarTintHost: sidebar.backgroundTintHost,
             permitsNoticeInteraction: { [weak chrome] in chrome?.permitsNoticeInteraction(at: $0) ?? false },
-            onNoticeOcclusionChange: { [weak chrome] in chrome?.setNoticeTrailingOcclusion($0) },
-            onListTintChange: { SettingsWindowController.shared.updateMainWindowTint($0, animated: $1) })
+            onNoticeOcclusionChange: { [weak chrome] in chrome?.setNoticeTrailingOcclusion($0) })
         return controller
     }()
     lazy var commands = WallpaperLibraryCommands(workspace: workspace, manager: manager, images: images,

@@ -40,6 +40,7 @@ SOURCES = [
     SHARED_UI / "DecodedThumbnailMemoryCache.swift",
     SHARED_UI / "GridThumbnailDecoder.swift",
     CORE / "SteamWorkshopPreviewSource.swift",
+    SHARED_UI / "WallpaperInterfaceSettings.swift",
     SHARED_UI / "WallpaperGridScrollView.swift",
     UI / "AppKitSteamWorkshopBrowserItem.swift",
     UI / "AppKitSteamWorkshopBrowserItem+Presentation.swift",

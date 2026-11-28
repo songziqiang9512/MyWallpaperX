@@ -1,8 +1,10 @@
 import AppKit
+import Combine
 
 final class SteamWorkshopPreviewImageContainerView: NSView {
     private let imageView = NSImageView()
     private let placeholderView = SteamWorkshopPreviewPlaceholderView()
+    private var previewPreference: AnyCancellable?
     let previewState = SteamWorkshopPreviewState(loaders: .live(priority: .userInitiated))
 
     override init(frame frameRect: NSRect) {
@@ -27,7 +29,33 @@ final class SteamWorkshopPreviewImageContainerView: NSView {
         addSubview(imageView)
         addSubview(placeholderView)
         previewState.onChange = { [weak self] in self?.applyPreviewState() }
-        previewState.setAnimationActive(true)
+        previewPreference = WallpaperInterfaceSettings.shared.publisher(for: \.workshopPreview).dropFirst()
+            .sink { [weak self] _ in self?.updateAnimationDemand() }
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil {
+            updateAnimationDemand()
+        } else {
+            // Detail rebuilds can reattach this preview in the same turn.
+            DispatchQueue.main.async { [weak self] in self?.updateAnimationDemand() }
+        }
+    }
+
+    override func viewDidHide() {
+        super.viewDidHide()
+        updateAnimationDemand()
+    }
+
+    override func viewDidUnhide() {
+        super.viewDidUnhide()
+        updateAnimationDemand()
+    }
+
+    private func updateAnimationDemand() {
+        previewState.setAnimationActive(window != nil && !isHiddenOrHasHiddenAncestor
+            && WallpaperInterfaceSettings.shared.values.workshopPreview != .staticCover)
     }
 
     override func layout() {

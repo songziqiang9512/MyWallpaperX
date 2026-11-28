@@ -29,6 +29,7 @@ class WallpaperLibraryWorkspaceTests(unittest.TestCase):
                  "MyWallpaperX/Core/OnlineImages/OnlineImageModels.swift",
                  "MyWallpaperX/Core/OnlineImages/OnlineImageContentProjection.swift",
                  "script/tests/fixtures/OnlineImageLibraryAppStub.swift",
+                 "MyWallpaperX/Shared/UI/WallpaperInterfaceSettings.swift",
                  "MyWallpaperX/App/WallpaperLibraryWorkspace.swift",
                  "script/tests/fixtures/WallpaperLibraryWorkspaceHarness.swift"]
         extra = ["MyWallpaperX/Core/LibraryCollections/LibraryCollectionsStartupAdmission.swift",

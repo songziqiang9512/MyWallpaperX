@@ -10,6 +10,7 @@ import QuartzCore
 
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  private var dockPreferenceObserver: AnyCancellable?
+ private var appearanceObserver: AnyCancellable?
  private var statusBarController: StatusBarController?
  private var pendingInitialWindowOpen: DispatchWorkItem?
  private var didPrepareProductTermination = false
@@ -44,6 +45,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 #endif
  // 启动时先隐藏 Dock 图标，再按"先播放链路、后主窗口"的顺序把界面拉起来
  // （激活门判定 isPlaying 或 scene 意图已在途）。
+ appearanceObserver = WallpaperInterfaceSettings.shared.publisher(for: \.appearance).sink { appearance in
+     NSApp.appearance = switch appearance {
+     case .system: nil
+     case .light: NSAppearance(named: .aqua)
+     case .dark: NSAppearance(named: .darkAqua)
+     }
+ }
  MainMenuBuilder.installMainMenu()
  MainWindowCoordinator.setDockIconVisible(false)
  dockPreferenceObserver = WallpaperManager.shared.$settings.map(\.keepDockIconVisible).removeDuplicates().dropFirst()

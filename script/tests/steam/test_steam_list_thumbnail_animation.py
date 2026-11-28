@@ -34,6 +34,7 @@ SOURCES = [
     SHARED_UI / "DecodedThumbnailMemoryCache.swift",
     SHARED_UI / "GridThumbnailDecoder.swift",
     CORE / "SteamWorkshopPreviewSource.swift",
+    SHARED_UI / "WallpaperInterfaceSettings.swift",
     SHARED_UI / "WallpaperGridScrollView.swift",
     UI / "AppKitSteamWorkshopBrowserItem.swift",
     UI / "AppKitSteamWorkshopBrowserItem+Presentation.swift",
@@ -201,6 +202,14 @@ private final class CardSource: NSObject, NSCollectionViewDataSource {
         item.mouseEntered(with: enterEvent(true))
         precondition(item.previewImageView.animates, "a hovered card must animate")
         precondition(item.controlBar.isDescendant(of: item.view), "hover must attach original glass")
+        let preferences = WallpaperInterfaceSettings.shared
+        preferences.update { $0.workshopPreview = .detailsOnly }
+        precondition(!item.previewImageView.animates, "details-only cancels the hovered GIF in place")
+        preferences.update { $0.workshopPreview = .staticCover }
+        precondition(!item.previewImageView.animates, "the static option keeps the hovered cover static")
+        preferences.reset()
+        precondition(item.previewImageView.animates, "restoring defaults resumes the same hovered GIF")
+
         let bar = item.controlBar
         item.mouseExited(with: enterEvent(false))
         item.mouseEntered(with: enterEvent(true))

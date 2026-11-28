@@ -173,7 +173,8 @@ extension AppKitSteamWorkshopBrowserItem {
     }
 
     func syncPreviewAnimationState() {
-        previewState.setAnimationActive(isPreviewVisible && isHovering)
+        previewState.setAnimationActive(isPreviewVisible && isHovering
+            && WallpaperInterfaceSettings.shared.values.workshopPreview == .hoverAndDetails)
     }
 
     func applyPreviewState() {

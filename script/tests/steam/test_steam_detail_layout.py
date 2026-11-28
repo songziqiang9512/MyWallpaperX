@@ -40,6 +40,7 @@ class SteamDetailLayoutTests(unittest.TestCase):
                 ui / 'SteamWorkshopPreviewState.swift', ui / 'SteamWorkshopItemDetailPreviewSupport.swift',
                 core / 'SteamWorkshopDownloadProgress.swift', core / 'SteamWorkshopDetailRefreshSupport.swift',
                 ROOT / 'MyWallpaperX/Shared/UI/InspectorFooterMetrics.swift',
+                ROOT / 'MyWallpaperX/Shared/UI/WallpaperInterfaceSettings.swift',
                 ROOT / 'MyWallpaperX/Shared/Components/WallpaperLibraryControlStyle.swift',
                 ROOT / 'MyWallpaperX/Shared/Components/ActionMenuItem.swift',
                 ROOT / 'MyWallpaperX/Shared/UI/ToolbarMenuPopover.swift',

@@ -5,6 +5,7 @@ extension AppKitSettingsContainerView {
         setupPlaybackSection(forms[.playback]!)
         setupQualitySection(forms[.quality]!)
         setupDisplaySection(forms[.display]!)
+        interfaceForm.install(in: forms[.interface]!)
         setupSystemSection(forms[.system]!)
         setupHotkeysSection(forms[.hotkeys]!)
         setupEfficiencySection(forms[.efficiency]!)
@@ -23,63 +24,80 @@ extension AppKitSettingsContainerView {
     }
 
     private func setupPlaybackSection(_ form: SettingsFormView) {
+        form.addSection(String(localized: "Playback Modes"))
         loopSwitch.title = String(localized: "Loop")
         sequentialSwitch.title = String(localized: "Play in Order")
+        sequentialSwitch.symbolName = "list.number"
         randomSwitch.title = String(localized: "Shuffle")
-        form.addGroup(String(localized: "Playback Modes"), controls: [loopSwitch, sequentialSwitch, randomSwitch])
+        randomSwitch.symbolName = "shuffle"
+        form.addGroup(String(localized: "Playback Modes"), controls: [loopSwitch, sequentialSwitch, randomSwitch], symbol: "repeat")
 
         intervalField.alignment = .right
         intervalField.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         intervalField.delegate = self
         intervalField.widthAnchor.constraint(equalToConstant: 46).isActive = true
         for unit in TimeUnit.allCases {
-            timeUnitPopup.addItem(withTitle: unit.rawValue)
+            let title = switch unit {
+            case .seconds: String(localized: "Seconds")
+            case .minutes: String(localized: "Minutes")
+            case .hours: String(localized: "Hours")
+            case .days: String(localized: "Days")
+            }
+            timeUnitPopup.addItem(withTitle: title)
             timeUnitPopup.lastItem?.representedObject = unit
         }
 
         let intervalLabel = NSTextField(labelWithString: String(localized: "Interval"))
         intervalField.setAccessibilityLabel(intervalLabel.stringValue)
-        let interval = SettingsFormView.controls(
-            [intervalLabel, intervalField, timeUnitPopup], horizontal: true, indent: SettingsPanelLayout.subordinateInset
-        )
+        timeUnitPopup.setAccessibilityLabel(String(localized: "Time Unit"))
+        let interval = SettingsFormView.subordinateRow(intervalLabel.stringValue,
+            control: SettingsFormView.controls([intervalField, timeUnitPopup], horizontal: true))
         intervalRowView = interval
         autoSwitchSwitch.title = String(localized: "Auto Switch")
-        autoSwitchRow = form.addGroup(String(localized: "Wallpaper Rotation"), controls: [autoSwitchSwitch, interval])
+        autoSwitchRow = form.addGroup(String(localized: "Wallpaper Rotation"), controls: [autoSwitchSwitch, interval], symbol: "clock.arrow.circlepath")
 
-        form.addDivider()
+        form.addSection(String(localized: "Volume"))
         muteSwitch.title = String(localized: "Mute")
+        muteSwitch.symbolName = "speaker.slash"
         volumeSlider.setAccessibilityLabel(String(localized: "Volume"))
         styleSlider(volumeSlider, valueLabel: volumeValueLabel, width: 200)
-        let volume = SettingsFormView.controls([volumeSlider, volumeValueLabel, muteSwitch], horizontal: true)
-        form.addGroup(String(localized: "Volume"), controls: [volume])
+        let volume = SettingsFormView.controls([volumeSlider, volumeValueLabel], horizontal: true)
+        form.addGroup(String(localized: "Volume"), controls: [volume, muteSwitch], symbol: "speaker.wave.2")
 
+        form.addSection(String(localized: "Speed"))
         playbackRateSwitch.title = String(localized: "Adjust Playback Speed")
         playbackRateSlider.setAccessibilityLabel(String(localized: "Playback Speed"))
         styleSlider(playbackRateSlider, valueLabel: playbackRateValueLabel, width: 160)
-        let rate = SettingsFormView.controls(
-            [playbackRateSlider, playbackRateValueLabel], horizontal: true, indent: SettingsPanelLayout.subordinateInset
-        )
+        let rate = SettingsFormView.subordinateRow(String(localized: "Playback Speed"),
+            control: SettingsFormView.controls([playbackRateSlider, playbackRateValueLabel], horizontal: true))
         playbackRateControls = rate
-        form.addGroup(String(localized: "Speed"), controls: [playbackRateSwitch, rate])
+        form.addGroup(String(localized: "Speed"), controls: [playbackRateSwitch, rate], symbol: "speedometer")
     }
 
     private func setupSystemSection(_ form: SettingsFormView) {
+        form.addSection(String(localized: "Startup"))
         startOnBootSwitch.title = String(localized: "Launch at Login")
         restorePlaybackOnLaunchSwitch.title = String(localized: "Resume Playback at Launch")
+        restorePlaybackOnLaunchSwitch.symbolName = "play.circle"
         restorePlaybackOnLaunchSwitch.toolTip = String(localized: "Restore the last wallpaper (Video, Web or Scene) at launch. When off, no wallpaper plays at launch. Static image wallpapers are kept by the system and are not affected.")
-        form.addGroup(String(localized: "Startup"), controls: [startOnBootSwitch, restorePlaybackOnLaunchSwitch])
+        form.addGroup(String(localized: "Startup"), controls: [startOnBootSwitch, restorePlaybackOnLaunchSwitch], symbol: "macwindow.badge.plus")
 
+        form.addSection(String(localized: "Desktop"))
         syncSystemWallpaperSwitch.title = String(localized: "Sync System Wallpaper")
         syncSystemWallpaperSwitch.toolTip = String(localized: "Also update the system wallpaper when the wallpaper changes: a still frame for Video, and one frame captured after the launch transition for Web and Scene. Static image wallpapers are always applied directly.")
-        form.addGroup(String(localized: "Desktop"), controls: [syncSystemWallpaperSwitch])
+        form.addGroup(String(localized: "Desktop"), controls: [syncSystemWallpaperSwitch], symbol: "desktopcomputer")
 
-        form.addDivider()
+        form.addSection(String(localized: "Wallpaper"))
         systemAudioSpectrumSwitch.title = String(localized: "Audio Spectrum")
         for barCount in [16, 20, 28, 36, 48] {
             systemAudioSpectrumBarCountPopup.addItem(withTitle: String(localized: "\(barCount) bars"))
             systemAudioSpectrumBarCountPopup.lastItem?.representedObject = barCount
         }
         systemAudioSpectrumColorWell.supportsAlpha = false
+        let barCount = String(localized: "Bar Count")
+        systemAudioSpectrumBarCountPopup.setAccessibilityLabel(barCount)
+        let color = String(localized: "Color")
+        systemAudioSpectrumColorWell.setAccessibilityLabel(color)
 
         let spectrum = SettingsFormView(rowSpacing: SettingsPanelLayout.controlSpacing)
         let sensitivity = String(localized: "Sensitivity")
@@ -96,8 +114,8 @@ extension AppKitSettingsContainerView {
         }
         spectrum.addGroup(response, controls: [systemAudioSpectrumStylePopup])
         spectrum.addGroup(sensitivity, controls: [systemAudioSpectrumSensitivityPopup])
-        spectrum.addGroup(String(localized: "Bar Count"), controls: [systemAudioSpectrumBarCountPopup])
-        spectrum.addGroup(String(localized: "Color"), controls: [systemAudioSpectrumColorWell])
+        spectrum.addGroup(barCount, controls: [systemAudioSpectrumBarCountPopup])
+        spectrum.addGroup(color, controls: [systemAudioSpectrumColorWell])
         for (title, slider, valueLabel) in [
             (String(localized: "X Position"), systemAudioSpectrumOffsetXSlider, systemAudioSpectrumOffsetXValueLabel),
             (String(localized: "Y Position"), systemAudioSpectrumOffsetYSlider, systemAudioSpectrumOffsetYValueLabel)
@@ -107,29 +125,26 @@ extension AppKitSettingsContainerView {
             spectrum.addGroup(title, controls: [SettingsFormView.controls([slider, valueLabel], horizontal: true)])
         }
         systemAudioSpectrumPeakCapsSwitch.title = String(localized: "Show Peak Caps")
-        let spectrumOptions = SettingsFormView.controls(
-            [spectrum, systemAudioSpectrumPeakCapsSwitch], indent: SettingsPanelLayout.subordinateInset
-        )
+        spectrum.addGroup(systemAudioSpectrumPeakCapsSwitch.title, controls: [systemAudioSpectrumPeakCapsSwitch])
+        let spectrumOptions = SettingsFormView.controls([spectrum], indent: SettingsPanelLayout.subordinateInset)
+        spectrum.widthAnchor.constraint(equalTo: spectrumOptions.widthAnchor, constant: -SettingsPanelLayout.subordinateInset).isActive = true
         systemAudioSpectrumOptionsContainer = spectrumOptions
         form.addGroup(String(localized: "Video"), controls: [
             systemAudioSpectrumSwitch,
-            SettingsFormView.detail(String(localized: "A visual effect that applies only to Video wallpapers"),
-                                    indent: SettingsPanelLayout.checkboxTextInset),
+            SettingsFormView.detail(String(localized: "A visual effect that applies only to Video wallpapers")),
             spectrumOptions
-        ])
+        ], symbol: "waveform")
 
         sceneMediaInfoSwitch.title = String(localized: "Wallpaper Song Info")
         sceneMediaInfoSwitch.toolTip = String(localized: "Shows the current track and artwork on Scene wallpapers. macOS asks for permission the first time Apple Music is read. If you denied it, allow it in System Settings > Privacy & Security > Automation and turn this on again.")
-        let audioListening = String(localized: "Listen to System Audio")
-        webAudioListeningSwitch.title = audioListening
-        sceneAudioListeningSwitch.title = audioListening
-        form.addGroup(String(localized: "Web Wallpaper"), controls: [webAudioListeningSwitch])
-        form.addGroup(String(localized: "Scene"), controls: [sceneAudioListeningSwitch])
+        webAudioListeningSwitch.title = String(localized: "Listen to System Audio in Web Wallpapers")
+        sceneAudioListeningSwitch.title = String(localized: "Listen to System Audio in Scene Wallpapers")
+        form.addGroup(String(localized: "Web Wallpaper"), controls: [webAudioListeningSwitch], symbol: "globe")
+        form.addGroup(String(localized: "Scene"), controls: [sceneAudioListeningSwitch], symbol: "cube")
         form.addGroup(String(localized: "Wallpaper"), controls: [
             sceneMediaInfoSwitch,
-            SettingsFormView.detail(String(localized: "Show the current track and artwork on supported Scene and Web wallpapers"),
-                                    indent: SettingsPanelLayout.checkboxTextInset)
-        ])
+            SettingsFormView.detail(String(localized: "Show the current track and artwork on supported Scene and Web wallpapers"))
+        ], symbol: "music.note")
     }
 
     private func setupHotkeysSection(_ form: SettingsFormView) {
@@ -143,18 +158,29 @@ extension AppKitSettingsContainerView {
                 popup.addItem(withTitle: shortcut.displayName)
                 popup.lastItem?.representedObject = shortcut
             }
-            form.addGroup(action.displayName, controls: [popup])
+            let symbol = switch action {
+            case .previous: "backward.end"
+            case .next: "forward.end"
+            case .playPause: "playpause"
+            case .muteToggle: "speaker.slash"
+            }
+            form.addGroup(action.displayName, controls: [popup], symbol: symbol)
             hotkeyPopups[action] = popup
         }
     }
 
     private func setupEfficiencySection(_ form: SettingsFormView) {
+        form.addSection(String(localized: "Pause"))
         pauseOtherAppFocusedSwitch.title = String(localized: "Pause When Another App Is Focused")
+        pauseOtherAppFocusedSwitch.symbolName = "rectangle.on.rectangle"
         pauseOtherAppFocusedSwitch.toolTip = String(localized: "Pause the wallpaper while another app is in front (excluding Finder on the desktop and this app)")
         pauseOtherAppFullscreenSwitch.title = String(localized: "Pause When Another App Is Full Screen")
+        pauseOtherAppFullscreenSwitch.symbolName = "arrow.up.left.and.arrow.down.right"
         pauseOtherAppFullscreenSwitch.toolTip = String(localized: "Pause the wallpaper when another app enters full screen and covers the main desktop")
         pauseWhenUnpluggedSwitch.title = String(localized: "Pause When on Battery")
+        pauseWhenUnpluggedSwitch.symbolName = "battery.50percent"
         pauseWhenIdleSwitch.title = String(localized: "Pause When Idle")
+        pauseWhenIdleSwitch.symbolName = "clock"
 
         for value in [5, 10, 15, 20, 30, 60] {
             idleTimeoutPopup.addItem(withTitle: String(localized: "\(value) min"))
@@ -162,9 +188,7 @@ extension AppKitSettingsContainerView {
         }
         let idleLabel = NSTextField(labelWithString: String(localized: "Idle Time"))
         idleTimeoutPopup.setAccessibilityLabel(idleLabel.stringValue)
-        let timeout = SettingsFormView.controls(
-            [idleLabel, idleTimeoutPopup], horizontal: true, indent: SettingsPanelLayout.subordinateInset
-        )
+        let timeout = SettingsFormView.subordinateRow(idleLabel.stringValue, control: idleTimeoutPopup)
         idleTimeoutRowView = timeout
         form.addGroup(String(localized: "Pause"), controls: [
             pauseOtherAppFocusedSwitch, pauseOtherAppFullscreenSwitch, pauseWhenUnpluggedSwitch, pauseWhenIdleSwitch, timeout
@@ -173,13 +197,14 @@ extension AppKitSettingsContainerView {
     }
 
     private func setupDisplaySection(_ form: SettingsFormView) {
+        form.addSection(String(localized: "Library Background"))
         for (index, style) in LibraryBackgroundStyle.allCases.enumerated() {
             libraryBackgroundPopup.addItem(withTitle: style.title)
             libraryBackgroundPopup.lastItem?.tag = index
             libraryBackgroundPopup.lastItem?.representedObject = style
         }
-        libraryBackgroundPopup.setAccessibilityLabel(String(localized: "App Theme"))
-        form.addGroup(String(localized: "App Theme"), controls: [libraryBackgroundPopup])
+        libraryBackgroundPopup.setAccessibilityLabel(String(localized: "Library Background"))
+        form.addGroup(String(localized: "Library Background"), controls: [libraryBackgroundPopup], symbol: "photo")
 
         for (index, action) in LibraryCardClickAction.allCases.enumerated() {
             libraryCardClickPopup.addItem(withTitle: action.title)
@@ -187,23 +212,24 @@ extension AppKitSettingsContainerView {
             libraryCardClickPopup.lastItem?.representedObject = action
         }
         libraryCardClickPopup.setAccessibilityLabel(String(localized: "Card Click Action"))
-        form.addGroup(String(localized: "Card Click Action"), controls: [libraryCardClickPopup])
+        form.addGroup(String(localized: "Card Click Action"), controls: [libraryCardClickPopup], symbol: "cursorarrow.click")
 
         keepDockIconSwitch.title = String(localized: "Keep Dock Icon When the Main Window Is Closed")
-        form.addGroup("Dock", controls: [keepDockIconSwitch])
+        form.addGroup("Dock", controls: [keepDockIconSwitch], symbol: "dock.rectangle")
 
-        form.addDivider()
+        form.addSection(String(localized: "Wallpaper"))
         multiDisplaySwitch.title = String(localized: "Show Wallpaper on All Displays")
         multiDisplaySwitch.toolTip = String(localized: "Show the wallpaper on all displays (Video, Web and Scene)")
-        form.addGroup(String(localized: "Wallpaper"), controls: [multiDisplaySwitch])
-        form.addGroup(String(localized: "Wallpaper Fill Mode"), controls: [fillModeFitButton, fillModeFillButton])
+        form.addGroup(String(localized: "Wallpaper"), controls: [multiDisplaySwitch], symbol: "display.2")
+        let fillMode = SettingsFormView.controls([fillModeFitButton, fillModeFillButton], horizontal: true)
+        form.addGroup(String(localized: "Wallpaper Fill Mode"), controls: [fillMode], symbol: "aspectratio")
 
-        form.addDivider()
+        form.addSection(String(localized: "Lock Screen & Screen Saver"))
         let screenSaver = NSButton(title: String(localized: "Configure"), target: self, action: #selector(openScreenSaverSettings))
         screenSaver.bezelStyle = .rounded
         form.addGroup(String(localized: "Lock Screen & Screen Saver"), controls: [
             screenSaver, SettingsFormView.detail(String(localized: "Play local videos muted on loop as the system screen saver"))
-        ])
+        ], symbol: "lock.display")
     }
 
     private func setupMaintenanceSection(_ form: SettingsFormView) {
@@ -212,40 +238,43 @@ extension AppKitSettingsContainerView {
         importProfileButton.target = self
         importProfileButton.action = #selector(handleImportProfile)
 
-        let transfer = SettingsFormView.controls([importProfileButton, exportProfileButton], horizontal: true)
-        form.addGroup(String(localized: "Personal Settings"), controls: [transfer])
-        form.addGroup(String(localized: "Cache"), controls: [clearCacheButton])
-        form.addDivider()
-        form.addGroup(String(localized: "Reset"), controls: [resetSettingsButton])
+        form.addSection(String(localized: "Personal Settings"))
+        form.addGroup(String(localized: "Import Settings"), controls: [importProfileButton], symbol: "square.and.arrow.down")
+        form.addGroup(String(localized: "Export Settings"), controls: [exportProfileButton], symbol: "square.and.arrow.up")
+        form.addSection(String(localized: "Cache"))
+        form.addGroup(String(localized: "Cache"), controls: [clearCacheButton], symbol: "internaldrive")
+        form.addGroup(String(localized: "Reset"), controls: [resetSettingsButton], symbol: "arrow.counterclockwise")
     }
 
     private func setupAboutSection(_ form: SettingsFormView) {
         let github = NSButton(title: "GitHub", target: self, action: #selector(openProjectWebsite))
         github.toolTip = String(localized: "View the project, report issues, or star it on GitHub")
         form.addGroup("MyWallpaperX", controls: [
-            SettingsFormView.detail(String(localized: "Simple by intention, pure by design.\nA native wallpaper manager built for macOS.")), github
-        ])
-        form.addDivider()
+            github, SettingsFormView.detail(String(localized: "Simple by intention, pure by design.\nA native wallpaper manager built for macOS."))
+        ], symbol: "info.circle")
+        form.addSection(String(localized: "Software Update"))
         let update = NSButton(title: String(localized: "Check for Updates"), target: self, action: #selector(checkForUpdates(_:)))
-        var controls = [update]
         if dependency.actions.automaticUpdateChecksEnabled() != nil {
-            let checks = NSButton(
-                checkboxWithTitle: String(localized: "Automatically Check for Updates"),
-                target: self, action: #selector(changeAutomaticUpdateChecks(_:))
-            )
-            let downloads = NSButton(
-                checkboxWithTitle: String(localized: "Automatically Download and Install Updates"),
-                target: self, action: #selector(changeAutomaticUpdateDownloads(_:))
-            )
+            let checks = SettingsToggle()
+            checks.title = String(localized: "Automatically Check for Updates")
+            checks.symbolName = "arrow.up.circle"
+            checks.target = self
+            checks.action = #selector(changeAutomaticUpdateChecks(_:))
+            let downloads = SettingsToggle()
+            downloads.title = String(localized: "Automatically Download and Install Updates")
+            downloads.symbolName = "arrow.down.circle"
+            downloads.target = self
+            downloads.action = #selector(changeAutomaticUpdateDownloads(_:))
             automaticUpdateChecksButton = checks
             automaticUpdateDownloadsButton = downloads
             refreshUpdaterControls()
-            controls = [checks, downloads, update]
+            form.addGroup(String(localized: "Software Update"), controls: [checks, downloads])
         }
-        form.addGroup(String(localized: "Software Update"), controls: controls)
+        form.addGroup(String(localized: "Software Update"), controls: [update], symbol: "arrow.clockwise")
     }
 
     private func setupQualitySection(_ form: SettingsFormView) {
+        form.addSection(String(localized: "Scene"))
         let rateInput = NSStackView(views: [sceneFPSField, sceneFPSControl])
         rateInput.spacing = 8
         let sceneFPSControls = NSStackView(views: [rateInput, sceneFPSEffectiveLabel])
@@ -362,7 +391,7 @@ extension AppKitSettingsContainerView {
             reapplySceneQualityButton,
             SettingsFormView.detail(String(localized: "Some effect changes require reloading the wallpaper"))
         ])
-        form.addDivider()
+        form.addSection(String(localized: "Web Wallpaper"))
         webFrameRatePopup.addItems(withTitles: [
             String(localized: "Match Display (up to 60 FPS)"),
             String(localized: "Follow Animation Frame Rate"),
@@ -373,6 +402,7 @@ extension AppKitSettingsContainerView {
             webFrameRatePopup,
             SettingsFormView.detail(String(localized: "Applies when the Web wallpaper uses the suggested frame rate"))
         ])
+        form.addSection(String(localized: "Video"))
         form.addGroup(String(localized: "Video Quality"), controls: [
             NSTextField(labelWithString: String(localized: "Original Video"))
         ])
@@ -390,10 +420,11 @@ extension AppKitSettingsContainerView {
     private func addQualityEffect(_ title: String, control: NSControl, readout: NSTextField,
                                   to form: SettingsFormView) {
         control.setAccessibilityLabel(title)
-        let column = SettingsFormView.controls([control, readout])
-        readout.widthAnchor.constraint(lessThanOrEqualTo: column.widthAnchor,
-                                       constant: -SettingsPanelLayout.columnSpacing).isActive = true
-        form.addGroup(title, controls: [column])
+        let detail = SettingsFormView.controls([readout], indent: SettingsPanelLayout.subordinateInset)
+        detail.edgeInsets.right = SettingsPanelLayout.pageInset
+        readout.widthAnchor.constraint(equalTo: detail.widthAnchor,
+            constant: -SettingsPanelLayout.subordinateInset - SettingsPanelLayout.pageInset).isActive = true
+        form.addGroup(title, controls: [control, detail])
     }
 
     func refreshQualityControls() {
@@ -464,10 +495,7 @@ extension AppKitSettingsContainerView {
                             : String(localized: "Reapply Current Scene")
         if let row = reapplySceneQualityRow, row.isHidden == pending {
             row.isHidden = !pending
-            if visibleSection == .quality {
-                scheduleDocumentFrameUpdate()
-                onFormHeightChanged?()
-            }
+            if visibleSection == .quality { scheduleDocumentFrameUpdate() }
         }
         reapplySceneQualityButton.title = title
     }
@@ -571,11 +599,11 @@ extension AppKitSettingsContainerView {
         automaticUpdateDownloadsButton?.state = dependency.actions.automaticUpdateDownloadsEnabled() ? .on : .off
     }
 
-    @objc private func changeAutomaticUpdateDownloads(_ sender: NSButton) {
+    @objc private func changeAutomaticUpdateDownloads(_ sender: SettingsToggle) {
         dependency.actions.setAutomaticUpdateDownloadsEnabled(sender.state == .on)
     }
 
-    @objc private func changeAutomaticUpdateChecks(_ sender: NSButton) {
+    @objc private func changeAutomaticUpdateChecks(_ sender: SettingsToggle) {
         dependency.actions.setAutomaticUpdateChecksEnabled(sender.state == .on)
         refreshUpdaterControls()
     }

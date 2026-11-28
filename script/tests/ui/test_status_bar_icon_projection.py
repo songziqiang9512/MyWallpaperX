@@ -1,5 +1,6 @@
 """Exercise update reminders and the production status icon without network or a system item."""
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -61,7 +62,7 @@ struct SPUUserUpdateState { let userInitiated: Bool }
     // PRODUCTION_STATE
     // PRODUCTION_UPDATE
     var label: String? { displayedIconLabel }
-    func update() { updateStatusBarIcon() }
+    func update() { refreshStatusBarIcon() }
 }
 @main enum Checks {
     @MainActor static func main() throws {
@@ -171,6 +172,22 @@ struct SPUUserUpdateState { let userInitiated: Bool }
         checks["sessionEndRetiresReminder"] = updates.availableUpdateVersion == nil && projection.label == "—"
         updates.standardUserDriverWillHandleShowingUpdate(true, forUpdate: update, state: .init(userInitiated: true))
         checks["manualUpdateDoesNotCreateBackgroundReminder"] = updates.availableUpdateVersion == nil
+        let preferences = WallpaperInterfaceSettings.shared
+        preferences.update { $0.statusIcon = .icon }
+        projection.update()
+        let simple = button.image
+        checks["symbolModeReplacesTheMetric"] = simple != nil && projection.label == "photo.on.rectangle"
+        monitor.stats.gpuUsage = 0.57
+        projection.update()
+        checks["symbolModeIgnoresMetricUpdates"] = button.image === simple
+        updates.standardUserDriverWillHandleShowingUpdate(true, forUpdate: update, state: .init(userInitiated: false))
+        projection.update()
+        checks["symbolModeKeepsTheUpdateReminder"] = button.image !== simple && projection.label == "arrow.up.circle"
+        updates.standardUserDriverWillFinishUpdateSession()
+        checks["interfacePreferenceSurvivesReinitialization"] = WallpaperInterfaceSettings().values.statusIcon == .icon
+        preferences.reset()
+        projection.update()
+        checks["restoringDefaultsReturnsToTheActiveMetric"] = projection.label == "57%"
         let sender = NSObject()
         updates.checkForUpdates(sender)
         #if DEBUG
@@ -191,22 +208,27 @@ class StatusBarIconProjectionTests(unittest.TestCase):
         fields = "\n".join(line for line in product.splitlines()
                            if "private var displayedIcon" in line)
         source = HARNESS.replace("// PRODUCTION_STATE", fields).replace(
-            "// PRODUCTION_UPDATE", method(product, "    private func updateStatusBarIcon(")).replace(
+            "// PRODUCTION_UPDATE", method(product, "    private func refreshStatusBarIcon(") + "\n" +
+            method(product, "    private func updateStatusBarIcon(")).replace(
             "// PRODUCT_UPDATE_OWNER", updater.replace("import Sparkle\n", ""))
         with tempfile.TemporaryDirectory(prefix="mwx-status-icon-", dir="/private/tmp") as directory:
             work = Path(directory)
             swift = work / "Checks.swift"
             swift.write_text(source)
+            preferences = ROOT / "MyWallpaperX/Shared/UI/WallpaperInterfaceSettings.swift"
             for mode, flags in [("debug", ["-D", "DEBUG"]), ("release", [])]:
                 binary = work / mode
-                build = subprocess.run(["xcrun", "swiftc", "-parse-as-library", *flags, str(swift),
+                build = subprocess.run(["xcrun", "swiftc", "-parse-as-library", *flags, str(swift), str(preferences),
                                         "-module-cache-path", str(work / "modules"), "-o", str(binary)],
                                        capture_output=True, text=True, timeout=120)
                 self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
-                run = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30)
+                home = work / (mode + "-home")
+                home.mkdir()
+                run = subprocess.run([str(binary)], env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)),
+                                     capture_output=True, text=True, timeout=30)
                 self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
                 checks = json.loads(run.stdout)
-                self.assertEqual(len(checks), 24)
+                self.assertEqual(len(checks), 29)
                 for name, passed in checks.items():
                     with self.subTest(mode=mode, name=name):
                         self.assertTrue(passed)

@@ -10,7 +10,7 @@ import UniformTypeIdentifiers
 import Foundation
 
 enum AppSettingsSection: String, CaseIterable {
-    case playback, quality, display, system, hotkeys, efficiency, maintenance, about
+    case system, interface, playback, quality, display, efficiency, hotkeys, maintenance, about
 }
 
 final class AppKitSettingsContainerView: NSView {
@@ -47,34 +47,32 @@ final class AppKitSettingsContainerView: NSView {
     private let scrollView = NSScrollView()
     let contentContainer = FlippedDocumentView()
 
+    let interfaceForm = AppKitInterfaceSettingsForm()
     let forms = Dictionary(uniqueKeysWithValues: AppSettingsSection.allCases.map { ($0, SettingsFormView()) })
-    var onFormHeightChanged: (() -> Void)?
     private var activeForm: SettingsFormView { forms[visibleSection]! }
 
-    static func checkbox() -> NSButton {
-        NSButton(checkboxWithTitle: "", target: nil, action: nil)
-    }
+    static func toggle() -> SettingsToggle { SettingsToggle() }
 
-    let loopSwitch = AppKitSettingsContainerView.checkbox()
-    let randomSwitch = AppKitSettingsContainerView.checkbox()
-    let sequentialSwitch = AppKitSettingsContainerView.checkbox()
-    let autoSwitchSwitch = AppKitSettingsContainerView.checkbox()
+    let loopSwitch = AppKitSettingsContainerView.toggle()
+    let randomSwitch = AppKitSettingsContainerView.toggle()
+    let sequentialSwitch = AppKitSettingsContainerView.toggle()
+    let autoSwitchSwitch = AppKitSettingsContainerView.toggle()
     let intervalField = NSTextField()
     let timeUnitPopup = NSPopUpButton()
     var intervalRowView: NSView?
-    var autoSwitchRow: NSGridRow?
+    var autoSwitchRow: NSView?
     let volumeSlider = NSSlider(value: 50, minValue: 0, maxValue: 100, target: nil, action: nil)
     let volumeValueLabel = NSTextField(labelWithString: "50%")
-    let muteSwitch = AppKitSettingsContainerView.checkbox()
+    let muteSwitch = AppKitSettingsContainerView.toggle()
 
     let playbackRateSlider = NSSlider(value: 1.0, minValue: 0.25, maxValue: 2.0, target: nil, action: nil)
-    let playbackRateValueLabel = NSTextField(labelWithString: "")
-    let playbackRateSwitch = AppKitSettingsContainerView.checkbox()
+    let playbackRateValueLabel = NSTextField(labelWithString: "1.0x")
+    let playbackRateSwitch = AppKitSettingsContainerView.toggle()
     var playbackRateControls: NSView?
 
-    let startOnBootSwitch = AppKitSettingsContainerView.checkbox()
-    let restorePlaybackOnLaunchSwitch = AppKitSettingsContainerView.checkbox()
-    let syncSystemWallpaperSwitch = AppKitSettingsContainerView.checkbox()
+    let startOnBootSwitch = AppKitSettingsContainerView.toggle()
+    let restorePlaybackOnLaunchSwitch = AppKitSettingsContainerView.toggle()
+    let syncSystemWallpaperSwitch = AppKitSettingsContainerView.toggle()
     let sceneQualityPresetPopup = NSPopUpButton()
     let sceneAntiAliasingPopup = NSPopUpButton()
     let sceneRasterSamplesLabel = NSTextField(labelWithString: "")
@@ -91,14 +89,14 @@ final class AppKitSettingsContainerView: NSView {
     let sceneReflectionUseLabel = AppKitSettingsContainerView.makeSceneEffectReadout()
     let webFrameRatePopup = NSPopUpButton()
     let reapplySceneQualityButton = NSButton(title: String(localized: "Reapply Current Scene"), target: nil, action: nil)
-    var reapplySceneQualityRow: NSGridRow?
+    var reapplySceneQualityRow: NSView?
     let resetQualityButton = NSButton(title: String(localized: "Restore Default Quality"), target: nil, action: nil)
-    let sceneMediaInfoSwitch = AppKitSettingsContainerView.checkbox()
+    let sceneMediaInfoSwitch = AppKitSettingsContainerView.toggle()
     private var sceneMediaAuthorizationCheckID = UUID()
-    let systemAudioSpectrumSwitch = AppKitSettingsContainerView.checkbox()
+    let systemAudioSpectrumSwitch = AppKitSettingsContainerView.toggle()
     let systemAudioSpectrumStylePopup = NSPopUpButton()
-    let webAudioListeningSwitch = AppKitSettingsContainerView.checkbox()
-    let sceneAudioListeningSwitch = AppKitSettingsContainerView.checkbox()
+    let webAudioListeningSwitch = AppKitSettingsContainerView.toggle()
+    let sceneAudioListeningSwitch = AppKitSettingsContainerView.toggle()
     let systemAudioSpectrumSensitivityPopup = NSPopUpButton()
     let systemAudioSpectrumBarCountPopup = NSPopUpButton()
     let systemAudioSpectrumColorWell = NSColorWell()
@@ -106,14 +104,14 @@ final class AppKitSettingsContainerView: NSView {
     let systemAudioSpectrumOffsetYSlider = NSSlider(value: 0, minValue: -20, maxValue: 20, target: nil, action: nil)
     let systemAudioSpectrumOffsetXValueLabel = NSTextField(labelWithString: "0%")
     let systemAudioSpectrumOffsetYValueLabel = NSTextField(labelWithString: "0%")
-    let systemAudioSpectrumPeakCapsSwitch = AppKitSettingsContainerView.checkbox()
+    let systemAudioSpectrumPeakCapsSwitch = AppKitSettingsContainerView.toggle()
     var systemAudioSpectrumOptionsContainer: NSView?
     var hotkeyPopups: [SystemHotkeyAction: NSPopUpButton] = [:]
 
-    let pauseOtherAppFocusedSwitch = AppKitSettingsContainerView.checkbox()
-    let pauseOtherAppFullscreenSwitch = AppKitSettingsContainerView.checkbox()
-    let pauseWhenUnpluggedSwitch = AppKitSettingsContainerView.checkbox()
-    let pauseWhenIdleSwitch = AppKitSettingsContainerView.checkbox()
+    let pauseOtherAppFocusedSwitch = AppKitSettingsContainerView.toggle()
+    let pauseOtherAppFullscreenSwitch = AppKitSettingsContainerView.toggle()
+    let pauseWhenUnpluggedSwitch = AppKitSettingsContainerView.toggle()
+    let pauseWhenIdleSwitch = AppKitSettingsContainerView.toggle()
     let idleTimeoutPopup = NSPopUpButton()
     var idleTimeoutRowView: NSView?
 
@@ -124,20 +122,20 @@ final class AppKitSettingsContainerView: NSView {
     let sceneFPSField = NSTextField(string: "")
     let sceneFPSEffectiveLabel = NSTextField(labelWithString: "")
 
-    let keepDockIconSwitch = AppKitSettingsContainerView.checkbox()
-    let multiDisplaySwitch = AppKitSettingsContainerView.checkbox()
+    let keepDockIconSwitch = AppKitSettingsContainerView.toggle()
+    let multiDisplaySwitch = AppKitSettingsContainerView.toggle()
     let libraryBackgroundPopup = NSPopUpButton()
     let libraryCardClickPopup = NSPopUpButton()
     let fillModeFitButton = NSButton(radioButtonWithTitle: String(localized: "Fit"), target: nil, action: nil)
     let fillModeFillButton = NSButton(radioButtonWithTitle: String(localized: "Fill Screen"), target: nil, action: nil)
 
-    var automaticUpdateChecksButton: NSButton?
-    var automaticUpdateDownloadsButton: NSButton?
+    var automaticUpdateChecksButton: SettingsToggle?
+    var automaticUpdateDownloadsButton: SettingsToggle?
 
     let clearCacheButton = NSButton(title: String(localized: "Clear Cache"), target: nil, action: nil)
     let resetSettingsButton = NSButton(title: String(localized: "Reset App"), target: nil, action: nil)
-    let exportProfileButton = NSButton(title: String(localized: "Export Settings"), target: nil, action: nil)
-    let importProfileButton = NSButton(title: String(localized: "Import Settings"), target: nil, action: nil)
+    let exportProfileButton = NSButton(title: String(localized: "Export"), target: nil, action: nil)
+    let importProfileButton = NSButton(title: String(localized: "Import"), target: nil, action: nil)
 
     init(
         dependency: AppSettingsPanelDependency,
@@ -269,7 +267,6 @@ final class AppKitSettingsContainerView: NSView {
         refreshHotkeyRowsIfInputsChanged()
         if layoutVisibilitySignature() != visibilityBefore {
             scheduleDocumentFrameUpdate()
-            onFormHeightChanged?()
         }
     }
 
@@ -288,22 +285,34 @@ final class AppKitSettingsContainerView: NSView {
         visibleSection = section
         attachActiveForm()
         if section == .about { refreshUpdaterControls() }
-        scrollView.contentView.scroll(to: .zero)
-        scrollView.reflectScrolledClipView(scrollView.contentView)
+        scrollToTop()
+        scheduleDocumentFrameUpdate()
     }
 
     private func attachActiveForm() {
         let form = activeForm
         contentContainer.addSubview(form)
         NSLayoutConstraint.activate([
-            form.topAnchor.constraint(equalTo: contentContainer.topAnchor, constant: SettingsPanelLayout.pageInset),
+            form.topAnchor.constraint(equalTo: contentContainer.topAnchor),
             form.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor, constant: SettingsPanelLayout.pageInset),
             form.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor, constant: -SettingsPanelLayout.pageInset)
         ])
     }
 
+    private func scrollToTop() {
+        scrollView.contentView.scroll(to: NSPoint(x: 0, y: -scrollView.contentInsets.top))
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+        updateTitlebar()
+    }
+
+    @objc private func updateTitlebar() {
+        let transparent = scrollView.contentView.bounds.minY <= -scrollView.contentInsets.top
+        if let window, window.titlebarAppearsTransparent != transparent {
+            window.titlebarAppearsTransparent = transparent
+        }
+    }
+
     private func setupLayout() {
-        wantsLayer = false
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.borderType = .noBorder
         scrollView.drawsBackground = false
@@ -312,15 +321,20 @@ final class AppKitSettingsContainerView: NSView {
         scrollView.autohidesScrollers = true
         scrollView.scrollerStyle = .overlay
 
-        contentContainer.frame.size.width = SettingsPanelLayout.pageWidth
+        contentContainer.frame.size.width = SettingsPanelLayout.windowSize.width - SettingsPanelLayout.sidebarWidth
         scrollView.documentView = contentContainer
         addSubview(scrollView)
+        let clip = scrollView.contentView
+        clip.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(self, selector: #selector(updateTitlebar),
+            name: NSView.boundsDidChangeNotification, object: clip)
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
+        scrollToTop()
     }
 
     override func layout() {
@@ -331,14 +345,15 @@ final class AppKitSettingsContainerView: NSView {
     func preferredFormHeight(at width: CGFloat) -> CGFloat {
         if contentContainer.frame.width != width { contentContainer.frame.size.width = width }
         contentContainer.layoutSubtreeIfNeeded()
-        return activeForm.fittingSize.height + SettingsPanelLayout.pageInset + SettingsPanelLayout.bottomInset
+        return activeForm.fittingSize.height + SettingsPanelLayout.bottomInset
     }
 
     func updateDocumentFrame() {
         let viewportSize = scrollView.contentSize
         guard viewportSize.width > 0 else { return }
 
-        let targetHeight = max(viewportSize.height, preferredFormHeight(at: viewportSize.width))
+        let bodyHeight = viewportSize.height - scrollView.contentInsets.top
+        let targetHeight = max(bodyHeight, preferredFormHeight(at: viewportSize.width))
         if contentContainer.frame.height != targetHeight { contentContainer.frame.size.height = targetHeight }
     }
 
@@ -647,7 +662,7 @@ final class AppKitSettingsContainerView: NSView {
         dependency.settings.keepDockIconVisible = keepDockIconSwitch.state == .on
     }
 
-    @objc private func handleEngineAudioListeningChange(_ sender: NSButton) {
+    @objc private func handleEngineAudioListeningChange(_ sender: SettingsToggle) {
         if sender === webAudioListeningSwitch {
             dependency.settings.webWallpaperAudioListening = sender.state == .on
         } else {

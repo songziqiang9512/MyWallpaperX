@@ -64,7 +64,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         composition.suspendForWindowClose()
-        SettingsWindowController.shared.updateMainWindowTint(nil, animated: false)
         MainWindowCoordinator.handleWindowWillClose(self)
     }
 

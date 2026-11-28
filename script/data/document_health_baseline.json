@@ -5,8 +5,8 @@
   "maxReviewAgeDays": 60,
   "bodies": {
     "docs/architecture/appkit-migration.md": {
-      "lines": 218,
-      "bytes": 27384
+      "lines": 226,
+      "bytes": 28706
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
       "lines": 52,
@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 70,
-      "bytes": 28544
+      "bytes": 28541
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 175,
-      "bytes": 37902
+      "bytes": 37899
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 207475
+      "bytes": 207336
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 191642
+      "bytes": 191341
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -373,10 +373,10 @@
     {
       "section": "bodies",
       "path": "docs/architecture/appkit-migration.md",
-      "before": "bb2ed54842c2bdb56a29a856453daf5e5dc4d25bd4938d4c2bc6f0a6d0cc5272",
-      "after": "689a3f8749276a2e2d435eb36d0e2a996952b841aa083854e5ec574fdb8542b9",
-      "owner": "wallpaper-quality",
-      "reason": "新原生设置工具栏及壁纸质量单一分类，保持主线页面与从属行为。",
+      "before": "689a3f8749276a2e2d435eb36d0e2a996952b841aa083854e5ec574fdb8542b9",
+      "after": "1ac4047e65bfb88f6b949d7457185a8a0edfbb2a746b6e725457242a31fcd66d",
+      "owner": "AppKit Settings and wallpaper quality",
+      "reason": "合并主线界面偏好与侧栏设置，保独立画质页及逐屏反馈。",
       "decision": "docs/development/wallpaper-quality-settings-plan.md#quality-native-settings-reconciliation"
     },
     {

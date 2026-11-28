@@ -74,9 +74,8 @@ extension Notification.Name {
     let sceneReflectionsSwitch = NSSwitch(), webFrameRatePopup = NSPopUpButton()
     let reapplySceneQualityButton = NSButton(title: "Reapply Current Scene", target: nil, action: nil)
     let qualitySection = SettingsFormView()
-    var reapplySceneQualityRow: NSGridRow?
+    var reapplySceneQualityRow: NSView?
     let visibleSection: AppSettingsSection = .quality
-    var onFormHeightChanged: (() -> Void)?
     let loopSwitch = NSSwitch(), randomSwitch = NSSwitch(), sequentialSwitch = NSSwitch(), autoSwitchSwitch = NSSwitch()
     let intervalField = NSTextField(frame: .init(x: 20, y: 70, width: 160, height: 28))
     let sceneFPSField = NSTextField(frame: .init(x: 198, y: 70, width: 40, height: 28))
@@ -87,7 +86,7 @@ extension Notification.Name {
     let playbackRateSlider = NSSlider(value: 1, minValue: 0.25, maxValue: 2, target: nil, action: nil)
     let playbackRateValueLabel = NSTextField(), playbackRateSwitch = NSSwitch()
     var intervalRowView: NSView? = NSView()
-    var autoSwitchRow: NSGridRow?
+    var autoSwitchRow: NSView?
     lazy var playbackRateControls: NSView? = SettingsFormView.controls([playbackRateSlider, playbackRateValueLabel])
     let nextField = NSTextField(frame: .init(x: 20, y: 20, width: 160, height: 28))
     init(_ dependency: AppSettingsPanelDependency) {
@@ -152,7 +151,7 @@ extension Notification.Name {
         if let muteStateObserver { NotificationCenter.default.removeObserver(muteStateObserver) }
         if let loginItemSyncFailureObserver { NotificationCenter.default.removeObserver(loginItemSyncFailureObserver) }
     }
-    func layoutVisibilitySignature() -> [Bool] { [] }
+    func layoutVisibilitySignature() -> [Bool?] { [] }
     func scheduleDocumentFrameUpdate() {}
     func presentLoginItemSyncFailure(_ note: Notification) {}
     // ACTUAL_INTERVAL_REFRESH

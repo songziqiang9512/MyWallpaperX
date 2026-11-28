@@ -327,6 +327,7 @@ enum MyWallpaperXApplication {
                     WallpaperManager.shared.resetToFreshInstallState()
                 })
                 try profile.clearRecoveryAfterReset()
+                WallpaperInterfaceSettings.shared.reset()
                 workspace.presentation.resetViewState()
                 let updater = AppUpdateController.shared
                 updater.setAutomaticUpdateChecksEnabled(true)

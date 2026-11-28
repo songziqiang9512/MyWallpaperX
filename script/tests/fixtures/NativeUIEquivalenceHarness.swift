@@ -195,43 +195,38 @@ import QuartzCore
                 }
             }
             let settings = SettingsFormView()
-            let checkbox = NSButton(checkboxWithTitle: "条件选项", target: nil, action: nil)
+            settings.addSection("启动时")
+            let toggle = SettingsToggle()
+            toggle.title = "条件选项"
             let button = NSButton(title: "配置…", target: nil, action: nil)
-            let detail = SettingsFormView.detail("选项的说明", indent: 22)
-            settings.addGroup("启动时", controls: [checkbox, detail])
-            settings.addGroup("屏幕保护程序", controls: [button])
-            let settingsWidth = settings.widthAnchor.constraint(equalToConstant: 320)
-            settingsWidth.isActive = true
+            let detail = SettingsFormView.detail("选项的说明")
+            settings.addGroup("启动时", controls: [toggle, detail], symbol: "macwindow")
+            settings.addGroup("屏幕保护程序", controls: [button], symbol: "display")
             root.addSubview(settings)
-            settings.layoutSubtreeIfNeeded()
+            let settingsWidth = settings.widthAnchor.constraint(equalToConstant: 320)
+            NSLayoutConstraint.activate([settingsWidth, settings.topAnchor.constraint(equalTo: root.topAnchor),
+                settings.leadingAnchor.constraint(equalTo: root.leadingAnchor)])
+            root.layoutSubtreeIfNeeded()
             pump()
-            let caption = settings.cell(atColumnIndex: 0, rowIndex: 0).contentView as! NSTextField
-            let secondCaption = settings.cell(atColumnIndex: 0, rowIndex: 1).contentView as! NSTextField
-            let captions = [caption, secondCaption]
-            let rows = [checkbox, button]
-            func baseline(_ view: NSView) -> NSPoint {
-                view.convert(NSPoint(x: 0, y: view.bounds.maxY - view.firstBaselineOffsetFromTop), to: settings)
-            }
-            func rightEdge(_ view: NSView) -> CGFloat {
-                view.superview!.convert(view.alignmentRect(forFrame: view.frame), to: settings).maxX
-            }
-            checks["settings-group-caption-\(dark)"] = abs(rightEdge(caption) - rightEdge(secondCaption)) < 1
-                && settings.column(at: 0).width == secondCaption.intrinsicContentSize.width
-                && abs(baseline(checkbox).x - baseline(button).x) < 1
+            func rightEdge(_ view: NSView) -> CGFloat { view.convert(view.bounds, to: settings).maxX }
+            checks["settings-controls-right-aligned-\(dark)"] = abs(rightEdge(toggle) - rightEdge(button)) < 2
+                && rightEdge(toggle) > 300 && toggle.controlSize == .mini
             image("\(dark ? "dark" : "light")-settings", settings)
-            let rowPoint = checkbox.convert(NSPoint(x: 8, y: 8), to: settings.superview)
-            checks["settings-row-hit-\(dark)"] = settings.hitTest(rowPoint) === checkbox
+            let rowPoint = toggle.convert(NSPoint(x: toggle.bounds.midX, y: toggle.bounds.midY), to: settings.superview)
+            let hit = settings.hitTest(rowPoint)
+            checks["settings-row-hit-\(dark)"] = hit === toggle || hit?.isDescendant(of: toggle) == true
             let fullHeight = settings.fittingSize.height
             for (step, appearance) in [NSAppearance.Name.darkAqua, .aqua, .darkAqua, .aqua].enumerated() {
                 root.appearance = NSAppearance(named: appearance)
                 settingsWidth.constant = step.isMultiple(of: 2) ? 420 : 320
-                settings.layoutSubtreeIfNeeded()
+                root.layoutSubtreeIfNeeded()
                 pump()
                 checks["settings-transition-\(dark)-\(step)"] = settings.bounds.width == settingsWidth.constant
-                    && zip(captions, rows).allSatisfy { abs(baseline($0.0).y - baseline($0.1).y) < 1 }
-                checks["settings-flat-\(dark)-\(step)"] = settings.subviews.allSatisfy { !($0 is NSBox) }
-                    && settings.fittingSize.height == fullHeight
-                facts["settings-transition-\(dark)-\(step)-frames"] = ([settings] + captions + rows).map {
+                    && abs(rightEdge(toggle) - rightEdge(button)) < 2
+                let card = settings.arrangedSubviews.compactMap { $0 as? NSBox }.first
+                let expectedFill = appearance == .darkAqua ? NSColor.underPageBackgroundColor : .black.withAlphaComponent(0.02)
+                checks["settings-card-appearance-\(dark)-\(step)"] = card?.cornerRadius == 12 && card?.fillColor == expectedFill
+                facts["settings-transition-\(dark)-\(step)-frames"] = [settings, toggle, button].map {
                     [$0.frame.minX, $0.frame.minY, $0.frame.width, $0.frame.height]
                 }
                 image("settings-transition-\(dark)-\(step)", settings)
@@ -239,9 +234,9 @@ import QuartzCore
             root.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
             let detailHeight = detail.frame.height
             detail.isHidden = true
-            settings.layoutSubtreeIfNeeded()
-            checks["settings-hidden-row-\(dark)"] = abs(settings.fittingSize.height - (fullHeight - detailHeight - 6)) < 1
-                && !checkbox.isHidden
+            root.layoutSubtreeIfNeeded()
+            checks["settings-hidden-row-\(dark)"] = detailHeight > 0
+                && abs(settings.fittingSize.height - (fullHeight - detailHeight)) < 2 && !toggle.isHidden
             image("\(dark ? "dark" : "light")-settings-hidden", settings)
             settings.removeFromSuperview()
 
@@ -250,17 +245,17 @@ import QuartzCore
             maintenance.addDivider()
             maintenance.addGroup("重置", controls: [NSButton(title: "重置 App", target: nil, action: nil)])
             let maintenanceWidth = maintenance.widthAnchor.constraint(equalToConstant: 320)
-            maintenanceWidth.isActive = true
             root.addSubview(maintenance)
+            NSLayoutConstraint.activate([maintenanceWidth, maintenance.topAnchor.constraint(equalTo: root.topAnchor),
+                maintenance.leadingAnchor.constraint(equalTo: root.leadingAnchor)])
             for width in [CGFloat(320), 420] {
                 maintenanceWidth.constant = width
-                maintenance.layoutSubtreeIfNeeded()
+                root.layoutSubtreeIfNeeded()
                 pump()
-                let divider = maintenance.cell(atColumnIndex: 0, rowIndex: 1).contentView as! NSBox
-                let rule = divider.alignmentRect(forFrame: divider.frame)
-                checks["settings-section-divider-\(dark)-\(width)"] = rule.width == width && rule.height == 1
-                    && maintenance.rowSpacing == 18
-                checks["settings-divider-accessibility-\(dark)"] = !divider.isAccessibilityElement()
+                let cards = maintenance.arrangedSubviews.compactMap { $0 as? NSBox }
+                checks["settings-separated-cards-\(dark)-\(width)"] = cards.count == 2
+                    && cards.allSatisfy { $0.frame.width == width } && maintenance.spacing == 16
+                checks["settings-card-decoration-accessibility-\(dark)"] = cards.allSatisfy { $0.titlePosition == .noTitle }
                 image("settings-untitled-\(dark)-\(width)", maintenance)
             }
             maintenance.removeFromSuperview()
