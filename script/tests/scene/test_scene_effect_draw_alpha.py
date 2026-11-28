@@ -227,14 +227,76 @@ private func variantAliasScope(effect: Bool, name: String = "g_Alpha") -> String
 }
 
 private func drawUniformInputs(alpha: Float = 0.25,
-    color: SIMD3<Float> = .init(0.1, 0.2, 0.3)) -> SceneAuthoredShaderUniformInputs {
+    color: SIMD3<Float> = .init(0.1, 0.2, 0.3),
+    sourceColor: SIMD4<Float>? = nil) -> SceneAuthoredShaderUniformInputs {
     .init(frameIndex: 1, renderSize: CGSize(width: 2, height: 2),
         screenSize: CGSize(width: 2, height: 2), modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: matrix_identity_float4x4,
         effectOutputModelViewProjection: matrix_identity_float4x4,
         effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
-        effectDrawAlpha: alpha, effectDrawColor: color, sceneTime: 0, dayTime: 0,
+        effectDrawAlpha: alpha, effectDrawColor: color,
+        sourceDrawColor4: sourceColor, sceneTime: 0, dayTime: 0,
         frameTime: 1 / 60, pointerCurrentNDC: .zero, pointerPreviousNDC: .zero)
+}
+
+private func imageSourceColorFacts() throws -> [String: Any] {
+    let name = "g_Color4"
+    let authored = staticDeclaration(name, components: [0.5, 0.75, 0.25, 0.5])
+    let dynamic = Template.UniformDeclaration(name: "sourceTint", value: .dynamic(.init(
+        target: .materialConstant(layerID: fixtureLayerID, passIndex: 0,
+            name: "sourceTint", materialPath: "materials/source-color.json"),
+        valueContributors: [.timeline], scriptAttachments: [], authoredFallback: nil,
+        authoredBindingKeys: ["value"])))
+    let cases: [(name: String, metadata: String, output: String,
+        declarations: [Template.UniformDeclaration])] = [
+        ("host", "", name, []),
+        ("inactive", "", "vec4(1.0)", []),
+        ("shaderDefault", #"// {"default":"0.5 0.75 0.25 0.5"}"#, name, []),
+        ("materialStatic", "", name, [authored]),
+        ("materialDynamic", #"// {"material":"sourceTint"}"#, name, [dynamic]),
+    ]
+    var results: [String: Any] = [:]
+    for test in cases {
+        let shader = contract(revision: "self-owned-image-source-\(test.name)", fragmentSourceOverride: """
+            uniform vec4 \(name); \(test.metadata)
+            void main() { gl_FragColor = \(test.output); }
+            """)
+        let base = template(shader, includePrimaryCandidate: false,
+            uniformDeclarations: test.declarations)
+        let source = Template.validated(textureSlots: base.textureSlots, combos: [],
+            uniformDeclarations: base.uniformDeclarations, renderState: base.renderState,
+            graphRole: .init(effectInput: .layerSource, effectOutput: .layerSource,
+                nodeTarget: .layerSource, bindings: []),
+            bindsImageLayerColor: true, shaderContract: shader,
+            diagnosticProvenance: base.diagnosticProvenance)!
+        let cache = try SceneResolvedMaterialVariantCache.launchValidated(template: source,
+            textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: source),
+            maximumVariantCount: 4).get()
+        switch cache.precompileLaunchEnvelope(implicitFramebufferIdentity: nil) {
+        case let .failure(.material(failure)):
+            results[test.name] = failure.code.rawValue
+        case .failure(.capacity):
+            results[test.name] = "capacity"
+        case .success:
+            let bindings = cache.launchEnvelopeCapabilitySnapshot().variants.first?.preparedUniformBindings
+            guard let binding = bindings?.first(where: { $0.field.authoredName == name }),
+                  case let .host(host) = binding.source else {
+                results[test.name] = "unexpectedly admitted"
+                continue
+            }
+            results[test.name] = host == .sourceDrawColor4 ? "sourceDrawColor4" : "wrong host"
+            let slots = Array<Program.TextureSlot?>(repeating: nil, count: 8)
+            let inputs = drawUniformInputs(sourceColor: .init(0.75, 0.125, 0.5, 0.625))
+            let value = SceneResolvedMaterialUniformEncoder.encodeHost(
+                host, type: binding.field.type, inputs: inputs, slots: slots)
+            results["encodedRGBA"] = value.map { bytes in
+                (0..<4).map { sceneResolvedMaterialFixtureFloat(bytes, at: $0 * 4) }
+            } ?? []
+            results["missingInputUnavailable"] = SceneResolvedMaterialUniformEncoder.resolveHost(
+                host, type: binding.field.type, inputs: drawUniformInputs(), slots: slots) == .inputUnavailable
+        }
+    }
+    return results
 }
 
 private func colorFacts() throws -> [String: Any] {
@@ -429,6 +491,7 @@ private func reductionFacts() throws -> [String: Any] {
             "sourceAliasVariant": variantAliasScope(effect: false),
         ]
         output.merge(try colorFacts()) { _, value in value }
+        output["imageSourceColor"] = try imageSourceColorFacts()
         output["reduction"] = try reductionFacts()
         print(String(data: try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys]),
             encoding: .utf8)!)
@@ -765,6 +828,14 @@ class SceneEffectDrawAlphaTests(unittest.TestCase):
         for key in ("colorIdentityStable", "colorExactChanged", "colorSourceStaticAccepted", "colorCopyPreserved", "colorTerminalPreserved",
                     "rgbDoesNotReadAlpha", "rgbaRejectsNonfiniteAlpha"):
             self.assertTrue(self.result[key], self.result)
+
+    def test_ordinary_transparent_source_requires_unclaimed_active_rgba(self) -> None:
+        result = self.result["imageSourceColor"]
+        self.assertEqual(result["host"], "sourceDrawColor4", result)
+        self.assertEqual(result["encodedRGBA"], [0.75, 0.125, 0.5, 0.625], result)
+        self.assertTrue(result["missingInputUnavailable"], result)
+        for case in ("inactive", "shaderDefault", "materialStatic", "materialDynamic"):
+            self.assertEqual(result[case], "activeUniformSchemaMissing", result)
 
     def test_source_static_dynamic_and_effect_conflicts(self) -> None:
         for key in ("sourceStaticOwned", "sourceDynamicOwned"):

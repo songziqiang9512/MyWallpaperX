@@ -380,6 +380,7 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
         self.assertEqual(case["outputDomain"], "baseImage")
         self.assertEqual(case["declaredDynamicTargets"], ["declaredLive"])
         self.assertTrue(case["requiresSceneEnvironment"])
+        self.assertTrue(case["bindsImageLayerColor"])
         self.assertEqual(case["warmupCalls"], 1)
         self.assertEqual(case["warmupPlanCount"], 2)
         self.assertEqual(case["reasons"], [])

@@ -29,6 +29,7 @@ struct SceneTextureCandidate {
     var authoredBaseMip = 0
     let content = Content.color(.resolved(.straightAlpha))
     var physicalSize: CGSize { CGSize(width: texture.width, height: texture.height) }
+    var mappedSize: CGSize { physicalSize }
     let samplingMarker = "authored-sampling"
 }
 enum SceneFrameTextureIdentity { case asset(SceneAssetTextureIdentity) }

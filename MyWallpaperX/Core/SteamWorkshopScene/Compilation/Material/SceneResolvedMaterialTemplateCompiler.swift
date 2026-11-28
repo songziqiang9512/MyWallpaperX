@@ -90,6 +90,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         shaderContract: SceneShaderContract,
         renderState: SceneMaterialRenderState,
         authoredOnlyUniforms: Set<String> = [],
+        bindsImageLayerColor: Bool = false,
         inheritedInactiveCombos: Set<String> = [],
         provenSceneScriptValueTargets: Set<SceneDynamicTarget> = [],
         compatibilityTarget: SceneShaderCompatibilityTarget = .windowsDX11ShaderModel4
@@ -122,6 +123,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                     nodeTarget: .layerSource, bindings: []
                 ),
                 effectContext: nil,
+                bindsImageLayerColor: bindsImageLayerColor,
                 inheritedInactiveCombos: inheritedInactiveCombos,
                 compatibilityTarget: compatibilityTarget
             ))
@@ -139,6 +141,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         renderState: SceneMaterialRenderState,
         graphRole: Template.GraphRole,
         effectContext: Template.EffectContext?,
+        bindsImageLayerColor: Bool = false,
         inheritedInactiveCombos: Set<String>,
         compatibilityTarget: SceneShaderCompatibilityTarget
     ) throws -> Template {
@@ -153,6 +156,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
             renderState: renderState,
             graphRole: graphRole,
             effectContext: effectContext,
+            bindsImageLayerColor: bindsImageLayerColor,
             compatibilityTarget: compatibilityTarget,
             shaderContract: shaderContract,
             diagnosticProvenance: .init(

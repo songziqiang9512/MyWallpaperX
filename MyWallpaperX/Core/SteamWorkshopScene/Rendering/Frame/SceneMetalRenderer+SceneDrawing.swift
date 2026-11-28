@@ -735,7 +735,15 @@ extension SceneMetalRenderer {
             if canPrepareSources, let prepared = runtime.prepareSourceMaterials(imageTextures: imageTextures,
                 consumers: demanded, registry: textureRegistry, pool: offscreenTexturePool,
                 mainPass: mainPass, commandBuffer: commandBuffer,
-                prepareOptionalEnvironment: defersEnvironment ? prepareEnvironment : nil) {
+                prepareOptionalEnvironment: defersEnvironment ? prepareEnvironment : nil,
+                sourceDrawColor4: { id in
+                    guard let layer = frameLayersByID[id] else { return nil }
+                    let values = frameContext.dynamicValues
+                    let color = SceneDynamicLayerValues.color(layerID: id, authoredValue: layer.colorRGB, snapshot: values)
+                    let brightness = SceneDynamicLayerValues.brightness(layerID: id, authoredValue: layer.brightness, snapshot: values)
+                    let alpha = SceneDynamicLayerValues.alpha(layerID: id, authoredValue: layer.alpha, snapshot: values)
+                    return SIMD4(color * brightness, alpha)
+                }) {
                 preparationRequests = preparationRequests.map { request in
                     request.replacingSource(original: imageTextures, prepared: prepared)
                 }

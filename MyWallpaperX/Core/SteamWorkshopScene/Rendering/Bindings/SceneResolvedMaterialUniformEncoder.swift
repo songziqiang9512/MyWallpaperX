@@ -65,6 +65,10 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
             value = encodeVectorArray(values.map {
                 [Double($0.x), Double($0.y), Double($0.z), Double($0.w)]
             }, type: type)
+        case .sourceDrawColor4:
+            guard type == .float4 else { return .invalid }
+            guard let color = inputs.sourceDrawColor4 else { return .inputUnavailable }
+            value = encodeComponents([Double(color.x), Double(color.y), Double(color.z), Double(color.w)], as: type)
         case .lightAmbientColor:
             guard type == .float3 else { return .invalid }
             guard let ambient = inputs.lighting.ambient else { return .inputUnavailable }
@@ -126,7 +130,7 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
         case .layerModelMatrix:
             return encodeMatrix(inputs.layerModelMatrix, type: type)
         case .effectModelMatrix, .lightsPosition,
-             .lightsColorPremultiplied, .lightAmbientColor:
+             .lightsColorPremultiplied, .lightAmbientColor, .sourceDrawColor4:
             // Optional ordinary inputs are resolved by the typed entry point.
             return nil
         case .effectModelViewProjection:

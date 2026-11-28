@@ -492,8 +492,13 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             guard let material = resolution.node, resolution.issues.isEmpty else {
                 result[layer.id] = reject("resolution:" + resolution.issues.joined(separator: ";")); continue
             }
+            let bindsImageLayerColor = proof == nil && !capturesMainTarget
+                && (layer.colorBlendMode ?? 0) == 0
+                && material.renderState.blending?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    .lowercased() == "translucent"
             guard let state = sourceEvaluationState(material.renderState,
-                    provenInterface: proof != nil, capturesMainTarget: capturesMainTarget) else {
+                    allowsTranslucentOverwrite: proof != nil || bindsImageLayerColor,
+                    capturesMainTarget: capturesMainTarget) else {
                 result[layer.id] = reject("render-state-unsupported"); continue
             }
             let contracts = shaderContracts.filter {
@@ -502,10 +507,17 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             guard contracts.count == 1, let contract = contracts.first else {
                 result[layer.id] = reject("shader-contract-count=\(contracts.count)"); continue
             }
+            if bindsImageLayerColor, !contract.stages.contains(where: { stage in
+                stage.declarations.contains { $0.kind == .uniform && $0.name == "g_Color4"
+                    && $0.arraySuffix == nil && SceneAuthoredShaderValueType(authoredName: $0.type) == .float4 }
+            }) {
+                result[layer.id] = reject("render-state-unsupported"); continue
+            }
             switch SceneResolvedMaterialTemplateCompiler.compileSourceMaterial(
                 material: material, layerID: layer.id, materialPath: materialPath,
                 passIndex: pass.passIndex, shaderContract: contract, renderState: state,
                 authoredOnlyUniforms: proof?.authoredOnlyUniforms ?? [],
+                bindsImageLayerColor: bindsImageLayerColor,
                 provenSceneScriptValueTargets: sceneScriptTargets
             ) {
             case let .failure(failure):
@@ -531,8 +543,12 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                     implicitFramebufferIdentity: nil, demands: &demands,
                     userDemands: &userDemands, systemDemands: &systemDemands,
                     issues: &issues, analyses: analyses)
-                result[layer.id] = .init(key: key,
-                    entry: .template(template, textureFormatSlots: textureFormatSlots),
+                let entry: Entry = if template.bindsImageLayerColor, case let .failure(failure) = textureFormatSlots {
+                    .failure(failure)
+                } else {
+                    .template(template, textureFormatSlots: textureFormatSlots)
+                }
+                result[layer.id] = .init(key: key, entry: entry,
                     sharedModelPath: proof.map { normalized($0.modelPath) },
                     capturesMainTarget: capturesMainTarget)
             }
@@ -588,7 +604,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
     /// that omitted authored blending/culling has a proven backend default.
     private static func sourceEvaluationState(
         _ raw: SceneResolvedMaterialNode.RenderState,
-        provenInterface: Bool,
+        allowsTranslucentOverwrite: Bool,
         capturesMainTarget: Bool = false
     ) -> SceneMaterialRenderState? {
         func allows(_ value: String?, _ expected: String) -> Bool {
@@ -609,7 +625,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 blending: .normal, depthTest: .disabled, depthWrite: .disabled,
                 cullMode: .noCull, alphaWriting: .enabled)
         }
-        let provenRawOverwrite = provenInterface && allows(raw.blending, "translucent")
+        let provenRawOverwrite = allowsTranslucentOverwrite && allows(raw.blending, "translucent")
             && allows(raw.alphaWriting, "default")
         guard (allows(raw.blending, "normal") || provenRawOverwrite), allows(raw.depthTest, "disabled"),
               allows(raw.depthWrite, "disabled"), allows(raw.cullMode, "nocull"),
@@ -685,6 +701,11 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             samplers = reachable
             reachableSamplerSlots = activeSlots
         case let .failed(errorDescription, formatSlots):
+            if template.bindsImageLayerColor {
+                return formatSlots.flatMap { _ in
+                    .failure(.init(phase: .preparation, code: .shaderPreparationFailed, details: [errorDescription]))
+                }
+            }
 #if DEBUG
             print(
                 "MWX resolved material sampler reachability rejection:"
@@ -705,6 +726,14 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 }
             }
             return formatSlots
+        }
+        if template.bindsImageLayerColor, !reachableSamplerSlots.contains(where: { slot in
+            slot != 0 && samplers[slot]?.contains {
+                SceneResolvedMaterialShaderSchema.sceneEnvironmentReference(
+                    template: template, sampler: $0, slot: slot) != nil
+            } == true
+        }) {
+            return .failure(.init(phase: .graph, code: .graphNodeInvalid, details: ["source-material-no-active-environment"]))
         }
         for slotIndex in 0 ..< 8 {
             let projection = demandProjection(

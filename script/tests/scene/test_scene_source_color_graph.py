@@ -586,7 +586,7 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
             uniform sampler2D g_Texture0; // {"material":"albedo"}
             uniform sampler2D g_Texture3; // {"default":"_rt_MipMappedFrameBuffer","hidden":true}
             uniform mat4 g_LayerModelMatrix;
-            uniform vec4 g_Color4; // {"default":"0.5 0.75 0.25 0.5"}
+            uniform vec4 g_Color4;
             void main() {
                 vec4 surface = texSample2D(g_Texture0, v_TexCoord) * g_Color4;
                 float mip = g_LayerModelMatrix[3].x;
@@ -601,7 +601,7 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
         let source = Template.validated(textureSlots: slots, combos: [], uniformDeclarations: [],
             renderState: effectTemplate.renderState,
             graphRole: .init(effectInput: .layerSource, effectOutput: .layerSource, nodeTarget: .layerSource, bindings: []),
-            effectContext: nil, shaderContract: shader, diagnosticProvenance: .init(nodeIndex: 1,
+            bindsImageLayerColor: true, shaderContract: shader, diagnosticProvenance: .init(nodeIndex: 1,
                 authoredShaderPath: shader.identity, contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
                 textureSources: [], uniformSources: []))!
         let cache = try SceneResolvedMaterialVariantCache.launchValidated(template: source,
@@ -641,7 +641,7 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
         let live = makeHistory(reflected: true), black = makeHistory(reflected: false)
         let arms: [(String, MTLTexture, Float)] = [
             ("black", black, 0), ("base-mip", live, 0), ("mix-mip", live, 0.5), ("small-mip", live, 1),
-            ("black-restored", black, 1)
+            ("black-restored", black, 1), ("base-mip-recolored", live, 0)
         ]
         var rows: [[String: Any]] = []
         for (offset, (setting, previous, mip)) in arms.enumerated() {
@@ -661,10 +661,13 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
             let scratch = makeSource(device, width: extent.width, height: extent.height, usage: [.shaderRead, .renderTarget])
             var placement = matrix_identity_float4x4
             placement.columns.3.x = mip
+            let color: SIMD4<Float> = setting == "base-mip-recolored"
+                ? SIMD4(0.25, 0.5, 0.75, 0.75) : SIMD4(0.5, 0.75, 0.25, 0.5)
             let program = try SceneResolvedMaterialProgramFinalizer.finalize(snapshot.finalizationInput(
                 layerID: layerID, renderSize: size, modelViewProjection: Executor.fullTargetMVP(scratch),
                 layerModelMatrix: placement, effectOutputModelViewProjection: matrix_identity_float4x4,
-                effectTextureProjectionMatrixInverse: matrix_identity_float4x4), variantCache: cache).get()
+                effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
+                sourceDrawColor4: color), variantCache: cache).get()
             let sourcePass = try executor.materialEncoder.prepareResult(program: program, target: scratch).get()
             precondition(sourcePass.storedContent == .color(.resolved(.straightAlpha)))
             precondition(executor.materialEncoder.encode(sourcePass, commandBuffer: command))
@@ -715,17 +718,19 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
         if not payload["metalAvailable"]:
             self.skipTest("Metal is unavailable")
         self.assertEqual(payload["compiledVariants"], 1, payload)
-        self.assertEqual([r["arm"] for r in payload["rows"]], ["black", "base-mip", "mix-mip", "small-mip", "black-restored"])
+        self.assertEqual([r["arm"] for r in payload["rows"]], ["black", "base-mip", "mix-mip", "small-mip", "black-restored", "base-mip-recolored"])
         background = [20, 40, 50, 128]
-        for row, rgb in zip(payload["rows"], ([13, 77, 102], [13, 77, 153], [64, 77, 128], [115, 77, 102], [13, 77, 102]), strict=True):
+        for row, rgb in zip(payload["rows"], ([13, 77, 102], [13, 77, 153], [64, 77, 128], [115, 77, 102], [13, 77, 102], [38, 51, 102]), strict=True):
             self.assertTrue(row["actualEnvironment"] and row["completed"], row)
             self.assertEqual(row["localFallback"], "", row)
             self.assertTrue(row["localStraight"], row)
             self.assertEqual(row["transparentDirect"], background, row)
             pairs = list(zip(rgb, background[:3], strict=True))
-            direct = [round(a / 4 + b * 3 / 4) for a, b in pairs] + [160]
+            alpha = 0.375 if row["arm"] == "base-mip-recolored" else 0.25
+            direct = [round(a * alpha + b * (1 - alpha)) for a, b in pairs]
+            direct += [round(255 * alpha + background[3] * (1 - alpha))]
             local = [round((a + b) / 2) for a, b in pairs] + [192]
-            expected = {"scratch": rgb + [64], "hiddenRGB": rgb + [0],
+            expected = {"scratch": rgb + [round(255 * alpha)], "hiddenRGB": rgb + [0],
                         "direct": direct, "local": local, "localFromZeroAlpha": local}
             for key, pixel in expected.items():
                 for value, component in zip(row[key], pixel, strict=True):

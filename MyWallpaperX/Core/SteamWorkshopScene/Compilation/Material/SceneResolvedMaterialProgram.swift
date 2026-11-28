@@ -302,6 +302,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
     /// facts. GraphTextureRole alone deliberately cannot distinguish another
     /// layer, a named target, or a non-contiguous effect output.
     let effectContext: EffectContext?
+    let bindsImageLayerColor: Bool
     /// Host-selected author-language compatibility for this one immutable
     /// Program candidate. Resource reachability and final compilation must
     /// consume this exact value rather than choosing a target independently.
@@ -321,6 +322,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
         renderState: SceneMaterialRenderState,
         graphRole: GraphRole,
         effectContext: EffectContext? = nil,
+        bindsImageLayerColor: Bool = false,
         compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal,
         shaderContract: SceneShaderContract,
         diagnosticProvenance: DiagnosticProvenance
@@ -346,6 +348,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
             renderState: renderState,
             graphRole: graphRole,
             effectContext: effectContext,
+            bindsImageLayerColor: bindsImageLayerColor,
             compatibilityTarget: compatibilityTarget,
             shaderContract: shaderContract,
             diagnosticProvenance: diagnosticProvenance
@@ -358,6 +361,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
         uniformDeclarations: [UniformDeclaration], renderState: SceneMaterialRenderState,
         graphRole: GraphRole,
         effectContext: EffectContext?,
+        bindsImageLayerColor: Bool,
         compatibilityTarget: SceneShaderCompatibilityTarget,
         shaderContract: SceneShaderContract,
         diagnosticProvenance: DiagnosticProvenance
@@ -369,6 +373,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
         self.renderState = renderState
         self.graphRole = graphRole
         self.effectContext = effectContext
+        self.bindsImageLayerColor = bindsImageLayerColor
         self.compatibilityTarget = compatibilityTarget
         self.shaderContract = shaderContract
         self.diagnosticProvenance = diagnosticProvenance
@@ -424,7 +429,7 @@ nonisolated struct SceneResolvedMaterialProgram {
         case vertexCoordinates01, vertexCoordinates23
         case premultipliedColorInputMask
         case effectDrawAlpha
-        case effectDrawColor, effectDrawColor4
+        case effectDrawColor, effectDrawColor4, sourceDrawColor4
         case textureReductionScale
         case layerModelMatrix
         case effectModelMatrix

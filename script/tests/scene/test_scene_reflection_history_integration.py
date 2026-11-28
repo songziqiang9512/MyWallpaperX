@@ -309,6 +309,9 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialLightingProfile.swift",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift",
+                   REPO / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer.swift",
+                   REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformEncoder.swift",
+                   REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge+SourceMaterials.swift",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+SceneDrawing.swift",
                    REPO / "script/tests/support/scene_display_reconciliation_fixture.py",
                    REPO / "script/web/web_benchmark_capture.py",
@@ -878,6 +881,66 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
                     entries[path] = authored[path]
                 entries["scene.json"] = json.dumps(scene, sort_keys=True).encode()
                 self.run_model_reflection_quality_pair(entries, source_binding=binding)
+
+
+    def test_transparent_source_binds_layer_color_before_direct_and_local_composition(self):
+        from script.tests.scene.test_scene_authored_environment_integration import fixture_entries as author_environment
+
+        entries = model_reflection_entries(1)
+        scene = json.loads(entries["scene.json"])
+        scene["objects"][0:0] = [
+            {"id": 60, "image": "models/util/solidlayer.json", "origin": "38 48 0",
+             "size": "60 46", "color": "0 0 1"},
+            {"id": 1, "image": "models/environment-source.json", "origin": "28 48 0",
+             "size": "16 16", "color": "0.5 1 1", "alpha": 0.5},
+            {"id": 2, "image": "models/environment-source.json", "origin": "52 48 0",
+             "size": "16 16", "color": "0.25 1 1", "alpha": 0.75,
+             "effects": [{"id": 20, "file": "effects/transparent-tail/effect.json", "visible": True}]},
+        ]
+        authored = author_environment(slot=3, shader_default=True)
+        material = json.loads(authored["materials/environment.json"])
+        material["passes"][0].update(blending="translucent", alphawriting="default")
+        material["passes"][0]["textures"][0] = "materials/albedo.png"
+        entries["materials/environment-source.json"] = json.dumps(material).encode()
+        entries["models/environment-source.json"] = b'{"material":"materials/environment-source.json"}'
+        for path in ("materials/albedo.png", "shaders/own_environment.vert"):
+            entries[path] = authored[path]
+        entries["shaders/own_environment.frag"] = (
+            'uniform sampler2D g_Texture3; // {"hidden":true,"default":"_rt_MipMappedFrameBuffer"}\n'
+            "uniform vec4 g_Color4;\n"
+            "void main(){gl_FragColor=texSample2D(g_Texture3,vec2(0.875,0.5))*g_Color4;}\n"
+        ).encode()
+        entries["effects/transparent-tail/effect.json"] = b'{"passes":[{"material":"materials/transparent-tail.json"}]}'
+        entries["materials/transparent-tail.json"] = (
+            b'{"passes":[{"shader":"own_transparent_tail","blending":"normal","depthtest":"disabled",'
+            b'"depthwrite":"disabled","cullmode":"nocull"}]}'
+        )
+        entries["shaders/own_transparent_tail.vert"] = authored["shaders/own_environment.vert"]
+        entries["shaders/own_transparent_tail.frag"] = (
+            "uniform sampler2D g_Texture0; varying vec2 v_TexCoord;\n"
+            "void main(){vec4 color=texSample2D(g_Texture0,v_TexCoord);color.a=0.5;gl_FragColor=color;}\n"
+        ).encode()
+        entries["scene.json"] = json.dumps(scene, sort_keys=True).encode()
+        rois = {"direct": (28, 48), "local": (52, 48), "background": (14, 48)}
+        for quality in ("enabled", "disabled"):
+            name = f"transparent-layer-color-{quality}"
+            with self.subTest(quality=quality):
+                result = self.run_case(1, capture=True, entries=entries, rois=rois, name=name,
+                    material_input_path="materials/environment-source.json",
+                    extra_arguments=("-mwx.playback.quality", f"{{ sceneReflectionQuality = {quality}; }}"))
+                work = self.evidence_root / name
+                log = (work / "app.log").read_text()
+                self.assertIn("source material encoded: layer=1 ", log)
+                self.assertIn("source material encoded: layer=2 ", log)
+                settled = self.settled_composition(work, log)
+                self.assertTrue(any(row.get("layerID") == 2 and row["kind"] == "material"
+                                    and row.get("outcome") == "draw-encoded" for row in settled["rows"]))
+                enabled = quality == "enabled"
+                self.assertEqual(bool(result["completedSourceSubmissions"]), enabled)
+                pixels = result["pixels"]["scene-after-window.png"]
+                self.assert_pixel(pixels["direct"], [64 if enabled else 0, 0, 127])
+                self.assert_pixel(pixels["local"], [32 if enabled else 0, 0, 127])
+                self.assert_pixel(pixels["background"], [0, 0, 255])
 
     def test_user_albedo_keeps_reflection_when_named_fallback_is_not_selected(self):
         source_root = REPO / "MyWallpaperX/Core/SteamWorkshopScene"

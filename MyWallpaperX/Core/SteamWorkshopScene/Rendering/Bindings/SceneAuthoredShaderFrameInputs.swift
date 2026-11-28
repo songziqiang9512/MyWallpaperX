@@ -109,6 +109,7 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
     let effectTextureProjectionMatrixInverse: simd_float4x4
     let effectDrawAlpha: Float
     let effectDrawColor: SIMD3<Float>
+    let sourceDrawColor4: SIMD4<Float>?
     let sceneTime: Float
     let dayTime: Float
     let frameTime: Float
@@ -132,6 +133,7 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
         effectTextureProjectionMatrixInverse: simd_float4x4,
         effectDrawAlpha: Float = 1,
         effectDrawColor: SIMD3<Float> = .init(repeating: 1),
+        sourceDrawColor4: SIMD4<Float>? = nil,
         sceneTime: Float,
         dayTime: Float,
         frameTime: Float,
@@ -157,6 +159,7 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
         self.effectTextureProjectionMatrixInverse = effectTextureProjectionMatrixInverse
         self.effectDrawAlpha = effectDrawAlpha
         self.effectDrawColor = effectDrawColor
+        self.sourceDrawColor4 = sourceDrawColor4
         self.sceneTime = sceneTime
         self.dayTime = dayTime
         self.frameTime = frameTime

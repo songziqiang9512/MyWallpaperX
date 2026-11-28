@@ -8,7 +8,7 @@ extension SceneResolvedMaterialRuntimeBridge.FramePreparationRequest {
         original: SceneBaseImageTextureSnapshot,
         prepared: SceneBaseImageTextureSnapshot
     ) -> Self {
-        guard case .capturedLayerTexture = claim.sourceRoute, sourceLighting == nil,
+        guard case .capturedLayerTexture = claim.sourceRoute,
               let old = original[claim.layerID], sourceTexture === old,
               let texture = prepared[claim.layerID], texture !== old,
               let candidate = prepared.candidate(for: claim.layerID, matching: texture),
@@ -17,14 +17,18 @@ extension SceneResolvedMaterialRuntimeBridge.FramePreparationRequest {
         var uniforms = sourceUniforms
         uniforms?.textureFrame0 = candidate.uvTransform.uniform0
         uniforms?.textureFrame1 = candidate.uvTransform.uniform1
-        uniforms?.sourceSampling.y = candidate.content == .color(.resolved(.straightAlpha)) ? 1 : 0
+        if var sampling = uniforms?.sourceSampling {
+            sampling.y &= ~UInt32(1)
+            if candidate.content == .color(.resolved(.straightAlpha)) { sampling.y |= 1 }
+            uniforms?.sourceSampling = sampling
+        }
         uniforms?.consumeCompletedMaterialSource(candidate.identity)
         return .init(claim: claim, targetPlan: targetPlan,
             materialFunctionInvocations: materialFunctionInvocations,
             sceneBackgroundResource: sceneBackgroundResource, sourceTexture: texture,
             sourceUniforms: uniforms, sourcePipeline: sourcePipeline,
-            sourceLighting: sourceLighting, terminalReplayTarget: terminalReplayTarget,
-            terminalReplayBlendMode: terminalReplayBlendMode,
+            terminalReplayTarget: terminalReplayTarget, terminalReplayBlendMode: terminalReplayBlendMode,
+            terminalReplayIsOptional: terminalReplayIsOptional,
             frameInputs: frameInputs)
     }
 }
@@ -56,6 +60,7 @@ extension SceneResolvedMaterialRuntimeBridge {
         }
         let outputDomain: OutputDomain
         var sharedModelPath: String? = nil
+        var bindsImageLayerColor = false
     }
 
     /// A prepared material and the exact ordered main attachment it reads.
@@ -90,7 +95,8 @@ extension SceneResolvedMaterialRuntimeBridge {
         pool: SceneOffscreenTexturePool?,
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer,
-        prepareOptionalEnvironment: (() -> Bool)?
+        prepareOptionalEnvironment: (() -> Bool)?,
+        sourceDrawColor4: (Int) -> SIMD4<Float>?
     ) -> SceneBaseImageTextureSnapshot? {
         guard let pool, let encoder = submissions.executor?.materialEncoder else {
             return prepareOptionalEnvironment?() == false ? nil : imageTextures
@@ -139,7 +145,8 @@ extension SceneResolvedMaterialRuntimeBridge {
                 modelViewProjection: SceneResolvedMaterialGraphExecutor.fullTargetMVP(target.texture),
                 layerModelMatrix: matrix_identity_float4x4,
                 effectOutputModelViewProjection: matrix_identity_float4x4,
-                effectTextureProjectionMatrixInverse: matrix_identity_float4x4)
+                effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
+                sourceDrawColor4: material.bindsImageLayerColor ? sourceDrawColor4(layerID) : nil)
             let finalized = material.bindFrame(input)
             if case let .failure(failure) = finalized, frame.frameIndex <= 2 {
 #if DEBUG

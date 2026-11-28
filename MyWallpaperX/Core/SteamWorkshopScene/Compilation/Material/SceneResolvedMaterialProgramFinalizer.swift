@@ -48,6 +48,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
         effectTextureProjectionMatrixInverse: simd_float4x4,
         effectDrawAlpha: Float = 1,
         effectDrawColor: SIMD3<Float> = .init(repeating: 1),
+        sourceDrawColor4: SIMD4<Float>? = nil,
         implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity? = nil,
         vertexCoordinates: SceneShaderQuadCoordinates = .unit,
         vertexInputSize: CGSize? = nil
@@ -63,6 +64,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
             effectTextureProjectionMatrixInverse: effectTextureProjectionMatrixInverse,
             effectDrawAlpha: effectDrawAlpha,
             effectDrawColor: effectDrawColor,
+            sourceDrawColor4: sourceDrawColor4,
             implicitFramebufferIdentity: implicitFramebufferIdentity,
             vertexCoordinates: vertexCoordinates,
             vertexInputSize: vertexInputSize
@@ -131,6 +133,7 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
     /// Consumer opacity; source capture and named provider alpha remain separate.
     var effectDrawAlpha: Float = 1
     var effectDrawColor: SIMD3<Float> = .init(repeating: 1)
+    var sourceDrawColor4: SIMD4<Float>? = nil
     /// Current full-frame graph input for shader samplers that explicitly
     /// declare a `framebuffer` or `previous` material alias without an authored
     /// texture binding.
@@ -159,6 +162,7 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
             effectTextureProjectionMatrixInverse: effectTextureProjectionMatrixInverse,
             effectDrawAlpha: effectDrawAlpha,
             effectDrawColor: effectDrawColor,
+            sourceDrawColor4: sourceDrawColor4,
             sceneTime: frameSnapshot.frameInputs.sceneTime,
             dayTime: frameSnapshot.frameInputs.dayTime,
             frameTime: frameSnapshot.frameInputs.frameTime,
@@ -198,7 +202,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         let declarations = Dictionary(uniqueKeysWithValues: template.uniformDeclarations.map {
             ($0.name, $0.value)
         })
-        return try fields.map { field in
+        let prepared: [PreparedUniformBinding] = try fields.map { field in
             let schema = activeUniforms[field.name]
             if let host = SceneResolvedMaterialHostUniformSchema.resolve(
                 field,
@@ -237,6 +241,11 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             // The annotated material key is last, after the GLSL identity used for reflection.
             let bindingKey = schema.materialKeys.last ?? field.authoredName
             guard let declaration = declarations[bindingKey] else {
+                if template.bindsImageLayerColor, field.authoredName == "g_Color4",
+                   field.type == .float4, field.arrayCount == nil,
+                   schema.materialKeys == [field.authoredName], schema.defaultValue == nil {
+                    return .init(field: field, source: .host(.sourceDrawColor4))
+                }
                 if let fact = preparedNeutralTextureResolution(
                     field: field,
                     schema: schema,
@@ -307,6 +316,11 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 )
             }
         }
+        if template.bindsImageLayerColor,
+           !prepared.contains(where: { $0.source == .host(.sourceDrawColor4) }) {
+            throw failure(.uniform, .activeUniformSchemaMissing, details: ["g_Color4"])
+        }
+        return prepared
     }
 
     static func finalize(

@@ -42,6 +42,7 @@ extension SceneMetalRenderer {
         cameraFrame: SceneParticleCameraFrame, usesPerspective: Bool,
         environmentSource: ((MTLCommandBuffer) -> SceneFrameTextureResource?)?,
         preparedResolution: SceneLitCapturePayloadResolution? = nil) {
+        if case .provider(.materialSource)? = request.baseTextureCandidate?.identity { return }
         let layer = request.layer
         guard request.resolvedMaterialFrameTargetPlan == nil,
               let profile = baseMaterialProviderBindings.lightingProfile(for: layer),

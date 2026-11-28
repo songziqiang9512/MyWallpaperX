@@ -192,7 +192,7 @@ struct TestTemplate {
         let value: Value
     }
     let textureSlots: [Slot?]
-    let renderState: Int
+    let bindsImageLayerColor: Bool
     var uniformDeclarations: [UniformDeclaration] = []
     var fixture = TestVariantFixture()
 }
@@ -302,16 +302,16 @@ final class SceneResolvedMaterialRuntimeBridge {
     struct PreparedSourceMaterial {
         enum OutputDomain { case sampledAsset(SceneAssetTextureIdentity), baseImage, capturedMain }
         let declaredDynamicTargets: Set<SceneDynamicTarget>
-        let hasAudioSpectrumConsumer: Bool
+        let bindsImageLayerColor: Bool
         let requiresSceneEnvironment: Bool
         let outputDomain: OutputDomain
         let sharedModelPath: String?
         init(declaredDynamicTargets: Set<SceneDynamicTarget>,
-             hasAudioSpectrumConsumer: Bool, requiresSceneEnvironment: Bool,
+             hasAudioSpectrumConsumer _: Bool, requiresSceneEnvironment: Bool,
              bindFrame: @escaping (Int) -> Int, pixelFormat: MTLPixelFormat,
-             outputDomain: OutputDomain, sharedModelPath: String?) {
+             outputDomain: OutputDomain, sharedModelPath: String?, bindsImageLayerColor: Bool) {
             self.declaredDynamicTargets = declaredDynamicTargets
-            self.hasAudioSpectrumConsumer = hasAudioSpectrumConsumer
+            self.bindsImageLayerColor = bindsImageLayerColor
             self.requiresSceneEnvironment = requiresSceneEnvironment
             self.outputDomain = outputDomain
             self.sharedModelPath = sharedModelPath
@@ -721,12 +721,12 @@ enum Checks {
                         slots: [TestTemplate.Slot?]? = nil,
                         uniformDeclarations: [TestTemplate.UniformDeclaration] = [],
                         preparedDynamicUniforms: Set<TestTemplate.UniformDeclaration.Dynamic> = [],
-                        hasSceneEnvironmentConsumer: Bool = false,
+                        hasSceneEnvironmentConsumer: Bool = false, bindsImageLayerColor: Bool = false,
                         allEntriesReady: Bool = true, schemaAccepted: Bool = true,
                         precompileAccepted: Bool = true,
                         capturesMainTarget: Bool = false,
                         warmupReport: SceneResolvedMaterialPassEncoder.Report? = nil) {
-            let template = TestTemplate(textureSlots: slots ?? [colorSlot], renderState: 0,
+            let template = TestTemplate(textureSlots: slots ?? [colorSlot], bindsImageLayerColor: bindsImageLayerColor,
                 uniformDeclarations: uniformDeclarations,
                 fixture: .init(schemaAccepted: schemaAccepted,
                     precompileAccepted: precompileAccepted, allEntriesReady: allEntriesReady,
@@ -761,7 +761,7 @@ enum Checks {
                 "requiresSceneEnvironment": prepared[17]?.requiresSceneEnvironment ?? false,
                 "warmupCalls": encoder.warmupCalls, "warmupPlanCount": encoder.warmupPlanCount,
                 "reasons": logs.compactMap { $0.components(separatedBy: " reason=").dropFirst().first },
-                "logs": logs,
+                "bindsImageLayerColor": prepared[17]?.bindsImageLayerColor ?? false,
             ]
         }
         sourceCase("sourceInactive", variants: inactiveVariants)
@@ -769,7 +769,7 @@ enum Checks {
             .init(value: .dynamic(.init(target: .declaredLive))),
             .init(value: .dynamic(.init(target: .declaredInactive))),
             .init(value: .staticExact),
-        ], preparedDynamicUniforms: [.init(target: .declaredLive)], hasSceneEnvironmentConsumer: true)
+        ], preparedDynamicUniforms: [.init(target: .declaredLive)], hasSceneEnvironmentConsumer: true, bindsImageLayerColor: true)
         sourceCase("sourceInactiveNoCandidate", variants: inactiveVariants, slots: [])
         sourceCase("sourceOtherSamplerOnly", variants: [variant("other-a", otherSampler: true),
                                                          variant("other-b", otherSampler: true)])

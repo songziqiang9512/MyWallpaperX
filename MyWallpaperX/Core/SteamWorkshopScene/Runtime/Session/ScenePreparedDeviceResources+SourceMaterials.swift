@@ -125,7 +125,7 @@ extension ScenePreparedDeviceResources {
                 requiresSceneEnvironment: variants.hasSceneEnvironmentConsumer, bindFrame: { input in
                 SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: variants)
             }, pixelFormat: format, outputDomain: outputDomain,
-                sharedModelPath: entry.sharedModelPath)
+                sharedModelPath: entry.sharedModelPath, bindsImageLayerColor: template.bindsImageLayerColor)
             logSink("source material prepared: owner=\(entry.key.reportToken) variants=\(envelope.variants.count)")
         }
         return prepared
