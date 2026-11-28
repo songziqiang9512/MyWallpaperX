@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 70,
-      "bytes": 28541
+      "bytes": 28523
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 207336
+      "bytes": 207299
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 191341
+      "bytes": 191292
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 337,
-      "bytes": 75859
+      "bytes": 75756
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,

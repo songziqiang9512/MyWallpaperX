@@ -521,7 +521,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                             return consumerLayerID == layer.id
                         }
                         if case .asset = candidate.reference { return true }
-                        return false
+                        return slot.index != 0 && candidate.reference == .provider(.sceneEnvironment)
                     }
                 }) else {
                     result[layer.id] = reject("provider-unsupported"); continue

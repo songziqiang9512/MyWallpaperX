@@ -585,6 +585,24 @@ class SceneSourcePreparationCancellationTests(unittest.TestCase):
                     path = catalog_root / relative
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_text(text)
+            for layer_id, name, target in ((403, "source-history", "_rt_MipMappedFrameBuffer"),
+                                           (404, "source-current", "_rt_FullFrameBuffer")):
+                model = f"models/{name}.json"
+                material = f"materials/{name}.json"
+                objects.append({"id": layer_id, "image": model, "size": "16 16"})
+                (catalog_root / "models").mkdir(exist_ok=True)
+                (catalog_root / model).write_text(json.dumps({"material": material}))
+                (catalog_root / material).write_text(json.dumps({"passes": [{
+                    "shader": "catalog/source", "textures": ["materials/catalog-source.png", None, None, target],
+                    "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull",
+                }]}))
+            (catalog_root / "materials/catalog-source.png").write_bytes(parts.png([128, 128, 128, 255]))
+            (catalog_root / "shaders/catalog/source.vert").write_text("void main() { gl_Position = vec4(0.0); }")
+            (catalog_root / "shaders/catalog/source.frag").write_text("""
+uniform sampler2D g_Texture0; // {"material":"albedo"}
+uniform sampler2D g_Texture3;
+void main() { gl_FragColor = texSample2D(g_Texture0, vec2(0.5)) * texSample2D(g_Texture3, vec2(0.5)); }
+""")
             (catalog_root / "scene.json").write_text(json.dumps({"objects": objects}))
             support = parts.builder_support().split("@main enum PartsDependencies", 1)[0]
             catalog_sources, catalog_harness = catalog_preparation_inputs()

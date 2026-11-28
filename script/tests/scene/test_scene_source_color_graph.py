@@ -547,5 +547,189 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
                     self.assertTrue(passed, (name, case))
 
 
+    def test_authored_reflection_source_reaches_direct_and_active_local_tail(self) -> None:
+        harness = HARNESS_SUPPORT_SOURCE + r'''
+@main private enum ReflectionSourceColorHarness {
+    static func main() throws {
+        setenv("MWX_SCENE_GENERIC_SHADER_ROUTE", "disable-generic", 1)
+        guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
+            print("{\"metalAvailable\":false}"); return
+        }
+        let pipeline = makeProductionSourcePipeline(device)!
+        let plan = graph(targets: [], nodes: [material(0, ordinal: 0, target: output, read: input)])
+        let original = template(for: plan.nodes[0])
+        let tailShader = shaderContract(nodeIndex: 0, pass: false, fragmentOverride: """
+            varying vec2 v_TexCoord;
+            uniform sampler2D g_Texture0;
+            void main() {
+                vec4 color = texSample2D(g_Texture0, v_TexCoord);
+                color.a = 0.5;
+                gl_FragColor = color;
+            }
+        """)
+        let effectTemplate = Template.validated(textureSlots: original.textureSlots, combos: [],
+            uniformDeclarations: [], renderState: original.renderState, graphRole: original.graphRole,
+            effectContext: .init(key: effect, input: input), shaderContract: tailShader,
+            diagnosticProvenance: .init(nodeIndex: 0, authoredShaderPath: tailShader.identity,
+                contractIdentity: tailShader.identity, contractCanonicalSHA256: tailShader.canonicalSHA256,
+                textureSources: [], uniformSources: []))!
+        let chain = admittedGraph(plan)
+        let owners = capabilities(chain, catalog: .init(entries: [
+            .init(effect: effect, nodeIndex: 0): .template(effectTemplate,
+                textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: effectTemplate))
+        ], resourceDemandIssues: []))
+        let claim = owners.claim(chain)!
+        let executor = Executor(device: device, capabilities: owners)!
+        let lease = makeLease(requirePlan(plan), device: device)
+        let shader = shaderContract(nodeIndex: 1, pass: false, fragmentOverride: """
+            varying vec2 v_TexCoord;
+            uniform sampler2D g_Texture0; // {"material":"albedo"}
+            uniform sampler2D g_Texture3; // {"default":"_rt_MipMappedFrameBuffer","hidden":true}
+            uniform mat4 g_LayerModelMatrix;
+            uniform vec4 g_Color4; // {"default":"0.5 0.75 0.25 0.5"}
+            void main() {
+                vec4 surface = texSample2D(g_Texture0, v_TexCoord) * g_Color4;
+                float mip = g_LayerModelMatrix[3].x;
+                surface.rgb += texSample2DLod(g_Texture3, v_TexCoord, mip).rgb;
+                gl_FragColor = surface;
+            }
+        """)
+        let albedoID = SceneAssetTextureIdentity(virtualPath: "materials/self-owned-albedo.png",
+            purpose: .straightAlbedo)!
+        var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
+        slots[0] = .init(index: 0, candidates: [.init(reference: .asset(albedoID.path), provenance: .material)])
+        let source = Template.validated(textureSlots: slots, combos: [], uniformDeclarations: [],
+            renderState: effectTemplate.renderState,
+            graphRole: .init(effectInput: .layerSource, effectOutput: .layerSource, nodeTarget: .layerSource, bindings: []),
+            effectContext: nil, shaderContract: shader, diagnosticProvenance: .init(nodeIndex: 1,
+                authoredShaderPath: shader.identity, contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
+                textureSources: [], uniformSources: []))!
+        let cache = try SceneResolvedMaterialVariantCache.launchValidated(template: source,
+            textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: source),
+            maximumVariantCount: 4).get()
+        let straight = SceneTextureContent.color(.resolved(.straightAlpha))
+        _ = try cache.precompileLaunchEnvelope(implicitFramebufferIdentity: nil, outputIsRGBA8Unorm: true,
+            assetStates: [albedoID: .ready(straight)]).get()
+        let variants = cache.launchEnvelopeCapabilitySnapshot().variants
+        let plans = variants.map {
+            SceneResolvedMaterialPassEncoder.WarmupPlan(identity: "reflection-source", prepared: $0.preparedAssembly,
+                pixelFormat: .bgra8Unorm, writeMask: .all, device: device)!
+        }
+        let warmup = executor.materialEncoder.warmup(plans)
+        precondition(warmup.readyKeyCount == 1 && warmup.failedKeyCount == 0, warmup.reportLines.joined(separator: "; "))
+        let albedo = makeSource(device, width: extent.width, height: extent.height,
+            pixelsBGRA: [51, 102, 204, 128, 51, 102, 204, 0, 51, 102, 204, 128, 51, 102, 204, 0])
+        let size = CGSize(width: extent.width, height: extent.height)
+        let albedoCandidate = SceneTextureCandidate(texture: albedo,
+            identity: .builtIn(name: "self-owned-albedo"), generation: .immutable(revision: 1),
+            purpose: .straightAlbedo, content: straight,
+            physicalSize: size, mappedSize: size, uvTransform: .identity, sampling: .linearClamp)
+        let background: [UInt8] = [20, 40, 50, 128]
+        func makeHistory(reflected: Bool) -> MTLTexture {
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: reflected ? .bgra8Unorm : .r8Unorm, width: 2, height: 2, mipmapped: true)
+            descriptor.storageMode = .shared
+            descriptor.usage = reflected ? [.shaderRead, .renderTarget] : [.shaderRead]
+            if !reflected { descriptor.swizzle = .init(red: .zero, green: .zero, blue: .zero, alpha: .one) }
+            let texture = device.makeTexture(descriptor: descriptor)!
+            let base: [UInt8] = reflected ? [0, 0, 51, 255, 0, 0, 51, 255, 0, 0, 51, 255, 0, 0, 51, 255] : [255, 255, 255, 255]
+            let small: [UInt8] = reflected ? [102, 0, 0, 255] : [255]
+            texture.replace(region: MTLRegionMake2D(0, 0, 2, 2), mipmapLevel: 0, withBytes: base, bytesPerRow: reflected ? 8 : 2)
+            texture.replace(region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 1, withBytes: small, bytesPerRow: reflected ? 4 : 1)
+            return texture
+        }
+        let live = makeHistory(reflected: true), black = makeHistory(reflected: false)
+        let arms: [(String, MTLTexture, Float)] = [
+            ("black", black, 0), ("base-mip", live, 0), ("mix-mip", live, 0.5), ("small-mip", live, 1),
+            ("black-restored", black, 1)
+        ]
+        var rows: [[String: Any]] = []
+        for (offset, (setting, previous, mip)) in arms.enumerated() {
+            let epoch = UInt64(offset + 2)
+            let reflected = previous === live
+            let environment = reflected
+                ? SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: epoch, allocationGeneration: 1,
+                    texture: previous, source: .init(frameIndex: epoch - 1, frameEpoch: epoch - 1, executionEpoch: 1,
+                        commandBufferObservationID: UUID(), allocationGeneration: 1, resetEpoch: UUID()))
+                : SceneFrameTextureResource.clearedFrameEnvironment(frameEpoch: epoch, allocationGeneration: 1, texture: previous)
+            let snapshot = frame(epoch, textureEntries: [
+                .asset(albedoID): .ready(.init(publication: .init(requestIdentity: .asset(albedoID),
+                    candidate: albedoCandidate, contentGeneration: epoch), resourceGeneration: epoch)),
+                .sceneEnvironment: .ready(environment!)
+            ])
+            let command = queue.makeCommandBuffer()!
+            let scratch = makeSource(device, width: extent.width, height: extent.height, usage: [.shaderRead, .renderTarget])
+            var placement = matrix_identity_float4x4
+            placement.columns.3.x = mip
+            let program = try SceneResolvedMaterialProgramFinalizer.finalize(snapshot.finalizationInput(
+                layerID: layerID, renderSize: size, modelViewProjection: Executor.fullTargetMVP(scratch),
+                layerModelMatrix: placement, effectOutputModelViewProjection: matrix_identity_float4x4,
+                effectTextureProjectionMatrixInverse: matrix_identity_float4x4), variantCache: cache).get()
+            let sourcePass = try executor.materialEncoder.prepareResult(program: program, target: scratch).get()
+            precondition(sourcePass.storedContent == .color(.resolved(.straightAlpha)))
+            precondition(executor.materialEncoder.encode(sourcePass, commandBuffer: command))
+            var sampleUniforms = SceneLayerFragmentUniforms.neutral()
+            sampleUniforms.sourceSampling.y = 1
+            let activeEffect = try executor.prepare(token: claim.token, leases: [lease], historyRehydrateCopiesByEffect: [:],
+                frame: snapshot, sourceTexture: scratch, sourceUniforms: sampleUniforms, sourcePipeline: pipeline,
+                frameInputs: .init(), commandBuffer: command, previousStates: [:], previousGraphResources: [:],
+                effectGeneration: 1, resetGeneration: 1).get()
+            precondition(executor.encode(activeEffect, commandBuffer: command))
+            let terminal = [scratch, activeEffect.finalTexture].map { input -> Readback in
+                let target = makeSource(device, width: extent.width, height: extent.height,
+                    usage: [.renderTarget, .shaderRead], bgra: background)
+                let pass = MTLRenderPassDescriptor()
+                pass.colorAttachments[0].texture = target
+                pass.colorAttachments[0].loadAction = .load
+                pass.colorAttachments[0].storeAction = .store
+                let draw = command.makeRenderCommandEncoder(descriptor: pass)!
+                pipeline.bind(encoder: draw)
+                pipeline.drawLayer(texture: input, mvp: simd_float4x4(diagonal: SIMD4(2, 2, 1, 1)),
+                    uniforms: sampleUniforms, encoder: draw)
+                draw.endEncoding()
+                return appendReadback(target, commandBuffer: command)!
+            }
+            let raw = appendReadback(scratch, commandBuffer: command)!
+            command.commit(); command.waitUntilCompleted()
+            rows.append(["arm": setting, "completed": command.status == .completed,
+                "localFallback": activeEffect.stages[0].effectLocalFailureReasonCode ?? "",
+                "localStraight": activeEffect.finalResource.publication.candidate.content == straight,
+                "actualEnvironment": program.textureSlots[3]?.resource.publication.texture === previous
+                    && program.textureSlots[3]?.registryIdentity == .sceneEnvironment,
+                "scratch": raw.firstPixel, "hiddenRGB": raw.lastPixel,
+                "direct": terminal[0].firstPixel, "local": terminal[1].firstPixel,
+                "transparentDirect": terminal[0].lastPixel, "localFromZeroAlpha": terminal[1].lastPixel])
+        }
+        print(String(decoding: try JSONSerialization.data(withJSONObject:
+            ["metalAvailable": true, "rows": rows, "compiledVariants": cache.counters.frontendCompilationCount]),
+            as: UTF8.self))
+    }
+}
+'''
+        compilation, completed = compile_lit_harness(SUPPORT, harness)
+        self.assertEqual(compilation.returncode, 0, compilation.stderr)
+        self.assertIsNotNone(completed)
+        assert completed is not None
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        payload = json.loads(completed.stdout)
+        if not payload["metalAvailable"]:
+            self.skipTest("Metal is unavailable")
+        self.assertEqual(payload["compiledVariants"], 1, payload)
+        self.assertEqual([r["arm"] for r in payload["rows"]], ["black", "base-mip", "mix-mip", "small-mip", "black-restored"])
+        background = [20, 40, 50, 128]
+        for row, rgb in zip(payload["rows"], ([13, 77, 102], [13, 77, 153], [64, 77, 128], [115, 77, 102], [13, 77, 102]), strict=True):
+            self.assertTrue(row["actualEnvironment"] and row["completed"], row)
+            self.assertEqual(row["localFallback"], "", row)
+            self.assertTrue(row["localStraight"], row)
+            self.assertEqual(row["transparentDirect"], background, row)
+            pairs = list(zip(rgb, background[:3], strict=True))
+            direct = [round(a / 4 + b * 3 / 4) for a, b in pairs] + [160]
+            local = [round((a + b) / 2) for a, b in pairs] + [192]
+            expected = {"scratch": rgb + [64], "hiddenRGB": rgb + [0],
+                        "direct": direct, "local": local, "localFromZeroAlpha": local}
+            for key, pixel in expected.items():
+                for value, component in zip(row[key], pixel, strict=True):
+                    self.assertAlmostEqual(value, component, delta=1, msg=(key, row))
+
 if __name__ == "__main__":
     unittest.main()

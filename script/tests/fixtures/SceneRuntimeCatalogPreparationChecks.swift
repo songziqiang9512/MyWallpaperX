@@ -88,6 +88,22 @@ extension CancellationProbe {
             && noop.assetDemands == plain.assetDemands && noop.userPropertyDemands == plain.userPropertyDemands
             && noop.systemProviderDemands == plain.systemProviderDemands
             && noop.systemProviderDemandsByMaterial == plain.systemProviderDemandsByMaterial]
+        if case let .template(template, .success(formatSlots))? = plain.sourceMaterialEntries[403]?.entry {
+            checks["catalogOrdinarySourceAdmitsExplicitSceneEnvironment"] = formatSlots.isEmpty
+                && template.textureSlots[3]?.candidates == [
+                    .init(reference: .provider(.sceneEnvironment), provenance: .material)
+                ]
+        } else { checks["catalogOrdinarySourceAdmitsExplicitSceneEnvironment"] = false }
+        if case let .failure(failure)? = plain.sourceMaterialEntries[404]?.entry {
+            checks["catalogOrdinarySourceRejectsSameFrameMainColor"] = failure.phase == .graph
+                && failure.code == .graphNodeInvalid
+                && failure.boundedDetails == ["source-material-provider-unsupported"]
+        } else { checks["catalogOrdinarySourceRejectsSameFrameMainColor"] = false }
+        let sourceAsset = SceneAssetTextureIdentity(virtualPath: "materials/catalog-source.png", purpose: .straightAlbedo)!
+        checks["catalogOrdinarySourceOnlyDemandsItsAsset"] = plain.assetDemandOwners == [sourceAsset: .independent]
+            && plain.userPropertyDemands.isEmpty && plain.systemProviderDemands.isEmpty
+            && plain.resourceDemandIssues.isEmpty
+            && plain.sourceMaterialCandidateConsumerLayerIDs(in: descriptor) == [403]
         let prefix = observed.prefix
         // The callback contract checks batch start, candidates and resolved
         // material records before workers enter. This fixture counts entry

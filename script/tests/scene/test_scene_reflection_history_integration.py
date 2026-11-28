@@ -308,6 +308,7 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
                    REPO / "script/tests/scene/test_scene_directional_shadow_integration.py",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialLightingProfile.swift",
+                   REPO / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+SceneDrawing.swift",
                    REPO / "script/tests/support/scene_display_reconciliation_fixture.py",
                    REPO / "script/web/web_benchmark_capture.py",
@@ -751,11 +752,11 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
                     self.assertFalse(result["completedSourceSubmissions"], result)
                     self.assert_pixel(settled["grazing"], [0, 0, 0])
 
-    def run_model_reflection_quality_pair(self, entries, *, with_program=False, with_source=False):
+    def run_model_reflection_quality_pair(self, entries, *, with_program=False, source_binding=None):
         rois = dict(MODEL_ROIS)
-        if with_program or with_source:
+        if with_program or source_binding:
             rois["authorProgram"] = (28, 48)
-        scope = "source" if with_source else "mixed" if with_program else "only"
+        scope = f"source-{source_binding}" if source_binding else "mixed" if with_program else "only"
         identities = []
         for quality in ("enabled", "disabled"):
             with self.subTest(quality=quality):
@@ -789,9 +790,9 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
                     self.assertGreaterEqual(len(set(result["completedSourceSubmissions"])), 2, result)
                 else:
                     self.assertFalse(result["completedSourceSubmissions"], result)
-                if with_program or with_source:
+                if with_program or source_binding:
                     self.assert_pixel(pixels["authorProgram"], [255, 0, 0] if enabled else [0, 0, 0])
-                if with_source:
+                if source_binding:
                     self.assertIn("source material encoded: layer=1 ", log)
                 if with_program:
                     self.assertIn("phase=named-graph-output-publication layer=31 status=succeeded", log)
@@ -862,19 +863,21 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
     def test_model_reflection_quality_clears_environment_in_authored_source_material(self):
         from script.tests.scene.test_scene_authored_environment_integration import fixture_entries as author_environment
 
-        entries = model_reflection_entries(1)
-        scene = json.loads(entries["scene.json"])
-        scene["objects"].insert(0, {"id": 1, "image": "models/environment-source.json",
-                                    "origin": "28 48 0", "size": "20 20"})
-        authored = author_environment(slot=3, shader_default=True)
-        material = json.loads(authored["materials/environment.json"])
-        material["passes"][0]["textures"][0] = "materials/albedo.png"
-        entries["materials/environment-source.json"] = json.dumps(material).encode()
-        entries["models/environment-source.json"] = json.dumps({"material": "materials/environment-source.json"}).encode()
-        for path in ("materials/albedo.png", "shaders/own_environment.vert", "shaders/own_environment.frag"):
-            entries[path] = authored[path]
-        entries["scene.json"] = json.dumps(scene, sort_keys=True).encode()
-        self.run_model_reflection_quality_pair(entries, with_source=True)
+        for binding in ("explicit", "default"):
+            with self.subTest(binding=binding):
+                entries = model_reflection_entries(1)
+                scene = json.loads(entries["scene.json"])
+                scene["objects"].insert(0, {"id": 1, "image": "models/environment-source.json",
+                                            "origin": "28 48 0", "size": "20 20"})
+                authored = author_environment(slot=3, shader_default=binding == "default")
+                material = json.loads(authored["materials/environment.json"])
+                material["passes"][0]["textures"][0] = "materials/albedo.png"
+                entries["materials/environment-source.json"] = json.dumps(material).encode()
+                entries["models/environment-source.json"] = json.dumps({"material": "materials/environment-source.json"}).encode()
+                for path in ("materials/albedo.png", "shaders/own_environment.vert", "shaders/own_environment.frag"):
+                    entries[path] = authored[path]
+                entries["scene.json"] = json.dumps(scene, sort_keys=True).encode()
+                self.run_model_reflection_quality_pair(entries, source_binding=binding)
 
     def test_user_albedo_keeps_reflection_when_named_fallback_is_not_selected(self):
         source_root = REPO / "MyWallpaperX/Core/SteamWorkshopScene"
