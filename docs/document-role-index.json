@@ -378,10 +378,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "49077839a864d848bed7da9bc4f8df017a831a4ca4d031f7d9ce6ec204f03760",
+        "sourceSHA256": "ead05fa0cc42d7fcdbc4eb4fee0339d77fe5bd0c74b3de891f9fea7276bec321",
         "method": "document_registry --audit + document_health --check",
-        "scope": "记录终端纹理试验退出与反射资源拒绝时的局部回执设计。",
-        "limitations": "签名 M4 完成帧和受控资源拒绝。未新增整场功耗、物理多屏或 Windows 官版对照。"
+        "scope": "核普通图像 ABI 与显著反射、原包遮挡的接入门。",
+        "limitations": "证据限冻结作者派生和两平台的对应阶段。原包遮挡共存与高反射能量待证。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bc58971f928918f3c32ebd4ad3f492f4dd30af6fad907f1bf7a1a5a536e73d9b",
+        "sourceSHA256": "77985ebf2a2f7a6076403641ec0d9bd9c151af9f55b55ba1f5867d74cf186ad7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核聚光冷准备、两部签名原作与实际 Scene daemon 首呈。",
-        "limitations": "绑定 M4 局部准备、签名终图与首呈。整段启动、能耗和多屏收益未证。"
+        "scope": "核两部冻结派生的签名基线、官版开关归因及同档复拍。",
+        "limitations": "证据限冻结作者派生和两平台的对应阶段。原包遮挡共存与高反射能量待证。"
       }
     },
     {
