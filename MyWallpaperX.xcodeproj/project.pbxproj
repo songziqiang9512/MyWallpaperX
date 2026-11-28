@@ -13,6 +13,8 @@
 		A10000042F6B0001005688A8 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000142F6B0001005688A8 /* CoreGraphics.framework */; };
 		A10000052F6B0001005688A8 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000152F6B0001005688A8 /* QuartzCore.framework */; };
 		A10000062F6B0001005688A8 /* MyWallpaperXHelp in Resources */ = {isa = PBXBuildFile; fileRef = 98E9DA272F786FCC00C96FC7 /* MyWallpaperXHelp */; };
+		A10000072F6B0001005688A8 /* MyWallpaperXIconLight.png in Resources */ = {isa = PBXBuildFile; fileRef = A10000162F6B0001005688A8 /* MyWallpaperXIconLight.png */; };
+		A10000082F6B0001005688A8 /* MyWallpaperXIconDark.png in Resources */ = {isa = PBXBuildFile; fileRef = A10000172F6B0001005688A8 /* MyWallpaperXIconDark.png */; };
 		A20000012F800001005688A8 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A20000112F800001005688A8 /* Sparkle */; };
 		A20000022F800002005688A8 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000122F800002005688A8 /* AppIntents.framework */; };
 		A30000012F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang in CopyFiles */ = {isa = PBXBuildFile; fileRef = A30000112F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
@@ -80,6 +82,8 @@
 		A10000132F6B0001005688A8 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		A10000142F6B0001005688A8 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		A10000152F6B0001005688A8 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		A10000162F6B0001005688A8 /* MyWallpaperXIconLight.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = MyWallpaperX/AppIcon.icon/Assets/MyWallpaperXIconLight.png; sourceTree = SOURCE_ROOT; };
+		A10000172F6B0001005688A8 /* MyWallpaperXIconDark.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = MyWallpaperX/AppIcon.icon/Assets/MyWallpaperXIconDark.png; sourceTree = SOURCE_ROOT; };
 		A20000122F800002005688A8 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 		A30000112F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = MyWallpaperX/Resources/SceneShaderCompilerTools/glslang; sourceTree = SOURCE_ROOT; };
 		A30000122F810002005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = "MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross"; sourceTree = SOURCE_ROOT; };
@@ -383,6 +387,8 @@
 				F80000012F810001005688A8 /* LICENSE in Resources */,
 				F80000022F810001005688A8 /* NOTICE.md in Resources */,
 				A10000062F6B0001005688A8 /* MyWallpaperXHelp in Resources */,
+				A10000072F6B0001005688A8 /* MyWallpaperXIconLight.png in Resources */,
+				A10000082F6B0001005688A8 /* MyWallpaperXIconDark.png in Resources */,
 				F70000012F810001005688A8 /* MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

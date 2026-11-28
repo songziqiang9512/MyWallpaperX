@@ -20,6 +20,9 @@ final class AppKitInterfaceSettingsForm: NSObject {
         addPopup(String(localized: "App Appearance"), to: form, key: \.appearance, symbol: "circle.lefthalf.filled", titles: [
             String(localized: "Follow System"), String(localized: "Light"), String(localized: "Dark")
         ])
+        addPopup(String(localized: "Dock App Icon"), to: form, key: \.iconAppearance, symbol: "app", titles: [
+            String(localized: "Automatic"), String(localized: "Light"), String(localized: "Dark")
+        ])
         addPopup(String(localized: "Menu Bar Icon"), to: form, key: \.statusIcon, symbol: "menubar.rectangle", titles: [
             String(localized: "GPU Percentage"), String(localized: "Wallpaper Icon")
         ])

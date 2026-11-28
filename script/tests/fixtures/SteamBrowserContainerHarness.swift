@@ -15,6 +15,19 @@ struct SteamGridProgress { let phase: SteamGridProgressPhase }
 enum SteamWorkshopItemMenu {
     @MainActor static func make(item: SteamWorkshopBrowserItem, service: SteamWorkshopService, navigationVersion: Int? = nil) -> NSMenu { NSMenu() }
 }
+@MainActor final class SteamGridJobStore {
+    enum State { case queued, running }
+    struct Job {
+        let workshopItemId: String
+        var state: State = .queued
+        var accountSteamId = "A"
+    }
+    @Published var jobs: [Job] = []
+    func activeJob(forWorkshopItemId id: String) -> Job? { jobs.first { $0.workshopItemId == id } }
+}
+@MainActor final class SteamGridAuth {
+    @Published var steamId: String? = "A"
+}
 @MainActor final class SteamWorkshopService {
     var navigationVersion = 0
     @Published var displayedBrowserItems: [SteamWorkshopBrowserItem] = []
@@ -32,6 +45,13 @@ enum SteamWorkshopItemMenu {
     func latestDownloadRecord(for id: String) -> SteamWorkshopDownloadRecord? { nil }
     func downloadRecord(for id: String) -> SteamWorkshopDownloadRecord? { nil }
     let downloadProgressStore = SteamGridProgressStore()
+    let steamAuth = SteamGridAuth()
+    let downloadJobStore = SteamGridJobStore()
+    func currentAccountDownloadJob(for id: String) -> SteamGridJobStore.Job? {
+        guard let job = downloadJobStore.activeJob(forWorkshopItemId: id),
+              job.accountSteamId == steamAuth.steamId else { return nil }
+        return job
+    }
     func isDownloading(itemID: String) -> Bool { false }
     func isQueuedForDownload(itemID: String) -> Bool { false }
     func isLaunchPending(_ id: String) -> Bool { launchPendingRecordID == id }
@@ -70,6 +90,7 @@ enum SteamWorkshopItemMenu {
     enum Context { case browser }
     var id = ""
     var keyboardFocused = false
+    private(set) var queued = false
     var organization: OrganizationPresentation?
     var playing = false
     override func loadView() {
@@ -81,24 +102,16 @@ enum SteamWorkshopItemMenu {
     }
     func configure(displayContext: Context, isPlaying: Bool = false, item: SteamWorkshopBrowserItem,
                    downloadRecord: SteamWorkshopDownloadRecord?, downloadProgressStore: NSObject,
-                   isDownloading: Bool, isDownloaded: Bool, isKeyboardFocused: Bool, organization: OrganizationPresentation? = nil,
+                   isDownloading: Bool, isQueued: Bool = false, isDownloaded: Bool, isKeyboardFocused: Bool, organization: OrganizationPresentation? = nil,
                    makeMenu: (() -> NSMenu?)? = nil,
                    onOpen: @escaping () -> Void, onDownload: @escaping () -> Void,
                    onSetAsWallpaper: @escaping () -> Void, onCancelDownload: @escaping () -> Void) {
         id = item.id; keyboardFocused = isKeyboardFocused; (view as! NSTextField).stringValue = item.id
         self.organization = organization
         playing = isPlaying
+        queued = isQueued
     }
-    func configureMetadataOnly(displayContext: Context, isPlaying: Bool = false, item: SteamWorkshopBrowserItem,
-                   downloadRecord: SteamWorkshopDownloadRecord?, downloadProgressStore: NSObject,
-                   isDownloading: Bool, isDownloaded: Bool, isKeyboardFocused: Bool, organization: OrganizationPresentation? = nil,
-                   makeMenu: (() -> NSMenu?)? = nil,
-                   onOpen: @escaping () -> Void, onDownload: @escaping () -> Void,
-                   onSetAsWallpaper: @escaping () -> Void, onCancelDownload: @escaping () -> Void) {
-        id = item.id; keyboardFocused = isKeyboardFocused; (view as! NSTextField).stringValue = item.id
-        self.organization = organization
-        playing = isPlaying
-    }
+    func setQueuedForDownload(_ value: Bool) { queued = value }
     func setKeyboardFocus(_ value: Bool) { keyboardFocused = value }
     func forceReloadPreview() {}
     func setPreviewVisible(_ value: Bool) {}
@@ -188,6 +201,33 @@ private final class SteamTopGapClip: NSClipView {
         }
         service.displayedBrowserItems = Array(all.prefix(60)); verify("initial")
         if grid.currentColumnCount != 5 { failures.append("default source grid must request five columns") }
+        let queue = service.downloadJobStore
+        let queuedIDs = Set(all[1..<45].map(\.id))
+        queue.jobs = all[1..<45].map { .init(workshopItemId: $0.id) }
+        func verifyQueue(_ ids: Set<String>, phase: String, minimumQueued: Int) {
+            settle()
+            let cards = grid.collectionView.visibleItems().compactMap { $0 as? AppKitSteamWorkshopBrowserItem }
+            if cards.filter(\.queued).count < minimumQueued || cards.contains(where: { $0.queued != ids.contains($0.id) }) {
+                failures.append("\(phase): visible cards diverged from job membership")
+            }
+        }
+        verifyQueue(queuedIDs, phase: "queued without library record updates", minimumQueued: 2)
+        grid.scrollView.contentView.scroll(to: NSPoint(x: 0, y: 520))
+        verifyQueue(queuedIDs, phase: "previously offscreen queue members", minimumQueued: 2)
+        grid.scrollView.contentView.scroll(to: .zero)
+        queue.jobs[0].state = .running
+        queue.jobs.remove(at: 1)
+        verifyQueue(queuedIDs.subtracting([all[1].id, all[2].id]), phase: "start and cancellation", minimumQueued: 2)
+        service.steamAuth.steamId = nil
+        verifyQueue([], phase: "signed-out hides durable queue", minimumQueued: 0)
+        service.steamAuth.steamId = "B"
+        verifyQueue([], phase: "different account does not inherit durable queue", minimumQueued: 0)
+        queue.jobs.append(.init(workshopItemId: all[0].id, accountSteamId: "B"))
+        verifyQueue([all[0].id], phase: "second account sees only its accepted task", minimumQueued: 1)
+        service.steamAuth.steamId = "A"
+        verifyQueue(queuedIDs.subtracting([all[1].id, all[2].id]), phase: "original queue returns on account change", minimumQueued: 2)
+        queue.jobs = []
+        verifyQueue([], phase: "queue drained", minimumQueued: 0)
         let reportsBeforeSameLayout = widthReports.count
         grid.needsLayout = true; settle()
         if widthReports.count != reportsBeforeSameLayout { failures.append("same clip width must not republish") }

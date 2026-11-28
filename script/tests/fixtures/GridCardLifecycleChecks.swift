@@ -945,7 +945,6 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         if let pidPath = ProcessInfo.processInfo.environment["MWX_GRID_NATIVE_PID_PATH"] {
             try! String(ProcessInfo.processInfo.processIdentifier).write(toFile: pidPath, atomically: true, encoding: .utf8)
         }
-        _ = NSApplication.shared
         NSApplication.shared.setActivationPolicy(.regular)
         NSApplication.shared.finishLaunching()
         let name = CommandLine.arguments.dropFirst().first ?? ""
@@ -977,6 +976,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         case "browser-container-metadata": pixabayBrowserContainerMetadata(facts)
         case "downloads-layout": downloadsLayout(facts)
         case "pixabay-native-click-owner": pixabayNativeClickOwner(facts)
+        case "pixabay-native-offset-click-owner": pixabayNativeClickOwner(facts, displacedGrid: true)
         case "loading-delay": loadingDelay(facts)
         case "visibility-requests": visibilityRequests(facts)
         case "real-card-scroll": realCardScrollHover(facts)

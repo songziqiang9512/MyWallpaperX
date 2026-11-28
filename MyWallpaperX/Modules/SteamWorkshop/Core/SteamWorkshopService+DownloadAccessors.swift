@@ -56,12 +56,18 @@ extension SteamWorkshopService {
         !displayedBrowserItems.isEmpty
     }
 
+    func currentAccountDownloadJob(for itemID: String) -> SteamDownloadJob? {
+        guard let job = downloadJobStore.activeJob(forWorkshopItemId: itemID),
+              job.accountSteamId == currentSteamDownloadAccount else { return nil }
+        return job
+    }
+
     func isDownloading(itemID: String) -> Bool {
-        downloadJobStore.activeJob(forWorkshopItemId: itemID)?.state == .running
+        currentAccountDownloadJob(for: itemID)?.state == .running
     }
 
     func isQueuedForDownload(itemID: String) -> Bool {
-        downloadJobStore.activeJob(forWorkshopItemId: itemID)?.state == .queued
+        currentAccountDownloadJob(for: itemID)?.state == .queued
     }
 
     func latestDownloadRecord(for itemID: String) -> SteamWorkshopDownloadRecord? {

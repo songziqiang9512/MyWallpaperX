@@ -144,12 +144,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-11-23",
+      "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b1b108107882e47547c453d4db29bd27163fba80a9f1778aa56973c771dd6b0d",
+        "sourceSHA256": "e25bc9f08d949692897d7a526fefb17e48953af5f0f99efb4b70ed01ecc587cb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Current unused non-Scene entry cleanup, preserved live playback/acquisition consumers, current JobStore v5/ready v3 ownership, and the retired-file link now pointing at the current Steam acquisition boundary.",
+        "scope": "Current JobStore v5 and ready v3 ownership, including account-scoped Workshop queue updates, queued recovery, progress, and cancellation.",
         "limitations": "Source/caller and document audit. Frozen build and bounded behavior results are separate; no real account, user-library, FPS or unresolved native-card success claim."
       }
     },
@@ -252,12 +252,12 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "Video原生动态锁屏与屏保的单组件、唯一发布、App接线及分阶段真实宿主验收完成后由稳定合同接管；Scene/Web屏保继续退役。",
-      "lastReviewed": "2026-11-05",
+      "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ac90216fdac27c68bab5a394a9839b1125ea9975438828ad4e1fa3d840388080",
+        "sourceSHA256": "a38a2c71d6d0cc9ddb1c455b4aa1a62cd6b88b4d643b296cfc9c5e86f6ca5d22",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Current App data strategy, deleted migration owners and nearest validation links.",
+        "scope": "Current shared Screen Saver panel, presentation anchors from Settings and the library, and validation links.",
         "limitations": "Navigation and current source ownership audit; runtime results are recorded separately and do not establish Scene or system-host coverage."
       }
     },

@@ -1,9 +1,9 @@
 import AppKit
 
 enum SettingsPanelLayout {
-    static let windowSize = NSSize(width: 704, height: 688)
+    static let windowSize = NSSize(width: 648, height: 664)
     static let minimumSize = NSSize(width: 600, height: 480)
-    static let sidebarWidth: CGFloat = 200
+    static let sidebarWidth: CGFloat = 184
     static let pageInset: CGFloat = 12
     static let bottomInset: CGFloat = 20
     static let groupSpacing: CGFloat = 16

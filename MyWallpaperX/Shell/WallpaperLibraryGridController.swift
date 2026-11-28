@@ -694,7 +694,8 @@ import AppKit
     func gestureRecognizer(_ gestureRecognizer: NSGestureRecognizer, shouldAttemptToRecognizeWith event: NSEvent) -> Bool {
         guard inputLeaseIsCurrent else { return false }
         guard gestureRecognizer !== selectionPan || selection.isSelecting else { return false }
-        var hit = collection.hitTest(collection.convert(event.locationInWindow, from: nil))
+        guard let parent = collection.superview else { return false }
+        var hit = collection.hitTest(parent.convert(event.locationInWindow, from: nil))
         while let target = hit, target !== collection {
             if WallpaperCardInteractionView.isInteractiveControl(target) { return false }
             hit = target.superview

@@ -5,8 +5,8 @@
   "maxReviewAgeDays": 60,
   "bodies": {
     "docs/architecture/appkit-migration.md": {
-      "lines": 226,
-      "bytes": 28711
+      "lines": 227,
+      "bytes": 29194
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
       "lines": 50,
@@ -18,7 +18,7 @@
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 80,
-      "bytes": 18243
+      "bytes": 18581
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 53,
@@ -42,7 +42,7 @@
     },
     "docs/development/lock-screen-screensaver-design.md": {
       "lines": 118,
-      "bytes": 22539
+      "bytes": 22704
     },
     "docs/development/main-window-playlists-redesign.md": {
       "lines": 556,
@@ -496,11 +496,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/steam-workshop-acquisition-contract.md",
-      "before": "2cd621a6fd5b5db869c6d44d9acc2d1ad06d03eea87cf6e898d38c03b1f9c98f",
-      "after": "106b7f3cf498969caea81ac69b40f9f636908c833a3598c3a8b38ca7d1c614f9",
+      "before": "106b7f3cf498969caea81ac69b40f9f636908c833a3598c3a8b38ca7d1c614f9",
+      "after": "96c3a9aca57796e13aa3590d29ce8fe0af3b4774cb88042c241e9340238049a4",
       "owner": "repository governance",
-      "reason": "Use the current test collection paths and repair the navigation after the script move.",
-      "decision": "docs/development/repository-workflow.md#并行与验证"
+      "reason": "Record direct queue membership projection in Workshop cards.",
+      "decision": "docs/architecture/steam-workshop-acquisition-contract.md"
     },
     {
       "section": "bodies",
@@ -685,11 +685,20 @@
     {
       "section": "bodies",
       "path": "docs/architecture/appkit-migration.md",
-      "before": "96062044de569b7be943fd127a653e55cee21b5e161889454f4231e4cc43894f",
-      "after": "33ba765a34b4cc228b5a18efd9cf8a29b1814369284885b37c93a1af7c67f46d",
+      "before": "33ba765a34b4cc228b5a18efd9cf8a29b1814369284885b37c93a1af7c67f46d",
+      "after": "ef7965da51c00517e7fcb69f717e24482e14276ce82b2a0f4d899dfedda6167f",
       "owner": "AppKit settings and library presentation",
-      "reason": "登记五项界面偏好与 IINA 式原生设置布局、滚动材质和从属行职责。",
+      "reason": "登记应用图标变体、Dock 覆盖、紧凑设置窗口尺寸及网格按钮命中坐标。",
       "decision": "docs/architecture/appkit-migration.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/lock-screen-screensaver-design.md",
+      "before": "35afd09387393a02cfefd7dad02a2dc54f1f94ac28fdd814e5e9f44de124ebf9",
+      "after": "c76e0e7a3a9f2adeb1acac15fc7fe1e03b0e5a1e10110971ace74c80947e13df",
+      "owner": "Screen saver configuration",
+      "reason": "登记设置入口单独居中的呈现约束。",
+      "decision": "docs/development/lock-screen-screensaver-design.md"
     }
   ]
 }

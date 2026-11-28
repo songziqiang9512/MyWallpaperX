@@ -338,7 +338,7 @@ import Combine
                     isMultiSelectMode: state.isSelecting, isKeyboardFocused: state.isSelected)
                 return
             }
-            card.configureMetadataOnly(displayContext: .downloads, isPlaying: playing, item: item,
+            card.configure(displayContext: .downloads, isPlaying: playing, item: item,
                 downloadRecord: row, downloadProgressStore: steam.downloadProgressStore,
                 isDownloading: row.status == .downloading, isDownloaded: content.publishedAvailability.isAvailable,
                 isMultiSelectMode: state.isSelecting, isKeyboardFocused: state.isSelected,

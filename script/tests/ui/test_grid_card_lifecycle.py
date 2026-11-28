@@ -201,7 +201,7 @@ class GridCardLifecycleTests(unittest.TestCase):
         for key in ("HOME", "CFFIXED_USER_HOME", "TMPDIR", "CLANG_MODULE_CACHE_PATH", "SWIFT_MODULECACHE_PATH"):
             command += ["--env", key + "=" + self.environment[key]]
         command += ["--env", "MWX_GRID_NATIVE_PID_PATH=" + str(pid_file),
-                    str(self.binary.parents[3]), "--args", name]
+                    str(self.binary.parents[2]), "--args", name]
         with native_app_session():
             try:
                 run = subprocess.run(command, capture_output=True, text=True,
@@ -237,6 +237,9 @@ class GridCardLifecycleTests(unittest.TestCase):
 
     def test_downloads_native_buttons_are_the_only_primary_action_hit_owner(self):
         self.check_case("pixabay-native-click-owner")
+
+    def test_displaced_collection_cedes_card_buttons_to_native_input(self):
+        self.check_case("pixabay-native-offset-click-owner")
 
     def test_native_collection_registration_and_actual_item_pool_reuse(self):
         self.check_case("native-pool")
