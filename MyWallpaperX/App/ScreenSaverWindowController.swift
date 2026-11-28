@@ -5,6 +5,7 @@ import Combine
 /// Opening it reads published state and shared thumbnails only.
 @MainActor final class ScreenSaverWindowController: NSWindowController, NSWindowDelegate {
     static let shared = ScreenSaverWindowController()
+    static let windowIdentifier = NSUserInterfaceItemIdentifier("ScreenSaverSettings")
     private let integration = ScreenSaverIntegration.shared
     private let mode = NSPopUpButton()
     private let fill = NSPopUpButton()
@@ -39,7 +40,7 @@ import Combine
         panel.hasShadow = true
         panel.hidesOnDeactivate = false
         panel.title = String(localized: "Lock Screen & Screen Saver")
-        panel.identifier = NSUserInterfaceItemIdentifier("ScreenSaverSettings")
+        panel.identifier = Self.windowIdentifier
         panel.isReleasedWhenClosed = false
         super.init(window: panel)
         panel.delegate = self

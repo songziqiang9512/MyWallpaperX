@@ -355,9 +355,37 @@ private final class ProgressProbeWindow: NSWindow {
         service.steamSubscriptions.states[item.id] = .known(true)
         assertSymbolSize(card.controlBar.detailButton.image, named: "exclamationmark.circle")
         card.controlBar.detailButton.performClick(nil)
-        precondition(browserDetails == 1 && card.controlBar.detailButton.accessibilityLabel() == "View Details"
+        precondition(browserDetails == 1 && card.controlBar.detailButton.accessibilityLabel() == "Detailed Information"
             && service.steamSubscriptions.toggles.isEmpty && service.steamSubscriptions.refreshes.isEmpty,
             "the fixed detail control must not borrow account membership actions")
+        card.isHovering = false
+        card.applyHoverStyle(animated: false)
+        var queuedCancels = 0
+        card.configure(displayContext: .browser, item: item, downloadRecord: nil,
+            downloadProgressStore: store, isDownloading: false, isDownloaded: false, isKeyboardFocused: false,
+            onOpen: {}, onDownload: {}, onSetAsWallpaper: {}, onCancelDownload: { queuedCancels += 1 })
+        precondition(!card.currentBarVisibility, "an idle card does not pin its controls")
+        card.setQueuedForDownload(true)
+        precondition(card.currentBarState == .queued && card.currentBarVisibility && card.controlBar.superview === card.view
+            && card.controlBar.primaryState == .switching && card.controlBar.playButton.isEnabled,
+            "queue membership alone pins the bar and shows the hourglass")
+        assertSymbolSize(card.controlBar.playButton.image, named: "hourglass")
+        card.controlBar.playButton.performClick(nil)
+        precondition(queuedCancels == 1, "the hourglass dispatches queue cancellation")
+        card.setQueuedForDownload(false)
+        precondition(!card.currentBarVisibility && card.controlBar.primaryState == .download,
+            "removal from the queue restores the ordinary download button")
+        card.configure(displayContext: .browser, isPlaying: true, item: item, downloadRecord: ready,
+            downloadProgressStore: store, isDownloading: false, isQueued: true, isDownloaded: true, isKeyboardFocused: false,
+            organization: .init(isFavorite: false, canFavorite: false, canPlay: true, canDownload: false, canCancel: false),
+            onOpen: {}, onDownload: {}, onSetAsWallpaper: {}, onCancelDownload: { queuedCancels += 1 })
+        precondition(card.currentBarState == .queued && card.controlBar.primaryState == .switching && card.controlBar.playButton.isEnabled,
+            "the initial queued state also applies to an installed and playing wallpaper with a queued update")
+        card.controlBar.playButton.performClick(nil)
+        precondition(queuedCancels == 2, "installed wallpaper actions cannot replace queue cancellation")
+        card.setQueuedForDownload(false)
+        precondition(card.currentBarState == .ready && card.controlBar.primaryState == .playing,
+            "a canceled update restores the installed wallpaper's play state")
         var remoteFavorites = 0, remotePrimaries = 0, remoteDetails = 0
         card.configure(displayContext: .browser, isPlaying: true, item: item, downloadRecord: ready,
             downloadProgressStore: store, isDownloading: false, isDownloaded: true, isKeyboardFocused: false,
@@ -384,7 +412,7 @@ private final class ProgressProbeWindow: NSWindow {
         card.controlBar.detailButton.performClick(nil); card.controlBar.playButton.performClick(nil)
         precondition(localFavorites == 0 && localStops == 1 && localDetails == 1,
                      "details and stop must use their current-content commands without consuming menu favorites")
-        precondition(card.controlBar.detailButton.accessibilityLabel() == "View Details",
+        precondition(card.controlBar.detailButton.accessibilityLabel() == "Detailed Information",
                      "details must never advertise Steam account subscription: \(String(describing: card.controlBar.detailButton.accessibilityLabel()))")
         organizationCard(canFavorite: false, canPlay: false, canInspect: false)
         card.controlBar.detailButton.performClick(nil); card.controlBar.playButton.performClick(nil)
@@ -396,8 +424,8 @@ private final class ProgressProbeWindow: NSWindow {
         card.applyOrganizationState(.init(isFavorite: false, canFavorite: true,
             onFavorite: { localFavorites += 1 }, onPrimary: { localStops += 1 }),
             isPlaying: false, isMultiSelectMode: false, isKeyboardFocused: true)
-        precondition(card.controlBar.detailButton.accessibilityLabel() == "View Details"
-                     && card.controlBar.playButton.accessibilityLabel()?.contains("设为壁纸") == true,
+        precondition(card.controlBar.detailButton.accessibilityLabel() == "Detailed Information"
+                     && card.controlBar.playButton.accessibilityLabel() == String(localized: "Set as Wallpaper: \(item.title)"),
                      "state-only organization updates must reach the original native controls")
         card.applyOrganizationState(.init(isFavorite: false, canFavorite: true, isSwitching: true,
             canPlay: true, onPrimary: { localStops += 1 }),

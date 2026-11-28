@@ -41,7 +41,7 @@ import QuartzCore
     }
 }
 
-@MainActor func pixabayNativeClickOwner(_ facts: Facts) {
+@MainActor func pixabayNativeClickOwner(_ facts: Facts, displacedGrid: Bool = false) {
     let owner = PixabayDownloadsClickOwner()
     let controller = owner.controller
     let window = CardWindow(contentViewController: controller)
@@ -68,6 +68,36 @@ import QuartzCore
         let down = mouse(.leftMouseDown, at: point, count: count)
         let up = mouse(.leftMouseUp, at: point, count: count)
         NSApp.postEvent(up, atStart: true); window.sendEvent(down); pump(0.02)
+    }
+    func nativeHit(_ point: NSPoint) -> NSView? {
+        let content = window.contentView!
+        return content.hitTest(content.superview!.convert(point, from: nil))
+    }
+    if displacedGrid {
+        card.onInspectRequested = { _ in owner.inspected.append(owner.reference) }
+        // AppKit gives hitTest the parent-view coordinate, which diverges
+        // from the document coordinate when the grid's frame has an offset.
+        let collection = controller.collection
+        let origin = collection.frame.origin
+        collection.setFrameOrigin(NSPoint(x: origin.x + 46, y: origin.y))
+        for (name, button) in [("detail", bar.detailButton), ("play", bar.playButton)] {
+            let point = button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil)
+            window.testPointer = point
+            let event = mouse(.leftMouseDown, at: point)
+            guard let coverClick = collection.gestureRecognizers.compactMap({ $0 as? NSClickGestureRecognizer }).first else {
+                facts.expect("offset-grid-has-native-cover-recognizer", false); break
+            }
+            facts.expect("offset-grid-\(name)-hits-control", nativeHit(point) === button)
+            facts.expect("offset-grid-\(name)-bypasses-cover-recognizer",
+                !controller.gestureRecognizer(coverClick, shouldAttemptToRecognizeWith: event))
+            let before = (owner.played.count, owner.inspected.count, owner.selectionEvents)
+            click(point)
+            facts.expect("offset-grid-\(name)-dispatches-only-native-action",
+                owner.played.count - before.0 == (button === bar.playButton ? 1 : 0)
+                && owner.inspected.count - before.1 == (button === bar.detailButton ? 1 : 0)
+                && owner.selectionEvents == before.2)
+        }
+        return
     }
     let button = bar.playButton
     let center = button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil)
@@ -144,10 +174,6 @@ import QuartzCore
     var playEntries = 0, inspectEntries = 0
     bar.onPlay = { playEntries += 1; originalPlay?() }
     bar.onInspect = { inspectEntries += 1; originalInspect?() }
-    func nativeHit(_ point: NSPoint) -> NSView? {
-        let content = window.contentView!
-        return content.hitTest(content.superview!.convert(point, from: nil))
-    }
     func controlState(_ target: NSButton, point: NSPoint) -> [String: Any] {
         let hit = nativeHit(point)
         return ["active": NSApp.isActive, "key": window.isKeyWindow, "windowVisible": window.isVisible,

@@ -116,10 +116,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7a6017473e7180c17b02f1c89886034cb7384f0d2ec7f3eb1220c35586a3b22e",
+        "sourceSHA256": "c41e8f06aa70f5f4684ce0c0a2fd722d7a960ebd23b0eee544dc890831b60dfb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核主线设置窗口、界面偏好和独立质量卡片的接管。",
-        "limitations": "侧栏与质量页装配核对。未扩大既有画面、官版与物理多屏证据。"
+        "scope": "复核紧凑设置、壁纸质量、Dock 图标和原生网格命中。",
+        "limitations": "源码与导航复核，运行证据沿各功能记录。"
       }
     },
     {
@@ -155,13 +155,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-11-25",
+      "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "81cc5862955e68c0acc0f7e02b591b7201d9023e73588984762ed422dfaffd52",
+        "sourceSHA256": "53e7cc9a21d0425b09e8913e06a5ca536c23d9feab718c78f57110a0fd39a59f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前 ready 发布记录、现有播放器取源和两端原片规格的读取边界。",
-        "limitations": "源码与仅仅读取的片源事实；未连 Steam 账户或改动本地媒体。"
+        "scope": "复核下载队列、ready 发布、原片信息和网格反馈。",
+        "limitations": "源码与导航复核，实际账户及本地播放范围沿各功能记录。"
       }
     },
     {
@@ -285,13 +285,13 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "Video原生动态锁屏与屏保的单组件、唯一发布、App接线及分阶段真实宿主验收完成后由稳定合同接管；Scene/Web屏保继续退役。",
-      "lastReviewed": "2026-11-25",
+      "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5ab0b33b99ffb3657dc8602ed92234dde427a4d83311b2fe4df19c86de16290a",
+        "sourceSHA256": "6f94d70fc7391fc89e8a3845094ff1ff66f1bbdf5a0b8fe6be949a245436999f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本地源观察版本不替代新发布的当前实际文件",
-        "limitations": "现有系统宿主范围；验证隔离发布"
+        "scope": "复核设置和资料库的屏保窗口呈现与当前源读取。",
+        "limitations": "源码与导航复核，验收范围沿屏保运行记录。"
       }
     },
     {

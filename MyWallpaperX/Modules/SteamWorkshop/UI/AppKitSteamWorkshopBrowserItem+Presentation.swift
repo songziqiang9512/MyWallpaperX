@@ -98,6 +98,7 @@ extension AppKitSteamWorkshopBrowserItem {
     func refreshThemeAwareAppearance() {
         guard let layer = cardView.layer else { return }
         let isDarkMode = cardView.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let progressFraction = currentBarState == .queued ? nil : currentProgressSnapshot?.fraction
         let inputs = ThemedChromeInputs(
             isDarkMode: isDarkMode,
             isHovering: isHovering,
@@ -105,7 +106,7 @@ extension AppKitSteamWorkshopBrowserItem {
             isMultiSelectMode: isMultiSelectMode,
             isDownloadsContext: currentDisplayContext == .downloads,
             barState: currentBarState,
-            progressFraction: currentProgressSnapshot?.fraction,
+            progressFraction: progressFraction,
             currentBarVisibility: currentBarVisibility
         )
         guard inputs != lastThemedChromeInputs else { return }
@@ -139,7 +140,6 @@ extension AppKitSteamWorkshopBrowserItem {
         controlBar.layer?.shadowOpacity = currentBarVisibility ? 0.11 : 0.08
         controlBar.layer?.shadowRadius = 18
         controlBar.layer?.shadowOffset = CGSize(width: 0, height: -1)
-        let progressFraction = currentProgressSnapshot?.fraction
         let indeterminate = progressFraction == nil && {
             switch currentBarState {
             case .connecting, .preparing, .transferring, .validating:

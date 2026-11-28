@@ -11,6 +11,7 @@ import QuartzCore
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  private var dockPreferenceObserver: AnyCancellable?
  private var appearanceObserver: AnyCancellable?
+ private var iconAppearanceObserver: AnyCancellable?
  private var statusBarController: StatusBarController?
  private var pendingInitialWindowOpen: DispatchWorkItem?
  private var didPrepareProductTermination = false
@@ -50,6 +51,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
      case .system: nil
      case .light: NSAppearance(named: .aqua)
      case .dark: NSAppearance(named: .darkAqua)
+     }
+ }
+ iconAppearanceObserver = WallpaperInterfaceSettings.shared.publisher(for: \.iconAppearance).sink { appearance in
+     NSApp.applicationIconImage = switch appearance {
+     case .system: nil
+     case .light: NSImage(named: "MyWallpaperXIconLight")
+     case .dark: NSImage(named: "MyWallpaperXIconDark")
      }
  }
  MainMenuBuilder.installMainMenu()

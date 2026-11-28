@@ -615,7 +615,10 @@ extension SteamWorkshopService {
         return error.localizedDescription
     }
 
-    func cancelDownload(itemID: String) { cancelDownloadImmediately(itemID: itemID, showFeedback: true) }
+    func cancelDownload(itemID: String) {
+        guard currentAccountDownloadJob(for: itemID) != nil else { return }
+        cancelDownloadImmediately(itemID: itemID, showFeedback: true)
+    }
 
     /// 用户暂停：helper 侧复用 CancelDownload 收口在途传输；staging 与已下载
     /// 字节保留，任务回 queued。恢复走 resumeDownload → 既有出队路径。
@@ -689,7 +692,7 @@ extension SteamWorkshopService {
         let id = request.id, pageTitle = request.pageTitle
         let title = pageTitle ?? "Workshop #\(id)"
         // SK4.1：入队真值在 JobStore——同项去重，重复点击/跨来源点击只一个任务。
-        let (_, isNew) = downloadJobStore.enqueue(
+        let (job, isNew) = downloadJobStore.enqueue(
             workshopItemId: id,
             title: title,
             accountSteamId: account
@@ -702,6 +705,7 @@ extension SteamWorkshopService {
             statusMessage = String(localized: "\(title) is already in the download queue.")
             return
         }
+        downloadProgressStore.clear(itemID: id, jobKey: "\(job.id)-\(job.attempt)")
         // The existing request payload lifetime also carries the admitted
         // restoration receipt. Nothing is reconstructed by scans or restart.
         steamJobItemPayloads[id] = request
@@ -715,7 +719,7 @@ extension SteamWorkshopService {
         statusMessage = String(localized: "Added \(title) to the download queue.")
     }
 
-    private func processNextQueuedDownloadIfPossible() {
+    func processNextQueuedDownloadIfPossible() {
         guard reservedLibraryCopyBytesByJobKey.isEmpty else { return }
 
         // 恢复任务只按当前在线账号出队。无账号时保持队列原样，不制造匿名任务。

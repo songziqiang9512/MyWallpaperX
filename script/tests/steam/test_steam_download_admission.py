@@ -21,16 +21,25 @@ class SteamDownloadAdmissionTests(unittest.TestCase):
         self.assertNotIn("showLoginPanel()", browser)
 
     def test_service_admission(self):
-        source = (CORE / "SteamWorkshopService+Downloads.swift").read_text()
-        names = ["downloadWorkshopItem", "downloadAdmissionAccount", "canRequestDownload",
-                 "startDownloadRequest", "enqueueDownloadRequest", "processNextQueuedDownloadIfPossible"]
+        files = {
+            "SteamWorkshopService+Downloads.swift": [
+                "downloadWorkshopItem", "downloadAdmissionAccount", "canRequestDownload",
+                "startDownloadRequest", "enqueueDownloadRequest", "processNextQueuedDownloadIfPossible",
+                "cancelDownload", "cancelDownloadImmediately",
+            ],
+            "SteamWorkshopService+DownloadAccessors.swift": ["currentAccountDownloadJob"],
+            "SteamWorkshopService.swift": ["observeSteamAccountIdentityForPersonalSources"],
+        }
         methods = []
-        for name in names:
-            start = re.search(r"^    (?:private )?func " + name + r"\(", source, re.M)
-            self.assertIsNotNone(start, name)
-            end = source.index("\n    }", start.start()) + len("\n    }")
-            methods.append(source[start.start():end])
+        for filename, names in files.items():
+            source = (CORE / filename).read_text()
+            for name in names:
+                start = re.search(r"^    (?:private )?func " + name + r"\(", source, re.M)
+                self.assertIsNotNone(start, name)
+                end = source.index("\n    }", start.start()) + len("\n    }")
+                methods.append(source[start.start():end])
         stub = r'''
+import Combine
 import Foundation
 struct SteamWorkshopBrowserItem {}
 struct SteamWorkshopPendingDownloadRequest {
@@ -38,7 +47,7 @@ struct SteamWorkshopPendingDownloadRequest {
     var libraryRestoration: (() -> Void)? = nil
 }
 @MainActor final class Auth {
-    var steamId: String?
+    @Published var steamId: String?
     var isOnline: Bool { steamId != nil }
 }
 @MainActor final class SteamWorkshopService {
@@ -48,6 +57,22 @@ struct SteamWorkshopPendingDownloadRequest {
     var pausedDownloadItemIDs: Set<String> = []
     let steamAuth = Auth()
     let downloadJobStore: SteamDownloadJobStore
+    let downloadProgressStore = SteamWorkshopDownloadProgressStore()
+    var currentSteamDownloadAccount: String? { steamAuth.steamId }
+    var cancellationFeedbackByDownloadJobKey: [String: Bool] = [:]
+    var removedTransientIDs: [String] = []
+    var cancellables = Set<AnyCancellable>()
+    enum Source { case discovery; var isPersonal: Bool { false } }
+    let source = Source.discovery
+    var isBrowsingAuthorWorkshop = false
+    var isBrowsePanelOpen = false
+    func refreshDownloadIntentProjection() {}
+    func invalidatePersonalBrowseSnapshot(discard: Bool) {}
+    func returnToDiscoveryBrowse(selectOrigin: Bool) {}
+    func enterBrowseSection(_ source: Source, loadIfNeeded: Bool) {}
+    func navigateToBrowse() {}
+    func removeTransientRecord(id: String) { removedTransientIDs.append(id) }
+    func scheduleTerminalDownloadCleanup() {}
     var statusMessage = ""
     let maximumConcurrentDownloads = 2
     var activeDownloadItemIDs: Set<String> = []
@@ -85,6 +110,7 @@ extension SteamWorkshopService {
 METHODS
     func enqueueDirect() { enqueueDownloadRequest(.init(id: "123456", pageTitle: nil, item: SteamWorkshopBrowserItem())) }
     func resumeQueue() { processNextQueuedDownloadIfPossible() }
+    func observeRecoveredQueue() { observeSteamAccountIdentityForPersonalSources() }
 }
 @main struct Harness {
     @MainActor static func main() {
@@ -134,6 +160,40 @@ METHODS
             "queue must preserve one original explicit receipt without consuming it during admission")
         queued.startedRestorations[0]?()
         precondition(restored == 1, "dequeued executor must receive the original request receipt")
+        let stored = service("recovered.json")
+        let recoveryJob = stored.downloadJobStore.enqueue(workshopItemId: "234567", title: "Stored", accountSteamId: "A").job
+        let recovered = service("recovered.json")
+        recovered.observeRecoveredQueue()
+        recovered.steamAuth.steamId = "B"
+        RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+        precondition(recovered.started == 0 && recovered.downloadJobStore.job(id: recoveryJob.id)?.state == .queued)
+        recovered.steamAuth.steamId = "A"
+        RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+        precondition(recovered.started == 1 && recovered.downloadJobStore.job(id: recoveryJob.id)?.state == .running,
+            "signing in as the owner must pump recovered jobs without a new request")
+
+        let retry = service("failed-retry.json")
+        retry.steamAuth.steamId = "A"
+        let job = retry.downloadJobStore.enqueue(workshopItemId: "123456", title: "Retry", accountSteamId: "A").job
+        let running = retry.downloadJobStore.apply(.started, toID: job.id)!
+        precondition(retry.downloadJobStore.apply(.failed("old error"), toID: job.id) != nil)
+        let key = "\(job.id)-\(running.attempt)"
+        retry.downloadProgressStore.begin(itemID: job.workshopItemId, jobKey: key, attempt: running.attempt)
+        retry.downloadProgressStore.fail(itemID: job.workshopItemId, jobKey: key, message: "old error")
+        retry.enqueueDirect()
+        precondition(retry.downloadJobStore.job(id: job.id)?.state == .queued)
+        precondition(retry.downloadProgressStore.snapshot(for: job.workshopItemId) == nil,
+            "successful requeue clears the failed attempt snapshot")
+        for otherAccount: String? in [nil, "B"] {
+            retry.steamAuth.steamId = otherAccount
+            retry.cancelDownload(itemID: job.workshopItemId)
+            precondition(retry.downloadJobStore.job(id: job.id)?.state == .queued && retry.removedTransientIDs.isEmpty)
+        }
+        retry.steamAuth.steamId = "A"
+        retry.cancelDownload(itemID: job.workshopItemId)
+        precondition(retry.downloadJobStore.job(id: job.id)?.state == .cancelled
+            && retry.downloadProgressStore.snapshot(for: job.workshopItemId) == nil
+            && retry.removedTransientIDs == [job.workshopItemId])
         let immediate = service("immediate.json")
         immediate.steamAuth.steamId = "A"
         immediate.downloadWorkshopItem(id: "654321")
@@ -144,7 +204,7 @@ METHODS
         precondition(immediate.downloadJobStore.jobs[0].accountSteamId == "A")
         precondition(immediate.downloadJobStore.activeJob(forWorkshopItemId: "654323")?.state == .queued,
             "third job must remain queued behind the two-slot executor")
-        print("Download admission: signed-out idle/busy/direct entry, no login replay, dedup, account isolation and two-slot cap PASS")
+        print("Download admission: signed-out idle/busy/direct entry, no login replay, dedup, account isolation, recovery, retry cancellation and two-slot cap PASS")
     }
 }
 '''.replace("METHODS", "\n".join(methods))
@@ -161,7 +221,8 @@ METHODS
                 ROOT / "MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift",
                 *[CORE / name for name in ("SteamServiceProtocol.swift", "SteamServiceClient.swift",
                     "SteamWorkshopQueryClient.swift", "SteamWorkshopLibraryTransaction.swift",
-                    "SteamWorkshopLibraryTransaction+FailedVisibility.swift", "SteamWorkshopLibraryPublication.swift")],
+                    "SteamWorkshopLibraryTransaction+FailedVisibility.swift", "SteamWorkshopLibraryPublication.swift",
+                    "SteamWorkshopDownloadProgress.swift")],
             ]
             subprocess.run(["xcrun", "swiftc", "-parse-as-library", *map(str, dependencies), str(CORE / "SteamWorkshopJobStore.swift"),
                             str(harness), "-o", str(binary)], check=True, timeout=120)

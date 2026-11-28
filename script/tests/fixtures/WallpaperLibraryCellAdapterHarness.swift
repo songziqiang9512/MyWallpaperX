@@ -256,7 +256,7 @@ final class AppKitSteamWorkshopBrowserItem: RecordingCard {
         organization = presentation; playing = isPlaying; selecting = isMultiSelectMode; selectedState = isKeyboardFocused
     }
     func setPreviewVisible(_ visible: Bool) { self.visible = visible }
-    func configureMetadataOnly(displayContext: DisplayContext, isPlaying: Bool, item: SteamWorkshopBrowserItem,
+    func configure(displayContext: DisplayContext, isPlaying: Bool, item: SteamWorkshopBrowserItem,
         downloadRecord: SteamWorkshopDownloadRecord?, downloadProgressStore: SteamWorkshopDownloadProgressStore,
         isDownloading: Bool, isDownloaded: Bool, isMultiSelectMode: Bool, isKeyboardFocused: Bool,
         organization: OrganizationPresentation?, onOpen: (() -> Void)?, onDownload: @escaping () -> Void,
@@ -382,7 +382,7 @@ final class AdapterCollectionDataSource: NSObject, NSCollectionViewDataSource {
         let missing = content(.staticImageLibrary, "missing", capabilities: [.inspect])
         let unavailable = make(missing)
         checks["missingSourceRowUsesRealUnavailableCell"] = unavailable is WallpaperLibraryUnavailableItem && !adapter.needsCellReplacement(unavailable, content: missing)
-        checks["unavailableCardKeepsVoiceOverTitleWithoutHoverPathMetadata"] = unavailable.view.accessibilityLabel() == "missing，原文件不可用"
+        checks["unavailableCardKeepsVoiceOverTitleWithoutHoverPathMetadata"] = unavailable.view.accessibilityLabel() == String(localized: "missing, original file unavailable")
             && unavailable.view.toolTip == nil
         images.wallpapers.append(.init(id: "missing", path: "/restored", title: "restored"))
         checks["restoredSourceRequestsNativeCellReplacement"] = adapter.needsCellReplacement(unavailable, content: missing)

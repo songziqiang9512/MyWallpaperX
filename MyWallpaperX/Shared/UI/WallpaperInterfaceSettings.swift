@@ -26,8 +26,14 @@ struct WallpaperInterfacePreferences: Codable, Equatable {
     var startupPage: StartupPage = .lastPage
     var startupPlaylist: UUID?
     var appearance: Appearance = .system
+    private var fixedIconAppearance: Appearance?
     var statusIcon: StatusIcon = .gpuUsage
     var hiddenSources: Set<Source> = []
+
+    var iconAppearance: Appearance {
+        get { fixedIconAppearance ?? .system }
+        set { fixedIconAppearance = newValue == .system ? nil : newValue }
+    }
 }
 
 /// Device-local presentation preferences, shared by the settings form and the

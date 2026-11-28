@@ -5,8 +5,8 @@
   "maxReviewAgeDays": 60,
   "bodies": {
     "docs/architecture/appkit-migration.md": {
-      "lines": 226,
-      "bytes": 28706
+      "lines": 227,
+      "bytes": 29189
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
       "lines": 52,
@@ -18,7 +18,7 @@
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
-      "bytes": 18931
+      "bytes": 18918
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 53,
@@ -62,7 +62,7 @@
     },
     "docs/development/lock-screen-screensaver-design.md": {
       "lines": 118,
-      "bytes": 22648
+      "bytes": 22460
     },
     "docs/development/main-window-playlists-redesign.md": {
       "lines": 556,
@@ -373,11 +373,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/appkit-migration.md",
-      "before": "689a3f8749276a2e2d435eb36d0e2a996952b841aa083854e5ec574fdb8542b9",
-      "after": "1ac4047e65bfb88f6b949d7457185a8a0edfbb2a746b6e725457242a31fcd66d",
-      "owner": "AppKit Settings and wallpaper quality",
-      "reason": "合并主线界面偏好与侧栏设置，保独立画质页及逐屏反馈。",
-      "decision": "docs/development/wallpaper-quality-settings-plan.md#quality-native-settings-reconciliation"
+      "before": "1ac4047e65bfb88f6b949d7457185a8a0edfbb2a746b6e725457242a31fcd66d",
+      "after": "93ebe0a6125b7fae17ed82612b5b630376e08a2d179f8c7f45609abfb3f6bdee",
+      "owner": "repository governance",
+      "reason": "合并主仓紧凑设置、Dock 和网格职责及独立工作树的质量页、Video 详情职责。",
+      "decision": "docs/architecture/appkit-migration.md"
     },
     {
       "section": "bodies",
@@ -391,11 +391,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/steam-workshop-acquisition-contract.md",
-      "before": "106b7f3cf498969caea81ac69b40f9f636908c833a3598c3a8b38ca7d1c614f9",
-      "after": "5ea2b7ecc76721bf5949b0d4dd504ef62b48b3359abb1bc8c8a009ea2d526a45",
-      "owner": "Steam Workshop / Video",
-      "reason": "说明已就绪 Video 详情取实际源轨道，原页面标签与播放消费各归原入口。",
-      "decision": "docs/development/wallpaper-quality-work-card.md#execution"
+      "before": "96c3a9aca57796e13aa3590d29ce8fe0af3b4774cb88042c241e9340238049a4",
+      "after": "0dd1289dc1cc82dd811bf392df9360b12ff095217bdab25742c7df9b83a4437f",
+      "owner": "repository governance",
+      "reason": "同时保留主仓下载队列投影与 Ready 片源规格合同。",
+      "decision": "docs/architecture/steam-workshop-acquisition-contract.md"
     },
     {
       "section": "bodies",

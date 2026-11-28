@@ -61,6 +61,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
     var currentProgressSnapshot: SteamWorkshopDownloadProgressSnapshot?
     private var currentItem: SteamWorkshopBrowserItem?
     private var currentDownloadRecord: SteamWorkshopDownloadRecord?
+    private var currentIsQueued = false
     private var currentIsDownloading = false
     private var currentIsDownloaded = false
     private var currentIsKeyboardFocused = false
@@ -162,6 +163,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         isPreviewVisible = false
         currentItem = nil
         currentDownloadRecord = nil
+        currentIsQueued = false
         currentIsDownloading = false
         currentIsDownloaded = false
         currentIsKeyboardFocused = false
@@ -188,6 +190,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         downloadRecord: SteamWorkshopDownloadRecord?,
         downloadProgressStore: SteamWorkshopDownloadProgressStore,
         isDownloading: Bool,
+        isQueued: Bool = false,
         isDownloaded: Bool,
         isMultiSelectMode: Bool = false,
         isKeyboardFocused: Bool,
@@ -236,6 +239,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
             })
         ] : []))
         currentDownloadRecord = downloadRecord
+        currentIsQueued = isQueued
         currentIsDownloading = isDownloading
         currentIsDownloaded = isDownloaded
         self.isMultiSelectMode = isMultiSelectMode
@@ -249,71 +253,10 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         loadCurrentPreview()
     }
 
-    func configureMetadataOnly(
-        displayContext: DisplayContext = .browser,
-        isPlaying: Bool = false,
-        item: SteamWorkshopBrowserItem,
-        downloadRecord: SteamWorkshopDownloadRecord?,
-        downloadProgressStore: SteamWorkshopDownloadProgressStore,
-        isDownloading: Bool,
-        isDownloaded: Bool,
-        isMultiSelectMode: Bool = false,
-        isKeyboardFocused: Bool,
-        organization: OrganizationPresentation? = nil,
-        makeMenu: (() -> NSMenu?)? = nil,
-        onOpen: (() -> Void)?,
-        onDownload: @escaping () -> Void,
-        onSetAsWallpaper: @escaping () -> Void,
-        onCancelDownload: @escaping () -> Void
-    ) {
-        organizationPresentation = organization
-        self.onOpen = onOpen
-        controlBar.detailButton.isEnabled = onOpen != nil
-        self.onDownload = onDownload
-        self.onSetAsWallpaper = onSetAsWallpaper
-        self.onCancelDownload = onCancelDownload
-        self.makeMenu = makeMenu
-        currentDisplayContext = displayContext
-        if displayContext == .browser { (view as? WallpaperCardInteractionView)?.onAccessibilityActivate = nil }
-        isPlayingRecord = isPlaying && (displayContext == .downloads || organization != nil)
-        currentDownloadVideoURL = downloadRecord?.videoURL
-        currentItem = item
-        (view as? SteamWorkshopCardAccessibilityView)?.onMenu = { [weak self] in
-            self?.currentContextMenu()
-        }
-        view.setAccessibilityElement(true)
-        view.setAccessibilityRole(.group)
-        view.setAccessibilityLabel(item.title)
-        view.setAccessibilityCustomActions((onOpen.map { action in [
-            NSAccessibilityCustomAction(name: String(localized: "View Details"), handler: { [weak self] in
-                guard let self, self.onOpen != nil, self.currentDisplayContext == displayContext,
-                      self.currentItem?.id.utf8.elementsEqual(item.id.utf8) == true else { return false }
-                action()
-                return true
-            })
-        ] } ?? []) + (displayContext == .browser ? [
-            NSAccessibilityCustomAction(name: String(localized: "Artwork Actions Menu"), handler: { [weak self] in
-                guard let self, self.currentDisplayContext == displayContext,
-                      self.currentItem?.id.utf8.elementsEqual(item.id.utf8) == true,
-                      let menu = self.currentContextMenu() else { return false }
-                let scroll = self.view.enclosingScrollView as? WallpaperGridScrollView
-                scroll?.beginContextMenu(at: self.view.convert(NSPoint(x: self.view.bounds.midX, y: self.view.bounds.midY), to: nil))
-                defer { scroll?.endContextMenu() }
-                menu.popUp(positioning: nil, at: NSPoint(x: self.view.bounds.midX, y: self.view.bounds.midY), in: self.view)
-                return true
-            })
-        ] : []))
-        currentDownloadRecord = downloadRecord
-        currentIsDownloading = isDownloading
-        currentIsDownloaded = isDownloaded
-        self.isMultiSelectMode = isMultiSelectMode
-        currentIsKeyboardFocused = isKeyboardFocused
-        syncPreviewAnimationState()
-        bindDownloadProgress(to: downloadProgressStore, itemID: item.id)
-        // 与 configure 相同：绑定回放的 nil 快照被 tick-diff 早退拦截，
-        // 初始内容应用显式执行。
+    func setQueuedForDownload(_ isQueued: Bool) {
+        guard isQueued != currentIsQueued else { return }
+        currentIsQueued = isQueued
         applyCurrentContent()
-        loadCurrentPreview()
     }
 
     /// Selection/relations/playback do not rebind progress or revalidate pixels.
@@ -538,9 +481,10 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         currentActionKind = resolvedActionKind(
             downloadRecord: downloadRecord,
             isDownloading: isDownloading,
-            isDownloaded: isDownloaded
+            isDownloaded: isDownloaded,
+            barState: barState
         )
-        if isPlayingRecord {
+        if isPlayingRecord, barState != .queued {
             // 正在播放：bar 常显、淡红底、按钮切换为停止。
             currentActionKind = .stop
             shouldPersistBarVisibility = true
@@ -548,9 +492,9 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         } else if controlBar.glass.layer?.backgroundColor != NSColor.clear.cgColor {
             controlBar.glass.layer?.backgroundColor = NSColor.clear.cgColor
         }
-        isLaunchPendingBadge = organizationPresentation?.isSwitching ?? downloadRecord.map {
+        isLaunchPendingBadge = barState != .queued && (organizationPresentation?.isSwitching ?? downloadRecord.map {
             SteamWorkshopService.shared.isLaunchPending($0.id)
-        } ?? false
+        } ?? false)
         if isLaunchPendingBadge {
             currentActionKind = .setAsWallpaper
             shouldPersistBarVisibility = true
@@ -574,6 +518,9 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         isDownloading: Bool,
         isDownloaded: Bool
     ) -> BarState {
+        if currentIsQueued || (currentDisplayContext == .downloads && downloadRecord?.status == .queued) {
+            return .queued
+        }
         if let phase = currentProgressSnapshot?.phase {
             switch phase {
             case .connecting: return .connecting
@@ -587,9 +534,6 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         }
         if isDownloading || downloadRecord?.status == .downloading {
             return .connecting
-        }
-        if downloadRecord?.status == .queued {
-            return .queued
         }
         if isDownloaded || downloadRecord?.status == .ready {
             return .ready
@@ -651,8 +595,10 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
     private func resolvedActionKind(
         downloadRecord: SteamWorkshopDownloadRecord?,
         isDownloading: Bool,
-        isDownloaded: Bool
+        isDownloaded: Bool,
+        barState: BarState
     ) -> ActionKind {
+        if barState == .queued { return .cancel }
         if let phase = currentProgressSnapshot?.phase {
             switch phase {
             case .saving:
@@ -663,7 +609,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
                 return .cancel
             }
         }
-        if isDownloading || downloadRecord?.status == .queued {
+        if isDownloading {
             return .cancel
         }
         if let downloadRecord,
@@ -714,7 +660,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
             switch actionKind {
             case .setAsWallpaper, .stop: allowed = organizationPresentation.canPlay
             case .download, .retry: allowed = organizationPresentation.canDownload
-            case .cancel: allowed = organizationPresentation.canCancel
+            case .cancel: allowed = currentIsQueued || organizationPresentation.canCancel
             case .saving: allowed = false
             }
         } else { allowed = actionKind != .saving }

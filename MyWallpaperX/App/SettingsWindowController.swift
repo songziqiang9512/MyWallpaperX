@@ -7,7 +7,7 @@ import AppKit
 import Combine
 
 @MainActor
-final class SettingsWindowController: NSWindowController {
+final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     static let shared = SettingsWindowController()
 
     private let contentController = SettingsContentViewController()
@@ -29,6 +29,7 @@ final class SettingsWindowController: NSWindowController {
         window.level = .normal
 
         super.init(window: window)
+        window.delegate = self
         shouldCascadeWindows = false
         window.toolbar = NSToolbar(identifier: "SettingsWindowChrome")
         window.toolbarStyle = .unified
@@ -59,6 +60,13 @@ final class SettingsWindowController: NSWindowController {
         }
         if window.isMiniaturized { window.deminiaturize(nil) }
         window.makeKeyAndOrderFront(nil)
+    }
+
+    func window(_ window: NSWindow, willPositionSheet sheet: NSWindow, using rect: NSRect) -> NSRect {
+        guard sheet.identifier == ScreenSaverWindowController.windowIdentifier else { return rect }
+        var anchor = rect
+        anchor.origin.y = (window.frame.height + sheet.frame.height) / 2
+        return anchor
     }
 
     /// The App supplies the same recovery owner used during startup/reset.

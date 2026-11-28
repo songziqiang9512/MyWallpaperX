@@ -1240,9 +1240,10 @@
       "owner": "AppKit settings and library presentation",
       "status": "approved",
       "designDoc": "docs/architecture/appkit-migration.md",
-      "design_notes": "界面偏好独立于引擎。启动页由关系快照校验，外观、菜单栏、工坊预览和侧栏沿既有 AppKit 入口生效。设置窗口依 IINA v1.5.0 的比例、分组和原生控件独立实现，原生侧栏只显示类别，单一现役表单承接内容及操作。",
+      "design_notes": "界面偏好独立于引擎。启动页由关系快照校验，外观、应用图标、菜单栏、工坊预览和侧栏沿 AppKit 入口生效。应用图标由系统选择签名包外观，应用内固定选项只投影到 Dock。设置窗口依 IINA v1.5.0 的比例、分组和原生控件独立实现，原生侧栏只显示类别，单一现役表单承接内容及操作。",
       "matchPatterns": [
         "MyWallpaperX/Shared/UI/WallpaperInterfaceSettings.swift",
+        "MyWallpaperX/AppIcon.icon/**",
         "MyWallpaperX/Shared/Settings/AppKitInterfaceSettingsForm.swift",
         "MyWallpaperX/App/WallpaperLibraryWorkspace.swift",
         "MyWallpaperX/App/SettingsWindowController.swift",

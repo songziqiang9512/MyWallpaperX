@@ -59,7 +59,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         for path in collectionView.indexPathsForVisibleItems() {
             guard let cell = collectionView.item(at: path) as? AppKitSteamWorkshopBrowserItem,
                   let id = dataSource.itemIdentifier(for: path) else { continue }
-            configureMetadataCell(cell, for: id)
+            configureCell(cell, for: id)
         }
     }
 
@@ -149,7 +149,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
                 self.configureFooter(item)
                 return item
             }
-            guard let item = self.itemsByID[id] else { return nil }
+            guard self.itemsByID[id] != nil else { return nil }
             guard let cell = self.collectionView.makeItem(
                 withIdentifier: AppKitSteamWorkshopBrowserItem.reuseIdentifier, for: indexPath) as? AppKitSteamWorkshopBrowserItem else { return nil }
             self.configureCell(cell, for: id)
@@ -255,6 +255,24 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.reloadVisibleItems()
+            }
+            .store(in: &cancellables)
+
+        Publishers.CombineLatest(service.downloadJobStore.$jobs, service.steamAuth.$steamId)
+            .map { jobs, account in
+                Set(jobs.lazy.filter { $0.state == .queued && $0.accountSteamId == account }.map(\.workshopItemId))
+            }
+            .removeDuplicates()
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] queuedIDs in
+                guard let self, !self.isApplyingSnapshot else { return }
+                for visible in self.collectionView.visibleItems() {
+                    guard let cell = visible as? AppKitSteamWorkshopBrowserItem,
+                          let path = self.collectionView.indexPath(for: cell),
+                          let id = self.dataSource.itemIdentifier(for: path) else { continue }
+                    cell.setQueuedForDownload(queuedIDs.contains(id))
+                }
             }
             .store(in: &cancellables)
 
@@ -431,7 +449,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             guard let id = dataSource.itemIdentifier(for: indexPath), changedIDs.contains(id) else { continue }
             guard let cell = collectionView.item(at: indexPath) as? AppKitSteamWorkshopBrowserItem else { continue }
             guard itemsByID[id] != nil else { continue }
-            configureMetadataCell(cell, for: id)
+            configureCell(cell, for: id)
         }
     }
 
@@ -469,41 +487,17 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     private func configureCell(_ cell: AppKitSteamWorkshopBrowserItem, for id: String) {
         guard let item = itemsByID[id] else { return }
         let organization = makeOrganization?(item)
+        let jobState = service.currentAccountDownloadJob(for: id)?.state
+        let record = service.latestDownloadRecord(for: id)
         cell.configure(
             displayContext: .browser,
             isPlaying: organization?.isPlaying ?? false,
             item: item,
-            downloadRecord: service.latestDownloadRecord(for: id),
+            downloadRecord: record,
             downloadProgressStore: service.downloadProgressStore,
-            isDownloading: service.isDownloading(itemID: id),
-            isDownloaded: service.isDownloaded(itemID: id),
-            isKeyboardFocused: keyboardFocusedID == id,
-            organization: organization,
-            makeMenu: { [weak self] in
-                guard let self, let current = self.itemsByID[id] else { return nil }
-                return self.itemMenu(for: current)
-            },
-            onOpen: { [weak self] in _ = self?.openItem(withID: id) },
-            onDownload: { [weak self] in
-                guard let self, let current = self.itemsByID[id] else { return }
-                self.onDownload(current)
-            },
-            onSetAsWallpaper: { [weak self] in _ = self?.performPrimaryAction(for: id) },
-            onCancelDownload: { [weak self] in self?.onCancelDownload(item) }
-        )
-    }
-
-    private func configureMetadataCell(_ cell: AppKitSteamWorkshopBrowserItem, for id: String) {
-        guard let item = itemsByID[id] else { return }
-        let organization = makeOrganization?(item)
-        cell.configureMetadataOnly(
-            displayContext: .browser,
-            isPlaying: organization?.isPlaying ?? false,
-            item: item,
-            downloadRecord: service.latestDownloadRecord(for: id),
-            downloadProgressStore: service.downloadProgressStore,
-            isDownloading: service.isDownloading(itemID: id),
-            isDownloaded: service.isDownloaded(itemID: id),
+            isDownloading: jobState == .running,
+            isQueued: jobState == .queued,
+            isDownloaded: record?.status == .ready,
             isKeyboardFocused: keyboardFocusedID == id,
             organization: organization,
             makeMenu: { [weak self] in

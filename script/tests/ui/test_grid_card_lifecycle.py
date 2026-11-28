@@ -240,6 +240,9 @@ class GridCardLifecycleTests(unittest.TestCase):
     def test_downloads_native_buttons_are_the_only_primary_action_hit_owner(self):
         self.check_case("pixabay-native-click-owner")
 
+    def test_displaced_collection_cedes_card_buttons_to_native_input(self):
+        self.check_case("pixabay-native-offset-click-owner")
+
     def test_native_collection_registration_and_actual_item_pool_reuse(self):
         self.check_case("native-pool")
 
