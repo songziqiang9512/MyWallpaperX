@@ -222,7 +222,8 @@ class WallpaperLibraryImportTests(unittest.TestCase):
             'Core/LibraryCollections/WallpaperLibraryQuery.swift', 'Core/PlaybackControl/WallpaperRuntimeSwitch.swift',
             'Core/PlaybackControl/PlaybackSwitchTransaction.swift', 'Core/PlaybackControl/WallpaperPlaybackSequence.swift',
             'Core/PlaybackControl/WallpaperRotationDeadline.swift',
-            'Shell/WallpaperLibraryPresentation.swift', 'App/WallpaperLibraryWorkspace.swift')]
+            'Shell/WallpaperLibraryPresentation.swift', 'Shared/UI/WallpaperInterfaceSettings.swift',
+            'App/WallpaperLibraryWorkspace.swift')]
         paths.append('script/tests/fixtures/OnlineImageLibraryAppStub.swift')
         leaf_path = ROOT / 'script/tests/fixtures/WallpaperLibraryWorkspaceHarness.swift'
         fixture_path = ROOT / 'script/tests/fixtures/WallpaperLibraryWorkspaceAliasHarness.swift'

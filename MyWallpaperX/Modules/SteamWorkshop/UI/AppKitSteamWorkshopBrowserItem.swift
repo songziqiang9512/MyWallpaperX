@@ -4,6 +4,7 @@
 //
 
 import AppKit
+import Combine
 import QuartzCore
 
 final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem {
@@ -111,7 +112,11 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         nil
     }
 
+    private var previewPreference: AnyCancellable?
+
     override func loadView() {
+        previewPreference = WallpaperInterfaceSettings.shared.publisher(for: \.workshopPreview).dropFirst()
+            .sink { [weak self] _ in self?.syncPreviewAnimationState() }
         let root = SteamWorkshopCardAccessibilityView()
         root.onPress = { [weak self] in
             guard let action = self?.onOpen else { return false }

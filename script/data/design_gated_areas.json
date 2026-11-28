@@ -1217,6 +1217,23 @@
       ]
     },
     {
+      "id": "appkit-interface-preferences",
+      "title": "AppKit 界面偏好",
+      "owner": "AppKit settings and library presentation",
+      "status": "approved",
+      "designDoc": "docs/architecture/appkit-migration.md",
+      "design_notes": "界面偏好独立于引擎。启动页由关系快照校验，外观、菜单栏、工坊预览和侧栏沿既有 AppKit 入口生效。设置窗口依 IINA v1.5.0 的比例、分组和原生控件独立实现，原生侧栏只显示类别，单一现役表单承接内容及操作。",
+      "matchPatterns": [
+        "MyWallpaperX/Shared/UI/WallpaperInterfaceSettings.swift",
+        "MyWallpaperX/Shared/Settings/AppKitInterfaceSettingsForm.swift",
+        "MyWallpaperX/App/WallpaperLibraryWorkspace.swift",
+        "MyWallpaperX/App/SettingsWindowController.swift",
+        "MyWallpaperX/App/SettingsNavigationSidebar.swift",
+        "MyWallpaperX/Shared/Components/AppKitSettingsComponents.swift",
+        "MyWallpaperX/Shell/WallpaperLibrarySidebarController.swift"
+      ]
+    },
+    {
       "id": "appkit-grid-scroll-cost",
       "title": "D15 全模块网格滚动与复用",
       "owner": "AppKit grid scroll views and item presentation",

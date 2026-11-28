@@ -87,8 +87,27 @@ import ImageIO
         item.setPreviewVisible(false)
         checks["hiddenCardKeepsStatic"] = item.previewImageView.image === still && !item.previewImageView.animates
         let detail = SteamWorkshopPreviewImageContainerView(frame: NSRect(x: 0, y: 0, width: 280, height: 156))
+        container.addSubview(detail)
         detail.configure(itemID: "one", previewImageURL: media, fallbackVideoURL: nil, refreshToken: 0)
         checks["detailLoadsAnimation"] = pump { animated(imageView(detail)?.image) }
+        let preferences = WallpaperInterfaceSettings.shared
+        preferences.update { $0.workshopPreview = .staticCover }
+        checks["staticModeStopsMountedDetailAndPreservesStill"] = imageView(detail)?.image != nil
+            && !animated(imageView(detail)?.image)
+        preferences.update { $0.workshopPreview = .detailsOnly }
+        checks["detailsOnlyRestoresCurrentMountedGIF"] = pump { animated(imageView(detail)?.image) }
+        let mountedAnimation = imageView(detail)?.image
+        detail.removeFromSuperview()
+        container.addSubview(detail)
+        var reattachmentSettled = false
+        DispatchQueue.main.async { reattachmentSettled = true }
+        checks["sameTurnReattachmentKeepsAnimation"] = pump { reattachmentSettled }
+            && imageView(detail)?.image === mountedAnimation
+        detail.removeFromSuperview()
+        checks["detachingDetailsRevokesAnimation"] = pump { !animated(imageView(detail)?.image) }
+        container.addSubview(detail)
+        checks["remountingDetailsResumesAnimation"] = pump { animated(imageView(detail)?.image) }
+        preferences.reset()
         SteamWorkshopPreviewImageCache.shared.imageCache.removeAllObjects()
         detail.configure(itemID: "one", previewImageURL: media, fallbackVideoURL: nil, refreshToken: 0)
         checks["sameDetailConfigurationNeverShowsLoading"] = placeholder(detail)?.isHidden == true
@@ -185,7 +204,7 @@ import ImageIO
             axCard.view.layoutSubtreeIfNeeded()
             passiveStatesActivate = axRoot.accessibilityPerformPress() && passiveStatesActivate
             let label = axCard.previewPlaceholderView.subviews.compactMap { $0 as? NSTextField }.first
-            checks["thumbnailPlaceholderUsesTextOnly-\(state)"] = label?.stringValue == (state == .unavailable ? "暂无缩略图" : "加载中")
+            checks["thumbnailPlaceholderUsesTextOnly-\(state)"] = label?.stringValue == (state == .unavailable ? String(localized: "No Thumbnail") : String(localized: "Loading"))
                 && axCard.previewPlaceholderView.subviews.allSatisfy { !($0 is NSProgressIndicator) }
         }
         checks["actualSteamPlaceholderStatesUseSharedAXSelectionInsteadOfProviderDetails"] = passiveStatesActivate
@@ -209,7 +228,7 @@ import ImageIO
             } else { matches = false }
             let key = "steamPlaceholderBackgroundTracksNative\(appearance.rawValue)Phase\(phase)WithoutChangingItsState"
             checks[key] = matches && !samePlaceholder.isHidden
-                && samePlaceholder.subviews.compactMap { $0 as? NSTextField }.first?.stringValue == "暂无缩略图"
+                && samePlaceholder.subviews.compactMap { $0 as? NSTextField }.first?.stringValue == String(localized: "No Thumbnail")
                 && samePlaceholder.subviews.allSatisfy { !($0 is NSProgressIndicator) }
                 && samePlaceholder === axCard.previewPlaceholderView
         }
@@ -220,18 +239,18 @@ import ImageIO
         checks["reusedUnconfiguredSteamCardDoesNotClaimSuccessfulAXPress"] = !axRoot.accessibilityPerformPress() && originalOpens == 0
         configureAX(.browser)
         checks["remoteSteamBrowserRetainsItsOriginalAXOpenAfterLocalReuse"] = axRoot.accessibilityPerformPress() && originalOpens == 1
-        let remoteDetails = axRoot.accessibilityCustomActions()!.first { $0.name == "查看详情" }!
+        let remoteDetails = axRoot.accessibilityCustomActions()!.first { $0.name == String(localized: "View Details") }!
         checks["configuredSteamDetailsCustomActionExecutesItsOriginalAction"] = remoteDetails.handler?() == true && originalOpens == 2
         configureAX(.downloads)
         checks["heldSteamDetailsCustomActionCannotCrossDisplayContext"] = remoteDetails.handler?() == false && originalOpens == 2
         configureAX(.browser)
-        let sameContextDetails = axRoot.accessibilityCustomActions()!.first { $0.name == "查看详情" }!
+        let sameContextDetails = axRoot.accessibilityCustomActions()!.first { $0.name == String(localized: "View Details") }!
         var otherJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(axItem)) as! [String: Any]
         otherJSON["id"] = "ax-other"; otherJSON["title"] = "另一张壁纸"
         let otherItem = try JSONDecoder().decode(SteamWorkshopBrowserItem.self, from: JSONSerialization.data(withJSONObject: otherJSON))
         configureAX(.browser, source: otherItem)
         checks["heldSteamDetailsCustomActionCannotRedirectToReusedSource"] = sameContextDetails.handler?() == false && originalOpens == 2
-        let priorDetails = axRoot.accessibilityCustomActions()!.first { $0.name == "查看详情" }!
+        let priorDetails = axRoot.accessibilityCustomActions()!.first { $0.name == String(localized: "View Details") }!
         axCard.prepareForReuse()
         checks["retiredRemoteSteamAXPressHasNoActionAndReportsFalse"] = !axRoot.accessibilityPerformPress() && originalOpens == 2
         checks["retiredSteamCustomActionsAreRemovedAndHeldHandlerReportsFalse"] = (axRoot.accessibilityCustomActions() ?? []).isEmpty
@@ -243,7 +262,7 @@ import ImageIO
         checks["fullSteamCardConfigurationAlsoOmitsAbsentDetails"] = (axRoot.accessibilityCustomActions() ?? []).isEmpty
             && !axRoot.accessibilityPerformPress() && originalOpens == 2
         configureAX(.browser, full: true)
-        let fullDetails = axRoot.accessibilityCustomActions()!.first { $0.name == "查看详情" }!
+        let fullDetails = axRoot.accessibilityCustomActions()!.first { $0.name == String(localized: "View Details") }!
         checks["fullSteamBrowserKeepsWorkingDetailsAlongsideItsOriginalPrimaryAction"] = fullDetails.handler?() == true
             && axRoot.accessibilityPerformPress() && originalOpens == 4
         let menuEvent = NSEvent.mouseEvent(with: .rightMouseDown, location: .zero, modifierFlags: [], timestamp: 0,
@@ -254,7 +273,7 @@ import ImageIO
         configureAX(.browser, full: true, menu: { menuRequests += 1; return organizationMenu })
         checks["steamCardRootContextMenuUsesTheInjectedBrowserMenu"] = axRoot.menu(for: menuEvent) === organizationMenu && menuRequests == 1
         configureAX(.browser, menu: { menuRequests += 1; return nil })
-        let menuAction = axRoot.accessibilityCustomActions()!.first { $0.name == "作品操作菜单" }!
+        let menuAction = axRoot.accessibilityCustomActions()!.first { $0.name == String(localized: "Artwork Actions Menu") }!
         checks["steamAXMenuUsesCurrentInjectedFactoryWithoutFallingBackToSourceOnlyMenu"] = menuAction.handler?() == false && menuRequests == 2
         configureAX(.browser, source: otherItem, menu: { menuRequests += 1; return nil })
         checks["heldSteamAXMenuCannotOpenReusedBrowserCardsOrganizationMenu"] = menuAction.handler?() == false && menuRequests == 2

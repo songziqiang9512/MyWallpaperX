@@ -130,7 +130,7 @@ enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
             let projectedTitles = nodes.map {
                 (controller.outlineView(outline, viewFor: outline.outlineTableColumn, item: $0) as? NSTableCellView)?.textField?.stringValue ?? ""
             }
-            let expectedTitles = ["所有播放列表", "特别喜爱", many[1].name, many[0].name] + many.dropFirst(2).map(\.name)
+            let expectedTitles = [String(localized: "All Playlists"), String(localized: "Favorite"), many[1].name, many[0].name] + many.dropFirst(2).map(\.name)
             checks["sidebar-indexed-children-\(count)-keep-fixed-offset-rank-ties-and-selection"] = childCount == count + 2
                 && projectedTitles == expectedTitles && nodes[0] === fixedNodes[0] && nodes[1] === fixedNodes[1]
                 && outline.selectedRow == outline.row(forItem: nodes[count / 2 + 2])
@@ -194,7 +194,7 @@ enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
         let playlistGroupRow = 10, directoryRow = 11, firstPlaylistRow = 13, secondPlaylistRow = 14
         let library = item(2), browse = item(5), playlistGroup = item(playlistGroupRow)
         let titles = (0..<outline.numberOfRows).map { cell($0).textField!.stringValue }
-        checks["untitled-local-pages-precede-library-browse-and-playlist-groups"] = titles == ["我的视频", "我的图片", "资料库", "我的下载", "最近使用", "浏览", "创意工坊", "Wallhaven", "Pixiv", "Pixabay", "播放列表", "所有播放列表", "特别喜爱", first.name, second.name]
+        checks["untitled-local-pages-precede-library-browse-and-playlist-groups"] = titles == [String(localized: "My Videos"), String(localized: "My Images"), String(localized: "Library"), String(localized: "My Downloads"), String(localized: "Recently Used"), String(localized: "Browse"), String(localized: "Workshop"), "Wallhaven", "Pixiv", "Pixabay", String(localized: "Playlist"), String(localized: "All Playlists"), String(localized: "Favorite"), first.name, second.name]
         checks["untitled-local-pages-are-root-rows-and-library-contains-downloads-and-recent-only"] = outline.parent(forItem: item(0)) == nil
             && outline.parent(forItem: item(1)) == nil && (outline.parent(forItem: item(3)) as AnyObject?) === (library as AnyObject)
             && controller.outlineView(outline, numberOfChildrenOfItem: library) == 2
@@ -285,11 +285,11 @@ enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
         }
         checks["all-playlists-entry-uses-native-three-by-three-grid-symbol"] = expectedGrid != nil
             && actualGrid == expectedGrid
-        checks["counts-are-accessible-without-visible-numeric-column"] = cell(0).accessibilityLabel() == "我的视频，7 张壁纸"
-            && cell(3).accessibilityLabel() == "我的下载" && cell(secondPlaylistRow).accessibilityLabel() == second.name + "，0 张壁纸"
+        checks["counts-are-accessible-without-visible-numeric-column"] = cell(0).accessibilityLabel() == String(localized: "My Videos") + "，7 \(String(localized: "wallpapers"))"
+            && cell(3).accessibilityLabel() == String(localized: "My Downloads") && cell(secondPlaylistRow).accessibilityLabel() == second.name + "，0 \(String(localized: "wallpapers"))"
             && !descendants(cell(0), NSTextField.self).contains { !$0.isHidden && $0.stringValue == "7" }
-        checks["directory-accessibility-count-uses-playlist-unit-without-visible-count-label"] = cell(directoryRow).accessibilityLabel() == "所有播放列表，2 个播放列表"
-            && cell(directoryRow).textField?.stringValue == "所有播放列表"
+        checks["directory-accessibility-count-uses-playlist-unit-without-visible-count-label"] = cell(directoryRow).accessibilityLabel() == String(localized: "All Playlists") + "，2 \(String(localized: "playlists"))"
+            && cell(directoryRow).textField?.stringValue == String(localized: "All Playlists")
         checks["new-online-browser-rows-have-no-persistent-visible-or-accessibility-count"] = cell(7).accessibilityLabel() == "Wallhaven"
             && cell(8).accessibilityLabel() == "Pixiv" && cell(7).textField?.stringValue == "Wallhaven"
             && cell(8).textField?.stringValue == "Pixiv"
@@ -337,7 +337,7 @@ enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
         let menu = outline.menu(for: event(.rightMouseDown, row: firstPlaylistRow))!
         checks["right-click-captures-menu-without-selection-or-navigation"] = navigation == beforeContextNavigation
             && outline.selectedRowIndexes == selectedBeforeContext
-            && menu.items.map(\.title) == ["打开播放列表", "编辑列表…", "复制列表", "", "删除列表…"]
+            && menu.items.map(\.title) == [String(localized: "Open Playlist"), String(localized: "Edit Playlist…"), String(localized: "Duplicate Playlist"), "", String(localized: "Delete Playlist…")]
         var renamedFirst = first; renamedFirst.name = "已改名"
         var movedSecond = second; movedSecond.sidebarRank = 0
         renamedFirst.sidebarRank = 1
@@ -381,9 +381,9 @@ enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
         let createMenu = outline.menu(for: blank)!
         let create = createMenu.items[0]
         NSApp.sendAction(create.action!, to: create.target, from: create)
-        checks["blank-sidebar-shares-create-action-with-directory"] = createMenu.items.map(\.title) == ["新建列表…"] && actions.last == .create
+        checks["blank-sidebar-shares-create-action-with-directory"] = createMenu.items.map(\.title) == [String(localized: "New Playlist…")] && actions.last == .create
 
-        let actualGroup = (0..<outline.numberOfRows).first { cell($0).textField?.stringValue == "播放列表" }.map(item)!
+        let actualGroup = (0..<outline.numberOfRows).first { cell($0).textField?.stringValue == String(localized: "Playlist") }.map(item)!
         let firstNode = item(selectedIDRow)
         let fixedAll = controller.outlineView(outline, child: 0, ofItem: actualGroup)
         let fixedFavorites = controller.outlineView(outline, child: 1, ofItem: actualGroup)
@@ -446,11 +446,11 @@ enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
             && controller.outlineView(outline, validateDrop: drag, proposedItem: actualGroup, proposedChildIndex: 2).isEmpty
             && !controller.outlineView(outline, acceptDrop: drag, item: actualGroup, childIndex: 2)
         controller.update(page: .playlists, playlists: [movedSecond], counts: [:], covers: [:], canEdit: true)
-        checks["removed-current-id-obeys-external-directory-page-without-navigation"] = cell(outline.selectedRow).textField?.stringValue == "所有播放列表"
+        checks["removed-current-id-obeys-external-directory-page-without-navigation"] = cell(outline.selectedRow).textField?.stringValue == String(localized: "All Playlists")
             && navigation.count == afterFixedDragNavigation
         controller.update(page: .playlists, playlists: [], counts: [.playlists: 0], covers: [:], canEdit: true)
         checks["empty-playlist-section-retains-two-fixed-entries"] = controller.outlineView(outline, numberOfChildrenOfItem: playlistGroup) == 2
-        checks["empty-directory-accessibility-count-keeps-playlist-unit"] = cell(outline.selectedRow).accessibilityLabel() == "所有播放列表，0 个播放列表"
+        checks["empty-directory-accessibility-count-keeps-playlist-unit"] = cell(outline.selectedRow).accessibilityLabel() == String(localized: "All Playlists") + "，0 \(String(localized: "playlists"))"
         controller.onReorder = nil
         checks["missing-reorder-binding-never-advertises-drop"] = controller.outlineView(outline, validateDrop: drag, proposedItem: actualGroup, proposedChildIndex: 2).isEmpty
         var artworkDemands: [Set<UUID>] = []
@@ -577,7 +577,7 @@ enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
         publishOrder()
         let orderOutline = descendants(ordering.view, SidebarOutlineView.self).first!
         let orderGroup = (0..<orderOutline.numberOfRows).first { row in
-            (orderOutline.view(atColumn: 0, row: row, makeIfNecessary: true) as? NSTableCellView)?.textField?.stringValue == "播放列表"
+            (orderOutline.view(atColumn: 0, row: row, makeIfNecessary: true) as? NSTableCellView)?.textField?.stringValue == String(localized: "Playlist")
         }.map { orderOutline.item(atRow: $0)! }!
         orderOutline.expandItem(orderGroup); orderWindow.contentView?.layoutSubtreeIfNeeded(); pump()
         func node(_ index: Int) -> Any { ordering.outlineView(orderOutline, child: index + 2, ofItem: orderGroup) }
@@ -689,6 +689,17 @@ enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
                 probeRevision += 10
             }
         }
+        let preferences = WallpaperInterfaceSettings.shared
+        controller.update(page: .workshop, playlists: [], counts: [:], covers: [:], canEdit: true)
+        preferences.update { $0.hiddenSources = Set(WallpaperInterfacePreferences.Source.allCases) }
+        let activeBrowse = controller.outlineView(outline, child: 3, ofItem: nil)
+        checks["hiding-all-sources-preserves-the-open-source"] = controller.outlineView(outline, numberOfChildrenOfItem: nil) == 5
+            && controller.outlineView(outline, numberOfChildrenOfItem: activeBrowse) == 1
+        controller.update(page: .videos, playlists: [], counts: [:], covers: [:], canEdit: true)
+        checks["leaving-the-last-visible-source-hides-the-empty-group"] = controller.outlineView(outline, numberOfChildrenOfItem: nil) == 4
+        preferences.reset()
+        checks["reset-restores-all-sources"] = controller.outlineView(outline, numberOfChildrenOfItem: nil) == 5
+            && controller.outlineView(outline, numberOfChildrenOfItem: activeBrowse) == 4
         FileHandle.standardError.write(try! JSONSerialization.data(withJSONObject: ["sidebarIconGeometry": iconDiagnostics], options: [.sortedKeys]))
         let preparationJSON = String(decoding: try! JSONSerialization.data(withJSONObject: childPreparation, options: [.sortedKeys]), as: UTF8.self)
         FileHandle.standardError.write(Data("\nSidebar child preparation: \(preparationJSON)\n".utf8))

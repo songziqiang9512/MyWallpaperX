@@ -36,7 +36,11 @@
         let ticket = manager.libraryPlaybackSequence.pending!.ticket
         let before = manager.sourceUpdates.count
         manager.libraryBackingPublished?(.init(backingVideoID: backing.sourceID, publishedReference: canonical, proof: .publishedDownload))
-        try await wait { !workspace.relationships.aliases.isEmpty && manager.sourceUpdates.count > before }
+        try await wait {
+            !workspace.relationships.aliases.isEmpty
+                && workspace.presentation.relationshipsRevision == workspace.relationships.revision
+                && manager.sourceUpdates.count > before
+        }
         if explicit { workspace.didEditMembers(of: .playlist(id)) }
         let label = explicit ? "ExplicitMembership" : "Availability"
         let fixed = manager.libraryPlaybackSequence.pending?.ticket == ticket

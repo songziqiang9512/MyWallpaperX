@@ -29,15 +29,13 @@ final class AppKitMainSplitViewController: NSSplitViewController, WallpaperInspe
     private var inspectorTransitionGeneration = 0
     var onRestoreContentFocus: (() -> Void)?
     init(sidebar: NSViewController, content: NSViewController, sidebarTintHost: AppKitListTintSurface,
-         permitsNoticeInteraction: ((NSPoint) -> Bool)? = nil, onNoticeOcclusionChange: ((CGFloat) -> Void)? = nil,
-         onListTintChange: ((NSColor, Bool) -> Void)? = nil) {
+         permitsNoticeInteraction: ((NSPoint) -> Bool)? = nil, onNoticeOcclusionChange: ((CGFloat) -> Void)? = nil) {
         sidebarController = sidebar
         self.sidebarTintHost = sidebarTintHost
         detailHostController = content
         self.permitsNoticeInteraction = permitsNoticeInteraction
         self.onNoticeOcclusionChange = onNoticeOcclusionChange
         super.init(nibName: nil, bundle: nil)
-        listBackgroundTint.onProjectionChange = onListTintChange
     }
 
     @available(*, unavailable)

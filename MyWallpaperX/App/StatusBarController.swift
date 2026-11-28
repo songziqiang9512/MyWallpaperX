@@ -6,6 +6,7 @@ import Combine
 final class StatusBarController: NSObject, NSPopoverDelegate {
     private var statusItem: NSStatusItem?
     private let wallpaperManager = WallpaperManager.shared
+    private var iconPreferenceObserver: AnyCancellable?
     private var iconRefreshTimer: DispatchSourceTimer?
     private var displayedIconLabel: String?
     private var displayedIconAppearance: NSAppearance.Name?
@@ -39,14 +40,19 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         item.button?.action = #selector(togglePanel)
         item.button?.toolTip = String(localized: "MyWallpaperX · Wallpaper Control")
         item.button?.setAccessibilityLabel(String(localized: "MyWallpaperX Wallpaper Control"))
-        SystemMonitor.shared.refreshRuntimeStats()
-        updateStatusBarIcon()
+        iconPreferenceObserver = WallpaperInterfaceSettings.shared.publisher(for: \.statusIcon)
+            .sink { [weak self] mode in
+                if mode == .gpuUsage { SystemMonitor.shared.refreshRuntimeStats() }
+                self?.refreshStatusBarIcon()
+            }
         let timer = DispatchSource.makeTimerSource(queue: .main)
         timer.schedule(deadline: .now() + 2, repeating: 2, leeway: .milliseconds(200))
         timer.setEventHandler { [weak self] in
             guard let self else { return }
-            SystemMonitor.shared.refreshRuntimeStats(includeNetwork: self.observing)
-            self.updateStatusBarIcon()
+            if self.observing || WallpaperInterfaceSettings.shared.values.statusIcon == .gpuUsage {
+                SystemMonitor.shared.refreshRuntimeStats(includeNetwork: self.observing)
+            }
+            self.refreshStatusBarIcon()
             if self.observing {
                 self.refreshApplicationStats()
                 self.refreshPanel()
@@ -59,6 +65,26 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
     deinit {
         iconRefreshTimer?.cancel()
         if let statusItem { NSStatusBar.system.removeStatusItem(statusItem) }
+    }
+
+    private func refreshStatusBarIcon() {
+        if WallpaperInterfaceSettings.shared.values.statusIcon == .gpuUsage {
+            updateStatusBarIcon()
+            return
+        }
+        guard let button = statusItem?.button else { return }
+        let hasUpdate = AppUpdateController.shared.availableUpdateVersion != nil
+        let symbol = hasUpdate ? "arrow.up.circle" : "photo.on.rectangle"
+        guard displayedIconLabel != symbol else { return }
+        let title = hasUpdate
+            ? String(localized: "MyWallpaperX · An update is available. Check for updates from the app menu.")
+            : String(localized: "MyWallpaperX · Wallpaper Control")
+        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
+        button.image?.isTemplate = true
+        button.imagePosition = .imageOnly
+        button.toolTip = title
+        displayedIconLabel = symbol
+        displayedIconAppearance = nil
     }
 
     private func updateStatusBarIcon() {

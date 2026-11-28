@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 
 /// Native navigation presentation only. Page and relationship snapshots arrive
 /// from Shell; clicks and drop receipts request work from those existing owners.
@@ -37,6 +38,8 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
     private var counts: [WallpaperLibraryPage: Int] = [:]
     private var covers: [UUID: NSImage] = [:]
     private var presentedPage = WallpaperLibraryPage.videos
+    private var hiddenBrowsePages: Set<WallpaperLibraryPage> = []
+    private var sourceVisibilityObservation: AnyCancellable?
     private var canEdit = false
     private var isApplyingSelection = false
     private let scrollView = NSScrollView()
@@ -81,6 +84,8 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
         column.resizingMask = .autoresizingMask
         outline.addTableColumn(column)
         outline.outlineTableColumn = column
+        let settings = WallpaperInterfaceSettings.shared
+        hiddenBrowsePages = Set(settings.values.hiddenSources.map(Self.browsePage))
         for page in [WallpaperLibraryPage.videos, .images] + Group.allCases.flatMap({ pages(in: $0) }) {
             pageNodes[page] = Node(.page(page))
         }
@@ -118,6 +123,8 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
         artworkObservation = WallpaperArtworkDemandObservation(view: view, clipView: scrollView.contentView) { [weak self] in
             self?.updateCoverDemand()
         }
+        sourceVisibilityObservation = settings.publisher(for: \.hiddenSources).dropFirst()
+            .sink { [weak self] in self?.applySourceVisibility($0) }
     }
 
     override func viewDidLayout() { super.viewDidLayout(); updateCoverDemand() }
@@ -145,10 +152,39 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
         if let data = try? JSONEncoder().encode(SidebarState(version: 1, expanded: expanded)) { defaults.set(data, forKey: Self.stateKey) }
     }
 
+    nonisolated private static func browsePage(_ source: WallpaperInterfacePreferences.Source) -> WallpaperLibraryPage {
+        switch source {
+        case .workshop: .workshop
+        case .wallhaven: .wallhaven
+        case .pixiv: .pixiv
+        case .pixabay: .pixabay
+        }
+    }
+
+    private func applySourceVisibility(_ sources: Set<WallpaperInterfacePreferences.Source>) {
+        let next = Set(sources.map(Self.browsePage))
+        let changes = hiddenBrowsePages.symmetricDifference(next)
+        hiddenBrowsePages = next
+        guard changes.contains(where: { $0 != presentedPage }) else { return }
+        reloadOutlinePreservingExpansion()
+        applySelection()
+        updateCoverDemand()
+    }
+
+    private func reloadOutlinePreservingExpansion() {
+        let expanded = groups.map { outline.isItemExpanded($0) }
+        isApplyingSelection = true
+        outline.reloadData()
+        for (group, isExpanded) in zip(groups, expanded) {
+            if isExpanded { outline.expandItem(group) }
+            else { outline.collapseItem(group) }
+        }
+        isApplyingSelection = false
+    }
+
     func update(page: WallpaperLibraryPage, playlists: [WallpaperPlaylist], counts: [WallpaperLibraryPage: Int],
                 covers: [UUID: NSImage], canEdit: Bool, resetEpoch: UUID? = nil, relationshipsRevision: Int64? = nil) {
         loadViewIfNeeded()
-        let expanded = groups.map { outline.isItemExpanded($0) }
         let ordered = playlists.enumerated().sorted {
             $0.element.sidebarRank == $1.element.sidebarRank ? $0.offset < $1.offset : $0.element.sidebarRank < $1.element.sidebarRank
         }.map(\.element)
@@ -166,7 +202,9 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
         let byID = Dictionary(uniqueKeysWithValues: ordered.map { ($0.id, $0) })
         let displayed = pendingOrder.map { $0.compactMap { byID[$0] } } ?? ordered
         let oldIDs = self.playlists.map(\.id), newIDs = displayed.map(\.id)
-        let structureChanged = Set(oldIDs) != Set(newIDs)
+        let browseRowsChanged = page != presentedPage
+            && (hiddenBrowsePages.contains(presentedPage) || hiddenBrowsePages.contains(page))
+        let structureChanged = browseRowsChanged || Set(oldIDs) != Set(newIDs)
         self.playlists = displayed
         names = Dictionary(self.playlists.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
         self.counts = counts
@@ -180,13 +218,7 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
         }
         for page in live where pageNodes[page] == nil { pageNodes[page] = Node(.page(page)) }
         if structureChanged {
-            isApplyingSelection = true
-            outline.reloadData()
-            for (group, isExpanded) in zip(groups, expanded) {
-                if isExpanded { outline.expandItem(group) }
-                else { outline.collapseItem(group) }
-            }
-            isApplyingSelection = false
+            reloadOutlinePreservingExpansion()
         } else {
             if oldIDs != newIDs { moveRows(from: oldIDs, to: newIDs) }
             for row in 0..<outline.numberOfRows {
@@ -233,9 +265,19 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
     }
 
     private func children(_ item: Any?) -> [Node] {
-        guard let item else { return [WallpaperLibraryPage.videos, .images].compactMap { pageNodes[$0] } + groups }
+        guard let item else {
+            let hidesBrowseGroup = hiddenBrowsePages.count == WallpaperInterfacePreferences.Source.allCases.count
+                && !hiddenBrowsePages.contains(presentedPage)
+            let visibleGroups = hidesBrowseGroup ? groups.filter {
+                if case .group(.browse) = $0.kind { return false }
+                return true
+            } : groups
+            return [WallpaperLibraryPage.videos, .images].compactMap { pageNodes[$0] } + visibleGroups
+        }
         guard let node = item as? Node, case .group(let group) = node.kind else { return [] }
-        return pages(in: group).compactMap { pageNodes[$0] }
+        return pages(in: group).compactMap {
+            $0 == presentedPage || !hiddenBrowsePages.contains($0) ? pageNodes[$0] : nil
+        }
     }
 
     func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {

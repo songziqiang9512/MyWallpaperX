@@ -5,8 +5,8 @@
   "maxReviewAgeDays": 60,
   "bodies": {
     "docs/architecture/appkit-migration.md": {
-      "lines": 218,
-      "bytes": 27011
+      "lines": 226,
+      "bytes": 28711
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
       "lines": 50,
@@ -685,11 +685,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/appkit-migration.md",
-      "before": "e837183ea29c4e646a7e192b21b471648e03fdfc036b337511a216e9efcb6c7b",
-      "after": "96062044de569b7be943fd127a653e55cee21b5e161889454f4231e4cc43894f",
-      "owner": "AppKit Settings",
-      "reason": "登记设置面板中的 Dock、三引擎音频设置和 Sparkle 自动更新。",
-      "decision": "docs/architecture/appkit-migration.md#app-层"
+      "before": "96062044de569b7be943fd127a653e55cee21b5e161889454f4231e4cc43894f",
+      "after": "33ba765a34b4cc228b5a18efd9cf8a29b1814369284885b37c93a1af7c67f46d",
+      "owner": "AppKit settings and library presentation",
+      "reason": "登记五项界面偏好与 IINA 式原生设置布局、滚动材质和从属行职责。",
+      "decision": "docs/architecture/appkit-migration.md"
     }
   ]
 }

@@ -74,6 +74,17 @@ import Foundation
         // Source rows can be warm while unresolved relationship members wait
         // for their own provider's first completed load.
         _ = presentation.update(catalog: catalog.catalog, relationships: relationships, relationshipsKnown: collections != nil)
+        let preferences = WallpaperInterfaceSettings.shared.values
+        switch preferences.startupPage {
+        case .lastPage: break
+        case .videos: presentation.switchPage(.videos)
+        case .workshop: presentation.switchPage(.workshop)
+        case .favorites: presentation.switchPage(.favorites)
+        case .playlist:
+            if let id = preferences.startupPlaylist, relationships.playlists.contains(where: { $0.id == id }) {
+                presentation.switchPage(.playlist(id))
+            }
+        }
         // Capture the launch intent before any delayed source publication or
         // first user action can arrive; a lazy first use would capture too late.
         _ = restoration

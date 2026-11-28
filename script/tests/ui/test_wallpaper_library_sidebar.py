@@ -29,7 +29,7 @@ class WallpaperLibrarySidebarTests(unittest.TestCase):
                  "MyWallpaperX/Shared/UI/WallpaperArtworkDemandObservation.swift",
                  "MyWallpaperX/Shared/Components/WallpaperLibraryGridMetrics.swift",
                  "MyWallpaperX/Shared/Components/WallpaperCardInteractionView.swift",
-                 "MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift", "MyWallpaperX/Shared/UI/BoxSelectionState.swift",
+                 "MyWallpaperX/Shared/UI/WallpaperInterfaceSettings.swift", "MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift", "MyWallpaperX/Shared/UI/BoxSelectionState.swift",
                  "MyWallpaperX/Shared/UI/GridThumbnailPrefetchDemand.swift",
                  "MyWallpaperX/Shell/WallpaperLibraryGridController.swift",
                  "MyWallpaperX/Shell/WallpaperPlaylistEditorController.swift",

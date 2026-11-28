@@ -207,9 +207,9 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
         controller.resetAction = { Trace.events.append("fresh-install.reset") }
         Trace.response = .alertFirstButtonReturn
         view.resetSettingsButton.performClick(nil)
-        check("reset-app-names-the-destructive-scope-and-defaults-to-cancel", view.resetSettingsButton.title == "重置应用"
-              && Trace.alerts == ["重置应用"] && Trace.alertButtons == [["取消", "重置"]] && Trace.events.isEmpty
-              && Trace.alertMessages == ["将清空应用中的入库记录、喜爱、播放列表、最近使用及已保存的屏保内容，并恢复默认设置。磁盘上的原始媒体与下载文件保留，此操作不可撤销。"])
+        check("reset-app-names-the-destructive-scope-and-defaults-to-cancel", view.resetSettingsButton.title == String(localized: "Reset App")
+              && Trace.alerts == [String(localized: "Reset App")] && Trace.alertButtons == [[String(localized: "Cancel"), String(localized: "Reset")]] && Trace.events.isEmpty
+              && Trace.alertMessages == [String(localized: "This clears the app’s library records, favorites, playlists, recents, and saved screen saver content, and restores default settings. Original media and downloaded files on disk are kept. This can’t be undone.")])
         Trace.reset(); Trace.response = .alertSecondButtonReturn
         view.resetSettingsButton.performClick(nil)
         check("only-explicit-reset-runs-the-existing-fresh-install-owner-once", Trace.events == ["fresh-install.reset"])
@@ -218,30 +218,30 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
         view.clearCacheButton.performClick(nil)
         check("cancel-has-zero-provider-effects", Trace.events.isEmpty)
         check("cancel-keeps-button-and-has-no-success", view.clearCacheButton.isEnabled
-              && view.clearCacheButton.title == "清除缓存" && Trace.alerts == ["清空缓存"])
+              && view.clearCacheButton.title == "清除缓存" && Trace.alerts == [String(localized: "Clear Cache")])
 
         Trace.reset(); Trace.response = .alertFirstButtonReturn
         VideoLibraryThumbnailStore.sharedCache.holdsCompletion = true
         view.clearCacheButton.performClick(nil)
         await settle { VideoLibraryThumbnailStore.sharedCache.pendingCompletion != nil }
         check("namespace-disk-completion-keeps-the-original-clear-action-pending", Trace.events == ["manager", "video.clear"]
-              && Trace.alerts == ["清空缓存"] && !view.clearCacheButton.isEnabled)
+              && Trace.alerts == [String(localized: "Clear Cache")] && !view.clearCacheButton.isEnabled)
         VideoLibraryThumbnailStore.sharedCache.finish()
         await settle { OnlineImageThumbnailCache.shared.continuation != nil }
-        check("pending-has-no-success-feedback", Trace.alerts == ["清空缓存"])
+        check("pending-has-no-success-feedback", Trace.alerts == [String(localized: "Clear Cache")])
         check("pending-button-disabled-with-progress-label", !view.clearCacheButton.isEnabled
-              && view.clearCacheButton.title == "清理中…")
+              && view.clearCacheButton.title == String(localized: "Cleaning Up…"))
         let expected = ["manager", "video.clear", "image.clear", "downloaded.clear", "steam.state", "steam.clear", "online.begin"]
         check("every-provider-and-steam-namespace-clears-once", Trace.events == expected)
         OnlineImageThumbnailCache.shared.finish()
         await settle { OnlineImageLibrary.shared.continuation != nil }
         check("original-preview-clear-keeps-success-pending-after-thumbnail-clear", !view.clearCacheButton.isEnabled
-              && Trace.alerts == ["清空缓存"] && Trace.events == expected + ["online.end", "preview.close", "originals.begin"])
+              && Trace.alerts == [String(localized: "Clear Cache")] && Trace.events == expected + ["online.end", "preview.close", "originals.begin"])
         OnlineImageLibrary.shared.finish()
         await settle { view.clearCacheButton.isEnabled }
         let completed = expected + ["online.end", "preview.close", "originals.begin", "originals.end"]
         check("success-follows-online-completion", Trace.events == completed
-              && Trace.alerts == ["清空缓存", "缓存已清空"])
+              && Trace.alerts == [String(localized: "Clear Cache"), String(localized: "Cache cleared")])
         check("completed-button-restores-original-label", view.clearCacheButton.title == "清除缓存")
 
         Trace.reset(); view.clearCacheButton.performClick(nil)
@@ -252,7 +252,7 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
         OnlineImageLibrary.shared.finish()
         await settle { view.clearCacheButton.isEnabled }
         check("closed-host-finishes-clear-without-orphan-success-sheet", Trace.events == completed
-              && Trace.alerts == ["清空缓存"])
+              && Trace.alerts == [String(localized: "Clear Cache")])
         view.host.shown = true
         Trace.reset(); view.clearCacheButton.performClick(nil)
         await settle { OnlineImageThumbnailCache.shared.continuation != nil }
@@ -261,7 +261,7 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
         OnlineImageLibrary.shared.finish()
         await settle { view.clearCacheButton.isEnabled }
         check("next-operation-remains-usable-and-clears-once", Trace.events == completed
-              && Trace.alerts == ["清空缓存", "缓存已清空"])
+              && Trace.alerts == [String(localized: "Clear Cache"), String(localized: "Cache cleared")])
 
         for exporting in [true, false] {
             let operation = exporting ? "export" : "import"
@@ -279,7 +279,7 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
                 Trace.reset(); Trace.response = .alertSecondButtonReturn
                 confirmationCancelled.importProfileButton.performClick(nil)
                 check("import-cancelled-confirmation-has-no-transaction", confirmationGate.importURLs.isEmpty
-                      && Trace.alerts == ["导入个人设置"] && confirmationCancelled.exportProfileButton.isEnabled
+                      && Trace.alerts == [String(localized: "Import Personal Settings")] && confirmationCancelled.exportProfileButton.isEnabled
                       && confirmationCancelled.importProfileButton.isEnabled)
             }
             for failing in [false, true] {
@@ -301,7 +301,7 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
                     let urls = exporting ? gate.exportURLs : gate.importURLs
                     let expectedURL = exporting ? actual.selectedSaveURL! : actual.selectedOpenURL!
                     check(state + "-original-transaction-finishes-once", completed == 1 && urls == [expectedURL])
-                    let resultTitle = exporting ? (failing ? "导出失败" : "导出完成") : (failing ? "导入未完成" : "导入完成")
+                    let resultTitle = exporting ? (failing ? String(localized: "Export Failed") : String(localized: "Export Complete")) : (failing ? String(localized: "Import Incomplete") : String(localized: "Import Complete"))
                     check(state + "-terminal-feedback-stays-with-the-original-host", closing ? Trace.alerts.count == before :
                             Trace.alerts.count == before + 1 && Trace.alerts.last == resultTitle
                             && Trace.alertHosts.last! == ObjectIdentifier(actual.host))
@@ -314,7 +314,7 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
                     await settle { actual.exportProfileButton.isEnabled && actual.importProfileButton.isEnabled }
                     check(state + "-next-operation-remains-usable", (exporting ? gate.completedExports : gate.completedImports) == 2
                           && (exporting ? gate.exportURLs : gate.importURLs) == [expectedURL, expectedURL]
-                          && Trace.alerts.last == (exporting ? "导出完成" : "导入完成")
+                          && Trace.alerts.last == (exporting ? String(localized: "Export Complete") : String(localized: "Import Complete"))
                           && Trace.alertHosts.last! == ObjectIdentifier(actual.host))
                 }
             }
