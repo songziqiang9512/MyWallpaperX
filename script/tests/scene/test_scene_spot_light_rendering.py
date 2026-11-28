@@ -45,9 +45,9 @@ final class SceneGraphRenderTargetResidencyPin { func release() {} }
         viewProjection: simd_float4x4 = matrix_identity_float4x4,
         map: simd_float4x4? = nil,
         color: SIMD3<Float>? = nil, alpha: Float? = nil,
-        background: Float = 0, peerFrame: simd_float4x4? = nil
+        background: Float = 0, peerFrame: simd_float4x4? = nil, pixelFormat: MTLPixelFormat = .bgra8Unorm
     ) -> (accepted: Bool, peerAccepted: Bool, bytes: [UInt8]) {
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm,
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: pixelFormat,
             width: width, height: height, mipmapped: false)
         descriptor.storageMode = .shared
         descriptor.usage = [.renderTarget]
@@ -70,8 +70,9 @@ final class SceneGraphRenderTargetResidencyPin { func release() {} }
         command.commit()
         command.waitUntilCompleted()
         precondition(command.status == .completed, "SpotLight command buffer failed")
-        var bytes = [UInt8](repeating: 0, count: width * height * 4)
-        target.getBytes(&bytes, bytesPerRow: width * 4,
+        let bytesPerRow = width * (pixelFormat == .rgba16Float ? 8 : 4)
+        var bytes = [UInt8](repeating: 0, count: bytesPerRow * height)
+        target.getBytes(&bytes, bytesPerRow: bytesPerRow,
             from: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0)
         return (accepted, peerAccepted, bytes)
     }
@@ -112,9 +113,16 @@ final class SceneGraphRenderTargetResidencyPin { func release() {} }
     }
 
     static func main() throws {
-        guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue(),
-              let pipeline = SceneSpotLightPipeline(device: device) else {
+        guard let device = MTLCreateSystemDefaultDevice() else {
             print("{\"metalUnavailable\":true}")
+            return
+        }
+        guard let queue = device.makeCommandQueue() else {
+            throw NSError(domain: "SceneSpotLightRendering", code: 1)
+        }
+        guard let pipeline = SceneSpotLightPipeline(device: device),
+              let hdrPipeline = SceneSpotLightPipeline(device: device, pixelFormat: .rgba16Float) else {
+            print("{\"metalUnavailable\":false,\"pipelineReady\":false}")
             return
         }
         func draw(_ plan: SceneSpotLightPlan = plan(), frame: simd_float4x4? = nil,
@@ -123,6 +131,10 @@ final class SceneGraphRenderTargetResidencyPin { func release() {} }
             render(device: device, queue: queue, pipeline: pipeline, plan: plan,
                 worldFrame: frame ?? SceneMatrix.translation(SIMD3(-0.8, 0, 0.5)),
                 viewProjection: projection, map: map, alpha: alpha)
+        }
+        let hdr = render(device: device, queue: queue, pipeline: hdrPipeline, plan: plan(), pixelFormat: .rgba16Float)
+        let hdrAlpha = stride(from: 6, to: hdr.bytes.count, by: 8).map { index in
+            Float16(bitPattern: UInt16(hdr.bytes[index]) | (UInt16(hdr.bytes[index + 1]) << 8))
         }
         let first = draw(), same = draw(), narrow = draw(plan(outer: 2.91))
         let half = draw(alpha: 0.5), invisible = draw(alpha: 0)
@@ -174,7 +186,8 @@ final class SceneGraphRenderTargetResidencyPin { func release() {} }
             }
         }
         let result: [String: Any] = [
-            "metalUnavailable": false, "vertexStride": MemoryLayout<SceneQuadVertex>.stride,
+            "metalUnavailable": false, "pipelineReady": true, "vertexStride": MemoryLayout<SceneQuadVertex>.stride,
+            "hdrConeVisible": hdr.accepted && (hdrAlpha.max() ?? 0) > 0.25 && hdrAlpha.contains(0),
             "accepted": [first, same, narrow, half, invisible, zeroIntensity, zeroRadius, zeroDensity,
                 moved, parented, unscaled, source, sheared, mirror, mapped, inside, rootInside, near, far]
                 .allSatisfy { $0.accepted },
@@ -231,12 +244,24 @@ class SceneSpotLightRenderingTests(unittest.TestCase):
                 capture_output=True, text=True,
             )
             self.assertEqual(compilation.returncode, 0, compilation.stderr)
+            air = temporary / "Spot.air"
+            library = temporary / "default.metallib"
+            for command in (
+                ["metal", "-c", str(SCENE_ROOT / "Rendering/Lighting/SceneSpotLight.metal"), "-o", str(air)],
+                ["metallib", str(air), "-o", str(library)],
+            ):
+                build = subprocess.run(["xcrun", "--sdk", "macosx", *command], capture_output=True, text=True)
+                self.assertEqual(build.returncode, 0, build.stderr)
             completed = subprocess.run([str(binary)], check=True, capture_output=True, text=True)
-        result = json.loads(completed.stdout)
-        if result["metalUnavailable"]:
-            self.skipTest("Metal is unavailable")
+            result = json.loads(completed.stdout)
+            if result["metalUnavailable"]:
+                self.skipTest("Metal is unavailable")
+            self.assertTrue(result["pipelineReady"], result)
+            library.unlink()
+            missing = subprocess.run([str(binary)], check=True, capture_output=True, text=True)
+            self.assertEqual(json.loads(missing.stdout), {"metalUnavailable": False, "pipelineReady": False})
         self.assertEqual(result["vertexStride"], 24)
-        for field in ("accepted", "premultiplied", "semiTransparent", "visibleEnergy", "featheredEdge",
+        for field in ("hdrConeVisible", "accepted", "premultiplied", "semiTransparent", "visibleEnergy", "featheredEdge",
                       "preservesLitBackground", "sameFramePixelsStable", "worldFrameMovesBeam",
                       "outerConeChangesWidth", "zeroInputsClear", "alphaScalesPMA", "dynamicColorChangesCone",
                       "authoredBlue", "mirroredPixels", "mapIdentityPreservesRoot", "mapPreservesPerspectiveZW",

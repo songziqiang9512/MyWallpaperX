@@ -1063,6 +1063,7 @@
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPlan.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLight.metal",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPipeline.swift",
         "script/tests/scene/test_scene_spot_light_plan.py",
         "script/tests/scene/test_scene_spot_light_rendering.py"

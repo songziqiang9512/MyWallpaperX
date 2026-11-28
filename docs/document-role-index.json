@@ -144,10 +144,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3c599a5d063970ee4717db723e292c897e5337d14523f9957007888ba892cd78",
+        "sourceSHA256": "a4b138bbf67ed480405c1c3022081e2cc6eca77f3a944addb6b0856d4e29ce34",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对反射需求、附件准入与完成回显的源码入口。",
-        "limitations": "签名 M4 完成帧和受控资源拒绝。未新增整场功耗、物理多屏或 Windows 官版对照。"
+        "scope": "核对聚光预编译源码入口与原按需管线槽。",
+        "limitations": "绑定 M4 局部准备、签名终图与首呈。整段启动、能耗和多屏收益未证。"
       }
     },
     {
@@ -392,10 +392,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "59dd8c24e473ca31249d98e473e7b5965930df2a2b1ecef3f577fd0f5b965155",
+        "sourceSHA256": "bc58971f928918f3c32ebd4ad3f492f4dd30af6fad907f1bf7a1a5a536e73d9b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对聚光回显和两部原作现存图像收据。",
-        "limitations": "原生设置门与既有签名原作终图。未重测 GPU、物理多屏或官版。"
+        "scope": "核聚光冷准备、两部签名原作与实际 Scene daemon 首呈。",
+        "limitations": "绑定 M4 局部准备、签名终图与首呈。整段启动、能耗和多屏收益未证。"
       }
     },
     {
@@ -886,10 +886,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0b4766ce12407266796441918caa204bd79d966e5722718ab259a3b5b1629f83",
+        "sourceSHA256": "038a56c7d88aec3814778370ce523343189c95f64b3cb5fdc66f1bdb49246c65",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对早期反射需求、已有资源门及提交事实的边界。",
-        "limitations": "签名 M4 完成帧和受控资源拒绝。未新增整场功耗、物理多屏或 Windows 官版对照。"
+        "scope": "说明点光与聚光资源准备、默认库和原计划边界。",
+        "limitations": "绑定 M4 局部准备、签名终图与首呈。整段启动、能耗和多屏收益未证。"
       }
     },
     {
