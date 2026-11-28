@@ -645,7 +645,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 288;
+				CURRENT_PROJECT_VERSION = 289;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = H9QWU9XN8R;
@@ -675,7 +675,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.12.4;
+				MARKETING_VERSION = 2.13.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.songziqiang.MyWallpaperX;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -702,7 +702,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 288;
+				CURRENT_PROJECT_VERSION = 289;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = H9QWU9XN8R;
@@ -732,7 +732,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.12.4;
+				MARKETING_VERSION = 2.13.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.songziqiang.MyWallpaperX;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -752,12 +752,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 288;
+				CURRENT_PROJECT_VERSION = 289;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = H9QWU9XN8R;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.12.4;
+				MARKETING_VERSION = 2.13.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
@@ -770,12 +770,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 288;
+				CURRENT_PROJECT_VERSION = 289;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = H9QWU9XN8R;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.12.4;
+				MARKETING_VERSION = 2.13.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
@@ -791,7 +791,7 @@
 				CODE_SIGN_ENTITLEMENTS = ScreenSaverSources/ScreenSaver.entitlements;
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 288;
+				CURRENT_PROJECT_VERSION = 289;
 				DEVELOPMENT_TEAM = H9QWU9XN8R;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -803,7 +803,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.12.4;
+				MARKETING_VERSION = 2.13.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.songziqiang.MyWallpaperX.WallpaperExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -820,7 +820,7 @@
 				CODE_SIGN_ENTITLEMENTS = ScreenSaverSources/ScreenSaver.entitlements;
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 288;
+				CURRENT_PROJECT_VERSION = 289;
 				DEVELOPMENT_TEAM = H9QWU9XN8R;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -832,7 +832,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.12.4;
+				MARKETING_VERSION = 2.13.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.songziqiang.MyWallpaperX.WallpaperExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;

@@ -21,7 +21,7 @@
 
 <p align="center">
   <a href="https://github.com/songziqiang9512/MyWallpaperX/releases/latest">Download</a> ·
-  <a href="docs/releases/2.12.4.md">What's new in 2.12.4</a> ·
+  <a href="docs/releases/2.13.0.md">What's new in 2.13.0</a> ·
   <a href="https://www.mwpx.me">Website</a> ·
   <a href="https://github.com/songziqiang9512/MyWallpaperX/issues">Issues</a>
 </p>

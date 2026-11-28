@@ -9,6 +9,8 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 SECTIONS = ("新增", "修改", "优化", "修复", "已知问题")
+BILINGUAL_SECTIONS = ("中文", "English")
+MIN_BILINGUAL_CHARS = 80
 
 
 def version_tuple(version: str) -> tuple[int, ...]:
@@ -25,12 +27,21 @@ def validate_notes(text: str, version: str) -> None:
     if text.splitlines()[:1] != [f"# MyWallpaperX {version}"]:
         raise ValueError(f"发布日志标题必须是 # MyWallpaperX {version}")
     parts = re.split(r"^## (.+?)\s*$", text, flags=re.MULTILINE)
-    if not "\n".join(parts[0].splitlines()[1:]).strip():
-        raise ValueError("发布日志必须先概述本次面向用户的变化。")
     headings = parts[1::2]
     if len(headings) != len(set(headings)):
         raise ValueError("发布日志不能包含重复章节。")
     sections = dict(zip(headings, parts[2::2]))
+    # New releases use a whole Chinese write-up followed by an English one.
+    # Historical notes keep their five-section form so old releases stay valid.
+    if headings == list(BILINGUAL_SECTIONS):
+        for heading in BILINGUAL_SECTIONS:
+            if len(sections[heading].strip()) < MIN_BILINGUAL_CHARS:
+                raise ValueError(f"发布日志的「{heading}」内容过短，请写清本次发布的变化。")
+        return
+    if not any(heading in SECTIONS for heading in headings):
+        raise ValueError("发布日志必须使用「中文 / English」双语章节，或原有的五个变化章节。")
+    if not "\n".join(parts[0].splitlines()[1:]).strip():
+        raise ValueError("发布日志必须先概述本次面向用户的变化。")
     changes = []
     for heading in SECTIONS:
         bullets = re.findall(r"^[-*] (\S.*)$", sections.get(heading, ""), re.MULTILINE)

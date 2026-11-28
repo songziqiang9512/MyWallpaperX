@@ -35,6 +35,17 @@ NOTES = f"""# MyWallpaperX {VERSION}
 - 部分场景仍有兼容性限制。
 """
 
+BILINGUAL_NOTES = f"""# MyWallpaperX {VERSION}
+
+## 中文
+
+本次更新加入壁纸质量设置与重新整理的原生设置界面，支持五种语言，并继续改善 Scene、Video 和 Web 的画质与兼容性。升级后旧的帧率和 HDR 设置会自动迁移到新的质量页，不需要重新选择。
+
+## English
+
+This release adds wallpaper quality controls, a rebuilt native Settings experience, five-language localization, and further Scene, Video and Web quality and compatibility improvements. Existing frame-rate and HDR settings migrate automatically into the new quality page, so there is nothing to set up again.
+"""
+
 
 def workflow_shell(name):
     """Load a run block as executable input, without a YAML runtime dependency."""
@@ -46,6 +57,20 @@ def workflow_shell(name):
 class ReleaseNotesTests(unittest.TestCase):
     def test_accepts_user_facing_notes_and_explicit_empty_categories(self):
         validate_notes(NOTES, VERSION)
+
+    def test_accepts_bilingual_narrative_notes(self):
+        validate_notes(BILINGUAL_NOTES, VERSION)
+
+    def test_rejects_incomplete_bilingual_notes(self):
+        cases = [
+            BILINGUAL_NOTES.split("## English")[0],
+            BILINGUAL_NOTES.replace("## English", "## 英文"),
+            BILINGUAL_NOTES.replace("This release adds", "TODO", 1),
+            re.sub(r"(?s)(## English\n\n).*", r"\1", BILINGUAL_NOTES),
+        ]
+        for notes in cases:
+            with self.subTest(notes=notes[-50:]), self.assertRaises(ValueError):
+                validate_notes(notes, VERSION)
 
     def test_rejects_missing_mismatched_or_unfinished_content(self):
         cases = [

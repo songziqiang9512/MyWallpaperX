@@ -39,7 +39,7 @@
 
 ## App、Web 与发布
 
-- [2.12.4 更新说明](releases/2.12.4.md)；历史说明：[2.12.3](releases/2.12.3.md)、[2.12.2](releases/2.12.2.md)、[2.12.1](releases/2.12.1.md)、[2.12.0](releases/2.12.0.md)、[2.11.0](releases/2.11.0.md)、[2.10.1](releases/2.10.1.md)、[2.10.0](releases/2.10.0.md)。实际发布状态以正式 Release 为准。
+- [2.13.0 更新说明](releases/2.13.0.md)；历史说明：[2.12.4](releases/2.12.4.md)、[2.12.3](releases/2.12.3.md)、[2.12.2](releases/2.12.2.md)、[2.12.1](releases/2.12.1.md)、[2.12.0](releases/2.12.0.md)、[2.11.0](releases/2.11.0.md)、[2.10.1](releases/2.10.1.md)、[2.10.0](releases/2.10.0.md)。实际发布状态以正式 Release 为准。
 
 - [播放进程生命周期与统一切换事务](architecture/playback-lifecycle-transaction-design.md)：三引擎退出、可见确认、取消和退休边界。
 - [三引擎壁纸质量工作卡](development/wallpaper-quality-work-card.md#execution)维护当前执行顺序。[执行合同](architecture/wallpaper-quality-execution-contract.md#quality-option-semantics)规定逐档影响、纹理用途和组合。[技术评估](development/wallpaper-quality-settings-plan.md#decision)记录算法、官版对照和性能门。
