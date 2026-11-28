@@ -1,5 +1,13 @@
 import Metal
 
+nonisolated enum SceneEnvironmentMipChain {
+    static func levelCount(width: Int, height: Int) -> Int {
+        // The desktop environment count uses the power of two strictly below the short edge.
+        let shortEdge = min(width, height) - 1
+        return max(1, Int.bitWidth - shortEdge.leadingZeroBitCount - 3)
+    }
+}
+
 /// Authored Wallpaper Engine texture-format value preserved from a TEX
 /// container. This is intentionally separate from a decoded GPU pixel format:
 /// decoding may change physical representation while shader variants still

@@ -7,7 +7,7 @@ extension SceneOffscreenTexturePool {
         case snapshot
 
         func mipLevelCount(width: Int, height: Int) -> Int {
-            self == .snapshot ? Int.bitWidth - max(width, height).leadingZeroBitCount : 1
+            self == .snapshot ? SceneEnvironmentMipChain.levelCount(width: width, height: height) : 1
         }
 
         func needsDisplayScratch(pixelFormat: MTLPixelFormat) -> Bool {

@@ -35,6 +35,7 @@ struct HistorySurfaceProjection {
     let utilityExecution = UtilityExecution()
 }
 struct HistorySurfaceCamera {}
+struct HistorySurfaceCameraAdjustment {}
 final class HistorySurfaceRuntime {
     let submissions: SceneResolvedMaterialSubmissionCoordinator
     init(_ submissions: SceneResolvedMaterialSubmissionCoordinator) { self.submissions = submissions }
@@ -58,7 +59,7 @@ final class HistorySurfaceRenderer {
     func makeCameraFrame(
         frameContext: SceneFrameContext, descriptor: SceneRenderDescriptor,
         layersByID: [Int: SceneRenderDescriptor.Layer], worldFrames: [Int: simd_float4x4],
-        perspectiveReplayRootIDs: Set<Int>
+        perspectiveReplayRootIDs: Set<Int> = [], adjustment _: HistorySurfaceCameraAdjustment
     ) -> HistorySurfaceCamera { .init() }
 }
 final class HistorySurfacePuppet {
@@ -93,6 +94,7 @@ final class SceneMetalView {
         let attachmentFrames: ScenePuppetAttachmentFrameSnapshot
     }
     let renderer: HistorySurfaceRenderer
+    let cameraAdjustment = HistorySurfaceCameraAdjustment()
     let spriteAnimationLayerIDs: Set<Int> = []
     let particlePipeline: HistorySurfaceParticles? = nil
     let requiresSceneScriptCameraWorldFrames = false

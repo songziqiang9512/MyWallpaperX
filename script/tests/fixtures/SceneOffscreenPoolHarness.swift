@@ -733,26 +733,25 @@ enum Harness {
         return checks
     }
 
-
     static func reflectionResidency(_ device: MTLDevice) -> [String: Bool] {
         let queue = device.makeCommandQueue()!
         var checks: [String: Bool] = [:]
-        // Independent NPOT costs: (13*7 + 6*3 + 3*1 + 1*1) texels.
+        // The 33×17 environment owns levels 33×17 and 16×8.
         for (format, bytes) in [(MTLPixelFormat.rgba8Unorm, 4), (.rgba16Float, 8)] {
-            let total = 113 * bytes
+            let total = (33 * 17 + 16 * 8) * bytes
             let short = SceneOffscreenTexturePool(device: device, pixelFormat: format, residentByteBudget: total - 1)
             var calls = 0
-            let denied = short.reserveEnvironment(width: 13, height: 7, commandBuffer: queue.makeCommandBuffer()!, textureFactory: {
+            let denied = short.reserveEnvironment(width: 33, height: 17, commandBuffer: queue.makeCommandBuffer()!, textureFactory: {
                 calls += 1; return device.makeTexture(descriptor: $0)
             })
             checks["npot-short-\(bytes)"] = denied == nil && calls == 0 && short.residentByteCost == 0
             let exact = SceneOffscreenTexturePool(device: device, pixelFormat: format, residentByteBudget: total)
             let cb = queue.makeCommandBuffer()!
-            let first = exact.reserveEnvironment(width: 13, height: 7, commandBuffer: cb)!
-            let same = exact.reserveEnvironment(width: 13, height: 7, commandBuffer: cb)!
-            checks["npot-exact-\(bytes)"] = first.texture.mipmapLevelCount == 4 && exact.residentByteCost == total
+            let first = exact.reserveEnvironment(width: 33, height: 17, commandBuffer: cb)!
+            let same = exact.reserveEnvironment(width: 33, height: 17, commandBuffer: cb)!
+            checks["npot-exact-\(bytes)"] = first.texture.mipmapLevelCount == 2 && exact.residentByteCost == total
             checks["same-cb-reuses-\(bytes)"] = first.texture === same.texture && first.pin.generation == same.pin.generation
-            checks["other-cb-blocked-\(bytes)"] = exact.reserveEnvironment(width: 13, height: 7, commandBuffer: queue.makeCommandBuffer()!) == nil
+            checks["other-cb-blocked-\(bytes)"] = exact.reserveEnvironment(width: 33, height: 17, commandBuffer: queue.makeCommandBuffer()!) == nil
             exact.reset()
             checks["reset-retains-pinned-\(bytes)"] = exact.residentByteCost == total
             first.pin.release()
@@ -760,20 +759,32 @@ enum Harness {
             same.pin.release()
             checks["cancel-releases-\(bytes)"] = exact.residentByteCost == 0
 
-            let black = SceneOffscreenTexturePool(device: device, pixelFormat: format, residentByteBudget: 113)
-            let firstClear = black.reserveEnvironment(width: 13, height: 7, commandBuffer: cb, cleared: true)!
-            let nextClear = black.reserveEnvironment(width: 13, height: 7,
+            let blackCost = 33 * 17 + 16 * 8
+            let black = SceneOffscreenTexturePool(device: device, pixelFormat: format, residentByteBudget: blackCost)
+            let firstClear = black.reserveEnvironment(width: 33, height: 17, commandBuffer: cb, cleared: true)!
+            let nextClear = black.reserveEnvironment(width: 33, height: 17,
                 commandBuffer: queue.makeCommandBuffer()!, cleared: true)!
             checks["cleared-readers-share-\(bytes)"] = firstClear.texture === nextClear.texture
-                && firstClear.texture.mipmapLevelCount == 4
-                && firstClear.texture.pixelFormat == .r8Unorm && black.residentByteCost == 113
-            checks["cleared-cannot-be-history-\(bytes)"] = black.reserveEnvironment(width: 13, height: 7,
+                && firstClear.texture.mipmapLevelCount == 2
+                && firstClear.texture.pixelFormat == .r8Unorm && black.residentByteCost == blackCost
+            checks["cleared-cannot-be-history-\(bytes)"] = black.reserveEnvironment(width: 33, height: 17,
                 commandBuffer: cb) == nil
             black.reset()
             firstClear.pin.release()
-            checks["cleared-reset-preserves-in-flight-\(bytes)"] = black.residentByteCost == 113
+            checks["cleared-reset-preserves-in-flight-\(bytes)"] = black.residentByteCost == blackCost
             nextClear.pin.release()
             checks["cleared-reset-releases-\(bytes)"] = black.residentByteCost == 0
+        }
+        let extents = [(1, 65, 1), (16, 64, 1), (17, 64, 2), (64, 17, 2),
+                       (32, 64, 2), (33, 64, 3), (64, 33, 3), (960, 540, 7)]
+        for (width, height, levels) in extents {
+            let pool = SceneOffscreenTexturePool(device: device)
+            let snapshot = pool.reserveSceneColor(width: width, height: height, intent: .snapshot)
+            checks["snapshot-extent-\(width)x\(height)-\(levels)"] =
+                [snapshot?.targets.first, snapshot?.targets.second].allSatisfy {
+                    $0?.width == width && $0?.height == height && $0?.mipmapLevelCount == levels
+                }
+            snapshot?.release()
         }
         // A late actual factory nil permits one legal idle reclamation and
         // retry. Already allocated prefixes remain the objects published on
@@ -849,9 +860,9 @@ enum Harness {
         pool.reset()
         checks["mandatory-cancel-releases"] = pool.residentByteCost == 0
         // Actual GPU work retains an old generation across reset and replacement.
-        let lifecycle = SceneOffscreenTexturePool(device: device, pixelFormat: .rgba16Float, residentByteBudget: 4096)
+        let lifecycle = SceneOffscreenTexturePool(device: device, pixelFormat: .rgba16Float, residentByteBudget: 8192)
         let oldCB = queue.makeCommandBuffer()!
-        let old = lifecycle.reserveEnvironment(width: 13, height: 7, commandBuffer: oldCB)!
+        let old = lifecycle.reserveEnvironment(width: 33, height: 17, commandBuffer: oldCB)!
         let render = MTLRenderPassDescriptor()
         render.colorAttachments[0].texture = old.texture
         render.colorAttachments[0].loadAction = .clear; render.colorAttachments[0].storeAction = .store
@@ -862,11 +873,11 @@ enum Harness {
         let nextCB = queue.makeCommandBuffer()!
         let next = lifecycle.reserveEnvironment(width: 7, height: 5, commandBuffer: nextCB)!
         checks["resize-retains-old-generation"] = old.texture !== next.texture && old.pin.generation != next.pin.generation
-            && lifecycle.residentByteCost == (113 + 35 + 6 + 1) * 8
+            && lifecycle.residentByteCost == (33 * 17 + 16 * 8 + 7 * 5) * 8
         let finished = DispatchSemaphore(value: 0)
         oldCB.addCompletedHandler { _ in old.pin.release(); finished.signal() }
         oldCB.commit(); oldCB.waitUntilCompleted(); finished.wait()
-        checks["gpu-completion-releases-old"] = oldCB.status == .completed && oldCB.error == nil && lifecycle.residentByteCost == 42 * 8
+        checks["gpu-completion-releases-old"] = oldCB.status == .completed && oldCB.error == nil && lifecycle.residentByteCost == 7 * 5 * 8
         next.pin.release(); lifecycle.reset()
         checks["next-cancel-releases"] = lifecycle.residentByteCost == 0
 

@@ -362,7 +362,7 @@ nonisolated struct SceneFrameTextureResource {
         frameEpoch: UInt64, allocationGeneration: UInt64, texture: MTLTexture,
         identity: SceneTextureProviderIdentity
     ) -> Self? {
-        let levels = Int.bitWidth - max(texture.width, texture.height).leadingZeroBitCount
+        let levels = SceneEnvironmentMipChain.levelCount(width: texture.width, height: texture.height)
         guard frameEpoch > 0, allocationGeneration > 0, texture.textureType == .type2D,
               texture.sampleCount == 1, texture.usage.contains(.shaderRead),
               texture.mipmapLevelCount == levels else { return nil }

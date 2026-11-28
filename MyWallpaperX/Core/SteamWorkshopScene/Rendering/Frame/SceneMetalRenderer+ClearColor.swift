@@ -152,30 +152,33 @@ extension SceneMetalRenderer {
                 target = source
                 generation = history.lease.submission.generation
             }
-            groupRuntime?.closeAllGroupEncoders()
-            let encoded = mainPass.encodeOffscreen { buffer in
-                #if DEBUG
-                let timestampEncoder = SceneGPUStageTimestampHook.blit(buffer,
-                    role: copiesBase ? "reflection-copy" : "reflection-mip")
-                #else
-                let timestampEncoder = buffer.makeBlitCommandEncoder()
-                #endif
-                guard let blit = timestampEncoder else { return false }
-                if copiesBase {
-                    blit.copy(from: source, sourceSlice: 0, sourceLevel: 0,
-                        sourceOrigin: MTLOriginMake(0, 0, 0),
-                        sourceSize: MTLSizeMake(source.width, source.height, 1),
-                        to: target, destinationSlice: 0, destinationLevel: 0,
-                        destinationOrigin: MTLOriginMake(0, 0, 0))
+            let generatesMips = target.mipmapLevelCount > 1
+            if copiesBase || generatesMips {
+                groupRuntime?.closeAllGroupEncoders()
+                let encoded = mainPass.encodeOffscreen { buffer in
                     #if DEBUG
-                    SceneGPUCensus.recordTextureCopy(texture: source)
+                    let encoder = SceneGPUStageTimestampHook.blit(buffer,
+                        role: copiesBase ? "reflection-copy" : "reflection-mip")
+                    #else
+                    let encoder = buffer.makeBlitCommandEncoder()
                     #endif
+                    guard let blit = encoder else { return false }
+                    if copiesBase {
+                        blit.copy(from: source, sourceSlice: 0, sourceLevel: 0,
+                            sourceOrigin: MTLOriginMake(0, 0, 0),
+                            sourceSize: MTLSizeMake(source.width, source.height, 1),
+                            to: target, destinationSlice: 0, destinationLevel: 0,
+                            destinationOrigin: MTLOriginMake(0, 0, 0))
+                        #if DEBUG
+                        SceneGPUCensus.recordTextureCopy(texture: source)
+                        #endif
+                    }
+                    if generatesMips { blit.generateMipmaps(for: target) }
+                    blit.endEncoding()
+                    return true
                 }
-                if target.mipmapLevelCount > 1 { blit.generateMipmaps(for: target) }
-                blit.endEncoding()
-                return true
+                guard encoded == true else { return nil }
             }
-            guard encoded == true else { return nil }
             resource = .sameFrameEnvironment(frameEpoch: frameEpoch,
                 allocationGeneration: generation, texture: target, source: sourceIdentity)
             if resource != nil {

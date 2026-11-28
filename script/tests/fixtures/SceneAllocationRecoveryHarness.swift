@@ -6,9 +6,10 @@ import Metal
     enum Kind: String, CaseIterable { case frame, single, group, environment, shadow, snapshot, persistence }
     final class Witness { weak var texture: MTLTexture? }
     static func descriptor(_ format: MTLPixelFormat, _ width: Int, _ height: Int,
-                           mipmapped: Bool = false) -> MTLTextureDescriptor {
+                           levels: Int = 1) -> MTLTextureDescriptor {
         let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format,
-            width: width, height: height, mipmapped: mipmapped)
+            width: width, height: height, mipmapped: false)
+        d.mipmapLevelCount = levels
         d.storageMode = .private; d.usage = [.shaderRead, .renderTarget]
         return d
     }
@@ -70,7 +71,8 @@ import Metal
     static func pressure(_ device: MTLDevice, _ queue: MTLCommandQueue,
                          kind: Kind, wide: Bool, snapshot: Bool) -> [String: Any] {
         let f = format(kind)
-        let d = descriptor(kind == .shadow ? .depth32Float : f, 512, 256, mipmapped: kind == .environment || kind == .snapshot)
+        let d = descriptor(kind == .shadow ? .depth32Float : f, 512, 256,
+            levels: kind == .environment || kind == .snapshot ? 5 : 1)
         let charge = device.heapTextureSizeAndAlign(descriptor: d).size * count(kind)
         let pool = SceneOffscreenTexturePool(device: device, pixelFormat: f,
             residentByteBudget: logical(d) * count(kind) * (wide ? 16 : 1))

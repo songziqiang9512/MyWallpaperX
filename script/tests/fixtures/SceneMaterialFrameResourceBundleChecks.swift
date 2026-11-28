@@ -122,7 +122,7 @@ func phaseOverlayChecks(device: MTLDevice, queue: MTLCommandQueue,
     source: MTLTexture, pipeline: SceneImageLayerPipeline) -> [String: Any] {
     let s = makePhaseProbeState(device: device, queue: queue, source: source, pipeline: pipeline)
     defer { _ = s.coordinator.endFrame(); s.pool.reset() }
-    let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: 8, height: 4, mipmapped: true)
+    let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: 8, height: 4, mipmapped: false)
     descriptor.usage = [.shaderRead, .renderTarget]
     let texture = device.makeTexture(descriptor: descriptor)!
     // Synthetic API input receipt; this probe does not prove GPU completion provenance.
@@ -172,7 +172,7 @@ private func phaseOverlayRetirementCheck(device: MTLDevice, queue: MTLCommandQue
     var external: SceneFrameTextureRegistrySnapshot?
     let ended = autoreleasepool {
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .rgba16Float, width: 7, height: 5, mipmapped: true)
+            pixelFormat: .rgba16Float, width: 7, height: 5, mipmapped: false)
         descriptor.usage = [.shaderRead, .renderTarget]
         let texture = device.makeTexture(descriptor: descriptor)!
         observed = texture

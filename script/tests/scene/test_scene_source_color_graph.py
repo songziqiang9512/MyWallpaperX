@@ -630,21 +630,25 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
         let background: [UInt8] = [20, 40, 50, 128]
         func makeHistory(reflected: Bool) -> MTLTexture {
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-                pixelFormat: reflected ? .bgra8Unorm : .r8Unorm, width: 2, height: 2, mipmapped: true)
+                pixelFormat: reflected ? .bgra8Unorm : .r8Unorm, width: 32, height: 32, mipmapped: false)
+            descriptor.mipmapLevelCount = 2
             descriptor.storageMode = .shared
             descriptor.usage = reflected ? [.shaderRead, .renderTarget] : [.shaderRead]
             if !reflected { descriptor.swizzle = .init(red: .zero, green: .zero, blue: .zero, alpha: .one) }
             let texture = device.makeTexture(descriptor: descriptor)!
-            let base: [UInt8] = reflected ? [0, 0, 51, 255, 0, 0, 51, 255, 0, 0, 51, 255, 0, 0, 51, 255] : [255, 255, 255, 255]
-            let small: [UInt8] = reflected ? [102, 0, 0, 255] : [255]
-            texture.replace(region: MTLRegionMake2D(0, 0, 2, 2), mipmapLevel: 0, withBytes: base, bytesPerRow: reflected ? 8 : 2)
-            texture.replace(region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 1, withBytes: small, bytesPerRow: reflected ? 4 : 1)
+            let colors: [[UInt8]] = reflected ? [[0, 0, 51, 255], [102, 0, 0, 255]] : [[255], [255]]
+            for (level, pixel) in colors.enumerated() {
+                let size = 32 >> level
+                let bytes = Array(repeating: pixel, count: size * size).flatMap { $0 }
+                texture.replace(region: MTLRegionMake2D(0, 0, size, size), mipmapLevel: level,
+                    withBytes: bytes, bytesPerRow: size * pixel.count)
+            }
             return texture
         }
         let live = makeHistory(reflected: true), black = makeHistory(reflected: false)
         let arms: [(String, MTLTexture, Float)] = [
             ("black", black, 0), ("base-mip", live, 0), ("mix-mip", live, 0.25), ("small-mip", live, 0.5),
-            ("black-restored", black, 0.5), ("base-mip-recolored", live, 0)
+            ("past-last-mip", live, 8), ("black-restored", black, 8), ("base-mip-recolored", live, 0)
         ]
         var rows: [[String: Any]] = []
         for (offset, (setting, previous, mip)) in arms.enumerated() {
@@ -721,9 +725,13 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
         if not payload["metalAvailable"]:
             self.skipTest("Metal is unavailable")
         self.assertEqual(payload["compiledVariants"], 1, payload)
-        self.assertEqual([r["arm"] for r in payload["rows"]], ["black", "base-mip", "mix-mip", "small-mip", "black-restored", "base-mip-recolored"])
+        self.assertEqual([r["arm"] for r in payload["rows"]],
+                         ["black", "base-mip", "mix-mip", "small-mip", "past-last-mip", "black-restored",
+                          "base-mip-recolored"])
         background = [20, 40, 50, 128]
-        for row, rgb in zip(payload["rows"], ([13, 77, 102], [13, 77, 153], [64, 77, 128], [115, 77, 102], [13, 77, 102], [38, 51, 102]), strict=True):
+        colors = ([13, 77, 102], [13, 77, 153], [64, 77, 128], [115, 77, 102], [115, 77, 102],
+                  [13, 77, 102], [38, 51, 102])
+        for row, rgb in zip(payload["rows"], colors, strict=True):
             self.assertTrue(row["actualEnvironment"] and row["completed"], row)
             self.assertEqual(row["localFallback"], "", row)
             self.assertTrue(row["localStraight"], row)

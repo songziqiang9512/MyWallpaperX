@@ -1,11 +1,11 @@
 extension Harness {
     static func environmentPublication(_ device: MTLDevice) -> [String: Bool] {
         func texture(_ levels: Int, format: MTLPixelFormat = .rgba16Float, usage: MTLTextureUsage = [.shaderRead, .renderTarget]) -> MTLTexture {
-            let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format, width: 13, height: 7, mipmapped: true)
+            let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format, width: 33, height: 17, mipmapped: false)
             d.mipmapLevelCount = levels; d.usage = usage
             return device.makeTexture(descriptor: d)!
         }
-        let full = texture(4)
+        let capped = texture(2)
         // This is a publication-unit fixture identity, not a claim that a
         // submission owner produced this texture. Owner receipts are exercised
         // by test_scene_persistent_color_output's actual completion chain.
@@ -18,13 +18,14 @@ extension Harness {
             frameEpoch: source.frameEpoch, executionEpoch: source.executionEpoch,
             commandBufferObservationID: UUID(uuidString: "33333333-3333-3333-3333-333333333333")!,
             allocationGeneration: source.allocationGeneration, resetEpoch: source.resetEpoch)
-        let first = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: full, source: source)!
-        let second = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 8, allocationGeneration: 3, texture: full, source: source)!
-        let replacement = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 4, texture: full, source: source)!
-        let changedProducer = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: full, source: otherProducer)!
+        let first = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: capped, source: source)!
+        let second = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 8, allocationGeneration: 3, texture: capped, source: source)!
+        let replacement = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 4, texture: capped, source: source)!
+        let changedProducer = SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: capped, source: otherProducer)!
         let candidate = first.publication.candidate
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r8Unorm,
-            width: 13, height: 7, mipmapped: true)
+            width: 33, height: 17, mipmapped: false)
+        descriptor.mipmapLevelCount = 2
         descriptor.usage = .shaderRead
         let ordinaryR8 = device.makeTexture(descriptor: descriptor)!
         descriptor.swizzle = .init(red: .zero, green: .zero, blue: .zero, alpha: .one)
@@ -37,13 +38,13 @@ extension Harness {
             "clearedEnvironmentReadyInCurrentFrame": current.overlayingPreparedSceneEnvironment(.ready(cleared)) != nil
                 && cleared.publication.candidate.identity == .provider(.clearedSceneEnvironment(
                     frameEpoch: 7, allocationGeneration: 3))
-                && cleared.publication.candidate.mappedSize == CGSize(width: 13, height: 7),
+                && cleared.publication.candidate.mappedSize == CGSize(width: 33, height: 17),
             "clearedEnvironmentStaleRejected": stale.overlayingPreparedSceneEnvironment(.ready(cleared)) == nil,
             "clearedEnvironmentRegularR8Rejected": SceneFrameTextureResource.clearedFrameEnvironment(
                 frameEpoch: 7, allocationGeneration: 3, texture: ordinaryR8) == nil,
             "environmentExactAtom": first.publication.isComplete && first.resourceGeneration == 3
                 && first.publication.requestIdentity == .sceneEnvironment && first.publication.contentGeneration == 7
-                && candidate.texture === full && candidate.identity == .provider(.sceneEnvironment(frameEpoch: 7, allocationGeneration: 3, source: source))
+                && candidate.texture === capped && candidate.identity == .provider(.sceneEnvironment(frameEpoch: 7, allocationGeneration: 3, source: source))
                 && candidate.generation == .provider(contentGeneration: 7)
                 && candidate.purpose == .premultipliedColor && candidate.uvTransform == .identity,
             "environmentEpochChangesAtom": !first.publication.isSameAtom(as: second.publication),
@@ -52,10 +53,13 @@ extension Harness {
                 && first.resourceGeneration == changedProducer.resourceGeneration
                 && candidate.texture === changedProducer.publication.texture
                 && !first.publication.isSameAtom(as: changedProducer.publication),
-            "environmentPartialMipRejected": SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: texture(3), source: source) == nil,
-            "environmentUnsupportedFormatRejected": SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: texture(4, format: .rgba32Float), source: source) == nil,
-            "environmentNoRenderTargetRejected": SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: texture(4, usage: .shaderRead), source: source) == nil,
-            "environmentZeroEpochRejected": SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 0, allocationGeneration: 3, texture: full, source: source) == nil
+            "environmentBelowAndAboveCapRejected": [1, 3, 6].allSatisfy {
+                SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3,
+                    texture: texture($0), source: source) == nil
+            },
+            "environmentUnsupportedFormatRejected": SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: texture(2, format: .rgba32Float), source: source) == nil,
+            "environmentNoRenderTargetRejected": SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 7, allocationGeneration: 3, texture: texture(2, usage: .shaderRead), source: source) == nil,
+            "environmentZeroEpochRejected": SceneFrameTextureResource.sameFrameEnvironment(frameEpoch: 0, allocationGeneration: 3, texture: capped, source: source) == nil
         ]
     }
 

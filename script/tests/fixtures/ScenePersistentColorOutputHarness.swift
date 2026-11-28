@@ -473,8 +473,8 @@ import Metal
                 && runtime.shouldDeferFrame && !runtime.markSceneColorOutput(on: firstBuffer, mapped: false)
             checks["\(label)-realFormatAndCount"] = first.raw.pixelFormat == format
                 && cache.residentTextureCount == 2
-                && first.raw.mipmapLevelCount == 3
-                && cache.residentByteCost == (16 + 4 + 1) * (format == .rgba16Float ? 8 : 4) * 2
+                && first.raw.mipmapLevelCount == 1
+                && cache.residentByteCost == 16 * (format == .rgba16Float ? 8 : 4) * 2
             completeOn(runtime, firstBuffer)
             let firstBytes = bytes(first.raw)
             checks["\(label)-rawCopyPreservesColor"] = format == .rgba16Float
@@ -529,15 +529,15 @@ import Metal
             runtime.invalidate(reason: .surfaceStop); cache.reset()
             checks["\(label)-stopReleasesSnapshotCache"] = cache.residentByteCost == 0
 
-            let mipCost = (16 + 4 + 1) * (format == .rgba16Float ? 8 : 4)
+            let baseLevelCost = 16 * (format == .rgba16Float ? 8 : 4)
             let exactCache = SceneOffscreenTexturePool(device: device, pixelFormat: format,
-                maxDimension: 64, residentByteBudget: mipCost * 2)
+                maxDimension: 64, residentByteBudget: baseLevelCost * 2)
             let exactLease = exactCache.reserveSceneColor(width: 4, height: 4, intent: .snapshot)
             checks["\(label)-exactTwoTargetBudget"] = exactLease != nil
-                && exactCache.residentByteCost == mipCost * 2 && exactCache.residentTextureCount == 2
+                && exactCache.residentByteCost == baseLevelCost * 2 && exactCache.residentTextureCount == 2
             exactLease?.release(); exactCache.reset()
             let shortCache = SceneOffscreenTexturePool(device: device, pixelFormat: format,
-                maxDimension: 64, residentByteBudget: mipCost * 2 - 1)
+                maxDimension: 64, residentByteBudget: baseLevelCost * 2 - 1)
             checks["\(label)-shortBudgetPublishesNothing"] = shortCache.reserveSceneColor(
                 width: 4, height: 4, intent: .snapshot) == nil && shortCache.residentTextureCount == 0
         }
@@ -546,7 +546,7 @@ import Metal
         // mandatory scratch. No admission retry or fake history is involved.
         let yieldingOwner = coordinator()
         let yieldingPool = SceneOffscreenTexturePool(device: device, pixelFormat: .rgba8Unorm,
-            maxDimension: 64, residentByteBudget: (16 + 4 + 1) * 4 * 2)
+            maxDimension: 64, residentByteBudget: 16 * 4 * 2)
         let (yielded, yieldedBuffer) = snapshot(yieldingOwner, yieldingPool, index: 1, epoch: 11, color: red)
         completeOn(yieldingOwner, yieldedBuffer)
         begin(yieldingOwner, 2, frameEpoch: 12)

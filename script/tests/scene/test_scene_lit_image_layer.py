@@ -56,8 +56,9 @@ import simd
         allocationGeneration: 9,
         resetEpoch: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!)
     static func texture(_ device:MTLDevice, width:Int=1,height:Int=1,
-                        format:MTLPixelFormat = .rgba16Float,mips:Bool=false,values:[Float]?=nil)->MTLTexture {
-        let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:format,width:width,height:height,mipmapped:mips)
+                        format:MTLPixelFormat = .rgba16Float,levels:Int=1,values:[Float]?=nil)->MTLTexture {
+        let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:format,width:width,height:height,mipmapped:false)
+        d.mipmapLevelCount=levels
         d.storageMode = .shared;d.usage=[.renderTarget,.shaderRead]
         let t=device.makeTexture(descriptor:d)!
         if let values {
@@ -149,9 +150,8 @@ import simd
             let v=row["input"] as! [String:Any]
             let source=texture(device,values:floats(v,"source")),target=texture(device)
             let envValues=Array(repeating:floats(v,"environment"),count:13*7).flatMap{$0}
-            let environment=texture(device,width:13,height:7,mips:true,values:envValues)
+            let environment=texture(device,width:13,height:7,values:envValues)
             let cb=queue.makeCommandBuffer()!
-            let blit=cb.makeBlitCommandEncoder()!;blit.generateMipmaps(for:environment);blit.endEncoding()
             var packed=Capture.packLights(pointLights:[],spotLights:[],ambient:.zero,material:SIMD2(number(v,"metallic"),0),
                 view:SIMD4(SIMD3(floats(v,"view")),0),layerModelMatrix:matrix_identity_float4x4,normalModelMatrix:matrix_identity_float4x4)!
             packed.reflection=SIMD4(number(v,"strength"),4,0,0)
@@ -218,7 +218,7 @@ import simd
         var lodRows:[[String:Any]]=[]
         for row in report["roughness_lod"] as! [[String:Any]] {
             let count=(row["mip_count"] as! NSNumber).intValue
-            let size=1 << (count-1),env=texture(device,width:size,height:size,mips:true)
+            let size=[1:1,4:65,8:1025][count]!,env=texture(device,width:size,height:size,levels:count)
             for level in 0..<count {
                 let extent=max(1,size >> level)
                 let value=Float(level+1)/8
@@ -246,7 +246,7 @@ import simd
         for row in report["gpu_spatial"] as! [[String:Any]] {
             let v=row["input"] as! [String:Any]
             let source=texture(device,values:[0,0,0,1]),target=texture(device,format:.rgba32Float)
-            let env=texture(device,width:width,height:height,mips:true,values:gradient),cb=queue.makeCommandBuffer()!
+            let env=texture(device,width:width,height:height,levels:4,values:gradient),cb=queue.makeCommandBuffer()!
             let blit=cb.makeBlitCommandEncoder()!;blit.generateMipmaps(for:env);blit.endEncoding()
             let position=SIMD3(floats(v,"position"))
             var model=matrix_identity_float4x4;model.columns.3=SIMD4(position,1)

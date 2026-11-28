@@ -252,7 +252,7 @@ import Metal
     static func main() throws {
         let device = MTLCreateSystemDefaultDevice()!, queue = device.makeCommandQueue()!
         let pool = SceneOffscreenTexturePool(device: device, pixelFormat: .rgba16Float,
-            maxDimension: 16, residentByteBudget: 4096)
+            maxDimension: 64, residentByteBudget: 256 * 1024)
         let owner = Coordinator(device: device, capabilities: try .init(admissionCandidates: [],
             materialCatalog: .init(entries: [:], resourceDemandIssues: [])),
             capturesExecutionObservations: false, logSink: { _ in })
@@ -261,7 +261,7 @@ import Metal
                 threshold: 1, tint: SIMD3(1, 1, 1)))),
             imageCompositor: .init(resolvedMaterialRuntime: owner),
             bloomPostProcess: nil, displayMappingPostProcess: nil)
-        func texture(_ width: Int = 4, _ height: Int = 2,
+        func texture(_ width: Int = 64, _ height: Int = 64,
                      color: [Float16]? = nil) -> MTLTexture {
             let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Float,
                 width: width, height: height, mipmapped: false)
@@ -274,20 +274,26 @@ import Metal
             }
             return result
         }
-        func prepare(_ index: UInt64, _ epoch: UInt64, main: MTLTexture) -> Frame {
+        func prepare(_ index: UInt64, _ epoch: UInt64, main: MTLTexture,
+                     intent: SceneOffscreenTexturePool.SceneColorIntent = .snapshot) -> Frame {
+            let width = main.width, height = main.height
             let dynamic = SceneDynamicSnapshotResolver().resolve(
                 frameIndex: index, generation: epoch, definitions: []).snapshot
             owner.beginFrame(textureSnapshot: .init(frameEpoch: epoch, frameIndex: index, entries: [:]),
                 dynamicSnapshot: dynamic, frameInputs: .init(frameIndex: index,
-                    screenSize: CGSize(width: 4, height: 2), sceneTime: Float(index),
+                    screenSize: CGSize(width: width, height: height), sceneTime: Float(index),
                     dayTime: 0, frameTime: 1 / 60, pointerCurrentNDC: .zero, pointerPreviousNDC: .zero))
             let cb = queue.makeCommandBuffer()!
             // Protect actual mandatory capacity before optional history in
             // the production pool's existing pin and residency domain.
-            let targets = pool.reserveCompositionTargets(dimensions: [(4, 2)], commandBuffer: cb)!
-            let reservation = owner.reserveSceneColor(pool: pool, width: 4, height: 2,
-                frameIndex: index, commandBuffer: cb, intent: .snapshot)!
-            let pass = SceneMainPassEncoder(commandBuffer: cb, target: main,
+            let targets = pool.reserveCompositionTargets(dimensions: [(width, height)], commandBuffer: cb)!
+            let reservation = owner.reserveSceneColor(pool: pool, width: width, height: height,
+                frameIndex: index, commandBuffer: cb, intent: intent)!
+            let raw = intent == .persistence ? reservation.raw : main
+            if intent == .persistence {
+                precondition(renderer.copySceneColor(main, to: raw, commandBuffer: cb))
+            }
+            let pass = SceneMainPassEncoder(commandBuffer: cb, target: raw,
                 clearColor: MTLClearColorMake(0, 0, 0, 0), clearEnabled: false)
             let reflection = SceneMetalRenderer.ReflectionFrame(pool: pool, mainPass: pass,
                 groupRuntime: nil, commandBuffer: cb, frameEpoch: epoch)
@@ -306,9 +312,10 @@ import Metal
             return outcome
         }
         func seal(_ value: Frame) -> Bool {
-            renderer.encodeTerminalColor(sourceCompleted: value.reflection.mainSourceCompleted, sceneColor: nil, target: value.main,
-                offscreenTexturePool: pool, dynamicValues: value.dynamic,
-                commandBuffer: value.commandBuffer) == nil
+            let persistent = value.reservation.intent == .persistence ? value.reservation : nil
+            return renderer.encodeTerminalColor(sourceCompleted: value.reflection.mainSourceCompleted,
+                sceneColor: persistent, target: value.main, offscreenTexturePool: pool,
+                dynamicValues: value.dynamic, commandBuffer: value.commandBuffer) == nil
         }
         func complete(_ value: Frame, status: SceneGraphExecutionGPUCompletionStatus = .completed,
                       alreadyArmed: Bool = false) -> Bool {
@@ -336,8 +343,8 @@ import Metal
                 from: MTLRegionMake2D(0, 0, w, h), mipmapLevel: 0) }
             return values.prefix(4).map(Float.init)
         }
-        // Self-authored measurement consumers read the product mip at distinct
-        // slots and LODs. They do not open B's authored Program sampler route.
+        // Probe distinct slots and both sides of the terminal mip, including
+        // explicit LOD beyond the allocated chain.
         let consumerLibrary = try device.makeLibrary(source: """
             #include <metal_stdlib>
             using namespace metal;
@@ -346,14 +353,16 @@ import Metal
                                       device float4* result [[buffer(0)]]) {
                 constexpr sampler s(coord::normalized, address::clamp_to_edge,
                                     filter::linear, mip_filter::linear);
-                result[0] = nearColor.sample(s, float2(0.125, 0.5), level(0));
-                result[1] = farColor.sample(s, float2(0.5, 0.5), level(2));
+                result[0] = nearColor.sample(s, float2(0.0, 0.5), level(0));
+                result[1] = farColor.sample(s, float2(0.25, 0.5), level(2));
+                result[2] = farColor.sample(s, float2(0.25, 0.5), level(8));
+                result[3] = farColor.sample(s, float2(0.75, 0.5), level(8));
             }
             """, options: nil)
         let consumers = try device.makeComputePipelineState(
             function: consumerLibrary.makeFunction(name: "sampleHistory")!)
         func sample(_ resource: SceneFrameTextureResource, on cb: MTLCommandBuffer) -> MTLBuffer {
-            let result = device.makeBuffer(length: 32, options: .storageModeShared)!
+            let result = device.makeBuffer(length: 64, options: .storageModeShared)!
             let encoder = cb.makeComputeCommandEncoder()!
             encoder.setComputePipelineState(consumers)
             encoder.setTexture(resource.publication.texture, index: 1)
@@ -364,16 +373,21 @@ import Metal
             return result
         }
         func sampled(_ buffer: MTLBuffer) -> [Float] {
-            Array(UnsafeBufferPointer(start: buffer.contents().bindMemory(to: Float.self, capacity: 8), count: 8))
+            Array(UnsafeBufferPointer(start: buffer.contents().bindMemory(to: Float.self, capacity: 16), count: 16))
         }
         var checks: [String: Bool] = [:]
         let patternedMain = texture()
         var pixels: [Float16] = []
-        for _ in 0..<2 { for x in 0..<4 {
-            pixels += x < 2 ? [2, 0, 0, 0.25] : [0, 4, 0, 0.75]
+        for _ in 0..<patternedMain.height { for x in 0..<patternedMain.width {
+            if x >= patternedMain.width / 2 {
+                pixels += [0, 0, 6, 0.75]
+            } else {
+                pixels += x % 4 < 2 ? [2, 0, 0, 0.25] : [0, 4, 0, 0.75]
+            }
         } }
-        pixels.withUnsafeBytes { patternedMain.replace(region: MTLRegionMake2D(0, 0, 4, 2),
-            mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 32) }
+        pixels.withUnsafeBytes { patternedMain.replace(
+            region: MTLRegionMake2D(0, 0, patternedMain.width, patternedMain.height),
+            mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: patternedMain.width * 8) }
         let first = prepare(1, 101, main: patternedMain)
         checks["bootstrapHasNoReadableHistory"] = first.reservation.previous == nil
             && first.reservation.previousReceipt == nil && owner.completedSceneColor == nil
@@ -409,14 +423,13 @@ import Metal
         checks["environmentReusesPreviousWithoutSeparateTexture"] =
             a.publication.texture === first.reservation.raw
             && a.publication.texture !== second.reservation.raw
-            && pool.allocationCache.allocation(for: .environment(width: 4, height: 2)) == nil
-        checks["fullRealMipChain"] = a.publication.texture.mipmapLevelCount == 3
+            && pool.allocationCache.allocation(for: .environment(width: 64, height: 64)) == nil
         checks["typedPublicationPreservesProducer"] = a.publication.isComplete
             && a.publication.requestIdentity == .sceneEnvironment && a.publication.contentGeneration == 102
             && a.publication.candidate.identity == .provider(.sceneEnvironment(frameEpoch: 102,
                 allocationGeneration: a.resourceGeneration, source: firstReceipt))
             && a.resourceGeneration == firstReceipt.allocationGeneration
-            && a.publication.texture.width == 4 && a.publication.texture.height == 2
+            && a.publication.texture.width == 64 && a.publication.texture.height == 64
             && firstReceipt.frameEpoch != a.publication.contentGeneration
         let beforeSuffix = sample(a, on: second.commandBuffer)
         second.pass.encodeOffscreen { cb in
@@ -498,8 +511,8 @@ import Metal
         checks["resetCandidateWasReallySealed"] = capture(reset) == nil && seal(reset)
         reset.reflection.arm()
         owner.invalidate(reason: .allocationReprepare); pool.reset()
-        // Two mip chains plus mandatory 4×2 scratch.
-        checks["resetRetainsAllInFlightPins"] = pool.residentByteCost == 2 * (8 + 2 + 1) * 8 + 8 * 8
+        let pinnedBytes = (2 * (4096 + 1024 + 256) + 4096) * 8
+        checks["resetRetainsAllInFlightPins"] = pool.residentByteCost == pinnedBytes
             && owner.completedSceneColor == nil
         checks["resetBufferReallyCompletes"] = complete(reset, alreadyArmed: true)
         checks["resetCompletionCannotPromoteAndReleasesPins"] = owner.completedSceneColor == nil
@@ -511,11 +524,47 @@ import Metal
             && cancelledReset.reservation.producerReceipt.resetEpoch != latestReceipt.resetEpoch
         checks["cancelResetCandidateWasReallySealed"] = capture(cancelledReset) == nil && seal(cancelledReset)
         pool.reset()
-        checks["unsubmittedCommandsRemainPinned"] = pool.residentByteCost == 2 * (8 + 2 + 1) * 8 + 8 * 8
+        checks["unsubmittedCommandsRemainPinned"] = pool.residentByteCost == pinnedBytes
         cancelledReset.reflection.cancel(); owner.cancelUnsubmittedFrame(on: cancelledReset.commandBuffer)
         cancelledReset.reflection.cancel(); owner.cancelUnsubmittedFrame(on: cancelledReset.commandBuffer)
         checks["cancelResetReleasesExactlyOnce"] = pool.residentByteCost == 0
             && cancelledReset.commandBuffer.status == .notEnqueued && owner.completedSceneColor == nil
+        let tiny = prepare(6, 109, main: texture(4, 2, color: [2, 3, 4, 1]))
+        checks["singleLevelTerminalPromotesActualHistory"] = capture(tiny) == nil && seal(tiny) && complete(tiny)
+        let nextTiny = prepare(7, 110, main: texture(4, 2, color: [5, 0, 0, 1]))
+        MWXArmBlitFault(nextTiny.commandBuffer, 1)
+        let baseOnly = nextTiny.reflection.resolve(nextTiny.commandBuffer)!
+        checks["singleLevelSnapshotBindsWithoutBlit"] = MWXBlitAttempts() == 0
+            && baseOnly.publication.texture === tiny.reservation.raw
+            && baseOnly.publication.texture.mipmapLevelCount == 1
+        MWXArmBlitFault(nextTiny.commandBuffer, 0)
+        let tinyPixels = sample(baseOnly, on: nextTiny.commandBuffer)
+        checks["singleLevelSnapshotSamplesCompletedBaseAtBothLods"] = capture(nextTiny) == nil
+            && seal(nextTiny) && complete(nextTiny) && sampled(tinyPixels) == Array(repeating: [2, 3, 4, 1], count: 4).flatMap { $0 }
+
+        let persistent = prepare(8, 111, main: patternedMain, intent: .persistence)
+        checks["persistentRawPromotesAsSingleLevel"] = persistent.reservation.raw.mipmapLevelCount == 1
+            && capture(persistent) == nil && seal(persistent) && complete(persistent)
+        let nextPersistent = prepare(9, 112, main: texture(color: [0, 3, 0, 1]), intent: .persistence)
+        MWXArmBlitFault(nextPersistent.commandBuffer, 0)
+        let derived = nextPersistent.reflection.resolve(nextPersistent.commandBuffer)!
+        checks["persistentEnvironmentCopiesBaseAndUsesShortChain"] = MWXBlitAttempts() == 1
+            && nextPersistent.reservation.previous === persistent.reservation.raw
+            && derived.publication.texture !== persistent.reservation.raw
+            && derived.publication.texture.mipmapLevelCount == 3
+        let cleared = nextPersistent.reflection.prepareClearedEnvironment()!
+        checks["clearedEnvironmentMatchesShortChainWithoutBlit"] = MWXBlitAttempts() == 1
+            && cleared.publication.texture.mipmapLevelCount == 3
+            && cleared.publication.texture.width == derived.publication.texture.width
+            && cleared.publication.texture.height == derived.publication.texture.height
+            && cleared.publication.texture.pixelFormat == .r8Unorm
+        let derivedPixels = sample(derived, on: nextPersistent.commandBuffer)
+        let clearedPixels = sample(cleared, on: nextPersistent.commandBuffer)
+        checks["persistentAndClearedEnvironmentReadbacks"] = capture(nextPersistent) == nil
+            && seal(nextPersistent) && complete(nextPersistent)
+            && sampled(derivedPixels) == sampled(beforeSuffix)
+            && sampled(clearedPixels) == [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1]
+        MWXArmBlitFault(nextPersistent.commandBuffer, 0)
         let result: [String: Any] = ["checks": checks, "firstBase": firstBase,
             "firstLastMip": firstLast, "nextLastMip": nextLast,
             "firstConsumerSlots": sampled(beforeSuffix), "afterSuffixConsumerSlots": sampled(afterSuffix),
@@ -533,12 +582,14 @@ class SceneReflectionEnvironmentProducerTests(unittest.TestCase):
         for name, passed in result["checks"].items():
             with self.subTest(name=name):
                 self.assertTrue(passed, name)
+        self.assertEqual(result["generatedMipLevels"], 3)
         self.assertEqual(result["firstBase"], [2, 0, 0, .25])
         self.assertEqual(result["firstLastMip"], [1, 2, 0, .5])
         self.assertEqual(result["nextLastMip"], [0, 0, 3, 1])
-        self.assertEqual(result["firstConsumerSlots"], [2, 0, 0, .25, 1, 2, 0, .5])
+        self.assertEqual(result["firstConsumerSlots"],
+                         [2, 0, 0, .25, 1, 2, 0, .5, 1, 2, 0, .5, 0, 0, 6, .75])
         self.assertEqual(result["afterSuffixConsumerSlots"], result["firstConsumerSlots"])
-        self.assertEqual(result["nextConsumerSlots"], [0, 0, 3, 1] * 2)
+        self.assertEqual(result["nextConsumerSlots"], [0, 0, 3, 1] * 4)
 
 
 if __name__ == "__main__":

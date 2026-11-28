@@ -228,17 +228,16 @@ final class SceneOffscreenTexturePool {
         var descriptors: [CacheKey: MTLTextureDescriptor] = [:]
         var costs: [CacheKey: Int] = [:]
         for (kind, width, height) in requests {
-            let format: MTLPixelFormat, bytesPerPixel: Int, mipmapped: Bool
+            let format: MTLPixelFormat, bytesPerPixel: Int
             switch kind {
             case .shadow, .modelCameraDepth:
-                format = .depth32Float; bytesPerPixel = 4; mipmapped = false
+                format = .depth32Float; bytesPerPixel = 4
             case .environment(let cleared):
                 format = cleared ? .r8Unorm : pixelFormat
                 bytesPerPixel = cleared ? 1 : backbufferFormat.logicalBytesPerPixel
-                mipmapped = true
             case .composition, .sourceMaterial, .terminalInput:
-                format = pixelFormat; bytesPerPixel = backbufferFormat.logicalBytesPerPixel; mipmapped = false
-            case .puppetClipping: format = .r8Unorm; bytesPerPixel = 1; mipmapped = false
+                format = pixelFormat; bytesPerPixel = backbufferFormat.logicalBytesPerPixel
+            case .puppetClipping: format = .r8Unorm; bytesPerPixel = 1
             }
             let key: CacheKey = switch kind {
             case .composition: .composition(width: width, height: height)
@@ -255,13 +254,15 @@ final class SceneOffscreenTexturePool {
             if !keys.insert(key).inserted { continue }
             guard width > 0, height > 0, width <= maxDimension, height <= maxDimension else { return nil }
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format,
-                width: width, height: height, mipmapped: mipmapped)
+                width: width, height: height, mipmapped: false)
             descriptor.storageMode = .private
-            if case .environment(cleared: true) = kind {
-                descriptor.usage = .shaderRead
-                descriptor.swizzle = .init(red: .zero, green: .zero, blue: .zero, alpha: .one)
-            } else {
-                descriptor.usage = [.shaderRead, .renderTarget]
+            descriptor.usage = [.shaderRead, .renderTarget]
+            if case let .environment(cleared) = kind {
+                descriptor.mipmapLevelCount = SceneEnvironmentMipChain.levelCount(width: width, height: height)
+                if cleared {
+                    descriptor.usage = .shaderRead
+                    descriptor.swizzle = .init(red: .zero, green: .zero, blue: .zero, alpha: .one)
+                }
             }
             guard let cost = byteCost(width: width, height: height,
                 levels: descriptor.mipmapLevelCount, bytesPerPixel: bytesPerPixel) else { return nil }
