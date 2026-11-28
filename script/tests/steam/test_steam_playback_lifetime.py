@@ -21,6 +21,7 @@ enum WallpaperPlaybackSequence { struct Pending {} }
 enum WallpaperProvider { case steamWorkshop }
 struct WallpaperReference { let provider:WallpaperProvider;let sourceID:String }
 struct ScenePlaybackTextureReference {}
+struct ScenePlaybackPresentation { init() {} }
 // 真实形状见 WallpaperEngineCommand.swift；抽取的 stop/shutdown 路径会构造
 // .failed(String) 等分支，stub 枚举必须承接这些调用点。
 enum ScenePlaybackTextureUpdateOutcome { case applied, failed(String), superseded, unavailable }
@@ -192,6 +193,7 @@ struct SteamWorkshopDownloadMetadataSnapshot: Codable {
             }
     }
     func scenePropertyOverrides(for record: SteamWorkshopDownloadRecord) -> [String: SceneUserPropertyValue] { [:] }
+    func scenePresentation(for record: SteamWorkshopDownloadRecord) -> ScenePlaybackPresentation { .init() }
     func sceneShortcutConfiguration(for record: SteamWorkshopDownloadRecord) -> ScenePlaybackShortcutConfiguration { .empty }
     func withResolvedSceneTexturePropertyReferences(for record: SteamWorkshopDownloadRecord,
         completion: ([String: ScenePlaybackTextureReference]) -> Void) { completion([:]) }

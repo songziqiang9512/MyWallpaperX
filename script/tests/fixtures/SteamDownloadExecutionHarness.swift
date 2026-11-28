@@ -239,6 +239,12 @@ final class Transport: SteamServiceTransporting {
 }
 @MainActor final class WallpaperManager { static let shared = WallpaperManager(); func stopCurrentPlayback() {} }
 @MainActor final class SteamWorkshopService {
+    var currentSteamDownloadAccount: String? { steamAuth.steamId }
+    func currentAccountDownloadJob(for itemID: String) -> SteamDownloadJob? {
+        guard let job = downloadJobStore.activeJob(forWorkshopItemId: itemID),
+              job.accountSteamId == currentSteamDownloadAccount else { return nil }
+        return job
+    }
     static var detailCacheRootURL = URL(fileURLWithPath: "/private/tmp/mwx-unused-detail-cache")
     static func detailCacheFileURL(id: String) -> URL { detailCacheRootURL.appendingPathComponent(id + ".json") }
     // Product Manager ticket settlement is controlled here; the real service
@@ -385,7 +391,7 @@ final class Transport: SteamServiceTransporting {
             var rejectedIncompleteIndex = false
             do {
                 _ = try service.loadManagedDownloadSnapshots(requireComplete: true)
-            } catch let failure as SteamWorkshopLibraryTransaction.Failure where failure.message == "下载索引不完整，已暂停版本回收。" {
+            } catch let failure as SteamWorkshopLibraryTransaction.Failure where failure.message == "The download index is incomplete, so version reclamation is paused." {
                 rejectedIncompleteIndex = true
             }
             let retainedInvalidBytes = try Data(contentsOf: invalidPointer)
@@ -450,7 +456,7 @@ final class Transport: SteamServiceTransporting {
             let preservedJobStoreLink = try FileManager.default.destinationOfSymbolicLink(atPath: transport.jobStoreURL!.path)
             let storeSiblings = try FileManager.default.contentsOfDirectory(at: base, includingPropertiesForKeys: nil)
             precondition(!service.downloadJobStore.lastSaveSucceeded && service.downloadJobStore.jobs.isEmpty
-                && service.activeDownloadTasks.isEmpty && service.statusMessage == "下载任务无法保存，未开始下载。")
+                && service.activeDownloadTasks.isEmpty && service.statusMessage == "The download task couldn’t be saved, so the download didn’t start.")
             precondition(!transport.commands.contains { $0["command"] as? String == "startDownload" })
             precondition(preservedJobStoreLink == rejectedJobStoreTarget.path && !FileManager.default.fileExists(atPath: rejectedJobStoreTarget.path)
                 && !storeSiblings.contains { $0.lastPathComponent.hasPrefix("jobs.corrupted-") })
@@ -637,7 +643,7 @@ final class Transport: SteamServiceTransporting {
             if mode == "cdn-forbidden" {
                 let job = service.downloadJobStore.jobs.last!
                 precondition(job.state == .failed && job.stagingPath == nil)
-                precondition(job.failureMessage == transport.preAllocationFailure && service.downloadError == job.failureMessage)
+                precondition(job.failureMessage == "Steam denied access. Sign in again and retry." && service.downloadError == job.failureMessage, "CDN access denial must surface the localized account fix")
                 guard case let .failed(message)? = service.downloads.first?.status else { fatalError("missing failed card") }
                 precondition(message == job.failureMessage)
                 let reloaded = SteamDownloadJobStore(persistenceURL: base.appendingPathComponent("jobs.json"))
@@ -791,7 +797,7 @@ final class Transport: SteamServiceTransporting {
             guard case let .failed(message)? = service.downloads.first?.status else {
                 fatalError("missing disk-full card")
             }
-            precondition(message.contains("磁盘空间不足") && message.contains("重试"))
+            precondition(message.contains("Not enough disk space") && message.contains("try again"))
             precondition(FileManager.default.fileExists(atPath: transport.receipt["stagingPath"] as! String))
         }
         await service.steamServiceClient.stop(shutdownTimeout: 0)

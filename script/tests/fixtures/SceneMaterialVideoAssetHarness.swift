@@ -5,7 +5,6 @@ import AVFoundation
 import Metal
 import QuartzCore
 import simd
-
 // Unrelated descriptor/command/renderer envelopes only. TEX admission, player,
 // lifecycle, candidate/publication, registry, selection and GPU are real owners.
 struct SceneFrameTiming { let frameIndex: UInt64; let hostTime: Double; let sceneTime: Double }
@@ -71,7 +70,6 @@ final class ScenePerformanceCounterHub {
     func bump(_ value: ScenePerformanceCounter) {}
     func recordDraw(usesGeometry: Bool) {}
 }
-
 @main enum Harness {
     static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1])
@@ -353,7 +351,6 @@ final class ScenePerformanceCounterHub {
             "assetAlive": stoppedAsset != nil, "fileAlive": stoppedFile != nil]
         try emit(result)
     }
-
     static func pump(_ seconds: Double, until condition: () -> Bool) -> Bool {
         let end = CACurrentMediaTime() + seconds
         repeat {
@@ -362,18 +359,15 @@ final class ScenePerformanceCounterHub {
         } while CACurrentMediaTime() < end
         return condition()
     }
-
     static func player(_ source: SceneVideoTextureSource) -> AVPlayer {
         Mirror(reflecting: source).children.compactMap { $0.value as? AVPlayer }.first!
     }
-
     static func imagePipeline(_ device: MTLDevice) throws -> SceneImageLayerPipeline {
         let fragment = try String(contentsOfFile: CommandLine.arguments[2], encoding: .utf8)
         let library = try device.makeLibrary(source: fragment, options: nil)
         return SceneImageLayerPipeline(device: device, pixelFormat: .rgba16Float,
             blendMode: .sourceOver, library: library)!
     }
-
     static func firstFrame(_ source: SceneVideoTextureSource) -> SceneVideoTextureSource.Frame? {
         var frame: SceneVideoTextureSource.Frame?
         var index: UInt64 = 0
@@ -386,7 +380,6 @@ final class ScenePerformanceCounterHub {
         }
         return frame
     }
-
     #if MWX_COMPLETED_WEBM_REUSE
     static func storage(root: URL, external: URL) throws {
         let fm = FileManager.default
@@ -470,7 +463,6 @@ final class ScenePerformanceCounterHub {
         checks["embeddedAVBorrowerAlonePinsFile"] = weakFile != nil && fm.fileExists(atPath: privateURL.path)
         autoreleasepool { borrowedItem = nil; borrowedAsset = nil }
         checks["embeddedFinalAVBorrowerUnlinksFile"] = pump(8) { weakFile == nil && !fm.fileExists(atPath: privateURL.path) }
-
         try autoreleasepool {
             let loader = SceneUserPropertyTextureLoader()
             let identity = SceneUserPropertyTextureIdentity(propertyKey: "renamed-user-video", purpose: .premultipliedColor)!
@@ -568,7 +560,6 @@ final class ScenePerformanceCounterHub {
         try emit(["checks": checks, "pixels": pixels, "storageMapping": "actual package Root with explicit App-private media domain"])
     }
     #endif
-
     #if MWX_COMPLETED_WEBM_REUSE
     static func completedWebMReuse(root: URL) throws {
         let fm = FileManager.default
@@ -652,7 +643,6 @@ final class ScenePerformanceCounterHub {
         }
         checks["stoppedSourcesRemainAliveAfterFinalBorrow"] = stoppedSources.count == 2 &&
             stoppedSources.allSatisfy { player($0).currentItem == nil }
-
         let boundaryCache = privateBase.appendingPathComponent("boundaries")
         let budget = SceneVideoOwnedFile.DiskBudget.shared
         let sourceCopy = try SceneVideoOwnedFile.snapshot(from: handle, cacheDirectory: boundaryCache,
@@ -755,7 +745,6 @@ final class ScenePerformanceCounterHub {
             "scope": "real package Root/Loader/Registry and independent AV players; low-level table negatives use original controlled Writer"])
     }
     #endif
-
     #if MWX_REGISTRY_INPUT_IO
     static func registryInputIO(root: URL) throws {
         guard let device = MTLCreateSystemDefaultDevice() else { fatalError("Metal unavailable") }
@@ -967,7 +956,6 @@ final class ScenePerformanceCounterHub {
         try emit(["checks": checks, "payloadReadBytes": reads, "entryBytes": entryBytes])
     }
     #endif
-
     static func draw(_ source: SceneBaseMaterialTextureSource, layer: SceneRenderDescriptor.Layer, tint: SIMD3<Float>, device: MTLDevice,
                      queue: MTLCommandQueue, pipeline: SceneImageLayerPipeline) throws -> [Float] {
         let request = request(texture: source.texture, candidate: source.candidate, layer: layer, tint: tint)
@@ -993,7 +981,6 @@ final class ScenePerformanceCounterHub {
             from: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0) }
         return pixel.map(Float.init)
     }
-
     static func request(texture: MTLTexture, candidate: SceneTextureCandidate?,
                         layer: SceneRenderDescriptor.Layer, tint: SIMD3<Float>) -> SceneImageLayerDrawRequest {
         .init(layer: layer, texture: texture, baseTextureCandidate: candidate,
@@ -1004,7 +991,6 @@ final class ScenePerformanceCounterHub {
             requiresSourceCopy: false, finalCompositeAlpha: nil)
     }
 }
-
 extension Data {
     func appendTo(_ url: URL) throws {
         let handle = try FileHandle(forWritingTo: url)

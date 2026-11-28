@@ -19,10 +19,7 @@ import subprocess
 import tempfile
 import unittest
 
-if __package__:
-    from .test_ui_library_algorithms import declaration
-else:
-    from test_ui_library_algorithms import declaration
+from script.tests.ui.test_ui_library_algorithms import declaration
 
 ROOT = Path(__file__).resolve().parents[3]
 SUPPORT = Path(os.environ.get("MWX_VIDEO_METADATA_SUPPORT_SOURCE", ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift"))

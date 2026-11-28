@@ -48,6 +48,7 @@ struct SceneRenderDescriptor {
         struct Bloom {
             struct HDR {}
             var hdr: HDR? = nil
+            func consumes(_ field: SceneDynamicSceneField) -> Bool { true }
         }
         var orthoWidth: Float? = 512
         var orthoHeight: Float? = 512
@@ -71,6 +72,9 @@ struct SceneRenderDescriptor {
         var dependencyLayerIDs: [Int] = []
         var puppetAnimationLayers: [AnimationLayer] = []
         var namedProviderLayerIDs: [Int] = []
+        struct ParticleBoundValue { var userPropertyKey: String? }
+        struct ParticleInstanceOverride { var brightness: ParticleBoundValue? }
+        var particleInstanceOverride: ParticleInstanceOverride? = nil
         __COLOR_ELIGIBILITY__
     }
     var layers: [Layer]
@@ -103,6 +107,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     __SOURCE_MATERIAL_STORAGE__
     private(set) var sourceMaterialPrototypeByModel: [String: Int] = [:]
     private(set) var hasSourceMaterialSceneEnvironmentConsumer = false
+    var sourceDirectLightSlots: (point: Int, spot: Int) = (0, 0)
     __SOURCE_MATERIAL_CONSUMER__
 }
 

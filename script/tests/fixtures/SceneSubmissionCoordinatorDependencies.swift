@@ -55,7 +55,6 @@ struct SceneAuthoredEffectRenderPlan {
         self.renderTargets = renderTargets
     }
 }
-
 struct SceneLayerFullFramePairPlan {
     enum Member { case zero, one }
     struct NodeStep {

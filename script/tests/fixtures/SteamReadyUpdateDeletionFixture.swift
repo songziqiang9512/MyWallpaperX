@@ -217,7 +217,7 @@ extension SteamWorkshopService {
             let retained = try loadManagedDownloadSnapshots(requireComplete: true)["123456"]?.commit
             precondition(retained?.removed == false && retained?.jobId == commit.jobId,
                 "failed durable cancellation must preserve the ready pointer")
-            precondition(statusMessage.contains("取消状态无法保存"))
+            precondition(statusMessage.contains("cancellation state couldn’t be saved"))
             precondition(!transport.commands.contains(where: {
                 $0["command"] as? String == "cancelDownload" && $0["jobId"] as? String == key
             }), "physical cancellation cannot stand in for the durable deletion fence")
@@ -235,7 +235,7 @@ extension SteamWorkshopService {
             try Data("broken-json".utf8).write(to: metadata, options: .atomic)
             deleteSourceFiles(itemIDs: ["123456"]) { _ in }
         while removingDownloadIDs.contains("123456") { await Task.yield() }
-            precondition(statusMessage.contains("无法安全读取"))
+            precondition(statusMessage.contains("can't be read safely"))
             precondition(downloadJobStore.job(id: jobID)?.state == .running)
             precondition(!transport.commands.contains(where: {
                 $0["command"] as? String == "cancelDownload" && $0["jobId"] as? String == key
@@ -249,7 +249,7 @@ extension SteamWorkshopService {
         if commitBearingAlias {
             deleteSourceFiles(itemIDs: ["123456"]) { _ in }
         while removingDownloadIDs.contains("123456") { await Task.yield() }
-            precondition(statusMessage.contains("无法安全读取"))
+            precondition(statusMessage.contains("can't be read safely"))
             precondition(downloadJobStore.job(id: jobID)?.state == .running,
                 "invalid alias identity must fail before durable cancellation")
             precondition(!transport.commands.contains(where: {
@@ -266,7 +266,7 @@ extension SteamWorkshopService {
         deleteSourceFiles(itemIDs: ["123456"]) { _ in }
         while removingDownloadIDs.contains("123456") { await Task.yield() }
         if mode.hasSuffix("scene-busy") {
-            precondition(statusMessage.contains("仍在切换"), statusMessage)
+            precondition(statusMessage.contains("still switching"), statusMessage)
             precondition(downloads.count == 1 && downloads[0].status == .ready)
             precondition(FileManager.default.fileExists(atPath: content.path))
             precondition(!SceneDaemonClient.shared.stopped, "busy cannot stop another Scene ticket")
@@ -281,7 +281,7 @@ extension SteamWorkshopService {
                 [.posixPermissions: 0o700],
                 ofItemAtPath: downloadMetadataIndexDirectoryURL().path
             )
-            precondition(statusMessage.contains("删除失败"))
+            precondition(statusMessage.contains("Delete failed"))
             precondition(downloadJobStore.job(id: jobID)?.state == .cancelled)
             for _ in 0..<100_000 where !transport.commands.contains(where: {
                 $0["command"] as? String == "cancelDownload" && $0["jobId"] as? String == key
@@ -297,13 +297,13 @@ extension SteamWorkshopService {
             transport.finishHeldCancellation(jobId: key)
             while activeDownloadTasks[key] != nil { await Task.yield() }
             await terminalDownloadCleanupTask?.value
-            precondition(statusMessage.contains("删除失败"),
+            precondition(statusMessage.contains("Delete failed"),
                 "silent cancellation must preserve the publication failure feedback")
             await steamServiceClient.stop(shutdownTimeout: 0)
             print("EXECUTION PASS: \(mode)")
             return
         }
-        precondition(statusMessage == "已删除 1 个壁纸及本地文件", statusMessage)
+        precondition(statusMessage == "Deleted 1 wallpapers and their local files", statusMessage)
         let removed = try loadManagedDownloadSnapshots(requireComplete: true)["123456"]
         if legacy {
             precondition(removed?.commit == nil && removed?.legacyRemoved == true,
@@ -346,10 +346,10 @@ extension SteamWorkshopService {
                 && !isRefreshingSelectedDownloadDetailItem && detailCancellations == 1,
                 "successful deletion cancels this item's in-flight detail writer before clearing its cache")
         }
-        precondition(statusMessage == "已删除 1 个壁纸及本地文件", "silent delete cancellation must preserve outer feedback")
+        precondition(statusMessage == "Deleted 1 wallpapers and their local files", "silent delete cancellation must preserve outer feedback")
         if let replacement {
             precondition(FileManager.default.fileExists(atPath: replacement.appendingPathComponent("sentinel").path))
-            precondition(downloadError?.contains("清理") == true)
+            precondition(downloadError?.contains("cleanup") == true)
         } else {
             precondition(!FileManager.default.fileExists(atPath: transport.receipt["stagingPath"] as! String),
                 "helper terminal must retire the exact staging lease")

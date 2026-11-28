@@ -216,10 +216,11 @@ extension SceneDesktopWallpaperHost {
                         sourceMaterialCandidateConsumerLayerIDs
                 ))
                 .union(propertyBindingProgram.instructions.compactMap {
-                    guard case let .scene(field) = $0.target else { return nil }
+                    instruction -> SceneDynamicTarget? in
+                    guard case let .scene(field) = instruction.target else { return nil }
                     if field == .clearColor && !descriptor.camera.clearEnabled { return nil }
                     guard descriptor.camera.bloom.consumes(field) else { return nil }
-                    return $0.target
+                    return instruction.target
                 })
                 .union(cameraTargets)
                 .union(lightTargets)

@@ -3,7 +3,6 @@ import Foundation
 import ImageIO
 import Metal
 import simd
-
 final class SceneVideoTextureSource {
     init?(
         layerID: Int,
@@ -13,11 +12,9 @@ final class SceneVideoTextureSource {
         device: MTLDevice
     ) { return nil }
 }
-
 struct SceneSpriteAnimation {
     init(container: SceneTexContainer, sourceInput: SceneResourceView.FileInput) throws {}
 }
-
 @main
 enum Harness {
     private static var readback: SceneTextureSamplingReadback!
@@ -36,7 +33,6 @@ enum Harness {
             withIntermediateDirectories: true
         )
         defer { try? FileManager.default.removeItem(at: directory) }
-
         let loader = SceneTextureLoader()
         let dxt5nURL = directory.appendingPathComponent("packed-normal.tex")
         try makeTex(format: 4, payload: dxt5nBlock()).write(to: dxt5nURL)
@@ -50,21 +46,16 @@ enum Harness {
             device: device
         ))
         let decoded = try readPixel(decodedTexture)
-
         let rgbaURL = directory.appendingPathComponent("rgba-normal.tex")
         try makeRawTex(pixel: decoded).write(to: rgbaURL)
-
         let swappedURL = directory.appendingPathComponent("swapped-normal.tex")
         try makeRawTex(
             pixel: [decoded[0], decoded[3], decoded[2], decoded[1]]
         ).write(to: swappedURL)
-
         let neutralURL = directory.appendingPathComponent("neutral-normal.tex")
         try makeRawTex(pixel: [255, 128, 0, 128]).write(to: neutralURL)
-
         let opaqueURL = directory.appendingPathComponent("opaque-albedo.tex")
         try makeRawTex(pixel: [255, 255, 255, 255]).write(to: opaqueURL)
-
         let fractionalURL = directory.appendingPathComponent("fractional-albedo.tex")
         try makeRawTex(pixel: [255, 255, 255, 128]).write(to: fractionalURL)
         let transparentURL = directory.appendingPathComponent("transparent-colored-albedo.tex")
@@ -279,7 +270,6 @@ enum Harness {
             overbright: 1,
             colorEncoding: .rgba
         ) == nil
-
         let directNormal = try normalArguments(directDXT5n.binding)
         let unknownFormatRejected = SceneParticleRefractionBinding(
             normalCandidate: candidate(texture: dxt5nNormal.texture, purpose: .normal, authoredFormat: nil),
@@ -347,7 +337,6 @@ enum Harness {
                 particleAlpha: 1, blendMode: .translucent, gradientBackground: true),
             "absentStrong": try draw(device: device, refraction: absentStrong,
                 particleAlpha: 1, blendMode: .translucent, gradientBackground: true),
-
             "decodedDXT5n": decoded.map(Int.init),
             "loadedDXT5nNormal": try readPixel(
                 dxt5nNormal.texture
@@ -436,7 +425,6 @@ enum Harness {
         )
         print(String(decoding: output, as: UTF8.self))
     }
-
     private static func draw(
         device: MTLDevice,
         refraction: SceneParticleRefractionTextureLoader.Loaded,
@@ -454,7 +442,6 @@ enum Harness {
         let offset = (16 * 32 + 16) * 4
         return pixels[offset ..< offset + 4].map(Int.init)
     }
-
     static func drawPixels(
         device: MTLDevice,
         refraction: SceneParticleRefractionTextureLoader.Loaded,
@@ -584,7 +571,6 @@ enum Harness {
         )
         return pixels
     }
-
     /// Same world centerline in two local frames. No width solver is copied:
     /// a flat view-plane ribbon is the reference, while the ordinary local
     /// plane is exactly edge-on and must retain its different geometry.
@@ -668,7 +654,6 @@ enum Harness {
         }
         return rows
     }
-
     private static func r8ColorProfiles(device: MTLDevice, loader: SceneTextureLoader,
                                         directory: URL) throws -> [String: Any] {
         var urls: [String: URL] = [:]
@@ -737,7 +722,6 @@ enum Harness {
             "normalR8Rejected": rejected["normalR8Rejected"]!,
             "animatedNormalFramesMismatchRejected": rejected["animatedNormalFramesMismatchRejected"]!]
     }
-
     private static func staticPrimaryNormalProfiles(device: MTLDevice, loader: SceneTextureLoader,
                                                     directory: URL) throws -> [String: Any] {
         let colorURL = directory.appendingPathComponent("static-coverage.tex")
@@ -785,7 +769,6 @@ enum Harness {
         }
         return rows
     }
-
     private static func refraction(
         colorURL: URL,
         normalURL: URL?,
@@ -808,7 +791,6 @@ enum Harness {
         }
         return loaded
     }
-
     private static func makeDirectDXT5nTex() -> Data {
         var data = Data("TEXV0005\0TEXI0001\0".utf8)
         func append(_ value: UInt32) {
@@ -838,14 +820,12 @@ enum Harness {
         }
         return data
     }
-
     private static func dxt5nBlock() -> Data {
         Data([
             64, 64, 0, 0, 0, 0, 0, 0,
             0x00, 0xFC, 0x00, 0xFC, 0, 0, 0, 0,
         ])
     }
-
     static func makeRawTex(
         pixel: [UInt8],
         flags: UInt32 = 0,
@@ -866,7 +846,6 @@ enum Harness {
             )
         )
     }
-
     private static func makePaddedRawNormalTex() -> Data {
         let mapped: [UInt8] = [255, 128, 0, 128]
         let padding: [UInt8] = [255, 255, 0, 0]
@@ -884,7 +863,6 @@ enum Harness {
             payload: payload
         )
     }
-
     private static func makeOpaquePNG(width: Int, height: Int, straight16: Bool = false) throws -> Data {
         let pixels = straight16
             ? Data((0 ..< width * height).flatMap { _ in [UInt8](arrayLiteral: 255,255,18,52,171,205,128,1) })
@@ -920,7 +898,6 @@ enum Harness {
         }
         return data as Data
     }
-
     static func makeTex(
         format: UInt32,
         flags: UInt32 = 0,
@@ -969,7 +946,6 @@ enum Harness {
         }
         return data
     }
-
     private static func candidate(
         texture: MTLTexture,
         purpose: SceneTextureLoadPurpose,
@@ -999,7 +975,6 @@ enum Harness {
             authoredFormat: authoredFormat
         )
     }
-
     private static func normalArguments(
         _ binding: SceneParticleRefractionBinding
     ) throws -> SceneParticleRefractionBinding.NormalArguments {
@@ -1008,7 +983,6 @@ enum Harness {
         }
         return arguments
     }
-
     private static func loaded(
         _ outcome: SceneTextureLoadOutcome
     ) throws -> MTLTexture {
@@ -1017,13 +991,8 @@ enum Harness {
         }
         return texture
     }
-
     private static func readPixel(_ texture: MTLTexture) throws -> [UInt8] {
         try readback.pixel(texture)
     }
-
-    enum HarnessError: Error {
-        case gpu
-        case texture
-    }
+    enum HarnessError: Error { case gpu, texture }
 }
