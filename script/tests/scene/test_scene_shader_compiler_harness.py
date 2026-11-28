@@ -25,6 +25,7 @@ from script.scene.scene_shader_compiler_artifact import (
 )
 from script.scene.scene_shader_compiler_harness import (
     HarnessFailure,
+    normalize_request,
     normalize_wallpaper_engine_pair,
     parse_limits,
     validate_request,
@@ -616,6 +617,26 @@ void main() {
             "(mwxPosition - vec2(0.5)) * mwxRenderSize",
             projected[0]["source"],
         )
+
+    def test_source_raster_request_keeps_author_execution_and_cache_identity(self) -> None:
+        request = json.loads(WE_FIXTURE.read_text())
+        request.update(schemaVersion=8, compilerIdentity="fixture", toolchainIdentity="fixture")
+        vertex, fragment = request["stages"]
+        vertex["source"] = vertex["source"].replace("g_ModelViewProjectionMatrix", "g_ViewProjectionMatrix")
+        vertex["source"] = vertex["source"].rstrip().removesuffix("}") + "return;\n}\n"
+        projected = {**request, "usesSourceRasterProjection": True}
+        self.assertNotEqual(request_cache_key(projected), request_cache_key(request))
+        stages, summary = normalize_request(projected, request["stages"])
+        self.assertEqual(summary["vertexPositionInput"], "target-pixels")
+        self.assertFalse(summary["fragmentReadsRasterPosition"])
+        source = stages[0]["source"]
+        self.assertIn("mwxVertexCoordinates01.xy", source)
+        self.assertLess(source.index("return;"), source.index("void main()"))
+        self.assertIn("mwxSourceAuthorVertex();\n    gl_Position = mwxSourceRasterProjection * gl_Position;", source)
+        fragment["source"] += "\nvec4 raster() { return gl_Position; }\n"
+        stages, summary = normalize_request(projected, request["stages"])
+        self.assertTrue(summary["fragmentReadsRasterPosition"])
+        self.assertIn("return gl_FragCoord;", stages[1]["source"])
 
     def test_inactive_optional_varying_components_prune_dead_resolution(self) -> None:
         normalized, summary = normalize_wallpaper_engine_pair([

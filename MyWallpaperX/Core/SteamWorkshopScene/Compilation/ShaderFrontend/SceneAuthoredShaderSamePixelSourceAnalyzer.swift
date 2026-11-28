@@ -73,6 +73,65 @@ nonisolated enum SceneAuthoredShaderSamePixelSourceAnalyzer {
                             producers: [], calls: callSites(unit))
     }
 
+    static func writesSceneClipPosition(_ vertex: SceneAuthoredShaderSyntaxUnit) -> Bool {
+        let tokens = vertex.tokens
+        guard let main = vertex.functions.first(where: { $0.name == "main" }),
+              let statements = SceneAuthoredShaderUniformRGBMixAnalyzer.topLevelStatements(
+                  in: main.bodyRange, tokens: tokens, skippingNestedBlocks: true),
+              let uses = references("gl_Position", in: vertex),
+              let output = statements.first(where: { tokens[$0.lowerBound].text == "gl_Position" }),
+              output.count > 2, tokens[output.lowerBound + 1].text == "=",
+              uses.contains(output.lowerBound),
+              !tokens[main.bodyRange.lowerBound..<output.lowerBound].contains(where: { $0.text == "return" }),
+              let clip = positionProduct((output.lowerBound + 2)..<output.upperBound,
+                                         unit: vertex, requiresAtomicVectorOperand: true)
+        else { return false }
+        let calls = callSites(vertex)
+        guard onlySafeUses("gl_Position", protected: [0, 1, 2, 3], in: vertex,
+                           producers: [output.lowerBound], calls: calls),
+              onlySafeUses("a_Position", protected: [0, 1, 2], in: vertex,
+                           producers: [], calls: calls) else { return false }
+
+        let localPosition: [Lane] = [.input("a_Position", 0), .input("a_Position", 1),
+                                     .input("a_Position", 2), .scalar(1)]
+        var localAliases: [String: [Lane]] = [:]
+        var worldAliases: Set<String> = []
+        func isLocalPosition(_ range: Range<Int>) -> Bool {
+            identity(range, unit: vertex, storage: .attribute, aliases: localAliases) == localPosition
+        }
+        func isWorldPosition(_ range: Range<Int>) -> Bool {
+            if let name = Scanner.identifier(tokens[stripped(range, in: vertex)]), worldAliases.contains(name) {
+                return true
+            }
+            guard let model = positionProduct(range, unit: vertex, requiresAtomicVectorOperand: true),
+                  model.matrix == "g_ModelMatrix" else { return false }
+            return isLocalPosition(model.vector)
+        }
+        for statement in statements.prefix(while: { $0 != output }) where statement.count > 3 {
+            let type = statement.lowerBound + (tokens[statement.lowerBound].text == "const" ? 1 : 0)
+            let name = type + 1
+            guard ["vec3", "vec4"].contains(tokens[type].text), tokens[name].kind == .identifier,
+                  tokens[name + 1].text == "=", name + 2 < statement.upperBound else { continue }
+            let initializer = (name + 2)..<statement.upperBound
+            let width = vectorWidth(tokens[type].text)
+            let lanes = identity(initializer, unit: vertex, storage: .attribute, aliases: localAliases)
+                .flatMap { $0.count == width ? $0 : nil }
+            let isWorld = width == 4 && isWorldPosition(initializer)
+            guard lanes != nil || isWorld else { continue }
+            let symbol = tokens[name].text
+            let uses = main.bodyRange.filter { tokens[$0].text == symbol && tokens[$0 - 1].text != "." }
+            guard onlySafeUses(symbol, protected: [0, 1, 2, 3], in: vertex,
+                               producers: [name], calls: calls, explicitReferences: uses) else { continue }
+            localAliases[symbol] = lanes
+            if isWorld { worldAliases.insert(symbol) }
+        }
+        switch clip.matrix {
+        case "g_ViewProjectionMatrix": return isWorldPosition(clip.vector)
+        case "g_ModelViewProjectionMatrix": return isLocalPosition(clip.vector)
+        default: return false
+        }
+    }
+
     private static func unit(_ source: String, stage: SceneShaderContract.StageKind) -> Unit? {
         let output = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
             lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: stage), stage: stage)
@@ -223,6 +282,17 @@ nonisolated enum SceneAuthoredShaderSamePixelSourceAnalyzer {
     }
 
     private static func positionMatrix(_ raw: Range<Int>, unit: Unit) -> String? {
+        guard let product = positionProduct(raw, unit: unit),
+              identity(product.vector, unit: unit, storage: .attribute) == [
+                .input("a_Position", 0), .input("a_Position", 1),
+                .input("a_Position", 2), .scalar(1)
+              ] else { return nil }
+        return product.matrix
+    }
+
+    private static func positionProduct(
+        _ raw: Range<Int>, unit: Unit, requiresAtomicVectorOperand: Bool = false
+    ) -> (matrix: String, vector: Range<Int>)? {
         let range = stripped(raw, in: unit)
         let tokens = unit.tokens
         let vector: Range<Int>
@@ -235,16 +305,16 @@ nonisolated enum SceneAuthoredShaderSamePixelSourceAnalyzer {
             // GLSL's matrix-times-column-vector is the engine mul(vector,matrix).
             matrix = sides[0]
             vector = sides[1]
+            // A top-level trailing sum would put the result outside the
+            // matrix product. Grouping makes an arbitrary world vector safe.
+            guard !requiresAtomicVectorOperand || stripped(vector, in: unit) != vector || Scanner.identifier(tokens[vector]) != nil
+                    || call(vector, unit: unit) != nil else { return nil }
         } else { return nil }
         guard let name = Scanner.identifier(unit.tokens[stripped(matrix, in: unit)]),
               declaration(name, storage: .uniform, type: "mat4", in: unit),
               let index = stripped(matrix, in: unit).first,
-              references(name, in: unit)?.contains(index) == true,
-              identity(vector, unit: unit, storage: .attribute) == [
-                .input("a_Position", 0), .input("a_Position", 1),
-                .input("a_Position", 2), .scalar(1)
-              ] else { return nil }
-        return name
+              references(name, in: unit)?.contains(index) == true else { return nil }
+        return (name, vector)
     }
 
     private static func assignment(
@@ -265,9 +335,9 @@ nonisolated enum SceneAuthoredShaderSamePixelSourceAnalyzer {
 
     private static func onlySafeUses(
         _ name: String, protected: Set<Int>, in unit: Unit,
-        producers: Set<Int>, calls: [Call]
+        producers: Set<Int>, calls: [Call], explicitReferences: [Int]? = nil
     ) -> Bool {
-        guard let uses = references(name, in: unit) else { return false }
+        guard let uses = explicitReferences ?? references(name, in: unit) else { return false }
         for index in uses where !producers.contains(index) {
             var start = index
             var end = index + 1
@@ -307,7 +377,7 @@ nonisolated enum SceneAuthoredShaderSamePixelSourceAnalyzer {
     /// The explicit work list uses the existing token budget rather than the
     /// native call stack, and never evaluates general author arithmetic.
     private static func identity(
-        _ range: Range<Int>, unit: Unit, storage: Unit.Storage
+        _ range: Range<Int>, unit: Unit, storage: Unit.Storage, aliases: [String: [Lane]] = [:]
     ) -> [Lane]? {
         var work: [IdentityTask] = [.expression(range)]
         var values: [[Lane]] = []
@@ -325,6 +395,8 @@ nonisolated enum SceneAuthoredShaderSamePixelSourceAnalyzer {
                     let token = tokens[part.lowerBound]
                     if token.kind == .number, let scalar = Double(token.text), scalar.isFinite {
                         values.append([.scalar(scalar)])
+                    } else if let lanes = aliases[token.text] {
+                        values.append(lanes)
                     } else {
                         guard let declaration = unit.declarations.first(where: {
                             $0.name == token.text && $0.storage == storage && $0.arraySize == nil

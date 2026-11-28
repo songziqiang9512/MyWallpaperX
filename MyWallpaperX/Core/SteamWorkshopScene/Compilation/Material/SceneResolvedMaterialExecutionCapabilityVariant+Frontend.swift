@@ -16,7 +16,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         compilerSources: SceneAuthoredShaderBackendCanonicalizer.Pair,
         runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds,
         sourceColorTransfer: SceneShaderColorTransfer,
-        colorBoundary: SceneShaderColorBoundary?
+        colorBoundary: SceneShaderColorBoundary?,
+        usesSourceRasterProjection: Bool = false
     ) throws -> (
         frontend: SceneAuthoredShaderProgram,
         routeDecision: SceneGenericShaderRouteDecision,
@@ -121,7 +122,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 provenColorTransfer: sourceColorTransfer,
                 premultipliedColorInputSlots: premultipliedColorInputSlots,
                 colorBoundary: colorBoundary,
-                boundTextureSlots: Set(sourceActiveSamplers.keys)
+                boundTextureSlots: Set(sourceActiveSamplers.keys),
+                usesSourceRasterProjection: usesSourceRasterProjection
             )
             guard output.diagnostics.isEmpty,
                   let bounded = output.program else {

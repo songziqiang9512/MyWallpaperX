@@ -98,6 +98,16 @@ nonisolated struct SceneShaderQuadCoordinates: Equatable, Hashable, Sendable {
     var packed23: SIMD4<Float> { .init(p0.x, p0.y, p1.x, p1.y) }
 }
 
+nonisolated struct SceneAuthoredShaderSourceTransforms {
+    let model: simd_float4x4
+    let viewProjection: simd_float4x4
+    let normalModel: simd_float3x3
+    let eyePosition: SIMD3<Float>
+    let rasterProjection: simd_float4x4
+
+    var modelViewProjection: simd_float4x4 { viewProjection * model }
+}
+
 nonisolated struct SceneAuthoredShaderUniformInputs {
     let frameIndex: UInt64
     let renderSize: CGSize
@@ -110,6 +120,7 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
     let effectDrawAlpha: Float
     let effectDrawColor: SIMD3<Float>
     let sourceDrawColor4: SIMD4<Float>?
+    let sourceTransforms: SceneAuthoredShaderSourceTransforms?
     let sceneTime: Float
     let dayTime: Float
     let frameTime: Float
@@ -134,6 +145,7 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
         effectDrawAlpha: Float = 1,
         effectDrawColor: SIMD3<Float> = .init(repeating: 1),
         sourceDrawColor4: SIMD4<Float>? = nil,
+        sourceTransforms: SceneAuthoredShaderSourceTransforms? = nil,
         sceneTime: Float,
         dayTime: Float,
         frameTime: Float,
@@ -160,6 +172,7 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
         self.effectDrawAlpha = effectDrawAlpha
         self.effectDrawColor = effectDrawColor
         self.sourceDrawColor4 = sourceDrawColor4
+        self.sourceTransforms = sourceTransforms
         self.sceneTime = sceneTime
         self.dayTime = dayTime
         self.frameTime = frameTime

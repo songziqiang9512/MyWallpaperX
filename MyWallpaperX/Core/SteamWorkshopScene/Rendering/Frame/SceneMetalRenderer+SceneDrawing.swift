@@ -743,6 +743,28 @@ extension SceneMetalRenderer {
                     let brightness = SceneDynamicLayerValues.brightness(layerID: id, authoredValue: layer.brightness, snapshot: values)
                     let alpha = SceneDynamicLayerValues.alpha(layerID: id, authoredValue: layer.alpha, snapshot: values)
                     return SIMD4(color * brightness, alpha)
+                }, sourceTransforms: { id, uv, size in
+                    guard let layer = frameLayersByID[id] else { return nil }
+                    let usesPerspective = cameraFrame.resolvesPerspective(for: layer)
+                    let unitModel = ordinaryImageModelMatrix(for: layer, imageTextures: imageTextures,
+                        worldFrames: frameWorldFrames, parallax: parallaxMouseNormalized,
+                        configuration: parallaxConfiguration, camera: cameraFrame, usesPerspective: usesPerspective)
+                    let authoredFromRenderWorld = frameLightSnapshot.authoredShaderLighting.worldFromRenderWorld
+                        ?? matrix_identity_float4x4
+                    let eye: SIMD3<Float>
+                    if usesPerspective {
+                        let position = authoredFromRenderWorld * SIMD4(cameraFrame.perspectiveEyePosition, 1)
+                        eye = SIMD3(position.x, position.y, position.z)
+                    } else {
+                        eye = cameraFrame.canvasShaderEyePosition
+                    }
+                    guard let placement = SceneCompositionSourceGeometry.sourceCard(
+                        authoredFromRenderWorld: authoredFromRenderWorld, unitModel: unitModel,
+                        sceneViewProjection: cameraFrame.viewProjection(for: layer),
+                        authoredEyePosition: eye, sourceUV: uv, physicalSize: size) else { return nil }
+                    return .init(model: placement.model, viewProjection: placement.viewProjection,
+                        normalModel: placement.normalModel, eyePosition: placement.eyePosition,
+                        rasterProjection: placement.rasterProjection)
                 }) {
                 preparationRequests = preparationRequests.map { request in
                     request.replacingSource(original: imageTextures, prepared: prepared)

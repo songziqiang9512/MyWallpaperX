@@ -73,6 +73,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
         let premultipliedColorInputSlots: [Int]
         let colorBoundary: SceneShaderColorBoundary?
         let boundTextureSlots: [Int]
+        let usesSourceRasterProjection: Bool?
 
         init(
             vertexSource: String,
@@ -81,7 +82,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
             provenColorTransfer: SceneShaderColorTransfer?,
             premultipliedColorInputSlots: Set<Int>,
             colorBoundary: SceneShaderColorBoundary?,
-            boundTextureSlots: Set<Int>
+            boundTextureSlots: Set<Int>,
+            usesSourceRasterProjection: Bool
         ) {
             // Retire fixed-unit wrappers before the host quad-attribute ABI.
             cacheSchemaVersion = 24
@@ -94,6 +96,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
                 premultipliedColorInputSlots.sorted()
             self.colorBoundary = colorBoundary
             self.boundTextureSlots = boundTextureSlots.sorted()
+            self.usesSourceRasterProjection = usesSourceRasterProjection ? true : nil
         }
 
         func cost(including program: SceneAuthoredShaderProgram) -> Int {
@@ -285,7 +288,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
         provenColorTransfer: SceneShaderColorTransfer? = nil,
         premultipliedColorInputSlots: Set<Int> = [],
         colorBoundary: SceneShaderColorBoundary? = nil,
-        boundTextureSlots: Set<Int> = []
+        boundTextureSlots: Set<Int> = [],
+        usesSourceRasterProjection: Bool = false
     ) -> SceneAuthoredShaderFrontendOutput {
         let cacheKey = ProgramCacheKey(
             vertexSource: vertexSource,
@@ -294,7 +298,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
             provenColorTransfer: provenColorTransfer,
             premultipliedColorInputSlots: premultipliedColorInputSlots,
             colorBoundary: colorBoundary,
-            boundTextureSlots: boundTextureSlots
+            boundTextureSlots: boundTextureSlots,
+            usesSourceRasterProjection: usesSourceRasterProjection
         )
         if let program = programCache.load(cacheKey) {
             return .init(program: program, diagnostics: [])
@@ -319,7 +324,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
                                   boundTextureSlots: boundTextureSlots)
         guard validation.diagnostics.isEmpty,
               let uniformLayout = makeUniformLayout(
-                  validation.uniforms, colorBoundary: colorBoundary
+                  validation.uniforms, colorBoundary: colorBoundary,
+                  usesSourceRasterProjection: usesSourceRasterProjection
               ) else {
             let layoutDiagnostic = validation.diagnostics.isEmpty
                 ? [SceneAuthoredShaderFrontendDiagnostic(
@@ -366,6 +372,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
         }
         let fragmentOutputChannelUse = SceneAuthoredShaderFragmentOutputAnalyzer
             .analyze(fragmentUnit)
+        let usesTargetPixelPosition = usesSourceRasterProjection
+            || SceneAuthoredShaderGlobalReferenceAnalyzer.isReferenced("g_ModelViewProjectionMatrix", in: vertexUnit)
         let emission = SceneAuthoredShaderMetalEmitter.emit(
             vertex: vertexUnit,
             fragment: fragmentUnit,
@@ -378,7 +386,9 @@ nonisolated enum SceneAuthoredShaderFrontend {
             omittedFragmentStatementRanges: validation.omittedFragmentStatementRanges,
             colorTransfer: colorTransfer,
             premultipliedColorInputSlots: premultipliedColorInputSlots,
-            colorBoundary: colorBoundary
+            colorBoundary: colorBoundary,
+            usesTargetPixelPosition: usesTargetPixelPosition,
+            usesSourceRasterProjection: usesSourceRasterProjection
         )
         guard let metalSource = emission.source, emission.diagnostics.isEmpty else {
             return .init(program: nil, diagnostics: emission.diagnostics)
@@ -392,9 +402,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
                 staticLoopWork: max(vertexUnit.staticLoopWork, fragmentUnit.staticLoopWork),
                 colorTransfer: colorTransfer,
                 fragmentOutputChannelUse: fragmentOutputChannelUse,
-                vertexPositionInput: SceneAuthoredShaderGlobalReferenceAnalyzer
-                    .isReferenced("g_ModelViewProjectionMatrix", in: vertexUnit)
-                    ? .targetPixels : .clipSpace,
+                vertexPositionInput: usesTargetPixelPosition ? .targetPixels : .clipSpace,
                 fragmentReadsRasterPosition: ["gl_Position", "gl_FragCoord"].contains {
                     SceneAuthoredShaderGlobalReferenceAnalyzer.isReferenced($0, in: fragmentUnit)
                 },
@@ -574,6 +582,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
                 if declaration.name == "mwxRenderSize"
                     || declaration.name == "mwxVertexCoordinates01"
                     || declaration.name == "mwxVertexCoordinates23"
+                    || declaration.name == SceneAuthoredShaderProgram.sourceRasterProjectionUniformName
                     || declaration.name == SceneShaderColorBoundary.uniformName {
                     diagnostics.append(.init(
                         code: .unsupportedDeclaration,
@@ -690,7 +699,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
 
     private static func makeUniformLayout(
         _ uniforms: [SceneAuthoredShaderUniformDeclaration],
-        colorBoundary: SceneShaderColorBoundary?
+        colorBoundary: SceneShaderColorBoundary?,
+        usesSourceRasterProjection: Bool
     ) -> SceneAuthoredShaderUniformLayout? {
         var fields: [SceneAuthoredShaderUniformLayout.Field] = []
         var offset = 0
@@ -731,6 +741,13 @@ nonisolated enum SceneAuthoredShaderFrontend {
         }
         let remainder = offset % 16
         if remainder != 0 { offset += 16 - remainder }
+        if usesSourceRasterProjection {
+            fields.append(.init(
+                name: SceneAuthoredShaderProgram.sourceRasterProjectionUniformName,
+                type: .float4x4, offset: offset
+            ))
+            offset += SceneAuthoredShaderValueType.float4x4.byteSize
+        }
         guard offset <= 4_096 else { return nil }
         return .init(fields: fields, byteSize: offset)
     }

@@ -33,6 +33,7 @@ nonisolated enum SceneGenericShaderCompiler {
         colorBoundary: SceneShaderColorBoundary? = nil,
         boundTextureSlots: Set<Int> = [],
         normalizedSources: SceneGenericShaderSourceNormalizer.Pair? = nil,
+        usesSourceRasterProjection: Bool = false,
         bundle: Bundle = .main
     ) -> Result<Output, Failure> {
         let configuration: SceneGenericShaderCompilerBundle.Configuration
@@ -55,7 +56,8 @@ nonisolated enum SceneGenericShaderCompiler {
             switch SceneGenericShaderSourceNormalizer.normalize(
                 vertexSource: vertexSource,
                 fragmentSource: fragmentSource,
-                maximumStageSourceBytes: configuration.limits.maximumStageSourceBytes
+                maximumStageSourceBytes: configuration.limits.maximumStageSourceBytes,
+                usesSourceRasterProjection: usesSourceRasterProjection
             ) {
             case let .success(value): normalized = value
             case let .failure(failure):

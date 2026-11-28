@@ -31,7 +31,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         graphR8TextureSlots: Set<Int>,
         outputIsRGBA8Unorm: Bool,
         outputSemantics: SceneGenericShaderOutputSemantics,
-        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
+        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds,
+        usesSourceRasterProjection: Bool
     ) -> (
         alphaAttenuationFact: SceneAuthoredShaderAlphaAttenuationFact?,
         colorBlendFact: SceneAuthoredShaderGraphInputColorBlendFact?,
@@ -162,7 +163,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             sourceColorTransfer: sourceColorTransfer,
             outputSemantics: outputSemantics,
             runtimeLoopBounds: runtimeLoopBounds,
-            colorBoundary: colorBoundary
+            colorBoundary: colorBoundary,
+            usesSourceRasterProjection: usesSourceRasterProjection
         )
         return (
             alphaAttenuationFact,

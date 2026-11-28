@@ -49,6 +49,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
         effectDrawAlpha: Float = 1,
         effectDrawColor: SIMD3<Float> = .init(repeating: 1),
         sourceDrawColor4: SIMD4<Float>? = nil,
+        makeSourceTransforms: (() -> SceneAuthoredShaderSourceTransforms?)? = nil,
         implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity? = nil,
         vertexCoordinates: SceneShaderQuadCoordinates = .unit,
         vertexInputSize: CGSize? = nil
@@ -65,6 +66,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
             effectDrawAlpha: effectDrawAlpha,
             effectDrawColor: effectDrawColor,
             sourceDrawColor4: sourceDrawColor4,
+            makeSourceTransforms: makeSourceTransforms,
             implicitFramebufferIdentity: implicitFramebufferIdentity,
             vertexCoordinates: vertexCoordinates,
             vertexInputSize: vertexInputSize
@@ -134,6 +136,7 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
     var effectDrawAlpha: Float = 1
     var effectDrawColor: SIMD3<Float> = .init(repeating: 1)
     var sourceDrawColor4: SIMD4<Float>? = nil
+    var makeSourceTransforms: (() -> SceneAuthoredShaderSourceTransforms?)? = nil
     /// Current full-frame graph input for shader samplers that explicitly
     /// declare a `framebuffer` or `previous` material alias without an authored
     /// texture binding.
@@ -149,7 +152,7 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
         frameSnapshot.dynamicSnapshot
     }
 
-    fileprivate func uniformInputs() -> SceneAuthoredShaderUniformInputs {
+    fileprivate func uniformInputs(usesSourceTransforms: Bool) -> SceneAuthoredShaderUniformInputs {
         .init(
             frameIndex: frameSnapshot.frameInputs.frameIndex,
             renderSize: renderSize,
@@ -163,6 +166,7 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
             effectDrawAlpha: effectDrawAlpha,
             effectDrawColor: effectDrawColor,
             sourceDrawColor4: sourceDrawColor4,
+            sourceTransforms: usesSourceTransforms ? makeSourceTransforms?() : nil,
             sceneTime: frameSnapshot.frameInputs.sceneTime,
             dayTime: frameSnapshot.frameInputs.dayTime,
             frameTime: frameSnapshot.frameInputs.frameTime,
@@ -197,7 +201,8 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         activeUniforms: [String: SceneResolvedMaterialShaderSchema.Uniform],
         activeTextureSlots: Set<Int>,
         neutralTextureResolution:
-            SceneAuthoredShaderNeutralTextureResolutionFact?
+            SceneAuthoredShaderNeutralTextureResolutionFact?,
+        usesSourceRasterProjection: Bool = false
     ) throws -> [PreparedUniformBinding] {
         let declarations = Dictionary(uniqueKeysWithValues: template.uniformDeclarations.map {
             ($0.name, $0.value)
@@ -207,7 +212,8 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             if let host = SceneResolvedMaterialHostUniformSchema.resolve(
                 field,
                 activeTextureSlots: activeTextureSlots,
-                hasEffectContext: template.effectContext != nil
+                hasEffectContext: template.effectContext != nil,
+                usesSourceRasterProjection: usesSourceRasterProjection
             ) {
                 let reservedKeys = schema?.materialKeys ?? [field.name]
                 guard !reservedKeys.contains(where: { declarations[$0] != nil }) else {
@@ -224,7 +230,9 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                   !SceneResolvedMaterialHostUniformSchema.requiresEffectHost(
                       field.authoredName,
                       hasEffectContext: template.effectContext != nil
-                  ) else {
+                  ),
+                  !usesSourceRasterProjection || !SceneResolvedMaterialHostUniformSchema.requiresSourceTransformHost(field.authoredName)
+            else {
                 throw failure(
                     .uniform,
                     .staticUniformBindingInvalid,
@@ -378,7 +386,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                     throw failure(.color, .colorContractUnproven)
                 }
             }
-            let uniformInputs = input.uniformInputs()
+            let uniformInputs = input.uniformInputs(usesSourceTransforms: variant.usesSourceTransforms)
             let uniforms = try resolvedUniforms(
                 input,
                 uniformInputs: uniformInputs,

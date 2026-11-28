@@ -23,6 +23,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
         let boundTextureSlots: [Int]
         let defines: [String: Int] = [:]
         let stages: [Stage]
+        let usesSourceRasterProjection: Bool?
     }
 
     private static let exportEnvironment =
@@ -36,10 +37,11 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
         premultipliedColorInputSlots: Set<Int>,
         defaultBoundaryColorSlots: Set<Int> = [],
         colorBoundary: SceneShaderColorBoundary? = nil,
-        boundTextureSlots: Set<Int> = []
+        boundTextureSlots: Set<Int> = [],
+        usesSourceRasterProjection: Bool = false
     ) -> String {
         var data = Data()
-        let values = [
+        var values = [
             // v34 retires artifacts/failures with the old numeric output-use proof.
             "mwx-generic-shader-request-v34",
             SceneShaderCacheIdentity.semantics,
@@ -57,6 +59,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
             boundTextureSlots.sorted().map(String.init).joined(separator: ","),
             "{}",
         ]
+        if usesSourceRasterProjection { values.append("source-raster-projection") }
         // Build-generated compilerIdentity retires changed producer semantics.
         // Keep request framing identical to the Python worker; private
         // source-dependent salts make exported requests fail worker validation.
@@ -78,7 +81,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
         premultipliedColorInputSlots: Set<Int>,
         defaultBoundaryColorSlots: Set<Int> = [],
         colorBoundary: SceneShaderColorBoundary? = nil,
-        boundTextureSlots: Set<Int> = []
+        boundTextureSlots: Set<Int> = [],
+        usesSourceRasterProjection: Bool = false
     ) {
 #if DEBUG
         let environment = ProcessInfo.processInfo.environment
@@ -95,7 +99,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
             stages: [
                 .init(stage: "vertex", entryPoint: "main", source: vertexSource),
                 .init(stage: "fragment", entryPoint: "main", source: fragmentSource),
-            ]
+            ],
+            usesSourceRasterProjection: usesSourceRasterProjection ? true : nil
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]

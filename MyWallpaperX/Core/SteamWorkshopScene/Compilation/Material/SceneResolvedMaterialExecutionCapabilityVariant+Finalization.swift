@@ -79,11 +79,20 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 details: ["active-pass"]
             )
         }
-        let nonHost = frontend.uniformLayout.fields.filter {
+        let fields = frontend.uniformLayout.fields
+        let usesSourceRasterProjection = template.bindsImageLayerColor && fields.contains {
+            $0.authoredName == SceneResolvedMaterialHostUniformSchema.sourceRasterProjectionName
+        }
+        if usesSourceRasterProjection, frontend.fragmentReadsRasterPosition != false {
+            throw failure(.shaderPreparationFailed, phase: .preparation,
+                genericOwnerFailure: genericOwnerFailure, details: ["source-fragment-raster-domain"])
+        }
+        let nonHost = fields.filter {
             SceneResolvedMaterialHostUniformSchema.resolve(
                 $0,
                 activeTextureSlots: activeSlots,
-                hasEffectContext: template.effectContext != nil
+                hasEffectContext: template.effectContext != nil,
+                usesSourceRasterProjection: usesSourceRasterProjection
             ) == nil
         }
         let uniforms: [String: SceneResolvedMaterialShaderSchema.Uniform]
@@ -110,7 +119,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     fields: frontend.uniformLayout.fields,
                     activeUniforms: uniforms,
                     activeTextureSlots: activeSlots,
-                    neutralTextureResolution: neutralTextureResolution
+                    neutralTextureResolution: neutralTextureResolution,
+                    usesSourceRasterProjection: usesSourceRasterProjection
                 )
         } catch let failure as Failure {
             throw failure.withGenericOwnerFailure(genericOwnerFailure)

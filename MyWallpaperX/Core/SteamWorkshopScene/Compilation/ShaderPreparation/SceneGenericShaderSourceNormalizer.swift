@@ -73,7 +73,8 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
     static func normalize(
         vertexSource: String,
         fragmentSource: String,
-        maximumStageSourceBytes: Int
+        maximumStageSourceBytes: Int,
+        usesSourceRasterProjection: Bool = false
     ) -> Result<Pair, Failure> {
         guard !vertexSource.isEmpty, !fragmentSource.isEmpty,
               vertexSource.utf8.count <= maximumStageSourceBytes,
@@ -293,9 +294,11 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 varyingPrefixFacts[name] = fact
             }
             let varyings = vertexVaryings
+            let sourceRasterProjection = SceneAuthoredShaderProgram.sourceRasterProjectionUniformName
             guard uniforms["mwxRenderSize"] == nil,
                   uniforms["mwxVertexCoordinates01"] == nil,
                   uniforms["mwxVertexCoordinates23"] == nil,
+                  uniforms[sourceRasterProjection] == nil,
                   uniforms[SceneShaderColorBoundary.uniformName] == nil else {
                 throw Failure.reservedUniform
             }
@@ -397,12 +400,13 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 throw Failure.varyingUnsupported
             }
             fragment.body = mutableVaryings.source
-            let usesTargetPixelPosition = SceneGenericShaderSourceNormalizer.maskedContainsWord(
+            let usesTargetPixelPosition = usesSourceRasterProjection || maskedContainsWord(
                 "g_ModelViewProjectionMatrix", in: vertex.body
             )
             guard let injected = injectVertexMain(
                 vertex.body,
-                usesTargetPixelPosition: usesTargetPixelPosition
+                usesTargetPixelPosition: usesTargetPixelPosition,
+                sourceRasterProjection: usesSourceRasterProjection ? sourceRasterProjection : nil
             ) else {
                 throw Failure.vertexMain
             }
@@ -414,12 +418,15 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 if scopedUniforms.contains(name) { return collisions.contains(name) }
                 return maskedContainsWord(name, in: fragment.body) || maskedContainsWord(name, in: vertex.body)
             }.sorted()
-            let uniformLines = activeUniforms.map { name in
+            var uniformLines = activeUniforms.map { name in
                 let shape = uniforms[name]!
                 let suffix = shape.count.map { "[\($0)]" } ?? ""
                 return "    \(shape.type) \(name)\(suffix);"
             } + ["    vec2 mwxRenderSize;", "    vec4 mwxVertexCoordinates01;",
                  "    vec4 mwxVertexCoordinates23;"]
+            if usesSourceRasterProjection {
+                uniformLines.append("    mat4 \(sourceRasterProjection);")
+            }
             let varyingOrder = varyings.keys.sorted()
             var nextLocation = 0
             var locations: [String: Int] = [:]
@@ -830,7 +837,8 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
 
     private static func injectVertexMain(
         _ source: String,
-        usesTargetPixelPosition: Bool
+        usesTargetPixelPosition: Bool,
+        sourceRasterProjection: String?
     ) -> String? {
         let regex = try! NSRegularExpression(pattern: #"\bvoid\s+main\s*\(\s*\)\s*\{"#)
         let range = NSRange(source.startIndex..., in: source)
@@ -838,11 +846,12 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
         let positionExpression = usesTargetPixelPosition
             ? "(mwxPosition - vec2(0.5)) * mwxRenderSize"
             : "mwxPosition * 2.0 - vec2(1.0)"
-        return regex.stringByReplacingMatches(
+        let entry = sourceRasterProjection == nil ? "main" : "mwxSourceAuthorVertex"
+        let injected = regex.stringByReplacingMatches(
             in: source,
             range: range,
             withTemplate: """
-void main() {
+void \(entry)() {
     vec2 mwxCoordinates[4] = vec2[4](
         mwxVertexCoordinates01.xy, mwxVertexCoordinates01.zw,
         mwxVertexCoordinates23.xy, mwxVertexCoordinates23.zw);
@@ -851,6 +860,15 @@ void main() {
     vec3 a_Position = vec3(\(positionExpression), 0.0);
 """
         )
+        guard let sourceRasterProjection else { return injected }
+        return injected + """
+
+
+void main() {
+    \(entry)();
+    gl_Position = \(sourceRasterProjection) * gl_Position;
+}
+"""
     }
 
     /// Some valid prepared programs exceed the bounded syntax analyzer's

@@ -24,6 +24,8 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "script/tests/fixtures/SceneGenericShaderTypedInputGPUCases.swift",
     REPOSITORY_ROOT / "script/tests/fixtures/SceneGenericShaderSharedAnalysisCases.swift",
     *scene_swift_sources("authored_shader_frontend_core"),
+    *scene_swift_sources("shader_variant_environment"),
+    SCENE_ROOT / "Resources/Textures/SceneTextureSampling.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
     *scene_swift_sources("generic_shader_compiler_preparation_implementation"),
     *(SCENE_ROOT / "Compilation/Material" / name for name in [
@@ -46,7 +48,14 @@ import Metal
 // Only the surrounding resource/diagnostic types are fixtures. The complete
 // product analysis, frontend selection and lowering implementations compile
 // below; these stubs neither classify profiles nor select the input ABI.
-struct TemplateFixture { let backgroundSlots: Set<Int> }
+struct TemplateFixture {
+    struct GraphRole {
+        enum Input { case layerSource, effectOutput }
+        let effectInput: Input = .layerSource
+    }
+    let backgroundSlots: Set<Int>
+    let graphRole = GraphRole()
+}
 enum SceneResolvedMaterialShaderSchema {
     enum DefaultTexture { case internalTarget }
     struct Sampler { let defaultTexture: DefaultTexture? }
@@ -114,6 +123,9 @@ private enum Harness {
     static func main() throws {
         if CommandLine.arguments.contains("--shared-analysis") {
             try SceneGenericShaderSharedAnalysisCases.run(); return
+        }
+        if CommandLine.arguments.contains("--source-raster-projection") {
+            try SceneGenericShaderSharedAnalysisCases.sourceRasterProjectionCases(); return
         }
         if let flag = CommandLine.arguments.firstIndex(where: {
             $0 == "--compiled-request" || $0 == "--vertex-sampling-gpu" || $0 == "--signal-passthrough-gpu"
@@ -671,6 +683,14 @@ class SceneGenericShaderTypedInputLoweringTests(unittest.TestCase):
         self.assertGreaterEqual(len(rows), 24, rows)
         self.assertTrue(all(row["originalParses"] - row["sharedParses"] == 6 for row in rows), rows)
         self.assertEqual({int(row["name"].split("-")[1]) for row in rows if row["name"].startswith("positive-")}, set(range(6)))
+
+    def test_source_raster_projection_requires_the_placed_card_plane(self) -> None:
+        results = json.loads(subprocess.check_output(
+            [str(self.binary), "--source-raster-projection"], cwd=REPOSITORY_ROOT, text=True))
+        self.assertEqual(results, {
+            "sceneView": True, "sceneModelView": True, "varyingOnly": False,
+            "offPlane": False, "mutableAlias": False, "mutableAttribute": False, "multipleWrites": False,
+        })
 
     def test_ordinary_color_abi_preserves_math_and_validates_helper_scope(self) -> None:
         result = json.loads(subprocess.check_output(

@@ -16,6 +16,38 @@ nonisolated enum SceneGenericShaderSharedAnalysisCases {
         if strict { counter.record() }
     }
 
+    static func sourceRasterProjectionCases() throws {
+        let prefix = """
+        attribute vec3 a_Position;
+        uniform mat4 g_ModelMatrix;
+        uniform mat4 g_ViewProjectionMatrix;
+        uniform mat4 g_ModelViewProjectionMatrix;
+        varying vec3 v_Clip;
+        """
+        let aliases = """
+        vec3 corner = a_Position.xyz;
+        const vec3 card = corner;
+        vec4 placed = mul(vec4(card, 1.0), g_ModelMatrix);
+        """
+        let cases: [String: String] = [
+            "sceneView": "\(aliases) gl_Position = g_ViewProjectionMatrix * placed; v_Clip = gl_Position.xyw; if (v_Clip.x > 0.0) { return; }",
+            "sceneModelView": "\(aliases) gl_Position = mul(vec4(card, 1.0), g_ModelViewProjectionMatrix);",
+            "varyingOnly": "\(aliases) v_Clip = (g_ViewProjectionMatrix * placed).xyw; gl_Position = vec4(a_Position, 1.0);",
+            "offPlane": "\(aliases) gl_Position = g_ViewProjectionMatrix * (placed + vec4(0.0, 0.0, 2.0, 0.0));",
+            "mutableAlias": "\(aliases) placed.z += 2.0; gl_Position = g_ViewProjectionMatrix * placed;",
+            "mutableAttribute": "a_Position.x += 2.0; gl_Position = mul(vec4(a_Position, 1.0), g_ModelViewProjectionMatrix);",
+            "multipleWrites": "\(aliases) gl_Position = g_ViewProjectionMatrix * placed; if (placed.x > 0.0) { gl_Position = vec4(card, 1.0); }",
+        ]
+        let results = cases.mapValues { body in
+            let source = prefix + "\nvoid main() {\n" + body + "\n}"
+            let parsed = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
+                lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: .vertex), stage: .vertex
+            )
+            return parsed.unit.map(SceneAuthoredShaderSamePixelSourceAnalyzer.writesSceneClipPosition)
+        }
+        FileHandle.standardOutput.write(try JSONEncoder().encode(results))
+    }
+
     struct Facts: Equatable {
         let associated: SceneAuthoredShaderAssociatedOverBlendAnalyzer.Fact?
         let normalized: Int?

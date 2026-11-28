@@ -2,11 +2,13 @@
 /// binding and Program identity validation.
 nonisolated enum SceneResolvedMaterialHostUniformSchema {
     typealias Program = SceneResolvedMaterialProgram
+    static let sourceRasterProjectionName = SceneAuthoredShaderProgram.sourceRasterProjectionUniformName
 
     static func resolve(
         _ field: SceneAuthoredShaderUniformLayout.Field,
         activeTextureSlots: Set<Int>,
-        hasEffectContext: Bool = false
+        hasEffectContext: Bool = false,
+        usesSourceRasterProjection: Bool = false
     ) -> Program.HostUniform? {
         if hasEffectContext,
            SceneAuthoredShaderHostArrayShape.isEffectLighting(
@@ -16,6 +18,11 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
                 ? .lightsPosition : .lightsColorPremultiplied
         }
         return switch (field.authoredName, field.type) {
+        case ("g_ModelMatrix", .float4x4) where field.arrayCount == nil && usesSourceRasterProjection: .sourceModel
+        case ("g_NormalModelMatrix", .float3x3) where field.arrayCount == nil && usesSourceRasterProjection: .sourceNormalModel
+        case ("g_ViewProjectionMatrix", .float4x4) where field.arrayCount == nil && usesSourceRasterProjection: .sourceViewProjection
+        case ("g_EyePosition", .float3) where field.arrayCount == nil && usesSourceRasterProjection: .sourceEyePosition
+        case (sourceRasterProjectionName, .float4x4) where field.arrayCount == nil && usesSourceRasterProjection: .sourceRasterProjection
         case (SceneShaderColorBoundary.uniformName, .uint) where field.arrayCount == nil:
             .premultipliedColorInputMask
         case ("g_Alpha", .float) where field.arrayCount == nil && hasEffectContext:
@@ -35,6 +42,8 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
             .vertexCoordinates01
         case ("mwxVertexCoordinates23", .float4) where field.arrayCount == nil:
             .vertexCoordinates23
+        case ("g_ModelViewProjectionMatrix", .float4x4) where usesSourceRasterProjection: .sourceModelViewProjection
+        case ("g_ModelViewProjectionMatrixInverse", .float4x4) where usesSourceRasterProjection: .sourceModelViewProjectionInverse
         case ("g_ModelViewProjectionMatrix", .float4x4): .modelViewProjection
         case ("g_ModelViewProjectionMatrixInverse", .float4x4):
             .modelViewProjectionInverse
@@ -103,6 +112,13 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
         return hasEffectContext && [
             "g_Alpha", "g_Color", "g_Color4", "g_TextureReductionScale",
         ].contains(name)
+    }
+
+    static func requiresSourceTransformHost(_ name: String) -> Bool {
+        switch name {
+        case "g_ModelMatrix", "g_NormalModelMatrix", "g_ViewProjectionMatrix", "g_EyePosition", sourceRasterProjectionName: true
+        default: false
+        }
     }
 
     private static func textureSlotPrefix(_ name: String) -> Int? {

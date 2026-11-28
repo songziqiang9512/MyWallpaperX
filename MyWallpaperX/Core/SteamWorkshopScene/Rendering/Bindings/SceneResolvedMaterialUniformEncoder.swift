@@ -69,6 +69,26 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
             guard type == .float4 else { return .invalid }
             guard let color = inputs.sourceDrawColor4 else { return .inputUnavailable }
             value = encodeComponents([Double(color.x), Double(color.y), Double(color.z), Double(color.w)], as: type)
+        case .sourceModel, .sourceNormalModel, .sourceViewProjection, .sourceEyePosition,
+             .sourceModelViewProjection, .sourceModelViewProjectionInverse, .sourceRasterProjection:
+            guard let transforms = inputs.sourceTransforms else { return .inputUnavailable }
+            value = switch host {
+            case .sourceModel: encodeMatrix(transforms.model, type: type)
+            case .sourceViewProjection: encodeMatrix(transforms.viewProjection, type: type)
+            case .sourceModelViewProjection: encodeMatrix(transforms.modelViewProjection, type: type)
+            case .sourceModelViewProjectionInverse: encodeMatrix(transforms.modelViewProjection.inverse, type: type)
+            case .sourceRasterProjection: encodeMatrix(transforms.rasterProjection, type: type)
+            case .sourceEyePosition:
+                type == .float3 ? encodeComponents([transforms.eyePosition.x, transforms.eyePosition.y,
+                    transforms.eyePosition.z].map(Double.init), as: type) : nil
+            case .sourceNormalModel:
+                type == .float3x3 ? encodeComponents([
+                    transforms.normalModel.columns.0.x, transforms.normalModel.columns.0.y, transforms.normalModel.columns.0.z,
+                    transforms.normalModel.columns.1.x, transforms.normalModel.columns.1.y, transforms.normalModel.columns.1.z,
+                    transforms.normalModel.columns.2.x, transforms.normalModel.columns.2.y, transforms.normalModel.columns.2.z,
+                ].map(Double.init), as: type) : nil
+            default: nil
+            }
         case .lightAmbientColor:
             guard type == .float3 else { return .invalid }
             guard let ambient = inputs.lighting.ambient else { return .inputUnavailable }
@@ -130,7 +150,9 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
         case .layerModelMatrix:
             return encodeMatrix(inputs.layerModelMatrix, type: type)
         case .effectModelMatrix, .lightsPosition,
-             .lightsColorPremultiplied, .lightAmbientColor, .sourceDrawColor4:
+             .lightsColorPremultiplied, .lightAmbientColor, .sourceDrawColor4,
+             .sourceModel, .sourceNormalModel, .sourceViewProjection, .sourceEyePosition,
+             .sourceModelViewProjection, .sourceModelViewProjectionInverse, .sourceRasterProjection:
             // Optional ordinary inputs are resolved by the typed entry point.
             return nil
         case .effectModelViewProjection:

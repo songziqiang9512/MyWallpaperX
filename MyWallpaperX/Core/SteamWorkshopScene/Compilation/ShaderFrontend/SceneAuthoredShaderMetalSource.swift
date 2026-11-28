@@ -122,7 +122,8 @@ nonisolated enum SceneAuthoredShaderMetalSource {
 
     static func vertexWrapper(
         textures: [SceneAuthoredShaderProgram.TextureBinding],
-        positionInput: VertexPositionInput
+        positionInput: VertexPositionInput,
+        usesSourceRasterProjection: Bool
     ) -> String {
         let resources = wrapperResourceParameters(textures: textures)
         let arguments = contextArguments(stage: .vertex, textures: textures)
@@ -132,6 +133,9 @@ nonisolated enum SceneAuthoredShaderMetalSource {
         case .clipSpace:
             "position * 2.0 - 1.0"
         }
+        let projection = usesSourceRasterProjection
+            ? "mwxOutput.position = mwxUniforms.\(SceneAuthoredShaderProgram.sourceRasterProjectionUniformName) * mwxOutput.position;\n    "
+            : ""
         return """
         vertex SceneAuthoredVertexOutput sceneAuthoredVertex(
             uint vertexID [[vertex_id]],
@@ -158,7 +162,7 @@ nonisolated enum SceneAuthoredShaderMetalSource {
             // read zero instead of undefined data.
             SceneAuthoredVertexOutput mwxOutput = {};
             mwxV_main(\(arguments));
-            return mwxOutput;
+            \(projection)return mwxOutput;
         }
         """
     }

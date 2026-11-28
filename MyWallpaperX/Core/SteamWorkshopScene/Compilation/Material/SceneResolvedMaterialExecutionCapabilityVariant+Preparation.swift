@@ -8,6 +8,38 @@ private nonisolated func normalBlendIdentifiers(
 }
 
 nonisolated extension SceneResolvedMaterialVariantCache {
+    static func usesSourceRasterProjection(
+        template: Template, sources: SceneAuthoredShaderBackendCanonicalizer.Pair
+    ) -> Bool {
+        guard template.bindsImageLayerColor,
+              sources.vertex.contains("g_ViewProjectionMatrix") || sources.vertex.contains("g_ModelViewProjectionMatrix")
+        else { return false }
+        func unit(_ source: String, stage: SceneShaderContract.StageKind) -> SceneAuthoredShaderSyntaxUnit? {
+            SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
+                lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: stage), stage: stage
+            ).unit
+        }
+        func reads(
+            _ names: [String: SceneAuthoredShaderValueType], in unit: SceneAuthoredShaderSyntaxUnit
+        ) -> Bool {
+            unit.declarations.contains { declaration in
+                guard declaration.storage == .uniform, declaration.arraySize == nil,
+                      let type = names[declaration.name],
+                      SceneAuthoredShaderValueType(authoredName: declaration.typeName) == type else { return false }
+                return !SceneAuthoredShaderGlobalReferenceAnalyzer.referenceIndices(declaration.name, in: unit).isEmpty
+            }
+        }
+        guard let vertex = unit(sources.vertex, stage: .vertex),
+              SceneAuthoredShaderSamePixelSourceAnalyzer.writesSceneClipPosition(vertex)
+        else { return false }
+        let worldInputs: [String: SceneAuthoredShaderValueType] = [
+            "g_ModelMatrix": .float4x4, "g_NormalModelMatrix": .float3x3,
+            "g_ViewProjectionMatrix": .float4x4, "g_EyePosition": .float3,
+        ]
+        return reads(worldInputs, in: vertex)
+            || unit(sources.fragment, stage: .fragment).map { reads(worldInputs, in: $0) } == true
+    }
+
     static func prepareVariantSources(
         template: Template,
         seedSamplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],

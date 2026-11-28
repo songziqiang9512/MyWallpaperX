@@ -157,6 +157,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 .union(selectedProviderDataSlots),
             conditionalContract: conditionalGeneratedRGBInputContract
         )
+        let usesSourceRasterProjection = Self.usesSourceRasterProjection(template: template, sources: compilerSources)
         let (
             alphaAttenuationFact,
             colorBlendFact,
@@ -191,7 +192,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             graphR8TextureSlots: graphR8TextureSlots,
             outputIsRGBA8Unorm: outputIsRGBA8Unorm,
             outputSemantics: outputSemantics,
-            runtimeLoopBounds: runtimeLoopBounds
+            runtimeLoopBounds: runtimeLoopBounds,
+            usesSourceRasterProjection: usesSourceRasterProjection
         )
         let (
             frontend,
@@ -213,7 +215,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             compilerSources: compilerSources,
             runtimeLoopBounds: runtimeLoopBounds,
             sourceColorTransfer: sourceColorTransfer,
-            colorBoundary: colorBoundary
+            colorBoundary: colorBoundary,
+            usesSourceRasterProjection: usesSourceRasterProjection
         )
         let (
             sourceProvenOpaqueColorSlots,

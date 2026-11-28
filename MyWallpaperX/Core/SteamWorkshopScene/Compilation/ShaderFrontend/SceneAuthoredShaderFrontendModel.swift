@@ -476,6 +476,8 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
         case clipSpace, targetPixels
     }
 
+    static let sourceRasterProjectionUniformName = "mwxSourceRasterProjection"
+
     enum Backend: String, Codable, Equatable, Hashable, Sendable {
         case boundedSwift
         case genericCompilerArtifact

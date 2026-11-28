@@ -192,10 +192,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ebf128728c8d9c8b10df9531bce742c0014cb55ac77bb88412d75dd365490029",
+        "sourceSHA256": "bfa34bbc8848347d774a4688e2cad8ff8132237a3e848037e7078c35c37a8747",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核原侧栏、导入和复位继续共用同一质量请求。",
-        "limitations": "侧栏与质量页装配核对。未扩大既有画面、官版与物理多屏证据。"
+        "scope": "核反射档保留作者放置的执行合同及 Scene 源材质入口。",
+        "limitations": "此收据核对文档导航。实绘范围及官版差距由现役工作卡记录。"
       }
     },
     {
@@ -886,10 +886,10 @@
       "lastReviewed": "2026-11-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "038a56c7d88aec3814778370ce523343189c95f64b3cb5fdc66f1bdb49246c65",
+        "sourceSHA256": "f4801ec27f4cc54ceb524420e6c2414aaf6d8f98d4f347a96ebcd74dd657fd52",
         "method": "document_registry --audit + document_health --check",
-        "scope": "说明点光与聚光资源准备、默认库和原计划边界。",
-        "limitations": "绑定 M4 局部准备、签名终图与首呈。整段启动、能耗和多屏收益未证。"
+        "scope": "核普通源作者投影、附件栅格和实际环境供货的源码入口。",
+        "limitations": "此收据核文档导航与职责。终图、官版和实测范围见工作卡。"
       }
     },
     {

@@ -124,6 +124,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
     var preparedUniformBindings: [SceneResolvedMaterialPreparedUniformBinding] {
         preparedAssembly.preparedUniformBindings
     }
+    let usesSourceTransforms: Bool
     let neutralTextureResolution:
         SceneAuthoredShaderNeutralTextureResolutionFact?
     let preservesTargetPixelFootprint: Bool
@@ -156,6 +157,9 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         self.readinessMask = readinessMask
         self.textureFormats = textureFormats
         self.preparedAssembly = preparedAssembly
+        self.usesSourceTransforms = preparedAssembly.preparedUniformBindings.contains {
+            $0.source == .host(.sourceRasterProjection)
+        }
         self.resolvedIntegerCombos = resolvedIntegerCombos
         self.preparedOutputContent = preparedOutputContent
         self.routeDecision = routeDecision

@@ -109,6 +109,7 @@ nonisolated enum SceneGenericShaderAnalysisCache {
             return nil
         }
         append(loopBounds)
+        if input.usesSourceRasterProjection { append("source-raster-projection") }
         return digest.sha256Hex()
     }
 
@@ -321,6 +322,7 @@ nonisolated final class SceneResolvedMaterialGenericShaderResolutionCache:
         let outputSemantics: SceneGenericShaderOutputSemantics
         let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
         var colorBoundary: SceneShaderColorBoundary? = nil
+        var usesSourceRasterProjection = false
 
         func retainedCost(
             program: SceneAuthoredShaderProgram, premultipliedColorInputSlots: Set<Int>, requestKey: String,
@@ -567,7 +569,8 @@ nonisolated extension SceneResolvedMaterialGenericShaderArtifactCache {
             fragmentSource: fragmentSource,
             maximumStageSourceBytes:
                 SceneResolvedMaterialGenericShaderArtifactCache
-                    .maximumRouteAnalysisSourceBytes
+                    .maximumRouteAnalysisSourceBytes,
+            usesSourceRasterProjection: input.usesSourceRasterProjection
         ) {
         case let .success(value): normalizedRouteFacts = value
         case .failure: normalizedRouteFacts = nil

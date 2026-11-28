@@ -74,6 +74,8 @@ TYPE_BYTE_SIZE = {
     "float2x2": 16, "float3x3": 48, "float4x4": 64,
 }
 
+SHARED_INTERNAL_UNIFORMS = {"mwxRenderSize", "mwxVertexCoordinates01", "mwxVertexCoordinates23"}
+
 SPV_UNSAFE_ARRAY = re.compile(
     r"template<typename T, size_t Num>\s+struct spvUnsafeArray\s*\{.*?\n\};",
     re.DOTALL,
@@ -180,7 +182,7 @@ def _active_uniform_fields(
     executable = re.sub(r"/\*.*?\*/|//[^\n]*", " ", executable, flags=re.DOTALL)
     return [
         field for field in fields
-        if field["authoredName"] == "mwxRenderSize"
+        if field["authoredName"] in SHARED_INTERNAL_UNIFORMS
         or re.search(
             rf"\.\s*{re.escape(field['authoredName'])}\b", executable
         ) is not None
@@ -191,14 +193,11 @@ def _stage_local_uniform_layout(
     vertex_fields: list[dict[str, Any]],
     fragment_fields: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], int, dict[str, str], dict[str, str]]:
-    def is_shared_internal(name: str) -> bool:
-        return name == "mwxRenderSize"
-
     vertex_names = {field["authoredName"] for field in vertex_fields}
     fragment_names = {field["authoredName"] for field in fragment_fields}
     duplicated = {
         name for name in vertex_names & fragment_names
-        if not is_shared_internal(name)
+        if name not in SHARED_INTERNAL_UNIFORMS
     }
     combined: list[dict[str, Any]] = []
     mappings: dict[str, dict[str, str]] = {"vertex": {}, "fragment": {}}
@@ -209,7 +208,7 @@ def _stage_local_uniform_layout(
     ):
         for field in fields:
             authored = field["authoredName"]
-            if is_shared_internal(authored):
+            if authored in SHARED_INTERNAL_UNIFORMS:
                 previous = shared.get(authored)
                 shape = (field["type"], field.get("arrayCount"))
                 if previous is not None and shape != (
@@ -653,6 +652,7 @@ def build_program_artifact(
     expected_color_transfer: dict[str, Any] | None = None,
     premultiplied_color_input_slots: list[int] | None = None,
     color_boundary: dict[str, Any] | None = None,
+    source_raster_projection_fragment_reads: bool | None = None,
 ) -> dict[str, Any]:
     try:
         input_slots = parse_input_color_slots(
@@ -827,5 +827,9 @@ def build_program_artifact(
             "colorBoundary": boundary,
             "fragmentOutputChannelUse": "unproven",
             "colorTransfer": color_transfer,
+            **({
+                "vertexPositionInput": "targetPixels",
+                "fragmentReadsRasterPosition": source_raster_projection_fragment_reads,
+            } if source_raster_projection_fragment_reads is not None else {}),
         },
     }

@@ -199,6 +199,7 @@ enum Harness {
         ]
         let result: [String: Any] = [
             "compositionLocalSource": SceneCompositionLocalSourceChecks.run(),
+            "authoredSourceCard": authoredSourceCard(),
             "backgroundCopyAxes": backgroundCopyAxes(),
             "samePixelSource": samePixelSource(),
             "collapsedProjectedSize": {
@@ -327,6 +328,60 @@ enum Harness {
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
+    }
+
+    private static func authoredSourceCard() -> [String: Any] {
+        // The canvas reflection makes this translated quarter-turn card mirrored
+        // in author world. The sampled rectangle is offset and padded on both axes.
+        let authoredFromRenderWorld = simd_float4x4(
+            SIMD4(1, 0, 0, 0), SIMD4(0, -1, 0, 0), SIMD4(0, 0, 1, 0), SIMD4(0, 32, 0, 1)
+        )
+        let card = simd_float4x4(
+            SIMD4(0, 8, 0, 0), SIMD4(-4, 0, 0, 0), SIMD4(0, 0, 2, 0), SIMD4(13, 9, 6, 1)
+        )
+        let sceneProjection = simd_float4x4(
+            SIMD4(0.0625, 0, 0, 0.015625), SIMD4(0, -0.0625, 0, 0),
+            SIMD4(0, 0, 0.03125, 0), SIMD4(-0.5, 0.75, 0.125, 1)
+        )
+        let eye = SIMD3<Float>(8, 15, 19)
+        let paddedUV = SceneTextureUVTransform(
+            origin: SIMD2(0.125, 0.25), xAxis: SIMD2(0.5, 0), yAxis: SIMD2(0, 0.25)
+        )
+        func source(_ uv: SceneTextureUVTransform, projection: simd_float4x4 = sceneProjection,
+                    size: CGSize = CGSize(width: 64, height: 32)) -> (
+            model: simd_float4x4, viewProjection: simd_float4x4, normalModel: simd_float3x3,
+            eyePosition: SIMD3<Float>, rasterProjection: simd_float4x4
+        )? {
+            SceneCompositionSourceGeometry.sourceCard(authoredFromRenderWorld: authoredFromRenderWorld,
+                unitModel: card, sceneViewProjection: projection, authoredEyePosition: eye,
+                sourceUV: uv, physicalSize: size)
+        }
+        let padded = source(paddedUV)!
+        let unpadded = source(.identity, size: CGSize(width: 32, height: 8))!
+        let identityPixels = SceneCompositionSourceGeometry.sourceCard(
+            authoredFromRenderWorld: matrix_identity_float4x4, unitModel: SceneMatrix.scale(SIMD3(64, 16, 1)),
+            sceneViewProjection: matrix_identity_float4x4, authoredEyePosition: .zero,
+            sourceUV: .identity, physicalSize: CGSize(width: 64, height: 16)
+        )!
+        let oblique = identityPixels.normalModel * SIMD3(1, 0, 1)
+        let sourcePoints = [SIMD4<Float>(-24, 8, 0, 1), SIMD4(8, 0, 0, 1),
+                            SIMD4(-32, 16, 0, 1), SIMD4(32, -16, 0, 1)]
+        let world = sourcePoints.map { padded.model * $0 }
+        let clip = world.map { padded.viewProjection * $0 }
+        func point(_ value: SIMD4<Float>) -> [Float] {
+            [value.x, value.y, value.z, value.w]
+        }
+        func normalColumns(_ value: simd_float3x3) -> [[Float]] {
+            (0..<3).map { index in [value[index].x, value[index].y, value[index].z] }
+        }
+        return [
+            "world": world.map(point), "sceneClip": clip.map(point),
+            "sourceClip": clip.map { point(padded.rasterProjection * $0) },
+            "normals": normalColumns(padded.normalModel), "unpaddedNormals": normalColumns(unpadded.normalModel),
+            "oblique": [oblique.x, oblique.y, oblique.z],
+            "eye": [padded.eyePosition.x, padded.eyePosition.y, padded.eyePosition.z],
+            "collapsedRejected": source(paddedUV, projection: SceneMatrix.scale(SIMD3(0, 1, 1))) == nil,
+        ]
     }
 
     static func samePixelSource() -> [String: [String: Bool]] {
@@ -861,6 +916,22 @@ class SceneCaptureGeometryTests(unittest.TestCase):
                     [-1.6, 1.6, 0, 1.6]]
         self.assert_float_tree(result["projectiveXYWPoints"], expected)
         self.assert_float_tree(result["negativeScalePoint"], [0.5, -0.5, 0, 1])
+
+    def test_authored_source_keeps_scene_clip_and_recovers_the_padded_attachment(self) -> None:
+        result = self.result["authoredSourceCard"]
+        self.assert_float_tree(result["world"], [[11, 27, 6, 1], [15, 19, 6, 1],
+                                                 [7, 29, 6, 1], [23, 13, 6, 1]])
+        self.assert_float_tree(result["sceneClip"], [[0.1875, 0.4375, 0.3125, 1.171875],
+                                                     [0.4375, -0.0625, 0.3125, 1.234375],
+                                                     [-0.0625, 0.5625, 0.3125, 1.109375],
+                                                     [0.9375, -0.4375, 0.3125, 1.359375]])
+        self.assert_float_tree(result["sourceClip"], [[-0.75, 0.5, 0, 1], [0.25, 0, 0, 1],
+                                                      [-1, 1, 0, 1], [1, -1, 0, 1]])
+        self.assert_float_tree(result["normals"], [[0, -4, 0], [-2, 0, 0], [0, 0, 0.5]])
+        self.assertEqual(result["unpaddedNormals"], result["normals"])
+        self.assert_float_tree(result["oblique"], [1, 0, 1])
+        self.assertEqual(result["eye"], [8, 15, 19])
+        self.assertTrue(result["collapsedRejected"])
 
     def test_local_source_raster_keeps_xy_and_discards_unrelated_child_depth(self) -> None:
         result = self.result["compositionLocalSource"]

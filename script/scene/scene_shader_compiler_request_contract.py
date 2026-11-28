@@ -99,6 +99,8 @@ def request_cache_key(request: dict[str, Any]) -> str:
     if schema >= 7:
         values.append(input_color_cache_key(bound_slots))
     values.append(json.dumps(request.get("defines", {}), sort_keys=True, separators=(",", ":")))
+    if uses_source_raster_projection(request):
+        values.append("source-raster-projection")
     def framed_key(fields: list[str]) -> str:
         digest = hashlib.sha256()
         for value in fields:
@@ -127,6 +129,16 @@ def producer_identity(request: dict[str, Any], schema: int) -> list[str]:
     return values
 
 
+def uses_source_raster_projection(payload: dict[str, Any]) -> bool:
+    if "usesSourceRasterProjection" not in payload:
+        return False
+    if (payload["usesSourceRasterProjection"] is not True
+        or payload.get("schemaVersion") != 8
+        or payload.get("sourceDialect") != "wallpaper-engine-glsl-like-v0"):
+        raise RequestContractFailure("source-raster-projection")
+    return True
+
+
 def bound_texture_slots(payload: dict[str, Any], schema: int) -> list[int]:
     # Schema 6 has no binding context: do not silently discard a newer field
     # while producing its historical v29 identity.
@@ -148,6 +160,7 @@ def validated_request_stages(
         raise RequestContractFailure("schema-version")
     producer_identity(payload, schema)
     bound_texture_slots(payload, schema)
+    uses_source_raster_projection(payload)
     request_id = payload.get("requestID")
     if not isinstance(request_id, str) or not request_id or len(request_id) > 128:
         raise RequestContractFailure("request-id")

@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 70,
-      "bytes": 28461
+      "bytes": 28428
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -30,7 +30,7 @@
     },
     "docs/architecture/wallpaper-quality-execution-contract.md": {
       "lines": 175,
-      "bytes": 37899
+      "bytes": 37827
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -98,11 +98,11 @@
     },
     "docs/development/wallpaper-quality-settings-plan.md": {
       "lines": 600,
-      "bytes": 207142
+      "bytes": 206995
     },
     "docs/development/wallpaper-quality-work-card.md": {
       "lines": 600,
-      "bytes": 191208
+      "bytes": 191069
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -118,7 +118,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 337,
-      "bytes": 75754
+      "bytes": 75637
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,

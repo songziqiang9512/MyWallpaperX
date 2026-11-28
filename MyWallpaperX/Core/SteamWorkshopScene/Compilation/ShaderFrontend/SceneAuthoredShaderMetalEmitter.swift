@@ -34,7 +34,9 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         omittedFragmentStatementRanges: [Range<Int>],
         colorTransfer: SceneShaderColorTransfer,
         premultipliedColorInputSlots: Set<Int> = [],
-        colorBoundary: SceneShaderColorBoundary? = nil
+        colorBoundary: SceneShaderColorBoundary? = nil,
+        usesTargetPixelPosition: Bool,
+        usesSourceRasterProjection: Bool
     ) -> Output {
         let defineResult = SceneAuthoredShaderMetalSource.mergedDefines(
             vertex.defines,
@@ -160,9 +162,8 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             fragmentCode,
             SceneAuthoredShaderMetalSource.vertexWrapper(
                 textures: textures,
-                positionInput: SceneAuthoredShaderGlobalReferenceAnalyzer
-                    .isReferenced("g_ModelViewProjectionMatrix", in: vertex)
-                    ? .targetPixels : .clipSpace
+                positionInput: usesTargetPixelPosition ? .targetPixels : .clipSpace,
+                usesSourceRasterProjection: usesSourceRasterProjection
             ),
             SceneAuthoredShaderMetalSource.fragmentWrapper(
                 textures: textures,

@@ -75,7 +75,62 @@ nonisolated struct SceneCompositionSourceGeometry {
             authoredRenderSizeWH: authoredRenderSizeWH,
             candidateMappedSize: nil
         ), Int(exactly: extent.pixelSize.width.rounded(.up)) != nil,
-           Int(exactly: extent.pixelSize.height.rounded(.up)) != nil else { return nil }
+           Int(exactly: extent.pixelSize.height.rounded(.up)) != nil,
+           let mapping = Self.rasterProjection(
+               worldMVP: worldMVP, unitToRasterClip: SceneMatrix.scale(SIMD3(2, 2, 0))
+           ) else { return nil }
+        pixelSize = extent.pixelSize
+        worldClipToSourceClip = mapping
+        worldModelViewProjection = worldMVP
+    }
+
+    static func sourceCard(
+        authoredFromRenderWorld: simd_float4x4,
+        unitModel: simd_float4x4,
+        sceneViewProjection: simd_float4x4,
+        authoredEyePosition: SIMD3<Float>,
+        sourceUV: SceneTextureUVTransform,
+        physicalSize: CGSize
+    ) -> (
+        model: simd_float4x4, viewProjection: simd_float4x4,
+        normalModel: simd_float3x3, eyePosition: SIMD3<Float>, rasterProjection: simd_float4x4
+    )? {
+        // The published UV rectangle can cover only part of the source attachment.
+        // Its center and half extents are in physical NDC, with Y increasing up.
+        let half = SIMD2(sourceUV.xAxis.x, sourceUV.yAxis.y)
+        let center = SIMD2(2 * sourceUV.origin.x + half.x - 1,
+                           1 - 2 * sourceUV.origin.y - half.y)
+        let pixelSize = SIMD2(Float(physicalSize.width), Float(physicalSize.height))
+        let pixelToUnit = SceneMatrix.translation(SIMD3(-center / (2 * half), 0))
+            * SceneMatrix.scale(SIMD3(1 / (half * pixelSize), 1))
+        let unitToRasterClip = SceneMatrix.translation(SIMD3(center, 0))
+            * SceneMatrix.scale(SIMD3(2 * half, 0))
+        guard let rasterProjection = rasterProjection(
+            worldMVP: sceneViewProjection * unitModel, unitToRasterClip: unitToRasterClip
+        ) else { return nil }
+
+        let model = authoredFromRenderWorld * unitModel * pixelToUnit
+        // Normals and positions use the same authored pixel basis. The UV
+        // rectangle's offset contributes only to the position translation.
+        let linear = simd_double3x3(columns: (
+            SIMD3(Double(model.columns.0.x), Double(model.columns.0.y), Double(model.columns.0.z)),
+            SIMD3(Double(model.columns.1.x), Double(model.columns.1.y), Double(model.columns.1.z)),
+            SIMD3(Double(model.columns.2.x), Double(model.columns.2.y), Double(model.columns.2.z))
+        ))
+        let normal = simd_transpose(simd_inverse(linear))
+        let normalModel = simd_float3x3(SIMD3<Float>(normal.columns.0),
+            SIMD3<Float>(normal.columns.1), SIMD3<Float>(normal.columns.2))
+        for column in 0..<3 {
+            for row in 0..<3 where !normalModel[column][row].isFinite { return nil }
+        }
+        return (model,
+                sceneViewProjection * simd_inverse(authoredFromRenderWorld),
+                normalModel, authoredEyePosition, rasterProjection)
+    }
+
+    private static func rasterProjection(
+        worldMVP: simd_float4x4, unitToRasterClip: simd_float4x4
+    ) -> simd_float4x4? {
         // The admitted source is a 2D plane. Invert its XYW mapping, rather
         // than assigning a child's unrelated world Z to the source's depth.
         let plane = simd_float4x4(columns: (
@@ -87,15 +142,13 @@ nonisolated struct SceneCompositionSourceGeometry {
         guard let inverse = SceneLayerCursorGeometry.inverseModelViewProjection(plane) else {
             return nil
         }
-        let mapping = SceneMatrix.scale(SIMD3(2, 2, 0)) * inverse
+        let mapping = unitToRasterClip * inverse
         // Finite authored scales can leave a finite inverse whose conversion
         // from unit-local to clip overflows Float. Reject before GPU upload.
         for column in 0..<4 {
             for row in 0..<4 where !mapping[column][row].isFinite { return nil }
         }
-        pixelSize = extent.pixelSize
-        worldClipToSourceClip = mapping
-        worldModelViewProjection = worldMVP
+        return mapping
     }
 
     func rasterModelViewProjection(_ worldMVP: simd_float4x4) -> simd_float4x4 {

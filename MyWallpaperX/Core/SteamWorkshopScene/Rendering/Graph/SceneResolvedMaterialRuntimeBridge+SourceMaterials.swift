@@ -96,7 +96,8 @@ extension SceneResolvedMaterialRuntimeBridge {
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer,
         prepareOptionalEnvironment: (() -> Bool)?,
-        sourceDrawColor4: (Int) -> SIMD4<Float>?
+        sourceDrawColor4: (Int) -> SIMD4<Float>?,
+        sourceTransforms: @escaping (Int, SceneTextureUVTransform, CGSize) -> SceneAuthoredShaderSourceTransforms?
     ) -> SceneBaseImageTextureSnapshot? {
         guard let pool, let encoder = submissions.executor?.materialEncoder else {
             return prepareOptionalEnvironment?() == false ? nil : imageTextures
@@ -134,7 +135,7 @@ extension SceneResolvedMaterialRuntimeBridge {
                 return // Its source exists only at the authored layer-loop boundary.
             }
             guard let sourceCandidate,
-                  sourceCandidate.axisAlignedSourceUVTransform() != nil,
+                  let sourceUV = sourceCandidate.axisAlignedSourceUVTransform(),
                   !sourceCandidate.isSpriteSheet,
                   let target = pool.reserveSourceMaterial(layerID: layerID,
                     width: sourceCandidate.texture.width, height: sourceCandidate.texture.height,
@@ -146,7 +147,8 @@ extension SceneResolvedMaterialRuntimeBridge {
                 layerModelMatrix: matrix_identity_float4x4,
                 effectOutputModelViewProjection: matrix_identity_float4x4,
                 effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
-                sourceDrawColor4: material.bindsImageLayerColor ? sourceDrawColor4(layerID) : nil)
+                sourceDrawColor4: material.bindsImageLayerColor ? sourceDrawColor4(layerID) : nil,
+                makeSourceTransforms: material.bindsImageLayerColor ? { sourceTransforms(layerID, sourceUV, size) } : nil)
             let finalized = material.bindFrame(input)
             if case let .failure(failure) = finalized, frame.frameIndex <= 2 {
 #if DEBUG

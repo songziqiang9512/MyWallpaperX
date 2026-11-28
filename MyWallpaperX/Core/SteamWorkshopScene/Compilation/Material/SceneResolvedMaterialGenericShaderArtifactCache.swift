@@ -157,7 +157,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         sourceColorTransfer: SceneShaderColorTransfer? = nil,
         outputSemantics: SceneGenericShaderOutputSemantics = .color,
         runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none,
-        colorBoundary: SceneShaderColorBoundary? = nil
+        colorBoundary: SceneShaderColorBoundary? = nil,
+        usesSourceRasterProjection: Bool = false
     ) -> Resolution {
         let resolutionInput = SceneResolvedMaterialGenericShaderResolutionCache.Input(
             vertexSource: vertexSource,
@@ -198,7 +199,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             sourceColorTransfer: sourceColorTransfer,
             outputSemantics: outputSemantics,
             runtimeLoopBounds: runtimeLoopBounds,
-            colorBoundary: colorBoundary
+            colorBoundary: colorBoundary,
+            usesSourceRasterProjection: usesSourceRasterProjection
         )
         let outcome = resolutionCache.perform(key: resolutionInput) {
         let resolvedAnalysisOutcome = resolvedAnalysis(for: resolutionInput)
@@ -218,7 +220,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             premultipliedColorInputSlots: premultipliedColorInputSlots,
             defaultBoundaryColorSlots: defaultBoundaryColorSlots,
             colorBoundary: colorBoundary,
-            boundTextureSlots: activeTextureSlots
+            boundTextureSlots: activeTextureSlots,
+            usesSourceRasterProjection: usesSourceRasterProjection
         )
         let environment = ProcessInfo.processInfo.environment
         guard let routeState = routeState(
@@ -275,7 +278,8 @@ routeTelemetry.record(
             premultipliedColorInputSlots: premultipliedColorInputSlots,
             defaultBoundaryColorSlots: defaultBoundaryColorSlots,
             colorBoundary: colorBoundary,
-            boundTextureSlots: activeTextureSlots
+            boundTextureSlots: activeTextureSlots,
+            usesSourceRasterProjection: usesSourceRasterProjection
         )
         guard routeState == .preferGeneric || routeState == .genericOnly else {
 #if DEBUG
@@ -333,7 +337,8 @@ routeTelemetry.record(
                     defaultBoundaryColorSlots: defaultBoundaryColorSlots,
                     colorBoundary: colorBoundary,
                     boundTextureSlots: activeTextureSlots,
-                    normalizedSources: resolvedAnalysisOutcome.normalizedSources
+                    normalizedSources: resolvedAnalysisOutcome.normalizedSources,
+                    usesSourceRasterProjection: usesSourceRasterProjection
                 )
             }
         )
